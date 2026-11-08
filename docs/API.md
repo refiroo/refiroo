@@ -2161,9 +2161,27 @@ POST /api/v1/batches                                   (INTEGRATION_JOBS_ENABLED
 POST /api/v1/jobs/{jobId}/cancel                       (INTEGRATION_JOBS_ENABLED)
 POST /api/v1/jobs/{jobId}/confirm                      (INTEGRATION_JOBS_ENABLED; a previewed batch, 0.9 K2)
 GET  /api/v1/jobs?workspaceKey=…&kind=…&state=…        newest first, ADR-030 paging
+GET  /api/v1/jobs?grouped=true&origin=…                one row per origin and per job without one (0.13 JG)
 GET  /api/v1/jobs/{jobId}
 GET  /api/v1/jobs/{jobId}/items?status=…&ref=…         outcomes in item order, ADR-030 paging
 ```
+
+### Related jobs grouped (0.13 JG)
+
+Every job says where it comes from in `origin`: `{"kind": "aiTask", "id", "name"}` for an assistant task's
+own job and every job its session queued (the jobs requested by the task's session client), else
+`{"kind": "modelDraft", "id", "name"}` for a job on a model draft (`parameters.draftId`), else `null`.
+`name` is what the task's or draft's page names it: the workbook's file name (the instruction, shortened,
+for a task without a file), the draft's name.
+
+`GET /jobs?origin=aiTask:{id}` (or `modelDraft:{id}`) lists that origin's jobs newest first, with the other
+filters; another value is `422 INVALID_ORIGIN`. `GET /jobs?grouped=true` answers one row per origin and one
+per job without one, newest activity first, with the same cursor paging: a row is `{"job", "group"}`. For an
+origin `group` is `{"origin", "jobs", "states", "latestAt"}` (`states` names every state, zero included) and
+`job` is its newest job; for a job without one `group` is `null` and `job` is the job. The grouping is
+worked out by the database, and `workspaceKey`, `kind` and `state` keep the jobs that match before they are
+counted. With `origin` the answer is that group's one row (or none). Without either parameter `GET /jobs`
+is as before.
 
 ### Request
 

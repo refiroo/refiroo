@@ -6,6 +6,7 @@
  */
 
 import type { ChangeEntryKind, ChangeKind } from "@/types/runtime";
+import type { JobState } from "@/types/integration";
 
 export type ObjectSort = string;
 
@@ -148,7 +149,15 @@ export type SettingsRoute =
         | "api-reference";
     }
   /** Jobs, or one job's page (0.9 J1u). */
-  | { kind: "settings"; page: "jobs"; jobId?: string }
+  | {
+      kind: "settings";
+      page: "jobs";
+      jobId?: string;
+      /** Related jobs opened as a group (0.13 JG): the jobs list, or the trail a job was opened from. */
+      group?: { kind: "aiTask" | "modelDraft"; id: string };
+      /** The state a group's jobs are narrowed to. */
+      state?: JobState;
+    }
   /** A load of a workbook with the AI assistant: the reading, the check and the load of one task (0.16 AP6a). */
   | { kind: "settings"; page: "ai-tasks"; taskId?: string }
   /** Moves between workspaces, or the move editor of one mapping between two workspaces (0.11 X4). */

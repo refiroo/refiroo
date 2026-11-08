@@ -73,7 +73,9 @@ import type {
   Job,
   JobItemOutcome,
   JobItemPage,
+  JobGroupPage,
   JobPage,
+  JobState,
   JobRow,
   JobRowPage,
   MigrationOutcome,
@@ -654,10 +656,19 @@ export const api = {
   /** A consumer API's OpenAPI document, at the address its index entry names (resolved whole). */
   consumerApiDocument: (url: string) => requestUrl<ConsumerApiDocument>(url, new URL(url).pathname),
   /** Jobs in every workspace, newest first. */
-  jobs: (cursor?: string) => {
+  jobs: (cursor?: string, options: { origin?: string; state?: JobState } = {}) => {
     const params = new URLSearchParams({ pageSize: "50" });
     if (cursor) params.set("cursor", cursor);
+    if (options.origin) params.set("origin", options.origin);
+    if (options.state) params.set("state", options.state);
     return request<JobPage>(`/api/v1/jobs?${params}`);
+  },
+  /** Jobs one row per assistant task or model draft and one per job of neither (0.13 JG), newest activity first. */
+  jobGroups: (cursor?: string, options: { origin?: string } = {}) => {
+    const params = new URLSearchParams({ pageSize: "50", grouped: "true" });
+    if (cursor) params.set("cursor", cursor);
+    if (options.origin) params.set("origin", options.origin);
+    return request<JobGroupPage>(`/api/v1/jobs?${params}`);
   },
   /** Webhook subscriptions, newest first, optionally of one workspace. */
   subscriptions: (options: { cursor?: string; workspaceKey?: string } = {}) => {

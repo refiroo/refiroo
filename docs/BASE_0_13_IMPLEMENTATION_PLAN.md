@@ -986,6 +986,60 @@ that is a model-language change outside RL.
 **Built (2026-11-08).** All eight items, the journey cases, the checks and the docs; the try is not run (below).
 
 
+## JG: Related jobs grouped on the Jobs page
+
+**Status:** Asked by the user on 2026-11-08 ("add a groupping layer, so the tasks which are connected are groupped together and you can dig in … also add a navigation for this … much more better thing than just standard hyperlinks"). Planned in 0.13; the plan and its HTML mock-up (https://claude.ai/artifact/Lko7rRVeqCdz27AweJFHFa) **approved by the user on 2026-11-08** ("yes this is good"), with JG-D1 to JG-D3 as recommended.
+
+**Why.** Settings › Data operations › Jobs lists every job flat, newest first. An assistant task's session queues dry runs, profiles and inferences one after another: on the dev database 663 of 1,191 jobs other than `aiTask` were requested by a task's session client, and a single task makes dozens (task 94: 11 dry runs; task 95: more). A person's model draft adds its own dry runs (144 jobs on drafts with no task). The jobs a person came for are buried.
+
+**What changes.**
+
+1. **A job says where it comes from.** The job response gets `origin`: `{"kind": "aiTask", "id", "name"}` for a task's jobs (the `aiTask` jobs, whose parameters name the task, and every job its session client requested), else `{"kind": "modelDraft", "id", "name"}` for a job on a draft (`parameters.draftId`), else `null`. Worked out in the query (a join on `ai_tasks.client_id` and `model_drafts`), not per row in Python.
+2. **The list can be grouped (API).** `GET /jobs?grouped=true` answers one row per origin and one per job without one, newest activity first, with the same cursor paging: a group row has `origin`, `jobs` (count), `states` (count per state), `latestAt` and its newest job; a single row is the job as today. `GET /jobs?origin=aiTask:<id>` (or `modelDraft:<id>`) lists that group's jobs, newest first. Without these parameters `GET /jobs` is unchanged.
+3. **The Jobs page shows groups.** The table lists groups and single jobs. A group row shows its name and kind ("Assistant task", "Model draft"), its job count, a summary of states (pills: 1 running, 2 failed, 8 completed), the workspace and the latest activity. A row's chevron and the row itself open the group; a single job opens its page as today. A **Grouped / All jobs** switch above the table shows the flat list as before; the choice is remembered in the browser.
+5. **Cancel stays where it is**: on each job row while it may be cancelled; a group row has no cancel (stopping a task is the task's own action).
+
+**Decisions (my recommendations).**
+
+- **JG-D1: Model drafts are groups too**, besides assistant tasks: a person's draft piles up dry runs the same way, and the grouping is one mechanism (origin), not a task feature.
+- **JG-D2: Grouped is the default**, with the switch to the flat list; nothing of today's list is lost.
+- **JG-D3: The trail bar, not links.** The shared `TrailBar` (a back button and a trail of buttons), a summary card with filter chips, Esc to go up and addressable state; no new navigation component.
+
+**Mock-up.**
+
+```
+ Jobs                                        [ Grouped | All jobs ]   [Refresh]
+ ─────────────────────────────────────────────────────────────────────────────
+ ▸ Model draft · Timetables v3            at-mot 4 jobs ✓ 4                  12:05
+   Export · 7c1e…                           stops            ✓ Completed          11:20
+ ─────────────────────────────────────────────────────────────────────────────
+
+ After a click on the first row:
+
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │ ( All 12 )  ( Running 1 )  ( Failed 0 )  ( Completed 11 )                │
+ └───────────────────────────────────────────────────────────────────────────┘
+   Job                 State        Items                       Created  Finished
+   Assistant task      ● Running                                16:34
+   Dry run 0cf1…       ✓ Completed  195 of 195 processed …      16:01    16:01
+   Dry run bba7…       ✓ Completed  94 of 94 processed …        15:46    15:46
+   …
+```
+
+**Journey cases.** An API journey: a task's session jobs and a draft's dry runs come back as two groups with their counts and states; `origin=` lists one group; the flat list is unchanged. Frontend tests of the Jobs page: groups, drill-in, trail back, the state filter, Esc, the switch, a reload on a group's address.
+
+**Checks.** The jobs journeys, `contract` with the OpenAPI lock (re-baselined: `origin`, `grouped`, `origin=`), `test_boundaries`, Ruff on the changed files, the Jobs page tests and the frontend production build, a look at the page in the browser on the dev data. **Migration:** none expected (an index if the grouped query needs one, measured on the dev data). **Docs:** `docs/API.md`, CHANGELOG, the guide's Jobs page text and a guide rebuild.
+
+**Built (2026-11-08), JG.** As approved, with these choices:
+
+- **Grouping in SQL.** `engine/jobs/origins.py` joins each job to its task (by `parameters.taskId`, else by the task's session client) and to its draft, and groups with `GROUP BY` on the origin (a job with neither is its own group); the page is keyset-paged on the group's newest job. A task wins over a draft when a job has both. A task's name is its workbook's file name, else its instruction shortened to 80 characters, else "Instruction".
+- **One migration, `20261124_01`.** On the dev data the grouped read cost 300 ms, all of it parsing the JSON `parameters` of every job; `jobs.task_ref` and `jobs.draft_ref` are generated stored columns over `taskId` and `draftId` (index on the task), and the read fell to 3 ms.
+- **API shape.** `grouped=true` rows are `{job, group}`: `job` is the group's newest job or the single job, `group` is null for a job without an origin. With `origin` the same call answers that group's one row (the page's summary and chips); `state`, `kind` and `workspaceKey` apply before counting. A malformed `origin` is `422 INVALID_ORIGIN`.
+- **Open the task / Open the draft** are offered once the engine has let the person read the task (`GET /ai/tasks/{id}`) or the draft (`GET /model-drafts/{id}`); a refusal leaves the button out.
+- **Addresses.** `/settings/jobs/groups/{aiTask|modelDraft}/{id}?state=…`; a job opened from a group is `/settings/jobs/{id}?group=aiTask:{id}&state=…`, which keeps the trail. Esc goes job to group to list and does nothing while a dialog is open or a field has focus.
+- **Switch** is stored in the browser as `refiroo.jobs.view` (default Grouped). The grouped table has an Actions column for the cancel of a job without an origin; a group row has none. A group's jobs table drops the Workspace column.
+- **The browser look did not use the dev data.** Signing in to the developer instance needs a person's password and creating one for the look was refused by the permission system, so the look ran on the repo's isolated browser harness (real engine and sign-in; the grouped and group reads answered with fixtures shaped like the engine's). The grouped query itself was run on the dev database.
+
 ## The writing rules
 
 These go into `guide/AGENTS.md` in DOC1; they are the contract between the briefs and the writer.

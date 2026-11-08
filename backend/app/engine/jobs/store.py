@@ -742,11 +742,17 @@ def job_page(
     page: PageRequest,
     page_size: int,
     visible: Any = None,
+    origin: str | None = None,
+    origin_jobs: Any = None,
 ) -> Page[Job]:
-    """Jobs, newest first; ``visible`` keeps those the caller may see (0.12 Z1, D285)."""
+    """Jobs, newest first; ``visible`` keeps those the caller may see (0.12 Z1, D285). ``origin``
+    (``aiTask:<id>``) with ``origin_jobs``, a select of that origin's sequence IDs, keeps one
+    group's jobs (0.13 JG)."""
     statement = select(Job)
     if visible is not None:
         statement = statement.where(visible)
+    if origin_jobs is not None:
+        statement = statement.where(Job.sequence_id.in_(origin_jobs))
     if workspace_key is not None:
         statement = statement.where(Job.workspace_key == workspace_key)
     if kind is not None:
@@ -758,7 +764,8 @@ def job_page(
         statement,
         keys=_JOB_KEYS,
         scope="jobs",
-        filters={"workspaceKey": workspace_key, "kind": kind, "state": state},
+        filters={"workspaceKey": workspace_key, "kind": kind, "state": state}
+        | ({"origin": origin} if origin is not None else {}),
         page=page,
         page_size=page_size,
         message="Job list cursor is invalid",

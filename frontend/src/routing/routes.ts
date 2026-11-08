@@ -14,6 +14,7 @@ import type {
   ChangePeriod,
   ChangesRoute,
   HomeRoute,
+  JobState,
   JourneyRef,
   NotificationsRoute,
   MoveAddress,
@@ -193,6 +194,46 @@ const SINGLE_PAGES = [
 const isSinglePage = (page: string): page is (typeof SINGLE_PAGES)[number] =>
   (SINGLE_PAGES as readonly string[]).includes(page);
 
+const JOB_STATES: readonly JobState[] = [
+  "queued",
+  "running",
+  "awaiting_confirmation",
+  "completed",
+  "failed",
+  "cancelled",
+  "expired",
+];
+const GROUP_KINDS = ["aiTask", "modelDraft"] as const;
+
+/** A job group's address part, `aiTask:<id>` or `modelDraft:<id>`. */
+function jobGroupIn(kind: string | undefined, id: string | undefined) {
+  const found = GROUP_KINDS.find((value) => value === kind);
+  return found && id ? { kind: found, id } : undefined;
+}
+
+/**
+ * Jobs (0.13 JG): the list, a group of related jobs `/settings/jobs/groups/{aiTask|modelDraft}/{id}`
+ * narrowed by `?state=`, or one job, with `?group=aiTask:{id}` (and `state`) when it was opened from
+ * a group, which keeps its trail.
+ */
+function jobsRoute(
+  first: string | undefined,
+  kind: string | undefined,
+  id: string | undefined,
+  query: URLSearchParams,
+): SettingsRoute {
+  const state = JOB_STATES.find((value) => value === query.get("state"));
+  const narrowed = state ? { state } : {};
+  if (first === "groups") {
+    const group = jobGroupIn(kind, id);
+    return group ? { kind: "settings", page: "jobs", group, ...narrowed } : { kind: "settings", page: "jobs" };
+  }
+  if (!first) return { kind: "settings", page: "jobs" };
+  const [groupKind, ...groupId] = (query.get("group") ?? "").split(":");
+  const group = jobGroupIn(groupKind, groupId.join(":"));
+  return { kind: "settings", page: "jobs", jobId: first, ...(group ? { group, ...narrowed } : {}) };
+}
+
 function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute | undefined {
   if (parts[0] === "models") {
     const draftId = query.get("draftId")?.trim();
@@ -214,7 +255,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       ? { kind: "settings", page, workspaceKey: kind, workspaceTab }
       : { kind: "settings", page, workspaceKey: kind };
   }
-  if (page === "jobs") return kind ? { kind: "settings", page, jobId: kind } : { kind: "settings", page };
+  if (page === "jobs") return jobsRoute(kind, id, parts[4], query);
   if (page === "ai-tasks" && kind) return { kind: "settings", page, taskId: kind };
   if (page === "people") return kind ? { kind: "settings", page, userId: kind } : { kind: "settings", page };
   if (page === "groups") return kind ? { kind: "settings", page, groupId: kind } : { kind: "settings", page };
@@ -386,7 +427,19 @@ function settingsPath(route: SettingsRoute) {
     const opened = `${base}/deliveries/${encodeURIComponent(route.deliveryId)}`;
     return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
   }
-  if (route.page === "jobs" && route.jobId) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
+  if (route.page === "jobs" && (route.jobId || route.group)) {
+    const query = new URLSearchParams();
+    if (route.state) query.set("state", route.state);
+    const narrowed = query.size ? `?${query}` : "";
+    if (route.jobId) {
+      if (!route.group) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
+      const from = new URLSearchParams({ group: `${route.group.kind}:${route.group.id}` });
+      if (route.state) from.set("state", route.state);
+      return `/settings/jobs/${encodeURIComponent(route.jobId)}?${from}`;
+    }
+    const group = route.group!;
+    return `/settings/jobs/groups/${group.kind}/${encodeURIComponent(group.id)}${narrowed}`;
+  }
   if (route.page === "ai-tasks" && route.taskId) return `/settings/ai-tasks/${encodeURIComponent(route.taskId)}`;
   if (route.page === "people" && route.userId) return `/settings/people/${encodeURIComponent(route.userId)}`;
   if (route.page === "groups" && route.groupId) return `/settings/groups/${encodeURIComponent(route.groupId)}`;

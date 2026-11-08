@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (related jobs grouped on the Jobs page, 0.13 JG)
+
+- **A job says where it comes from.** `origin` on every job: the assistant task it belongs to (its own job and every job its session queued) or else the model draft it works on, with the name the task's or draft's page shows; `null` for neither. `GET /jobs?grouped=true` answers one row per origin and one per job without one, newest activity first, with job counts per state; `GET /jobs?origin=aiTask:{id}` (or `modelDraft:{id}`) lists one group's jobs. Without them `GET /jobs` is as before. The OpenAPI lock is re-baselined.
+- **Settings › Jobs groups related jobs.** A group row shows its kind, name, job count, state pills and latest activity; a **Grouped / All jobs** switch (remembered in the browser) shows the flat list. A group opens in the same view under the shared trail bar, with a summary, state chips that filter, and **Open the task** or **Open the draft** where the person may open it; a job opened from a group keeps the trail; Esc goes up; the group and the filter are in the address (`/settings/jobs/groups/{aiTask|modelDraft}/{id}?state=failed`).
+- **Migration `20261124_01`** adds `jobs.task_ref` and `jobs.draft_ref` (generated from `parameters`, with an index on the task) so the grouping reads no JSON per job: on the dev data the grouped read fell from 300 ms to 3 ms.
+
 ### Changed (the assistant loads a laid-out workbook and asks only what a person decides, 0.13 AQ)
 
 - **The session limit is a handled ending.** A turn over `AI_AGENT_TIMEOUT_SECONDS` (default 1800, in the settings template and `OPERATIONS.md`) is stopped as a person's Stop is: the session ends, the jobs it started are cancelled, a partial load is undone and the task goes back to its last point with its draft kept. The note says the session took longer than the limit; the job ends `cancelled`, never `JOB_FAILED`, and the log has one WARNING line, no traceback.

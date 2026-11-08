@@ -418,10 +418,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `PUT` and `DELETE /me/followed-workspaces/{workspace_key}` (`FollowedWorkspacePage`,
     # `FollowedWorkspaceResponse`), `GET /me/notifications/{notification_id}`, and `following` on
     # `OwnWorkspaceResponse`; nothing else changed. Re-baselined for 0.16.0: info.version 0.16.0; with
-    # 0.12.0 the document hashes to the previous lock exactly.
+    # 0.12.0 the document hashes to the previous lock exactly. Re-baselined for 0.13 AQ and JG
+    # (additive): AQ: `letter` on `ColumnBinding`, `ahead` on an assistant task, and the draft
+    # operations body described by one schema per public kind (`<Kind>Operation`, only where model
+    # administration is enabled). JG: `GET /jobs` takes `grouped` and `origin` and may answer
+    # `JobGroupPage`; `origin` on `JobResponse`; the schemas `JobOrigin`, `JobGroup`,
+    # `JobGroupRow` and `JobGroupPage`.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "428e5d147b70e66e309931fd508568209ef80c779fc39050640b00f6813f073a"
+        "10808fb1803a2684e1be7513db0895218d6fdde5ddf1db183da6f3919d18a78a"
     )
 
 

@@ -476,6 +476,16 @@ class MigrationRowPage(CollectionPage[MigrationRow]):
     """A migration's items in item order (ADR-030)."""
 
 
+class JobOrigin(BaseModel):
+    """Where a job comes from (0.13 JG): the assistant task it belongs to (``aiTask``: the task's
+    own job, and every job its session queued) or else the model draft it works on
+    (``modelDraft``). ``name`` is what the task's or the draft's page names it."""
+
+    kind: Literal["aiTask", "modelDraft"]
+    id: str
+    name: str
+
+
 class JobResponse(BaseModel):
     """A job. ``result`` says whether every item applied: a ``completed`` job may be ``partial``.
 
@@ -492,8 +502,18 @@ class JobResponse(BaseModel):
 
     id: str
     kind: Literal[
-        "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference", "move", "aiProposal", "aiTask",
+        "batch",
+        "import",
+        "export",
+        "profile",
+        "dryRun",
+        "inference",
+        "profileCheck",
+        "migration",
+        "mappingInference",
+        "move",
+        "aiProposal",
+        "aiTask",
     ]
     workspaceKey: str
     changeSetId: str | None
@@ -554,10 +574,37 @@ class JobResponse(BaseModel):
         description="Who submitted it, whose permissions it runs with (0.12 Z2, Z4); null for a "
         "job from before Z2"
     )
+    origin: JobOrigin | None = Field(
+        default=None,
+        description="The assistant task or model draft the job belongs to (0.13 JG); null for a "
+        "job with neither",
+    )
 
 
 class JobPage(CollectionPage[JobResponse]):
     """Jobs, newest first (ADR-030)."""
+
+
+class JobGroup(BaseModel):
+    """A group of related jobs (0.13 JG): the jobs of one ``origin`` the request's filters leave,
+    their count per state and the time of the newest."""
+
+    origin: JobOrigin
+    jobs: int
+    states: dict[str, int] = Field(description="Jobs per state, every state named, zero included")
+    latestAt: datetime
+
+
+class JobGroupRow(BaseModel):
+    """One row of ``GET /jobs?grouped=true``: a ``group`` of jobs, with its newest in ``job``, or a
+    single job that has no origin (``group`` is null)."""
+
+    job: JobResponse
+    group: JobGroup | None
+
+
+class JobGroupPage(CollectionPage[JobGroupRow]):
+    """Jobs grouped by origin, newest activity first (ADR-030)."""
 
 
 class RelationIds(BaseModel):

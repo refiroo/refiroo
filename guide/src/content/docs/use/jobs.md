@@ -8,6 +8,13 @@ A job is work refiroo runs in the background, such as an import, export or chang
 records. Open **Settings › Data operations › Jobs** to find the jobs you may see across
 workspaces, newest first. The list shows **Workspace**, **State**, **Items**, **Requested by**,
 **Created**, **Finished** and **Actions**. Open a job to read its progress and results.
+
+Jobs that belong together are grouped: an assistant task's jobs, with those its session queued,
+and a model draft's each make one row with the number of jobs and how many are in each state. Open
+a row to see its jobs under **‹ Jobs**; the state buttons narrow them, **Open the task** or **Open
+the draft** goes to what they belong to when you may open it, and Esc goes up a level. The
+**Grouped** and **All jobs** buttons above the list switch between this and the flat list, and the
+browser remembers the choice. A job without a task or draft is a row of its own.
 Follow [Follow and cancel a job](/docs/guide/use/follow-and-cancel-a-job/) for the steps.
 
 ## States and results

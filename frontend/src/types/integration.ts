@@ -92,6 +92,34 @@ export interface Job {
   aiProposal?: AiProposalTally | null;
   /** Who submitted it, whose permissions it runs with (0.12 Z2, Z4); null from before Z2. */
   requestedBy: Principal | null;
+  /** The assistant task or model draft the job belongs to (0.13 JG); null for neither. */
+  origin?: JobOrigin | null;
+}
+
+/** Where a job comes from (0.13 JG): an assistant task (and its session's jobs) or a model draft. */
+export interface JobOrigin {
+  kind: "aiTask" | "modelDraft";
+  id: string;
+  name: string;
+}
+
+/** A group of related jobs (`GET /jobs?grouped=true`, 0.13 JG): the jobs of one origin, per state. */
+export interface JobGroup {
+  origin: JobOrigin;
+  jobs: number;
+  states: Record<JobState, number>;
+  latestAt: string;
+}
+
+/** A row of the grouped list: a group with its newest job, or a job of no origin (`group` null). */
+export interface JobGroupRow {
+  job: Job;
+  group: JobGroup | null;
+}
+
+export interface JobGroupPage {
+  items: JobGroupRow[];
+  nextCursor: string | null;
 }
 
 /** A migration's items by outcome (0.11 V1, D68). */

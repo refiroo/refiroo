@@ -17,6 +17,8 @@ from ..engine.events import delivery_log
 from ..engine.events.subscriptions import is_workspace_source
 from ..engine.identity.principals import actors, named
 from ..engine.imports.profiles import StoredProfile
+from ..engine.jobs.origins import JobOrigin as JobOriginRead
+from ..engine.jobs.origins import group_of, origins_of
 from ..engine.jobs.store import release_public_ids
 from ..engine.model.availability import Unavailable, unavailability
 from ..engine.model.compiler import SCHEMA_VERSIONS, ModelDiagnostic
@@ -78,8 +80,12 @@ from .schemas.imports import ImportProfilePage, ImportProfileProblem, ImportProf
 from .schemas.jobs import (
     BatchResponse,
     JobCounts,
+    JobGroup,
+    JobGroupPage,
+    JobGroupRow,
     JobItemPage,
     JobItemResponse,
+    JobOrigin,
     JobPage,
     JobProgress,
     JobResponse,
@@ -547,6 +553,7 @@ def change_set_object_response(
 
 def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
     releases = release_public_ids(session, jobs)
+    origins = origins_of(session, jobs)
     return [
         JobResponse(
             id=job.id,
@@ -579,9 +586,14 @@ def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
             move=(job.report or {}).get("move"),
             aiProposal=(job.report or {}).get("aiProposal") if job.kind == "aiProposal" else None,
             requestedBy=named(session, requester(job)),
+            origin=_origin(origins.get(job.sequence_id)),
         )
         for job in jobs
     ]
+
+
+def _origin(origin: JobOriginRead | None) -> JobOrigin | None:
+    return None if origin is None else JobOrigin(kind=origin.kind, id=origin.id, name=origin.name)
 
 
 def _optional_utc(value: datetime | None) -> datetime | None:
@@ -590,6 +602,32 @@ def _optional_utc(value: datetime | None) -> datetime | None:
 
 def job_page(session: Session, jobs: Page[Job]) -> JobPage:
     return JobPage(items=job_responses(session, jobs.items), **jobs.links())
+
+
+def job_group_page(session: Session, rows: Page[Any], newest: dict[int, Job]) -> JobGroupPage:
+    """Grouped job rows (0.13 JG): a group's row carries its newest job."""
+    groups = [group_of(row) for row in rows.items]
+    responses = {
+        response.id: response
+        for response in job_responses(
+            session, [newest[group.latest_sequence_id] for group in groups]
+        )
+    }
+    items = []
+    for group in groups:
+        job = responses[newest[group.latest_sequence_id].id]
+        summary = (
+            None
+            if group.origin is None
+            else JobGroup(
+                origin=_origin(group.origin),
+                jobs=group.jobs,
+                states=group.states,
+                latestAt=as_utc(group.latest_at),
+            )
+        )
+        items.append(JobGroupRow(job=job, group=summary))
+    return JobGroupPage(items=items, **rows.links())
 
 
 def job_item_response(item: JobItem) -> JobItemResponse:

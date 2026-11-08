@@ -138,7 +138,7 @@ const refusedRow: JobRow = {
   ],
 };
 
-function renderPage(onNavigate = vi.fn()) {
+function renderPage(onNavigate = vi.fn(), fromGroup?: { kind: "aiTask" | "modelDraft"; onOpen: () => void }) {
   render(
     <ToastProvider>
       <JobNotificationsProvider model={testModel} onNavigate={vi.fn()}>
@@ -148,6 +148,7 @@ function renderPage(onNavigate = vi.fn()) {
           canCancel
           jobsHref="/settings/jobs"
           onJobs={vi.fn()}
+          fromGroup={fromGroup}
           onNavigate={onNavigate}
         />
       </JobNotificationsProvider>
@@ -182,6 +183,20 @@ describe("JobPage of an import (0.9 J4)", () => {
     await screen.findByRole("heading", { level: 1, name: "Assistant: reading a workbook" });
     fireEvent.click(screen.getByRole("link", { name: "Open the load" }));
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "ai-tasks", taskId: "task-9" });
+  });
+
+  it("keeps the trail of the group it was opened from, each part a button back up (0.13 JG)", async () => {
+    vi.mocked(api.job).mockResolvedValue({
+      ...waiting,
+      origin: { kind: "aiTask", id: "t-1", name: "Leads workbook" },
+    });
+    const onOpen = vi.fn();
+    renderPage(vi.fn(), { kind: "aiTask", onOpen });
+    const trail = await screen.findByRole("navigation", { name: "Where you are" });
+    expect(trail).toHaveTextContent("JobsAssistant task: Leads workbookImport of codes.csv");
+    fireEvent.click(within(trail).getByRole("button", { name: "Assistant task: Leads workbook" }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledTimes(2);
   });
 
   it("shows a waiting preview: its counts, result, coverage, the binding report and its refused rows", async () => {

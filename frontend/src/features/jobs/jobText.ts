@@ -25,6 +25,12 @@ export const forPeople = (job: Job) => job.kind === "export" && job.parameters.l
 /** A job's kind as the jobs list names it: an export of a workbook for people reads so. */
 export const kindOf = (job: Job) => (forPeople(job) ? "Workbook for people" : KIND[job.kind]);
 
+/** What a group of related jobs is, and the button that opens what it belongs to (0.13 JG). */
+export const ORIGIN: Record<NonNullable<Job["origin"]>["kind"], { label: string; open: string }> = {
+  aiTask: { label: "Assistant task", open: "Open the task" },
+  modelDraft: { label: "Model draft", open: "Open the draft" },
+};
+
 export const STATE: Record<Job["state"], { label: string; tone: StatusTone }> = {
   queued: { label: "Queued", tone: "draft" },
   running: { label: "Running", tone: "draft" },

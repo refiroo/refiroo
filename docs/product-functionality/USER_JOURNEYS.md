@@ -1486,6 +1486,11 @@ lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US
   draft's dry run or inference, a mapping's inference, a profile's check) leave the later one
   running and the earlier cancelled; a profile checks its newest file; an export taken over by
   another node serves a whole file.
+- **J24.9 Related jobs grouped** (0.13 JG): the jobs an assistant task's session queued, and those
+  on a model draft, are one row each in the grouped list (`GET /jobs?grouped=true`) with their count
+  and their states; a job with neither stays a row of its own. `origin=aiTask:<id>` or
+  `modelDraft:<id>` lists one group's jobs, and every job says its `origin`. The flat list is as it
+  was.
 
 **Refusals:** `409 JOB_FINISHED`, `404 JOB_NOT_FOUND`; job errors `MODEL_RELEASE_CHANGED`,
 `CHANGE_SET_VERSION_CONFLICT`, `WORKSPACE_RETIRED`, `JOB_FAILED` (with a correlation ID).

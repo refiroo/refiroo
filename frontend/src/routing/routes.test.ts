@@ -67,6 +67,22 @@ describe("routes", () => {
     ["/settings/operations", { kind: "settings", page: "operations" }],
     ["/settings/consumer-apis", { kind: "settings", page: "consumer-apis" }],
     ["/settings/jobs", { kind: "settings", page: "jobs" }],
+    ["/settings/jobs/j-1", { kind: "settings", page: "jobs", jobId: "j-1" }],
+    ["/settings/jobs/groups/aiTask/t-1", { kind: "settings", page: "jobs", group: { kind: "aiTask", id: "t-1" } }],
+    [
+      "/settings/jobs/groups/modelDraft/d-1?state=failed",
+      { kind: "settings", page: "jobs", group: { kind: "modelDraft", id: "d-1" }, state: "failed" },
+    ],
+    [
+      "/settings/jobs/j-1?group=aiTask%3At-1&state=failed",
+      {
+        kind: "settings",
+        page: "jobs",
+        jobId: "j-1",
+        group: { kind: "aiTask", id: "t-1" },
+        state: "failed",
+      },
+    ],
     ["/settings/ai-tasks/t-1", { kind: "settings", page: "ai-tasks", taskId: "t-1" }],
     ["/settings/api-reference", { kind: "settings", page: "api-reference" }],
     ["/settings/workspaces", { kind: "settings", page: "workspaces" }],

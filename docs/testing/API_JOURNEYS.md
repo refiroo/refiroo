@@ -144,7 +144,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /workspaces/{key}/relation-matrix` (`columnIds`, `columnCursor`, `columnPageSize`, `state`) | J16 |
 | `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
 | `POST /batches` (`run`: `inline`) | J11; relationship items J11.7, J11.8; `replaceRelationSet` J10.10, J11.8; an upsert in a change set keyed by a unique number J06.5 |
-| `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24, J24.8 (several nodes: every kind under a short lease, submissions of one subject sent together, a busy node, an export taken over; 0.11 N2) |
+| `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel`, `GET /jobs` (`grouped`, `origin`) and a job's `origin` | J24, J24.9 (related jobs grouped), J24.8 (several nodes: every kind under a short lease, submissions of one subject sent together, a busy node, an export taken over; 0.11 N2) |
 | `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.6 |
 | `POST /exports` (`context`, `scope`: `types` with `where`, `parentObjectId`, `asOf`; `include.relations`; `format`: `jsonl`, `csv`, `xlsx`), `GET /jobs/{id}/output`, the job's `output` (0.9 J1) | J27, J27.1–J27.5 |
 | `POST /import-profiles`, `GET /import-profiles`, `GET /import-profiles/{key}`, `PUT /import-profiles/{key}` (the whole profile with `expectedVersion`), `DELETE /import-profiles/{key}` (`expectedVersion`); a profile's `valid` and `problems` under the release of `workspaceKey` (0.9 J2); its `modelKey`, `workspaceKey` on every route and the list's `modelKey` (0.11 M3) | J27.7, J36.3, J36.4 |
@@ -311,7 +311,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J55 (0.16 AO1) | `IMPACT_SUMMARY_DRAFT_INVALID` (`422`, the draft's diagnostics, J55.2); `VERSION_CONFLICT` (`409`) for a stale `expectedVersion`, J55.2; `MODEL_RELEASE_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND` (`404`); `AI_SEND_LEVEL_TOO_LOW`, `AI_NOT_CONFIGURED` and `FORBIDDEN` as J54.6, J55.8 |
 | J56 (0.16 AO2) | `HISTORY_PERIOD_INVALID` (`422`: an empty or reversed period, an unknown time zone, J56.6); `OBJECT_NOT_FOUND`, `WORKSPACE_NOT_FOUND` (`404`); `AI_SEND_LEVEL_TOO_LOW`, `AI_NOT_CONFIGURED` and `FORBIDDEN` as J54.6, J56.9 |
 | J57 (0.16 AO3) | `UNKNOWN_TIME_ZONE` (`422`: a digest in a zone that does not exist, J57.7), `DIGEST_NOT_SET` (`422`: a kind put in the digest when no digest is set, `details.kinds`, J57.7), `UNKNOWN_NOTICE_KIND` as J46.10, `NOT_A_PERSON` (`403`, a client), `NOT_FOUND` (`404`: a workspace the caller may not browse, J57.8) |
-| J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
+| J11, J24, J24.9 | `INVALID_ORIGIN` (`origin` is not `aiTask:<id>` or `modelDraft:<id>`), `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
 ## Operator surface (J12)
 

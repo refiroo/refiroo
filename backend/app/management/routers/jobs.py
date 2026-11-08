@@ -22,6 +22,7 @@ from ...engine.jobs.events import JobListener
 from ...engine.jobs.exports import FORMATS, submit_export
 from ...engine.jobs.files import JobFiles
 from ...engine.jobs.inline import BatchLimits, check_batch_request, submit_inline_batch
+from ...engine.jobs.origins import grouped_page, origin_job_ids, parse_origin
 from ...engine.jobs.store import job_item_page, job_page, load_job
 from ...engine.model.migrations import confirm_migration
 from ...engine.moves.move_load import confirm_move
@@ -39,12 +40,14 @@ from ..access import (
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
+from ..presenters import job_group_page as present_job_groups
 from ..presenters import job_item_page as present_job_items
 from ..presenters import job_page as present_jobs
 from ..projections.job_rows import job_row_page, migration_row_page, move_row_page
 from ..schemas.jobs import (
     BatchResponse,
     JobConfirmation,
+    JobGroupPage,
     JobItemPage,
     JobPage,
     JobResponse,
@@ -242,7 +245,7 @@ def _wake_worker(request: Request) -> None:
             worker.wake()
 
 
-@router.get("/jobs", response_model=JobPage)
+@router.get("/jobs", response_model=JobPage | JobGroupPage)
 @requires("signed-in", at=SIGNED_IN)
 def list_jobs(
     session: DbSession,
@@ -251,17 +254,57 @@ def list_jobs(
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     kind: Literal[
-        "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference", "move", "aiProposal", "aiTask",
+        "batch",
+        "import",
+        "export",
+        "profile",
+        "dryRun",
+        "inference",
+        "profileCheck",
+        "migration",
+        "mappingInference",
+        "move",
+        "aiProposal",
+        "aiTask",
     ]
     | None = None,
     state: Literal[
         "queued", "running", "awaiting_confirmation", "completed", "failed", "cancelled", "expired"
     ]
     | None = None,
+    origin: str | None = Query(
+        default=None,
+        max_length=100,
+        description="Only the jobs of one origin, ``aiTask:<id>`` (an assistant task and the jobs "
+        "its session queued) or ``modelDraft:<id>`` (a model draft's jobs)",
+    ),
+    grouped: bool = Query(
+        default=False,
+        description="One row per origin and one per job without one, newest activity first; a "
+        "group's row carries its job count, its jobs per state and its newest job",
+    ),
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
-) -> JobPage:
-    """Jobs, newest first: those whose kind's group the caller holds in their workspace (D285)."""
+) -> JobPage | JobGroupPage:
+    """Jobs, newest first: those whose kind's group the caller holds in their workspace (D285).
+
+    With ``grouped=true`` a row stands for all the jobs of one origin (0.13 JG): an assistant task,
+    with the jobs its session queued, or a model draft; a job with neither is a row of its own. A
+    ``state``, ``kind`` or ``workspaceKey`` filter keeps the jobs that match before they are
+    counted. ``origin`` keeps one origin's jobs, as a list or as its one group row."""
+    visible = visible_jobs(permissions, principal.kind, principal.row_id)
+    parsed = None if origin is None else parse_origin(origin)
+    if grouped:
+        rows, newest = grouped_page(
+            session,
+            visible=visible,
+            workspace_key=workspace_key,
+            kind=kind,
+            state=state,
+            origin=parsed,
+            page=paging,
+            page_size=page_size,
+        )
+        return present_job_groups(session, rows, newest)
     return present_jobs(
         session,
         job_page(
@@ -271,7 +314,9 @@ def list_jobs(
             state=state,
             page=paging,
             page_size=page_size,
-            visible=visible_jobs(permissions, principal.kind, principal.row_id),
+            visible=visible,
+            origin=origin,
+            origin_jobs=None if parsed is None else origin_job_ids(*parsed),
         ),
     )
 

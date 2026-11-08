@@ -8,6 +8,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
@@ -1795,6 +1796,12 @@ class Job(Base):
         Index("ix_jobs_state", "state", "sequence_id"),
         Index("ix_jobs_requested_by_user", "requested_by_user_id"),
         Index("ix_jobs_requested_by_client", "requested_by_client_id"),
+        Index(
+            "ix_jobs_task_ref",
+            "task_ref",
+            "sequence_id",
+            postgresql_where=text("task_ref IS NOT NULL"),
+        ),
         # The jobs a draft, a profile, a source file or a model mapping has (0.10 R, R-F14; 0.11
         # X1), read through `jobs.store.job_parameter`, which writes the key literally so these
         # match.
@@ -1827,6 +1834,14 @@ class Job(Base):
     )
     # The request's choices: policy, run and onExisting for a batch.
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    # The task and the draft the parameters name, held by the database (0.13 JG): the Jobs page
+    # groups by them without reading each job's parameters text.
+    task_ref: Mapped[str | None] = mapped_column(
+        String, Computed("parameters ->> 'taskId'", persisted=True), nullable=True
+    )
+    draft_ref: Mapped[str | None] = mapped_column(
+        String, Computed("parameters ->> 'draftId'", persisted=True), nullable=True
+    )
     state: Mapped[str] = mapped_column(String(30), nullable=False)
     stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
     total: Mapped[int | None] = mapped_column(Integer, nullable=True)

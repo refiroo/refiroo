@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ai } from "@/api/aiClient";
 import { API_URL, api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
@@ -9,11 +10,25 @@ import { capabilitiesFixture } from "@/test/capabilities";
 import { testModel } from "@/test/fixtures";
 import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
 import { ToastProvider } from "@/ui/Toast";
-import type { ConsumerApiDocument, ConsumerApiIndexEntry, Job, SystemResponse } from "@/types";
+import type {
+  ConsumerApiDocument,
+  ConsumerApiIndexEntry,
+  Job,
+  JobGroup,
+  JobGroupRow,
+  RouteState,
+  SettingsRoute,
+  SystemResponse,
+} from "@/types";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
+});
+
+vi.mock("@/api/aiClient", async (load) => {
+  const actual = await load<typeof import("@/api/aiClient")>();
+  return { ...actual, ai: { ...actual.ai, task: vi.fn() } };
 });
 
 const system = {
@@ -71,18 +86,32 @@ const job = (id: string, overrides: Partial<Job> = {}): Job => ({
 });
 
 /** The jobs list in the providers the application gives every page (0.9 J1u). */
-function renderJobs() {
+function renderJobs(
+  route: Extract<SettingsRoute, { page: "jobs" }> = { kind: "settings", page: "jobs" },
+  onNavigate: (route: RouteState) => void = vi.fn(),
+) {
   render(
     <ToastProvider>
       <JobNotificationsProvider model={testModel} onNavigate={vi.fn()}>
-        <JobsPage model={testModel} route={{ kind: "settings", page: "jobs" }} onNavigate={vi.fn()} />
+        <JobsPage model={testModel} route={route} onNavigate={onNavigate} />
       </JobNotificationsProvider>
     </ToastProvider>,
   );
 }
 
+/** The browser's storage, which the test environment does not provide. */
+function stubStorage() {
+  const held = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => held.get(key) ?? null,
+    setItem: (key: string, value: string) => held.set(key, value),
+    removeItem: (key: string) => held.delete(key),
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  stubStorage();
   vi.mocked(api.system).mockResolvedValue(system);
   vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture());
   // The Jobs page names each workspace by its label.
@@ -154,6 +183,8 @@ describe("Consumer APIs", () => {
 });
 
 describe("Jobs", () => {
+  beforeEach(() => localStorage.setItem("refiroo.jobs.view", JSON.stringify("all")));
+
   it("lists jobs with their state and counts, loads more, and shows the limits", async () => {
     vi.mocked(api.jobs)
       .mockResolvedValueOnce({ items: [job("j2")], nextCursor: "next" })
@@ -256,5 +287,134 @@ describe("API reference", () => {
       "href",
       `${API_URL}/api/consumer/plain/v1/openapi.json`,
     );
+  });
+});
+
+const task = { kind: "aiTask", id: "t-1", name: "Leads workbook" } as const;
+const groupRow = (states: Partial<JobGroup["states"]>, overrides: Partial<Job> = {}): JobGroupRow => {
+  const all = { queued: 0, running: 0, awaiting_confirmation: 0, completed: 0, failed: 0, cancelled: 0, expired: 0 };
+  const merged = { ...all, ...states };
+  return {
+    job: job("newest", { origin: task, kind: "dryRun", ...overrides }),
+    group: {
+      origin: task,
+      jobs: Object.values(merged).reduce((a, b) => a + b, 0),
+      states: merged,
+      latestAt: "2026-10-07T08:00:02Z",
+    },
+  };
+};
+
+describe("Jobs grouped (0.13 JG)", () => {
+  beforeEach(() => {
+    localStorage.removeItem("refiroo.jobs.view");
+    vi.mocked(api.jobGroups).mockResolvedValue({
+      items: [groupRow({ running: 1, completed: 11 }), { job: job("solo", { kind: "export" }), group: null }],
+      nextCursor: null,
+    });
+  });
+
+  it("lists a group and a single job in one table, and opens the group", async () => {
+    const onNavigate = vi.fn();
+    renderJobs(undefined, onNavigate);
+    const table = await screen.findByRole("group", { name: "Jobs" });
+    const row = within(table).getByRole("row", { name: /Leads workbook/ });
+    expect(row).toHaveTextContent("Assistant task");
+    expect(row).toHaveTextContent("12 jobs");
+    expect(row).toHaveTextContent("1 running");
+    expect(row).toHaveTextContent("11 completed");
+    expect(within(table).getByRole("row", { name: /solo/ })).toHaveTextContent("1 job");
+    fireEvent.click(row);
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "jobs", group: { kind: "aiTask", id: "t-1" } });
+    expect(within(row).getByRole("link", { name: /Leads workbook/ })).toHaveAttribute(
+      "href",
+      "/settings/jobs/groups/aiTask/t-1",
+    );
+  });
+
+  it("switches to every job and remembers the choice", async () => {
+    vi.mocked(api.jobs).mockResolvedValue({ items: [job("j1")], nextCursor: null });
+    renderJobs();
+    await screen.findByRole("row", { name: /Leads workbook/ });
+    fireEvent.click(screen.getByRole("button", { name: "All jobs" }));
+    expect(await screen.findByRole("row", { name: /j1/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All jobs" })).toHaveAttribute("aria-pressed", "true");
+    expect(api.jobs).toHaveBeenCalledWith(undefined);
+    cleanup();
+    renderJobs();
+    expect(await screen.findByRole("row", { name: /j1/ })).toBeInTheDocument();
+  });
+});
+
+describe("A group of jobs opened (0.13 JG)", () => {
+  const route = { kind: "settings", page: "jobs", group: { kind: "aiTask", id: "t-1" } } as const;
+  beforeEach(() => {
+    vi.mocked(api.jobGroups).mockResolvedValue({
+      items: [groupRow({ running: 1, failed: 2, completed: 8 })],
+      nextCursor: null,
+    });
+    vi.mocked(api.jobs).mockResolvedValue({ items: [job("j9", { origin: task })], nextCursor: null });
+    vi.mocked(ai.task).mockResolvedValue({} as Awaited<ReturnType<typeof ai.task>>);
+  });
+
+  it("shows the trail, the summary with its state chips, and the group's jobs", async () => {
+    const onNavigate = vi.fn();
+    renderJobs({ ...route, state: "failed" }, onNavigate);
+    const trail = await screen.findByRole("navigation", { name: "Where you are" });
+    expect(trail).toHaveTextContent("JobsAssistant task: Leads workbook");
+    expect(screen.getByRole("heading", { name: "Leads workbook" })).toBeInTheDocument();
+    const chips = screen.getByRole("group", { name: "Show jobs in state" });
+    expect(within(chips).getByRole("button", { name: /Failed/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(chips).getByRole("button", { name: /All/ })).toHaveTextContent("11");
+    expect(api.jobs).toHaveBeenLastCalledWith(undefined, { origin: "aiTask:t-1", state: "failed" });
+    fireEvent.click(within(chips).getByRole("button", { name: /Running/ }));
+    expect(onNavigate).toHaveBeenCalledWith({ ...route, state: "running" });
+    fireEvent.click(within(chips).getByRole("button", { name: /All/ }));
+    expect(onNavigate).toHaveBeenLastCalledWith(route);
+    // A job opened from here keeps the group and the filter for its trail.
+    expect(await screen.findByRole("link", { name: /j9/ })).toHaveAttribute(
+      "href",
+      "/settings/jobs/j9?group=aiTask%3At-1&state=failed",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "‹ Jobs" }));
+    expect(onNavigate).toHaveBeenLastCalledWith({ kind: "settings", page: "jobs" });
+  });
+
+  it("offers Open the task only when the person may open it, and never disabled", async () => {
+    const onNavigate = vi.fn();
+    renderJobs(route, onNavigate);
+    fireEvent.click(await screen.findByRole("button", { name: "Open the task" }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "ai-tasks", taskId: "t-1" });
+  });
+
+  it("leaves Open the task out when the task cannot be read", async () => {
+    vi.mocked(ai.task).mockRejectedValue(new ApiError(403, "FORBIDDEN", "No"));
+    renderJobs(route);
+    await screen.findByRole("heading", { name: "Leads workbook" });
+    await waitFor(() => expect(ai.task).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Open the task" })).not.toBeInTheDocument();
+  });
+
+  it("goes up one level on Escape: a group to the list, a job to its group", async () => {
+    const onNavigate = vi.fn();
+    renderJobs(route, onNavigate);
+    await screen.findByRole("heading", { name: "Leads workbook" });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "jobs" });
+    cleanup();
+
+    vi.mocked(api.job).mockResolvedValue(job("j9", { origin: task, kind: "dryRun" }));
+    vi.mocked(api.model).mockResolvedValue(testModel);
+    renderJobs({ ...route, jobId: "j9", state: "failed" }, onNavigate);
+    const trail = await screen.findByRole("navigation", { name: "Where you are" });
+    expect(trail).toHaveTextContent("JobsAssistant task: Leads workbookDry run");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onNavigate).toHaveBeenLastCalledWith({ ...route, state: "failed" });
+  });
+
+  it("says when a group has no jobs the person can see", async () => {
+    vi.mocked(api.jobGroups).mockResolvedValue({ items: [], nextCursor: null });
+    renderJobs(route);
+    expect(await screen.findByText(/This group has no jobs you can see/)).toBeInTheDocument();
   });
 });

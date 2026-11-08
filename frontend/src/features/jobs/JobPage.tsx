@@ -57,7 +57,8 @@ import {
 import { JobProduced } from "./JobProduced";
 import { MigrationOutcome } from "./MigrationOutcome";
 import { MoveOutcome } from "./MoveOutcome";
-import { RESULT, STATE, cancellable, fileSize } from "./jobText";
+import { ORIGIN, RESULT, STATE, cancellable, fileSize } from "./jobText";
+import { TrailBar, TrailLink } from "@/ui/TrailBar";
 import { isResting, useJobStream } from "./useJobStream";
 import { useSubjectSeen } from "@/features/inbox/useInbox";
 
@@ -69,6 +70,7 @@ export function JobPage({
   canCancel,
   jobsHref,
   onJobs,
+  fromGroup,
   onNavigate,
 }: {
   model: EngineModel;
@@ -76,6 +78,8 @@ export function JobPage({
   canCancel: boolean;
   jobsHref: string;
   onJobs: () => void;
+  /** The group of related jobs the job was opened from (0.13 JG): the trail keeps it. */
+  fromGroup?: { kind: NonNullable<Job["origin"]>["kind"]; onOpen: () => void };
   /** Opens a record a batch's outcome names. */
   onNavigate?: (route: RouteState) => void;
 }) {
@@ -135,21 +139,36 @@ export function JobPage({
     }
   }
 
-  const back = (page: string) => (
-    <Breadcrumbs
-      items={[
-        {
-          key: "list",
-          content: (
-            <RouteLink href={jobsHref} onNavigate={onJobs}>
-              Jobs
-            </RouteLink>
-          ),
-        },
-        { key: "page", content: page, current: true },
-      ]}
-    />
-  );
+  const back = (page: string) => {
+    if (fromGroup) {
+      const group = job?.origin ? `${ORIGIN[job.origin.kind].label}: ${job.origin.name}` : ORIGIN[fromGroup.kind].label;
+      return (
+        <TrailBar
+          back={{ label: `‹ ${group}`, onClick: fromGroup.onOpen }}
+          trail={[
+            <TrailLink onClick={onJobs}>Jobs</TrailLink>,
+            <TrailLink onClick={fromGroup.onOpen}>{group}</TrailLink>,
+            page,
+          ]}
+        />
+      );
+    }
+    return (
+      <Breadcrumbs
+        items={[
+          {
+            key: "list",
+            content: (
+              <RouteLink href={jobsHref} onNavigate={onJobs}>
+                Jobs
+              </RouteLink>
+            ),
+          },
+          { key: "page", content: page, current: true },
+        ]}
+      />
+    );
+  };
   if (error) {
     return (
       <SettingsLayout trail={back("Job")} title="Job">
