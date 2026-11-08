@@ -28,6 +28,10 @@ import shutil
 import sys
 from pathlib import Path
 
+from ...config import reload_settings
+from ...engine.model.consumer_definitions import consumer_api
+from ...engine.model.consumer_openapi import consumer_openapi
+from ...engine.model.loader import load_model
 from . import (
     BUNDLED_SCRIPT_PATH,
     SCALAR_SCRIPT,
@@ -52,7 +56,6 @@ def _management_document() -> dict:
     """The management API's document, from the application's code. Building the application needs the
     engine's settings to be valid but touches no database; a throw-away key and no jobs satisfy them.
     Both are put back afterwards: a caller in the same process (a test run) keeps its own settings."""
-    from ...config import reload_settings
     from ...main import create_app
 
     wanted = {
@@ -113,9 +116,6 @@ def build(
     older: bool = False,
     theme: Path | None = None,
 ) -> None:
-    from ...engine.model.consumer_definitions import consumer_api
-    from ...engine.model.consumer_openapi import consumer_openapi
-    from ...engine.model.loader import load_model
 
     if not (out / "index.html").is_file():
         raise SystemExit(f"{out} is not a built guide (no index.html); build the guide first")

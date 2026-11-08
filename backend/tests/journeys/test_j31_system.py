@@ -174,10 +174,12 @@ def test_the_database_password_is_never_returned(configuration, databases):
     appears nowhere in the response."""
     url = seeds.clone(scenario_seed(configuration))
     databases.append(url)
-    with serve(configuration, url.set(password=PASSWORD)) as service:
+    # A server that asks for a password (CI's) keeps its own; one that does not takes a made-up one.
+    password = url.password or PASSWORD
+    with serve(configuration, url.set(password=password)) as service:
         response = service.world.api.get("/system/configuration")
         database_url = _settings(ok(response))["DATABASE_URL"]
-    assert PASSWORD not in response.text
+    assert password not in response.text
     assert database_url["value"] == url.render_as_string(hide_password=False)
     assert (database_url["default"], database_url["source"]) == (None, "environment")
 

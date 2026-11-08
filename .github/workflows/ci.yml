@@ -22,7 +22,8 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          # A password unlike any name: J31.2 checks that it appears nowhere in a response.
+          POSTGRES_PASSWORD: ci-db-secret-7f3a
           POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=und --locale=C"
         ports:
           - 5432:5432
@@ -31,7 +32,7 @@ jobs:
           --health-retries 10
     env:
       # The test harness uses this server instead of starting its own (tests/postgres_server.py).
-      RDM_TEST_DATABASE_SERVER: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+      RDM_TEST_DATABASE_SERVER: postgresql+psycopg://postgres:ci-db-secret-7f3a@localhost:5432/postgres
       CI_SHARD: ${{ matrix.shard }}/4
       PYTHONPATH: ${{ github.workspace }}/.github/ci
     steps:
