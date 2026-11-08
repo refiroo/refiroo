@@ -2015,6 +2015,53 @@ def test_a_turn_a_worker_stopped_in_is_recorded_from_its_log_in_the_new_place(
     assert died["outcome"] == "failed" and (died["tokensIn"], died["tokensOut"]) == (7, 3)
 
 
+# --- AQ: answers that keep the defaults cost nothing ------------------------------------------------
+
+
+@pytest.mark.journey("J50.64")
+@pytest.mark.structures(*STRUCTURES)
+def test_answers_that_keep_the_assumed_choices_queue_no_turn_and_any_other_answer_does(
+    world, tmp_path, monkeypatch
+):
+    """Given a proposal with a question and its assumed answer, when the person answers with the
+    assumed option, then the answer is recorded, the task stays checked and no turn is queued; when
+    the person answers otherwise, a turn is queued as before."""
+    ledgers = Ledgers(world)
+    settings = _assistant(world, tmp_path, monkeypatch, ledgers.workspace)
+    log = Path(settings["log"])
+    task = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
+    _run(world)
+    task = _task(world, task)
+    assert task["state"] == "checked" and task["design"]["questions"][0]["assumed"] == "A"
+    turns = len(log.read_text().splitlines())
+
+    kept = ok(
+        world.api.post(
+            f"/ai/tasks/{task['id']}/answers",
+            {"expectedVersion": task["version"], "answers": {"Which?": "A"}},
+        ),
+        202,
+    )
+    assert kept["state"] == "checked" and kept["jobId"] == task["jobId"]
+    assert kept["version"] > task["version"] and kept["design"]["answers"] == {"Which?": "A"}
+    _run(world)
+    assert len(log.read_text().splitlines()) == turns
+    assert _task(world, task)["state"] == "checked"
+
+    _next_draft(world, tmp_path, settings)
+    other = ok(
+        world.api.post(
+            f"/ai/tasks/{task['id']}/answers",
+            {"expectedVersion": kept["version"], "answers": {"Which?": "B"}},
+        ),
+        202,
+    )
+    assert other["state"] == "checking" and other["jobId"] != task["jobId"]
+    _run(world)
+    assert len(log.read_text().splitlines()) == turns + 1
+    assert "Which? B" in json.loads(log.read_text().splitlines()[-1])["prompt"]
+
+
 # --- AT: a draft's dry run reads its own profile -----------------------------------------------------
 
 

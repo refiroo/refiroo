@@ -13,8 +13,17 @@ export const PHASE: Record<AiTaskPhase, string> = {
 /** A design's check (per sheet); a task recorded before the design holds a check per table, which this is not. */
 export const isDesignCheck = (check: AiTask["check"]): check is AiTaskDesignCheck => !!check && "sheets" in check;
 
+/** A task whose job waits for the assistant's worker says so (0.13 AQ): `ahead` counts the assistant jobs before it. */
+export function waitingText(ahead: number | null | undefined): string | null {
+  if (ahead === null || ahead === undefined) return null;
+  if (ahead === 0) return "Starting…";
+  return `Waiting for the assistant: ${ahead} ${ahead === 1 ? "task" : "tasks"} ahead`;
+}
+
 /** What a job running for the task is doing, in plain words. */
-export function runningText(task: Pick<AiTask, "state" | "phase">): string {
+export function runningText(task: Pick<AiTask, "state" | "phase" | "ahead">): string {
+  const waiting = waitingText(task.ahead);
+  if (waiting) return waiting;
   if (task.state === "loading") return "Loading into the change set…";
   if (task.phase) return PHASE[task.phase];
   return task.state === "checking" ? "Checking every row" : "Reading the workbook";

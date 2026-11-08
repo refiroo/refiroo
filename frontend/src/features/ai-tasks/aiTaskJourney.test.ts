@@ -14,6 +14,20 @@ describe("the assistant load as a journey", () => {
     expect(journey.stoppable).toBe(true);
   });
 
+  it("says a queued task waits, and how many tasks are ahead (AQ)", () => {
+    const base = { ...designTask(), state: "checking" as const, phase: "checking" as const };
+    expect(taskJourney({ ...base, ahead: 2 }).sentence).toBe(
+      "Waiting for the assistant: 2 tasks ahead. You can leave this page.",
+    );
+    expect(taskJourney({ ...base, ahead: 1 }).sentence).toBe(
+      "Waiting for the assistant: 1 task ahead. You can leave this page.",
+    );
+    expect(taskJourney({ ...base, ahead: 0 }).sentence).toBe("Starting… You can leave this page.");
+    expect(taskJourney({ ...base, ahead: null }).sentence).toBe(
+      "Checking every row of the file. You can leave this page.",
+    );
+  });
+
   it("checks every row, then asks the open questions first", () => {
     const checking = { ...designTask(), state: "checking" as const, phase: "checking" as const };
     expect(statuses(checking)).toMatchObject({ designs: "done", check: "current" });

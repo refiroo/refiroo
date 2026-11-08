@@ -425,6 +425,28 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     )
 
 
+def test_every_public_draft_operation_kind_has_its_schema(monkeypatch):
+    """0.13 AQ: the operations body is a list of one schema per public kind, discriminated by
+    ``kind``; a kind added to the registry without its parameters fails here (or at import)."""
+    from app.engine.model.authoring.kinds import INTERNAL_KINDS, KINDS, PARAMETERS
+    from app.management.schemas.model_operations import operation_schema_name
+
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    document = create_app().openapi()
+    schemas = document["components"]["schemas"]
+    items = schemas["ModelDraftOperationsRequest"]["properties"]["operations"]["items"]
+    public = sorted(set(KINDS) - INTERNAL_KINDS)
+    assert set(PARAMETERS) == set(KINDS)
+    assert items["discriminator"]["propertyName"] == "kind"
+    assert sorted(items["discriminator"]["mapping"]) == public
+    for kind in public:
+        schema = schemas[operation_schema_name(kind)]
+        assert schema["properties"]["kind"]["const"] == kind
+        assert set(schema["properties"]) == {"kind", *PARAMETERS[kind]}
+        assert schema["additionalProperties"] is False and schema["description"], kind
+    assert not set(INTERNAL_KINDS) & set(items["discriminator"]["mapping"])
+
+
 def test_paging_openapi_inventory():
     """Base 0.8 S3: every cursor-paged collection pages both ways, by position and with totals."""
     document = app.openapi()

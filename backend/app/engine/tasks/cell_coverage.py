@@ -62,16 +62,20 @@ def _name(number: int) -> str:
     return letters
 
 
-def _bound(source: dict[str, Any]) -> set[str]:
-    """The headers a source's bindings (and its key) read; a column it ignores is left out on purpose."""
+def _bound(source: dict[str, Any]) -> tuple[set[str], set[int]]:
+    """The headers a source's bindings (and its key) read and the column numbers its bindings name by
+    letter (0.13 AQ); a column it ignores is left out on purpose."""
     names: set[str] = set()
+    numbers: set[int] = set()
     for column in source.get("columns") or []:
         if column.get("column"):
             names.add(column["column"])
+        if column.get("letter"):
+            numbers.add(_number(column["letter"]))
         names.update(column.get("columns") or [])
     key = source.get("key") or {}
     names.update(key[part] for part in ("column", "nameColumn", "versionColumn") if key.get(part))
-    return names
+    return names, numbers
 
 
 def cells_left_out(
@@ -102,7 +106,7 @@ def cells_left_out(
                 block.get("lastRow") or LAST_ROW,
                 _number(block.get("firstColumn") or "A"),
                 _number(block.get("lastColumn") or "XFD"),
-                _bound(source),
+                *_bound(source),
             )
         )
     if not sources:
@@ -122,9 +126,16 @@ def cells_left_out(
         headers.setdefault(found, []).append((number, header))
     covers = [
         (sheet, header_row, last, number)
-        for at, (sheet, header_row, last, _, _, names) in enumerate(sources)
+        for at, (sheet, header_row, last, _, _, names, lettered) in enumerate(sources)
         for number, header in headers.get(at, [])
-        if header in names
+        if header in names and number not in lettered
+    ]
+    # A column named by its letter is covered whatever its header cell holds, empty or not.
+    covers += [
+        (sheet, header_row, last, number)
+        for sheet, header_row, last, first, final, _, lettered in sources
+        for number in sorted(lettered)
+        if first <= number <= final
     ]
     shapes = []
     for table in tables:

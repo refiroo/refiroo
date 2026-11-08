@@ -125,11 +125,10 @@ def _position(params: Params, size: int, default: int) -> int:
     return position
 
 
-@kind("setConsumerApiPart")
+@kind("setConsumerApiPart", params=("consumerApi", "pointer", "value"))
 def set_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     """The member or item at ``pointer`` set to ``value`` (created when its parent object lacks it);
     ``null`` takes an optional member out; the empty pointer replaces the definition."""
-    Params(raw, ("consumerApi", "pointer", "value"))
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
     segments = _segments(raw.get("pointer"))
@@ -181,11 +180,11 @@ def _rekeyable(context: Context, old: str, new: Any) -> None:
         raise Refusal("value", "keyTaken", f"Key '{new}' is already used")
 
 
-@kind("insertConsumerApiPart")
+@kind("insertConsumerApiPart", params=("consumerApi", "pointer", "key", "value", "position"))
 def insert_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     """``value`` into the list or keyed map at ``pointer`` (``key`` names a map's member) at
     ``position`` (the end when left out). A map or list its parent object lacks is started."""
-    params = Params(raw, ("consumerApi", "pointer", "key", "value", "position"))
+    params = Params(raw)
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
     segments = _segments(raw.get("pointer"))
@@ -230,10 +229,10 @@ def insert_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("moveConsumerApiPart")
+@kind("moveConsumerApiPart", params=("consumerApi", "pointer", "position"))
 def move_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     """The member or item at ``pointer`` moved to ``position`` within its list or map."""
-    params = Params(raw, ("consumerApi", "pointer", "position"))
+    params = Params(raw)
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
     segments = _segments(raw.get("pointer"))
@@ -267,10 +266,9 @@ def move_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeConsumerApiPart")
+@kind("removeConsumerApiPart", params=("consumerApi", "pointer"))
 def remove_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     """The member or item at ``pointer`` taken out of its list or map."""
-    Params(raw, ("consumerApi", "pointer"))
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
     segments = _segments(raw.get("pointer"))
@@ -295,11 +293,11 @@ def remove_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
 # --- whole definitions ---
 
 
-@kind("addConsumerApi")
+@kind("addConsumerApi", params=("name", "key", "exposes", "position", "definition"))
 def add_consumer_api(context: Context, raw: dict[str, Any]) -> Applied:
     """A consumer API exposing ``exposes``, started by the server (D53), or, as
     ``removeConsumerApi``'s inverse, the stored ``definition``, at ``position``."""
-    params = Params(raw, ("name", "key", "exposes", "position", "definition"))
+    params = Params(raw)
     taken = {item.get("key") for item in _definitions(context)}
     stored = params.optional("definition", dict)
     if stored is not None:
@@ -326,9 +324,9 @@ def add_consumer_api(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeConsumerApi")
+@kind("removeConsumerApi", params=("consumerApi",))
 def remove_consumer_api(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("consumerApi",))
+    """Remove a consumer API definition from the draft."""
     key = raw.get("consumerApi")
     _definition_path(context, key)
     position = next(index for index, item in enumerate(_definitions(context)) if item.get("key") == key)

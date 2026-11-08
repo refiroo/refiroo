@@ -10,6 +10,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from openpyxl.utils.cell import column_index_from_string
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -386,9 +387,20 @@ def columns_left_out(task: AiTask, current: dict[str, Any]) -> list[dict[str, An
     kept = [k for k in kept_sources(task) if not any(_same_place(k, s) for s in own)]
     sources = [*own, *kept]
     bound: dict[str, set[str]] = {}
+    lettered: dict[str, set[int]] = {}
     for source in sources:
         names = bound.setdefault(source.get("sheet") or "", set())
-        names |= {c["column"] for c in source.get("columns") or [] if not c.get("ignore")}
+        names |= {
+            c["column"]
+            for c in source.get("columns") or []
+            if c.get("column") and not c.get("ignore")
+        }
+        # A column named by its letter (0.13 AQ) is loaded whatever its header says.
+        lettered.setdefault(source.get("sheet") or "", set()).update(
+            column_index_from_string(c["letter"])
+            for c in source.get("columns") or []
+            if c.get("letter") and not c.get("ignore")
+        )
     reasons = current.get("reasons") or {}
     found: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
@@ -399,6 +411,8 @@ def columns_left_out(task: AiTask, current: dict[str, Any]) -> list[dict[str, An
         for column in table.get("columns") or []:
             header = column.get("header")
             if not header or header in bound[sheet] or (sheet, header) in seen:
+                continue
+            if column.get("number") in lettered.get(sheet, ()):
                 continue
             seen.add((sheet, header))
             found.append(
@@ -859,7 +873,25 @@ def queue_answers(
     retention_days: int,
     task_retention_days: int,
 ) -> AiTask:
-    """The person's answers to the design's questions: a design round that takes them. Commits."""
+    """The person's answers to the design's questions: a design round that takes them. Answers that
+    are all the assumed options the draft already holds are recorded and queue nothing (0.13 AQ,
+    AQ-D4). Commits."""
+    task = load_task(session, task_id, for_update=True)
+    claim(task, expected_version)
+    require_state(task, "checked")
+    assumed = {q.get("text"): q.get("assumed") for q in (task.design or {}).get("questions") or []}
+    if answers and all(
+        assumed.get(text) is not None and assumed[text] == answer
+        for text, answer in answers.items()
+    ):
+        task.design = {
+            **(task.design or {}),
+            "answers": {**((task.design or {}).get("answers") or {}), **answers},
+        }
+        touch(task, task_retention_days)
+        session.commit()
+        return task
+    session.rollback()
 
     def change(current: dict[str, Any]) -> None:
         current["answers"] = {**(current.get("answers") or {}), **answers}

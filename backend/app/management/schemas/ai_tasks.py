@@ -368,6 +368,9 @@ class AiTaskResponse(BaseModel):
     # Whether the person may tell the assistant something in this state (0.16 AP13, AP-D54): the
     # assistant is on and the task's session lives or can start again.
     canTell: bool = False
+    # While the task's job waits for the assistant's worker: the assistant jobs before it, queued or
+    # running (0.13 AQ); ``None`` once it runs and in every other state.
+    ahead: int | None = None
 
 
 class AiTaskPage(CollectionPage[AiTaskResponse]):

@@ -936,6 +936,56 @@ that is a model-language change outside RL.
 
 **Start removed (2026-11-08).** Items 1 and 2 are out: `tasks/engine_start.py` is deleted; `agent.py` lost `_engine_reading` (and its call in `start`), `_engine_start`, `_propose_prompt`'s `start=`, `_drop_unused_start`, the `design.startDraft` handling and the `_turn` checklist change; the prompt is `agent/10`'s text again and `PROMPT_VERSION = "agent/10"`. `infer_now` and `_inference_job` (`inference/run.py`) and `store_source_file(profile=…)` (`store.py`) had no other user and are back as before AT. J50.61 and the stand-in's `startDraft` are removed, and the two test adjustments (`test_a_job_the_session_queues…`, `Way.stop`) are back. The number J50.61 stays unused in `USER_JOURNEYS.md`; `API_JOURNEYS.md`, the CHANGELOG and `assistant-tasks.md` no longer mention the start. **Stays:** item 3 (`DryRunRequest.profile` optional with its `before` validator, `submit_dry_run` reading the draft's own profile, `422 INVALID_IMPORT_PROFILE`) and J50.62. `profile_export.py` stays: `draft_profile` imports `dry_run`, so `dry_run` cannot import `definition` back from `draft_profile` without a cycle. Checks: `test_j50_ai_workbook_load` 62 passed; `test_j50_ai_way_out`, `test_j50_ai_reshape`, `tests/unit/engine/tasks` and `test_openapi_contract` 95 passed (the lock hash unchanged); Ruff check passes on the changed files (`store.py` and `inference/run.py` were not formatted before and are not now); `cd guide && npm run verify` passes.
 
+## AQ: The assistant loads a laid-out workbook and asks only what a person decides
+
+
+**Why (read 2026-11-08 from the tasks, their jobs and the session logs; no new AI run).** The files are simple lists laid out side by side for people: a title, a group row (4), a header row (6), a blank shaded row, data from row 8, empty spacer columns between the blocks. The session read them correctly in its first commands, and so did the engine's profile (header row 6, the blocks). The time, the cost and the questions came from the engine:
+
+- **Operation names guessed.** `openapi.json` gives `POST /model-drafts/{id}/operations` an untyped list (`ModelDraftOperationsRequest.operations: list[dict]`), so both sessions tried names until one passed (`setProfile`/`setImportProfile`/`replaceProfile`, `bindColumn`/`mapColumn`, `removeValueMap`/`deleteValueMap`/`dropValueMap`, `layOut`/`layout`…). The kinds and their parameters exist only in `authoring/kinds.py` and `mapping.py` and as prose in `docs/API.md`.
+- **A tested profile replayed step by step.** `setProfile` takes `key` and `name` only. After a clean inline dry run, task 94 replayed its profile as about 220 operations (draft version 1 to 224, about 8 minutes); task 95 reached version 370 and was still replaying when it hit the session limit.
+- **The session limit ends as a crash.** `TIMEOUT_SECONDS = 1800` (`agent.py`) raises `TimeoutError`, which nothing catches: the worker's generic branch logs a traceback and the task says "internal error … report the correlation ID" (task 95, 16:32:16, exactly 30 minutes after it started). The limit is not a setting.
+- **Questions the prompt asks for.** Task 94's check returned nine questions; two are a person's decision (pairs or exact result–reason–sub-reason combinations; exposing the lists in a consumer API). Three prompt rules say "raise that as a question" (two names for one thing, no key column, a repetition kept flat), so keep-as-is points became questions, and two came from the binding limits above.
+- **Answering costs a turn.** `queue_answers` (`design_job.py`) always queues a new session turn, also when every answer is the `assumed` default the draft already holds.
+- **A waiting task says it is working.** The task's state is written when its job is queued (`reading`, `checking`); with one assistant worker per process the second and third tasks waited 25 minutes while the page said "Checking every row".
+- **Undoing a value map drops later ones.** `setValueMap` writes the whole `valueMaps` object (`mapping.py`), so its inverse restores every map as it was; undoing an earlier step while later ones stay removes the later maps (task 94 saw it).
+
+**What changes.**
+
+1. **The session limit is a handled ending.** A turn over the limit ends through the same path as a person's stop (AP-D55): the session is stopped, its jobs are cancelled and a partial load is undone as today, the task goes back to where the person can go on with its draft kept, and the note says in the person's terms that the session took longer than the limit and was stopped, with Try again and Tell. The log has one WARNING line, no traceback; the job ends `cancelled`-like, never `JOB_FAILED`. The limit becomes `AI_AGENT_TIMEOUT_SECONDS` (default 1800), in `config.py`, `.dev/settings.env`'s template and `docs/OPERATIONS.md`. Both places that raise (`_turn` and `_await_its_jobs`) use it.
+2. **The draft operations are typed in the OpenAPI.** The operations body becomes a list whose items are a `oneOf` discriminated by `kind`, one schema per public kind, generated from the kinds registry (`KINDS`, each kind's allowed parameters, its docstring as description); `INTERNAL_KINDS` are not listed. The server's checking is unchanged (the registry stays the one place); the schema only describes it. A test fails when a kind is added without its schema.
+3. **A whole profile in one operation.** `setProfile` accepts the profile as `GET /model-drafts/{id}/profile` answers it in `definition` (`sources`, `valueMaps`, besides `key` and `name`) and replaces the draft's profile with it, one undoable step. Read-only fields of a profile sent back (`key`, source `id`) are ignored, as AT made the dry run do.
+4. **A column is named by its letter too.** `ColumnBinding` takes `letter` (a sheet column letter, as `Block` uses) as the alternative to `column`; exactly one of them. The import, the dry run, the draft's operations (`mapColumn`, `ignoreColumn`, `setColumnReading`, `splitColumn`, `unmapColumn`, `addValuesToList`, `setValueMap`'s `column`) and `_column` accept it. A letter reaches a column whose header cell is empty. The draft's `_column` also accepts the reader's names for repeated headers (`Checklist #2`), so the two never disagree. The profile `GET /source-files/{id}/profile/sheets` answers lists a column with data under an empty header with its letter, so a session sees it.
+5. **The prompt (`agent/11`) asks only what a person decides.** Questions are only for a choice that changes the model or a consumer contract, and the draft already holds the assumed answer. What the data gives as it is (two names for one thing, likely typos, no key column, a repetition kept flat) is one line of the final note, never a question. Something the load cannot read is never a question: bind it by letter. The prompt names `letter`, and `setProfile` with the whole profile.
+6. **Answers that keep the defaults cost nothing.** When every answer equals its question's `assumed` option, `POST /ai/tasks/{id}/answers` records them and the task stays `checked`; no turn is queued. Any other answer queues the turn as today.
+7. **A waiting task says it waits.** `AiTaskResponse` carries `ahead`: while the task's job is queued, the number of assistant jobs before it (queued or running, lower `sequence_id`); `null` once it runs. The task page and the journey bar say "Waiting for the assistant: 2 tasks ahead" (one: "1 task ahead"; zero: "Starting…") instead of "Reading the workbook" or "Checking every row" while `ahead` is not null.
+8. **A value map's undo restores that map only.** `setValueMap` records its change at `valueMaps/<name>`, so undoing it restores or removes that map and leaves the others.
+
+**Not in AQ.** More than one assistant worker per process (`WEB_CONCURRENCY` gives one per process today); a source with `record: existing` not finding records made earlier in the same load (task 94 kept a second result list for it); the session's model and effort.
+
+**Decisions (my recommendations, recorded under the user's order to deliver).**
+
+- **AQ-D1: The limit stays 30 minutes by default.** Items 2 to 4 remove the work that made task 95 run over; an operator can raise it.
+- **AQ-D2: `setProfile` takes the whole profile,** rather than a new kind: it is the name sessions tried first, and the shape is the one `GET …/profile` answers.
+- **AQ-D3: `letter` beside `column`,** rather than renaming empty headers: a letter is stable whatever the header says, and `Block` already speaks letters.
+- **AQ-D4: Defaults-only answers queue nothing.** The draft already holds the assumed answers; the person goes on to accept.
+- **AQ-D5: `ahead` counts assistant jobs by `sequence_id`,** the worker's claim order; leases are ignored (a close count, not a promise).
+
+**Mock-up (task page while waiting).**
+
+```
+ ───────────────────────────────────────────────────────────
+ Waiting for the assistant: 1 task ahead. You can leave this page.
+ [ Stop ]
+```
+
+**Journey cases.** J50.63 a session over the limit (a stand-in session and a limit of a few seconds) ends with the task back at its last point, its draft kept, the note, the job not `JOB_FAILED`; J50.64 answers equal to the defaults queue no job and keep `checked`, one other answer queues a turn; J50.65 a second task queued behind a running one reads `ahead: 1`, then `null` once it runs. J34 (imports): a block with an empty-header column and three equal headers loads every column by `letter` and by `Name #2`, in the import and in the draft's dry run. Draft operations (J-case of the draft journeys): `setProfile` with a whole profile read from `GET …/profile` gives the same dry-run figures as the original and undoes in one step; undoing an earlier `setValueMap` keeps the later maps. Contract: every public kind has its schema in the OpenAPI.
+
+**Checks.** J50 (`test_j50_ai_workbook_load`, `_reshape`, `_way_out`, `tests/unit/engine/tasks`), J34, the draft-operation journeys, `contract` with the OpenAPI lock (re-baselined if the locked document changes), `test_boundaries`, Ruff on the changed files only, frontend tests of the task page and the production build. **Migration:** none. **Docs:** `docs/API.md` (operation schemas, `setProfile`'s profile, `letter`, `ahead`, answers), `docs/OPERATIONS.md` (`AI_AGENT_TIMEOUT_SECONDS`), CHANGELOG, the guide sentences the change touches, and a guide rebuild.
+
+
+**Built (2026-11-08).** All eight items, the journey cases, the checks and the docs; the try is not run (below).
+
+
 ## The writing rules
 
 These go into `guide/AGENTS.md` in DOC1; they are the contract between the briefs and the writer.

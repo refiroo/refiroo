@@ -182,6 +182,11 @@ def runs_dry_run(operations: list[dict[str, Any]]) -> bool:
         name = operation.get("kind")
         if name == "restoreElements":
             name = (operation.get("undoes") or {}).get("kind")
+        if name == "setProfile" and operation.get("kind") == "setProfile" and (
+            "sources" in operation or "valueMaps" in operation
+        ):
+            # A whole profile changes the load (0.13 AQ); its key and name alone do not.
+            return True
         if name not in NO_DRY_RUN:
             return True
     return False

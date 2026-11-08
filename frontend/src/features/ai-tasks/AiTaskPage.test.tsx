@@ -83,6 +83,13 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
     await waitFor(() => expect(ai.cancelTask).toHaveBeenCalledWith("task-1"));
   });
 
+  it("says a task waits for the assistant instead of what it will do (AQ)", async () => {
+    vi.mocked(ai.task).mockResolvedValue(task({ state: "checking", phase: "checking", check: null, ahead: 1 }));
+    open();
+    expect(await screen.findByText("Waiting for the assistant: 1 task ahead")).toBeInTheDocument();
+    expect(screen.queryByText("Checking every row")).not.toBeInTheDocument();
+  });
+
   it("follows the task until the proposal is ready", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const proposed = task({ check: null });

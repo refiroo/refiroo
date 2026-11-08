@@ -80,12 +80,15 @@ def sheets(session: Session, draft: ModelDraft) -> tuple[dict[str, Sheet] | None
     if source is None or profile_state(session, source)["state"] != "completed":
         return None, source.name if source else None
     headers: dict[int, list[str]] = {}
+    letters: dict[int, set[str]] = {}
     for sheet_index, statistics in session.execute(
         select(SourceFileColumn.sheet_index, SourceFileColumn.statistics)
         .where(SourceFileColumn.source_file_id == source.id)
         .order_by(SourceFileColumn.sheet_index, SourceFileColumn.column_number)
     ):
         header = statistics.get("header")
+        if isinstance(statistics.get("letter"), str):
+            letters.setdefault(sheet_index, set()).add(statistics["letter"])
         # Trimmed as the import's reader names a column (``readers.header_cell``); found on a real
         # workbook whose headers end in a space (0.10 A8a).
         if isinstance(header, str) and header.strip():
@@ -99,6 +102,7 @@ def sheets(session: Session, draft: ModelDraft) -> tuple[dict[str, Sheet] | None
             (row.profile or {}).get("headerRow"),
             tuple(headers.get(row.sheet_index, ())),
             _row_reader(session, source.id, row.sheet_index),
+            frozenset(letters.get(row.sheet_index, ())),
         )
     return found, source.name
 
@@ -110,7 +114,7 @@ def diagnostics(profile: dict[str, Any] | None, model: EngineModel | None) -> li
         return []
     found: list[ModelDiagnostic] = []
     for index, entry in enumerate(profile.get("unmapped") or []):
-        what = entry.get("column") or entry.get("columns") or ("key" if "key" in entry else "source")
+        what = entry.get("column") or entry.get("letter") or entry.get("columns") or ("key" if "key" in entry else "source")
         found.append(
             ModelDiagnostic(
                 "warning",

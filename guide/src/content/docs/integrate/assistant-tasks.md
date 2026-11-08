@@ -25,7 +25,7 @@ Keep the returned task ID, version and job ID. A `202` means work was accepted, 
 | Task state | Client behavior |
 | --- | --- |
 | `reading` | The file is being read or the session is starting. |
-| `checking` | A session turn or dry run is working. |
+| `checking` | A session turn or dry run is working. While `ahead` is a number the task's job still waits for the assistant's worker: show how many tasks are ahead, not the work. |
 | `checked` | Present the proposal for a person's review. |
 | `loading` | Follow the saved-layout load. |
 | `loaded` | Inspect the result and show the next human action. This does not mean live data changed. |
@@ -42,7 +42,7 @@ For a workbook, show the dry-run figures per sheet: created, updated, unchanged,
 
 Page `GET /ai/tasks/{id}/changes?source=…` to show the records and typed field values that the latest check would change. Use the source number from the check, not a sheet name guessed by the client. Before a check this returns `AI_TASK_STATE`; an unknown source returns `AI_TASK_TABLE_UNKNOWN`. See the [checked-change operation](/docs/api/?api=management#tag/ai).
 
-The person can answer the questions or give a correction in words. These start another turn and another check; they do not accept the proposal. A draft held by another assistant task cannot be written by this session (`AI_TASK_DRAFT_HELD`). Use a draft of this task's own instead of trying to share it.
+The person can answer the questions or give a correction in words. A correction starts another turn and another check; answers that all keep the assumed choices start nothing and leave the task `checked`, and any other answer starts a turn. Neither accepts the proposal. A draft held by another assistant task cannot be written by this session (`AI_TASK_DRAFT_HELD`). Use a draft of this task's own instead of trying to share it.
 
 ## 3. Accept, then hand over the result
 
@@ -92,6 +92,6 @@ A loaded, failed or stopped task can keep its session files while it can continu
 | `AI_TASK_DRAFT_HELD` | Have the session use its own draft. |
 | `AI_ASSISTANT_ROLE_CHANGED` | Ask a security administrator to restore the assistant role's required groups as the message explains. |
 
-The task's notes explain a session failure; the call record can provide a diagnostic reference. A turn over 30 minutes stops and fails. Provider-call timeouts are separate from this session limit. Fix credentials or reachability with the operator, then continue the task rather than treating a failed turn as a successful load.
+The task's notes explain a session failure; the call record can provide a diagnostic reference. A turn over the session limit (`AI_AGENT_TIMEOUT_SECONDS`, 30 minutes) is stopped as a person's Stop is: the task returns to its last point with a note, and the person can continue or try again. Provider-call timeouts are separate from this session limit. Fix credentials or reachability with the operator, then continue the task rather than treating a failed turn as a successful load.
 
 Use the proposal and acceptance actions for assistant tasks. A `/plan` action and a task `plan` are not available; the changes read selects by `source`, not `table`. Use ordinary import profiles for deterministic loading without a session.

@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (the assistant loads a laid-out workbook and asks only what a person decides, 0.13 AQ)
+
+- **The session limit is a handled ending.** A turn over `AI_AGENT_TIMEOUT_SECONDS` (default 1800, in the settings template and `OPERATIONS.md`) is stopped as a person's Stop is: the session ends, the jobs it started are cancelled, a partial load is undone and the task goes back to its last point with its draft kept. The note says the session took longer than the limit; the job ends `cancelled`, never `JOB_FAILED`, and the log has one WARNING line, no traceback.
+- **The draft operations are typed in the OpenAPI.** `POST /model-drafts/{id}/operations` describes `operations` as a list of one schema per public kind (`<Kind>Operation`, discriminated by `kind`), generated from the kinds registry (`@kind(name, params=…)`, the kind's docstring as description). The server's checking is unchanged; a kind added without its parameters fails the contract check.
+- **A whole profile in one operation.** `setProfile` takes `sources` and `valueMaps` as `GET /model-drafts/{id}/profile` answers them in `definition`, replaces the draft's profile in one undoable step and queues the dry run. A source's `id` sent back is ignored.
+- **A column is named by its letter too.** A column binding takes `letter` in place of `column`, so a column whose header cell is empty can be loaded; the import, a draft's dry run and the draft's column operations (`mapColumn`, `setColumnReading`, `splitColumn`, `ignoreColumn`, `addValuesToList`, `unmapColumn`, `setValueMap`) accept it. The draft also accepts the reader's names for a repeated header (`Checklist #2`).
+- **The assistant asks only what a person decides** (`agent/11`): keep-as-is points (two names for one thing, no key column, a repetition kept flat) are one line of the summary, not questions; what the load cannot read is bound by letter; a tested profile is set with one `setProfile`.
+- **Answers that keep the defaults cost nothing.** `POST /ai/tasks/{id}/answers` with only the assumed options records them and queues no turn; the task stays `checked`.
+- **A waiting task says it waits.** An assistant task carries `ahead`, the assistant jobs before its queued job; the page and the journey bar say "Waiting for the assistant: 2 tasks ahead" instead of "Reading the workbook".
+- **Undoing a value map restores that map only.** `setValueMap` records `valueMaps/<name>`, so undoing an earlier one no longer removes the later ones.
+
 ### Changed (a draft's dry run reads its own profile, 0.13 AT)
 
 - **A draft's dry run reads the draft's own profile.** `profile` in `POST /model-drafts/{id}/dry-run` is optional: without it the file is read with the profile the draft holds. The profile `GET /model-drafts/{id}/profile` answers is accepted unchanged: its read-only `key`, `unmapped`, `ignoredSheets` and each source's `id` are ignored, where they were refused with `422`.

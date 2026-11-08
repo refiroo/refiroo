@@ -93,8 +93,7 @@ is its boundary inside the container. **The container does not restrict the sess
 access.** Apply any required outbound network restrictions in your deployment. Outside a container,
 refiroo requires the operating-system sandbox; an unavailable sandbox refuses the session.
 
-A turn running for more than 30 minutes is stopped and fails. The task can be continued after the
-cause is addressed. Text in records is treated as data, but AI output can still be wrong; review
+A turn running longer than `AI_AGENT_TIMEOUT_SECONDS` (30 minutes) is stopped like a person's Stop. The task returns to where it can be continued or tried again. Text in records is treated as data, but AI output can still be wrong; review
 proposals before accepting them.
 
 ## Calls and costs
@@ -163,6 +162,7 @@ service. **Settings › Administration › AI** displays them; it does not edit 
 | `AI_TASK_RETENTION_DAYS` | `90` | Positive number of days to retain tasks after completion or last change; see retention above. |
 | `AI_AGENT_COMMAND` | Empty | Claude Code command, for example `claude --model sonnet`. Empty disables the assistant. refiroo enforces its own tools and permission mode even if the command supplies another. |
 | `AI_AGENT_SANDBOX` | Empty | `container` in the shipped image; otherwise the operating-system sandbox. Do not use `container` on a host to bypass sandbox requirements. |
+| `AI_AGENT_TIMEOUT_SECONDS` | `1800` | Longest one turn of the assistant's session may take; a turn over it is stopped like a person's Stop and the task goes back to its last point. |
 | `AI_AGENT_API_URL` | `http://127.0.0.1:8000` in Compose; otherwise `PUBLIC_URL` | Address the session uses to reach this engine's API. Compose supplies the address inside the engine container unless overridden. Outside Compose, unset or empty uses `PUBLIC_URL`; override it if the engine's machine cannot reach that address. See [Set up AI](/docs/run/set-up-ai/). |
 
 The Claude API needs outbound HTTPS to `api.anthropic.com`, or the configured gateway. Compatible
@@ -274,7 +274,7 @@ what an external assistant keeps after reading permitted data.
 | `IMPORT_TOO_LARGE`, `UNSUPPORTED_FILE_FORMAT` | Respect `IMPORT_MAX_BYTES`; supply XLSX or CSV instead of legacy XLS. |
 | `unreachable`, `unauthorized`, `rateLimited` | Check endpoint/connectivity, replace the refused key, or wait before retrying, respectively. |
 | `declined`, `malformed`, `failed` | The provider declined, returned the wrong shape or otherwise failed. Inspect the failure sentence, model and gateway. No partial malformed answer is used. |
-| `timeout`, `cancelled`, `interrupted` | An assistant turn exceeded 30 minutes, was stopped or lost its worker. Read the task's notes and continue when the cause is resolved. |
+| `timeout`, `cancelled`, `interrupted` | An assistant turn exceeded the session limit (`AI_AGENT_TIMEOUT_SECONDS`), was stopped or lost its worker. Read the task's notes and continue when the cause is resolved. |
 
 A failing provider leaves the feature's ordinary work available. Explanations still show their
 facts; a failed question applies no filters; a mapping request reports a warning and a failed

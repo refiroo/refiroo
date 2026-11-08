@@ -408,6 +408,8 @@ export interface AiTask {
   result: AiTaskResult | null;
   /** Whether the person may tell the assistant something now (0.16 AP13): its session goes on or starts again. */
   canTell?: boolean;
+  /** While the task's job is queued: the assistant jobs before it (0.13 AQ); `null` once it runs. */
+  ahead?: number | null;
 }
 
 /** `POST /ai/tasks`'s `request` part. */

@@ -73,14 +73,24 @@ from .store import finish, held_by_another, held_counts, load_task, note
 
 log = logging.getLogger(__name__)
 
-TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/10"
+PROMPT_VERSION = "agent/11"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
 DEFAULT_WORDS = "Create a model for this or map it to the current model, and import it."
 PROPOSAL = "proposal.json"
 _CALL = re.compile(r"(?:-X\s*(GET|POST|PUT|PATCH|DELETE)\b[^\n]*?)?/api/v1/([A-Za-z0-9_\-/{}$.]+)")
+
+
+class SessionTimedOut(JobCancelled):
+    """A turn ran longer than ``AI_AGENT_TIMEOUT_SECONDS`` (0.13 AQ). It ends as a person's Stop does
+    (AP-D55): the worker stops the job as cancelled, the task goes back to its last point, and the
+    task's note says the session took longer than the limit."""
+
+
+def timeout_seconds() -> int:
+    """The longest one turn of the session may take."""
+    return get_settings().ai_agent_timeout_seconds
 
 
 def enabled() -> bool:
@@ -113,7 +123,7 @@ def _connection(workspace: str, url: str, *, workbook: bool = True) -> str:
         f"{data}Work only in the workspace {workspace}: no other "
         "workspace is read or changed. Where the data gives one thing two names or values, that "
         "is intended: keep them all as they are, correct nothing and do not keep only the most "
-        "common; you may raise it as a question."
+        "common; say it in one line of the summary, never as a question."
     )
 
 
@@ -133,14 +143,29 @@ def _starting_point(held: dict[str, int]) -> str:
 
 _KEYS = (
     "Give each source of a load a key that finds its records in the next file, of several columns "
-    "(attributeTypeKeys) if no one column does; if the file has none, raise that as a question. "
+    "(attributeTypeKeys) if no one column does; if the file has none, say so in one line of the "
+    "summary and give the source no key. "
     "An empty cell is no value: never call its row skipped or left out."
 )
 
 
 _SHAPE = (
     "What the file repeats across columns or rows becomes types of its own, related to each other, "
-    "unless the words ask otherwise; if you keep such a repetition flat, raise that as a question."
+    "unless the words ask otherwise; if you keep such a repetition flat, say so in one line of the "
+    "summary."
+)
+
+
+_QUESTIONS = (
+    "Ask a question only for a choice that changes the model or a consumer contract and that only a "
+    "person can make, and put the answer you assumed in the draft. What the data gives as it is (two "
+    "names for one thing, likely typos, no key column, a repetition kept flat) is one line of the "
+    "summary, never a question. Something the load cannot read is never a question either: a binding "
+    'names its column by its letter ({"letter": "AJ", ...} in place of "column") when the header cell '
+    "is empty or repeated, and the draft's operations take letter beside column. Once a profile has "
+    "passed a dry run, set it on the draft in one setProfile operation with the profile as "
+    "GET /model-drafts/{id}/profile answers it in definition (sources and valueMaps), not one "
+    "operation per column. The kinds and their parameters are in openapi.json."
 )
 
 
@@ -186,7 +211,7 @@ def _propose_prompt(
     return (
         f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
         f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
-        f"{_WORDS} {_RECORDS} {_SHAPE + ' ' + _KEYS + ' ' if workbook else ''}{check}; install, "
+        f"{_WORDS} {_RECORDS} {_SHAPE + ' ' + _KEYS + ' ' + _QUESTIONS + ' ' if workbook else ''}{check}; install, "
         "activate, load and publish nothing yet: the person reviews first. Then write "
         f'{PROPOSAL}: {{"draftId": {"..." if workbook else "... (null when the model does not change)"}, "summary": two sentences a person reads, "questions": '
         '[{"text", "options", "assumed"}] for what only a person can decide, "moves": '
@@ -475,9 +500,9 @@ def _await_its_jobs(session: Session, ctx: Any, started: float, client: int) -> 
     while session.scalar(waiting.limit(1)) is not None:
         session.commit()
         ctx.check()
-        if time.monotonic() - started > TIMEOUT_SECONDS:
+        if time.monotonic() - started > timeout_seconds():
             # Through the stop path: the jobs are cancelled and a partial load is undone (R-F19).
-            raise TimeoutError("The session's jobs took too long")
+            raise SessionTimedOut("The session's jobs took too long")
         time.sleep(2)
     session.commit()
 
@@ -981,8 +1006,8 @@ def _turn(
             shown = -10.0
             while process.poll() is None:
                 ctx.check()
-                if time.monotonic() - started > TIMEOUT_SECONDS:
-                    raise TimeoutError("The session took too long")
+                if time.monotonic() - started > timeout_seconds():
+                    raise SessionTimedOut("The session took too long")
                 moved = progress.read()
                 if moved or time.monotonic() - shown >= 5:
                     shown = time.monotonic()
@@ -1006,7 +1031,7 @@ def _turn(
             _stop_earlier({"pid": process.pid, "session": session_id})
             failure = (
                 ("timeout", "The session took too long.")
-                if isinstance(error, TimeoutError)
+                if isinstance(error, SessionTimedOut)
                 else ("cancelled", "Cancelled by a person.")
                 if isinstance(error, JobCancelled)
                 else ("failed", f"The session's turn failed ({type(error).__name__}).")
@@ -1019,6 +1044,16 @@ def _turn(
             progress.read()
             if load and failure is not None and failure[0] in ("cancelled", "timeout"):
                 _undo_load(session, task_key, client, since)
+            if failure is not None and failure[0] == "timeout":
+                # One line, no traceback: the limit is an expected ending, not a fault (0.13 AQ).
+                logging.getLogger(__name__).warning(
+                    "Assistant task %s: the session ran longer than %s seconds and was stopped",
+                    task_key,
+                    timeout_seconds(),
+                )
+                held = load_task(session, task_key, for_update=True)
+                held.design = {**(held.design or {}), "timedOut": timeout_seconds()}
+                session.commit()
             if failure is None and (not progress.result or progress.result.get("is_error")):
                 failure = ("failed", "The session ended without an answer.")
             _record_turn(session, task_key, job.id, progress, since, prompt, failure)

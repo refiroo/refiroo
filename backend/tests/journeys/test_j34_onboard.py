@@ -2708,3 +2708,119 @@ def test_an_inference_asked_to_stop_while_it_runs_stops(world, monkeypatch):
     _run(world)
     assert ok(world.api.get(f"/jobs/{started['jobId']}"))["state"] == "cancelled"
     refused(world.api.get(f"/model-drafts/{draft['id']}/inference/proposals"), 409, "INFERENCE_NOT_READY")
+
+
+# --- AQ: a column named by its letter (0.13) ------------------------------------------------------
+
+
+def _tagged_book() -> bytes:
+    """A block with an empty header cell (C) and a header three times (D, E, F)."""
+    from openpyxl import Workbook
+
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Tags"
+    sheet.append(["Code", "Name", None, "Tag", "Tag", "Tag"])
+    for number in range(1, 6):
+        # Numbers in the rows keep them from reading as a header of their own.
+        sheet.append([number, f"Item {number}", f"order {number}", number * 10, number * 20, number * 30])
+    import io
+
+    buffer = io.BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
+
+@pytest.mark.journey("J34.11")
+@pytest.mark.structures("K")
+def test_a_column_with_an_empty_header_and_equal_headers_load_by_letter_and_by_the_readers_names(world):
+    """Given a block whose header row has an empty cell and three equal headers. When the draft's
+    columns are bound by letter (the empty one, the third equal one) and by Tag and Tag #2, then
+    the draft's dry run reads every column, a letter outside the sheet is refused, and the
+    installed profile loads every value into the records."""
+    workspace = _workspace(world)
+    draft = _draft(world)
+    app = world.app("K")
+    attributes = ["j34-order", "j34-t1", "j34-t2", "j34-t3"]  # the empty-header column, then the Tags
+    _apply(
+        world,
+        draft,
+        {"kind": "addObjectType", "applicationKey": app, "key": "j34-tagged", "name": "Tagged", "pluralName": "Tagged", "parent": None},
+        {"kind": "addAttributeType", "key": "j34-code", "name": "Tag code", "valueType": "text", "features": {"unique": True}},
+        *[{"kind": "addAttributeType", "key": key, "name": key, "valueType": "text", "features": {}} for key in attributes],
+        *[{"kind": "attachAttribute", "objectType": "j34-tagged", "attributeType": key} for key in ["j34-code", *attributes]],
+    )
+    source = _profiled(world, {"draftId": draft["id"]}, "tags.xlsx", _tagged_book(), workspaceKey=workspace)
+    _step(world, draft, {"kind": "addSource", "id": "tags", "sheet": "Tags", "objectType": "j34-tagged", "key": {"attributeTypeKey": "j34-code"}})
+    answer = _step(
+        world,
+        draft,
+        {"kind": "mapColumn", "source": "tags", "column": "Code", "binding": {"attributeTypeKey": "j34-code"}},
+        {"kind": "mapColumn", "source": "tags", "column": "Name", "binding": {"field": "name"}},
+        {"kind": "mapColumn", "source": "tags", "letter": "C", "binding": {"attributeTypeKey": "j34-order"}},
+        {"kind": "mapColumn", "source": "tags", "column": "Tag", "binding": {"attributeTypeKey": "j34-t1"}},
+        {"kind": "mapColumn", "source": "tags", "column": "Tag #2", "binding": {"attributeTypeKey": "j34-t2"}},
+        {"kind": "mapColumn", "source": "tags", "letter": "F", "binding": {"attributeTypeKey": "j34-t3"}},
+    )
+    read = _draft_profile(world, draft)
+    assert read["valid"] is True, read["diagnostics"]
+    bound = {b.get("column") or "letter " + b["letter"]: b for b in read["profile"]["sources"][0]["columns"]}
+    assert bound["letter C"] == {"letter": "C", "attributeTypeKey": "j34-order"}
+    assert bound["Tag #2"]["attributeTypeKey"] == "j34-t2" and bound["letter F"]["attributeTypeKey"] == "j34-t3"
+    summary = _summary_of(world, draft, answer)["sources"][0]
+    assert (summary["rows"], summary["records"]["created"], summary["rejections"]) == (5, 5, [])
+
+    def refusal(**column):
+        body = {
+            "expectedVersion": _version(world, draft),
+            "operations": [{"kind": "ignoreColumn", "source": "tags", **column}],
+        }
+        return refused(world.api.post(f"/model-drafts/{draft['id']}/operations", body), 422, "INVALID_OPERATION")
+
+    assert refusal(letter="ZZ")["details"]["reason"] == "unknownElement"
+    assert refusal(letter="C", column="Tag")["details"]["reason"] == "invalidValue"
+    assert refusal(letter="3")["details"]["reason"] == "invalidValue"
+
+    # The same bindings in an inline dry run and in an import, read back from the records.
+    assert _dry_run(world, draft, source, workspace, read["definition"])["summary"]["sources"][0]["rejections"] == []
+    _load(world, draft, source, workspace)
+    records = ok(world.api.get("/objects/j34-tagged", workspaceKey=workspace, pageSize=50))["items"]
+    first = next(r for r in records if r["name"] == "Item 1")
+    values = {a["attributeTypeKey"]: a["value"] for a in first["attributes"]}
+    assert (values["j34-order"], values["j34-t1"], values["j34-t2"], values["j34-t3"]) == ("order 1", "10", "20", "30")
+
+
+@pytest.mark.journey("J33.18")
+@pytest.mark.structures("K")
+def test_a_whole_profile_is_set_in_one_step_and_a_value_map_is_undone_alone(world):
+    """Given W1 mapped by hand and its dry run. When the source is removed and the profile the
+    draft's profile read gave in definition is set whole, then the dry run gives the original's
+    figures and one undo takes the whole profile back; and when three value maps are set and the
+    first is undone, the other two stay."""
+    draft, book, _, _ = _onboarding(world)
+    original = _summary_of(world, draft, _map_by_hand(world, draft, book)[-1])
+    definition = _draft_profile(world, draft)["definition"]
+    removed = _step(world, draft, {"kind": "removeSource", "source": "items"})
+    assert _draft_profile(world, draft)["definition"] is None and removed["valid"] is True
+
+    whole = _step(world, draft, {"kind": "setProfile", **definition})
+    assert _draft_profile(world, draft)["definition"] == definition
+    assert _summary_of(world, draft, whole)["sources"] == original["sources"]
+    assert len(whole["entries"]) == 1 and whole["entries"][0]["inverse"]["kind"] == "restoreElements"
+
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft)}))
+    assert _draft_profile(world, draft)["definition"] is None
+
+    steps = {}
+    for name in ("first", "second", "third"):
+        answer = _step(world, draft, {"kind": "setValueMap", "name": name, "entries": {name: None}})
+        steps[name] = answer["entries"][0]["step"]
+    ok(world.api.post(f"/model-drafts/{draft['id']}/undo", {"expectedVersion": _version(world, draft), "step": steps["first"]}))
+    maps = _draft_profile(world, draft)["profile"]["valueMaps"]
+    assert sorted(maps) == ["second", "third"] and maps["third"] == {"third": None}
+
+    unknown = world.api.post(
+        f"/model-drafts/{draft['id']}/operations",
+        {"expectedVersion": _version(world, draft), "operations": [{"kind": "setProfile", "sources": [{**definition["sources"][0], "sheet": "No such sheet"}]}]},
+    )
+    assert refused(unknown, 422, "INVALID_OPERATION")["details"]["reason"] == "unknownElement"

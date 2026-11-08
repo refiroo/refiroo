@@ -6,7 +6,7 @@
 
 import type { AiTask } from "@/types";
 import { changesModel, proposalRefusal } from "./aiTaskDesign";
-import { isDesignCheck, plural } from "./aiTaskText";
+import { isDesignCheck, plural, waitingText } from "./aiTaskText";
 
 export type StepStatus = "done" | "current" | "todo" | "failed";
 
@@ -134,9 +134,12 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; ca
   if (designing || checking)
     return {
       ...base,
-      sentence: checking
-        ? "Checking every row of the file. You can leave this page."
-        : "The assistant is designing the load. You can leave this page.",
+      sentence:
+        waitingText(task.ahead) !== null
+          ? `${waitingText(task.ahead)}${task.ahead === 0 ? "" : "."} You can leave this page.`
+          : checking
+            ? "Checking every row of the file. You can leave this page."
+            : "The assistant is designing the load. You can leave this page.",
       primary: { label: "Show progress", action: "openTask" },
     };
   if ((proposing || (checked && !design?.questions.length && !reviewModel)) && !canLoad)

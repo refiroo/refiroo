@@ -104,6 +104,18 @@ def column_path(source: dict[str, Any], binding: dict[str, Any], profile: Docume
     return [*source_path(source), "columns", profile.identity(binding)]
 
 
+def named_by(binding: dict[str, Any]) -> dict[str, Any]:
+    """The member that names a binding's column: ``column`` (its header) or ``letter`` (0.13 AQ)."""
+    return {name: binding[name] for name in ("column", "letter") if name in binding}
+
+
+def reference(binding: dict[str, Any]) -> str | None:
+    """A binding's column as one comparable text, whether it names it by header or by letter."""
+    if binding.get("column") is not None:
+        return binding["column"]
+    return f"letter {binding['letter']}" if binding.get("letter") is not None else None
+
+
 def binding_kind(binding: dict[str, Any]) -> str:
     for name in ("field", "attributeTypeKey", "parent", "relation", "relationFlags", "relatedRecord", "ignore"):
         if binding.get(name) is not None:
@@ -181,8 +193,8 @@ def move_columns(profile: Document, attribute_key: str, source_type: str, target
         for binding in list(source.get("columns") or []):
             if binding.get("attributeTypeKey") != attribute_key:
                 continue
-            taken = {b.get("column") for b in target.get("columns") or []}
-            if binding.get("column") in taken:
+            taken = {reference(b) for b in target.get("columns") or []}
+            if reference(binding) in taken:
                 continue
             moved = profile.remove([*source_path(source), "columns"], profile.identity(binding))
             profile.insert([*source_path(target), "columns"], moved)
@@ -215,7 +227,7 @@ def split_columns(
             profile.insert(
                 [*source_path(source), "columns"],
                 {
-                    "column": key["column"],
+                    **named_by(key),
                     "relation": {
                         "relationTypeKey": relation_key,
                         "objectTypeKey": new_type,
@@ -236,7 +248,7 @@ def list_lookup(profile: Document, owner: str, attribute_key: str, list_type: st
             if binding.get("attributeTypeKey") != attribute_key:
                 continue
             replaced = {
-                "column": binding["column"],
+                **named_by(binding),
                 "relation": {
                     "relationTypeKey": relation_key,
                     "objectTypeKey": list_type,
@@ -312,7 +324,10 @@ def unmap(profile: Document, source: dict[str, Any], binding: dict[str, Any], be
     """A source's binding taken out and kept as an unmapped entry, with the operation that took it."""
     profile.remove([*source_path(source), "columns"], profile.identity(binding))
     entry = {"sheet": source.get("sheet"), "source": source["id"], "binding": binding}
-    entry["column" if "column" in binding else "columns"] = binding.get("column", binding.get("columns"))
+    if "columns" in binding:
+        entry["columns"] = binding["columns"]
+    else:
+        entry.update(named_by(binding))
     _unmapped(profile, entry, because)
 
 
@@ -325,7 +340,7 @@ def unmap_key(profile: Document, source: dict[str, Any], because: str) -> None:
 
 def _unmapped(profile: Document, entry: dict[str, Any], because: str) -> None:
     """An unmapped entry, named ``<source>/<column>`` (``/key``, ``/source``), replacing an older one."""
-    label = entry.get("column") or ",".join(entry.get("columns") or []) or next(
+    label = entry.get("column") or entry.get("letter") or ",".join(entry.get("columns") or []) or next(
         (part for part in ("key", "parent") if part in entry), "source"
     )
     entry_id = f"{entry['source']}/{label}"

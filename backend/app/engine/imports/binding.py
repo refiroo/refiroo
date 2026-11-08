@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from openpyxl.utils.cell import column_index_from_string
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import cast, column, insert, select, table, text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -186,11 +187,42 @@ class _Mismatch:
             )
 
 
+def _lettered(
+    source: Source, found: Table, columns: dict[str, int], at: str, mismatch: _Mismatch
+) -> Source:
+    """The source with each binding that names its column by a letter (0.13 AQ) naming it by the
+    header the letter holds, or, for a column whose header cell is empty, by ``Column AJ``, which is
+    added to ``columns``. A letter beyond the table's last column is added to ``mismatch``."""
+    if not any(binding.letter is not None for binding in source.columns):
+        return source
+    named: dict[int, str] = {}
+    for name, position in columns.items():
+        named.setdefault(position, name)
+    resolved = []
+    for index, binding in enumerate(source.columns):
+        if binding.letter is None:
+            resolved.append(binding)
+            continue
+        position = column_index_from_string(binding.letter) - found.first_column
+        if not 0 <= position < len(found.header):
+            mismatch.add(
+                f"{at}/columns/{index}/letter",
+                "COLUMN_NOT_FOUND",
+                f"The header row has no column {binding.letter}",
+            )
+            resolved.append(binding)
+            continue
+        name = named.get(position) or f"Column {binding.letter}"
+        columns.setdefault(name, position)
+        resolved.append(binding.model_copy(update={"column": name, "letter": None}))
+    return source.model_copy(update={"columns": resolved})
+
+
 def _source_columns(
     book: TabularFile, source: Source, at: str, xlsx: bool, mismatch: _Mismatch
-) -> Any:
-    """The columns of the source's table, its missing sheet, header row and columns added to
-    ``mismatch``; ``None`` when there is no table to read."""
+) -> tuple[dict[str, int], Source] | None:
+    """The columns of the source's table and the source with its letters resolved, its missing
+    sheet, header row and columns added to ``mismatch``; ``None`` when there is no table to read."""
     if xlsx and source.sheet is not None and source.sheet not in book.sheet_names:
         mismatch.add(
             f"{at}/sheet",
@@ -207,10 +239,11 @@ def _source_columns(
         )
         return None
     columns = found.columns()
+    source = _lettered(source, found, columns, at, mismatch)
     for path, name in named_columns(source, at):
         if name not in columns:
             mismatch.add(path, "COLUMN_NOT_FOUND", f"The header has no column '{name}'")
-    return columns
+    return columns, source
 
 
 def source_mismatch(book: TabularFile, source: Source, at: str) -> list[dict[str, str]]:
@@ -898,9 +931,10 @@ class _ProfileBinding:
         for position, index in enumerate(order):
             source = self.profile.sources[index]
             at = f"/sources/{index}"
-            columns = _source_columns(book, source, at, xlsx, mismatch)
-            if columns is None:
+            found = _source_columns(book, source, at, xlsx, mismatch)
+            if found is None:
                 continue
+            columns, source = found
             sheet = (source.sheet or book.sheet_names[0]) if xlsx else book.sheet_names[0]
             plans.append(_Plan(index, position, source, sheet, columns))
             self.report.source(position, sheet, source.objectTypeKey)

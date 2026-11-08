@@ -2,7 +2,8 @@
 
 They change the draft's profile only, never its model, and are additive. Each names a source by
 the ``id`` the draft's profile gives it (``addSource`` generates one from the sheet and the type,
-A-D6), a column by its header text and a sheet by its name in the draft's profiled source file;
+A-D6), a column by its header text (``column``) or its sheet letter (``letter``, 0.13 AQ) and a
+sheet by its name in the draft's profiled source file;
 a sheet or column the file lacks is refused ``unknownElement``, as is any mapping kind on a draft
 without a profiled file. Bindings are written in the import profile's own vocabulary (API.md,
 import profiles), so what an integrator reads back is what ``POST /imports`` takes.
@@ -14,18 +15,24 @@ dependants (D8).
 """
 
 import copy
+import re
 from typing import Any
 
 from openpyxl.utils.cell import column_index_from_string
 from pydantic import ValidationError
 
-from ....models.imports import ColumnBinding, FixedParent
+from ....models.imports import COLUMN_LETTERS, ColumnBinding, FixedParent, Source
 from . import profile_side
 from .document import Refusal
 from .keys import key_from_label
 from .kinds import Applied, Context, Params, atom, kind, restoring
 
 READINGS = ("text", "lookup", "relation", "relationFlag")
+
+
+class Letter(str):
+    """A column named by its sheet letter: it reaches a column whose header cell is empty (0.13 AQ).
+    A column named by its header is a plain ``str``."""
 
 
 def _ensure_profile(context: Context) -> None:
@@ -57,6 +64,17 @@ def _source(context: Context, source_id: Any, field: str = "source") -> dict[str
     return found
 
 
+def _repeated(headers: tuple[str, ...]) -> set[str]:
+    """The names the import's reader gives a header that repeats: ``Checklist #2``, ``#3``."""
+    seen: dict[str, int] = {}
+    names: set[str] = set()
+    for header in headers:
+        seen[header] = seen.get(header, 0) + 1
+        if seen[header] > 1:
+            names.add(f"{header} #{seen[header]}")
+    return names
+
+
 def _column(context: Context, source: dict[str, Any], column: Any, field: str = "column") -> str:
     sheet = _sheet(context, source.get("sheet"), field)
     own_row = source.get("headerRow")
@@ -69,9 +87,44 @@ def _column(context: Context, source: dict[str, Any], column: Any, field: str = 
         and column in sheet.row(own_row).values()
     ):
         return column
-    if not isinstance(column, str) or column not in sheet.headers:
+    if not isinstance(column, str) or (
+        column not in sheet.headers and column not in _repeated(sheet.headers)
+    ):
         raise Refusal(field, "unknownElement", f"Sheet '{sheet.name}' has no column '{column}'")
     return column
+
+
+def _ref(context: Context, source: dict[str, Any], raw: dict[str, Any], field: str = "column") -> str:
+    """The column an operation names, by ``column`` (its header) or ``letter`` (its sheet letter,
+    a :class:`Letter`); exactly one of the two."""
+    letter = raw.get("letter")
+    if letter is None:
+        return _column(context, source, raw.get("column"), field)
+    if raw.get("column") is not None:
+        raise Refusal("letter", "invalidValue", "Name the column by 'column' or by 'letter', not both")
+    sheet = _sheet(context, source.get("sheet"), "letter")
+    if not isinstance(letter, str) or not re.fullmatch(COLUMN_LETTERS, letter):
+        raise Refusal("letter", "invalidValue", "'letter' is a sheet column letter, such as AJ")
+    if sheet.letters and letter not in sheet.letters:
+        raise Refusal("letter", "unknownElement", f"Sheet '{sheet.name}' has no column {letter}")
+    return Letter(letter)
+
+
+def _is(binding: dict[str, Any], column: str) -> bool:
+    """Whether ``binding`` is the one of ``column``, named as it names its column."""
+    if isinstance(column, Letter):
+        return binding.get("letter") == column
+    return binding.get("column") == column or column in (binding.get("columns") or [])
+
+
+def _naming(column: str, binding: dict[str, Any]) -> dict[str, Any]:
+    """``binding`` with the member that names ``column``, first."""
+    rest = {k: v for k, v in binding.items() if k not in ("column", "letter")}
+    return {"letter": str(column), **rest} if isinstance(column, Letter) else {"column": column, **rest}
+
+
+def _unnamed(binding: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in binding.items() if k not in ("column", "letter")}
 
 
 def _named(source: dict[str, Any], binding: dict[str, Any] | None = None) -> set[str]:
@@ -102,7 +155,7 @@ def _named(source: dict[str, Any], binding: dict[str, Any] | None = None) -> set
 def _checked(context: Context, source: dict[str, Any], column: str, binding: dict[str, Any], field: str) -> dict[str, Any]:
     """A column binding in the profile's vocabulary, its shape checked as an import's and every
     element it names declared by the draft's model."""
-    candidate = {**binding, "column": column} if "relationFlags" not in binding else binding
+    candidate = _naming(column, binding) if "relationFlags" not in binding else binding
     try:
         ColumnBinding.model_validate(candidate)
     except ValidationError as exc:
@@ -143,10 +196,10 @@ def _unbind(context: Context, source: dict[str, Any], column: str) -> int | None
     columns = [*profile_side.source_path(source), "columns"]
     position = None
     for index, binding in enumerate(list(source.get("columns") or [])):
-        if binding.get("column") == column:
+        if "columns" not in binding and _is(binding, column):
             position = index
             profile.remove(columns, profile.identity(binding))
-        elif column in (binding.get("columns") or []):
+        elif not isinstance(column, Letter) and column in (binding.get("columns") or []):
             position = index
             remaining = [name for name in binding["columns"] if name != column]
             flags = copy.deepcopy(binding)
@@ -156,7 +209,7 @@ def _unbind(context: Context, source: dict[str, Any], column: str) -> int | None
                 flags["relationFlags"]["targets"].pop(column, None)
                 profile.insert(columns, flags, index)
     for entry in list(profile.data.get("unmapped") or []):
-        if entry.get("source") == source["id"] and column in (entry.get("column"), *(entry.get("columns") or [])):
+        if entry.get("source") == source["id"] and _is(entry, column):
             profile.remove(["unmapped"], {"id": entry["id"]})
     return position
 
@@ -170,7 +223,7 @@ def _bind(context: Context, source: dict[str, Any], column: str, binding: dict[s
 
 def _current(source: dict[str, Any], column: str) -> dict[str, Any] | None:
     for binding in source.get("columns") or []:
-        if binding.get("column") == column or column in (binding.get("columns") or []):
+        if _is(binding, column):
             return binding
     return None
 
@@ -214,21 +267,103 @@ def _done(context: Context, raw: dict[str, Any], name: str, named: set[str], cre
 # --- sources ---
 
 
-@kind("setProfile")
+@kind("setProfile", params=("key", "name", "sources", "valueMaps"))
 def set_profile(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("key", "name"))
+    """Set the draft's import profile: its key and name, or the whole profile (`sources` and `valueMaps`, as `GET /model-drafts/{id}/profile` answers them in `definition`) in one undoable step."""
+    params = Params(raw)
     _ensure_profile(context)
-    if "key" not in raw and "name" not in raw:
-        raise Refusal("name", "missingParameter", "Name key or name")
+    if not raw:
+        raise Refusal("name", "missingParameter", "Name key, name, sources or valueMaps")
     for name in ("key", "name"):
         if name in raw:
             context.profile.set([], name, params.text(name))
-    return _done(context, raw, "setProfile", set())
+    named: set[str] = set()
+    created: set[str] = set()
+    if "valueMaps" in raw:
+        context.profile.set([], "valueMaps", _value_maps(params.required("valueMaps", dict)))
+    if "sources" in raw:
+        named, created = _replace_sources(context, params.required("sources", list))
+    return _done(context, raw, "setProfile", named, created)
 
 
-@kind("addSource")
+def _value_maps(maps: dict[str, Any]) -> dict[str, Any]:
+    for name, entries in maps.items():
+        if not isinstance(entries, dict):
+            raise Refusal(f"valueMaps/{name}", "invalidValue", "A value map is an object of text to a value")
+        for text_value, value in entries.items():
+            if value is not None and not isinstance(value, str | int | float | bool):
+                raise Refusal(f"valueMaps/{name}/{text_value}", "invalidValue", "A value map gives a value or null")
+    return copy.deepcopy(maps)
+
+
+def _whole_key(context: Context, key: dict[str, Any], source: dict[str, Any], found: Any, field: str) -> dict[str, Any]:
+    """A source's key as the import profile states it (any form of it), its columns the file's and
+    its attributes the type's."""
+    for name in ("column", "versionColumn", "nameColumn"):
+        if key.get(name) is not None:
+            _column(context, source, key[name], f"{field}/{name}")
+    attributes = [key["attributeTypeKey"]] if key.get("attributeTypeKey") else []
+    for attribute in [*attributes, *(key.get("attributeTypeKeys") or [])]:
+        if not found.bound(source["objectTypeKey"], attribute):
+            raise Refusal(f"{field}/attributeTypeKey", "unknownElement", f"'{source['objectTypeKey']}' does not bind '{attribute}'")
+    return copy.deepcopy(key)
+
+
+def _replace_sources(context: Context, given: list[Any]) -> tuple[set[str], set[str]]:
+    """The profile's sources replaced by ``given``, each checked as ``addSource`` and ``mapColumn``
+    check theirs; a source's ``id`` is made from its sheet and type, one sent is ignored, and the
+    profile's unmapped entries go with the sources they named (0.13 AQ)."""
+    found = profile_side.facts(context.data)
+    context.profile.set([], "sources", [])
+    context.profile.set([], "unmapped", None)
+    named: set[str] = set()
+    created: set[str] = set()
+    for position, item in enumerate(given):
+        field = f"sources/{position}"
+        if not isinstance(item, dict):
+            raise Refusal(field, "invalidValue", "A source is an object")
+        try:
+            Source.model_validate({k: v for k, v in item.items() if k != "id"})
+        except ValidationError as exc:
+            first = exc.errors()[0]
+            where = "/".join(str(part) for part in first["loc"])
+            raise Refusal(f"{field}/{where}".rstrip("/"), "invalidValue", f"Not a source: {first['msg']}") from exc
+        sheet = _sheet(context, item.get("sheet"), f"{field}/sheet")
+        type_key = item["objectTypeKey"]
+        if type_key not in found.types:
+            raise Refusal(f"{field}/objectTypeKey", "unknownElement", f"No object type '{type_key}'")
+        if type_key not in found.applications.get(item["applicationKey"], set()):
+            raise Refusal(f"{field}/applicationKey", "unknownElement", f"'{type_key}' is not in application '{item['applicationKey']}'")
+        source: dict[str, Any] = {
+            "id": profile_side.new_source_id(context.profile, sheet.name, type_key),
+            **{k: copy.deepcopy(v) for k, v in item.items() if k not in ("id", "key", "parent")},
+        }
+        for index, binding in enumerate(source["columns"]):
+            where = f"{field}/columns/{index}"
+            if "columns" in binding:
+                for name in binding["columns"]:
+                    _column(context, source, name, f"{where}/columns")
+            else:
+                _ref(context, source, binding, where)
+            if not profile_side.binding_resolves(found, source, binding):
+                raise Refusal(where, "unknownElement", "The binding names an element the draft's model does not declare or allow")
+            named |= _named(source, binding)
+        if item.get("key") is not None:
+            source["key"] = _whole_key(context, item["key"], source, found, f"{field}/key")
+        if item.get("parent") is not None:
+            source["parent"] = _source_parent(context, item["parent"], source)
+        context.profile.insert(["sources"], source)
+        if sheet.name in (context.profile.data.get("ignoredSheets") or []):
+            context.profile.remove(["ignoredSheets"], {"value": sheet.name})
+        named |= _named(source)
+        created.add(f"source:{source['id']}")
+    return named, created
+
+
+@kind("addSource", params=("id", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "parent", "position"))
 def add_source(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("id", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "parent", "position"))
+    """Add a source: the rows of a sheet (or a block of it) that load one object type, with no columns yet."""
+    params = Params(raw)
     sheet = _sheet(context, raw.get("sheet"))
     type_key = params.text("objectType")
     found = profile_side.facts(context.data)
@@ -270,9 +405,10 @@ def add_source(context: Context, raw: dict[str, Any]) -> Applied:
     return _done(context, stored, "addSource", _named(source), {f"source:{source['id']}"})
 
 
-@kind("setSource")
+@kind("setSource", params=("source", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "record", "rowsWithoutKey", "parent"))
 def set_source(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("source", "sheet", "headerRow", "block", "applicationKey", "objectType", "key", "record", "rowsWithoutKey", "parent"))
+    """Change a source's sheet, header row, block, type, key, record handling or fixed parent."""
+    params = Params(raw)
     source = _source(context, raw.get("source"))
     path = profile_side.source_path(source)
     found = profile_side.facts(context.data)
@@ -397,20 +533,20 @@ def _follow_columns(context: Context, source: dict[str, Any], header_row: Any, b
             context.profile.set([*profile_side.source_path(source), "key"], "column", target)
 
 
-@kind("removeSource")
+@kind("removeSource", params=("source",))
 def remove_source(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("source",))
+    """Remove a source and its bindings from the profile."""
     source = _source(context, raw.get("source"))
     context.profile.remove(["sources"], {"id": source["id"]})
     return _done(context, raw, "removeSource", _named(source))
 
 
-@kind("setMissing")
+@kind("setMissing", params=("source", "missing"))
 def set_missing(context: Context, raw: dict[str, Any]) -> Applied:
     """What a load does with the records of the source's type that no row names (0.10 A5c, D82):
     ``report`` them (the default) or ``delete`` them, in a change set only. Deleting needs a source
     that loads its records by a key."""
-    params = Params(raw, ("source", "missing"))
+    params = Params(raw)
     source = _source(context, raw.get("source"))
     missing = params.text("missing")
     if missing not in ("report", "delete"):
@@ -426,9 +562,9 @@ def set_missing(context: Context, raw: dict[str, Any]) -> Applied:
     return _done(context, raw, "setMissing", _named(source))
 
 
-@kind("ignoreSheet")
+@kind("ignoreSheet", params=("sheet",))
 def ignore_sheet(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("sheet",))
+    """Leave a sheet out of the load; its sources are removed."""
     sheet = _sheet(context, raw.get("sheet"))
     _ensure_profile(context)
     named: set[str] = set()
@@ -445,22 +581,24 @@ def ignore_sheet(context: Context, raw: dict[str, Any]) -> Applied:
 # --- columns ---
 
 
-@kind("mapColumn")
+@kind("mapColumn", params=("source", "column", "letter", "binding"))
 def map_column(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("source", "column", "binding"))
+    """Bind a column, named by header (`column`) or sheet letter (`letter`), to what it fills."""
+    params = Params(raw)
     source = _source(context, raw.get("source"))
-    column = _column(context, source, raw.get("column"))
+    column = _ref(context, source, raw)
     binding = params.required("binding", dict)
-    if {"column", "columns", "relationFlags", "ignore"} & set(binding):
+    if {"column", "letter", "columns", "relationFlags", "ignore"} & set(binding):
         raise Refusal("binding", "invalidValue", "A binding without its column; flags and ignore have kinds of their own")
     return _done(context, raw, "mapColumn", _bind(context, source, column, copy.deepcopy(binding), "binding"))
 
 
-@kind("setColumnReading")
+@kind("setColumnReading", params=("source", "column", "letter", "reading", "attributeTypeKey", "relationTypeKey", "objectTypeKey", "direction", "matchBy", "target"))
 def set_column_reading(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("source", "column", "reading", "attributeTypeKey", "relationTypeKey", "objectTypeKey", "direction", "matchBy", "target"))
+    """Change how a column is read: as text, a lookup, a relation or a relation flag."""
+    params = Params(raw)
     source = _source(context, raw.get("source"))
-    column = _column(context, source, raw.get("column"))
+    column = _ref(context, source, raw)
     reading = params.text("reading")
     if reading not in READINGS:
         raise Refusal("reading", "invalidValue", f"'reading' is one of {list(READINGS)}")
@@ -490,6 +628,8 @@ def set_column_reading(context: Context, raw: dict[str, Any]) -> Applied:
             if was.get(kept):
                 relation[kept] = was[kept]
         return _done(context, raw, "setColumnReading", _bind(context, source, column, {"relation": relation, **value_map}, ""))
+    if isinstance(column, Letter):
+        raise Refusal("letter", "invalidValue", "A flag column is named by its header: name it in 'column'")
     target = params.text("target")
     relation["matchBy"] = params.optional("matchBy", dict) or {"field": "name"}
     _unbind(context, source, column)
@@ -518,11 +658,12 @@ def set_column_reading(context: Context, raw: dict[str, Any]) -> Applied:
     return _done(context, raw, "setColumnReading", _named(source, joined))
 
 
-@kind("splitColumn")
+@kind("splitColumn", params=("source", "column", "letter", "delimiter"))
 def split_column(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("source", "column", "delimiter"))
+    """Make a relation column split its cells at a delimiter, or stop splitting."""
+    params = Params(raw)
     source = _source(context, raw.get("source"))
-    column = _column(context, source, raw.get("column"))
+    column = _ref(context, source, raw)
     current = _current(source, column)
     if current is None or not isinstance(current.get("relation"), dict):
         raise Refusal("column", "invalidValue", "Only a column read as a relation is split")
@@ -532,27 +673,27 @@ def split_column(context: Context, raw: dict[str, Any]) -> Applied:
         changed["relation"]["split"] = delimiter
     else:
         changed["relation"].pop("split", None)
-    return _done(context, raw, "splitColumn", _bind(context, source, column, {k: v for k, v in changed.items() if k != "column"}, "delimiter"))
+    return _done(context, raw, "splitColumn", _bind(context, source, column, _unnamed(changed), "delimiter"))
 
 
-@kind("ignoreColumn")
+@kind("ignoreColumn", params=("source", "column", "letter"))
 def ignore_column(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("source", "column"))
+    """Mark a column as ignored by the load."""
     source = _source(context, raw.get("source"))
-    column = _column(context, source, raw.get("column"))
+    column = _ref(context, source, raw)
     position = _unbind(context, source, column)
-    context.profile.insert([*profile_side.source_path(source), "columns"], {"column": column, "ignore": True}, position)
+    context.profile.insert([*profile_side.source_path(source), "columns"], _naming(column, {"ignore": True}), position)
     return _done(context, raw, "ignoreColumn", _named(source))
 
 
-@kind("addValuesToList")
+@kind("addValuesToList", params=("source", "column", "letter", "create"))
 def add_values_to_list(context: Context, raw: dict[str, Any]) -> Applied:
     """A lookup or parent column creates the records it names that do not exist (D77); a flag
     column, the records its set's flags stand for, and a related record's column, the parent it
     names (0.10 A6, D93)."""
-    params = Params(raw, ("source", "column", "create"))
+    params = Params(raw)
     source = _source(context, raw.get("source"))
-    column = _column(context, source, raw.get("column"))
+    column = _ref(context, source, raw)
     current = _current(source, column)
     path: tuple[str, ...] | None = None
     for candidate in (("relation",), ("parent",), ("relationFlags",), ("relatedRecord", "parent")):
@@ -582,18 +723,20 @@ def add_values_to_list(context: Context, raw: dict[str, Any]) -> Applied:
         _checked(context, source, column, changed, "column")
         context.profile.insert(columns_path, changed, index)
         return _done(context, raw, "addValuesToList", _named(source, changed))
-    return _done(context, raw, "addValuesToList", _bind(context, source, column, {k: v for k, v in changed.items() if k != "column"}, "column"))
+    return _done(context, raw, "addValuesToList", _bind(context, source, column, _unnamed(changed), "column"))
 
 
-@kind("unmapColumn")
+@kind("unmapColumn", params=("source", "column", "letter"))
 def unmap_column(context: Context, raw: dict[str, Any]) -> Applied:
     """The column's binding taken out of the source, also for a column the file no longer has (a
     header renamed in a newer workbook, 0.10 A6); a column not bound is left as it is."""
-    Params(raw, ("source", "column"))
     source = _source(context, raw.get("source"))
-    column = raw.get("column")
-    if not isinstance(column, str) or not column:
-        raise Refusal("column", "invalidValue", "'column' is a column's header")
+    if raw.get("letter") is not None:
+        column = _ref(context, source, raw)
+    else:
+        column = raw.get("column")
+        if not isinstance(column, str) or not column:
+            raise Refusal("column", "invalidValue", "'column' is a column's header, or name it by 'letter'")
     _unbind(context, source, column)
     return _done(context, raw, "unmapColumn", _named(source))
 
@@ -601,11 +744,18 @@ def unmap_column(context: Context, raw: dict[str, Any]) -> Applied:
 # --- values ---
 
 
-@kind("setValueMap")
+def _map_holder(context: Context) -> Any:
+    """The profile, with its ``valueMaps`` object there to be written into."""
+    if not isinstance(context.profile.data.get("valueMaps"), dict):
+        context.profile.set([], "valueMaps", {})
+    return context.profile
+
+
+@kind("setValueMap", params=("name", "entries", "source", "column", "letter"))
 def set_value_map(context: Context, raw: dict[str, Any]) -> Applied:
     """A named value map's entries (``null`` removes the map and its uses); with ``source`` and
     ``column``, that column reads through it."""
-    params = Params(raw, ("name", "entries", "source", "column"))
+    params = Params(raw)
     name = params.text("name")
     entries = params.optional("entries", dict)
     _ensure_profile(context)
@@ -614,23 +764,24 @@ def set_value_map(context: Context, raw: dict[str, Any]) -> Applied:
         for text_value, value in entries.items():
             if value is not None and not isinstance(value, str | int | float | bool):
                 raise Refusal(f"entries/{text_value}", "invalidValue", "A value map gives a value or null")
-        context.profile.set([], "valueMaps", {**maps, name: entries})
+        # The one map is the change, so its undo leaves the others as they are (0.13 AQ).
+        _map_holder(context).set(["valueMaps"], name, entries)
     elif name in maps:
         for source in profile_side.sources(context.profile):
             for binding in source.get("columns") or []:
                 if binding.get("valueMap") == name:
                     context.profile.set(profile_side.column_path(source, binding, context.profile), "valueMap", None)
-        context.profile.set([], "valueMaps", {k: v for k, v in maps.items() if k != name})
+        _map_holder(context).set(["valueMaps"], name, None)
     else:
         raise Refusal("name", "unknownElement", f"No value map '{name}'")
     named: set[str] = set()
-    if "source" in raw or "column" in raw:
+    if "source" in raw or "column" in raw or "letter" in raw:
         if entries is None:
             raise Refusal("entries", "missingParameter", "A column reads through a map that exists")
         source = _source(context, raw.get("source"))
-        column = _column(context, source, raw.get("column"))
+        column = _ref(context, source, raw)
         current = _current(source, column)
-        if current is None or "column" not in current:
+        if current is None or "columns" in current:
             raise Refusal("column", "invalidValue", "Map the column before it reads through a value map")
         context.profile.set(profile_side.column_path(source, current, context.profile), "valueMap", name)
         named = _named(source)

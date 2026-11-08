@@ -308,6 +308,100 @@ def test_stopping_returns_to_the_last_proposal_and_before_any_proposal_gives_sto
     assert gone["state"] == "cancelled" and gone["canTell"] is False
 
 
+@pytest.mark.journey("J50.63")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_session_over_the_limit_ends_as_a_stop_with_its_own_note_and_no_traceback(
+    world, tmp_path, monkeypatch, caplog
+):
+    """Given a session that outlasts AI_AGENT_TIMEOUT_SECONDS, then the turn is stopped as a person's
+    Stop is: before any proposal the task is stopped and takes words; after a proposal it is back at
+    that proposal, its draft kept; the note says the session took longer than the limit; the job is
+    cancelled, never failed; the log has one warning line and no traceback."""
+    from app.engine.tasks import agent
+
+    monkeypatch.setattr(agent, "timeout_seconds", lambda: 3)
+    ledgers = Ledgers(world)
+    way = Way(world, tmp_path, monkeypatch, ledgers)
+
+    def over_the_limit(start):
+        (way.dir / "hold").touch()
+        caplog.clear()
+        try:
+            start()
+            _run(world)
+        finally:
+            (way.dir / "hold").unlink()
+        slow = [r for r in caplog.records if "longer than" in r.getMessage()]
+        assert len(slow) == 1 and slow[0].levelname == "WARNING"
+        assert not [r for r in caplog.records if r.exc_info]
+
+    started = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
+    over_the_limit(lambda: None)
+    stopped = _task(world, started)
+    assert stopped["state"] == "stopped" and stopped["canTell"] is True
+    assert any("longer than the limit" in n["text"] for n in stopped["notes"])
+    assert not any("internal error" in n["text"] for n in stopped["notes"])
+    job = ok(world.api.get(f"/jobs/{started['jobId']}"))
+    assert job["state"] == "cancelled" and job["error"] is None
+
+    way.draft()
+    proposed = _words(world, stopped, "Make it so", route="retry")
+    assert proposed["state"] == "checked"
+    summary = proposed["design"]["summary"]
+
+    def correct():
+        ok(
+            world.api.post(
+                f"/ai/tasks/{proposed['id']}/model",
+                {"expectedVersion": proposed["version"], "correction": "Another way"},
+            ),
+            202,
+        )
+
+    over_the_limit(correct)
+    back = _task(world, proposed)
+    assert back["state"] == "checked" and back["design"]["summary"] == summary
+    assert back["draftId"] == proposed["draftId"]
+    assert any("longer than the limit" in n["text"] for n in back["notes"])
+    assert not any("You stopped" in n["text"] for n in back["notes"])
+    assert ok(world.api.get(f"/jobs/{back['jobId']}"))["state"] == "cancelled"
+    went_on = _words(world, back, "Go on in another way")
+    assert went_on["state"] == "checked"
+
+
+@pytest.mark.journey("J50.65")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_task_queued_behind_a_running_one_says_how_many_are_ahead_until_it_runs(
+    world, tmp_path, monkeypatch
+):
+    """Given one task whose session is running and a second queued behind it, then the second reads
+    ahead 1 and the first null; once the first is stopped and the second runs, ahead is null."""
+    ledgers = Ledgers(world)
+    way = Way(world, tmp_path, monkeypatch, ledgers)
+    state = world.api.client.app.state
+    (way.dir / "hold").touch()
+    first = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
+    second = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
+    assert first["ahead"] == 0 and second["ahead"] == 1
+    with ThreadPoolExecutor(1) as pool:
+        session = pool.submit(state.assistant_worker.run_until_idle)
+        deadline = time.monotonic() + 60
+        while not (way.dir / "holding").exists():
+            assert time.monotonic() < deadline and not session.done()
+            time.sleep(0.1)
+        assert _task(world, first)["ahead"] is None
+        waiting = _task(world, second)
+        assert waiting["state"] == "reading" and waiting["ahead"] == 1
+        listed = {t["id"]: t for t in _all(world, "/ai/tasks")}
+        assert listed[second["id"]]["ahead"] == 1
+        ok(world.api.post(f"/ai/tasks/{first['id']}/cancel", {}), 202)
+        (way.dir / "hold").unlink()
+        session.result(timeout=120)
+    done = _task(world, second)
+    assert done["state"] == "checked" and done["ahead"] is None
+    assert _task(world, first)["ahead"] is None
+
+
 @pytest.mark.journey("J50.55")
 @pytest.mark.structures(*STRUCTURES)
 def test_stopping_a_load_leaves_no_change_set_and_returns_to_the_accepted_proposal(

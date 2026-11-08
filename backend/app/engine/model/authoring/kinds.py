@@ -111,6 +111,9 @@ class Sheet:
     header_row: int | None
     headers: tuple[str, ...]
     row: Callable[[int], dict[int, str]] | None = field(default=None, compare=False)
+    # The letters of the columns the file's profile found on the sheet (a column named by its letter,
+    # 0.13 AQ); empty when not known.
+    letters: frozenset[str] = field(default=frozenset(), compare=False)
 
 
 class Context:
@@ -214,13 +217,20 @@ class Context:
         return [a["key"] for a in self.document.items("applications") if type_key in (a.get("objectTypeKeys") or [])]
 
 
+def check_names(raw: dict[str, Any], allowed: tuple[str, ...]) -> None:
+    unknown = [name for name in raw if name not in allowed]
+    if unknown:
+        raise Refusal(unknown[0], "unknownParameter", f"Unknown parameter '{unknown[0]}'")
+
+
 class Params:
     """An operation's parameters, checked by name and type; anything else is refused."""
 
-    def __init__(self, raw: dict[str, Any], allowed: tuple[str, ...]) -> None:
-        unknown = [name for name in raw if name not in allowed]
-        if unknown:
-            raise Refusal(unknown[0], "unknownParameter", f"Unknown parameter '{unknown[0]}'")
+    def __init__(self, raw: dict[str, Any], allowed: tuple[str, ...] | None = None) -> None:
+        """``allowed``: the names a nested object may carry; an operation's own names are checked by
+        :func:`apply_operation` against the ones its kind declares."""
+        if allowed is not None:
+            check_names(raw, allowed)
         self.raw = raw
 
     def required(self, name: str, kind: type | tuple[type, ...] = str) -> Any:
@@ -245,13 +255,19 @@ class Params:
 
 KindFunction = Callable[[Context, dict[str, Any]], Applied]
 KINDS: dict[str, KindFunction] = {}
+# The parameter names each kind allows: the one place they are declared, checked before a kind runs
+# and described in the OpenAPI document (0.13 AQ).
+PARAMETERS: dict[str, tuple[str, ...]] = {}
 # Kinds a request may not send: they are written by the server (PATCH, undo).
 INTERNAL_KINDS = {"replaceModel", "restoreElements"}
 
 
-def kind(name: str) -> Callable[[KindFunction], KindFunction]:
+def kind(name: str, *, params: tuple[str, ...]) -> Callable[[KindFunction], KindFunction]:
+    """Register an operation kind with the parameter names it allows; its docstring describes it."""
+
     def register(function: KindFunction) -> KindFunction:
         KINDS[name] = function
+        PARAMETERS[name] = params
         return function
 
     return register
@@ -262,6 +278,7 @@ def apply_operation(context: Context, operation: dict[str, Any]) -> Applied:
     if not isinstance(name, str) or name not in KINDS:
         raise Refusal("kind", "unknownKind", f"Unknown operation kind '{name}'")
     parameters = {key: value for key, value in operation.items() if key != "kind"}
+    check_names(parameters, PARAMETERS[name])
     return KINDS[name](context, parameters)
 
 
@@ -355,8 +372,9 @@ def _group_path(context: Context, app: Any, group: Any, name: str = "") -> Path:
     return path
 
 
-@kind("setLabel")
+@kind("setLabel", params=("element", "name", "description", "icon", "color", "pluralName", "title", "label"))
 def set_label(context: Context, raw: dict[str, Any]) -> Applied:
+    """Change the labels of an element named by `element`: the fields that kind of element has (name, description, icon, colour, plural name, title or label)."""
     element_kind, path, element = element_reference(context, raw.get("element"))
     allowed = _LABEL_FIELDS[element_kind]
     params = Params(raw, ("element", *allowed))
@@ -381,10 +399,11 @@ def _rename_scope(element_kind: str, raw: dict[str, Any]) -> Callable[[Any], boo
     return None
 
 
-@kind("setKey")
+@kind("setKey", params=("element", "key", "reverseKey"))
 def set_key(context: Context, raw: dict[str, Any]) -> Applied:
+    """Give an element a new key; references to it are rewritten. Only an element the base release does not hold."""
     element_kind, path, element = element_reference(context, raw.get("element"))
-    params = Params(raw, ("element", "key", "reverseKey"))
+    params = Params(raw)
     new = params.text("key")
     reference = raw["element"]
     old = context.document.at(path).get("key")
@@ -430,9 +449,10 @@ def set_key(context: Context, raw: dict[str, Any]) -> Applied:
     return Applied(raw, inverse, rekeyed={new_atom}, named={element})
 
 
-@kind("setRelease")
+@kind("setRelease", params=("key", "name", "version", "schemaVersion"))
 def set_release(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("key", "name", "version", "schemaVersion"))
+    """Set the draft's release identity: key, name, version and schema version."""
+    params = Params(raw)
     if not isinstance(context.data.get("release"), dict):
         context.document.set([], "release", {})
     old = {name: context.data["release"].get(name) for name in ("key", "name", "version") if name in raw}
@@ -455,9 +475,10 @@ def set_release(context: Context, raw: dict[str, Any]) -> Applied:
 # --- applications ---
 
 
-@kind("addApplication")
+@kind("addApplication", params=("key", "name", "description", "icon", "color", "position"))
 def add_application(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("key", "name", "description", "icon", "color", "position"))
+    """Add an application, with a key generated from its name when `key` is left out."""
+    params = Params(raw)
     name = params.text("name")
     key = context.new_key(params, "key", name, context.keys("applications"))
     application: dict[str, Any] = {"key": key, "name": name}
@@ -474,9 +495,10 @@ def add_application(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeApplication")
+@kind("removeApplication", params=("applicationKey",))
 def remove_application(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("applicationKey",))
+    """Remove an application."""
+    params = Params(raw)
     key = params.text("applicationKey")
     application = context.application(key)
     context.unreleased(atom("application", key))
@@ -584,11 +606,11 @@ def _optional(raw: Any) -> bool:
     return isinstance(raw, dict) and raw.get("optional") is True
 
 
-@kind("addObjectType")
+@kind("addObjectType", params=("applicationKey", "key", "name", "pluralName", "parent", "displayAttribute", "description", "icon", "layout"))
 def add_object_type(context: Context, raw: dict[str, Any]) -> Applied:
+    """Add an object type to an application."""
     params = Params(
         raw,
-        ("applicationKey", "key", "name", "pluralName", "parent", "displayAttribute", "description", "icon", "layout"),
     )
     app = params.text("applicationKey")
     context.application(app)
@@ -682,9 +704,10 @@ def _drop_unbound_attribute(context: Context, attribute_key: str, gone: Gone) ->
         gone.attribute_types.add(attribute_key)
 
 
-@kind("removeObjectType")
+@kind("removeObjectType", params=("objectType",))
 def remove_object_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType",))
+    """Remove an object type."""
+    params = Params(raw)
     key = params.text("objectType")
     context.object_type(key)
     context.unreleased(atom("objectType", key))
@@ -696,9 +719,10 @@ def remove_object_type(context: Context, raw: dict[str, Any]) -> Applied:
     return restoring(context, {"kind": "removeObjectType", **raw}, Applied(raw, {}, named={atom("objectType", key)}))
 
 
-@kind("splitObjectType")
+@kind("splitObjectType", params=("objectType", "key", "name", "pluralName", "attributes", "relationType", "cardinality"))
 def split_object_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType", "key", "name", "pluralName", "attributes", "relationType", "cardinality"))
+    """Split an object type: some of its attributes move to a new type."""
+    params = Params(raw)
     source = params.text("objectType")
     context.object_type(source)
     moved = params.required("attributes", list)
@@ -741,9 +765,10 @@ def split_object_type(context: Context, raw: dict[str, Any]) -> Applied:
     return restoring(context, {"kind": "splitObjectType", **stored}, applied)
 
 
-@kind("mergeObjectTypes")
+@kind("mergeObjectTypes", params=("into", "from"))
 def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("into", "from"))
+    """Merge one object type into another."""
+    params = Params(raw)
     into, source = params.text("into"), params.text("from")
     context.object_type(into, "into")
     context.object_type(source, "from")
@@ -831,9 +856,10 @@ def _merge_consumer_references(document: Document, into: str, source: str) -> No
     rename(document, "objectType", source, into, within=lambda slot: slot.path[:1] == ["consumerApis"])
 
 
-@kind("convertAttributeToListType")
+@kind("convertAttributeToListType", params=("objectType", "attributeType", "key", "name", "pluralName", "relationType"))
 def convert_attribute_to_list_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType", "attributeType", "key", "name", "pluralName", "relationType"))
+    """Turn an attribute of an object type into a list type, read as a lookup by name."""
+    params = Params(raw)
     owner, attribute_key = params.text("objectType"), params.text("attributeType")
     context.binding(owner, attribute_key)
     context.unreleased(atom("attributeBinding", owner, attribute_key))
@@ -886,9 +912,10 @@ def _features(raw: Any, name: str = "features") -> dict[str, Any]:
     return dict(raw)
 
 
-@kind("addAttributeType")
+@kind("addAttributeType", params=("key", "name", "valueType", "features", "validation", "description"))
 def add_attribute_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("key", "name", "valueType", "features", "validation", "description"))
+    """Add a global attribute type."""
+    params = Params(raw)
     name = params.text("name")
     value_type = params.optional("valueType", str, "text")
     if value_type not in VALUE_TYPES:
@@ -911,9 +938,10 @@ def add_attribute_type(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeAttributeType")
+@kind("removeAttributeType", params=("attributeType",))
 def remove_attribute_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("attributeType",))
+    """Remove a global attribute type."""
+    params = Params(raw)
     key = params.text("attributeType")
     context.attribute_type(key)
     bound = any(
@@ -927,9 +955,10 @@ def remove_attribute_type(context: Context, raw: dict[str, Any]) -> Applied:
     return restoring(context, {"kind": "removeAttributeType", **raw}, Applied(raw, {}, named={atom("attributeType", key)}))
 
 
-@kind("setAttributeTypeFeatures")
+@kind("setAttributeTypeFeatures", params=("attributeType", "features"))
 def set_attribute_type_features(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("attributeType", "features"))
+    """Replace the features of an attribute type."""
+    params = Params(raw)
     key = params.text("attributeType")
     attribute = context.attribute_type(key)
     changes = _features(params.required("features", dict))
@@ -946,9 +975,10 @@ def set_attribute_type_features(context: Context, raw: dict[str, Any]) -> Applie
     return Applied(raw, {"kind": "setAttributeTypeFeatures", "attributeType": key, "features": old}, named={atom("attributeType", key)})
 
 
-@kind("setValueType")
+@kind("setValueType", params=("attributeType", "valueType", "validation"))
 def set_value_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("attributeType", "valueType", "validation"))
+    """Change an attribute type's value type and its validation."""
+    params = Params(raw)
     key = params.text("attributeType")
     attribute = context.attribute_type(key)
     # ``null`` is the default, text, left unwritten (as an inverse writes it back).
@@ -964,9 +994,10 @@ def set_value_type(context: Context, raw: dict[str, Any]) -> Applied:
     return Applied(raw, inverse, named={atom("attributeType", key)})
 
 
-@kind("attachAttribute")
+@kind("attachAttribute", params=("objectType", "attributeType", "required", "readOnly", "position", "layout"))
 def attach_attribute(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType", "attributeType", "required", "readOnly", "position", "layout"))
+    """Bind an attribute type to an object type."""
+    params = Params(raw)
     type_key, attribute_key = params.text("objectType"), params.text("attributeType")
     object_type = context.object_type(type_key)
     context.attribute_type(attribute_key)
@@ -994,9 +1025,10 @@ def attach_attribute(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("detachAttribute")
+@kind("detachAttribute", params=("objectType", "attributeType"))
 def detach_attribute(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType", "attributeType"))
+    """Remove an attribute type's binding from an object type."""
+    params = Params(raw)
     type_key, attribute_key = params.text("objectType"), params.text("attributeType")
     context.binding(type_key, attribute_key)
     context.unreleased(atom("attributeBinding", type_key, attribute_key))
@@ -1009,9 +1041,10 @@ def detach_attribute(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("moveAttribute")
+@kind("moveAttribute", params=("attributeType", "from", "to", "layout"))
 def move_attribute(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("attributeType", "from", "to", "layout"))
+    """Move an attribute binding from one object type to another."""
+    params = Params(raw)
     attribute_key, source, target = params.text("attributeType"), params.text("from"), params.text("to")
     binding = copy.deepcopy(context.binding(source, attribute_key))
     target_type = context.object_type(target, "to")
@@ -1037,9 +1070,10 @@ def move_attribute(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("setAttributeBinding")
+@kind("setAttributeBinding", params=("objectType", "attributeType", "required", "readOnly", "position"))
 def set_attribute_binding(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType", "attributeType", "required", "readOnly", "position"))
+    """Change the settings of an attribute binding on an object type."""
+    params = Params(raw)
     type_key, attribute_key = params.text("objectType"), params.text("attributeType")
     binding = context.binding(type_key, attribute_key)
     path = type_path(type_key) + ["attributes"]
@@ -1067,13 +1101,13 @@ def set_attribute_binding(context: Context, raw: dict[str, Any]) -> Applied:
 # --- structure ---
 
 
-@kind("setContainment")
+@kind("setContainment", params=("objectType", "parent", "application", "fromApplication"))
 def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
     """Where a type stands: its parent (``parent``, null for the top level) and, with
     ``application``, the application it stands in. The type and every type under it in the
     application it leaves (``fromApplication``, needed only when it is in several) move together
     with their views and detail pages; relations are the model's and stay as they are."""
-    params = Params(raw, ("objectType", "parent", "application", "fromApplication"))
+    params = Params(raw)
     key = params.text("objectType")
     context.object_type(key)
     target = params.optional("application")
@@ -1482,9 +1516,10 @@ def _children_panel_paths(document: Document, parent_key: str) -> list[Path]:
     return paths
 
 
-@kind("addRelationType")
+@kind("addRelationType", params=("key", "reverseKey", "name", "reverseName", "isOriented"))
 def add_relation_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("key", "reverseKey", "name", "reverseName", "isOriented"))
+    """Add a relation type."""
+    params = Params(raw)
     name, reverse_name = params.text("name"), params.text("reverseName")
     taken = context.relation_keys()
     key = context.new_key(params, "key", name, taken)
@@ -1504,9 +1539,10 @@ def add_relation_type(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeRelationType")
+@kind("removeRelationType", params=("relationType",))
 def remove_relation_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("relationType",))
+    """Remove a relation type."""
+    params = Params(raw)
     key = params.text("relationType")
     relation = context.relation_type(key)
     if any(b.get("relationTypeKey") == key for b in context.document.items("objectTypeRelations")):
@@ -1530,9 +1566,10 @@ def _allow(context: Context, relation_key: str, source: str, target: str, cardin
     place_relation(context.document, relation_key, source, target)
 
 
-@kind("allowRelation")
+@kind("allowRelation", params=("relationType", "from", "to", "cardinality", "required", "layout"))
 def allow_relation(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("relationType", "from", "to", "cardinality", "required", "layout"))
+    """Allow a relation type between two object types."""
+    params = Params(raw)
     relation_key, source, target = params.text("relationType"), params.text("from"), params.text("to")
     context.relation_type(relation_key)
     context.object_type(source, "from")
@@ -1568,9 +1605,10 @@ def allow_relation(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("disallowRelation")
+@kind("disallowRelation", params=("relationType", "from", "to"))
 def disallow_relation(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("relationType", "from", "to"))
+    """Remove an allowed relationship between two object types."""
+    params = Params(raw)
     relation_key, source, target = params.text("relationType"), params.text("from"), params.text("to")
     binding = context.relation_binding(relation_key, source, target)
     context.unreleased(atom("relationBinding", relation_key, source, target))
@@ -1589,9 +1627,10 @@ def disallow_relation(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("setRelationRule")
+@kind("setRelationRule", params=("relationType", "from", "to", "cardinality", "required", "candidates", "uniqueToAncestorTypeKey"))
 def set_relation_rule(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("relationType", "from", "to", "cardinality", "required", "candidates", "uniqueToAncestorTypeKey"))
+    """Change the rule of an allowed relationship."""
+    params = Params(raw)
     relation_key, source, target = params.text("relationType"), params.text("from"), params.text("to")
     binding = context.relation_binding(relation_key, source, target)
     path = ["objectTypeRelations", identity(binding)]
@@ -1675,9 +1714,10 @@ def _item_key(item: Any) -> Any:
     return item.get("key") if isinstance(item, dict) else item
 
 
-@kind("insertViewItem")
+@kind("insertViewItem", params=(*_TARGET, "list", "item", "position"))
 def insert_view_item(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, (*_TARGET, "list", "item", "position"))
+    """Insert an item into a list of a view or panel at a position."""
+    params = Params(raw)
     path, target, element = _target(context, raw)
     list_path = _list_path(context, path, target, raw.get("list"))
     item = raw.get("item")
@@ -1701,12 +1741,12 @@ def insert_view_item(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("addPanel")
+@kind("addPanel", params=("applicationKey", "detail", "show", "region", "title", "key"))
 def add_panel_kind(context: Context, raw: dict[str, Any]) -> Applied:
     """A panel the server builds with the rule a type's page follows (0.13 RL, ADR-041): the records
     of one of the type's relationships, in either direction, or its contained records. Its columns
     change afterwards with ``insertViewItem`` and ``removeViewItem``; undone by ``removeViewItem``."""
-    params = Params(raw, ("applicationKey", "detail", "show", "region", "title", "key"))
+    params = Params(raw)
     app = params.text("applicationKey")
     path = _detail_path(context, app, raw.get("detail"))
     type_key = raw["detail"]
@@ -1792,9 +1832,10 @@ def add_panel_kind(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("moveViewItem")
+@kind("moveViewItem", params=(*_TARGET, "list", "item", "position"))
 def move_view_item(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, (*_TARGET, "list", "item", "position"))
+    """Move an item within a list of a view or panel."""
+    params = Params(raw)
     path, target, element = _target(context, raw)
     list_path = _list_path(context, path, target, raw.get("list"))
     current = context.document.find(list_path) or []
@@ -1812,9 +1853,9 @@ def move_view_item(context: Context, raw: dict[str, Any]) -> Applied:
     return Applied(raw, {"kind": "moveViewItem", **target_fields, "list": raw["list"], "item": item, "position": old}, named={element})
 
 
-@kind("removeViewItem")
+@kind("removeViewItem", params=(*_TARGET, "list", "item"))
 def remove_view_item(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, (*_TARGET, "list", "item"))
+    """Remove an item from a list of a view or panel."""
     path, target, element = _target(context, raw)
     list_path = _list_path(context, path, target, raw.get("list"))
     current = context.document.find(list_path) or []
@@ -1835,9 +1876,9 @@ _VIEW_TOP = {"name"}
 _PANEL_TOP = {"title", "region", "visible", "order"}
 
 
-@kind("setViewProperty")
+@kind("setViewProperty", params=(*_TARGET, "property", "value"))
 def set_view_property(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, (*_TARGET, "property", "value"))
+    """Set a property of a view or panel."""
     path, target, element = _target(context, raw)
     name = raw.get("property")
     if not isinstance(name, str) or not name:
@@ -1862,9 +1903,10 @@ def set_view_property(context: Context, raw: dict[str, Any]) -> Applied:
     return Applied(raw, {"kind": "setViewProperty", **target_fields, "property": name, "value": old}, named={element})
 
 
-@kind("addView")
+@kind("addView", params=("applicationKey", "view", "position", "default"))
 def add_view(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("applicationKey", "view", "position", "default"))
+    """Add a view to an application."""
+    params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
     view = params.required("view", dict)
@@ -1892,11 +1934,10 @@ def add_view(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeView")
+@kind("removeView", params=("applicationKey", "view", "unlist"))
 def remove_view(context: Context, raw: dict[str, Any]) -> Applied:
     """A view out of its application; with ``unlist``, the types it named that the application then
     lists for nothing, so a matrix leaves as it came."""
-    Params(raw, ("applicationKey", "view", "unlist"))
     app = raw.get("applicationKey")
     path = _view_path(context, app, raw.get("view"))
     application = context.application(app)
@@ -1939,10 +1980,10 @@ def unlistable_types(document: Document, app: str, released: Callable[[str], boo
     ]
 
 
-@kind("listObjectType")
+@kind("listObjectType", params=("applicationKey", "objectType"))
 def list_object_type(context: Context, raw: dict[str, Any]) -> Applied:
     """An existing type in one more application: its records keep the application they stand in."""
-    params = Params(raw, ("applicationKey", "objectType"))
+    params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
     key = params.text("objectType")
@@ -1958,9 +1999,10 @@ def list_object_type(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("unlistObjectType")
+@kind("unlistObjectType", params=("applicationKey", "objectType"))
 def unlist_object_type(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("applicationKey", "objectType"))
+    """Take an object type out of an application's listing."""
+    params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
     key = params.text("objectType")
@@ -1979,11 +2021,11 @@ def unlist_object_type(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("addDetailPage")
+@kind("addDetailPage", params=("applicationKey", "objectType", "page", "position"))
 def add_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
     """A detail page for a type of the application that has none (0.10 A4b, D48): the page a new
     type gets, or, as ``removeDetailPage``'s inverse, the ``page`` it removed at its ``position``."""
-    params = Params(raw, ("applicationKey", "objectType", "page", "position"))
+    params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
     type_key = params.text("objectType")
@@ -2010,9 +2052,9 @@ def add_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
     return restoring(context, {"kind": "addDetailPage", **raw}, applied) if starts_list else applied
 
 
-@kind("removeDetailPage")
+@kind("removeDetailPage", params=("applicationKey", "objectType"))
 def remove_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("applicationKey", "objectType"))
+    """Remove an object type's detail page in an application."""
     app = raw.get("applicationKey")
     context.application(app)
     path = application_path(app) + ["details", {"objectTypeKey": raw.get("objectType")}]
@@ -2032,9 +2074,10 @@ def remove_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
 # --- navigation groups ---
 
 
-@kind("addNavigationGroup")
+@kind("addNavigationGroup", params=("applicationKey", "key", "label", "collapsed", "position", "collections"))
 def add_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("applicationKey", "key", "label", "collapsed", "position", "collections"))
+    """Add a navigation group to an application."""
+    params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
     label = params.text("label")
@@ -2053,9 +2096,9 @@ def add_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("removeNavigationGroup")
+@kind("removeNavigationGroup", params=("applicationKey", "group"))
 def remove_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("applicationKey", "group"))
+    """Remove a navigation group from an application."""
     app = raw.get("applicationKey")
     path = _group_path(context, app, raw.get("group"))
     groups = context.document.at(path[:-1])
@@ -2078,9 +2121,10 @@ def remove_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("setNavigationGroup")
+@kind("setNavigationGroup", params=("applicationKey", "group", "label", "collapsed", "position"))
 def set_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("applicationKey", "group", "label", "collapsed", "position"))
+    """Change a navigation group."""
+    params = Params(raw)
     app = raw.get("applicationKey")
     path = _group_path(context, app, raw.get("group"))
     group = context.document.at(path)
@@ -2102,9 +2146,10 @@ def set_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
     return Applied(raw, inverse, named={atom("group", app, raw["group"])})
 
 
-@kind("placeCollection")
+@kind("placeCollection", params=("applicationKey", "collection", "group", "position"))
 def place_collection(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("applicationKey", "collection", "group", "position"))
+    """Place a collection in a navigation group."""
+    params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
     collection = params.text("collection")
@@ -2133,9 +2178,8 @@ def place_collection(context: Context, raw: dict[str, Any]) -> Applied:
 # --- written by the server ---
 
 
-@kind("replaceModel")
+@kind("replaceModel", params=("model",))
 def replace_model(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("model",))
     model = raw.get("model")
     if not isinstance(model, dict):
         raise Refusal("model", "invalidValue", "'model' is a model document")
@@ -2160,9 +2204,8 @@ def _top_level_atoms(model: dict[str, Any]) -> set[str]:
     return result
 
 
-@kind("restoreElements")
+@kind("restoreElements", params=("undoes", "removes", "changes"))
 def restore_elements(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("undoes", "removes", "changes"))
     context.unreleased(*(raw.get("removes") or ()))
     changes = raw.get("changes")
     undoes = raw.get("undoes")

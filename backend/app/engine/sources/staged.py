@@ -110,7 +110,7 @@ class StagedFile:
         header = [None] * (last - first + 1)
         for _number, cells in self._rows(index, area.header_row - 1, area.header_row, first, last):
             header = [header_cell(value) for value in cells]
-        return Table(header, self._rows(index, area.header_row, until, first, last))
+        return Table(header, self._rows(index, area.header_row, until, first, last), first)
 
     def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
         index = self.sheet_names.index(sheet)

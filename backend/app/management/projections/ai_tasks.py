@@ -2,12 +2,13 @@
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
 from ...common.time import as_utc
 from ...engine.identity.principals import named, ref
+from ...engine.jobs.worker import ASSISTANT_KINDS
 from ...engine.tasks import agent
 from ...engine.tasks.model_changes import model_changes
 from ...models.database import AiTask, Job, ModelDraft, ModelRelease, SourceFile
@@ -26,6 +27,25 @@ def _phase(session: Session, task: AiTask) -> str | None:
     if job.kind == "dryRun":
         return "checking"
     return job.stage if job.stage in _JOB_PHASES else None
+
+
+def _ahead(session: Session, task: AiTask) -> int | None:
+    """The assistant jobs before the task's queued job, in the order the worker takes them (0.13 AQ,
+    AQ-D5): a close count, not a promise. ``None`` once the job runs, or when none waits."""
+    if task.state not in ("reading", "checking") or task.job_id is None:
+        return None
+    job = session.scalar(select(Job).where(Job.id == task.job_id))
+    if job is None or job.state != "queued" or job.kind not in ASSISTANT_KINDS:
+        return None
+    return session.scalar(
+        select(func.count())
+        .select_from(Job)
+        .where(
+            Job.kind.in_(ASSISTANT_KINDS),
+            Job.state.in_(("queued", "running")),
+            Job.sequence_id < job.sequence_id,
+        )
+    )
 
 
 def _design(session: Session, task: AiTask) -> dict[str, Any] | None:
@@ -81,6 +101,7 @@ def task_response(session: Session, task: AiTask) -> AiTaskResponse:
             "notes": task.notes,
             "result": task.result,
             "canTell": _can_tell(task),
+            "ahead": _ahead(session, task),
         }
     )
 

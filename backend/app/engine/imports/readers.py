@@ -57,6 +57,8 @@ class Table:
 
     header: list[str | None]
     rows: Iterator[tuple[int, list[Any]]]
+    # The sheet column number of the table's first column, for a binding that names a letter (0.13 AQ).
+    first_column: int = 1
 
     def columns(self) -> dict[str, int]:
         """Each named column's position. Of equal names the first has the name and each later one
@@ -124,6 +126,7 @@ class XlsxFile:
         return Table(
             [header_cell(value) for value in header],
             _numbered(area.header_row, ([_xlsx_cell(value) for value in row] for row in rows)),
+            area.first_column or 1,
         )
 
     def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
@@ -154,7 +157,11 @@ class CsvFile:
             _cut(record, area)
             for record in _until(lines, area.last_row - number if area.last_row else None)
         )
-        return Table([header_cell(value) for value in header], _numbered(number, rows))
+        return Table(
+            [header_cell(value) for value in header],
+            _numbered(number, rows),
+            area.first_column or 1,
+        )
 
     def rows(self, sheet: str) -> Iterator[tuple[int, list[Any]]]:
         return _numbered(0, self._records())

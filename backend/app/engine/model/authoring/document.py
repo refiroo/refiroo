@@ -31,7 +31,7 @@ _IDENTITIES: tuple[tuple[str, ...], ...] = (
     ("attributeTypeKey",),
 )
 # In a draft's import profile: a source by its ``id``, a column binding by its column or columns.
-PROFILE_IDENTITIES: tuple[tuple[str, ...], ...] = (("id",), ("column",), ("columns",))
+PROFILE_IDENTITIES: tuple[tuple[str, ...], ...] = (("id",), ("column",), ("letter",), ("columns",))
 MODEL = "model"
 PROFILE = "profile"
 

@@ -890,6 +890,11 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   types nothing uses and no data holds; one undo puts it all back. A draft whose pages are broken lists
   every broken panel as an issue in plain words, each tied to its page and panel, with a
   Remove from page action on the issue; Edit layout stays closed while the draft is invalid.
+- **J33.18 A whole profile in one step, and a value map undone alone (0.13 AQ)**: `setProfile` with the profile
+  `GET /model-drafts/{id}/profile` answers in `definition` replaces the draft's profile, the draft's dry run giving
+  the original's figures, and one undo takes it back; undoing an earlier `setValueMap` leaves the later maps in
+  place. The operations body is described in `/openapi.json` by one schema per public kind, discriminated by `kind`;
+  a kind added to the registry without one fails the contract check.
 
 **Refusals:** `422 INVALID_OPERATION`, `409 OPERATION_REQUIRES_MIGRATION`,
 `409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
@@ -980,6 +985,12 @@ for reading A8 (below the cut line).
   one title (or none) offer, on each list, to be read as one list under their headers: a parent list
   holding the headers and one list contained in it, each value under its header, a name under two
   headers two records, a second load changing nothing, the step undoable.
+
+- **J34.11 A column named by its letter (0.13 AQ)**: in a block whose header row has an empty cell and three equal
+  headers, a binding naming a column by `letter` loads the column with the empty header, and a binding naming
+  `Name #2` and `Name #3` loads the repeated ones, in an import and in the draft's dry run alike; the draft's
+  operations (`mapColumn`, `ignoreColumn` and the other column kinds) take `letter` beside `column`, and a letter
+  beyond the header row is refused `unknownElement`.
 
 **Refusals:** `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `404 SOURCE_FILE_NOT_FOUND`,
 `409 SOURCE_FILE_PROFILE_NOT_READY`; the inference's `404 INFERENCE_NOT_FOUND`, `404
@@ -2656,6 +2667,13 @@ API; it calls no AI provider.
 - **J50.62 A draft's dry run reads its own profile (0.13 AT)**: a dry run of a draft without `profile` reads every row
   with the profile the draft holds; the profile `GET /model-drafts/{id}/profile` answered, sent back unchanged, gives
   the same figures.
+- **J50.63 A session over the limit (0.13 AQ)**: a turn that runs longer than `AI_AGENT_TIMEOUT_SECONDS` is stopped
+  as a person's Stop is: the task goes back to its last point with its draft kept and a note that the session took
+  longer than the limit; the job ends `cancelled`, never `JOB_FAILED`, and the person can tell the assistant to go on.
+- **J50.64 Answers that keep the defaults (0.13 AQ)**: answers that all equal their questions' assumed options are
+  recorded and queue no job, the task staying `checked`; one other answer queues the turn as before.
+- **J50.65 A task that waits (0.13 AQ)**: a second task queued behind a running one reads `ahead: 1`, and `ahead: null`
+  once it runs; the page says "Waiting for the assistant: 1 task ahead" meanwhile.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

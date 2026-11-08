@@ -190,6 +190,12 @@ def has_proposal(task: AiTask) -> bool:
     return drafted and bool(design.get("origin") or design.get("match"))
 
 
+def _over_the_limit(seconds: int) -> str:
+    """The sentence for a turn the session's time limit ended (0.13 AQ)."""
+    length = f"{seconds // 60} minutes" if seconds % 60 == 0 else f"{seconds} seconds"
+    return f"The assistant's session took longer than the limit ({length}) and was stopped"
+
+
 def stopped(session: Session, task: AiTask, retention_days: int) -> None:
     """The person stopped the job the task waited for (AP-D55): the turn ends, not the task. The
     task goes back to its last proposal (the accepted one after a load), or, with none yet, is
@@ -197,6 +203,9 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
     design = dict(task.design or {})
     design.pop("progress", None)
     undone = not design.pop("undoSkipped", False)
+    limit = design.pop("timedOut", None)
+    # Who ended the turn: the person's Stop, or the session's time limit (0.13 AQ).
+    who = "You stopped the assistant" if limit is None else _over_the_limit(limit)
     loading = task.state == "loading"
     if loading:
         task.result = None
@@ -206,9 +215,9 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
         note(
             task,
             "note",
-            "You stopped the load. The change set it wrote was discarded."
+            f"{who if limit is not None else 'You stopped the load'}. The change set it wrote was discarded."
             if undone
-            else "You stopped the load.",
+            else f"{who if limit is not None else 'You stopped the load'}.",
         )
     elif has_proposal(task):
         was_load = design.get("stage") == "load"
@@ -220,12 +229,12 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
             task,
             "note",
             (
-                "You stopped the assistant. What it had loaded was undone, and the proposal is as you accepted it."
+                f"{who}. What it had loaded was undone, and the proposal is as you accepted it."
                 if undone
-                else "You stopped the assistant, and the proposal is as you accepted it."
+                else f"{who}, and the proposal is as you accepted it."
             )
             if was_load
-            else "You stopped the assistant. Its last proposal is as it was; what you sent was not made.",
+            else f"{who}. Its last proposal is as it was; what you sent was not made.",
         )
         landed = design.get("turnDraftVersion")
         if landed is not None:
@@ -243,7 +252,7 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
         note(
             task,
             "note",
-            "You stopped the assistant before it had a proposal. Tell it how to go on, or discard the task.",
+            f"{who} before it had a proposal. Tell it how to go on, or discard the task.",
         )
     task.design = design
 

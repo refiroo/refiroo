@@ -171,8 +171,8 @@ links for the complete procedures.
 
 ### AI and agent settings
 
-The template's AI group, plus the runtime settings `AI_AGENT_COMMAND`, `AI_AGENT_SANDBOX` and
-`AI_AGENT_API_URL`, are owned by [About AI](/docs/run/ai/) and [Set up AI](/docs/run/set-up-ai/).
+The template's AI group, plus the runtime settings `AI_AGENT_COMMAND`, `AI_AGENT_SANDBOX`,
+`AI_AGENT_TIMEOUT_SECONDS` and `AI_AGENT_API_URL`, are owned by [About AI](/docs/run/ai/) and [Set up AI](/docs/run/set-up-ai/).
 Use those pages for their defaults, data policy and deployment requirements.
 
 Compose defaults `AI_AGENT_API_URL` to `http://127.0.0.1:8000`. Outside Compose, an unset or empty

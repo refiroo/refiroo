@@ -31,7 +31,7 @@ import { ReshapeSteps } from "./ReshapeSteps";
 import { TaskEnd } from "./TaskEnd";
 import { taskApplicationKey } from "./aiTaskJourney";
 import { rememberModelReviewed } from "./AiTaskJourneyBar";
-import { isDesignCheck, runningText, taskTitle } from "./aiTaskText";
+import { isDesignCheck, runningText, taskTitle, waitingText } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
 import { useAssistantOffers } from "./useAssistantOffers";
 
@@ -220,7 +220,7 @@ export function AiTaskPage({
           <Section title={task.state === "loading" ? "Loading" : "Working on it"}>
             <div className="job-progress">
               <progress aria-label="Progress" />
-              <span role="status">{design?.progress?.now ?? runningText(task)}</span>
+              <span role="status">{waitingText(task.ahead) ?? design?.progress?.now ?? runningText(task)}</span>
             </div>
             {design?.progress && <SessionProgress progress={design.progress} />}
             <p className="admin-hint">

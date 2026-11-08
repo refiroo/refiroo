@@ -218,11 +218,18 @@ BINDING_KINDS = (
 class ColumnBinding(BaseModel):
     """One column (or, for ``relationFlags``, several) and what it fills. ``valueMap`` names a map
     applied to the cell's text before it is converted or matched. Where a header repeats a name, the
-    first column has the name and each later one the name with its place: ``Currency #2``."""
+    first column has the name and each later one the name with its place: ``Currency #2``. A column
+    is named by its header (``column``) or by its sheet letter (``letter``, 0.13 AQ), which reaches
+    a column whose header cell is empty; exactly one of the two."""
 
     model_config = ConfigDict(extra="forbid")
 
     column: str | None = Field(default=None, min_length=1)
+    letter: str | None = Field(
+        default=None,
+        pattern=COLUMN_LETTERS,
+        description="The column's sheet letter, in place of its header text",
+    )
     columns: list[str] | None = Field(default=None, min_length=1)
     field: Literal["name"] | None = None
     attributeTypeKey: str | None = None
@@ -239,10 +246,10 @@ class ColumnBinding(BaseModel):
         if len(kinds) != 1:
             raise ValueError(f"A column binding has exactly one of {', '.join(BINDING_KINDS)}")
         if self.relationFlags is not None:
-            if self.columns is None or self.column is not None:
+            if self.columns is None or self.column is not None or self.letter is not None:
                 raise ValueError("relationFlags names its columns in columns")
-        elif self.column is None or self.columns is not None:
-            raise ValueError("A column binding names its column in column")
+        elif (self.column is None) == (self.letter is None) or self.columns is not None:
+            raise ValueError("A column binding names its column in column or letter")
         return self
 
     @property

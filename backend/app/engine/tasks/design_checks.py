@@ -58,6 +58,9 @@ def _bindings(profile: dict[str, Any] | None) -> dict[str, dict[str, dict[str, A
     for source in (profile or {}).get("sources") or []:
         sheet = found.setdefault(source.get("sheet") or "", {})
         for column in source.get("columns") or []:
+            if "column" not in column:
+                # Named by its letter (0.13 AQ) or a set of flag columns: no header to key it by.
+                continue
             if column.get("ignore"):
                 sheet.setdefault(column["column"], {"ignore": True})
             else:
@@ -89,7 +92,7 @@ def _type_of_sheet_name_column(profile: dict[str, Any] | None) -> dict[tuple[str
     found: dict[tuple[str, str], str] = {}
     for source in (profile or {}).get("sources") or []:
         for column in source.get("columns") or []:
-            if column.get("field") == "name":
+            if column.get("field") == "name" and "column" in column:
                 found[(source.get("sheet") or "", column["column"])] = source.get("objectTypeKey")
     return found
 

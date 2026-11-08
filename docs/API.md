@@ -2751,7 +2751,7 @@ fixed values it matches. A list pages in key order (ADR-030).
 
 - **A source** loads one object type of one application from a sheet (the first sheet when
   `sheet` is left out; a CSV file is one sheet), from its `headerRow`, optionally within a `block`. Where a header repeats a name, the first column has the name and each later one the name with its place, `Currency #2`.
-  Columns the profile does not name are ignored; a header names a column by its text. A row
+  Columns the profile does not name are ignored; a header names a column by its text, or a binding names it by its sheet **`letter`** instead of `column` (exactly one of the two; 0.13 AQ): `{"letter": "AJ", "attributeTypeKey": "order"}` reaches a column whose header cell is empty or repeated. The letter is the sheet's, as a `block` speaks letters; one outside the block, or beyond the header row's last column, is `COLUMN_NOT_FOUND`. A `relationFlags` binding and the other places that name a column (a source's `key`, a relation's `idColumn`) still name theirs by header. A row
   holding nothing in any column the source names is no record of it and is skipped (a list or
   parent read from another type's sheet, on a row without one; 0.10 A6b, D99).
 - **`key`** finds a row's existing record: `{"attributeTypeKey"}`, an attribute declared `unique`
@@ -2786,7 +2786,7 @@ fixed values it matches. A list pages in key order (ADR-030).
   `CREATE_NEEDS_NAME_MATCH`); a source with a fixed parent and a column binding `parent` is refused
   `INVALID_IMPORT_PROFILE` with `PARENT_BOUND_TWICE` at `/sources/{i}/parent`. A file of one
   category's items is loaded under that category this way.
-- **Bindings**, one kind per column: `field: "name"`; `attributeTypeKey` (a writable attribute the
+- **Bindings**, one kind per column (named by `column` or, since 0.13 AQ, by `letter`): `field: "name"`; `attributeTypeKey` (a writable attribute the
   type binds); `parent`; `relation` (`relationTypeKey` and `direction` from the row's record,
   `outgoing` by default; `split` cuts a cell into several values; `replace: true` makes the matched
   records the whole set, a `replaceRelationSet`, instead of adding to it); `relationFlags` (columns
@@ -4026,6 +4026,7 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
 }
 ```
 
+- **The operations are typed** (0.13 AQ). `POST /model-drafts/{id}/operations` describes `operations` in `/openapi.json` as a list whose items are one of the public kinds, discriminated by `kind`: one schema per kind (`<Kind>Operation`, for example `SetProfileOperation`) with the parameters the kind allows (named, no further ones) and the kind's description. The schemas are generated from the kinds registry, so a kind added there is described; the server's checking is unchanged and still answers a wrong parameter `INVALID_OPERATION` (`unknownParameter`, `missingParameter`, `invalidValue`). `replaceModel` and `restoreElements` are written by the server and are not listed.
 - The operations of one request are applied in order, **all or none**, to the draft's model, and are
   one step of the history: one undo takes back the whole request. The answer (`200`) holds the new
   `version`, the stored entries (each with its `sequence` and `inverse`, as the history lists them),
@@ -4565,7 +4566,7 @@ source file and is checked against the draft's own model (D12).
   draft compiles, and nothing but those three reminders is reported.
 - The same warnings follow the model's in every step's `diagnostics`.
 
-**The kinds** (D76). A source is named by its `id`, a column by its header text, a sheet by its
+**The kinds** (D76). A source is named by its `id`, a column by its header text (or, since 0.13 AQ, by `letter`, a sheet column letter, beside `column`, exactly one of the two: it reaches a column whose header cell is empty; the reader's names for repeated headers, `Checklist #2`, are accepted too), a sheet by its
 name in the draft's profiled source file. A sheet or column the file lacks, a source the profile
 lacks, or any kind on a draft without a profiled file is refused `INVALID_OPERATION`
 (`unknownElement`); a binding naming an element the draft's model does not declare or allow is
@@ -4574,7 +4575,7 @@ refused the same way. Bindings use the import profile's vocabulary
 
 | Kind | Parameters | What it changes |
 | --- | --- | --- |
-| `setProfile` | `key`, `name` | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6) |
+| `setProfile` | `key`?, `name`?, `sources`?, `valueMaps`? | The key the instance profile is saved under at installation, and its name. The first mapping kind starts the profile with both taken from the file's name (A-D6). With `sources` (0.13 AQ) the whole profile in one step: `sources` and `valueMaps` as `GET …/profile` answers them in `definition` replace the draft's sources and value maps, and the profile's unmapped entries go with them. A source's `id` is generated from its sheet and type (one sent is ignored, as are the `key` and `name` of a profile sent back by `dry-run`); each source is checked as `addSource` and its bindings as `mapColumn` check them (`unknownElement` for a sheet, header or letter the file lacks or an element the model does not declare). One undo takes it back |
 | `addSource` | `sheet`, `objectType`, `applicationKey`? (the first holding the type), `headerRow`? (the sheet's), `block`?, `key`? (`{attributeTypeKey}`, `{column}` or `{field: "name"}`, 0.10 A8a), `parent`? (a fixed parent, 0.10 A8c), `id`? (from the sheet and type), `position`? | A source loading the type from the sheet, with no columns yet |
 | `setSource` | `source`; any of `sheet`, `headerRow`, `block`, `objectType`, `applicationKey`, `key` (`null` removes it, and `rowsWithoutKey` with it), `record`, `rowsWithoutKey` (`refuse` or `skip`; `skip` needs a key, `invalidValue` otherwise; 0.10 A7), `parent` (a fixed parent, `null` removes it; `invalidValue` while a column binds the parent, `unknownElement` for a type the source's records cannot stand under; 0.10 A8c) | The source's settings. A new `headerRow` or `block` on the same sheet keeps each binding on its column (0.10 A8b, D126): the binding, and a key column, name the header their column letter holds on the new header row; one outside the new block, whose new header cell is empty, or whose new header another binding took becomes an `unmapped` entry |
 | `removeSource` | `source` | The source and its bindings |
@@ -4586,7 +4587,7 @@ refused the same way. Bindings use the import profile's vocabulary
 | `ignoreColumn` | `source`, `column` | `{"column", "ignore": true}` |
 | `addValuesToList` | `source`, `column`, `create`? (default `true`) | A relation or parent column matched by name gets `missing: "create"` (D77); since A6 a flag column's set, and a related record column's `parent` (D93) |
 | `unmapColumn` | `source`, `column` | The column's binding taken out (A6), also a column the file no longer has (a header renamed in a newer workbook); a column not bound is left as it is |
-| `setValueMap` | `name`, `entries` (text to a value or `null`; `null` removes the map and its uses), `source`? and `column`? (that column reads through it) | The profile's `valueMaps` |
+| `setValueMap` | `name`, `entries` (text to a value or `null`; `null` removes the map and its uses), `source`? and `column`? or `letter`? (that column reads through it) | The profile's `valueMaps`. The step records the one map (`valueMaps/<name>`): its undo restores or removes that map and leaves the others as they are (0.13 AQ) |
 
 **The profile follows the model** (D78). `setKey` of an application, type, attribute type or
 relation type rewrites it in the profile. `moveAttribute` moves the attribute's columns to a source
@@ -7074,15 +7075,15 @@ registered with `INTEGRATION_JOBS_ENABLED`.
 | --- | --- |
 | `POST /ai/tasks` | `multipart/form-data`: `file` (XLSX or CSV, optional) and `request` JSON `{workspaceKey, words?, sendLevel?}`. `202` with the task (state `reading`, `jobId`). `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`, `409 AI_SEND_LEVEL_TOO_LOW`, `403 FORBIDDEN`, `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `422 AI_TASK_NEEDS_WORDS` (neither a file nor words) |
 | `GET /ai/tasks` | The caller's tasks and those of the workspaces they administer, newest first (paging) |
-| `GET /ai/tasks/{id}` | The task |
+| `GET /ai/tasks/{id}` | The task. `ahead` (0.13 AQ): while the task's job waits for the assistant's worker, the number of assistant jobs before it (queued or running, by the order the worker takes them; a close count, not a promise); `null` once it runs and in every other state |
 | `GET /ai/tasks/{id}/changes?source=0` | The records the latest check would change in a sheet of the check (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` for a source the check has no figures for |
-| `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
+| `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. When **every answer is its question's `assumed` option** (0.13 AQ) the answers are recorded and nothing is queued: `202` with the task still `checked` and a new `version`, no job `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
 | `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}`: the person's words, in every state where a task can go on (0.16 AP13). Allowed when `checked` (the proposal, or a saved layout's load stage: a session starts on the same task and file, `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`), `failed` or `stopped` (the same session goes on; a session that never ran starts, with the task's words and the new ones; the task's notes, its old reasons, are cleared), or `loaded` with a change set not yet published (needs Work in change sets: the change set is discarded and the same session loads again from the proposal with the words; `409 AI_TASK_STATE` for a published or discarded change set or a session that ended). `202`, state `checking`: the session changes the model as the words say (kept in `design.corrections`, the newest last) and proposes again, or loads again. Same refusals |
 | `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `403 FORBIDDEN` naming Work in change sets unless the proposal only moves whole types (it loads no change set); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. It never activates, migrates or publishes. A words-only task (no file) whose model does not change has a proposal without a draft (`draftId` null, `design.modelUnchanged` true, "no change to the model"): accepting installs and activates nothing, and the session makes the change set on the workspace's current live release; a workbook task always has a draft. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
 | `POST /ai/tasks/{id}/retry` | `{expectedVersion, words?}`. A task that `failed` or `stopped` goes on from where the session was, its folder and session kept, with the person's `words` when there are some (no words: "go on from where you were"); a session that never ran starts again. A `checked` task with no session (a saved layout that does not fit) is read with the assistant, which starts on the same task and file. `409 AI_NOT_CONFIGURED`, `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/proposal` | `{expectedVersion}`. A saved layout's load stage (`checked`, `design.stage: load`, no session) goes back to its proposal; `200`, no job. `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/discard` | The way to end a task: it becomes `cancelled`, its draft, working folder and session client go, and a release its session installed that nothing uses is retired. Allowed when the task waits for the person, `failed`, `stopped`, or `loaded` and not published; a loaded task's change set is discarded with it (Work in change sets) and a note says so. `409 AI_TASK_STATE` otherwise |
-| `POST /ai/tasks/{id}/cancel` | Stops what the assistant is doing: asks the job the task waits for (its reading, its turn, its check or its load) to stop. The turn ends, not the task: the task returns to its last proposal (`checked`, a note saying so, and a warning when the turn had already changed the draft), the accepted proposal after a stopped load (the change set the load made is discarded, and a job the session started is stopped), or is `stopped` when no proposal exists yet; `stopped` takes words (`/model`, `/retry`) or `/discard`. Allowed while `reading`, `checking` or `loading`. `409 AI_TASK_STATE` otherwise |
+| `POST /ai/tasks/{id}/cancel` | Stops what the assistant is doing: asks the job the task waits for (its reading, its turn, its check or its load) to stop. The turn ends, not the task: the task returns to its last proposal (`checked`, a note saying so, and a warning when the turn had already changed the draft), the accepted proposal after a stopped load (the change set the load made is discarded, and a job the session started is stopped), or is `stopped` when no proposal exists yet; `stopped` takes words (`/model`, `/retry`) or `/discard`. Allowed while `reading`, `checking` or `loading`. `409 AI_TASK_STATE` otherwise. A turn that runs longer than `AI_AGENT_TIMEOUT_SECONDS` ends the same way, with its own note (0.13 AQ) |
 | `POST /ai/tasks/{id}/run` | `{expectedVersion, changeSetName?, saveProfile?: {key, name}}`. The load of a saved layout's proposal (below); a session's task is loaded by `accept`. Needs Work in change sets. When the draft differs from the release it was opened from it needs Model release at the instance and in the workspace (`403 FORBIDDEN` naming `model-release`), names the draft's release with the next free version, installs and activates it in the workspace, then imports the working copy into a new change set (`independent`, `overwrite`); `saveProfile` saves the profile of the person's sheets, and a profile that cannot be saved is a `warning` note, the load stands. `202`, state `loading`. `409 AI_TASK_NOTHING_TO_LOAD`, `409 AI_TASK_CHECK_STALE` (the draft changed after its check: check it again) |
 
 There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `plan` on the task and
@@ -7193,7 +7194,7 @@ when a cell of the combination is empty the row has no key (`MISSING_RECORD_KEY`
 `/sources/{i}/key/attributeTypeKeys`. It works the same live and in a change set, and `missing` follows it.
 It is a key of import profiles only: batch `upsert` keys and consumer `match` are unchanged. The session is
 told to give each source a key that finds its records in the next file, of several columns if no one column
-does, and to raise it as a question when the file has none.
+does, and to say it in one line of the summary when the file has none (0.13 AQ).
 
 ## Agent access (Product 0.16)
 

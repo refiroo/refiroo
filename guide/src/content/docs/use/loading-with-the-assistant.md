@@ -41,8 +41,8 @@ unique throughout refiroo.
 The same instructions can produce different proposed structures on separate runs; inspect each
 proposal rather than assuming it repeats a previous design. An update can leave the model unchanged and prepare only record changes. Instructions can also
 ask for relationships or a model change. The assistant is limited to capabilities refiroo supports;
-its notes explain when it cannot complete a request. A turn that runs beyond 30 minutes stops
-and can be continued after the cause is addressed.
+its notes explain when it cannot complete a request. A turn that runs beyond the session limit (30 minutes unless the operator changed it) is stopped like your Stop,
+and the task goes back to where you can tell the assistant to go on or try again. While other tasks hold the assistant, the page says how many are ahead.
 
 ## Review the proposal
 
@@ -63,7 +63,7 @@ would create duplicates. It is a warning, not an automatic block: resolve it bef
 
 ![Workbook proposal with formatted notes, assumed answers and the start of the type summary](/docs/screens/use-assistant-proposal.png)
 
-**Questions** shows the answers the assistant assumed. Change a choice and use **Answer and
+**Questions** shows the answers the assistant assumed, only for what a person decides. Keep every choice and the answers are recorded without another turn; change a choice and use **Answer and
 design again**. **Tell the assistant what to change** followed by **Send to the assistant**
 continues the same session with your correction. When there is a draft, **Open in the model
 editor** lets you edit it directly; the session reads it again before continuing. It cannot change a draft

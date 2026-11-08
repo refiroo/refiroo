@@ -168,6 +168,8 @@ class Settings(BaseModel):
     ai_agent_command: str = ""
     ai_agent_api_url: str = ""
     ai_agent_sandbox: str = ""
+    # The longest one turn of the session may take (0.13 AQ); over it, the turn is stopped as a person's Stop is.
+    ai_agent_timeout_seconds: int = Field(default=1800, ge=1)
     # Agent access (0.16 AG1): ``/mcp`` exists only with it on.
     mcp_enabled: bool = False
     mcp_rate_per_minute: int = Field(default=120, ge=1)
@@ -284,6 +286,7 @@ class Settings(BaseModel):
             ai_agent_command=env.get("AI_AGENT_COMMAND", "").strip(),
             ai_agent_api_url=env.get("AI_AGENT_API_URL", "").strip(),
             ai_agent_sandbox=env.get("AI_AGENT_SANDBOX", "").strip(),
+            ai_agent_timeout_seconds=_positive(env, "AI_AGENT_TIMEOUT_SECONDS", 1800),
             mcp_enabled=env.get("MCP_ENABLED", "false").strip().lower() in TRUTHY,
             mcp_rate_per_minute=_positive(env, "MCP_RATE_PER_MINUTE", 120),
             mcp_open_registration=env.get("MCP_OPEN_REGISTRATION", "true").strip().lower()
@@ -792,6 +795,13 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "runtime",
         "container when the engine runs in a container, where Claude Code's own sandbox cannot run; "
         "empty, the operating system's sandbox",
+    ),
+    CatalogueEntry(
+        "AI_AGENT_TIMEOUT_SECONDS",
+        "ai_agent_timeout_seconds",
+        "runtime",
+        "The longest one turn of the assistant's session may take, in seconds; a turn over it is "
+        "stopped as a person's Stop is and the task goes back to its last point. Default 1800",
     ),
     CatalogueEntry(
         "AI_AGENT_API_URL",

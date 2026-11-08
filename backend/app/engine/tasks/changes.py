@@ -13,6 +13,7 @@ The live values are the records' own.
 from dataclasses import dataclass
 from typing import Any
 
+from openpyxl.utils.cell import column_index_from_string
 from sqlalchemy import Select, cast, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
@@ -207,6 +208,13 @@ def _design_place(session: Session, task: AiTask, source_index: int | None) -> _
         )
         if not is_empty(unstaged(value))
     }
+    # A binding that names its column by letter (0.13 AQ) reads it as the dry run did: by the header
+    # the letter holds, or `Column AJ` for an empty header cell.
+    named = {column: header for header, column in numbers.items()}
+    source = {
+        **source,
+        "columns": [_by_header(binding, numbers, named) for binding in source.get("columns") or []],
+    }
     draft = session.get(ModelDraft, task.draft_id)
     compiled = compile_model(draft.model_json) if draft is not None else None
     if compiled is None or compiled.model is None:
@@ -222,6 +230,17 @@ def _design_place(session: Session, task: AiTask, source_index: int | None) -> _
         sheet,
         compiled.model,
     )
+
+
+def _by_header(
+    binding: dict[str, Any], numbers: dict[str, int], named: dict[int, str]
+) -> dict[str, Any]:
+    if "letter" not in binding:
+        return binding
+    number = column_index_from_string(binding["letter"])
+    header = named.get(number) or f"Column {binding['letter']}"
+    numbers.setdefault(header, number)
+    return {**{k: v for k, v in binding.items() if k != "letter"}, "column": header}
 
 
 def _cells(

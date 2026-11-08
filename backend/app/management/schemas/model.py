@@ -1,13 +1,23 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, GetJsonSchemaHandler, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    ConfigDict,
+    Field,
+    GetJsonSchemaHandler,
+    SkipValidation,
+    field_validator,
+    model_validator,
+)
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
 from app.models.schema import EngineModel
 
 from .common import ActorResponse, CollectionPage, PrincipalResponse
+from .model_operations import DraftOperation
 
 
 class _ModelLanguage:
@@ -407,7 +417,20 @@ class ModelDraftOperationsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expectedVersion: int = Field(ge=1)
-    operations: list[dict[str, Any]] = Field(min_length=1)
+    # Described by the kinds registry (0.13 AQ); validated by the engine, which names what it
+    # refuses, so the items stay open objects at runtime.
+    operations: SkipValidation[list[DraftOperation]] = Field(min_length=1)
+
+    @field_validator("operations", mode="before")
+    @classmethod
+    def _are_objects(cls, value: Any) -> Any:
+        if (
+            not isinstance(value, list)
+            or not value
+            or not all(isinstance(item, dict) for item in value)
+        ):
+            raise ValueError("operations is a list of one or more objects")
+        return value
 
 
 class ModelDraftUndoRequest(BaseModel):
