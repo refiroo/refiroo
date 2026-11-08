@@ -50,14 +50,26 @@ _RESOLVE_MAX_ITEMS = 1_000
 
 def _management_document() -> dict:
     """The management API's document, from the application's code. Building the application needs the
-    engine's settings to be valid but touches no database; a throw-away key and no jobs satisfy them."""
-    os.environ["SECRETS_ENCRYPTION_KEY"] = base64.urlsafe_b64encode(
-        secrets.token_bytes(32)
-    ).decode()
-    os.environ["INTEGRATION_JOBS_ENABLED"] = "false"
+    engine's settings to be valid but touches no database; a throw-away key and no jobs satisfy them.
+    Both are put back afterwards: a caller in the same process (a test run) keeps its own settings."""
+    from ...config import reload_settings
     from ...main import create_app
 
-    return create_app().openapi()
+    wanted = {
+        "SECRETS_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
+        "INTEGRATION_JOBS_ENABLED": "false",
+    }
+    saved = {key: os.environ.get(key) for key in wanted}
+    os.environ.update(wanted)
+    try:
+        return create_app().openapi()
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        reload_settings()
 
 
 _TEXT_SUFFIXES = {".html", ".css", ".js", ".mjs", ".json", ".svg"}

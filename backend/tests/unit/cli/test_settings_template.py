@@ -54,7 +54,8 @@ def test_env_example_holds_the_generated_template_and_names_every_setting():
 def test_compose_passes_env_to_the_engine():
     compose = (ROOT / "compose.yml").read_text()
     engine = compose.split("\n  engine:\n")[1].split("\n  web:\n")[0]
-    assert "\n    env_file: .env\n" in engine
+    # RDM_ENV_FILE names another file (the one given to `docker compose --env-file`).
+    assert "\n    env_file: ${RDM_ENV_FILE:-.env}\n" in engine
 
 
 def test_an_existing_file_gains_what_it_misses_and_loses_no_line(tmp_path):

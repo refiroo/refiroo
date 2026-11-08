@@ -20,10 +20,8 @@ def test_the_static_page_has_no_sign_in_and_covers_every_script_by_its_meta_poli
         re.search(r'createApiReference\("#rdm-api-reference", (\{.*\})\);', page).group(1)
     )
     assert configuration["hideTestRequestButton"] is True
-    # The header's links stay inside the site: the guide's files, its home and its API page.
-    assert (
-        'class="rdm-mark" href="/docs/"' in page and 'href="/docs/api/" aria-current="page"' in page
-    )
+    # The logo leads to the site's home (W4-D5); the API page is the current one.
+    assert 'class="rdm-mark" href="/"' in page and 'href="/docs/api/" aria-current="page"' in page
     assert (
         'href="/docs/brand/refiroo-header.css"' in page and 'src="/docs/refiroo-mascot.png"' in page
     )
