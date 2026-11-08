@@ -1,5 +1,5 @@
 # Weekly clean-up of ghcr.io/refiroo/refiroo-engine and -web (CL1-D6). Deletes untagged versions
-# (older than a day, and not a child of a kept multi-architecture tag), and versions whose tags are
+# (older than a day, or untagged_hours on a manual run, and not a child of a kept multi-architecture tag), and versions whose tags are
 # all main-* or test-* and older than 30 days. Stable v* tags and the moving main tag stay.
 # A manual run only lists what it would delete unless dry_run is turned off.
 name: Images clean-up
@@ -13,6 +13,10 @@ on:
         description: Only list what would be deleted
         default: true
         type: boolean
+      untagged_hours:
+        description: Delete untagged versions older than this many hours (no image build may be running)
+        default: "24"
+        type: string
 
 permissions:
   contents: read
@@ -34,11 +38,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          UNTAGGED_HOURS: ${{ inputs.untagged_hours || '24' }}
         run: |
           set -euo pipefail
           now=$(date -u +%s)
           week_cutoff=$((now - 30 * 86400))
-          day_cutoff=$((now - 86400))
+          [[ "$UNTAGGED_HOURS" =~ ^[0-9]+$ ]] || { echo "::error::untagged_hours must be a whole number"; exit 1; }
+          day_cutoff=$((now - UNTAGGED_HOURS * 3600))
           [ "$DRY_RUN" = true ] && echo "Dry run: nothing is deleted."
 
           for pkg in refiroo-engine refiroo-web; do
