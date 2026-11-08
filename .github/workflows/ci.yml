@@ -36,8 +36,27 @@ jobs:
       - run: pip install -e 'backend[dev]'
       - run: python -m ruff check backend
       # Parallel part, then the timing-based `serial` tests in one process (docs/testing/EXECUTION_GUIDE.md).
-      - run: python -m pytest backend/tests -n auto -q -rfE --durations=30
+      # DIAGNOSTIC (temporary): resource log every 30 s, junit, early failure tracebacks.
+      - name: Resource log
+        run: |
+          (while true; do
+            echo "=== $(date -u +%T)"; df -h / /tmp | tail -n +2; free -m | sed -n 2p
+            echo "load: $(cut -d' ' -f1-3 /proc/loadavg) procs: $(ps -e --no-headers | wc -l)"
+            PGPASSWORD=postgres psql -h localhost -U postgres -Atc "select 'dbs='||count(*) from pg_database; select 'conns='||count(*) from pg_stat_activity; select 'pgsize='||pg_size_pretty(sum(pg_database_size(datname))) from pg_database" 2>&1 | tr '\n' ' '; echo
+            sleep 30
+          done) > "$RUNNER_TEMP/resources.log" 2>&1 &
+      - run: python -m pytest backend/tests -n auto -q -rfE --durations=30 --maxfail=40 --tb=short -p no:cacheprovider --junitxml="$RUNNER_TEMP/junit.xml"
       - run: python -m pytest backend/tests -m serial -q
+      - name: Diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/diag"; cp "$RUNNER_TEMP"/resources.log "$RUNNER_TEMP"/junit.xml "$RUNNER_TEMP/diag/" || true
+          docker logs "$(docker ps -q --filter ancestor=postgres:17 | head -1)" 2>&1 | grep -v "^$" | tail -300 > "$RUNNER_TEMP/diag/postgres.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diag
+          path: ${{ runner.temp }}/diag
 
   frontend:
     runs-on: ubuntu-24.04
