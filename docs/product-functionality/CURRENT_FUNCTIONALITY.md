@@ -1619,7 +1619,7 @@ assistant's session stays until the change set is published or discarded, the mi
 task discarded or expired. A published task says so and offers **Change this model…** and **Ask about these
 records…**, the same offers as the workspace menu. The check before a saved layout's load goes **Back to the
 proposal** and takes words (the assistant then reads the file); a saved layout that no longer fits offers
-**Read it with the assistant**; a migration the engine refuses is shown on the task with the words box; a task
+**Read it with the assistant**; a migration the engine refuses is shown on the task with the words box; a request that changes only the model ends `loaded` with a migration of no type mappings (nothing moves until the person confirms it); a task
 that expired or never existed says so and leads to the workspaces. An offer to start a task, and the Accept or
 Load button, appear only for a person who holds Work in change sets (and the model groups for a model change);
 a person who lost it is told who can load, with a link to copy.

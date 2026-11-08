@@ -276,7 +276,15 @@ class Merge:
     """A workspace holding suppliers and vendors, and the model that makes them one type."""
 
     def __init__(
-        self, world, tmp_path, monkeypatch, *, moves="both", consumer=False, parented=False
+        self,
+        world,
+        tmp_path,
+        monkeypatch,
+        *,
+        moves="both",
+        consumer=False,
+        parented=False,
+        additive=False,
     ):
         self.world = world
         k = self.k = _keys(world)
@@ -289,6 +297,17 @@ class Merge:
             ],
         )
         self.final = _shaped(world, "merge-2", [(k.partner, "Partner", [k.label, k.note, k.extra])])
+        if additive:
+            # The model only grows: the old types stay and a new one is added beside them.
+            self.final = _shaped(
+                world,
+                "merge-2",
+                [
+                    (k.supplier, "Supplier", [k.label, k.note]),
+                    (k.vendor, "Vendor", [k.label, k.extra]),
+                    (k.partner, "Partner", [k.label, k.note, k.extra]),
+                ],
+            )
         fixed = None
         group, contains, other = f"{k.item}-group", f"{k.item}-contains", f"{k.item}-other"
         if parented:
@@ -452,6 +471,41 @@ def test_a_merge_from_words_moves_every_record_by_one_migration(
     moved = {(t, f, o) for t, f, o in _relations(world, merge.workspace)}
     assert {(f, o) for _, f, o in moved} == {(f, o) for _, f, o in relations_before}
     assert all(t == k.cites for t, _, _ in moved)
+
+
+@pytest.mark.journey("J50.66")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_model_only_request_ends_in_a_migration_with_no_type_mappings(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a request that changes only the model, when the person accepts and the session installs
+    a release without a change set, then the task is loaded with a migration of no mappings, nothing
+    has moved, and confirming the migration puts the workspace on the release with every record."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, moves=None, additive=True)
+    k = merge.k
+    before = merge.before()
+    task = _accept(world, _proposed(world, merge.workspace))
+    assert task["state"] == "loaded", task["notes"]
+    assert task["result"].get("changeSetId") is None
+    migration = task["result"]["migration"]
+    assert migration["typeMappings"] == []
+    assert merge.before() == before
+
+    job = _previewed(world, merge.workspace, migration["releaseId"], typeMappings=[])
+    assert job["state"] == "awaiting_confirmation", job
+    ok(_confirm(world, job), 202)
+    world.api.client.app.state.job_worker.run_until_idle()
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    assert (
+        ok(world.api.get(f"/workspaces/{merge.workspace}/model"))["releaseId"]
+        == migration["releaseId"]
+    )
+    assert merge.before() == before
+    assert _all(world, f"/objects/{k.partner}", workspaceKey=merge.workspace) == []
 
 
 @pytest.mark.journey("J50.46")

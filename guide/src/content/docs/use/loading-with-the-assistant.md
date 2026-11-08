@@ -130,6 +130,7 @@ For whole types becoming other types, acceptance installs a release but moves no
 **Preview the migration** opens the migration with the proposed choices. You can go **Back to
 the proposal**. A person with Model release confirms it: the records move live with their IDs,
 values, relationships and history. There is no change set or its approval step for that migration.
+When the request changes only the model and asks nothing of the records (for example, adding views), the task ends the same way with a migration that moves no type: confirming it puts the workspace on the new model and every record stays as it is.
 
 A whole-type move and a partial move need separate tasks.
 

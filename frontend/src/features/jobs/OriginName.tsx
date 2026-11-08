@@ -7,10 +7,15 @@ const EXTENSION = /^(.+)\.(xlsx|xlsm|xls|csv)$/i;
 
 export function OriginName({ name }: { name: string }) {
   const parts = EXTENSION.exec(name.trim());
-  if (!parts) return <>{name}</>;
+  if (!parts)
+    return (
+      <span className="origin-name">
+        <span className="origin-title">{name}</span>
+      </span>
+    );
   return (
     <span className="origin-name">
-      <span>{parts[1]}</span>
+      <span className="origin-title">{parts[1]}</span>
       <span className="file-ext">{parts[2].toLowerCase()}</span>
     </span>
   );

@@ -2679,6 +2679,9 @@ API; it calls no AI provider.
   recorded and queue no job, the task staying `checked`; one other answer queues the turn as before.
 - **J50.65 A task that waits (0.13 AQ)**: a second task queued behind a running one reads `ahead: 1`, and `ahead: null`
   once it runs; the page says "Waiting for the assistant: 1 task ahead" meanwhile.
+- **J50.66 A request that changes only the model (0.13 AQ)**: an accepted task whose session installs one release and
+  makes no change set ends `loaded` with a migration of no type mappings; nothing moves until the person confirms it,
+  and confirming puts the workspace on the release with every record kept.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

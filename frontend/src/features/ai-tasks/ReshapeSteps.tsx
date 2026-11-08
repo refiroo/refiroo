@@ -194,6 +194,8 @@ export function ReshapeSteps({
   if (!result) return null;
   const migration = result.migration;
   const moves = task.design?.moves ?? [];
+  // The model alone changes: the migration moves no type, and every record stays as it is.
+  const modelOnly = !!migration && migration.typeMappings.length === 0;
 
   const refusal = !migration
     ? ""
@@ -236,11 +238,18 @@ export function ReshapeSteps({
       }
     };
     return (
-      <Section title="Move the records to the new model">
+      <Section title={modelOnly ? "Move the workspace to the new model" : "Move the records to the new model"}>
         {finished ? (
           <Notice tone="success">
-            {workspaceLabel} runs the new model, and its records are under their new types.
+            {workspaceLabel} runs the new model
+            {modelOnly ? ", and its records are as they were." : ", and its records are under their new types."}
           </Notice>
+        ) : modelOnly ? (
+          <p>
+            Nothing has changed yet. The migration puts {workspaceLabel} on the new model; no record moves and every
+            record keeps its ID, values, relationships and history. It goes live when you confirm, with no change set to
+            review.
+          </p>
         ) : (
           <p>
             Nothing has changed yet. The migration moves every record to its new type, keeping its ID, values,

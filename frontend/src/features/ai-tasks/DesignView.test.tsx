@@ -51,6 +51,21 @@ describe("DesignView", () => {
     expect(onAnswer).toHaveBeenCalledWith({ "Is a visit one timetable?": "No", "Keep walk-ins?": "Drop" });
   });
 
+  it("offers no design round while every choice is the assumed one the draft is built on", () => {
+    const task = designTask();
+    task.design = {
+      ...task.design!,
+      questions: task.design!.questions.map((q) => ({ ...q, assumed: q.options[0] })),
+      answers: {},
+    };
+    render(<DesignView task={task} pending={false} onAnswer={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Answer and design again" })).not.toBeInTheDocument();
+    expect(screen.getByText(/The draft is already built on these answers/)).toBeInTheDocument();
+    const other = task.design!.questions[0].options[1];
+    fireEvent.click(screen.getByRole("radio", { name: other }));
+    expect(screen.getByRole("button", { name: "Answer and design again" })).toBeInTheDocument();
+  });
+
   it("says when the model does not change and shows no questions", () => {
     const task = designTask();
     task.design = { ...task.design!, operations: [{ kind: "setRelease", name: "x" }], questions: [] };

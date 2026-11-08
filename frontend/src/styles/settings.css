@@ -3700,6 +3700,20 @@ a.account-reach-app:hover {
   align-items: flex-start;
   gap: var(--space-2);
 }
+/* The row reads as a caption and a title, not as one block of link text: the title takes the
+   link colour only while the row is pointed at or focused. */
+.settings-table tbody th a.job-group-name {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.job-group-name .origin-title {
+  font-weight: 600;
+}
+.job-group-row:hover .job-group-name .origin-title,
+.job-group-name:focus-visible .origin-title {
+  color: var(--action-primary);
+  text-decoration: underline;
+}
 .job-group-chevron {
   display: inline-grid;
   place-items: center;
@@ -3712,7 +3726,7 @@ a.account-reach-app:hover {
   color: var(--action-primary);
 }
 .job-kind-tag {
-  color: var(--action-primary);
+  color: var(--text-tertiary);
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;

@@ -619,7 +619,8 @@ else:
     if config.get("api") and (config.get("ownDraft") or (config.get("ownOnSecond") and turned)):
         draft_id = api("POST", "/model-drafts", json={"name": "Its own", "model": {}})["id"]
     json.dump({"draftId": draft_id, "summary": "A plan.",
-               "questions": [{"text": "Which?", "options": ["A", "B"], "assumed": "A"}]},
+               "questions": [{"text": config.get("question", "Which?"), "options": ["A", "B"],
+                              "assumed": "A"}]},
               open("proposal.json", "w"))
     print(json.dumps({"type": "result", "result": "Ready."}))
 """
@@ -705,13 +706,16 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     change_set = {"id": settings["changeSet"]}
     log = Path(settings["log"])
     config = tmp_path / "config.json"
+    # A question with a long reason before its ask reaches the steward whole, the ask included.
+    question = "The file's own columns hold the names, nothing to type. " * 12 + "Which load runs?"
+    config.write_text(json.dumps({**json.loads(config.read_text()), "question": question}))
 
     task = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
     _run(world)
     task = _task(world, task)
     assert task["state"] == "checked" and task["design"]["stage"] == "model"
     assert task["draftId"] == draft["id"] and task["design"]["summary"] == "A plan."
-    assert task["design"]["questions"][0]["text"] == "Which?" and task["result"] is None
+    assert task["design"]["questions"][0]["text"] == question and task["result"] is None
     first = json.loads(log.read_text().splitlines()[0])
     assert first["prompt"].startswith("Make it so")
     assert "holds 10 records" in first["prompt"] and "types of its own" in first["prompt"]

@@ -201,6 +201,12 @@ def test_in_a_container_the_session_runs_as_the_assistant_user_through_sudo(monk
     environment = _session_environment("tok-1")
     assert "DATABASE_URL" not in environment and environment["REFIROO_TOKEN"] == "tok-1"
     assert "tok-1" not in " ".join(command)
+    # Its scratch folder is inside its own folder, the only place every turn may read (task 95).
+    assert _session_environment("tok-1", tmp_path)["TMPDIR"] == str(tmp_path / "tmp")
+    assert (tmp_path / "tmp").is_dir()
+    from app.engine.tasks.agent import _folder_rule
+
+    assert f"$TMPDIR is {tmp_path / 'tmp'}" in _folder_rule(tmp_path)
     monkeypatch.setenv("AI_AGENT_SANDBOX", "")
     assert _command(tmp_path, "Words", "s-1", False)[0] == "claude"
 

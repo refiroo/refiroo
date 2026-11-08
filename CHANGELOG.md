@@ -22,6 +22,10 @@ All notable changes to this project are documented in this file. The format foll
 - **Answers that keep the defaults cost nothing.** `POST /ai/tasks/{id}/answers` with only the assumed options records them and queues no turn; the task stays `checked`.
 - **A waiting task says it waits.** An assistant task carries `ahead`, the assistant jobs before its queued job; the page and the journey bar say "Waiting for the assistant: 2 tasks ahead" instead of "Reading the workbook".
 - **Undoing a value map restores that map only.** `setValueMap` records `valueMaps/<name>`, so undoing an earlier one no longer removes the later ones.
+- **A request that changes only the model no longer fails** (`agent/12`): when the words ask nothing of the stored records, the session installs one release and makes no change set, and the task ends `loaded` with a migration of no type mappings that the person previews and confirms (nothing moves); an empty change set the session made is discarded. Found in task 99 (relation matrix views).
+- **The assistant's questions are no longer cut off** (`agent/13`): a question reached the page as its first 500 characters, so a long reason hid the ask; the text is now kept whole, and the session is asked to put the question first, in at most three short sentences.
+- **Answering with the assumed options no longer looks broken:** the draft is already built on them, so the engine starts no new design round; the Questions card now says so and shows "Answer and design again" only once a choice differs from the assumed one.
+- **An assistant turn no longer fails on its own scratch files** (`agent/14`): the session's scratch folder is now inside its task folder, and it is told to keep every file there and to retry a refused command instead of ending the turn, a rule every later turn repeats with the paths; a refusal had ended task 95's load turns with nothing done.
 
 ### Changed (a draft's dry run reads its own profile, 0.13 AT)
 

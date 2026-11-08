@@ -1,6 +1,8 @@
 /**
  * The assistant's questions (0.16 AP6, board 8): each a group of radio options with the assumed
  * answer (or the one already given) chosen, and one button that sends every choice and designs again.
+ * While every choice is the assumed one the draft is already built on them, so there is nothing to
+ * design again (0.13 AQ-D4): the page says so and offers no button.
  */
 
 import { useState } from "react";
@@ -23,6 +25,7 @@ export function DesignQuestions({
     Object.fromEntries(questions.map((q) => [q.text, answers[q.text] ?? q.assumed ?? q.options[0] ?? ""])),
   );
   if (questions.length === 0) return null;
+  const changed = questions.some((q) => q.assumed == null || chosen[q.text] !== q.assumed);
   return (
     <Card as="section" title="Questions" className="task-table" id="journey-questions" tabIndex={-1}>
       <p className="task-reason">
@@ -39,11 +42,17 @@ export function DesignQuestions({
           />
         </fieldset>
       ))}
-      <div className="task-actions">
-        <button type="button" className="secondary" disabled={pending} onClick={() => onAnswer(chosen)}>
-          {pending ? "Starting…" : "Answer and design again"}
-        </button>
-      </div>
+      {changed ? (
+        <div className="task-actions">
+          <button type="button" className="secondary" disabled={pending} onClick={() => onAnswer(chosen)}>
+            {pending ? "Starting…" : "Answer and design again"}
+          </button>
+        </div>
+      ) : (
+        <p className="task-reason">
+          The draft is already built on these answers: change one to design again, or accept the proposal as it is.
+        </p>
+      )}
     </Card>
   );
 }

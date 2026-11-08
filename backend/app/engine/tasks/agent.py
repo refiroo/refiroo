@@ -73,7 +73,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "agent/11"
+PROMPT_VERSION = "agent/14"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -119,7 +119,9 @@ def _connection(workspace: str, url: str, *, workbook: bool = True) -> str:
         f"{file}model.json the workspace's model, openapi.json the API of the "
         f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl{' -k' if _loopback(url) else ''} --noproxy ''). "
         "The network is reached with curl: Python cannot open a socket in the sandbox. The "
-        "language of a model is components.schemas.EngineModel in openapi.json. "
+        "language of a model is components.schemas.EngineModel in openapi.json. Keep every file "
+        "you make in this folder ($TMPDIR is in it) and name it by a relative path: nothing outside "
+        "the folder can be read. A refused command is not the end of the turn: run it again that way. "
         f"{data}Work only in the workspace {workspace}: no other "
         "workspace is read or changed. Where the data gives one thing two names or values, that "
         "is intended: keep them all as they are, correct nothing and do not keep only the most "
@@ -214,7 +216,8 @@ def _propose_prompt(
         f"{_WORDS} {_RECORDS} {_SHAPE + ' ' + _KEYS + ' ' + _QUESTIONS + ' ' if workbook else ''}{check}; install, "
         "activate, load and publish nothing yet: the person reviews first. Then write "
         f'{PROPOSAL}: {{"draftId": {"..." if workbook else "... (null when the model does not change)"}, "summary": two sentences a person reads, "questions": '
-        '[{"text", "options", "assumed"}] for what only a person can decide, "moves": '
+        '[{"text": the question itself first, at most three short sentences, "options", "assumed"}] '
+        'for what only a person can decide, "moves": '
         '[{"from": a type key, "to": its type key in the draft, "attributes": [{"attributeTypeKey", '
         '"from"}]}] only for a whole type that becomes another, kept in order}.'
     )
@@ -233,7 +236,10 @@ _ACCEPTED = (
     "The person accepted. They may have edited the draft in the model editor: read it again. Install "
     "it as exactly one new release and do not activate it, make the change (a workbook's rows, or "
     "what the words ask of the stored records) in a new change set "
-    f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>.{_PART}"
+    f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>.{_PART} If "
+    "the words ask nothing of the stored records (no workbook rows, no record changes), the model "
+    "alone changes: install exactly one new release, do not activate it, make no change set, and "
+    f"end with the line {RELEASE_LINE} <its id>."
 )
 
 
@@ -474,9 +480,19 @@ PASSED = re.compile(
 )
 
 
-def _session_environment(token: str) -> dict[str, str]:
+def _session_environment(token: str, folder: Path | None = None) -> dict[str, str]:
+    """What the session's process sees. Its scratch folder (``TMPDIR``) lies inside its own folder:
+    a session that kept files in the machine's scratch folder had its next turn's command refused for
+    reading outside its folder, and the task failed (task 95)."""
+    scratch: dict[str, str] = {}
+    if folder is not None:
+        temporary = folder / "tmp"
+        temporary.mkdir(exist_ok=True)
+        _share(temporary, 0o2770)
+        scratch["TMPDIR"] = str(temporary)
     return {
         **{name: value for name, value in os.environ.items() if PASSED.match(name)},
+        **scratch,
         "REFIROO_TOKEN": token,
         "PATH": f"{Path(sys.prefix) / 'bin'}:{os.environ.get('PATH', '')}",
     }
@@ -866,6 +882,16 @@ def _record_interrupted(
     )
 
 
+def _folder_rule(folder: Path) -> str:
+    """Where a turn's files are: the folder, and its scratch folder as ``$TMPDIR``."""
+    return (
+        f"Your folder is {folder} and $TMPDIR is {folder / 'tmp'}: nothing outside the folder can be "
+        "read, and files an earlier turn kept elsewhere are under $TMPDIR now. Name files by a "
+        "relative path or $TMPDIR, never by an absolute path elsewhere. A refused command is not the "
+        "end of the turn: run it again that way."
+    )
+
+
 def _run_turn(
     session: Session,
     job: Job,
@@ -886,6 +912,10 @@ def _run_turn(
     _record_interrupted(session, task_key, folder, earlier)
     if first:
         (folder / PROPOSAL).unlink(missing_ok=True)
+    else:
+        # A resumed session keeps the habits of its earlier turns: the folder rule is said every turn,
+        # with the paths, or a command naming an old scratch path is refused and the turn is lost (task 95).
+        prompt = f"{prompt}\n\n{_folder_rule(folder)}"
     try:
         token, client, opened = _access(session, job, load_task(session, task_key, for_update=True))
         session.commit()
@@ -961,7 +991,7 @@ def _turn(
             process = subprocess.Popen(
                 command,
                 cwd=folder,
-                env=_session_environment(token),
+                env=_session_environment(token, folder),
                 stdin=subprocess.DEVNULL,
                 stdout=output,
                 stderr=subprocess.STDOUT,
@@ -1470,10 +1500,22 @@ def _drafted_by(session: Session, task: AiTask, draft: ModelDraft) -> bool:
     )
 
 
+QUESTION_MAX = 2000
+
+
+def _question_text(text: str) -> str:
+    """A question as the session wrote it: whole, so its ask is never cut off; only a runaway one is
+    shortened, at a word, with an ellipsis."""
+    text = text.strip()
+    if len(text) <= QUESTION_MAX:
+        return text
+    return text[:QUESTION_MAX].rsplit(" ", 1)[0] + "…"
+
+
 def _questions(proposal: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
-            "text": str(q.get("text"))[:500],
+            "text": _question_text(str(q.get("text"))),
             "options": [str(o) for o in q.get("options") or []],
             "assumed": q.get("assumed"),
         }
@@ -1887,6 +1929,28 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
         return
     change_set_id = _last_line(words, LAST_LINE)
     change_set = _change_set_of(session, task, change_set_id)
+    if (
+        not unchanged
+        and _last_line(words, RELEASE_LINE)
+        and (
+            change_set is None
+            or (
+                change_set.workspace_key == task.workspace_key
+                and not _holds_changes(_counts(session, change_set.id))
+            )
+        )
+    ):
+        # The model alone changes: the migration ending with no type mappings (the records stay).
+        result = _migration_result(session, task, words)
+        if result is not None:
+            task.result = result
+            finish(task, "loaded", _retention(ctx))
+            if change_set is not None:
+                # The empty change set the session made is not left dangling (commits).
+                session.flush()
+                discard_change_set(session, change_set.id, change_set.version)
+            session.commit()
+            return
     counts = _counts(session, change_set.id) if change_set is not None else None
     # An empty change set is no load, whatever the session's last line says; a change set that holds
     # only relationships is one. A task never fails without saying why.
