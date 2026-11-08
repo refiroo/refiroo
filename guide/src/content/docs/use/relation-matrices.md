@@ -43,6 +43,12 @@ model's rules make that connection. Not all states apply to every configuration.
 | None | No related record is present and the cell has no earlier-publication record to show. |
 | Conflict | More than one record counts where the model permits only one. Inspect and resolve the extra counting records. |
 
+**Conflict** describes data already inconsistent with the counting limit. Normal writes
+enforce that limit, so creating a second counting record is refused rather than creating
+a Conflict cell. You may encounter one when existing data and the model’s rules no longer
+agree, including older stored data. There is no need to create a conflict to use a matrix;
+if none exists, the conflict-inspection steps do not apply.
+
 **One** does not prove that every field is complete or that its content is correct. **None**
 does not mean an existing record merely has an empty text field. **History only** refers to an
 earlier publication, rather than every past edit in a record's history. Historical content in

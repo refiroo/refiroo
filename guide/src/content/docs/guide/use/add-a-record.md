@@ -15,7 +15,9 @@ field rules and [Hierarchies](/docs/use/hierarchies/) for placement.
    cannot be filled through this form. Keep numbers, dates and Yes/No values in their proper controls.
 3. Where **Parent** is offered, select the allowed parent type and search for the record.
    Some types require a parent and cannot be created at the top. **No parent available** means
-   you must first provide an allowed parent or ask about the model's placement rules.
+   you must first provide an allowed parent. Open the hierarchy view and use **Add …**
+   for its top-level type, then add the child records beneath it. If that action is absent,
+   check your editing access and ask the model administrator about the view’s actions and placement rules.
 4. Complete required relationships in the same form. Search only offers eligible records in
    this workspace and context. A general search result elsewhere does not guarantee eligibility.
 5. Choose **Create**. Fields, parent and required relationships save together. A refusal leaves

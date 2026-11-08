@@ -173,8 +173,9 @@ saving the policy and establishing approvers; the submission and decision flow i
 Opening a job, move, migration or change-set review marks its notices read, including notices
 arriving while you keep that subject open. A decision on a request, or confirmation or cancellation
 of waiting work, also closes the waiting notice. A publication notice opens its publication
-only while it is active and you have Browse. Otherwise it becomes read and you stay in the
-inbox; the same applies to a link from a digest.
+from Notifications or a digest while it is active and you have Browse. If it is no longer
+active, it opens the workspace’s **Publications** instead. The bell also leads to
+**Publications**. Opening marks the notice read; it does not restore lost Browse access.
 
 For immediate email eligibility, digest counts and schedules, see
 [Notification settings](/docs/use/notifications-settings/). A digest counts all eligible notices

@@ -33,8 +33,30 @@ automatically. Never pass secret values as literal shell arguments.
 | `model_release_prune` | Optional `--dry-run`, `--unused` | Removes unreferenced retired releases, or also unreferenced active releases with `--unused`. Exit 0 success, 1 database failure. Preview first. |
 | `settings_template` | `--for dev` or `--for compose`, optional `--update PATH` | Prints catalogue defaults, or updates a settings file while preserving existing lines and marking retired settings. A successful run exits 0. It does not apply settings to a running process. |
 
+For `create_client --role`, supply a role key, not its screen name. For example,
+**Data owner** is `--role owner`. Each CLI role grant covers the whole instance; use the
+[grant operations](/docs/api/?api=management#tag/security) for narrower workspace access.
+
+| Name in Settings | Key for commands and API grants |
+| --- | --- |
+| Reader | `reader` |
+| Contributor | `contributor` |
+| Data steward | `steward` |
+| Data owner | `owner` |
+| Model administrator | `model-admin` |
+| Workspace administrator | `workspace-admin` |
+| Integration administrator | `integration-admin` |
+| Operator | `operator` |
+| Security administrator | `security-admin` |
+| Agent | `agent` |
+
+Custom roles have their own keys. Read the role catalogue in the API reference to find them.
+The Agent role prepares changes; it does not grant publication or approval.
+
 Argument parsing can also exit 2 for missing or invalid command options. Use `--help` on tools that
-accept arguments to inspect their syntax without performing maintenance.
+accept arguments to inspect their syntax without performing maintenance. This includes
+`generate_key --help` and `database_upgrade --help`: they print help without generating a key
+or preparing or migrating the database.
 
 Use the full procedures for [key changes](/docs/run/secrets-and-keys/),
 [upgrades and model raising](/docs/run/upgrades/), [restore checks](/docs/run/backup-and-restore/)
@@ -70,8 +92,8 @@ for a complete new installation.
 
 These examples run from the reference installation's repository root with its existing private
 configuration. Keep the HTTPS overlay arguments or alternate environment-file selection used by
-that installation. Tools that take arguments support `--help`; Python modules without argument
-parsing (`generate_key` and `database_upgrade`) perform their work when invoked.
+that installation. All tools listed here support `--help` without performing their operation.
+`generate_key` and `database_upgrade` perform their work when invoked without `--help`.
 
 | Command | Example | Successful output |
 | --- | --- | --- |
@@ -90,7 +112,10 @@ parsing (`generate_key` and `database_upgrade`) perform their work when invoked.
 
 `N`, `...` and parenthesised identities in this table stand for values printed for your database;
 they are not literal fixed output. `--role` may be repeated for a client. `--password-stdin` reads
-one line for an administrator and skips the second prompt; pipe from a protected secret source,
+one line for an administrator and skips the second prompt. With piped input, add `-T` after
+`docker compose run --rm` to disable terminal allocation. Without a terminal and without
+`--password-stdin`, creation exits 2 and says `No terminal to ask for the password: pipe it
+with --password-stdin.` No person is created. Pipe from a protected secret source,
 not a password typed into the shell command. Neither creation tool is a password-reset tool:
 for an existing person use the access administration workflow.
 

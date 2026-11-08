@@ -614,6 +614,48 @@ recorded as the weaker check.
 ### DOC12: Publish
 
 A public static build of the same sources, versioned per release ([DOC-D7](DOCUMENTATION_PLAN.md#decisions)),
+**Status:** The first weaker run (waves C11-READER and C11-FIX, 2026-11-06) read every journey but could do
+none of it: Codex's sandbox had no network to the reference instance and no browser, and no command was
+rehearsed. Pages changed since (CP, ED, RL, DF, AT). **Planned again and approved by the user 2026-11-08**:
+
+1. **Tool.** `guide/tools/codex-wave.mjs` gets `--network` (network access in Codex's sandbox) and `--browser`
+   (a Playwright Chromium started outside the sandbox for the turn, driven by Codex through its endpoint;
+   a browser cannot start inside the macOS sandbox, probed 2026-11-08). Both off unless named. Implementer.
+2. **Reader run** (wave `C11-READER2`, Codex): the quick start, every journey but the assistant one, and the
+   production checklist, each step done on the reference instance rebuilt from the current code; writes only
+   in workspaces it makes; no host commands, no AI. The assistant journey follows in `C11-READER2-AI` once AT
+   is delivered.
+3. **Clean-host rehearsal** (implementer): a fresh copy of the checkout, its own Compose project, job directory
+   and ports; the run pages' commands word for word (install, administrator, backup, restore, upgrade from
+   the last release, v0.16.0); each command recorded as ran, worked or differs; removed afterwards. Steps needing a public DNS name
+   are read only.
+4. **Fix wave** (`C11-FIX2`, Codex) on the findings of 2 and 3; product defects fixed by the implementer with
+   their CHANGELOG entry and guide text.
+5. **Record:** this status, the CHANGELOG, `npm run verify`.
+
+Still the weaker check (no outside person), now done rather than read.
+
+**Clean-host rehearsal done 2026-11-08** (`guide/_coverage/notes/C11-HOST/findings.md`): 139 commands run on 15
+pages, 128 as the page says, 11 differ, 24 not run with reasons. Product findings: the tag `v0.16.0` cannot be built
+(its `backend/Dockerfile` ends with two stray `ENV` lines after `CMD`; `v0.16.1-alpha.1` builds). The tag predates the
+images workflow (2026-11-07), which now builds and starts the images for every `v*` tag, so R's tag is checked (the pages
+name no particular release, only `v<version>`). `generate_key --help` and `database_upgrade --help` did the work, and `create_admin` without a
+terminal failed with a traceback: fixed in the command-line tools. The rest go to the fix wave.
+
+**Reader run and fix wave done 2026-11-08.** The reader (`guide/_coverage/notes/C11-READER2/report.md`) did the quick
+start, every journey but the assistant one and the production checklist's outside checks in a browser and with real
+requests on the reference instance, every path the journeys name. Ten findings: two were the instance's setup (stale
+accounts); seven product defects were fixed with tests and browser checks (an empty hierarchy has no first-root Add,
+a follower notice opens nothing, a retired workspace's band said edits apply, a supplier profile saved and listed
+against the default workspace's model, "Update them anyway" still refused rows changed since the export, Preview again
+after a partly refused deletion kept the old version, a draft conflict named a rename by its new name); one was a
+label in the page. Two paths could not be set up on this installation and the pages now say what they need: the
+Conflict state of a matrix (needs already-inconsistent data) and raising an older model language (needs an older
+release stored before an upgrade). The fix wave (`guide/_coverage/notes/C11-FIX2/report.md`) brought the pages in line
+with all 23 findings; the model editor's "migration (planned for 1.0)" sentence was corrected to name the JSON view and
+the install review; the three tree pictures were taken again. `reference.sh update` now rebuilds the web image too.
+**Open: the assistant journey (`C11-READER2-AI`), read once AT is delivered.**
+
 with search and the light and dark themes; the README and the repository's `docs/PRODUCT.md` point to it.
 Where the site is hosted is the user's decision when this package is reached; the build produces plain
 static files that any host serves.

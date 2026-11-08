@@ -464,6 +464,8 @@ describe("App", () => {
 
     expect(await screen.findByText("Read-only workspace")).toBeInTheDocument();
     expect(screen.getByLabelText("Current context")).toHaveTextContent("Historical archive");
+    expect(screen.queryByText("Edits apply immediately in this workspace.")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Retired: read only.").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Add Domain" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /More actions for/ })).not.toBeInTheDocument();
   });

@@ -1,0 +1,19 @@
+# C11-FIX2 progress
+
+2026-11-08T22:07:10+01:00 — Finished browser-task corrections: guide/use/{add-a-record,arrange-records-in-a-tree,follow-and-cancel-a-job,follow-a-workspace,open-a-retired-or-unavailable-workspace,delete-many-records,load-the-next-version-of-a-workbook,edit-in-excel-and-import-back}.md; guide/model/{create-a-workspace,work-on-a-draft-with-others}.md; use/inbox-and-approvals.md. Covers first roots, labels, notice destinations and corrected save/retry behavior. No steer file exists; findings 2–3 need no page repair.
+
+2026-11-08T22:08:25+01:00 — Finished run/install-with-compose.md. Explains release selection and the buildable prerelease rehearsal tag, uses the service’s actual file mount for backups with an archive check, and covers macOS sed, closed stdin and first-admin terminal refusal. No steer file exists; no production-ready replacement release was inferred from Unreleased notes.
+
+2026-11-08T22:09:06+01:00 — Finished run/{https,backup-and-restore,upgrades}.md. Adds a localhost certificate rehearsal with explicit ports, key matching and private-key readability; validates Caddy before startup; makes the restore image build explicit and explains a newly created assistant-claude volume. No steer file exists; these commands were checked against the deployment files, not rerun on a host in this wave.
+
+2026-11-08T22:10:07+01:00 — Finished run/{command-line,sign-in-and-mail-setup,monitoring}.md and integrate/security-model-for-integrators.md. Adds all ten role keys next to screen names, safe help behavior, token extraction at the public origin, an explicit first workspace write and an internal metrics probe; matches JSON log spacing. No steer file exists; API examples were checked against CLI/schema/router sources.
+
+2026-11-08T22:10:39+01:00 — Finished use/relation-matrices.md, guide/use/fill-in-a-relation-matrix.md, model/model-language-versions.md, guide/model/raise-a-model-language-version.md, guide/model/add-a-record-type-and-fields.md and model/{json-view,migrations}.md. Clarifies pre-existing inconsistent cells and older stored releases, and directs released-field type changes through specialist authoring and reviewed migration. No steer file exists; the visual editor’s “planned for 1.0” sentence remains a product defect, recorded for the final report.
+
+2026-11-08T22:12:18+01:00 — Review finished for the operator examples and affected pictures. Replaced an unsafe-to-copy angle-bracket archive placeholder, clarified trust for the actual self-signed certificate and used supported highlighting for Caddy snippets. Inspected tree-geography-chur.png, tree-modes.png, tree-move-dialog.png, model-conflict-editor.png and import-profile-next-version.png; the tree pictures lack the new Add control, while the draft/profile pictures still illustrate valid states. No steer file exists.
+
+2026-11-08T22:13:47+01:00 — Completed the per-finding report in _coverage/notes/C11-FIX2/report.md and final checks. Isolated build passed (253 pages, 3.46 s), local links passed (73,485), terms/brand passed; existing /404 warning remains. No steer file exists, no pictures were changed, and no server/database was started. Product wording defect and immutable broken tag are identified in the report.
+
+2026-11-08T22:16:50+01:00 — Applied the owner’s C11-HOST 1 correction to src/content/docs/run/install-with-compose.md and _coverage/notes/C11-FIX2/report.md. Removed the release-specific additions, retained the intended-version placeholder and Unreleased reminder, and corrected the report: the original page was already right and the brief was wrong. No steer file exists.
+
+2026-11-08T22:17:10+01:00 — Correction validated: GUIDE_OUT=_build/C11-FIX2 npm run build passed (253 pages, 3.35 s); npm run check and the isolated check:links passed. Existing /404 warning remains; no other page or picture changed.

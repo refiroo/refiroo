@@ -1,0 +1,464 @@
+{
+  "at": "2026-11-08T16:46:39.396Z",
+  "workspaces": [
+    {
+      "key": "reader",
+      "label": "reader",
+      "status": "active",
+      "version": 3,
+      "createdAt": "2026-11-08T10:04:17.436210Z",
+      "updatedAt": "2026-11-08T16:17:06.851551Z",
+      "model": {
+        "releaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+        "releaseKey": "guide-reference-swiss",
+        "releaseName": "Public transport stops of Graubünden",
+        "releaseVersion": "1.0.0",
+        "schemaVersion": "0.10",
+        "modelHash": "279dfe9a8914c0c1df513a3d2b62ebe24e5c08589ac1d8eefc0b68cb6e12cdb2",
+        "version": 1,
+        "updatedAt": "2026-11-08T10:04:17.441794Z"
+      },
+      "availability": {
+        "state": "available"
+      }
+    },
+    {
+      "key": "reader-model",
+      "label": "reader model",
+      "status": "active",
+      "version": 1,
+      "createdAt": "2026-11-08T10:23:08.939207Z",
+      "updatedAt": "2026-11-08T16:45:40.614754Z",
+      "model": {
+        "releaseId": "530d71d3-d5e4-4e14-b636-932829a69ec7",
+        "releaseKey": "c11-reader-model",
+        "releaseName": "C11 reader model",
+        "releaseVersion": "1.0.4",
+        "schemaVersion": "0.10",
+        "modelHash": "4032dd54fb6a8cb93ac84522d4ed5217582c56cb0025f0aef0006c58c1dfce2d",
+        "version": 5,
+        "updatedAt": "2026-11-08T16:35:02.442967Z"
+      },
+      "availability": {
+        "state": "available"
+      }
+    }
+  ],
+  "publications": {
+    "reader": {
+      "items": [
+        {
+          "id": "557eeb06-6b1b-489a-8f23-0ee557409d80",
+          "workspaceKey": "reader",
+          "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 5,
+          "status": "active",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "89615631-a32a-4496-a350-3353e8e180d3",
+          "createdAt": "2026-11-08T16:17:06.810257Z",
+          "publishedAt": "2026-11-08T16:17:06.850188Z",
+          "withdrawnAt": null,
+          "feedPosition": 26,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": null
+        },
+        {
+          "id": "89615631-a32a-4496-a350-3353e8e180d3",
+          "workspaceKey": "reader",
+          "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 4,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "6e9047e1-56b3-4179-8191-3c065033fdd8",
+          "createdAt": "2026-11-08T11:39:25.847449Z",
+          "publishedAt": "2026-11-08T11:39:25.894880Z",
+          "withdrawnAt": "2026-11-08T16:17:06.850148Z",
+          "feedPosition": 24,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "6e9047e1-56b3-4179-8191-3c065033fdd8",
+          "workspaceKey": "reader",
+          "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 3,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "58efc7e6-bcae-4670-91a4-99ff7bf5215e",
+          "createdAt": "2026-11-08T11:09:30.249043Z",
+          "publishedAt": "2026-11-08T11:09:30.493373Z",
+          "withdrawnAt": "2026-11-08T11:39:25.894854Z",
+          "feedPosition": 11,
+          "publishedBy": {
+            "kind": "user",
+            "id": "906cb2ad-523d-45c7-b41b-65a3d71c8010",
+            "name": "Rita Approver"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "58efc7e6-bcae-4670-91a4-99ff7bf5215e",
+          "workspaceKey": "reader",
+          "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 2,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": null,
+          "createdAt": "2026-11-08T10:19:01.768511Z",
+          "publishedAt": "2026-11-08T10:19:01.794063Z",
+          "withdrawnAt": "2026-11-08T11:09:30.493300Z",
+          "feedPosition": 10,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "906cb2ad-523d-45c7-b41b-65a3d71c8010",
+            "name": "Rita Approver"
+          }
+        },
+        {
+          "id": "3b785633-dea6-4a2b-a278-3f34ee0b0ae4",
+          "workspaceKey": "reader",
+          "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 1,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": null,
+          "createdAt": "2026-11-08T10:14:51.478358Z",
+          "publishedAt": "2026-11-08T10:14:51.517795Z",
+          "withdrawnAt": "2026-11-08T10:15:15.968622Z",
+          "feedPosition": 7,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjZlN2RhYTgwNTYzMTc4ZDg1Y2ZkNDNmODc2MTBkOGVmNjJmMzAyMDUxYzE5ODhmZmMwNzRlNWJkNTkzMjU5Y2MiLCJwb3NpdGlvbiI6WyI1IiwiNTU3ZWViMDYtNmIxYi00ODlhLThmMjMtMGVlNTU3NDA5ZDgwIl0sInNjb3BlIjoicHVibGljYXRpb25zIiwic29ydCI6WyItcHVibGljYXRpb25OdW1iZXIiLCItaWQiXSwidmVyc2lvbiI6MX0.706LzaeL3D0Gt9H29wTCSZq_dutIWRLz94C0oNqHLZw"
+    },
+    "reader-model": {
+      "items": [
+        {
+          "id": "0ed2fc3a-dc5d-45ca-b6d9-52f62dc9665a",
+          "workspaceKey": "reader-model",
+          "modelReleaseId": "530d71d3-d5e4-4e14-b636-932829a69ec7",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.4",
+          "publicationNumber": 6,
+          "status": "active",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "e7cc7b44-168b-4a43-9012-7e54e4c280d1",
+          "createdAt": "2026-11-08T16:45:39.291183Z",
+          "publishedAt": "2026-11-08T16:45:40.613161Z",
+          "withdrawnAt": null,
+          "feedPosition": 579,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": null
+        },
+        {
+          "id": "e7cc7b44-168b-4a43-9012-7e54e4c280d1",
+          "workspaceKey": "reader-model",
+          "modelReleaseId": "685fd41c-3e9b-4f72-939b-e446938dd7ba",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 5,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "82ebfc0e-06c2-4214-8a17-17855348c0f1",
+          "createdAt": "2026-11-08T16:16:52.276424Z",
+          "publishedAt": "2026-11-08T16:16:52.330221Z",
+          "withdrawnAt": "2026-11-08T16:45:40.613125Z",
+          "feedPosition": 174,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "82ebfc0e-06c2-4214-8a17-17855348c0f1",
+          "workspaceKey": "reader-model",
+          "modelReleaseId": "685fd41c-3e9b-4f72-939b-e446938dd7ba",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 4,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "d97ee6c1-9c86-42af-87ed-2b23904ea286",
+          "createdAt": "2026-11-08T16:12:34.934831Z",
+          "publishedAt": "2026-11-08T16:12:34.992153Z",
+          "withdrawnAt": "2026-11-08T16:16:52.330185Z",
+          "feedPosition": 68,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "d97ee6c1-9c86-42af-87ed-2b23904ea286",
+          "workspaceKey": "reader-model",
+          "modelReleaseId": "685fd41c-3e9b-4f72-939b-e446938dd7ba",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 3,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "e942e342-47f9-4f25-ae35-a2ebc1f23af4",
+          "createdAt": "2026-11-08T16:04:24.929560Z",
+          "publishedAt": "2026-11-08T16:04:25.175393Z",
+          "withdrawnAt": "2026-11-08T16:12:34.992116Z",
+          "feedPosition": 66,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "e942e342-47f9-4f25-ae35-a2ebc1f23af4",
+          "workspaceKey": "reader-model",
+          "modelReleaseId": "685fd41c-3e9b-4f72-939b-e446938dd7ba",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 2,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "35994e78-f172-419b-ade4-842d5e9dc4ee",
+          "createdAt": "2026-11-08T11:35:01.280242Z",
+          "publishedAt": "2026-11-08T11:35:01.298279Z",
+          "withdrawnAt": "2026-11-08T16:04:25.175363Z",
+          "feedPosition": 14,
+          "publishedBy": {
+            "kind": "user",
+            "id": "906cb2ad-523d-45c7-b41b-65a3d71c8010",
+            "name": "Rita Approver"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "35994e78-f172-419b-ade4-842d5e9dc4ee",
+          "workspaceKey": "reader-model",
+          "modelReleaseId": "685fd41c-3e9b-4f72-939b-e446938dd7ba",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.0",
+          "publicationNumber": 1,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": null,
+          "createdAt": "2026-11-08T11:34:46.549757Z",
+          "publishedAt": "2026-11-08T11:34:46.582286Z",
+          "withdrawnAt": "2026-11-08T11:35:01.298262Z",
+          "feedPosition": 13,
+          "publishedBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "906cb2ad-523d-45c7-b41b-65a3d71c8010",
+            "name": "Rita Approver"
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6Ijk4NGVkZGM2ZDEwYTYyYTQ4NzI1N2RhMTA4NWJlZDU4YTVkNjRmNWVhYzkzNGM4NGEzMTU2YjkwNjAyMGM1NWUiLCJwb3NpdGlvbiI6WyI2IiwiMGVkMmZjM2EtZGM1ZC00NWNhLWI2ZDktNTJmNjJkYzk2NjVhIl0sInNjb3BlIjoicHVibGljYXRpb25zIiwic29ydCI6WyItcHVibGljYXRpb25OdW1iZXIiLCItaWQiXSwidmVyc2lvbiI6MX0.08ozXp1LHKlCJeDJx125eR8LPY6V_gtidDW7Yr7cd6I"
+    }
+  },
+  "counts": {
+    "reader": {
+      "items": [
+        {
+          "id": "02b86fa6-5f1a-4a62-bf39-c5d07042c292",
+          "workspaceKey": "reader",
+          "applicationKey": "systems",
+          "objectTypeKey": "system-code",
+          "parentObjectId": "a25248e3-723b-46d8-b5d7-cfdfdea47402",
+          "name": "C11 reader matrix code 1",
+          "path": [
+            {
+              "id": "a25248e3-723b-46d8-b5d7-cfdfdea47402",
+              "name": "C11 reader municipality codes",
+              "objectTypeKey": "system"
+            },
+            {
+              "id": "02b86fa6-5f1a-4a62-bf39-c5d07042c292",
+              "name": "C11 reader matrix code 1",
+              "objectTypeKey": "system-code"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "8b7090aa-4113-4ede-9be8-644505efa3c0",
+              "attributeTypeKey": "external-id",
+              "name": "External code",
+              "valueType": "text",
+              "value": "C11-MATRIX-1"
+            },
+            {
+              "id": "44d6e60a-a05c-460d-8db8-8e195332316d",
+              "attributeTypeKey": "description",
+              "name": "Description",
+              "valueType": "longText",
+              "value": "Reviewed in Several cell"
+            }
+          ],
+          "version": 2,
+          "createdAt": "2026-11-08T16:19:23.209690Z",
+          "updatedAt": "2026-11-08T16:19:38.811027Z",
+          "changeSetVersion": null,
+          "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf"
+        }
+      ],
+      "nextCursor": "eyJmaWx0ZXJzIjoiZTJlYmVhMmVmZGZkYjcwN2FhNjY1M2Q5ODRiN2FhNzY5MzNlMzAwZDZkNjcyY2E0MTJlYTBiMjhhZDcyMjhhNiIsInBvc2l0aW9uIjpbIkMxMSByZWFkZXIgbWF0cml4IGNvZGUgMSIsIjEyOTY4Il0sInNjb3BlIjoib2JqZWN0LWxvb2t1cCIsInNvcnQiOlsibmFtZSIsInNlcXVlbmNlSWQiXSwidmVyc2lvbiI6MX0.8ZqHlHPtb7NCMOF8MusXzY2WpcNliKtUitn3A2atvMo",
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImUyZWJlYTJlZmRmZGI3MDdhYTY2NTNkOTg0YjdhYTc2OTMzZTMwMGQ2ZDY3MmNhNDEyZWEwYjI4YWQ3MjI4YTYiLCJwb3NpdGlvbiI6WyJDMTEgcmVhZGVyIG1hdHJpeCBjb2RlIDEiLCIxMjk2OCJdLCJzY29wZSI6Im9iamVjdC1sb29rdXAiLCJzb3J0IjpbIm5hbWUiLCJzZXF1ZW5jZUlkIl0sInZlcnNpb24iOjF9.3QxMbx2OlG7RlLU3jXj0iOObBjWiCDgoxRBUulLQMqw",
+      "totalCount": 7,
+      "startIndex": 0
+    },
+    "reader-model": {
+      "items": [
+        {
+          "id": "a7bdd7f4-8e24-4c77-a741-c4404ff84da0",
+          "workspaceKey": "reader-model",
+          "applicationKey": "stops-reader",
+          "objectTypeKey": "stop",
+          "parentObjectId": null,
+          "name": "C11 bulk selection 001",
+          "path": [
+            {
+              "id": "a7bdd7f4-8e24-4c77-a741-c4404ff84da0",
+              "name": "C11 bulk selection 001",
+              "objectTypeKey": "stop"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "2e125daa-06c1-44a0-a6ad-d7758c9d246e",
+              "attributeTypeKey": "stop-code",
+              "name": "Stop code",
+              "valueType": "integer",
+              "value": 9000000
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-08T16:41:33.013660Z",
+          "updatedAt": "2026-11-08T16:41:33.013665Z",
+          "changeSetVersion": null,
+          "modelReleaseId": "530d71d3-d5e4-4e14-b636-932829a69ec7"
+        }
+      ],
+      "nextCursor": "eyJmaWx0ZXJzIjoiY2QxNzkyMzUzODM3ZGQ0ODNkZmY5NzlkZGRiNzMxOGY1NDg0NzkxNjFiNTg1YTRlZWQ2NGZkOTVhMmI0OWY0MiIsInBvc2l0aW9uIjpbIkMxMSBidWxrIHNlbGVjdGlvbiAwMDEiLCIxMjk3MCJdLCJzY29wZSI6Im9iamVjdC1sb29rdXAiLCJzb3J0IjpbIm5hbWUiLCJzZXF1ZW5jZUlkIl0sInZlcnNpb24iOjF9.23xj7DCmSnmR3S2etM35alLSI6laHFUqnKIE8Wk-IOU",
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImNkMTc5MjM1MzgzN2RkNDgzZGZmOTc5ZGRkYjczMThmNTQ4NDc5MTYxYjU4NWE0ZWVkNjRmZDk1YTJiNDlmNDIiLCJwb3NpdGlvbiI6WyJDMTEgYnVsayBzZWxlY3Rpb24gMDAxIiwiMTI5NzAiXSwic2NvcGUiOiJvYmplY3QtbG9va3VwIiwic29ydCI6WyJuYW1lIiwic2VxdWVuY2VJZCJdLCJ2ZXJzaW9uIjoxfQ.QElhAk6vfkM2_Hd_Qef0nUCowW5PG6s-bNwzqojBu2M",
+      "totalCount": 202,
+      "startIndex": 0
+    }
+  },
+  "changeSets": {
+    "reader": {
+      "items": [],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": null
+    },
+    "reader-model": {
+      "items": [
+        {
+          "id": "a2ec407f-600a-4178-93de-46d15a1ecfb3",
+          "workspaceKey": "reader-model",
+          "name": "C11 reader live conflict",
+          "modelReleaseId": "685fd41c-3e9b-4f72-939b-e446938dd7ba",
+          "modelReleaseKey": "c11-reader-model",
+          "modelReleaseVersion": "1.0.0",
+          "source": "currentLive",
+          "derivedFromPublicationId": null,
+          "version": 2,
+          "createdAt": "2026-11-08T11:34:01.332629Z",
+          "updatedAt": "2026-11-08T11:34:16.687779Z",
+          "createdBy": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "submission": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjRhY2Q1NjdkNTgzY2ExNzI1MmE1ZDU2YWFlMGUxNmVlNTExYTcxNjQ5OTVkNjhlZmI3MTg3ZjkwNTFhMDU2ZDMiLCJwb3NpdGlvbiI6WyIyMDI2LTExLTA4VDExOjM0OjAxLjMzMjYyOSswMDowMCIsImEyZWM0MDdmLTYwMGEtNDE3OC05M2RlLTQ2ZDE1YTFlY2ZiMyJdLCJzY29wZSI6ImNoYW5nZS1zZXRzIiwic29ydCI6WyJjcmVhdGVkQXQiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.valTixpAuYBHiNTB5f3tqvNTocdc1WLrgXN3VgJt3qY"
+    }
+  },
+  "cleanup": {
+    "clientActive": false,
+    "tokenRefusal": {
+      "status": 401,
+      "code": "TOKEN_INVALID",
+      "reason": "revoked"
+    },
+    "temporaryRitaGrantsRemoved": true,
+    "profileAndNextFileDeleted": true
+  }
+}

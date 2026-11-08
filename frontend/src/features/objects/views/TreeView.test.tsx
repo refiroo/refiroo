@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { recordWrites } from "@/features/security/permissions";
 import { permissionsFixture } from "@/test/permissions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api, type ObjectQuery } from "@/api/client";
@@ -316,6 +317,42 @@ describe("TreeView", () => {
     fireEvent.click(within(menu).getByRole("menuitem", { name: /Mark not active/ }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(write).toHaveBeenCalledWith("domain", "finance", "active", false, 1);
+  });
+
+  it("adds the first top-level record from an empty tree, in the header and the empty state", async () => {
+    serve([]);
+    render(lens());
+    expect(await screen.findByText("No domains in this workspace yet.")).toBeInTheDocument();
+    const adds = screen.getAllByRole("button", { name: "Add Domain" });
+    expect(adds).toHaveLength(2);
+    fireEvent.click(adds[0]);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: /Domain/ })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/parent/i)).not.toBeInTheDocument();
+  });
+
+  it("leaves out Add for a person who may not write the root type, and in a read-only tree", async () => {
+    serve([]);
+    const permissions = permissionsFixture("west", ["browse", "edit-live"], { recordTypes: ["codelist"] });
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      warning: "",
+      permissions,
+    });
+    vi.spyOn(workspaceContext, "useRecordWrites").mockReturnValue(recordWrites(permissions, "edit-live"));
+    const { unmount } = render(lens());
+    expect(await screen.findByText("No domains in this workspace yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Domain" })).not.toBeInTheDocument();
+    unmount();
+    vi.spyOn(workspaceContext, "useRecordWrites").mockRestore();
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      warning: "",
+      permissions: permissionsFixture("west"),
+    });
+    render(lens({ readOnly: true }));
+    expect(await screen.findByText("No domains in this workspace yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Domain" })).not.toBeInTheDocument();
   });
 
   it("adds a child of the chosen type under the node", async () => {

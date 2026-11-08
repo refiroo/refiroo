@@ -103,7 +103,7 @@ describe("ModelEditor", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
     expect(
       await within(dialog).findByText(
-        "Shelf is released, so this change needs a migration (planned for 1.0). It would affect 12 records, 10000+ values and 3 relationships. Nothing was applied.",
+        "Shelf is released, so this change needs a migration: make it in the JSON view, and installing the release shows the migration to review. It would affect 12 records, 10000+ values and 3 relationships. Nothing was applied.",
       ),
     ).toBeTruthy();
     expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
@@ -130,7 +130,13 @@ describe("ModelEditor", () => {
     vi.mocked(api.applyModelDraftOperations)
       .mockRejectedValueOnce(
         new ApiError(409, "VERSION_CONFLICT", "stale", {
-          operations: [entry(5, "setLabel", { element: { objectType: "bin" }, name: "Crate" })],
+          // The step as another author applied it: the element is named as it was before the rename.
+          operations: [
+            {
+              ...entry(5, "setLabel", { element: { objectType: "bin" }, name: "Crate" }),
+              inverse: { kind: "setLabel", element: { objectType: "bin" }, name: "Old bin" },
+            },
+          ],
         }),
       )
       .mockResolvedValueOnce(step(6));
@@ -142,7 +148,7 @@ describe("ModelEditor", () => {
     vi.mocked(api.modelDraftOutline).mockResolvedValue({ ...outlineFixture(), version: 5 });
     fireEvent.click(within(form).getByRole("button", { name: "Save" }));
     const notice = (await screen.findByText(/Another change came first/)).closest(".notice") as HTMLElement;
-    expect(within(notice).getByText(/Applied since: Renamed Bin to Crate\./)).toBeTruthy();
+    expect(within(notice).getByText(/Applied since: Renamed Old bin to Crate\./)).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(within(notice).getByRole("button", { name: "Apply mine again" }));
     await waitFor(() => expect(api.applyModelDraftOperations).toHaveBeenCalledTimes(2));

@@ -20,6 +20,7 @@ import { InstanceProductContext, useLoadInstanceProduct } from "./instanceProduc
 import { WorkspaceDataProvider, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { ProposeDialog, ownChangeSetText, useOwnChangeSet } from "@/features/workspaces/Proposal";
 import { holds, recordWrites } from "@/features/security/permissions";
+import { RETIRED_BAND_TEXT } from "./DataContextBand";
 import { permissionLine } from "@/features/security/permissionText";
 import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
@@ -536,15 +537,17 @@ function AppContent({
         proposing: false,
         publishes: holds(permissions, "publish"),
       })
-    : !publicationId && !contextReadOnly
-      ? permissionLine(model, {
-          context: "live",
-          workspaceLabel: workspace?.label ?? activeRoute.workspaceKey,
-          writes: permissions ? writes : undefined,
-          proposing,
-          publishes: holds(permissions, "publish"),
-        })
-      : undefined;
+    : !publicationId && workspace?.key === activeRoute.workspaceKey && workspace.status === "retired"
+      ? RETIRED_BAND_TEXT
+      : !publicationId && !contextReadOnly
+        ? permissionLine(model, {
+            context: "live",
+            workspaceLabel: workspace?.label ?? activeRoute.workspaceKey,
+            writes: permissions ? writes : undefined,
+            proposing,
+            publishes: holds(permissions, "publish"),
+          })
+        : undefined;
   const ownText = proposing ? ownChangeSetText(own) : undefined;
   const ownChangeSet = ownText && own.changeSet && (
     <button

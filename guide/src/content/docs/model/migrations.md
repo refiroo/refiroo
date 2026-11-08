@@ -65,6 +65,11 @@ Jobs retain the actual counts and item outcomes, with refused items prominent. O
 your permissions allow and compare the actual result with the preview. For moving data between
 two workspaces instead, see [Model mappings](/docs/model/model-mappings/).
 
+For a released field’s value-type change refused by the visual editor, a specialist first
+prepares the target definition in [the JSON view](/docs/guide/model/edit-a-draft-as-json/).
+Save, compare and install that release before selecting it for migration; the visual refusal
+does not mean migrations are unavailable.
+
 Value conversion uses supported source and target value-type pairs. A value that has no valid
 conversion is listed as a loss; the preview does not invent a conversion for every pair of types.
 Inspect those items before accepting removal. Activation can also suspend the selected workspace's

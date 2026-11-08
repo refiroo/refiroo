@@ -9,6 +9,10 @@ the model's release version, the draft's editing version and each consumer API's
 The current supported model language is **0.10**. The release and workspace screens show it as
 **schema**. See [Releases](/docs/model/releases/) for selecting usable releases.
 
+New drafts, including imported documents, accept only the current model language. The
+recovery flow below applies to older releases already stored before an engine upgrade;
+it is not a way to import an old document as a new draft.
+
 Installation, activation and workspace creation refuse releases outside the supported window.
 A historical release can still have readable metadata and an export even when semantic comparison
 is unavailable. A workspace whose language cannot be served reports **Cannot be opened**;

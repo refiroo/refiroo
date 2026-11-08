@@ -87,13 +87,14 @@ export function ImportDialog({
 
   useEffect(() => {
     let current = true;
-    everyPage(api.importProfiles)
+    // Valid or not under the release of the workspace the file loads into (0.13 DOC11).
+    everyPage((cursor) => api.importProfiles(cursor, workspaceKey || undefined))
       .then((items) => current && setProfiles(items))
       .catch((cause) => current && setError({ field: "profile", message: errorMessage(cause), problems: [] }));
     return () => {
       current = false;
     };
-  }, []);
+  }, [workspaceKey]);
 
   useEffect(() => {
     if (start.context || !workspaceKey) return;

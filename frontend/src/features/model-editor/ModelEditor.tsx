@@ -1143,7 +1143,9 @@ export function ModelEditor({
           {stale.since.length > 0 && (
             <>
               Applied since:{" "}
-              {stale.since.map((entry) => describeOperation(entry.kind, entry.parameters, names)).join("; ")}
+              {stale.since
+                .map((entry) => describeOperation(entry.kind, entry.parameters, names, entry.inverse))
+                .join("; ")}
               {stale.more ? " and more" : ""}.
             </>
           )}{" "}

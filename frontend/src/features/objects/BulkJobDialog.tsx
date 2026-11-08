@@ -140,6 +140,10 @@ export function BulkJobDialog({
   // What the latest preview acted on: the selection moves on once records are deleted (D125).
   const [actedOn, setActedOn] = useState(target);
   const stop = useRef<AbortController | undefined>(undefined);
+  // The versions records had when their items were refused as changed since the preview: Preview
+  // again sends these, not the versions the rows were selected with (0.13 DOC11).
+  const currentVersions = useRef(new Map<string, number>());
+  const sentRows = useRef<{ rows: SelectableRow[]; rowOf?: readonly number[] }>({ rows: [] });
   const form = useRef<HTMLFormElement>(null);
   const outcome = useRef<HTMLFormElement>(null);
   // The form and the outcome are two forms; the button pressed in one is gone once the other is
@@ -155,6 +159,24 @@ export function BulkJobDialog({
   const atomicLimit = capabilities?.integrationJobs.limits.atomicJobMaxItems;
   const size = itemCount ?? selected;
   const atomicRefused = atomicLimit !== undefined && size > atomicLimit;
+
+  /** The versions a finished job found on the records it refused as changed since the preview. */
+  async function learnVersions(ended: Job) {
+    if (ended.counts.rejected === 0) return;
+    let cursor: string | undefined;
+    do {
+      const page = await api.jobItems(ended.id, { status: "rejected", pageSize: 1000, cursor }).catch(() => undefined);
+      if (!page) return;
+      for (const item of page.items) {
+        const details = item.error?.details as { currentVersion?: unknown } | undefined;
+        if (typeof details?.currentVersion !== "number") continue;
+        const { rows: sent, rowOf: of } = sentRows.current;
+        const row = sent[of ? (of[item.index] ?? -1) : item.index];
+        if (row) currentVersions.current.set(row.id, details.currentVersion);
+      }
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+  }
 
   /** After the job: the collection reads its rows again, and the action takes the applied outcomes. */
   async function finished(ended: Job) {
@@ -182,6 +204,7 @@ export function BulkJobDialog({
     if (next.state === "awaiting_confirmation") setStep("preview");
     else if (isFinal(next)) {
       setStep("result");
+      void learnVersions(next);
       void finished(next);
     }
   });
@@ -201,7 +224,11 @@ export function BulkJobDialog({
     if (!build) return;
     setItemsFor(() => build);
     let sent: SelectableRow[];
-    if (selection.mode === "ids") sent = recordsToChange(selection);
+    if (selection.mode === "ids")
+      sent = recordsToChange(selection).map((row) => {
+        const version = currentVersions.current.get(row.id);
+        return version === undefined ? row : { ...row, version };
+      });
     else {
       setStep("reading");
       setProgress({ read: 0 });
@@ -240,6 +267,8 @@ export function BulkJobDialog({
       );
       setRows(sent);
       setRowOf(built.rowOf);
+      sentRows.current = { rows: sent, rowOf: built.rowOf };
+      currentVersions.current.clear();
       setActedOn(target);
       setJob(started);
       setStep("previewing");

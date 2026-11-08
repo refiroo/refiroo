@@ -234,8 +234,12 @@ function ProfileDetail({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.importProfile(profileKey), api.latestProfileFile(profileKey)])
-      .then(async ([found, latest]) => {
+    // The profile is read, and later saved, under the workspace the comparison is for: the one of
+    // its latest file, the page's without one (0.13 DOC11).
+    api
+      .latestProfileFile(profileKey)
+      .then(async (latest) => {
+        const found = await api.importProfile(profileKey, latest?.workspaceKey ?? defaultWorkspace);
         if (cancelled) return;
         setProfile(found);
         setFile(latest ?? null);
@@ -272,7 +276,7 @@ function ProfileDetail({
     setSaving(true);
     setSaveError("");
     try {
-      const saved = await api.updateImportProfile(profile, sources);
+      const saved = await api.updateImportProfile(profile, sources, file?.workspaceKey ?? defaultWorkspace);
       setProfile(saved);
       onChanged(saved);
       const started = await api.runProfileCheck(profileKey, file?.workspaceKey ?? defaultWorkspace);
@@ -465,7 +469,7 @@ function ProfileDetail({
           onClose={() => {
             setDialog(undefined);
             // The load is the profile's last one now.
-            void api.importProfile(profileKey).then(
+            void api.importProfile(profileKey, checked.workspaceKey).then(
               (found) => {
                 setProfile(found);
                 onChanged(found);

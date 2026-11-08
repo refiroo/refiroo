@@ -805,9 +805,10 @@ export const api = {
     return request<JobRowPage>(`/api/v1/jobs/${encodeURIComponent(jobId)}/rows?${params}`);
   },
   /** Stored import profiles in key order, one page (0.9 J2). */
-  importProfiles: (cursor?: string) => {
+  importProfiles: (cursor?: string, workspaceKey?: string) => {
     const params = new URLSearchParams({ pageSize: "100" });
     if (cursor) params.set("cursor", cursor);
+    if (workspaceKey) params.set("workspaceKey", workspaceKey);
     return request<ImportProfilePage>(`/api/v1/import-profiles?${params}`);
   },
   /**
@@ -848,9 +849,23 @@ export const api = {
     const page = await request<SourcePage<SourceFile>>(`/api/v1/source-files?${params}`);
     return page.items[0] as SourceFile | undefined;
   },
-  importProfile: (key: string) => request<ImportProfile>(`/api/v1/import-profiles/${encodeURIComponent(key)}`),
+  /** A profile, valid or not under the release of `workspaceKey` (the default workspace without it). */
+  importProfile: (key: string, workspaceKey?: string) =>
+    request<ImportProfile>(
+      `/api/v1/import-profiles/${encodeURIComponent(key)}${workspaceKey ? `?${new URLSearchParams({ workspaceKey })}` : ""}`,
+    ),
+  /** Delete a stored profile at its version (0.13 ED). */
+  deleteImportProfile: (key: string, expectedVersion: number) =>
+    request<void>(`/api/v1/import-profiles/${encodeURIComponent(key)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
+  /** Delete a source file, its staged cells and its profile at its version (0.13 ED). */
+  deleteSourceFile: (id: string, expectedVersion: number) =>
+    request<void>(`/api/v1/source-files/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
   /** Replace a stored profile at its version (0.9 J2): every member but the key. */
-  updateImportProfile: (profile: ImportProfile, sources: ImportProfileSource[]) =>
+  updateImportProfile: (profile: ImportProfile, sources: ImportProfileSource[], workspaceKey?: string) =>
     request<ImportProfile>(`/api/v1/import-profiles/${encodeURIComponent(profile.key)}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -859,6 +874,7 @@ export const api = {
         sources,
         valueMaps: profile.valueMaps,
         expectedVersion: profile.version,
+        ...(workspaceKey ? { workspaceKey } : {}),
       }),
     }),
   /** The check of a profile's latest file in a workspace (0.10 A5c, D83; the workspace 0.12 E1, F5). */

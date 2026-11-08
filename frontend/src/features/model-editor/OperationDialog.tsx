@@ -44,7 +44,7 @@ export function refusalText(cause: unknown, outline: ModelDraftOutline): string 
     const held = [impact.records, impact.values, impact.relationships].some((count) => count && count !== 0);
     if (!held) return `${name} is released, so its key is fixed: integrations name it by its key. Nothing was applied.`;
     return (
-      `${name} is released, so this change needs a migration (planned for 1.0). ` +
+      `${name} is released, so this change needs a migration: make it in the JSON view, and installing the release shows the migration to review. ` +
       `It would affect ${impact.records ?? 0} records, ${impact.values ?? 0} values and ` +
       `${impact.relationships ?? 0} relationships. Nothing was applied.`
     );

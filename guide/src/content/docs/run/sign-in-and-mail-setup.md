@@ -44,8 +44,23 @@ instance. Once setup is complete, arrange narrower responsibilities and remove u
 bootstrap grants. Use [Command-line tools](/docs/run/command-line/) to create the first identities.
 For monitoring, create a dedicated client with `--role operator`.
 
-A client uses OAuth client credentials. For a local development engine, with credentials already
-loaded securely in your shell:
+A client uses OAuth client credentials. Run the following in Bash with `jq` available to
+extract the token without printing it. Set `INSTANCE_URL` to your public HTTPS origin, for
+example `https://refiroo.example.org`, without a trailing slash. Supply `CLIENT_ID` and
+`CLIENT_SECRET` securely from the credentials you stored when creating the client; do not
+put literal secrets in shell history. Leave shell tracing off.
+
+```bash
+set -o pipefail
+ACCESS_TOKEN=$(curl --fail --silent --show-error \
+  --user "$CLIENT_ID:$CLIENT_SECRET" \
+  --data-urlencode grant_type=client_credentials \
+  --data-urlencode scope=management \
+  "$INSTANCE_URL/oauth/token" | jq -er '.access_token')
+```
+
+Success is silent. Stop if the command fails; inspect the error rather than using an empty
+or older token. With a client that has Browse, check the workspace list:
 
 ```bash
 curl --fail -u "$CLIENT_ID:$CLIENT_SECRET" -d grant_type=client_credentials \
@@ -54,8 +69,12 @@ curl --fail -H "Authorization: Bearer $ACCESS_TOKEN" \
   http://localhost:8000/api/v1/workspaces
 ```
 
-Set `ACCESS_TOKEN` securely from the token response before the second command. Use the public
-HTTPS origin outside development. The default scope, `management`, serves `/api/v1` and `/metrics`;
+The Compose installation does not publish engine port 8000. Use its public origin for both
+requests; `http://localhost:8000` is only for a development engine that actually listens there.
+An Operator-only client can scrape metrics, but does not gain Browse from that role.
+The [role-key table](/docs/run/command-line/) gives keys for `create_client --role`.
+
+The default scope, `management`, serves `/api/v1` and `/metrics`;
 `scope=consumer` requests access for `/api/consumer` instead. These tokens are not interchangeable.
 On expiry or a refusal caused by signing-key retirement, the client fetches another token with its
 unchanged credentials. See [Signing in and tokens](/docs/integrate/signing-in-and-tokens/) and the
@@ -84,6 +103,39 @@ until starts expire after ten minutes.
 
 Password links prefer the Mail settings' application address, then the first `CORS_ORIGINS`
 entry. If neither is available, they use the engine's `/oauth/password` page; older links can
+## Make a first write without a browser
+
+To check administrative writing on a new installation, create an empty workspace. This does
+not copy records. Workspace administration must be enabled and the default workspace must
+have a usable model. Create a dedicated setup client:
+
+```bash
+docker compose run --rm engine python -m app.cli.create_client \
+  --name "Workspace setup" --role workspace-admin --role reader
+```
+
+This grants **Workspace administrator** (`workspace-admin`) and **Reader** (`reader`) at the
+instance. Store its one-time credentials privately, then obtain a management `ACCESS_TOKEN`
+as above. Choose an unused workspace key and a suitable display name:
+
+```bash
+curl --fail-with-body --silent --show-error -i \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+  --data '{"key":"setup-check","label":"Setup check"}' \
+  "$INSTANCE_URL/api/v1/workspaces"
+```
+
+Expect HTTP 201 and the created workspace, using the default workspace’s model. A duplicate
+key is refused; do not repeat creation as a readiness probe. Read the
+[workspace operation](/docs/api/?api=management#tag/workspaces) for the full contract. Confirm
+the new workspace appears in the workspace list. Keep it only if needed; otherwise remove
+the empty workspace through the documented workspace operation or Settings. Deactivate
+the setup client when finished and clear its credentials and token from this shell:
+
+```bash
+unset ACCESS_TOKEN CLIENT_ID CLIENT_SECRET
+```
+
 also point there. A newer reset link replaces the previous one. Using it ends all sessions.
 Changing a password from Account instead preserves the current browser session and ends the others.
 

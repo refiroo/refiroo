@@ -860,6 +860,39 @@ def test_an_impact_changed_after_the_preview_refuses_that_item(world):
     assert world.record("R", third["id"])["id"] == third["id"]
 
 
+@pytest.mark.journey("J11.6", "J11.1")
+@pytest.mark.structures("R", "R2", "G", "D", "Bown", "K", "B1n")
+def test_a_record_edited_after_the_preview_is_refused_with_its_current_version(world):
+    """Given two records previewed for a cascading delete. When someone renames the second before
+    confirming. Then the first is deleted and the second refused as a changed preview, naming the
+    version it has now. When it is previewed again at that version, the delete is applied (0.13
+    DOC11: Preview again claimed the old version and was refused again)."""
+    first, *_ = _owner_of_much(world, "First")
+    second, *_ = _owner_of_much(world, "Second")
+    job = _previewed(world, [_remove(first, cascade=True), _remove(second, cascade=True)])
+    edited = ok(world.update("R", second["id"], second["version"], name="Second renamed"))
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", None), 202)
+    _run(world)
+    done = _job(world, job)
+    assert _items(world, done) == [("applied", "deleted"), ("rejected", "DELETION_PREVIEW_CHANGED")]
+    refused_item = ok(world.api.get(f"/jobs/{done['id']}/items", status="rejected"))["items"][0]
+    assert refused_item["error"]["details"]["currentVersion"] == edited["version"]
+
+    again = _previewed(
+        world,
+        [
+            _remove(
+                {**second, "version": refused_item["error"]["details"]["currentVersion"]},
+                cascade=True,
+            )
+        ],
+    )
+    ok(world.api.post(f"/jobs/{again['id']}/confirm", None), 202)
+    _run(world)
+    assert _items(world, _job(world, again)) == [("applied", "deleted")]
+    refused(world.read("R", second["id"]), 404, "OBJECT_NOT_FOUND")
+
+
 @pytest.mark.journey("J11.6", "J11.3")
 @pytest.mark.structures("R", "R2", "G", "D", "Bown", "K", "B1n")
 def test_a_cascading_delete_in_a_change_set_and_without_a_preview(world):

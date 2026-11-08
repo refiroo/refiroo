@@ -235,13 +235,19 @@ describe("Opening a notice from a digest's link (0.16 AO3, AO-D36)", () => {
     );
   });
 
-  it("only marks a followed publication read once it was withdrawn", async () => {
+  it("leads a withdrawn followed publication to the workspace's Publications", async () => {
     const published = notice("n4", "change-set.published", { changeSetName: "Old", publicationId: "p-0" });
     vi.mocked(api.notification).mockResolvedValue(published);
     vi.mocked(api.publication).mockResolvedValue({ id: "p-0", status: "withdrawn" } as never);
     renderPage("n4");
     await waitFor(() => expect(api.markNotificationsRead).toHaveBeenCalledWith({ ids: ["n4"] }));
     await waitFor(() => expect(api.publication).toHaveBeenCalledWith("p-0"));
-    expect(onNavigate).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(onNavigate).toHaveBeenCalledWith({
+        kind: "publications",
+        applicationKey: "plants",
+        workspaceKey: "herbarium",
+      }),
+    );
   });
 });

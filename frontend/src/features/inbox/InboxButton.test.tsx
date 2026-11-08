@@ -162,6 +162,22 @@ describe("Inbox (0.12 A2)", () => {
     );
   });
 
+  it("opens a followed publication's workspace Publications from the bell outside an application", async () => {
+    const published = notice("n5", "change-set.published", { changeSetName: "Spring update", publicationId: "p-1" });
+    vi.mocked(api.notifications).mockResolvedValue(page([published], 1));
+    vi.mocked(api.myWorkspaces).mockResolvedValueOnce([{ key: "default", applications: [{ key: "plants" }] }] as never);
+    render(<InboxButton applicationKey={undefined} onNavigate={onNavigate} />);
+    fireEvent.click(await bell());
+    await waitFor(() => expect(api.myWorkspaces).toHaveBeenCalled());
+    await act(async () => undefined);
+    fireEvent.click(await screen.findByRole("button", { name: /Published/ }));
+    expect(onNavigate).toHaveBeenCalledWith({
+      kind: "publications",
+      applicationKey: "plants",
+      workspaceKey: "default",
+    });
+  });
+
   it("opens a job's page, and leads nowhere for an approved change set that is gone", async () => {
     vi.mocked(api.notifications).mockResolvedValue(page([approved, failed], 1));
     renderBell();

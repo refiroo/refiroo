@@ -123,6 +123,12 @@ creating another. If **Changed elsewhere** appears, review the refreshed cell an
 input before retrying. If the record moved out of the cell, inspect the current contents first.
 A loading failure needs a retry, not a new record to fill an apparently empty cell.
 
+The **Conflict** branch applies only if the workspace already contains a cell inconsistent
+with its model’s counting limit. Ordinary saves refuse a second counting record where only
+one is allowed; do not try to create a duplicate to follow these steps. If no Conflict cell
+exists, continue with the states present in your workspace. See
+[Cell states](/docs/use/relation-matrices/#cell-states) for the distinction from Several.
+
 If actions are missing, check that the context is editable, you have **Edit live** or **Work
 in change sets** as appropriate, and the model offers the intended action. Reader can inspect
 cells. A matrix is not a promise that every visible cell can be edited.

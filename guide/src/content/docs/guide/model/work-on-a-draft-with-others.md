@@ -9,7 +9,8 @@ so an older edit cannot silently replace a newer one. See [The model editor](/do
 
 1. When **Another change came first** appears, stop repeating the original action. Your change
    was not applied. The notice lists steps applied since you opened the draft, and the model
-   beneath it shows the newer version.
+   beneath it shows the newer version. A rename names both the old and new name, so you
+   can identify the definition before deciding whether to retry.
 2. Read those steps and inspect the affected definitions. Check whether your intended change
    is still needed and whether its target still means the same thing.
 3. Choose **Apply mine again** to try your change against that version, or **Discard mine**

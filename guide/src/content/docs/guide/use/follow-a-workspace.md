@@ -12,8 +12,10 @@ access. See [Notification settings](/docs/use/notifications-settings/#follow-pub
 2. Check that the control reads **Following**. Your inbox now receives a notice for each
    eligible publication by another person. Your own publications do not notify you this way.
 3. Open the notice from the bell or Notifications page. It opens the publication while that
-   publication is active and you can browse it. Otherwise the notice becomes read and you
-   remain in the inbox. A digest link behaves the same way.
+   publication is active and you can browse it. A publication that is no longer active leads
+   to the workspace’s **Publications** instead. The bell opens **Publications** too. Opening
+   marks the notice read; if access is no longer available, it does not restore access.
+   A digest link uses the Notifications page’s opening behavior.
 4. For email copies, open **Settings › Notification email** and choose delivery for publication
    notices. Following itself works without mail.
 5. To stop following, toggle **Following** on Home, or choose **Stop following** under

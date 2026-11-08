@@ -32,6 +32,13 @@ import { StatusPill } from "@/ui/StatusPill";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { ApplicationButtons } from "./TopBar";
 
+/** Said wherever a retired workspace is shown: its records can be read, not changed. */
+export const RETIRED_WORKSPACE_TEXT =
+  "This workspace is retired. Runtime data and history remain available, but changes are disabled.";
+
+/** The band's own short line for a retired workspace; the notice below it says the rest. */
+export const RETIRED_BAND_TEXT = "Retired: read only.";
+
 export function DataContextBand({
   model,
   application,

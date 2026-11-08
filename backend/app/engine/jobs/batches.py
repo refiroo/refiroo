@@ -463,6 +463,8 @@ class _Batch:
                     if item.cascade and item.deletionPreviewToken is not None
                     else self.writer.version_conflict(record)
                 )
+                # The version found, as a version conflict names it: Preview again claims it.
+                error.details = {"currentVersion": record.version, **_details(error)}
                 decided[index] = _rejected(index, item, error)
                 continue
             # Identity only: the records are deleted and expired by the run.
@@ -641,7 +643,7 @@ class _Batch:
         # The set's version as this item finds it: a preview needs no claim and reports it, and
         # confirming carries it into the item (0.9 K3, D130).
         found = self.writer.lookup.set_version(set_.key(anchor.object_id))
-        expected = item.expectedRelationSetVersion
+        expected = self._claim(item.expectedRelationSetVersion)
         if expected is None and self.previewing:
             expected = found
         try:
@@ -694,6 +696,12 @@ class _Batch:
             raise _type_mismatch(pointer, record, object_type_key)
         return record
 
+    def _claim(self, version: int | None) -> int | None:
+        """A file's version claim: an import told to update records "anyway" writes over what it
+        finds, so the versions its rows carry from the export are not held against the record
+        (0.13 DOC11). A batch's own claims are always held."""
+        return None if self.file_rows and self.on_existing == "overwrite" else version
+
     def ensure(
         self, item: Any, at: str, source: Any, target: Any, existing: Any, claimed: bool = True
     ) -> dict[str, Any]:
@@ -712,7 +720,7 @@ class _Batch:
             wanted = rules.relation_attributes(model, binding, item.attributes)
         if item.attributes is None or wanted == dict(existing.attributes or {}):
             return {"action": "unchanged", **identity, "version": existing.version}
-        expected, audit = (item.expectedVersion if claimed else None), {}
+        expected, audit = self._claim(item.expectedVersion if claimed else None), {}
         if expected is None:
             if self.on_existing != "overwrite":
                 raise api_error(
@@ -766,6 +774,7 @@ class _Batch:
         if self.writer.unchanged(record, item.name, parent_given, parent, attributes):
             return {"action": "unchanged", **identity, "version": record.version}
         audit: dict[str, Any] = {}
+        expected_version = self._claim(expected_version)
         if expected_version is None:
             if self.on_existing != "overwrite":
                 raise api_error(

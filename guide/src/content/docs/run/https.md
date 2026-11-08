@@ -31,6 +31,75 @@ docker compose restart web
 
 Here a restart is sufficient because it reloads mounted files, rather than changed environment values.
 
+## Rehearse locally with a self-signed certificate
+
+For an isolated test on this host, use the base `compose.yml` without the automatic HTTPS
+overlay. In this shell, run `unset COMPOSE_FILE` if you selected that overlay earlier.
+Fill the required secrets as in [installation](/docs/run/install-with-compose/#4-fill-the-settings-file),
+then set these uncommented lines in `.env`:
+
+```dotenv
+PUBLIC_URL=https://localhost:8543
+WEB_TLS=files
+WEB_HTTP_PORT=8580
+WEB_HTTPS_PORT=8543
+```
+
+The port belongs in `PUBLIC_URL`: redirects and sign-in use that exact origin. These two
+`WEB_*_PORT` settings affect the base Compose file, not the Caddy overlay. Keep this test
+installation off public networks. From the checkout root, create the certificate pair:
+
+```bash
+mkdir -p certs
+chmod 755 certs
+umask 077
+openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 7 \
+  -keyout certs/privkey.pem -out certs/fullchain.pem \
+  -subj /CN=localhost -addext subjectAltName=DNS:localhost
+```
+
+OpenSSL prints key-generation progress and writes both files. The certificate covers only
+`localhost` and expires after seven days. Do not reuse it for a public installation. Build web
+and let its unprivileged group read the pair:
+
+```bash
+docker compose build web
+web_cert_group=$(docker compose run --rm --no-deps -T --entrypoint id web -g)
+sudo chgrp "$web_cert_group" certs/fullchain.pem certs/privkey.pem
+chmod 640 certs/fullchain.pem certs/privkey.pem
+```
+
+The build prints progress; the group and permission changes are silent on success. The
+private key stays readable only by its owner and that group. Check that the public-key hashes
+match, using the commands in the next section, then start and probe:
+
+```bash
+docker compose up -d --build
+curl --fail --cacert certs/fullchain.pem https://localhost:8543/health
+curl -I http://localhost:8580/
+```
+
+Expect readiness `{"status":"ok"}` and an HTTP redirect to `https://localhost:8543`.
+`--cacert` trusts this specific certificate for the probe. Your browser needs to trust it
+separately before sign-in. For this isolated test, import `certs/fullchain.pem` into the
+browser or operating system’s trusted certificate store. Import only the certificate, never
+`privkey.pem`. Remove that test trust when the rehearsal ends. The developer instance uses
+a separate [local certificate-authority setup](/docs/run/developer-instance/).
+Another computer’s `localhost` points to that computer, so this address is for local testing.
+
+## Check that a certificate and key match
+
+Compare the two SHA-256 hashes of their public keys:
+
+```bash
+openssl x509 -in certs/fullchain.pem -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256
+openssl pkey -in certs/privkey.pem -pubout -outform DER | openssl dgst -sha256
+```
+
+Both commands must succeed and print the same hash. A different hash means the certificate
+and private key are not a pair; obtain the matching files before starting web. This check
+does not establish trust or check the host name or expiry.
+
 ## Get and renew public certificates automatically
 
 The `compose.acme.yml` overlay adds **Caddy 2** (`caddy:2`) in front of web. Caddy obtains and
@@ -48,7 +117,7 @@ site is not enough.
 3. If you want to supply a certificate contact address, add this global block above the site
    block in your installation's `caddy/Caddyfile`, using your own address:
 
-   ```caddyfile
+   ```text
    {
      email operator@example.org
    }
@@ -108,7 +177,7 @@ Caddyfile must parse successfully; inspect its error before restarting repeatedl
 container, validate the mounted file with:
 
 ```bash
-docker compose -f compose.yml -f compose.acme.yml exec -T caddy \
+docker compose -f compose.yml -f compose.acme.yml run --rm --no-deps -T caddy \
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 

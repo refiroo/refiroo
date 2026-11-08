@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const GUIDE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = path.resolve(GUIDE, '..');
@@ -261,10 +261,53 @@ function pickRun(pkg, opt) {
   return { ts, dir, meta: readJson(path.join(dir, 'run.json')) };
 }
 
+// ---------------------------------------------------------------- browser (--browser)
+// Chromium cannot start inside Codex's sandbox. The tool starts it outside, per turn, and Codex connects to it.
+const PLAYWRIGHT = path.join(REPO, 'frontend/node_modules/playwright/index.mjs');
+async function startBrowser() {
+  if (!fs.existsSync(PLAYWRIGHT)) die(`--browser needs Playwright at ${rel(PLAYWRIGHT)}; run npm install in frontend/`);
+  const { chromium } = await import(pathToFileURL(PLAYWRIGHT).href);
+  const server = await chromium.launchServer({ host: '127.0.0.1', headless: true, handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
+  // Sync kill on any exit of the tool (the lock's signal handlers end in process.exit), so no headless_shell stays behind.
+  const killNow = () => { try { server.process().kill('SIGKILL'); } catch {} };
+  process.on('exit', killNow);
+  return {
+    endpoint: server.wsEndpoint(),
+    close: async () => {
+      process.removeListener('exit', killNow);
+      try { await Promise.race([server.close(), new Promise((r) => setTimeout(r, 10000))]); } catch {}
+      killNow();
+    },
+  };
+}
+function browserParagraph(endpoint, shotDir) {
+  return `
+
+A Chromium browser is running for you outside the sandbox. Drive it with Playwright over this WebSocket endpoint (you cannot start a browser yourself in the sandbox). Example, run with node as an .mjs file:
+
+\`\`\`js
+import { chromium } from '${PLAYWRIGHT}';
+const browser = await chromium.connect('${endpoint}');
+const page = await (await browser.newContext()).newPage();
+await page.goto('http://localhost:8480/');
+console.log(await page.title());
+await page.screenshot({ path: '${shotDir}/example.png' });
+await browser.close();
+\`\`\`
+
+Write screenshots only under ${shotDir}/. The endpoint is valid for this turn only.
+`;
+}
+
 // ---------------------------------------------------------------- one turn
-function runTurn({ codex, dir, meta, turn, prompt, opt, resume, images = [] }) {
+async function runTurn({ codex, dir, meta, turn, prompt, opt, resume, images = [] }) {
   const n = turn;
   const p = (s) => path.join(dir, `turn-${n}.${s}`);
+  let browser = null;
+  if (meta.browser) {
+    browser = await startBrowser();
+    prompt += browserParagraph(browser.endpoint, `${REPO}/guide/_coverage/notes/${meta.package}`);
+  }
   fs.writeFileSync(p('prompt.md'), prompt);
   const before = snapshot();
   writeJson(p('before.json'), before);
@@ -275,6 +318,7 @@ function runTurn({ codex, dir, meta, turn, prompt, opt, resume, images = [] }) {
   args.push('--json', '-o', p('last-message.md'));
   if (resume) args.push('-c', 'sandbox_mode="workspace-write"');
   else args.push('-C', REPO, '-s', 'workspace-write');
+  if (meta.network || meta.browser) args.push('-c', 'sandbox_workspace_write.network_access=true');
   if (meta.model) args.push('-m', meta.model);
   args.push('-');
   const t = { n, started: new Date().toISOString(), cmd: [codex, ...args].join(' '), images: imageRecord(images) };
@@ -304,8 +348,9 @@ function runTurn({ codex, dir, meta, turn, prompt, opt, resume, images = [] }) {
       errWritten += b.length; errLog.write(b.subarray(0, Math.max(0, STDERR_CAP - (errWritten - b.length))));
     });
     child.on('error', (e) => { t.spawnError = String(e); });
-    child.on('close', (code, sig) => {
+    child.on('close', async (code, sig) => {
       clearTimeout(killer);
+      if (browser) await browser.close();
       log.end(); errLog.end();
       const after = snapshot();
       writeJson(p('after.json'), after);
@@ -372,7 +417,7 @@ async function cmdRun(pkg, opt) {
   acquireLock(`run ${pkg}`);
   fs.mkdirSync(dir, { recursive: true });
   const version = spawnSync(codex, ['--version'], { encoding: 'utf8' }).stdout?.trim();
-  const meta = { package: pkg, timestamp: ts, waveFile: rel(file), screensFile: screens ? rel(screens) : null, allowed, codex, codexVersion: version, model, configuredModel: configured, sessionId: null, turns: [], check: null };
+  const meta = { package: pkg, timestamp: ts, waveFile: rel(file), screensFile: screens ? rel(screens) : null, allowed, codex, codexVersion: version, model, configuredModel: configured, ...(opt.browser ? { network: true, browser: true } : opt.network ? { network: true } : {}), sessionId: null, turns: [], check: null };
   writeJson(path.join(dir, 'run.json'), meta);
   fs.writeFileSync(path.join(dir, 'prompt.md'), prompt);
   console.log(`run ${pkg}/${ts}; model ${model ?? configured ?? 'codex default'}`);
@@ -419,6 +464,7 @@ async function cmdReply(pkg, msgFile, opt) {
   lockFor(pkg);
   acquireLock(`reply ${pkg}`);
   const n = meta.turns.length + 1;
+  if (opt.browser) { meta.network = true; meta.browser = true; } else if (opt.network) meta.network = true;
   const images = uniq(optionImages(opt.images));
   console.log(`reply to ${pkg}/${ts}, session ${meta.sessionId}${images.length ? `, ${images.length} image(s)` : ''}`);
   const t = await runTurn({ codex, dir, meta, turn: n, prompt: fs.readFileSync(msgFile, 'utf8'), opt, resume: true, images });
@@ -527,9 +573,9 @@ function cmdStatus(pkg) {
 
 // ---------------------------------------------------------------- main
 const USAGE = `usage:
-  codex-wave.mjs run <PACKAGE> [--wait-on-limit] [--max-restarts N] [--model M] [--images GLOB,FILE,...] [--dry-run] [--timeout MIN] [--codex-bin P]
+  codex-wave.mjs run <PACKAGE> [--wait-on-limit] [--max-restarts N] [--model M] [--images GLOB,FILE,...] [--network] [--browser] [--dry-run] [--timeout MIN] [--codex-bin P]
   codex-wave.mjs check <PACKAGE> [--run TS] [--no-guide-checks] [--docs-tests|--no-docs-tests]
-  codex-wave.mjs reply <PACKAGE> <message-file> [--images GLOB,FILE,...] [--run TS] [--codex-bin P]
+  codex-wave.mjs reply <PACKAGE> <message-file> [--images GLOB,FILE,...] [--network] [--browser] [--run TS] [--codex-bin P]
   codex-wave.mjs status [<PACKAGE>]`;
 const { pos, opt } = parseArgs(process.argv.slice(2));
 const [cmd, a1, a2] = pos;

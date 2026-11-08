@@ -20,8 +20,12 @@ Use a workbook for people when you want to edit a collection outside refiroo. Re
 5. Keep **Only if unchanged since the export** unless you have reviewed a deliberate overwrite.
    Choose the refusal policy and **Preview**. The job page identifies it as **Read as exported …**.
 6. Review creations, updates, unchanged rows and refusals. An untouched workbook should change
-   nothing. A record edited by another person since export is refused. Reconcile those rows
+   nothing. With **Only if unchanged since the export**, a record edited by another person
+   since export is refused. Reconcile those rows
    with the current records before retrying, or export a fresh workbook.
+   **Update them anyway** deliberately replaces values from the file even where a record
+   or relationship changed since export. Review the current data first: this choice ignores
+   the workbook’s saved version checks.
 7. Choose **Load the file** when the preview is right. Inspect the final results; execution
    checks current data again. Correct refused rows in the file and resend it to preview again.
 

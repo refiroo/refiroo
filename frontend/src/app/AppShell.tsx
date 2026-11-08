@@ -22,7 +22,7 @@ import { routeChangeSetId, routePublicationId, viewRoute } from "@/routing/route
 import type { ApplicationDefinition, ApplicationRoute, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { ContextBandSlotContext } from "@/ui/ContextBandSlot";
-import { DataContextBand } from "./DataContextBand";
+import { DataContextBand, RETIRED_WORKSPACE_TEXT } from "./DataContextBand";
 import { ShellFrame } from "./ShellFrame";
 import { AiTaskJourneyBar } from "@/features/ai-tasks/AiTaskJourneyBar";
 import { TopBar } from "./TopBar";
@@ -227,7 +227,7 @@ export function AppShell({
       <div ref={setBandSlot} className="band-details" />
       {workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (
         <Notice tone="info" title="Read-only workspace">
-          This workspace is retired. Runtime data and history remain available, but changes are disabled.
+          {RETIRED_WORKSPACE_TEXT}
         </Notice>
       )}
       <ContextBandSlotContext.Provider value={bandSlot}>{children}</ContextBandSlotContext.Provider>

@@ -20,6 +20,9 @@ See [Managing workspaces](/docs/model/managing-workspaces/) for permissions and 
    workspace later does not change this workspace's selected release.
 5. Check its **Overview**, model and applications. Use **Open workspace** to browse its data.
    Arrange data access separately; workspace creation does not grant every person access.
+   To start an empty hierarchy, open its tree view and choose **Add …** for its top-level
+   type. Create that record first, then add children beneath it; see
+   [Arrange records in a tree](/docs/guide/use/arrange-records-in-a-tree/#add-the-first-top-level-record).
 
 ![New workspace dialog showing name, key and model choice](/docs/screens/workspaces-new-dialog.png)
 

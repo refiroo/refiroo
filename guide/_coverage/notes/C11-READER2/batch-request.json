@@ -1,0 +1,36 @@
+{
+  "key": "C11-reader2-inline-1",
+  "body": {
+    "workspaceKey": "reader-model",
+    "policy": "atomic",
+    "run": "inline",
+    "items": [
+      {
+        "op": "create",
+        "ref": "row-1",
+        "applicationKey": "stops-reader",
+        "objectTypeKey": "stop",
+        "name": "Reader API stop 1",
+        "attributes": [
+          {
+            "attributeTypeKey": "stop-code",
+            "value": "C11-API-1"
+          }
+        ]
+      },
+      {
+        "op": "create",
+        "ref": "row-2",
+        "applicationKey": "stops-reader",
+        "objectTypeKey": "stop",
+        "name": "Reader API stop 2",
+        "attributes": [
+          {
+            "attributeTypeKey": "stop-code",
+            "value": "C11-API-2"
+          }
+        ]
+      }
+    ]
+  }
+}

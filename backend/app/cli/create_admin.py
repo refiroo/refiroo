@@ -27,6 +27,12 @@ from ..models.commands import UserCreate
 def _password(from_stdin: bool) -> str | None:
     if from_stdin:
         return sys.stdin.readline().rstrip("\r\n")
+    if not sys.stdin.isatty():
+        print(
+            "No terminal to ask for the password: pipe it with --password-stdin.",
+            file=sys.stderr,
+        )
+        return None
     first = getpass.getpass("Password: ")
     if getpass.getpass("Password again: ") != first:
         print("The passwords differ; nothing was created.", file=sys.stderr)

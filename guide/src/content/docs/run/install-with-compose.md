@@ -47,7 +47,7 @@ sudo mkdir -p /opt/refiroo && sudo chown "$USER" /opt/refiroo
 
 Success produces no output. For a public repository, clone directly. **If the repository is
 private, complete step 3 before running the clone.** Replace `v<version>` below with the tag of the
-version you run; do not type the angle brackets.
+version you intend to deploy; do not type the angle brackets.
 
 ```bash
 git clone https://github.com/refiroo/refiroo.git /opt/refiroo/refiroo && cd /opt/refiroo/refiroo && git checkout v<version>
@@ -56,6 +56,8 @@ git clone https://github.com/refiroo/refiroo.git /opt/refiroo/refiroo && cd /opt
 Expect `Cloning into '/opt/refiroo/refiroo'...`, download progress and a checkout message such as
 `HEAD is now at` followed by a commit. Git may explain that you are in a detached HEAD state;
 that is expected when running a tag.
+
+Changes listed as Unreleased in the source changelog need a version that contains them.
 
 Use a tag rather than a moving branch. **About**, the system API's `GET /api/v1/system` response
 and the default `SOURCE_CODE_URL` point to the source for the running engine version:
@@ -161,6 +163,9 @@ sed -i "s|^RDM_CURSOR_SIGNING_KEY=.*|RDM_CURSOR_SIGNING_KEY=$(openssl rand -base
 grep -E '^(PUBLIC_URL|POSTGRES_PASSWORD|SECRETS_ENCRYPTION_KEY|RDM_CURSOR_SIGNING_KEY)=' .env
 ```
 
+These substitutions use GNU `sed` on Linux. On macOS, use `sed -i ''` in place of
+`sed -i` on each of the four lines.
+
 The copy and substitutions are silent. The final command prints four lines: `PUBLIC_URL` with
 your address, then three different non-empty secret values. Inspect them privately; do not paste
 the output into logs or a support report.
@@ -212,6 +217,10 @@ It then competes with the still-running Caddy for ports 80 and 443, or refuses t
 Certificates also renew only while Caddy runs. The certificates in `caddy-data` are not lost.
 :::
 
+In a scheduled job, give Compose an open input stream: append `</dev/null` to the startup
+command if the runner closes standard input. Some Compose/buildx versions fail the build
+with `read |0: file already closed` otherwise. This is separate from supplying the settings file.
+
 Start the installation:
 
 ```bash
@@ -254,7 +263,11 @@ docker compose run --rm engine python -m app.cli.create_admin \
 ```
 
 The command asks `Password:` and `Password again:`. Enter the same password twice. It needs at
-least 15 characters by default, at most 128, and must satisfy the password rules. On success,
+least 15 characters by default, at most 128, and must satisfy the password rules. Without
+a terminal, the command refuses with `No terminal to ask for the password: pipe it with
+--password-stdin.` and exits 2. Use `docker compose run --rm -T engine` with
+`--password-stdin` and pipe one password line from your protected secret source; see
+[Command-line tools](/docs/run/command-line/). On success,
 expect:
 
 ```text
@@ -315,18 +328,27 @@ the matching pair:
 
 ```bash
 docker compose exec -T database pg_dump -U rdm -Fc --exclude-table-data=engine_processes rdm > ~/refiroo-backups/rdm-$(date +%Y%m%d-%H%M).dump
-docker run --rm -v refiroo_job-files:/files -v ~/refiroo-backups:/out alpine tar czf /out/job-files-$(date +%Y%m%d-%H%M).tgz -C /files .
+docker compose run --rm --no-deps -T engine python -c \
+  'import sys,tarfile; t=tarfile.open(fileobj=sys.stdout.buffer,mode="w|"); t.add("/opt/refiroo/rdm-engine/data/job-files",arcname="."); t.close()' > ~/refiroo-backups/job-files-$(date +%Y%m%d-%H%M).tar
 ```
 
-`pg_dump` normally prints nothing; it must exit 0. The archive command may print an Alpine image
-download on first use, then finishes silently with exit 0. Stop on either failure; a file left by
+`pg_dump` normally prints nothing; it must exit 0. The archive command uses the engine
+service’s configured job-file mount and finishes silently with exit 0. Stop on either failure; a file left by
 a failed command is not a completed backup. The minute in each filename is the time that command
 ran, so record which two files belong together. Do not repeat a backup in the same minute: its
 filename would be reused.
 
-The volume is named `refiroo_job-files` because `compose.yml` sets the project name to `refiroo`.
-These commands assume you have not overridden that project name. Keep the database volume too;
-do not remove named volumes to repair a startup problem.
+Keep the same Compose project name and files as the running installation: the commands
+then use its mounts even when the project is not named `refiroo`. Inspect the archive before
+copying it away, replacing `YYYYMMDD-HHMM` with the timestamp of the file just created:
+
+```bash
+tar -tf ~/refiroo-backups/job-files-YYYYMMDD-HHMM.tar
+```
+
+Expect `.` and relative paths for stored job files; a new installation can have only `.`.
+If files should exist but the archive is empty, check the project and mounts before relying
+on it. Keep the database volume too; do not remove named volumes to repair a startup problem.
 
 Copy **both files and `.env` off the server** into protected backup storage. Record the source tag
 with the pair and retain any GitHub App private key, custom model files and TLS materials needed

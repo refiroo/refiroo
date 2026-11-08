@@ -105,7 +105,7 @@ export interface TreeConfiguration {
   /** Types a search lists matches of; defaults to every type of the application. */
   searchTypes?: string[];
   /** Said when the tree has no records at all. */
-  emptyText?: string;
+  emptyText?: ReactNode;
   /** Types listed under a record of `objectTypeKey`; defaults to every type it can contain. */
   childTypesOf?: (objectTypeKey: string) => string[];
   /** A list `sort` value per type; defaults to the name. */
@@ -885,7 +885,7 @@ function TreeGroups({
   level: number;
   parentKey: string;
   loadingText: string;
-  emptyText: string;
+  emptyText: ReactNode;
   noteClassName: string;
   wrap: (children: ReactNode, shown: boolean) => ReactNode;
 }) {

@@ -9,7 +9,8 @@ See [Workspaces](/docs/use/workspaces/) for choosing a dataset.
 
 1. For a retired workspace, open **Settings › Workspaces** where your access offers it.
    Select the workspace and choose **Open workspace**. It may be absent from the active
-   workspace selector. Check the **Retired · read only** mark.
+   workspace selector. Check the **Retired · read only** mark and the context band’s
+   **Retired: read only.** message.
 2. Browse its applications, records and retained publications. Editing records, relationships,
    change sets and migrations is refused. Ask the workspace administrator about reactivation;
    do not try to work around read-only status.

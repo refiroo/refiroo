@@ -668,6 +668,41 @@ def test_an_export_sent_back_without_a_profile_changes_nothing_and_an_edited_one
     assert world.value(world.record("H", added_record["id"], workspaceKey=ws), "H.code") == "ADD"
 
 
+@pytest.mark.journey("J27.9")
+@pytest.mark.structures("H", "H.code")
+def test_an_export_edited_and_sent_back_with_update_anyway_overwrites_a_record_changed_since(world):
+    """Given an export edited in the file while someone renamed the same record in the workspace.
+    When it is previewed and executed with onExisting overwrite (the dialog's "Update them
+    anyway"). Then the record is not refused for the file's stale version in either run: it is
+    updated to the file's name, reporting the version it replaced (0.13 DOC11)."""
+    ws = _workspace(world)
+    leaf = world.made("H", "Leaf", workspace=ws, values={"H.code": "L"})
+    content = _export(world, ws, ("H",), "csv").decode("utf-8-sig")
+    meanwhile = ok(
+        world.update(
+            "H",
+            leaf["id"],
+            world.record("H", leaf["id"], workspaceKey=ws)["version"],
+            name="Leaf meanwhile",
+        )
+    )
+    rows = list(csv.reader(io.StringIO(content)))
+    column = {name: rows[0].index(name) for name in rows[0]}
+    for row in rows[1:]:
+        if row[column["id"]] == leaf["id"]:
+            row[column["name"]] = "Leaf edited"
+    edited = _csv(rows)
+
+    preview = _previewed(world, "edited.csv", edited, _request(ws, stage="preview"))["preview"]
+    assert preview["counts"]["updated"] == 1 and preview["counts"]["rejected"] == 0
+    job = _imported(world, "edited.csv", edited, _request(ws))
+    assert job["state"] == "completed", job["error"]
+    (outcome,) = _outcomes(world, job)
+    assert (outcome["status"], outcome["action"]) == ("applied", "updated")
+    assert outcome["previousVersion"] == meanwhile["version"]
+    assert world.record("H", leaf["id"], workspaceKey=ws)["name"] == "Leaf edited"
+
+
 @pytest.mark.journey("J27.10", "J27.11")
 @pytest.mark.structures("H", "H.code")
 def test_an_export_previewed_into_another_workspace_says_whose_records_they_are(world):

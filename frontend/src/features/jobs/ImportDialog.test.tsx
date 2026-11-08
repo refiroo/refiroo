@@ -152,6 +152,28 @@ describe("ImportDialog (0.9 J4)", () => {
     expect(screen.getByText(/sending the file twice creates its records twice/)).toBeInTheDocument();
   });
 
+  it("offers a profile valid in the workspace the file loads into (0.13 DOC11)", async () => {
+    // The server reads validity under the release of the workspace it is asked about.
+    vi.mocked(api.importProfiles).mockImplementation(async (_cursor, workspaceKey) => ({
+      items: [
+        profile(
+          "supplier",
+          workspaceKey === "reader-model"
+            ? {}
+            : { valid: false, problems: [{ path: "", code: "IMPORT_PROFILE_MODEL_MISMATCH", message: "…" }] },
+        ),
+      ],
+      nextCursor: null,
+    }));
+    open({ context: { workspaceKey: "reader-model" } });
+    await chooseFileAndProfile("supplier");
+    expect(api.importProfiles).toHaveBeenCalledWith(undefined, "reader-model");
+    expect(screen.getByRole("option", { name: "Profile supplier" })).not.toBeDisabled();
+    preview();
+    await waitFor(() => expect(api.startImport).toHaveBeenCalled());
+    expect(vi.mocked(api.startImport).mock.calls[0][1]).toMatchObject({ profileKey: "supplier" });
+  });
+
   it("shows a file over the limit at the file and a profile's problems at the profile", async () => {
     vi.mocked(api.startImport).mockRejectedValueOnce(
       new ApiError(413, "IMPORT_TOO_LARGE", "The file is larger than IMPORT_MAX_BYTES allows."),

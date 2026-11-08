@@ -1,0 +1,2272 @@
+{
+  "workspaceKey": "reader-model",
+  "policy": "atomic",
+  "run": "inline",
+  "items": [
+    {
+      "ref": "bulk0",
+      "op": "create",
+      "id": "a7bdd7f4-8e24-4c77-a741-c4404ff84da0",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 001",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000000
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk1",
+      "op": "create",
+      "id": "0a33ef4e-131e-49be-bc21-83b4bad14636",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 002",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000001
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk2",
+      "op": "create",
+      "id": "d93cb322-6498-4c53-962a-1d3fe5cbed5e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 003",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000002
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk3",
+      "op": "create",
+      "id": "c38f4082-4fbf-4517-8fcb-9eeb70bd978e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 004",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000003
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk4",
+      "op": "create",
+      "id": "3b6ae199-30f7-4be2-8870-323ec448f42a",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 005",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000004
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk5",
+      "op": "create",
+      "id": "26af32da-ab17-4af2-9c1c-da2b225d11ff",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 006",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000005
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk6",
+      "op": "create",
+      "id": "362bd7e9-5e54-4095-8d0b-a7c271041166",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 007",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000006
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk7",
+      "op": "create",
+      "id": "9075b19a-a0ae-4c67-a567-8f7b4b7da435",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 008",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000007
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk8",
+      "op": "create",
+      "id": "b6221a84-7066-4f52-be6f-4b8fce93fa1b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 009",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000008
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk9",
+      "op": "create",
+      "id": "e14525b7-4914-47dc-a47a-b08b0b83d2f6",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 010",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000009
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk10",
+      "op": "create",
+      "id": "fc1ad205-334d-4930-bcf1-20ae58f8caed",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 011",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000010
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk11",
+      "op": "create",
+      "id": "b553c7e5-994d-4bef-b438-04deac543e53",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 012",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000011
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk12",
+      "op": "create",
+      "id": "ed3c1f13-b39f-439d-b95d-cfefea955f76",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 013",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000012
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk13",
+      "op": "create",
+      "id": "a2a66a1d-d43e-42af-8dff-a534cdc3390c",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 014",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000013
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk14",
+      "op": "create",
+      "id": "b65cfe29-fad7-42ca-a79f-e56353d860a7",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 015",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000014
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk15",
+      "op": "create",
+      "id": "f0d53bc0-b41b-43e6-873a-230295b8dc9e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 016",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000015
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk16",
+      "op": "create",
+      "id": "3a3f68d1-6aff-4ce9-8ea7-37da917221c1",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 017",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000016
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk17",
+      "op": "create",
+      "id": "442e28ef-a76e-40ac-916c-c2a0b6585615",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 018",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000017
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk18",
+      "op": "create",
+      "id": "26f7300a-9843-48b5-a3a2-7a9e463755f6",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 019",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000018
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk19",
+      "op": "create",
+      "id": "21f3eb85-45e8-4616-ab4a-dc93f39b831e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 020",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000019
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk20",
+      "op": "create",
+      "id": "9869070d-dfac-44ae-bd2f-900883ea0600",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 021",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000020
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk21",
+      "op": "create",
+      "id": "f70b5fb8-c304-467d-894d-1306a3a8704f",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 022",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000021
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk22",
+      "op": "create",
+      "id": "8fbf3ad3-28cf-4bb1-be73-4cc4cbaea846",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 023",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000022
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk23",
+      "op": "create",
+      "id": "1a4e66f0-2484-469a-bf73-1468b96f5904",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 024",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000023
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk24",
+      "op": "create",
+      "id": "35d4ce9e-aae1-4c9b-bace-e0ef55a14fd8",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 025",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000024
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk25",
+      "op": "create",
+      "id": "29113e82-5d23-4446-8e2a-0dfcfebfe918",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 026",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000025
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk26",
+      "op": "create",
+      "id": "232f2362-1d4f-485a-b69a-81a8348f780c",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 027",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000026
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk27",
+      "op": "create",
+      "id": "5d984e95-20a3-4f59-916d-7752cc5ab4a1",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 028",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000027
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk28",
+      "op": "create",
+      "id": "f5a636a5-a9ad-43ac-9405-17a32ee42676",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 029",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000028
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk29",
+      "op": "create",
+      "id": "a8213149-781d-4801-9d6c-37b83ee105e5",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 030",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000029
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk30",
+      "op": "create",
+      "id": "0ca5ae54-55da-4a9f-972f-8a31bc0081c4",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 031",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000030
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk31",
+      "op": "create",
+      "id": "e94420d4-cef2-422f-a678-4dff384b272f",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 032",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000031
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk32",
+      "op": "create",
+      "id": "8ed6068c-e444-4a2a-859e-86f09233b755",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 033",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000032
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk33",
+      "op": "create",
+      "id": "61800793-f57d-4956-8d5d-24faae81bc77",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 034",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000033
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk34",
+      "op": "create",
+      "id": "9ef36495-494f-4b7c-bb3d-994d59da4efb",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 035",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000034
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk35",
+      "op": "create",
+      "id": "3261b381-edf0-4c9b-a808-9bfa5d51dd42",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 036",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000035
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk36",
+      "op": "create",
+      "id": "0071393e-0d91-4d63-9554-1c99c6b80bb7",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 037",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000036
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk37",
+      "op": "create",
+      "id": "cf081487-27ff-4c5a-abdc-1070834da9b5",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 038",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000037
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk38",
+      "op": "create",
+      "id": "f7208852-e35b-4f3d-8e5d-fc831d234c74",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 039",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000038
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk39",
+      "op": "create",
+      "id": "fed4a541-f221-4c11-a83f-7be93ff8990f",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 040",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000039
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk40",
+      "op": "create",
+      "id": "4ead1a63-8823-4a0f-98aa-1065b62abd51",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 041",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000040
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk41",
+      "op": "create",
+      "id": "b6a3a219-84d2-4edb-b05b-5d373de40d06",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 042",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000041
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk42",
+      "op": "create",
+      "id": "713acb5d-c56e-47b3-9a08-24852835faa3",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 043",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000042
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk43",
+      "op": "create",
+      "id": "78c64c3f-82c8-4264-a3a2-06960075571a",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 044",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000043
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk44",
+      "op": "create",
+      "id": "8c946444-9c16-470c-91c9-2ec36b9d48fb",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 045",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000044
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk45",
+      "op": "create",
+      "id": "048deac6-9519-4fd3-88ef-29177a3c04ff",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 046",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000045
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk46",
+      "op": "create",
+      "id": "2a672197-1fd9-45ae-86b2-793f99c938b2",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 047",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000046
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk47",
+      "op": "create",
+      "id": "82848ded-742e-4af1-83ab-d9a645c9183b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 048",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000047
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk48",
+      "op": "create",
+      "id": "43fa62a8-a09c-4fcf-81a0-744c848b5db5",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 049",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000048
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk49",
+      "op": "create",
+      "id": "3cb073c4-ad67-4a9d-a3b7-205cb4a58bd3",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 050",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000049
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk50",
+      "op": "create",
+      "id": "439e773c-7c57-47ea-a98c-76cecb037084",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 051",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000050
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk51",
+      "op": "create",
+      "id": "a56c9a3e-a4da-48ab-bcf6-2ee9fb228a55",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 052",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000051
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk52",
+      "op": "create",
+      "id": "6fa8f6a7-3895-409d-960c-10ee6a23b620",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 053",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000052
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk53",
+      "op": "create",
+      "id": "27a9e7ef-e679-46a7-afe6-39e108a12cee",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 054",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000053
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk54",
+      "op": "create",
+      "id": "0e192575-c626-45e0-82aa-d8bc6e68f854",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 055",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000054
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk55",
+      "op": "create",
+      "id": "bd3d337f-b2a7-4b10-b308-7bea136eddea",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 056",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000055
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk56",
+      "op": "create",
+      "id": "b9bc1a0b-1d8a-43b2-9129-ac80d2bab75e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 057",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000056
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk57",
+      "op": "create",
+      "id": "ead8fafe-86f1-4d02-91a7-a1dd8e140f82",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 058",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000057
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk58",
+      "op": "create",
+      "id": "f32b62a2-042b-45cc-87ec-5a3b689d8427",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 059",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000058
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk59",
+      "op": "create",
+      "id": "e7a08ad6-c60c-4552-a5b6-716d2ec777ae",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 060",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000059
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk60",
+      "op": "create",
+      "id": "f61436ab-f70f-4972-8448-c29f052c49c2",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 061",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000060
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk61",
+      "op": "create",
+      "id": "299f8f1c-2e88-4bbf-8785-b9bc1dbe1f29",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 062",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000061
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk62",
+      "op": "create",
+      "id": "556b6c75-eafa-442f-bdb4-17a1e3dd98e6",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 063",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000062
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk63",
+      "op": "create",
+      "id": "2731356c-c22f-4cf1-820c-368f4be0a5d3",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 064",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000063
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk64",
+      "op": "create",
+      "id": "a9aaf3cc-cf4a-4c54-beff-62e19c3d12fa",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 065",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000064
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk65",
+      "op": "create",
+      "id": "20ffce3a-4d53-495d-bd1c-6fe58d432cd3",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 066",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000065
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk66",
+      "op": "create",
+      "id": "ab1d2bc8-0ea6-4c63-b442-4202f86a223b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 067",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000066
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk67",
+      "op": "create",
+      "id": "d27ed8b9-b758-4fd2-a928-bccc1acb7f39",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 068",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000067
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk68",
+      "op": "create",
+      "id": "66dc5618-4494-4024-84e1-fb749dde7da6",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 069",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000068
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk69",
+      "op": "create",
+      "id": "0240b797-2368-4d6b-9fe0-46f886996b39",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 070",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000069
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk70",
+      "op": "create",
+      "id": "a9388641-eeef-4a1e-a74a-b12d4c026f74",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 071",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000070
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk71",
+      "op": "create",
+      "id": "bfe8e26b-745d-4e55-b4f1-1a444d54ceb3",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 072",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000071
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk72",
+      "op": "create",
+      "id": "8bee136b-45d1-4730-85c4-01569c1c4330",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 073",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000072
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk73",
+      "op": "create",
+      "id": "e3590cbc-87b3-4582-9164-0f3da4fc672e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 074",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000073
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk74",
+      "op": "create",
+      "id": "5c87656c-e060-4be0-8cde-9fa9b219d144",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 075",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000074
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk75",
+      "op": "create",
+      "id": "deffd1d1-73ff-443c-b33b-290747e72739",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 076",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000075
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk76",
+      "op": "create",
+      "id": "ba603821-0500-40cc-b2d9-5785951c1431",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 077",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000076
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk77",
+      "op": "create",
+      "id": "402d11bd-0ad9-47f9-b33f-b69eb25deda5",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 078",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000077
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk78",
+      "op": "create",
+      "id": "c2cec8ff-aa5a-493a-b5ed-52069a0f2dd8",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 079",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000078
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk79",
+      "op": "create",
+      "id": "6aab182e-592c-4adb-b79b-21457b954463",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 080",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000079
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk80",
+      "op": "create",
+      "id": "80874882-2a84-4146-9b4c-834e7b08e96c",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 081",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000080
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk81",
+      "op": "create",
+      "id": "d518c7a0-84b2-4f02-ad5e-9d7917f99f50",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 082",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000081
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk82",
+      "op": "create",
+      "id": "27694b56-309a-4ec5-8b24-c34165b52e21",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 083",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000082
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk83",
+      "op": "create",
+      "id": "7bfce2e8-82a7-46c9-89aa-56406b1948d0",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 084",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000083
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk84",
+      "op": "create",
+      "id": "2a29ab0f-e9d2-47b5-aab4-08c731f62af4",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 085",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000084
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk85",
+      "op": "create",
+      "id": "5cbdfb21-8373-4fb5-bef0-3c0ff2413eb2",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 086",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000085
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk86",
+      "op": "create",
+      "id": "ad251cff-6cbc-4236-8773-d6bcc67e417d",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 087",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000086
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk87",
+      "op": "create",
+      "id": "4c247048-d9d9-4647-9071-e2b2f54cfcdf",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 088",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000087
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk88",
+      "op": "create",
+      "id": "92d8ca0b-9b3d-4c25-ad03-c44e799b5f35",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 089",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000088
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk89",
+      "op": "create",
+      "id": "9e587d64-ef5e-4011-9012-e72e40bae118",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 090",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000089
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk90",
+      "op": "create",
+      "id": "d2c4342f-7599-477f-8737-8fa3fd88c52f",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 091",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000090
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk91",
+      "op": "create",
+      "id": "99015db0-29ae-4036-8811-f931ea79d1ef",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 092",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000091
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk92",
+      "op": "create",
+      "id": "a12276cc-fcb0-4e08-8cb0-6e844a7cfa77",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 093",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000092
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk93",
+      "op": "create",
+      "id": "c0e4e488-6343-426a-bb3e-b9205248eb6b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 094",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000093
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk94",
+      "op": "create",
+      "id": "49d0f89d-5d82-49d4-86ac-f677821dab60",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 095",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000094
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk95",
+      "op": "create",
+      "id": "6fb9620b-6681-480b-8252-5d2f8ac43541",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 096",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000095
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk96",
+      "op": "create",
+      "id": "8bd7e2cf-7376-42b2-a3e3-712f3e5c4265",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 097",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000096
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk97",
+      "op": "create",
+      "id": "44189e80-1205-41cf-9333-0f3dd872da27",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 098",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000097
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk98",
+      "op": "create",
+      "id": "775ab8f6-a8f9-4a1e-8b37-622f6d05618d",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 099",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000098
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk99",
+      "op": "create",
+      "id": "a886d4cb-ae73-41e6-a9b0-55e3d942ca59",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 100",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000099
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk100",
+      "op": "create",
+      "id": "f49b1830-e538-4e34-a282-658e9f4b6017",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 101",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000100
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk101",
+      "op": "create",
+      "id": "51a668d5-5e63-429d-9b9b-2a1fe48cea39",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 102",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000101
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk102",
+      "op": "create",
+      "id": "b8fb918b-88ae-44c8-9461-5598e5afa35b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 103",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000102
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk103",
+      "op": "create",
+      "id": "7590f411-c748-4cc6-beec-e9e74d1d9034",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 104",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000103
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk104",
+      "op": "create",
+      "id": "b079103d-5bb0-4540-8eaf-716547b6d7c8",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 105",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000104
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk105",
+      "op": "create",
+      "id": "d89bcea9-93b8-46a5-9bc7-231d8626c94b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 106",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000105
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk106",
+      "op": "create",
+      "id": "cfea57d3-08c5-4868-8b2a-a6aa1cf517f4",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 107",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000106
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk107",
+      "op": "create",
+      "id": "fd462408-a9c1-42aa-967b-f10e2544ad24",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 108",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000107
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk108",
+      "op": "create",
+      "id": "705bcf9d-1808-4d9f-864c-95644ea78478",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 109",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000108
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk109",
+      "op": "create",
+      "id": "8c49e794-7263-459d-a397-9cfe9f363994",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 110",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000109
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk110",
+      "op": "create",
+      "id": "15bcb13f-99ec-4cb5-b04a-4df02a70b6a4",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 111",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000110
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk111",
+      "op": "create",
+      "id": "c56a6153-17a2-403d-b6dc-57cdbdc11292",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 112",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000111
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk112",
+      "op": "create",
+      "id": "e6006b83-164b-4e1c-ac3a-2af76e6da559",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 113",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000112
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk113",
+      "op": "create",
+      "id": "81f64b6e-b4e0-4522-8459-ad3ee92a6db9",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 114",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000113
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk114",
+      "op": "create",
+      "id": "401cf1c0-7890-4332-8dd6-8dd1d5048ed4",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 115",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000114
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk115",
+      "op": "create",
+      "id": "83b8a2bf-2ced-4085-9f7c-6833c1c5a3e8",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 116",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000115
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk116",
+      "op": "create",
+      "id": "1abd2cea-f178-4df9-9fd1-83bcbebb3a63",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 117",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000116
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk117",
+      "op": "create",
+      "id": "e56c7f60-d310-4585-a164-eeed00067485",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 118",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000117
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk118",
+      "op": "create",
+      "id": "efe1210f-9d2d-4886-96aa-5be7ded328f8",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 119",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000118
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk119",
+      "op": "create",
+      "id": "fe302eee-92fd-4e80-91b6-34ba888c2f03",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 120",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000119
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk120",
+      "op": "create",
+      "id": "fdce5e44-6728-43ed-8b85-8e231f8ddc77",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 121",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000120
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk121",
+      "op": "create",
+      "id": "fa8aa0c8-02d6-4405-9fad-6d0fdb4a006f",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 122",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000121
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk122",
+      "op": "create",
+      "id": "e5733cdb-6098-4e2d-9901-7e47f6805f86",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 123",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000122
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk123",
+      "op": "create",
+      "id": "8099f17c-75f0-46f9-810a-97efc66c0369",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 124",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000123
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk124",
+      "op": "create",
+      "id": "4dd65398-8b68-432b-b026-816cb8b6291a",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 125",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000124
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk125",
+      "op": "create",
+      "id": "9dc44451-9428-40c7-8c57-d56c41353d69",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 126",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000125
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk126",
+      "op": "create",
+      "id": "6977d2e2-f57f-4122-8c7d-f1008c725950",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 127",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000126
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk127",
+      "op": "create",
+      "id": "6b3bffe0-5376-4554-9c26-fd5e61e392ee",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 128",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000127
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk128",
+      "op": "create",
+      "id": "1845b15e-4e6f-41b8-b991-01c6cda63e6b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 129",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000128
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk129",
+      "op": "create",
+      "id": "9abcf68c-fcac-423e-9867-53082f5dc1c6",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 130",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000129
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk130",
+      "op": "create",
+      "id": "db219e9e-a9df-4a23-bb62-39a04ba1e39c",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 131",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000130
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk131",
+      "op": "create",
+      "id": "9cc03874-08aa-4df2-aaa8-30b066581564",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 132",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000131
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk132",
+      "op": "create",
+      "id": "f19843c9-ad00-4261-826f-c237da4ef95e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 133",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000132
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk133",
+      "op": "create",
+      "id": "8c6b1e2e-c131-4241-ba4e-a882748ba319",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 134",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000133
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk134",
+      "op": "create",
+      "id": "72fbeb62-64ce-4fb9-806a-6d4fbfd9695e",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 135",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000134
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk135",
+      "op": "create",
+      "id": "44ef4ead-4530-4785-9e17-f6288ed8c32a",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 136",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000135
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk136",
+      "op": "create",
+      "id": "c54b7799-0258-4c77-8b47-815cbe5501bc",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 137",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000136
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk137",
+      "op": "create",
+      "id": "061eaaab-2ab7-4681-8af9-becb8257ff9b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 138",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000137
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk138",
+      "op": "create",
+      "id": "55765c33-39c8-4a10-9d51-b8ec6f829d93",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 139",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000138
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk139",
+      "op": "create",
+      "id": "e3be5c1f-f731-4963-b13f-ebf1ed7bc7a6",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 140",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000139
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk140",
+      "op": "create",
+      "id": "413ff210-8bc1-42d4-a5e3-a04b4d7f10ec",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 141",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000140
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk141",
+      "op": "create",
+      "id": "7a949d72-a8f6-433e-855e-242656ec008d",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 142",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000141
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk142",
+      "op": "create",
+      "id": "5425089f-78b6-4119-9e3a-f16c12153891",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 143",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000142
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk143",
+      "op": "create",
+      "id": "5ab6d3db-8d3b-48be-b5ad-019dc33cfa04",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 144",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000143
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk144",
+      "op": "create",
+      "id": "ccc40809-81df-465c-b4c1-2472a3cccf28",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 145",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000144
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk145",
+      "op": "create",
+      "id": "f660b203-315e-47cd-a5b4-150c7f810fd0",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 146",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000145
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk146",
+      "op": "create",
+      "id": "38308acf-f3e4-49b9-b31d-e07e628bef94",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 147",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000146
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk147",
+      "op": "create",
+      "id": "bbceb4e1-f27a-4468-9361-16264bb39035",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 148",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000147
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk148",
+      "op": "create",
+      "id": "7cdab9bf-12aa-46ed-b2d8-2a6f0b79a88b",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 149",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000148
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk149",
+      "op": "create",
+      "id": "d4c74ecf-952f-4d97-a57d-d08ef51b1ff4",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 150",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000149
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "bulk150",
+      "op": "create",
+      "id": "a0fe7ec5-3235-454b-853d-06bc1e0784a0",
+      "applicationKey": "stops-reader",
+      "objectTypeKey": "stop",
+      "name": "C11 bulk selection 151",
+      "attributes": [
+        {
+          "attributeTypeKey": "stop-code",
+          "value": 9000150
+        }
+      ],
+      "initialRelations": []
+    }
+  ]
+}

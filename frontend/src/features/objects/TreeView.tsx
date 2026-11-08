@@ -105,7 +105,7 @@ export function TreeView({
   const [actionError, setActionError] = useState("");
   const [menu, setMenu] = useState<{ item: ObjectItem }>();
   const menuAnchor = useRef<HTMLElement | null>(null);
-  const [adding, setAdding] = useState<{ parent: ObjectItem; objectType: ObjectTypeDefinition }>();
+  const [adding, setAdding] = useState<{ parent?: ObjectItem; objectType: ObjectTypeDefinition }>();
   const [moving, setMoving] = useState<{ item: ObjectItem; others?: ObjectItem[]; target?: ObjectItem | null }>();
   // The records selected in the tree, which a drag or Move to… from one of them moves (UA9).
   const [selection, setSelection] = useState<ObjectItem[]>([]);
@@ -338,6 +338,22 @@ export function TreeView({
     [childSort, live],
   );
 
+  // The first record of a hierarchy has no parent to open a menu on: each root type the person may
+  // write is added from the header and the empty state (reported by the fresh-reader check, 0.13 DOC11).
+  const rootAdds = actions.has("createChild")
+    ? config.rootObjectTypeKeys.flatMap((key) => {
+        const objectType = objectTypeFor(model, key);
+        return objectType?.features.rootCreatable && writes.permits(application.key, key) ? [objectType] : [];
+      })
+    : [];
+  const rootAddButtons = (className: string) =>
+    rootAdds.map((objectType) => (
+      <button key={objectType.key} type="button" className={className} onClick={() => setAdding({ objectType })}>
+        <Icon name="plus" /> Add {objectType.name}
+      </button>
+    ));
+  const emptyName = (objectTypeFor(model, config.rootObjectTypeKeys[0])?.pluralName ?? "records").toLowerCase();
+
   const treeConfig: TreeConfiguration = {
     rootTypes: config.rootObjectTypeKeys,
     searchTypes: config.objectTypeKeys,
@@ -345,7 +361,12 @@ export function TreeView({
     sortOf,
     pageSize: config.pageSize,
     storageScope: `tree:${view.key}`,
-    emptyText: `No ${(objectTypeFor(model, config.rootObjectTypeKeys[0])?.pluralName ?? "records").toLowerCase()} in this workspace yet.`,
+    emptyText: (
+      <>
+        <p>No {emptyName} in this workspace yet.</p>
+        {rootAddButtons("secondary")}
+      </>
+    ),
     labelOf,
     describe: (item) =>
       [
@@ -446,6 +467,7 @@ export function TreeView({
         titleId={headingId}
         icon={<HueTile hue={rootType && objectTypeHue(model, rootType.key)} icon={rootType?.icon} size={40} />}
         title={view.name}
+        actions={rootAdds.length > 0 ? rootAddButtons("primary") : undefined}
         descriptionClassName="mapping-direction"
         description={rootNames.map((name, index) => (
           <span key={name} className="tree-lens-level">
@@ -538,12 +560,12 @@ export function TreeView({
           applicationKey={application.key}
           workspaceKey={workspaceKey}
           objectType={adding.objectType}
-          parentObjectId={adding.parent.id}
-          parentObjectTypeKey={adding.parent.objectTypeKey}
+          parentObjectId={adding.parent?.id}
+          parentObjectTypeKey={adding.parent?.objectTypeKey}
           onClose={() => {
-            const id = adding.parent.id;
+            const id = adding.parent?.id;
             setAdding(undefined);
-            focusNode(id);
+            if (id) focusNode(id);
           }}
           onSaved={(created) => {
             setAdding(undefined);

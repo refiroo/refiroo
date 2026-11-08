@@ -61,7 +61,11 @@ export function noticeText(notification: Notification): NoticeText {
  */
 export function noticeRoute(notification: Notification, applicationKey: string | undefined): RouteState | undefined {
   if (notification.subject.kind === "job") return { kind: "settings", page: "jobs", jobId: notification.subject.id };
-  // A publication consumed its change set: an approval and a followed publication lead nowhere.
+  // A publication consumed its change set, so an approval leads nowhere; a followed publication
+  // leads to the workspace's publications, which list it.
+  if (notification.kind === "change-set.published" && applicationKey && notification.workspaceKey) {
+    return { kind: "publications", applicationKey, workspaceKey: notification.workspaceKey };
+  }
   if (notification.kind === "change-set.approved" || notification.kind === "change-set.published" || !applicationKey) {
     return undefined;
   }

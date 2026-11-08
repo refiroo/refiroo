@@ -1,0 +1,26 @@
+Batch
+6f7a35b8-3c49-474c-ab05-30f4ad6fa862
+	reader model	
+Completed
+Every item applied
+	2 of 2 processed: 2 applied, 0 rejected, 0 unprocessed	Guide Admin	11/8/2026, 12:21:26 PM	11/8/2026, 12:21:37 PM	
+
+Batch
+65d1ddb6-9815-4a62-bca9-b1f8aa334c7b
+	reader model	
+Cancelled
+	2 of 2 processed: 0 applied, 2 rejected, 0 unprocessed	Guide Admin	11/8/2026, 12:21:08 PM	11/8/2026, 12:21:21 PM	
+
+Batch
+ae526289-d236-404b-942e-bfcfcaa84ae1
+	Graubünden (change set)	
+Completed
+Every item applied
+	1 of 1 processed: 1 applied, 0 rejected, 0 unprocessed	Guide Admin	11/8/2026, 11:10:46 AM	11/8/2026, 11:10:46 AM	
+
+Batch
+44673f43-9df9-485a-bdc3-7aa43543098d
+	Graubünden (change set)	
+Completed
+Every item applied
+	1 of 1 processed: 1 applied, 0 rejected, 0 unprocessed	Guide Admin	11/8/2026, 11:10:29 AM	11/8/2026, 11:10:35 AM	

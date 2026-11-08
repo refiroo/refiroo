@@ -151,4 +151,33 @@ describe("BulkDeleteDialog (0.9 K2b)", () => {
     // The new preview runs, its stream open, before the test leaves it.
     expect(await screen.findByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
+
+  it("previews again with the version the refused record has now, not the one it was selected with", async () => {
+    const changed: JobItemOutcome = {
+      ...changedBeta,
+      error: { ...changedBeta.error!, details: { currentVersion: 6 } },
+    };
+    vi.mocked(api.jobItems).mockResolvedValue({ items: [changed], nextCursor: null });
+    vi.mocked(api.confirmJob).mockResolvedValue({ ...waiting, state: "queued", confirmedAt: "2026-10-09T09:01:00Z" });
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await PushedEventSource.push(waiting);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete 5 records" }));
+    await waitFor(() => expect(api.confirmJob).toHaveBeenCalledWith("j1"));
+    await PushedEventSource.push({
+      ...waiting,
+      state: "completed",
+      result: "partial",
+      confirmedAt: "2026-10-09T09:01:00Z",
+      counts: { applied: 1, rejected: 1, unprocessed: 0, created: 0, updated: 0, unchanged: 0, deleted: 1 },
+    });
+    await screen.findByText("The object was modified by another session. Please retry.");
+    fireEvent.click(await screen.findByRole("button", { name: "Preview again" }));
+    await waitFor(() => expect(api.startBatch).toHaveBeenCalledTimes(2));
+    const items = vi.mocked(api.startBatch).mock.calls[1][0].items as BatchDeleteItem[];
+    expect(items.map((item) => [item.target.id, item.expectedVersion])).toEqual([
+      ["a", 3],
+      ["b", 6],
+    ]);
+  });
 });

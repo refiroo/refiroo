@@ -9,6 +9,12 @@ than this refiroo version reads. It changes the stored definition format, not th
 You need permission to install models at the instance level. See
 [Model language versions](/docs/model/model-language-versions/).
 
+Before starting, you need an older-language release already stored in this installation,
+usually retained through an engine upgrade. New drafts and imports on this version accept
+only the current language, **0.10**; importing an older document does not create a release
+for this task. The repair affects every workspace sharing the stored release. Arrange a
+backup and coordinate with their owners before confirming it.
+
 1. Open the affected workspace and read why it cannot open. A model written by a newer refiroo
    version needs that version; this repair is only offered for an older, raisable definition.
 2. Under **Bring it up to date**, choose **Review the change…**. If the page says the model

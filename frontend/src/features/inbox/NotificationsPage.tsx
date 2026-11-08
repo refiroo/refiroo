@@ -133,26 +133,25 @@ export function NotificationsPage({
     if (!notice.read) void act(() => api.markNotificationsRead({ ids: [notice.id] }));
     const route = noticeRoute(notice, firstApplication.get(notice.workspaceKey));
     // A followed publication leads to the publication, as the workspace's Publications page opens it: while
-    // it is the active one and the person may still browse the workspace (else the notice is only read).
+    // it is the active one and the person may still browse the workspace; else the workspace's Publications.
     const publicationId = notice.details.publicationId;
-    const application = workspaces.find((item) => item.key === notice.workspaceKey)?.applications[0];
-    if (notice.kind === "change-set.published" && publicationId && application) {
-      api.publication(publicationId).then(
-        (found) => {
-          if (found.status !== "active") return;
-          openIn(notice.workspaceKey, appPath(notice.workspaceKey, application), onNavigate, (model) => {
-            const app = applicationFor(model, application.key);
-            return app && { ...viewRoute(app, app.defaultView, notice.workspaceKey), publicationId };
-          });
-        },
-        () => undefined,
-      );
-      return;
-    }
-    if (route) {
+    const fallback = () => {
+      if (!route) return;
       onNavigate(route);
       touchSubject(notice.subject.id);
+    };
+    const application = workspaces.find((item) => item.key === notice.workspaceKey)?.applications[0];
+    if (notice.kind === "change-set.published" && publicationId && application) {
+      api.publication(publicationId).then((found) => {
+        if (found.status !== "active") return fallback();
+        openIn(notice.workspaceKey, appPath(notice.workspaceKey, application), onNavigate, (model) => {
+          const app = applicationFor(model, application.key);
+          return app && { ...viewRoute(app, app.defaultView, notice.workspaceKey), publicationId };
+        });
+      }, fallback);
+      return;
     }
+    fallback();
   };
 
   // A digest's link opens the notice's subject, as a click on it in the list does (0.16 AO3, AO-D36).

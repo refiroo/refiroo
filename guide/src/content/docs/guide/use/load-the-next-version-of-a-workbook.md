@@ -11,7 +11,9 @@ model from a new workbook; that task belongs to
 1. Open **Settings › Data operations › Import profiles**. Select the profile and read its
    **Last load**: file, destination, row counts and whether its change set was published.
 2. If your permissions offer **Upload the next version…**, choose it and upload the newer
-   workbook. Wait while it is checked. Nothing is written by this check.
+   workbook. Choose the intended comparison workspace and wait while it is checked.
+   The profile is checked and saved against that workspace’s model. Nothing is loaded
+   into its records by this check.
 3. Review new, missing and renamed columns, new values, changed names and missing records.
    Choose **Accept** on a **Renamed** row only where the proposed column really replaces the old one.
    Choose **Ignore** on a **New** row to leave that column out. Ask the profile's model administrator to

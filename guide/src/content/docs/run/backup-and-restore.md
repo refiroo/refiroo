@@ -234,7 +234,9 @@ without Caddy in front and the site does not answer.
      -d rdm < backups/before-maintenance/database.dump
    ```
 
-4. Restore the matching file archive with the engine stopped:
+4. Build the matching engine image with `docker compose build engine` before restoring files.
+   On a fresh host this downloads dependencies and prints build progress; wait for success.
+   Restore the matching file archive with the engine stopped:
 
    ```bash
    docker compose run --rm --no-deps -T engine python -c    \

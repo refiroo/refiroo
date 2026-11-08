@@ -1,0 +1,160 @@
+{
+  "workspaceKey": "reader",
+  "policy": "atomic",
+  "run": "inline",
+  "items": [
+    {
+      "ref": "canton",
+      "op": "create",
+      "id": "f2215f1a-8f48-444b-a51b-323e36083e33",
+      "applicationKey": "network",
+      "objectTypeKey": "canton",
+      "name": "Graubünden reader",
+      "attributes": [
+        {
+          "attributeTypeKey": "canton-abbreviation",
+          "value": "GR-C11"
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "district",
+      "op": "create",
+      "id": "2a79ed88-44ce-4dd8-8d09-5e12d26d5dcf",
+      "applicationKey": "network",
+      "objectTypeKey": "district",
+      "name": "Plessur reader",
+      "parent": {
+        "id": "f2215f1a-8f48-444b-a51b-323e36083e33"
+      },
+      "attributes": [],
+      "initialRelations": []
+    },
+    {
+      "ref": "munA",
+      "op": "create",
+      "id": "de2addef-16df-499d-a6d7-0b72851122cd",
+      "applicationKey": "network",
+      "objectTypeKey": "municipality",
+      "name": "Chur reader",
+      "parent": {
+        "id": "2a79ed88-44ce-4dd8-8d09-5e12d26d5dcf"
+      },
+      "attributes": [
+        {
+          "attributeTypeKey": "fso-number",
+          "value": 3901
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "munB",
+      "op": "create",
+      "id": "4f46daf6-d210-46db-9f55-f0570f8ab83a",
+      "applicationKey": "network",
+      "objectTypeKey": "municipality",
+      "name": "Arosa reader",
+      "parent": {
+        "id": "2a79ed88-44ce-4dd8-8d09-5e12d26d5dcf"
+      },
+      "attributes": [
+        {
+          "attributeTypeKey": "fso-number",
+          "value": 3921
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "stopA",
+      "op": "create",
+      "id": "84a45170-9d82-48dd-8433-57a0677f881a",
+      "applicationKey": "network",
+      "objectTypeKey": "stop",
+      "name": "Chur reader A",
+      "parent": {
+        "id": "de2addef-16df-499d-a6d7-0b72851122cd"
+      },
+      "attributes": [
+        {
+          "attributeTypeKey": "designation",
+          "value": "Chur reader A"
+        },
+        {
+          "attributeTypeKey": "stop-number",
+          "value": 8509000
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "stopB",
+      "op": "create",
+      "id": "0372fc18-25ed-455e-8d99-60db0789eae8",
+      "applicationKey": "network",
+      "objectTypeKey": "stop",
+      "name": "Chur reader B",
+      "parent": {
+        "id": "de2addef-16df-499d-a6d7-0b72851122cd"
+      },
+      "attributes": [
+        {
+          "attributeTypeKey": "designation",
+          "value": "Chur reader B"
+        },
+        {
+          "attributeTypeKey": "stop-number",
+          "value": 8509006
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "lang",
+      "op": "create",
+      "id": "a92d3488-5450-4430-a6cf-ddf2a0fac8cc",
+      "applicationKey": "names",
+      "objectTypeKey": "language",
+      "name": "English reader",
+      "attributes": [
+        {
+          "attributeTypeKey": "language-code",
+          "value": "en"
+        }
+      ],
+      "initialRelations": []
+    },
+    {
+      "ref": "nameA",
+      "op": "create",
+      "id": "dd8c435d-7624-48e3-9d84-2460b065b3b3",
+      "applicationKey": "names",
+      "objectTypeKey": "name-translation",
+      "name": "Chur reader English",
+      "parent": {
+        "id": "a92d3488-5450-4430-a6cf-ddf2a0fac8cc"
+      },
+      "attributes": [
+        {
+          "attributeTypeKey": "translated-name",
+          "value": "Chur reader"
+        },
+        {
+          "attributeTypeKey": "active",
+          "value": true
+        }
+      ],
+      "initialRelations": [
+        {
+          "relationTypeKey": "object-has-translation",
+          "direction": "incoming",
+          "object": {
+            "id": "de2addef-16df-499d-a6d7-0b72851122cd"
+          }
+        }
+      ]
+    }
+  ]
+}

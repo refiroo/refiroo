@@ -31,6 +31,21 @@ All notable changes to this project are documented in this file. The format foll
 
 - **A draft's dry run reads the draft's own profile.** `profile` in `POST /model-drafts/{id}/dry-run` is optional: without it the file is read with the profile the draft holds. The profile `GET /model-drafts/{id}/profile` answers is accepted unchanged: its read-only `key`, `unmapped`, `ignoredSheets` and each source's `id` are ignored, where they were refused with `422`.
 
+### Fixed (command-line tools without a terminal or with --help)
+
+- **Command-line tools: `database_upgrade --help` and `generate_key --help` print help instead of doing the work; `create_admin` without a terminal says to use `--password-stdin` instead of failing with a traceback.**
+
+### Fixed (found by the fresh-reader check, 0.13 DOC11)
+
+- **A hierarchy view can take its first top-level record.** The tree only offered Add from an existing record's menu, so an empty workspace had no way to start. The header and the empty state now offer Add for each of the view's top-level types that may stand without a parent, when the view allows creating and the person may write the type.
+- **A followed publication's notice opens something.** It leads to the workspace's Publications page; an approval's notice still leads nowhere, as its change set is gone.
+- **A retired workspace says it is read-only.** The context band read "Edits apply immediately in this workspace."; it now says "Retired: read only."
+- **A supplier profile is read and saved in the workspace of its comparison.** Accept and Ignore on Settings › Import profiles saved against the default workspace's model, so a profile of another workspace's model failed with "The profile was not saved" while its detail said Valid and its header said Needs a fix. The screen now reads the profile, and `PUT /import-profiles/{key}` carries `workspaceKey`, for the workspace of the profile's latest file. The Import dialog lists profiles the same way, valid or not under the release of the workspace the file loads into, so a profile of that workspace's model is no longer shown as no longer valid and can be chosen.
+- **"Update them anyway" updates records changed since the export.** An import with `onExisting: "overwrite"` still held a row's exported version against the record, refusing it with `VERSION_CONFLICT` in the preview and the run. A file's version claims (a record's, a relationship's, a relationship list's) are now ignored under overwrite and the previous version is audited; a batch's own `expectedVersion` is still held.
+- **Preview again after a delete takes the records' current versions.** A record refused because it changed after the preview was previewed again with the version it was selected with and refused again, offering "Delete 0 records". A refusal for a changed version now names the `currentVersion` (also for `DELETION_PREVIEW_CHANGED`), and Preview again of a bulk action sends it.
+- **A released element's refusal says how to make the change.** The model editor said the change "needs a migration (planned for 1.0)", although migrations exist; it now says to make it in the JSON view, where installing the release shows the migration to review.
+- **A draft conflict names a rename from its old name.** "Applied since" read "Renamed Reader refactor Admin to Reader refactor Admin"; it now reads "Renamed Reader refactor to Reader refactor Admin".
+
 ### Fixed (setting name on the Webhooks screen, password in a restore check refusal)
 
 - **The Webhooks screen names the setting that is read.** With webhooks off it said they also need `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, a setting startup refuses since `SECRETS_ENCRYPTION_KEY` replaced it; it now names `SECRETS_ENCRYPTION_KEY`.
@@ -101,7 +116,7 @@ All notable changes to this project are documented in this file. The format foll
 - **The AI features are documented** for every reader: asking a list in words, proposed mapping targets, loading and changing with the assistant, changing a model from words, accounts of changes, Settings › AI, agent access, assistant tasks for integrators, and setting up AI with a Claude subscription or an API key. Automatic HTTPS is presented as a feature on About and Run.
 
 - **Every picture the guide references exists.** The remaining screenshots were taken on the reference instance (the assistant chain, model moves, a stale migration, history with an assistant's preparation, mapping proposals, a failed provider test, webhooks, sign-in providers, second factors, groups, jobs and the import preview), and every caption was checked against its image. The Run pages describe the assistant's API address under Compose and its two volumes; the words-only pages describe a proposal with no model change. The two example workbooks are downloadable from the pages that use them (`/docs/downloads/`).
-- **The fresh-reader check (DOC11) ran as its weaker form:** a fresh session given only the built guide followed the quick start, every journey and the production checklist; what it got stuck on was fixed in the pages. It could not reach the running instance, so API commands and browser steps were judged from the pages, not run.
+- **The fresh-reader check (DOC11), done rather than read:** a fresh session given only the built guide did the quick start, every journey but the assistant one and the production checklist's outside checks, in a browser and with real requests on the reference instance; the run pages' commands were run on a clean host, including an upgrade. What it got stuck on was fixed in the pages, and the product defects it found are listed under Fixed. The assistant journey is read once the assistant work (AT) is delivered.
 
 ### Added (branded mail)
 

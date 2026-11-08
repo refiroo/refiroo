@@ -1,0 +1,38 @@
+{
+  "workspace": "reader",
+  "publicationId": "6e9047e1-56b3-4179-8191-3c065033fdd8",
+  "feedPosition": 11,
+  "complete": true,
+  "objects": [
+    {
+      "id": "0c1c1eb3-4090-4686-972f-3733add8aa61",
+      "workspaceKey": "reader",
+      "applicationKey": "network",
+      "objectTypeKey": "operator",
+      "parentObjectId": null,
+      "name": "Reader approved operator",
+      "path": [
+        {
+          "id": "0c1c1eb3-4090-4686-972f-3733add8aa61",
+          "name": "Reader approved operator",
+          "objectTypeKey": "operator"
+        }
+      ],
+      "attributes": [
+        {
+          "id": "0c1c1eb3-4090-4686-972f-3733add8aa61:operator-sboid",
+          "attributeTypeKey": "operator-sboid",
+          "name": "Operator SBOID",
+          "valueType": "text",
+          "value": "ch:1:sboid:C11-reader-publish"
+        }
+      ],
+      "version": 3,
+      "createdAt": null,
+      "updatedAt": null,
+      "changeSetVersion": null,
+      "modelReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf"
+    }
+  ],
+  "checkpoint": 11
+}

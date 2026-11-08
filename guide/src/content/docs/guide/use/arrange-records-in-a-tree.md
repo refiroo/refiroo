@@ -61,6 +61,14 @@ Dragging a record onto a parent is another way to move it. Review the destinatio
 confirmation before proceeding. On touch screens, hold the record still until it lifts, then
 drag. Beginning to move your finger before it lifts scrolls the tree instead.
 
+## Add the first top-level record
+
+In an editable tree, choose **Add …** for the intended top-level type in the header or empty
+view. Complete the new record’s name and required fields, then choose **Create**. This form
+has no parent field: the record starts at the top of this tree. Add children from its menu
+afterwards. The action appears only for types allowed at the top, when the view allows creation
+and your permissions allow writing that type.
+
 ## Rename or add a child
 
 1. Open the record's menu and choose its rename action, or press **F2** on the focused record.

@@ -81,6 +81,20 @@ credentials file that your token-refresh mechanism maintains. Tokens last 60 min
 a static expired token stops scrapes. See [Clients](/docs/administer/clients/) and the
 [API reference](/docs/api) for authentication operations.
 
+For a first scrape test, obtain a management `ACCESS_TOKEN` with this client using
+[the token commands](/docs/run/sign-in-and-mail-setup/#api-authentication). From the
+Compose checkout, pipe it to a probe inside the running engine container:
+
+```bash
+printf '%s' "$ACCESS_TOKEN" | docker compose exec -T engine python -c \
+  'import sys,urllib.request; token=sys.stdin.read(); request=urllib.request.Request("http://engine:8000/metrics",headers={"Authorization":"Bearer "+token}); print(urllib.request.urlopen(request,timeout=10).read().decode())'
+```
+
+Expect Prometheus text including `rdm_process_ready{...} 1` for a ready process. The token
+is read from stdin and is not printed. A 401 needs a fresh valid management token; a 403
+needs the Operator grant. A public `/metrics` 404 is expected, even with a token. Keep the
+engine port private. Clear the temporary token with `unset ACCESS_TOKEN` after testing.
+
 The metrics response uses Prometheus text exposition format version `0.0.4`. JSON equivalents for
 processes, workspace readiness and instance totals are in the [system operations](/docs/api) of the
 API reference. Operational detail requires Operations access; basic system identity needs sign-in.

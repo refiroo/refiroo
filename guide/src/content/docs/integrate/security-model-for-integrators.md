@@ -10,6 +10,22 @@ Give each system its own [client](/docs/administer/clients/) and grant only the 
 
 A management role contains action groups, such as Browse, Bulk and import, Work in change sets, Publish or Feed. Use the [security catalogue and grant operations](/docs/api/?api=management#tag/security) to discover and administer them. A grant can apply at the instance or to one workspace. An instance grant applies to present and future workspaces.
 
+Use these predefined role keys in the [grant operations](/docs/api/?api=management#tag/security);
+the names are those shown in Settings. The role catalogue also lists custom roles and their keys.
+
+| Name in Settings | Key for commands and API grants |
+| --- | --- |
+| Reader | `reader` |
+| Contributor | `contributor` |
+| Data steward | `steward` |
+| Data owner | `owner` |
+| Model administrator | `model-admin` |
+| Workspace administrator | `workspace-admin` |
+| Integration administrator | `integration-admin` |
+| Operator | `operator` |
+| Security administrator | `security-admin` |
+| Agent | `agent` |
+
 Browse permits reading throughout its workspace. Application and record-type narrowing limits writes, not reads; data that must be hidden from some readers needs a separate workspace. Collections show only resources the caller may access. A direct request for a named resource outside that access is refused.
 
 A narrowed write grant applies to the action group used by the operation. A Bulk and import allowance does not imply permission to edit live individually or publish. Several grants for the same action can add their allowed types together. A relationship write is allowed when either endpoint's type is allowed. Cascading deletion must also be allowed for the records and relationships it removes; publishing must be allowed for the types the change set affects, including the live records it replaces or deletes.

@@ -67,6 +67,17 @@ unexpectedly (name a deliberate error in `expectStatus`). The instance must be r
 `--run TS` defaults to the newest run of the package. Report the `status` token totals to the user
 after each wave.
 
+## Network and browser (opt-in)
+
+By default Codex runs in `workspace-write` without network, so `curl http://localhost:8480` is refused.
+`run`/`reply --network` adds `-c sandbox_workspace_write.network_access=true` to the turn (new and resumed).
+`--browser` implies `--network` and, per turn, starts a headless Chromium outside the sandbox
+(`chromium.launchServer`, Playwright from `frontend/node_modules/playwright/index.mjs`) and appends its
+WebSocket endpoint plus a short `chromium.connect(...)` example to the turn's prompt (screenshots go under
+`guide/_coverage/notes/<PACKAGE>/`). The server is closed when the turn ends, on timeout and on SIGINT/SIGTERM
+of the tool. Both are recorded in `run.json` (`network`, `browser`), so a `reply` to such a run keeps them.
+Without the flags the `codex exec` command line is unchanged.
+
 ## Usage limits and stops
 
 Codex's prompt asks it to work in small units, write each finished unit into its files before the next,

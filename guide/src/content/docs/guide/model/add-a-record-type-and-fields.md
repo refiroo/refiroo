@@ -67,7 +67,12 @@ supply a value automatically.
 
 Select an editable setting cell, choose the value and use **Save**, or **Cancel** to leave it
 unchanged. A refusal on a released field means you must review its existing data and the migration
-requirement rather than forcing the edit.
+requirement rather than forcing the edit. The visual editor refuses a released field’s
+value-type change when it affects stored values. Ask a specialist model author to prepare
+that change in [the JSON view](/docs/guide/model/edit-a-draft-as-json/), save and compare
+the draft, and install the target release. Then
+[review the workspace migration](/docs/guide/model/migrate-a-workspace/) before converting
+data. A draft save alone changes no stored record values.
 
 ![Required setting opened in place with Save and Cancel](/docs/screens/model-type-required-edit.png)
 

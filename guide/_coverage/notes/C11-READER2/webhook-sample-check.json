@@ -1,0 +1,5 @@
+{
+  "sample_verifies": true,
+  "tampered_refused": true,
+  "stale_refused": true
+}

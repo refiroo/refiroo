@@ -108,7 +108,9 @@ With the same project and mounts, upgrading keeps `database`, `job-files`, `assi
 `assistant-claude`, plus `caddy-data` when using automatic HTTPS. The `assistant` volume holds
 open tasks’ working folders at `/opt/refiroo/rdm-engine/data/assistant`; `assistant-claude` holds
 Claude Code configuration and session logs at `/opt/refiroo/rdm-engine/data/assistant-claude`.
-Keeping them lets open tasks retain the files they need to continue after container replacement.
+An upgrade from a version without `assistant-claude` creates that new volume; it is not
+a sign that the database or job files have been replaced. Keeping existing assistant volumes
+lets open tasks retain the files they need to continue after container replacement.
 A backup need not include these two assistant volumes: losing them loses open tasks’ folders and
 session logs, not records. Do not run `docker compose down -v`: it removes the named volumes.
 

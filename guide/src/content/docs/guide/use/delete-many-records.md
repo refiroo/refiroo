@@ -19,7 +19,9 @@ Deletion can remove more records than you selected. Read
    selected rows. Use **Back** or cancel if the impact is wrong.
 5. Confirm with **Delete … records**. Review the result and reasons for refusals. A new child
    or intervening edit can invalidate an item's preview. Use **Preview again** for refused or
-   unprocessed items after reviewing their current impact.
+   unprocessed items. For records refused because their version changed, the new preview
+   uses their current versions. Review its updated dependent records and relationships
+   before confirming again; the earlier preview no longer describes the whole impact.
 
 Live removals take effect immediately. In a change set they remain proposals until publication.
 History and earlier publications remain. A sampled preview cannot authorise deletion of items
