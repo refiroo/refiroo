@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
 
 // What the person may do is read once per page load (0.12 Z5); each test starts afresh, read
@@ -14,3 +14,7 @@ afterEach(() => {
   globalThis.sessionStorage?.clear?.();
 });
 afterEach(cleanup);
+
+// findBy… and waitFor wait 5 s, not the library's 1 s: on a loaded CI runner a list or stream can take
+// longer than a second to arrive, and a different test failed each run (CL1, 2026-11-08).
+configure({ asyncUtilTimeout: 5000 });

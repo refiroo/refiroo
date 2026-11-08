@@ -84,7 +84,8 @@ describe("Inbox (0.12 A2)", () => {
   it("shows the live unread count on the bell, named for screen readers, and none at zero", async () => {
     renderBell();
     await bell();
-    expect(FakeStream.opened).toHaveLength(1);
+    // The stream opens just after the bell shows; on a loaded runner that can be a moment later.
+    await waitFor(() => expect(FakeStream.opened).toHaveLength(1));
     FakeStream.opened[0].push("unread", { unreadCount: 3 });
     expect(await screen.findByRole("button", { name: "Inbox, 3 unread" })).toHaveTextContent("3");
     FakeStream.opened[0].push("unread", { unreadCount: 12 });
