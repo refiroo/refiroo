@@ -8,10 +8,16 @@ on:
 
 jobs:
   backend:
+    # Four shares on four runners (.github/ci/ci_shard.py): the whole suite on one runner (2 cores,
+    # 8 GB) ran out of memory three quarters through and took over 70 minutes (2026-11-08).
+    name: backend (${{ matrix.shard }}/4)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     # Ubuntu 24.04, not ubuntu-latest (26.04): Playwright's Chromium does not install on 26.04 yet.
     runs-on: ubuntu-24.04
-    # 90 until the suite's CI time is known (it passed 79% in 40 minutes on 2026-11-07); then lowered again.
-    timeout-minutes: 90
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:17
@@ -26,6 +32,8 @@ jobs:
     env:
       # The test harness uses this server instead of starting its own (tests/postgres_server.py).
       RDM_TEST_DATABASE_SERVER: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+      CI_SHARD: ${{ matrix.shard }}/4
+      PYTHONPATH: ${{ github.workspace }}/.github/ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,28 +43,11 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e 'backend[dev]'
       - run: python -m ruff check backend
+        if: matrix.shard == 1
       # Parallel part, then the timing-based `serial` tests in one process (docs/testing/EXECUTION_GUIDE.md).
-      # DIAGNOSTIC (temporary): resource log every 30 s, junit, early failure tracebacks.
-      - name: Resource log
-        run: |
-          (while true; do
-            echo "=== $(date -u +%T)"; df -h / /tmp | tail -n +2; free -m | sed -n 2p
-            echo "load: $(cut -d' ' -f1-3 /proc/loadavg) procs: $(ps -e --no-headers | wc -l)"
-            PGPASSWORD=postgres psql -h localhost -U postgres -Atc "select 'dbs='||count(*) from pg_database; select 'conns='||count(*) from pg_stat_activity; select 'pgsize='||pg_size_pretty(sum(pg_database_size(datname))) from pg_database" 2>&1 | tr '\n' ' '; echo
-            sleep 30
-          done) > "$RUNNER_TEMP/resources.log" 2>&1 &
-      - run: python -m pytest backend/tests -n auto -q -rfE --durations=30 --maxfail=40 --tb=short -p no:cacheprovider --junitxml="$RUNNER_TEMP/junit.xml"
-      - run: python -m pytest backend/tests -m serial -q
-      - name: Diagnostics
-        if: always()
-        run: |
-          mkdir -p "$RUNNER_TEMP/diag"; cp "$RUNNER_TEMP"/resources.log "$RUNNER_TEMP"/junit.xml "$RUNNER_TEMP/diag/" || true
-          docker logs "$(docker ps -q --filter ancestor=postgres:17 | head -1)" 2>&1 | grep -v "^$" | tail -300 > "$RUNNER_TEMP/diag/postgres.log" || true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: diag
-          path: ${{ runner.temp }}/diag
+      - run: python -m pytest backend/tests -p ci_shard -n auto -q -rfE
+      # Exit code 5: this share holds no serial test.
+      - run: python -m pytest backend/tests -p ci_shard -m serial -q || test $? -eq 5
 
   frontend:
     runs-on: ubuntu-24.04

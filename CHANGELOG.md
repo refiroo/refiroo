@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format foll
 
 - **`.github/workflows/images.yml` builds the engine and web images once** for `linux/amd64` and `linux/arm64` on native runners, starts them with `compose.yml` (`.github/images/compose.smoke.yml`) and checks `/health` and the application, and only then writes the tags in `ghcr.io/refiroo/refiroo-engine` and `-web`: `v<X.Y.Z>` for a stable tag (built only from a commit with a green CI run, and only if the tag equals the version in `backend/pyproject.toml`), `main-<12-character commit>` and `main` for a successful CI run on `main`, and `test-<label>` for a manual run. Pre-release tags are not built.
 - **`.github/workflows/images-cleanup.yml`** deletes untagged versions and `main-*` / `test-*` versions older than 30 days each week; stable tags and the moving `main` tag stay.
+- **CI runs the backend tests on four runners side by side** (`.github/ci/ci_shard.py`, balanced by test weight), on Ubuntu 24.04, 40 minutes each: the whole suite on one runner ran out of memory. The statement counts leave out the assistant's worker thread (0.16), and the batch budgets gain two statements: a client token's request reads the client's kind and its assistant task (0.16 ag1, ap9).
 
 ### Fixed (an assistant task makes its own model draft, 0.13 AD)
 

@@ -56,11 +56,13 @@ CONTEXTS = ("live", "change set")
 # and 42 live, 38 and 45 in the change set (0.9 K7): one statement per restricted end and chunk.
 # Every budget gained one in 0.12 I1: the request's token lookup (its key and principal in one
 # statement), whatever the chunk holds. And one in 0.12 Z4: the job's response names its requester
-# (`requestedBy`, one statement per kind of principal), found by Z6's full run.
-BUDGET = {("live", "creates"): 36, ("live", "upserts"): 50, ("change set", "creates"): 48,
-          ("change set", "upserts"): 54, ("live", "relations"): 46, ("change set", "relations"): 49,
-          ("live", "deletes"): 52, ("change set", "deletes"): 68, ("live", "apart"): 42,
-          ("change set", "apart"): 47}
+# (`requestedBy`, one statement per kind of principal), found by Z6's full run. And two in 0.16
+# (ag1, ap9): a client token's request reads the client's kind and whether an assistant task owns
+# the client, found by CI's first full run (2026-11-08).
+BUDGET = {("live", "creates"): 38, ("live", "upserts"): 52, ("change set", "creates"): 50,
+          ("change set", "upserts"): 56, ("live", "relations"): 48, ("change set", "relations"): 51,
+          ("live", "deletes"): 54, ("change set", "deletes"): 70, ("live", "apart"): 44,
+          ("change set", "apart"): 49}
 # How far apart the counts may be: IN lists past 500 values, UPDATE statements per set of columns.
 # A relationship item names two or three records, so 500 of them pass 500 values more often.
 ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8, "deletes": 4, "apart": 8}

@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from app.engine.events.worker import THREAD_NAME as EVENT_DERIVER_THREAD
 from app.engine.indexes import matrix_states
 from app.engine.indexes.snapshot_values import insert_value_rows, release_value_types, value_rows
+from app.engine.jobs.worker import ASSISTANT_THREAD_NAME as ASSISTANT_WORKER_THREAD
 from app.engine.jobs.worker import EXPORT_THREAD_NAME as EXPORT_WORKER_THREAD
 from app.engine.jobs.worker import THREAD_NAME as JOB_WORKER_THREAD
 from app.models.database import (
@@ -1286,7 +1287,7 @@ def measure(engine: Engine) -> Iterator[RequestCost]:
     loading shows: a bounded page loads a page of rows, a whole-membership read loads the set.
     The background job worker's statements are not the request's: its sweep and poll after the
     application starts used to land in a measurement whenever a run was slow enough (H4b). Nor are
-    the event deriver's, which polls once a second (C10).
+    the event deriver's, which polls once a second (C10), nor the assistant's worker (0.16).
     """
     cost = RequestCost()
 
@@ -1294,6 +1295,7 @@ def measure(engine: Engine) -> Iterator[RequestCost]:
         return threading.current_thread().name not in (
             JOB_WORKER_THREAD,
             EXPORT_WORKER_THREAD,
+            ASSISTANT_WORKER_THREAD,
             EVENT_DERIVER_THREAD,
         )
 
