@@ -48,11 +48,14 @@ The [product overview](docs/PRODUCT.md) describes these capabilities and what is
 
 ## Status
 
-Base 0.9, integration-grade APIs, is complete (2026-10-11): queries, batches, imports and exports,
-the change feed, the consumer API with webhooks, and the API reference, on PostgreSQL since the
-interim release 0.9.0-alpha.1 (2026-10-03). Base 0.8 was released on 2026-09-29. Next is 0.10. See
-the [roadmap](docs/ROADMAP.md), the [project status](docs/PROJECT_STATUS.md) and the
-[changelog](CHANGELOG.md).
+Base 0.16, AI integration, is the latest built baseline (complete 2026-11-02): the AI proposal provider, the assistant
+that designs and loads from a few words and a workbook, changing a workspace's model, agent access over `/mcp`, the
+accounts of a model change and of a period, and notification digests. Base 0.9, integration-grade APIs, was
+completed on 2026-10-11 and Base 0.8 was released on 2026-09-29; PostgreSQL is the only supported database since
+0.9.0-alpha.1. Release 0.13, the documentation, is in progress; 0.14 and 0.15 follow. See the
+[roadmap](docs/ROADMAP.md), the [project status](docs/PROJECT_STATUS.md) and the [changelog](CHANGELOG.md).
+
+The documentation is at [refiroo.org/docs](https://refiroo.org/docs).
 
 Every API needs a signed-in person or an access token (authentication arrived in 0.12); see
 [docs/OPERATIONS.md](docs/OPERATIONS.md#authentication).

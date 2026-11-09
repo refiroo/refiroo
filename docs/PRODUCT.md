@@ -11,7 +11,8 @@ agreed data instead of keeping lists of their own.
 
 This page is the product overview. The [product functionality guide](product-functionality/README.md)
 holds the detailed capability catalogue, user stories, journeys and acceptance scenarios; how the
-engine is built is in [ARCHITECTURE.md](ARCHITECTURE.md).
+engine is built is in [ARCHITECTURE.md](ARCHITECTURE.md). The documentation for readers is at
+[refiroo.org/docs](https://refiroo.org/docs).
 
 ## Who it is for
 

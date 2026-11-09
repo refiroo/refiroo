@@ -22,4 +22,4 @@ Thank you for your interest in refiroo.
   small vertical slices; the backend tests and the frontend production build must pass.
 - **Branding**: see [docs/BRANDING.md](docs/BRANDING.md) and [TRADEMARKS.md](TRADEMARKS.md).
 
-Be kind and keep discussion about the work. A separate code of conduct will be added when contributions open.
+Be kind and keep discussion about the work. Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
