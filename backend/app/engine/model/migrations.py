@@ -107,6 +107,24 @@ class TypeMapping:
     from_type: str
     to_type: str
     attributes: tuple[tuple[str, str | None], ...] = ()
+    # The application its records go to when the target no longer lists the type where they are
+    # (MG); none: the one application the target lists it in.
+    to_application: str | None = None
+
+
+@dataclass(frozen=True)
+class Spawn:
+    """Records the migration creates from those of ``from_type`` (MG): a split gives each record a
+    record of ``to_type`` holding the values of ``attributes`` and related to it by ``relation``
+    (identical values share one record where ``shared``); a list conversion turns the one attribute's
+    distinct values into records of ``to_type``, each related to the records holding the value."""
+
+    kind: str
+    from_type: str
+    attributes: tuple[str, ...]
+    to_type: str
+    relation: str
+    shared: bool
 
 
 @dataclass
@@ -121,6 +139,10 @@ class MigrationPlan:
     pairs: list[tuple[str, str, str, bool, bool, bool]] = field(default_factory=list)
     # (relation type, from type, to type, attribute, target value type or None)
     relation_values: list[tuple[str, str, str, str, str | None]] = field(default_factory=list)
+    # (index, kind, type, new type, new type's application, relation type, shared)
+    spawns: list[tuple[int, str, str, str, str, str, bool]] = field(default_factory=list)
+    # (index, type, attribute, position)
+    spawn_attributes: list[tuple[int, str, str, int]] = field(default_factory=list)
 
 
 def parse_type_mappings(raw: Sequence[dict[str, Any]]) -> tuple[TypeMapping, ...]:
@@ -133,9 +155,58 @@ def parse_type_mappings(raw: Sequence[dict[str, Any]]) -> tuple[TypeMapping, ...
                 (attribute["attributeTypeKey"], attribute.get("from"))
                 for attribute in item.get("attributes") or ()
             ),
+            item.get("toApplicationKey"),
         )
         for item in raw
     )
+
+
+@dataclass(frozen=True)
+class Mappings:
+    """Everything a migration request says about what the current model became (MG): the types, the
+    relation types (old key to new) and the records a split or a conversion creates."""
+
+    types: tuple[TypeMapping, ...] = ()
+    relations: tuple[tuple[str, str], ...] = ()
+    spawns: tuple[Spawn, ...] = ()
+
+    @classmethod
+    def of(cls, parameters: dict[str, Any]) -> Mappings:
+        """The request's mappings, or a job's parameters."""
+        splits = tuple(
+            Spawn(
+                "split",
+                item["fromObjectTypeKey"],
+                tuple(item["attributes"]),
+                item["toObjectTypeKey"],
+                item["relationTypeKey"],
+                item.get("cardinality") == "many-to-one",
+            )
+            for item in parameters.get("splits") or ()
+        )
+        conversions = tuple(
+            Spawn(
+                "list",
+                item["fromObjectTypeKey"],
+                (item["attributeTypeKey"],),
+                item["toObjectTypeKey"],
+                item["relationTypeKey"],
+                True,
+            )
+            for item in parameters.get("listConversions") or ()
+        )
+        return cls(
+            parse_type_mappings(parameters.get("typeMappings") or ()),
+            tuple(
+                (item["fromRelationTypeKey"], item["toRelationTypeKey"])
+                for item in parameters.get("relationTypeMappings") or ()
+            ),
+            splits + conversions,
+        )
+
+    @property
+    def listed(self) -> bool:
+        return bool(self.types or self.relations or self.spawns)
 
 
 def _invalid(pointer: str, message: str) -> ApiError:
@@ -143,10 +214,32 @@ def _invalid(pointer: str, message: str) -> ApiError:
 
 
 def plan_migration(
-    current: EngineModel, target: EngineModel, mappings: Sequence[TypeMapping]
+    current: EngineModel,
+    target: EngineModel,
+    mappings: Sequence[TypeMapping],
+    relations: Sequence[tuple[str, str]] = (),
+    spawns: Sequence[Spawn] = (),
 ) -> MigrationPlan:
     """Decide the migration from ``current`` to ``target``. A mapping naming what neither model
     holds is ``422 INVALID_MIGRATION_MAPPING`` at its pointer into the request."""
+    relation_map: dict[str, str] = {}
+    for index, (old_relation, new_relation) in enumerate(relations):
+        at = f"/relationTypeMappings/{index}"
+        if old_relation in relation_map:
+            raise _invalid(
+                f"{at}/fromRelationTypeKey", f"Relation type '{old_relation}' is mapped twice"
+            )
+        if not any(item.key == old_relation for item in current.relationTypes):
+            raise _invalid(
+                f"{at}/fromRelationTypeKey",
+                f"The workspace's model has no relation type '{old_relation}'",
+            )
+        if not any(item.key == new_relation for item in target.relationTypes):
+            raise _invalid(
+                f"{at}/toRelationTypeKey",
+                f"The target release has no relation type '{new_relation}'",
+            )
+        relation_map[old_relation] = new_relation
     mapped: dict[str, TypeMapping] = {}
     for index, mapping in enumerate(mappings):
         at = f"/typeMappings/{index}"
@@ -181,6 +274,14 @@ def plan_migration(
             targets.add(key)
             if source is not None:
                 sources.add(source)
+        if mapping.to_application is not None:
+            holder = next((a for a in target.applications if a.key == mapping.to_application), None)
+            if holder is None or mapping.to_type not in holder.objectTypeKeys:
+                raise _invalid(
+                    f"{at}/toApplicationKey",
+                    f"The target release does not list '{mapping.to_type}' in application "
+                    f"'{mapping.to_application}'",
+                )
         mapped[mapping.from_type] = mapping
 
     def becomes(type_key: str) -> str | None:
@@ -205,10 +306,15 @@ def plan_migration(
                 plan.types.append((application.key, type_key, application.key, new_type, None))
                 continue
             holders = [a.key for a in target.applications if new_type in a.objectTypeKeys]
+            chosen = mapped[type_key].to_application if type_key in mapped else None
+            if chosen is not None:
+                # The mapping names the application, so a type the target lists in several moves
+                # too (MG).
+                plan.types.append((application.key, type_key, chosen, new_type, None))
             # One application of the target lists it: its records go there, whether the mapping
             # names the type or it kept its key and moved (the editor's setContainment with an
             # application, 0.11 R, R-F3).
-            if len(holders) == 1 and (type_key in mapped or new_type == type_key):
+            elif len(holders) == 1 and (type_key in mapped or new_type == type_key):
                 plan.types.append((application.key, type_key, holders[0], new_type, None))
             else:
                 code = "APPLICATION_IN_USE" if same is None else "APPLICATION_OBJECT_TYPE_IN_USE"
@@ -261,16 +367,17 @@ def plan_migration(
 
     for pair in current.objectTypeRelations:
         new_from, new_to = becomes(pair.fromObjectTypeKey), becomes(pair.toObjectTypeKey)
+        new_relation = relation_map.get(pair.relationTypeKey, pair.relationTypeKey)
         kept_pair = (
-            target.allowed_relation(pair.relationTypeKey, new_from, new_to)
-            if new_from and new_to
-            else None
+            target.allowed_relation(new_relation, new_from, new_to) if new_from and new_to else None
         )
         containment = is_parent_pair(current, pair)
-        parent_kept = (
-            kept_pair is not None
-            and pair.relationTypeKey in target.containment_relation_keys(new_to)
+        parent_kept = kept_pair is not None and new_relation in target.containment_relation_keys(
+            new_to
         )
+        # A child whose type stands at the top of the target has no parent to keep: it becomes a
+        # top-level record (MG). One that stays under parents the target does not allow is refused.
+        releases = bool(containment and new_to and not target.containment_relation_keys(new_to))
         plan.pairs.append(
             (
                 pair.relationTypeKey,
@@ -279,6 +386,8 @@ def plan_migration(
                 kept_pair is not None,
                 containment,
                 parent_kept or not containment,
+                new_relation,
+                releases,
             )
         )
         if kept_pair is None:
@@ -295,6 +404,52 @@ def plan_migration(
                     else None,
                 )
             )
+    for index, spawn in enumerate(spawns):
+        at = f"/{'splits' if spawn.kind == 'split' else 'listConversions'}/{index}"
+        owner = current.object_type(spawn.from_type)
+        if owner is None:
+            raise _invalid(
+                f"{at}/fromObjectTypeKey", f"The workspace's model has no type '{spawn.from_type}'"
+            )
+        new_type = target.object_type(spawn.to_type)
+        if new_type is None:
+            raise _invalid(
+                f"{at}/toObjectTypeKey", f"The target release has no type '{spawn.to_type}'"
+            )
+        bound = {b.attributeTypeKey for b in owner.attributes}
+        missing = [key for key in spawn.attributes if key not in bound]
+        if missing or not spawn.attributes or len(set(spawn.attributes)) != len(spawn.attributes):
+            raise _invalid(
+                f"{at}/attributes" if spawn.kind == "split" else f"{at}/attributeTypeKey",
+                f"'{spawn.from_type}' does not bind {', '.join(missing) or 'the attributes named'}",
+            )
+        if not any(item.key == spawn.relation for item in target.relationTypes):
+            raise _invalid(
+                f"{at}/relationTypeKey",
+                f"The target release has no relation type '{spawn.relation}'",
+            )
+        holder = next(
+            (a.key for a in target.applications if spawn.to_type in a.objectTypeKeys), None
+        )
+        if holder is None:
+            raise _invalid(
+                f"{at}/toObjectTypeKey",
+                f"The target release lists '{spawn.to_type}' in no application",
+            )
+        plan.spawns.append(
+            (
+                index,
+                spawn.kind,
+                spawn.from_type,
+                spawn.to_type,
+                holder,
+                spawn.relation,
+                spawn.shared,
+            )
+        )
+        plan.spawn_attributes.extend(
+            (index, spawn.from_type, key, position) for position, key in enumerate(spawn.attributes)
+        )
     return plan
 
 
@@ -450,7 +605,8 @@ CREATE TEMPORARY TABLE migration_values (
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_pairs (
     relation_type_key text, from_type text, to_type text, kept boolean, containment boolean,
-    parent_kept boolean, PRIMARY KEY (relation_type_key, from_type, to_type)
+    parent_kept boolean, target_relation_type_key text, releases boolean,
+    PRIMARY KEY (relation_type_key, from_type, to_type)
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_relation_values (
     relation_type_key text, from_type text, to_type text, attribute_type_key text, to_type_value text,
@@ -459,19 +615,29 @@ CREATE TEMPORARY TABLE migration_relation_values (
 CREATE TEMPORARY TABLE migration_value_types (
     attribute_type_key text PRIMARY KEY, value_type text
 ) ON COMMIT DROP;
+CREATE TEMPORARY TABLE migration_spawns (
+    spawn_index integer PRIMARY KEY, kind text, object_type_key text, new_type text,
+    new_application text, relation_type_key text, shared boolean
+) ON COMMIT DROP;
+CREATE TEMPORARY TABLE migration_spawn_attributes (
+    spawn_index integer, object_type_key text, attribute_type_key text, position integer,
+    PRIMARY KEY (spawn_index, attribute_type_key)
+) ON COMMIT DROP;
 """
 
 _TABLES = """
 CREATE TEMPORARY TABLE migration_objects (
     object_id varchar(36) PRIMARY KEY, application_key text, object_type_key text,
     target_application_key text, target_type_key text, name text, parent_object_id varchar(36),
-    version integer, lost_code text, changed boolean NOT NULL DEFAULT false
+    version integer, lost_code text, changed boolean NOT NULL DEFAULT false,
+    parent_released boolean NOT NULL DEFAULT false
 ) ON COMMIT DROP;
 CREATE INDEX migration_objects_parent ON migration_objects (parent_object_id);
 CREATE TEMPORARY TABLE migration_relations (
     relation_id varchar(36) PRIMARY KEY, relation_type_key text, from_object_id varchar(36),
     to_object_id varchar(36), from_type text, to_type text, attributes json, version integer,
-    containment boolean, refused boolean, lost_code text
+    containment boolean, refused boolean, lost_code text, target_relation_type_key text,
+    releases boolean
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_value_changes (
     object_id varchar(36), attribute_type_key text, target_key text, to_type text, before json,
@@ -481,6 +647,17 @@ CREATE TEMPORARY TABLE migration_value_changes (
 CREATE TEMPORARY TABLE migration_relation_changes (
     relation_id varchar(36), attribute_type_key text, before json, after json, outcome text,
     code text, PRIMARY KEY (relation_id, attribute_type_key)
+) ON COMMIT DROP;
+CREATE TEMPORARY TABLE migration_spawned (
+    spawn_index integer, object_id varchar(36), group_key text, name text
+) ON COMMIT DROP;
+CREATE TEMPORARY TABLE migration_new_objects (
+    object_id varchar(36) PRIMARY KEY, spawn_index integer, group_key text, application_key text,
+    object_type_key text, name text, representative varchar(36)
+) ON COMMIT DROP;
+CREATE TEMPORARY TABLE migration_new_relations (
+    relation_id varchar(36) PRIMARY KEY, relation_type_key text, from_object_id varchar(36),
+    to_object_id varchar(36)
 ) ON COMMIT DROP;
 """
 
@@ -520,13 +697,18 @@ _FILL = (
     SELECT r.id, r.relation_type_key, r.from_object_id, r.to_object_id, f.object_type_key,
         t.object_type_key, r.attributes, r.version, coalesce(p.containment, false),
         coalesce(p.containment, false) AND t.lost_code IS NULL AND f.lost_code IS NULL
-            AND NOT coalesce(p.kept AND p.parent_kept, false),
+            AND NOT coalesce(p.kept AND p.parent_kept, false) AND NOT coalesce(p.releases, false),
         CASE
+            -- A child whose type is at the top now leaves its parent: the edge goes (MG).
+            WHEN coalesce(p.containment AND p.releases, false) AND t.lost_code IS NULL
+                AND f.lost_code IS NULL AND NOT coalesce(p.kept, false) THEN 'PARENT_RELEASED'
             WHEN coalesce(p.containment, false) AND t.lost_code IS NULL AND f.lost_code IS NULL
                 THEN NULL
             WHEN NOT coalesce(p.kept, false) THEN 'RELATION_PAIR_IN_USE'
             WHEN f.lost_code IS NOT NULL OR t.lost_code IS NOT NULL THEN 'RELATION_END_REMOVED'
-        END
+        END,
+        coalesce(p.target_relation_type_key, r.relation_type_key),
+        coalesce(p.containment AND p.releases, false)
     FROM object_relations r
     JOIN migration_objects f ON f.object_id = r.from_object_id
     JOIN migration_objects t ON t.object_id = r.to_object_id
@@ -538,8 +720,9 @@ _FILL = (
     f"""
     INSERT INTO migration_value_changes
     SELECT object_id, attribute_type_key, target_key, to_type, before, after,
-        CASE WHEN after IS NULL THEN 'loss' ELSE 'conversion' END,
+        CASE WHEN spawned THEN 'listed' WHEN after IS NULL THEN 'loss' ELSE 'conversion' END,
         CASE
+            WHEN spawned THEN 'VALUE_LISTED'
             WHEN target_key IS NULL THEN 'ATTRIBUTE_BINDING_IN_USE'
             WHEN after IS NULL THEN 'VALUE_NOT_CONVERTIBLE'
             WHEN from_type <> to_type THEN 'VALUE_CONVERTED'
@@ -549,6 +732,12 @@ _FILL = (
     FROM (
         SELECT o.object_id, a.attribute_type_key, p.target_key, p.to_type, a.value_type AS from_type,
             a.id AS value_id,
+            -- A value a split or a conversion moves to the records it creates (MG).
+            p.target_key IS NULL AND EXISTS (
+                SELECT 1 FROM migration_spawn_attributes sa
+                WHERE sa.object_type_key = o.object_type_key
+                    AND sa.attribute_type_key = a.attribute_type_key
+            ) AS spawned,
             {_VALUE} AS before,
             CASE WHEN p.target_key IS NOT NULL
                 THEN rdm_convert_value({_VALUE}, a.value_type, p.to_type) END AS after
@@ -572,6 +761,46 @@ _FILL = (
     UPDATE migration_objects m SET changed = true
     FROM (SELECT DISTINCT object_id FROM migration_value_changes) c
     WHERE c.object_id = m.object_id AND NOT m.changed
+    """,
+    """
+    UPDATE migration_objects m SET changed = true, parent_released = true
+    FROM migration_relations r
+    WHERE r.to_object_id = m.object_id AND r.releases AND m.lost_code IS NULL
+    """,
+    # The records a split or a conversion creates (MG): for each record of the split type that holds
+    # a moved value, one of the new type (a list conversion: one per distinct value) and the
+    # relationship from the record to it. Identical values share a record where the spawn says so.
+    f"""
+    INSERT INTO migration_spawned
+    SELECT s.spawn_index, o.object_id,
+        CASE WHEN s.shared THEN md5(v.held::text) ELSE o.object_id END,
+        coalesce(v.first_value, o.name)
+    FROM migration_spawns s
+    JOIN migration_objects o ON o.object_type_key = s.object_type_key AND o.lost_code IS NULL
+    CROSS JOIN LATERAL (
+        SELECT jsonb_object_agg(a.attribute_type_key, {_VALUE}) AS held,
+            (array_agg({_VALUE} #>> '{{}}' ORDER BY sa.position)
+                FILTER (WHERE {_VALUE} #>> '{{}}' <> ''))[1] AS first_value
+        FROM migration_spawn_attributes sa
+        JOIN attribute_values a ON a.object_id = o.object_id
+            AND a.attribute_type_key = sa.attribute_type_key
+        WHERE sa.spawn_index = s.spawn_index
+    ) v
+    WHERE v.held IS NOT NULL AND (s.kind = 'split' OR v.first_value IS NOT NULL)
+    """,
+    """
+    INSERT INTO migration_new_objects
+    SELECT gen_random_uuid()::text, sp.spawn_index, sp.group_key, s.new_application, s.new_type,
+        (array_agg(sp.name ORDER BY sp.object_id))[1], min(sp.object_id)
+    FROM migration_spawned sp JOIN migration_spawns s ON s.spawn_index = sp.spawn_index
+    GROUP BY sp.spawn_index, sp.group_key, s.new_application, s.new_type
+    """,
+    """
+    INSERT INTO migration_new_relations
+    SELECT gen_random_uuid()::text, s.relation_type_key, sp.object_id, n.object_id
+    FROM migration_spawned sp
+    JOIN migration_spawns s ON s.spawn_index = sp.spawn_index
+    JOIN migration_new_objects n ON n.spawn_index = sp.spawn_index AND n.group_key = sp.group_key
     """,
     # Each value of a staying relationship, as a record's.
     """
@@ -617,10 +846,11 @@ FROM (
         'outcome', 'reclassified', 'code', 'RECORD_RECLASSIFIED', 'objectId', object_id,
         'objectName', name, 'objectTypeKey', object_type_key,
         'targetObjectTypeKey', target_type_key, 'applicationKey', application_key,
-        'targetApplicationKey', target_application_key)) AS outcome
+        'targetApplicationKey', target_application_key,
+        'parentReleased', CASE WHEN parent_released THEN true END)) AS outcome
     FROM migration_objects
     WHERE lost_code IS NULL AND (target_type_key <> object_type_key
-        OR target_application_key <> application_key)
+        OR target_application_key <> application_key OR parent_released)
     UNION ALL
     SELECT 1, c.object_id, c.attribute_type_key, json_strip_nulls(json_build_object(
         'outcome', c.outcome, 'code', c.code, 'objectId', c.object_id, 'objectName', o.name,
@@ -629,6 +859,7 @@ FROM (
             THEN c.target_key END,
         'before', c.before, 'after', c.after))
     FROM migration_value_changes c JOIN migration_objects o ON o.object_id = c.object_id
+    WHERE c.outcome <> 'listed'
     UNION ALL
     SELECT 2, r.relation_id, c.attribute_type_key, json_strip_nulls(json_build_object(
         'outcome', c.outcome, 'code', c.code, 'objectId', r.from_object_id,
@@ -654,6 +885,18 @@ FROM (
         'relationTypeKey', r.relation_type_key,
         'message', '{_PARENT_REFUSAL_MESSAGE}')
     {_PARENT_REFUSED}
+    UNION ALL
+    SELECT 6, n.object_id, '', json_build_object(
+        'outcome', 'created', 'code', 'RECORD_CREATED', 'objectId', n.object_id,
+        'objectName', n.name, 'objectTypeKey', n.object_type_key,
+        'applicationKey', n.application_key)
+    FROM migration_new_objects n
+    UNION ALL
+    SELECT 7, r.relation_id, '', json_build_object(
+        'outcome', 'created', 'code', 'RELATION_CREATED', 'objectId', r.from_object_id,
+        'relationId', r.relation_id, 'relationTypeKey', r.relation_type_key,
+        'toObjectId', r.to_object_id)
+    FROM migration_new_relations r
 ) rows
 """
 
@@ -713,7 +956,7 @@ SELECT 0 AS rank, o.object_id AS id, 'object' AS aggregate_type,
     o.version + 1 AS version,
     json_build_object(
         'changedFields', CASE WHEN o.target_type_key <> o.object_type_key
-            OR o.target_application_key <> o.application_key
+            OR o.target_application_key <> o.application_key OR o.parent_released
             THEN CASE WHEN c.object_id IS NULL THEN json_build_array('objectType')
                 ELSE json_build_array('objectType', 'attributes') END
             ELSE json_build_array('attributes') END,
@@ -727,7 +970,8 @@ SELECT 0 AS rank, o.object_id AS id, 'object' AS aggregate_type,
     ) AS changes,
     true AS feed,
     json_strip_nulls(json_build_object('objectTypeKey', o.target_type_key,
-        'applicationKey', o.target_application_key, 'parentObjectId', o.parent_object_id,
+        'applicationKey', o.target_application_key,
+        'parentObjectId', CASE WHEN NOT o.parent_released THEN o.parent_object_id END,
         'previousObjectTypeKey', CASE WHEN o.target_type_key <> o.object_type_key
             THEN o.object_type_key END)) AS subject,
     NULL::text AS from_id, NULL::text AS to_id
@@ -735,17 +979,22 @@ FROM migration_objects o
 LEFT JOIN changed c ON c.object_id = o.object_id
 LEFT JOIN before_values b ON b.object_id = o.object_id
 WHERE o.lost_code IS NULL AND (c.object_id IS NOT NULL OR o.target_type_key <> o.object_type_key
-    OR o.target_application_key <> o.application_key)
+    OR o.target_application_key <> o.application_key OR o.parent_released)
 UNION ALL
 SELECT 1, r.relation_id, 'relation', 'updated', r.version + 1,
-    json_build_object('changedFields', json_build_array('attributes'),
-        'attributeTypeKeys', to_json(c.keys), 'migrationJobId', CAST(:job_id AS text),
-        'before', json_build_object('attributes', c.before)),
+    json_build_object('changedFields', CASE WHEN r.target_relation_type_key <> r.relation_type_key
+        THEN json_build_array('relationType', 'attributes') ELSE json_build_array('attributes') END,
+        'attributeTypeKeys', coalesce(to_json(c.keys), '[]'::json),
+        'migrationJobId', CAST(:job_id AS text),
+        'before', json_build_object('attributes', coalesce(c.before, r.attributes),
+            'relationTypeKey', r.relation_type_key)),
     NOT r.containment,
-    json_build_object('relationTypeKey', r.relation_type_key, 'fromObjectId', r.from_object_id,
-        'toObjectId', r.to_object_id),
+    json_build_object('relationTypeKey', r.target_relation_type_key,
+        'fromObjectId', r.from_object_id, 'toObjectId', r.to_object_id),
     r.from_object_id, r.to_object_id
-FROM migration_relations r JOIN relation_changed c ON c.relation_id = r.relation_id
+FROM migration_relations r LEFT JOIN relation_changed c ON c.relation_id = r.relation_id
+WHERE r.lost_code IS NULL AND (c.relation_id IS NOT NULL
+    OR r.target_relation_type_key <> r.relation_type_key)
 UNION ALL
 SELECT 2, r.relation_id, 'relation', 'deleted', r.version,
     json_build_object('changedFields', json_build_array(), 'attributeTypeKeys', json_build_array(),
@@ -769,6 +1018,33 @@ SELECT 3, o.object_id, 'object', 'deleted', o.version,
     NULL, NULL
 FROM migration_objects o LEFT JOIN before_values b ON b.object_id = o.object_id
 WHERE o.lost_code IS NOT NULL
+UNION ALL
+SELECT 4, n.object_id, 'object', 'created', 1,
+    json_build_object('objectTypeKey', n.object_type_key,
+        'attributes', coalesce(v.attributes, '{{}}'::json), 'initialRelations', '[]'::json,
+        'migrationJobId', CAST(:job_id AS text)),
+    true,
+    json_build_object('objectTypeKey', n.object_type_key, 'applicationKey', n.application_key),
+    NULL, NULL
+FROM migration_new_objects n
+LEFT JOIN LATERAL (
+    SELECT json_object_agg(a.attribute_type_key, {_VALUE}) AS attributes
+    FROM migration_spawns s
+    JOIN migration_spawn_attributes sa ON sa.spawn_index = s.spawn_index
+    JOIN attribute_values a ON a.object_id = n.representative
+        AND a.attribute_type_key = sa.attribute_type_key
+    WHERE s.spawn_index = n.spawn_index AND s.kind = 'split'
+) v ON true
+UNION ALL
+SELECT 5, r.relation_id, 'relation', 'created', 1,
+    json_build_object('relationTypeKey', r.relation_type_key, 'fromObjectId', r.from_object_id,
+        'toObjectId', r.to_object_id, 'attributes', '{{}}'::json,
+        'migrationJobId', CAST(:job_id AS text)),
+    true,
+    json_build_object('relationTypeKey', r.relation_type_key, 'fromObjectId', r.from_object_id,
+        'toObjectId', r.to_object_id),
+    r.from_object_id, r.to_object_id
+FROM migration_new_relations r
 """
 
 _AUDIT = """
@@ -825,6 +1101,46 @@ DO UPDATE SET version = relation_set_versions.version + EXCLUDED.version,
 """
 
 _APPLY = (
+    # The records a split or a conversion creates, with their values and relationships, before the
+    # values they copy are taken off the records they came from (MG).
+    """
+    INSERT INTO objects (id, workspace_key, application_key, object_type_key, name, version,
+        created_at, updated_at)
+    SELECT n.object_id, CAST(:workspace AS varchar), n.application_key, n.object_type_key, n.name,
+        1, CAST(:now AS timestamptz), CAST(:now AS timestamptz)
+    FROM migration_new_objects n
+    """,
+    """
+    INSERT INTO attribute_values (id, object_id, attribute_type_key, value_type, text_value,
+        integer_value, decimal_value, boolean_value, date_value, datetime_value, json_value,
+        value_source, version)
+    SELECT gen_random_uuid()::text, n.object_id, a.attribute_type_key, a.value_type, a.text_value,
+        a.integer_value, a.decimal_value, a.boolean_value, a.date_value, a.datetime_value,
+        a.json_value, a.value_source, 1
+    FROM migration_new_objects n
+    JOIN migration_spawns s ON s.spawn_index = n.spawn_index AND s.kind = 'split'
+    JOIN migration_spawn_attributes sa ON sa.spawn_index = n.spawn_index
+    JOIN attribute_values a ON a.object_id = n.representative
+        AND a.attribute_type_key = sa.attribute_type_key
+    """,
+    """
+    INSERT INTO object_relations (id, relation_type_key, from_object_id, to_object_id, attributes,
+        version, created_at, updated_at)
+    SELECT r.relation_id, r.relation_type_key, r.from_object_id, r.to_object_id, '{}'::json, 1,
+        CAST(:now AS timestamptz), CAST(:now AS timestamptz)
+    FROM migration_new_relations r
+    """,
+    (
+        "UPDATE objects SET parent_object_id = NULL WHERE id IN "
+        "(SELECT object_id FROM migration_objects WHERE parent_released)"
+    ),
+    """
+    UPDATE object_relations r SET relation_type_key = m.target_relation_type_key,
+        version = r.version + 1, updated_at = CAST(:now AS timestamptz)
+    FROM migration_relations m
+    WHERE r.id = m.relation_id AND m.lost_code IS NULL
+        AND m.target_relation_type_key <> m.relation_type_key
+    """,
     (
         "DELETE FROM object_relations WHERE id IN "
         "(SELECT relation_id FROM migration_relations WHERE lost_code IS NOT NULL)"
@@ -832,7 +1148,7 @@ _APPLY = (
     """
     DELETE FROM attribute_values a USING migration_value_changes c
     WHERE a.object_id = c.object_id AND a.attribute_type_key = c.attribute_type_key
-        AND c.outcome = 'loss'
+        AND c.outcome IN ('loss', 'listed')
     """,
     # A value carried to another attribute steps aside under its own ID first: PostgreSQL checks
     # (record, attribute) row by row, so two attributes trading places in one UPDATE collide
@@ -891,12 +1207,20 @@ _APPLY = (
 
 
 def load_plan(
-    session: Session, current: EngineModel, target: EngineModel, mappings: Sequence[TypeMapping]
+    session: Session,
+    current: EngineModel,
+    target: EngineModel,
+    mappings: Sequence[TypeMapping] | Mappings,
 ) -> MigrationPlan:
     """Decide the plan and write it into its temporary tables, with the value type each attribute
     holds in ``current`` (``migration_value_types``)."""
-    plan = plan_migration(current, target, mappings)
+    if isinstance(mappings, Mappings):
+        plan = plan_migration(current, target, mappings.types, mappings.relations, mappings.spawns)
+    else:
+        plan = plan_migration(current, target, mappings)
     session.execute(text(PLAN_TABLES))
+    insert_rows(session, "migration_spawns", plan.spawns)
+    insert_rows(session, "migration_spawn_attributes", plan.spawn_attributes)
     insert_rows(session, "migration_types", plan.types)
     insert_rows(session, "migration_values", plan.values)
     insert_rows(session, "migration_pairs", plan.pairs)
@@ -954,6 +1278,7 @@ def submit_migration(
     change_set_id: str | None = None,
     expected_change_set_version: int | None = None,
     permissions: Permissions | None = None,
+    more: dict[str, Any] | None = None,
 ) -> Job:
     """Queue the preview of a migration of ``workspace_key`` to the target release. Refused before
     a job exists: an unknown or retired workspace, an unknown target or one of an unsupported
@@ -1026,7 +1351,9 @@ def submit_migration(
         )
     current_model = resolve_pinned_release(session, current.id).model
     target_model = resolve_pinned_release(session, target.id).model
-    plan_migration(current_model, target_model, parse_type_mappings(type_mappings))
+    request = {**(more or {}), "typeMappings": type_mappings}
+    mappings = Mappings.of(request)
+    plan_migration(current_model, target_model, mappings.types, mappings.relations, mappings.spawns)
     # The workspace's consumers read its release, so the target's definitions are the contract,
     # as on activation (C-D17, D75).
     contract_errors = tuple(
@@ -1046,6 +1373,7 @@ def submit_migration(
             "stage": "preview",
             "targetReleaseId": target.public_id,
             "typeMappings": type_mappings,
+            **{name: value for name, value in (more or {}).items() if value},
             **({"changeSetId": change_set.id} if change_set is not None else {}),
         },
         total=None,
@@ -1084,10 +1412,13 @@ class _Migration:
         current: EngineModel,
         target: EngineModel,
         mappings: Sequence[dict[str, Any]],
+        more: dict[str, Any] | None = None,
     ) -> _Migration:
         """A migration between two parsed models, which no job or installed release backs: it can
         be prepared, applied and checked (inside a savepoint), never written or confirmed."""
-        job = Job(workspace_key=workspace_key, parameters={"typeMappings": list(mappings)})
+        job = Job(
+            workspace_key=workspace_key, parameters={**(more or {}), "typeMappings": list(mappings)}
+        )
         return cls(session, job, current, target, ModelRelease(public_id="draft"))
 
     @property
@@ -1097,12 +1428,7 @@ class _Migration:
     def prepare(self) -> None:
         """The plan into its tables, and every record, relationship and value it changes."""
         session = self.session
-        load_plan(
-            session,
-            self.current,
-            self.target,
-            parse_type_mappings(self.job.parameters["typeMappings"]),
-        )
+        load_plan(session, self.current, self.target, Mappings.of(self.job.parameters))
         session.execute(text(_TABLES))
         for statement in _FILL:
             session.execute(text(statement), {"workspace": self.workspace_key})
@@ -1111,7 +1437,7 @@ class _Migration:
         session.execute(
             text(
                 "ANALYZE migration_objects, migration_relations, migration_value_changes, "
-                "migration_relation_changes"
+                "migration_relation_changes, migration_new_objects"
             )
         )
 
@@ -1159,7 +1485,7 @@ class _Migration:
             )
             session.execute(text(_SETS), {"workspace": self.workspace_key, "now": now})
         for statement in _APPLY:
-            session.execute(text(statement), {"now": now})
+            session.execute(text(statement), {"now": now, "workspace": self.workspace_key})
 
     def refusals(self, *, listing: bool) -> list[tuple[str, str, str, str]]:
         """Check the migrated data against the target release (D72): each refused record with
@@ -1218,7 +1544,11 @@ class _Migration:
 
     def counts(self) -> dict[str, int]:
         found = dict(self.session.execute(text(COUNTS), {"job": self.job.sequence_id}).all())
-        return {outcome: int(found.get(outcome, 0)) for outcome in OUTCOMES}
+        counts = {outcome: int(found.get(outcome, 0)) for outcome in OUTCOMES}
+        # Named only when the migration creates records (a split, a list conversion, MG).
+        if found.get("created"):
+            counts["created"] = int(found["created"])
+        return counts
 
 
 @dataclass(frozen=True)
@@ -1241,6 +1571,11 @@ class LandingCheck:
 
     refusals: tuple[LandingRefusal, ...] = ()
     losses: dict[str, dict[str, int]] = field(default_factory=dict)
+    # Records that change type, application or parent, and the records and relationships a split or
+    # a list conversion creates (MG).
+    moved: int = 0
+    created_records: int = 0
+    created_relationships: int = 0
 
 
 _LOSSES = """
@@ -1251,6 +1586,14 @@ UNION ALL SELECT 'values', o.object_type_key, count(*) FROM migration_value_chan
     WHERE c.outcome = 'loss' AND o.lost_code IS NULL GROUP BY 2
 UNION ALL SELECT 'relationships', from_type, count(*) FROM migration_relations
     WHERE lost_code IS NOT NULL AND NOT containment GROUP BY 2
+"""
+
+_LANDING_FIGURES = """
+SELECT (SELECT count(*) FROM migration_objects
+        WHERE lost_code IS NULL AND (target_type_key <> object_type_key
+            OR target_application_key <> application_key OR parent_released)),
+    (SELECT count(*) FROM migration_new_objects),
+    (SELECT count(*) FROM migration_new_relations)
 """
 
 _REFUSED_BY_TYPE = """
@@ -1269,6 +1612,7 @@ def check_landing(
     current: EngineModel,
     target: EngineModel,
     mappings: Sequence[dict[str, Any]],
+    more: dict[str, Any] | None = None,
 ) -> LandingCheck:
     """The migration preview's record-level check of a migration from ``current`` to ``target``
     (typeMappings as the route takes them), over every record of the workspace and as set work in
@@ -1276,12 +1620,15 @@ def check_landing(
     inside a savepoint that is rolled back."""
     savepoint = session.begin_nested()
     try:
-        migration = _Migration.of_models(session, workspace_key, current, target, mappings)
+        migration = _Migration.of_models(session, workspace_key, current, target, mappings, more)
         migration.prepare()
         losses: dict[str, dict[str, int]] = {}
         for kind, type_key, count in session.execute(text(_LOSSES)):
             if type_key is not None:
                 losses.setdefault(type_key, {})[kind] = int(count)
+        moved, created_records, created_relationships = (
+            int(count or 0) for count in session.execute(text(_LANDING_FIGURES)).one()
+        )
         migration.apply(audit=False)
         refused = migration.refusals(listing=True)
         # The records the target has no place for under their parent, which the preview lists too.
@@ -1300,7 +1647,7 @@ def check_landing(
                 )
     finally:
         savepoint.rollback()
-    return LandingCheck(tuple(found), losses)
+    return LandingCheck(tuple(found), losses, moved, created_records, created_relationships)
 
 
 def publication_refusal_items(

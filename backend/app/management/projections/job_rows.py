@@ -28,7 +28,7 @@ from ..schemas.jobs import (
 )
 
 _ROW_STATUSES = ("applied", "rejected", "unprocessed")
-_OUTCOMES = ("conversion", "reclassified", "loss", "refused")
+_OUTCOMES = ("conversion", "reclassified", "loss", "refused", "created")
 # The expression ``ix_job_items_outcome`` indexes (migration 20261019_01).
 _OUTCOME = literal_column("(job_items.outcome ->> 'outcome')", type_=String)
 

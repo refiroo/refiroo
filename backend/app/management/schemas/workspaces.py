@@ -56,6 +56,50 @@ class MigrationTypeMapping(BaseModel):
     fromObjectTypeKey: str
     toObjectTypeKey: str
     attributes: list[MigrationAttributeSource] = Field(default_factory=list, max_length=500)
+    toApplicationKey: str | None = Field(
+        default=None,
+        description="The application its records go to (MG). Left out, they stay where the target "
+        "lists the type, or go to the one application that lists it; name it when the target "
+        "lists the type in several applications",
+    )
+
+
+class MigrationRelationTypeMapping(BaseModel):
+    """What a relation type of the workspace's model became in the target release (MG): its
+    relationships keep their IDs under the new key."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fromRelationTypeKey: str
+    toRelationTypeKey: str
+
+
+class MigrationSplit(BaseModel):
+    """A type split in the target release (MG): each record of ``fromObjectTypeKey`` that holds a
+    value of ``attributes`` gets a record of the new type ``toObjectTypeKey`` holding those values,
+    related to it by ``relationTypeKey``. With ``cardinality`` ``many-to-one`` records holding the
+    same values share one new record; otherwise each gets its own."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    attributes: list[str] = Field(min_length=1, max_length=500)
+    relationTypeKey: str
+    cardinality: str | None = None
+
+
+class MigrationListConversion(BaseModel):
+    """An attribute turned into a list type in the target release (MG): the distinct values of
+    ``attributeTypeKey`` on the records of ``fromObjectTypeKey`` become records of the list type
+    ``toObjectTypeKey``, and each record is related to its value's record by ``relationTypeKey``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fromObjectTypeKey: str
+    attributeTypeKey: str
+    toObjectTypeKey: str
+    relationTypeKey: str
 
 
 class WorkspaceMigrationRequest(BaseModel):
@@ -69,6 +113,17 @@ class WorkspaceMigrationRequest(BaseModel):
     targetReleaseId: UUID4 | None = None
     expectedVersion: int = Field(ge=1)
     typeMappings: list[MigrationTypeMapping] = Field(default_factory=list, max_length=500)
+    relationTypeMappings: list[MigrationRelationTypeMapping] = Field(
+        default_factory=list, max_length=500
+    )
+    splits: list[MigrationSplit] = Field(default_factory=list, max_length=100)
+    listConversions: list[MigrationListConversion] = Field(default_factory=list, max_length=100)
+    draftId: str | None = Field(
+        default=None,
+        max_length=36,
+        description="The model draft whose migration (`GET /model-drafts/{id}/migration`) proposed "
+        "these mappings; the migration page marks them Proposed",
+    )
     changeSetId: str | None = Field(default=None, max_length=36)
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 

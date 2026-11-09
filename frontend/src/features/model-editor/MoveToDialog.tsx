@@ -6,8 +6,9 @@
  * open it with their target chosen, as the tree lens's Move to… does for a dropped record (0.8 B5).
  * Up and Down choose, Enter moves, Escape cancels.
  *
- * A move of a released element stays possible to ask for: the server refuses it with what it would
- * affect, and the dialog shows that (D39).
+ * A move of a released element applies like any other step; the dialog says it needs a migration when
+ * installed, and what becomes of its records (0.13 MG). The step's own mark, with the records it holds,
+ * shows in the history once it is applied.
  */
 
 import { useMemo, useState } from "react";
@@ -32,6 +33,10 @@ export function topOf(application: string) {
 export function typeIn(application: string, objectType: string) {
   return `type|${application}|${objectType}`;
 }
+function applicationNameOf(outline: ModelDraftOutline, key: string): string {
+  return outline.applications.find((item) => item.key === key)?.name ?? key;
+}
+
 function placeOf(value: string): { application: string; parent?: string } {
   const [, application, parent] = value.split("|");
   return { application, parent };
@@ -246,9 +251,18 @@ export function MoveToDialog({
           </FormField>
         )}
         {released && !error && (
-          <Notice tone="warning">
-            {subjectName} is released: moving it is refused if data uses it. Moving asks the server, which says what it
-            would affect and then applies nothing.
+          <Notice tone="warning" title="Needs a migration when installed">
+            {subjectName} is released. If stored data uses it, the move is marked as needing a migration:{" "}
+            {subject.kind === "attribute"
+              ? `its values on ${typeLabel} are removed unless the migration says otherwise.`
+              : `its records move with it${leaves && place ? ` to ${applicationNameOf(outline, place.application)}` : ""}${
+                  place && !place.parent && (objectTypeOf(outline, subject.objectType)?.parents.length ?? 0) > 0
+                    ? " and become top-level records"
+                    : place?.parent && !objectTypeOf(outline, subject.objectType)?.parents.includes(place.parent)
+                      ? `; records whose parent is not a ${parentName} are listed as refused in the preview`
+                      : ""
+                }.`}{" "}
+            Installing the draft shows the migration to review before anything changes.
           </Notice>
         )}
         {error && (

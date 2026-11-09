@@ -144,8 +144,14 @@ Model authoring has three explicit stages (ADR-016):
    (`authoring/cascade.py`). Every change goes through `authoring/document.py`, which logs how to
    reverse it, so a compound operation's inverse (`restoreElements`) puts back exactly what it
    changed. A draft-only operation is checked against the draft's base release, or the active
-   release without one (`authoring/released.py`), and refused with its impact counted in
-   PostgreSQL; installation makes the installed release the draft's base. The server produces the
+   release without one (`authoring/released.py`). A change to an element data holds, or to a released key,
+   applies and is marked on its entry with its impact counted in PostgreSQL (`migration`); the draft's
+   migration is derived when read from the entries that stand now and the two models
+   (`authoring/draft_migration.py`, `GET /model-drafts/{id}/migration`), never stored, and the
+   workspace migration carries it (`model/migrations.py`: a moved type's application and parent, a
+   relation type's new key, a split's and a list conversion's new records, all set statements in
+   PostgreSQL). Installation makes the installed release the draft's base, so a migration read
+   afterwards names the release it starts from and the one installed. The server produces the
    layout of new elements (`authoring/layout.py`). A draft may be invalid between steps; the
    compiler's diagnostics are returned with each step and installation still refuses it.
    A client reads the draft's structure as its **outline** (`authoring/outline.py`, `GET

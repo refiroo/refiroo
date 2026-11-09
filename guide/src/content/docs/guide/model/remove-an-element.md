@@ -15,11 +15,21 @@ Remove unused definitions in a draft with **Model authoring**. See
    Removing a navigation group leaves its collections available outside the group.
 3. Cancel if any named effect is unwanted. Otherwise confirm, inspect the remaining model
    and open **Issues** for references that now need repair. Use **Undo** for an unwanted draft step.
-4. If released structure is in use, read the refusal's records, values and relationships counts.
-   The check includes relevant workspaces and change sets. A zero-impact removal may be allowed;
-   an in-use removal needs a reviewed [migration](/docs/model/migrations/).
+4. A removal of released structure that stored data uses applies to the draft. **History** marks
+   it **Needs a migration**, with the records, values and relationships that hold it. The counts
+   include Live and open change sets in workspaces running this model. With nothing holding the
+   element, the structural step has no migration mark; activation checks stored data again.
+5. When installing, review **Activation needs a migration**, then **Install … and preview the
+   migration…**. Inspect **Removed** for the records, values and relationships that would be lost.
+   Resolve **Must be fixed** items first, then explicitly accept the listed loss only if intended.
+   [Migrate a workspace](/docs/guide/model/migrate-a-workspace/) explains confirmation.
+   Cancel the review to leave workspace data unchanged.
 
 ![Type removal confirmation naming the views, page and relationships removed](/docs/screens/model-type-remove-confirm.png)
+
+![Removal preview with Not kept selected, Removed items listed and loss acceptance ticked](/docs/screens/model-migration-loss.png)
+
+*Above: Stop code is Not kept, and Removed lists 12 items. Must be fixed is zero and the loss acceptance is ticked, making Migrate available. The migration has not been confirmed.*
 
 To hide a collection in one application, use **Stop listing in this application** where offered.
 That is different from removing its type and records. A released listing can also need migration.

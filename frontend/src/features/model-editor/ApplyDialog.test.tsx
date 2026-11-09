@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { ApplyDialog } from "@/features/model-editor/ApplyDialog";
 import { useCapabilities } from "@/features/settings/useSystem";
-import type { ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
+import type { DraftMigration, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
 
 vi.mock("@/api/client", () => ({
   api: {
@@ -16,6 +16,7 @@ vi.mock("@/api/client", () => ({
     workspaceModel: vi.fn(),
     activateWorkspaceModel: vi.fn(),
     startWorkspaceMigration: vi.fn(),
+    modelDraftMigration: vi.fn(),
   },
 }));
 vi.mock("@/features/settings/useSystem", () => ({ useCapabilities: vi.fn() }));
@@ -56,8 +57,11 @@ function compiled(classification: string, changed = true, more: Partial<ModelCom
   } as unknown as ModelCompilation;
 }
 
-function open(compilation: ModelCompilation, jobs = true) {
+function open(compilation: ModelCompilation, jobs = true, derived?: DraftMigration) {
   vi.mocked(api.compileModelDraft).mockResolvedValue(compilation);
+  // Without the draft's migration the dialog says what the check found, as before (0.13 MG).
+  if (derived) vi.mocked(api.modelDraftMigration).mockResolvedValue(derived);
+  else vi.mocked(api.modelDraftMigration).mockRejectedValue(new Error("no migration"));
   vi.mocked(useCapabilities).mockReturnValue({
     capabilities: { modelAdmin: { activate: true }, integrationJobs: { createJobs: jobs } },
   } as never);
@@ -106,6 +110,63 @@ describe("ApplyDialog", () => {
     await waitFor(() => expect(onMigrationStarted).toHaveBeenCalledWith("job"));
     expect(api.startWorkspaceMigration).toHaveBeenCalledWith("north", { targetReleaseId: "r2", expectedVersion: 3 });
     expect(api.activateWorkspaceModel).not.toHaveBeenCalled();
+  });
+
+  it("states the migration the draft implies and previews it with the same mappings (0.13 MG)", async () => {
+    vi.mocked(api.startWorkspaceMigration).mockResolvedValue({ id: "job" } as never);
+    const mapping = { fromObjectTypeKey: "t", toObjectTypeKey: "t", attributes: [], toApplicationKey: "app" };
+    const derived = {
+      required: true,
+      baseReleaseId: "r1",
+      draftVersion: 5,
+      steps: [{ step: 3, sequence: 3, kind: "setContainment", migration: [] }],
+      typeMappings: [mapping],
+      relationTypeMappings: [],
+      splits: [],
+      listConversions: [],
+      rows: [
+        {
+          fromObjectTypeKey: "t",
+          toObjectTypeKey: "t",
+          fromName: "Thing",
+          toName: "Thing",
+          fromApplicationKeys: ["old"],
+          toApplicationKeys: ["app"],
+          toApplicationKey: "app",
+          parent: "topLevel",
+          attributes: [],
+          records: { records: 3214, values: 6428, relationships: 3214 },
+        },
+      ],
+      keyChanges: [
+        { element: { objectType: "t" }, from: "t", to: "u", consumerApis: [{ key: "ledger", name: "Ledger" }] },
+      ],
+      notes: [],
+      landing: {
+        workspaceKey: "north",
+        moved: 3214,
+        createdRecords: 0,
+        createdRelationships: 0,
+        losses: [],
+        refused: [],
+      },
+    } as unknown as DraftMigration;
+    const { onMigrationStarted } = open(compiled("migration_required"), true, derived);
+    await screen.findByText("Activation needs a migration");
+    expect(screen.getByText(/Thing: moves to app, its records become top-level records/)).toBeInTheDocument();
+    expect(screen.getByText("3,214")).toBeInTheDocument();
+    expect(screen.getByText(/Integrations naming/)).toHaveTextContent("Consumer APIs naming it: Ledger");
+    fireEvent.click(screen.getByRole("button", { name: "Preview what happens to the records…" }));
+    await waitFor(() => expect(onMigrationStarted).toHaveBeenCalledWith("job"));
+    expect(api.startWorkspaceMigration).toHaveBeenCalledWith("north", {
+      targetReleaseId: "r2",
+      expectedVersion: 3,
+      typeMappings: [mapping],
+      relationTypeMappings: [],
+      splits: [],
+      listConversions: [],
+      draftId: "d1",
+    });
   });
 
   it("offers nothing where records must move and migrations do not run", async () => {

@@ -384,6 +384,7 @@ when both are empty but for reasoned exclusions.
 | [HD](#hd-one-header-for-the-app-the-documentation-and-the-api-reference) | DOC1 | One header style for the app, the guide and the API reference; logo to the app; Documentation \| API reference switch; "?" help; one theme choice | Primary agent. **Approved 2026-11-03; delivered 2026-11-03** |
 | [TH](#th-a-theme-choice-normal-or-website-purple) | HD | A theme choice, Normal or Website purple, beside the light and dark choice, in the app, the guide and the API reference | Primary agent. **Approved 2026-11-05** |
 | [RL](#rl-record-pages-and-related-columns-in-the-model-editor) | DOC1 | Record pages with one panel per relationship by default; Add panel… on a record page; columns showing a field of the related records or where they sit, chosen in the editor | Primary agent. **Approved 2026-11-05** |
+| [MG](#mg-changes-that-need-a-migration-made-in-the-editor) | - | A change to released structure that data holds (an application move, a new parent, a key, a split, a merge, a conversion, a removal) is made in the editor; installing the draft runs the migration the draft itself states, previewed and confirmed. Moved from 1.0 | Primary agent (plan); implementer. **Delivered 2026-11-09** |
 | [AD](#ad-an-assistant-task-makes-its-own-model-draft) | - | A workbook task's session makes its own model draft; a proposal on a draft it did not make goes back to the session instead of failing the task | Primary agent. **Delivered 2026-11-06** |
 | [AT](#at-the-assistant-starts-from-the-engines-reading) | AD | A workbook task's session starts from a draft the engine has already read the workbook into (its inference and one dry run), not from nothing; a draft's dry run reads the draft's own profile | Primary agent (plan); implementer. **Planned and ordered by the user 2026-11-08. Built; tries slower than AP11; the user removed the start, kept the dry-run fix and accepted the timings (2026-11-08)** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
@@ -1086,6 +1087,150 @@ that is a model-language change outside RL.
 - **Switch** is stored in the browser as `refiroo.jobs.view` (default Grouped). The grouped table has an Actions column for the cancel of a job without an origin; a group row has none. A group's jobs table drops the Workspace column.
 - **The browser look did not use the dev data.** Signing in to the developer instance needs a person's password and creating one for the look was refused by the permission system, so the look ran on the repo's isolated browser harness (real engine and sign-in; the grouped and group reads answered with fixtures shaped like the engine's). The grouped query itself was run on the dev database.
 
+## MG: Changes that need a migration, made in the editor
+
+**Status:** Asked by the user on 2026-11-09 ("can we bring that wp from 1.0 to 0.13? I would like to use this
+feature now"), after the editor refused to move a type to another application. Moved from
+[1.0](ROADMAP.md#product-release-10--self-service-model-authoring-and-extensions), whose first scope line it is
+("Migration-class operations in the 0.10 editor … each with its impact preview, on the 0.11 migration boundary").
+The rest of 1.0 stays there. Plan and mock-up **approved by the user on 2026-11-09** ("The above is accepted"), with MG-D1 to MG-D3 as recommended.
+
+**Why.** A model administrator cannot reshape a model once its types hold records: the editor refuses the change
+(`OPERATION_REQUIRES_MIGRATION`, AP-D28), and the only way round is the JSON view plus migration mappings typed by
+hand. Moving a type to another application is the first case the user needs.
+
+**Checked in the code on 2026-11-09.**
+
+- The refusals are `Context.unreleased` (data holds the element) and `Context.key_free` (any released key) in
+  `model/authoring/kinds.py`. They are called by `setKey`; the removals; `splitObjectType`, `mergeObjectTypes`,
+  `convertAttributeToListType`; `setAttributeTypeFeatures`, `setValueType`, `attachAttribute`, `detachAttribute`,
+  `moveAttribute`, `setAttributeBinding`, `setObjectTypeProperty`; `setContainment` when it names `parent`; and
+  `allowRelation`, `disallowRelation`, `setRelationRule`. The count is `released.impact()`: live records, values
+  and relationships plus staged change-set content, in every workspace running the model.
+- `setContainment` with `application` alone is not refused, but Move to… also sends `parent: null` for a type that
+  has a parent (`MoveToDialog.tsx`, `keepsParent`). So a top-level type with records already moves, and a type
+  under a parent does not.
+- The workspace migration (`model/migrations.py`, `plan_migration`) takes only `typeMappings` (from type, to type,
+  attribute sources). The migration page starts them empty: nothing is derived from the draft, so a renamed key
+  has to be mapped by hand. A moved type's records go to the one application listing it (0.11 R, R-F3). A record
+  keeps its `parent_object_id`, and one whose parent no longer fits is refused ("no place for this record under its
+  parent"). A split (one type to two) and a conversion to a list type cannot be expressed at all.
+- Installing a draft already detects the migration (`compatibility.py`, `migration_required`), says so in the
+  install dialog ("Activation needs a migration") and opens the migration page with its preview. A change set on
+  the old release has its "Move … and publish" banner.
+
+**What changes.** One mechanism for every kind above, not a slice per kind (MG-D1).
+
+1. **The editor applies the change.** `unreleased` no longer refuses: the step is applied and marked **Needs a
+   migration** in the history, with what it affects (the existing impact counts: records, values, relationships).
+   The menu reads "Needs a migration when installed" instead of "Refused if data uses it", and Move to…'s notice
+   says the same. Undo, redo, the dry run and the API stay the same as for every other step. Key changes follow
+   MG-D2.
+2. **The draft states its migration.** From the draft's steps since its base release the server derives the
+   migration's input: which type becomes which (a key change, a merge's from and into, a split's new type, a
+   conversion's list type), which attribute becomes which (a key change, a move to another type, a detach), which
+   application a moved type goes to, and the parent each moved type's records get. It is readable through the API
+   on the draft and shown in the install dialog. The migration page opens with it filled in, each row marked
+   Proposed and editable, never as an accept-or-reject list. Computed on read from the history, not stored (MG-D3).
+3. **The migration carries what it cannot today,** as whole-set statements in PostgreSQL:
+   - **A new parent:** a record keeps its parent where the new containment allows it, becomes top level where its
+     type became a top-level type, and otherwise is listed in the preview as refused, by reason.
+   - **An application move:** the mapping names the target application, so a type listed in several moves too.
+   - **A split:** each record gives a record of the new type with the moved attributes and the split's
+     relationship, with the split's cardinality (identical values share one record where the cardinality says
+     many to one).
+   - **A conversion to a list type:** the attribute's distinct values become records of the list type, and each
+     record is linked to its value's record by the conversion's relationship.
+   - **A merge and a key change:** through the derived type and attribute mappings.
+   - **A tighter rule** (cardinality, required, a value type): checked in the preview, with the records that break
+     it listed, as today.
+   - **A removal:** shown as loss in the preview and confirmed, as today.
+4. **Publishing stays as it is.** Install, the migration preview, confirmation and activation; the change set
+   banner; rollback by the earlier release. Activation still refuses a release whose migration has not run, so
+   "unsafe model changes remain blocked until an explicit migration succeeds" holds (1.0's exit gate).
+
+**Not in MG:** the rest of 1.0 (dependency visualization, protected publish and rollback workflows, extensions).
+
+**Checks.** Journey tests through the API, one per user journey: a type under a parent moved with its records to
+another application's top level, installed, the migration proposed, previewed, confirmed and the records found
+there; a type key renamed and a merge, installed with no hand mapping; a split and a conversion with their new
+records and relationships counted; a tightened rule listing its refused records. Targeted groups only. Before and
+after on the user's model: the move the user asked for, with an inventory diff of records, values and
+relationships before and after. One browser try on the reference instance through the editor, the install dialog
+and the migration page. The guide pages that say these changes are refused (Model section) are rewritten by Codex
+in a wave; the CHANGELOG entry and a guide rebuild finish the package. The 1.0 scope line in [ROADMAP](ROADMAP.md) moved here on approval.
+
+**Mock-up.** The Move to… dialog, a step marked Needs a migration, the install dialog naming the migration, and the
+migration page opened with the proposed rows: https://claude.ai/artifact/Jt2yhJaacchYo3KU88RRoz.
+
+**Delivered 2026-11-09.** What was built:
+
+- **The editor applies the step.** `Context.unreleased` and `Context.key_free` (`model/authoring/kinds.py`) no longer raise;
+  they mark the operation (`Context.marks`, `Applied.migration`), and `authoring/history.py` stores on the entry's effects
+  each marked element with its key-change flag and its impact (`released.impact()`, now also counted for one workspace),
+  answered as `migration` on the history entries. `OPERATION_REQUIRES_MIGRATION` is no longer raised. `setContainment`
+  with `application` marks the types it moves. The menu reads "Needs a migration when installed", Move to…'s notice says
+  what becomes of the records, the history shows a **Needs a migration** pill with what holds the element, and the element
+  panel says a released key change needs a migration.
+- **The draft states its migration** (`authoring/draft_migration.py`, `GET /model-drafts/{id}/migration`, `workspaceKey`,
+  `againstReleaseId`, `toReleaseId`): from the entries that stand now (`history.effective_entries`) it follows each key
+  change, merge, removal, split and conversion, and from the two models it reads where each type stands (application,
+  parent). It answers the workspace migration's request fields (`typeMappings` with `toApplicationKey`,
+  `relationTypeMappings`, `splits`, `listConversions`), a row per type, each key change with the consumer APIs of the
+  base release that name the old key (the references walker over `consumerApis`), the steps and notes, and with a
+  workspace the preview's own landing check (`check_landing`: moved, created, losses, refused). Nothing is stored.
+- **The migration carries it** (`model/migrations.py`, all set statements): the plan takes `toApplicationKey`, relation type
+  mappings and spawns; a record whose type is at the top in the target leaves its parent (`releases`,
+  `PARENT_RELEASED`, `parent_object_id` cleared and the containment relationship deleted, audited); a relation type's new
+  key is carried; a split and a list conversion create records, values and relationships (`migration_spawns`,
+  `migration_new_objects`, `migration_new_relations`), with `created` audit entries and feed positions, the values they
+  take leaving the source records (`listed`); the preview shows the new **Created** outcome (`counts.created` only when
+  records are created). The request takes `relationTypeMappings`, `splits`, `listConversions` and `draftId`.
+- **Screens.** `DraftMigration.tsx` (the install and apply dialogs state the migration and start the preview with its
+  mappings: **Install … and preview the migration…**), `ProposedRows.tsx` (the migration page's **What the draft proposes**,
+  rows marked Proposed, the Become choice previewing again and keeping the application and the rest), the Created card.
+- **Tests.** Journey J33.19 (`test_j33_migration_in_editor`, on two configurations each): a type under a parent moved with its
+  records to another application's top level (proposed, installed, previewed, confirmed, the same records found there);
+  a key change and a merge with no hand mapping; a split; a conversion to a list type; a tighter rule listing its refused
+  records; the consumer APIs naming a changed key. J33.7's cases follow the new rule (`test_j33_operations`,
+  `test_j36_workspace_resources`), the unit tests for the kinds and the application target, Vitest for the dialogs, the
+  page and the history, and the browser runner `test:browser:authoring-mg` (both designer models, axe, 390px). The older
+  `test:browser:authoring-a4a` case that expected a refusal now expects the mark.
+- **Before and after on the user's model**, in a scratch copy of the dev database (never the dev data): an active workspace
+  on the user's own model (4,657 records, 13,169 values, 11,921 relationships), a type with a type under it moved out of one
+  application to the top level of another. 20 records left their parents, 47 records changed application, 0 lost, 0 refused. The
+  record IDs, names and all 13,169 values are identical by fingerprint before and after; the 20 containment relationships to
+  the old parents are gone (11,921 to 11,901 relationships, 3,860 to 3,840 records under a parent). The first run found a defect the
+  tests had not: a type the target still lists in other applications was derived with no application, so its records would have
+  been lost (4,387 items); the draft now names the application the type gained (`application_target`, with a unit test).
+
+**Decided by recommendation while delivering (not asks).**
+
+- Move to…'s notice carries no counts: they are not known before the step applies. The mock-up's counts appear on the history
+  mark right after and in the install dialog's figures.
+- Installing bases the draft on the release it installed (D17), so a migration read afterwards is empty by default. The page reads
+  it from the release the workspace runs to the one installed (`againstReleaseId`, `toReleaseId`); the steps recorded before are
+  read against the earlier release, and a split or conversion whose new type the earlier release holds is skipped.
+- The proposal reaches the migration where the draft is known: the install and apply dialogs start it (`draftId` in the
+  request). A release activated later from Settings › Model, and a change set's banner, know no draft and open the page as
+  before.
+- A relation type's key change needed its own mapping (`relationTypeMappings`), which the plan did not list: without it the
+  relationships would be lost.
+- A split names the new record by the first moved value, else by the record's name; a record holding none of the moved values gets
+  none; only a many-to-one cardinality shares a record between identical values.
+- Moving an attribute to another type loses its values (they belong to other records, so no mapping exists); the preview lists
+  them as loss.
+- A released listing taken away now applies and is marked, like the other steps; the editor still refuses it as invalid while a matrix
+  needs it.
+- Not built: dependency visualization, protected publish and rollback workflows and extensions (1.0).
+
+**Decisions (approved by the user 2026-11-09 as recommended).**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| MG-D1 | Only the application move, or every change that needs a migration? | **Every one.** One mechanism serves all of them: the editor applies the step, the draft states its migration, the migration carries it. A move-only package would build the same three parts and leave them to be widened in 1.0. Cost: a split and a conversion need new data statements in the migration |
+| MG-D2 | Key changes of released elements | **Allowed, with the migration.** The invariant "public IDs and model keys are stable" exists because an integration names an element by its key where no guard sees it. The change therefore shows, before install, every consumer API and contract that names the old key (the existing check, D54), and the install dialog says that integrations naming the key must change with it. 1.0's scope already listed key renames. Alternative: keep keys fixed and allow the rest |
+| MG-D3 | Where the derived migration lives | **Computed from the draft's history when read.** It then always matches the steps, including after an undo. Cost: one derivation per read of the draft's migration |
 ## The writing rules
 
 These go into `guide/AGENTS.md` in DOC1; they are the contract between the briefs and the writer.

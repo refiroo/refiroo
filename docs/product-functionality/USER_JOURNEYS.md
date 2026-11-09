@@ -853,10 +853,12 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 - **J33.4 Undo and redo** a step; a new step clears what can be redone.
 - **J33.5 An undo with dependants** is refused naming them; undoing them together succeeds.
 - **J33.6 A stale editor**: a step at an old version is refused with the steps applied since.
-- **J33.7 A released element**: a removal or a split of a released element that data holds is refused
-  `OPERATION_REQUIRES_MIGRATION` with its impact, and so is a key change whatever the data; nothing of
-  the request applies. With nothing holding it, the removal applies; a record arriving afterwards makes
-  activating that release refuse `MODEL_MIGRATION_REQUIRED`.
+- **J33.7 A released element**: a change to a released element that stored data holds (a removal, a
+  split, a move to another parent, a tighter rule) or to a released key applies like any other step and
+  is marked **Needs a migration** in the history, with the records, values and relationships that hold
+  the element (`migration` on the entry); installing the draft states the migration (J33.19). With
+  nothing holding the element the step is not marked, and a record arriving afterwards makes activating
+  that release refuse `MODEL_MIGRATION_REQUIRED` until a migration runs.
 - **J33.8 A request that cannot apply** (an unknown element, a key taken) applies nothing.
 - **J33.9 Group collections**: groups declared on an application show as sidebar sections and a
   group page with a search; collections in no group keep their place (N1). A group naming no
@@ -894,13 +896,26 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   types nothing uses and no data holds; one undo puts it all back. A draft whose pages are broken lists
   every broken panel as an issue in plain words, each tied to its page and panel, with a
   Remove from page action on the issue; Edit layout stays closed while the draft is invalid.
+- **J33.19 A change that needs a migration, made in the editor (0.13 MG)**: the editor applies a step
+  that changes what stored data holds, marks it **Needs a migration** (J33.7), and the draft states the
+  migration its steps imply at `GET /model-drafts/{id}/migration`, derived each time from the steps that
+  stand now (an undo takes its part away): which type, attribute and relation type becomes which
+  (a key change, a merge, a split's new type, a conversion's list type), which application a moved type
+  goes to and whether its records leave their parents, each key change with the consumer APIs naming the
+  old key, and with `workspaceKey` what the migration would do to that workspace's records. The install
+  dialog shows it and the migration page opens with it filled in, every row marked Proposed and
+  editable. The workspace migration (J37) carries what it states: records of a type that moved to a
+  top-level place become top-level records, a moved type's records go to the named application, a split
+  and a conversion create the new records and their relationships, a tighter rule lists the records that
+  break it as refused, a removal is a loss to be accepted. Activation still refuses a release whose
+  migration has not run.
 - **J33.18 A whole profile in one step, and a value map undone alone (0.13 AQ)**: `setProfile` with the profile
   `GET /model-drafts/{id}/profile` answers in `definition` replaces the draft's profile, the draft's dry run giving
   the original's figures, and one undo takes it back; undoing an earlier `setValueMap` leaves the later maps in
   place. The operations body is described in `/openapi.json` by one schema per public kind, discriminated by `kind`;
   a kind added to the registry without one fails the contract check.
 
-**Refusals:** `422 INVALID_OPERATION`, `409 OPERATION_REQUIRES_MIGRATION`,
+**Refusals:** `422 INVALID_OPERATION`,
 `409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
 `413 OPERATION_BATCH_TOO_LARGE`, `404 MODEL_DRAFT_NOT_FOUND`; J08's refusals at installation and
 activation; with administration disabled the routes are absent.
@@ -913,7 +928,7 @@ followed on a view's new key, removed with its view, refused),
 configurations each); J33.15 through the API: `test_j33_operations` (a three-level branch moved to
 the top of another application, then under a type there, and undone; the refusals); every kind and
 its inverse, every type moved to every other application keeping the draft valid, a tree's top given a
-parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. J33.16 and J33.17 through the API: `test_j33_operations`; in the browser: `test:browser:authoring-matrix`
+parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. J33.16 and J33.17 through the API: `test_j33_operations`; J33.19 through the API: `test_j33_migration_in_editor` (two configurations each), the unit tests of `authoring/draft_migration.py` and, in the browser, `test:browser:authoring-mg`; in the browser: `test:browser:authoring-matrix`
 (both designer models). The
 outline: `test_j33_outline` (two configurations each). In the browser: `test:browser:authoring-a4a`
 (the renamed example and generated-b: a type, an attribute, a relation from the matrix, a group,

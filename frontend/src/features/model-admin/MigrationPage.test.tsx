@@ -17,6 +17,7 @@ vi.mock("@/api/client", () => ({
     workspaceModel: vi.fn(),
     startWorkspaceMigration: vi.fn(),
     startChangeSetMigration: vi.fn(),
+    modelDraftMigration: vi.fn(),
     changeSet: vi.fn(),
     publication: vi.fn(),
   },
@@ -54,6 +55,7 @@ const model = (types: { key: string; name: string; attributes: string[] }[]) => 
     { key: "label", name: "Label" },
   ],
   relationTypes: [],
+  applications: [{ key: "app", name: "Archive" }],
 });
 
 const job = (counts: Partial<Record<"conversion" | "reclassified" | "loss" | "refused", number>>, extra = {}) =>
@@ -168,6 +170,72 @@ describe("MigrationPage (0.11 V1)", () => {
       targetReleaseId: "lib-3",
       expectedVersion: 4,
       typeMappings: [{ fromObjectTypeKey: "series", toObjectTypeKey: "collection", attributes: [] }],
+    });
+  });
+
+  it("opens filled in from the draft, rows marked Proposed, and keeps the rest with each new preview (0.13 MG)", async () => {
+    vi.mocked(api.workspaceModel).mockResolvedValue({ ...workspace.model, workspaceKey: "south", version: 4 } as never);
+    vi.mocked(api.cancelJob).mockResolvedValue(job({}, { state: "cancelled" }));
+    vi.mocked(api.startWorkspaceMigration).mockResolvedValue(job({}, { id: "job-2", state: "queued" }));
+    const mapping = {
+      fromObjectTypeKey: "series",
+      toObjectTypeKey: "collection",
+      attributes: [],
+      toApplicationKey: "app",
+    };
+    vi.mocked(api.modelDraftMigration).mockResolvedValue({
+      required: true,
+      steps: [],
+      typeMappings: [mapping],
+      relationTypeMappings: [{ fromRelationTypeKey: "has", toRelationTypeKey: "holds" }],
+      splits: [],
+      listConversions: [],
+      rows: [
+        {
+          fromObjectTypeKey: "series",
+          toObjectTypeKey: "collection",
+          fromName: "Series",
+          toName: "Collection",
+          fromApplicationKeys: ["old"],
+          toApplicationKeys: ["app"],
+          toApplicationKey: "app",
+          parent: "topLevel",
+          attributes: [],
+          records: { records: 3214, values: 6428, relationships: 3214 },
+        },
+      ],
+      keyChanges: [],
+      notes: [],
+    } as never);
+    const opened = show(
+      job(
+        { reclassified: 3214 },
+        {
+          parameters: {
+            targetReleaseId: "lib-3",
+            typeMappings: [mapping],
+            relationTypeMappings: [{ fromRelationTypeKey: "has", toRelationTypeKey: "holds" }],
+            draftId: "d1",
+          },
+        },
+      ),
+    );
+
+    expect(await screen.findByRole("heading", { name: "What the draft proposes" })).toBeInTheDocument();
+    expect(screen.getAllByText("3,214").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Proposed").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Series becomes"), { target: { value: "title" } });
+    await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("job-2"));
+    expect(api.startWorkspaceMigration).toHaveBeenCalledWith("south", {
+      targetReleaseId: "lib-3",
+      expectedVersion: 4,
+      typeMappings: [
+        { fromObjectTypeKey: "series", toObjectTypeKey: "title", attributes: [], toApplicationKey: "app" },
+      ],
+      relationTypeMappings: [{ fromRelationTypeKey: "has", toRelationTypeKey: "holds" }],
+      splits: undefined,
+      listConversions: undefined,
+      draftId: "d1",
     });
   });
 

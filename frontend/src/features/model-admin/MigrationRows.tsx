@@ -5,7 +5,7 @@
 
 import { api } from "@/api/client";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import type { EngineModel, MigrationOutcome, MigrationRow } from "@/types";
+import type { EngineModel, MigrationCounts, MigrationOutcome, MigrationRow } from "@/types";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 
 const ROWS_PAGE = 50;
@@ -40,7 +40,21 @@ export const MIGRATION_OUTCOMES: readonly {
     hint: (_version, moving) => (moving ? "Blocks the move until fixed" : "Blocks the migration until fixed"),
     empty: "Nothing blocks the migration.",
   },
+  {
+    key: "created",
+    label: "Created",
+    hint: () => "Records and relationships a split or a list conversion creates",
+    empty: "Nothing is created.",
+  },
 ];
+
+/** The outcomes a migration's counts name: Created only when it creates records (0.13 MG). */
+export function outcomesOf(counts: MigrationCounts) {
+  return MIGRATION_OUTCOMES.filter((item) => item.key !== "created" || (counts.created ?? 0) > 0);
+}
+
+/** One outcome's count; zero where the migration does not name it. */
+export const countOf = (counts: MigrationCounts, key: MigrationOutcome) => counts[key] ?? 0;
 
 /** A stored value as the rows show it: text quoted, anything else as JSON. */
 function shown(value: unknown): string {
@@ -153,7 +167,11 @@ export function MigrationRows({
             ? `${typeName(row.targetObjectTypeKey)}, same ID and history`
             : row.outcome === "loss"
               ? "Removed"
-              : (REFUSALS[row.code]?.(version) ?? row.message ?? "Refused"),
+              : row.outcome === "created"
+                ? row.code === "RELATION_CREATED"
+                  ? "A relationship is created"
+                  : "A record is created"
+                : (REFUSALS[row.code]?.(version) ?? row.message ?? "Refused"),
     },
     { key: "code", label: "Code", cell: (row) => <span className="mono">{row.code}</span> },
   ];

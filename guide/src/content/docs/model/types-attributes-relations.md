@@ -37,7 +37,9 @@ JSON fields cannot be made unique, sorted or filtered. They can be displayed in 
 record field; they are not eligible as candidate criteria or scalar labels for trees and matrix
 column headings.
 
-![Type attributes with value types, required, unique, read-only and shared states](/docs/screens/model-type-fields.png)
+![Released Stop type with its attribute rules and key-change migration notice](/docs/screens/model-type-fields.png)
+
+*Above: Stop has nine attributes with their value types and local rules. Its facts say Released: a key change needs a migration.*
 
 [Reuse and change attributes](/docs/guide/model/reuse-and-change-attributes/) explains the controls.
 The visual editor has no attribute default-value, format, length or effective-period control.
@@ -61,15 +63,21 @@ or change its permissions. This design grid differs from a relation matrix that 
 
 Follow [Add a relationship](/docs/guide/model/add-a-relationship/).
 
-## Released elements and refusals
+## Released elements and migrations
 
-A released element's key is fixed. Labels can change while identity stays the same. Operations
-that remove or restructure released elements check use by records, values and relationships,
-including change sets. The impact covers Live and open change sets in every workspace running
-the draft’s model; workspaces running other models and immutable publications are not counted.
-A refusal reports the impact. Zero impact can allow a structural change;
-a fixed key remains fixed even with no data. Changes that affect stored data need a reviewed
-[migration](/docs/model/migrations/), rather than an assumption that saving the draft converted it.
+You can rename, re-key, remove or reshape a released element in the editor. Labels change
+without changing identity. A released key can also change, but needs a migration even when
+there are no records: integrations naming the old key must change with it.
+
+A structural step that affects stored data applies to the draft and is marked **Needs a migration**
+in **History**, with the records, values and relationships that hold the element. The counts cover
+Live and open change sets in every workspace running the draft’s model; workspaces running
+other models and immutable publications are not counted. A structural step with nothing holding
+the element has no mark, except for a released key change. Activation checks the data again.
+
+Menus warn **Needs a migration when installed**. Saving the step does not change live data.
+Installing the draft shows the migration to review before activating it. See
+[Migrations](/docs/model/migrations/) for what is carried, created, removed or refused.
 
 See [Rename or re-key an element](/docs/guide/model/rename-or-re-key-an-element/) and
 [Remove an element](/docs/guide/model/remove-an-element/).
@@ -92,7 +100,8 @@ A mapping grid's relation cannot be containment or required ownership. Resolve t
 issue by selecting a suitable relationship, rather than treating an application name as a special
 permission to use the view. For the visual relation controls, select a **Relation type** to edit
 **Names** and **Reverse name** and inspect **Allowed between**. **Allow between two types…**
-chooses the From and To pair; **Change keys…** applies only before those keys are released.
+chooses the From and To pair; **Change keys…** changes the identifying keys. Released key changes
+need a migration, and integrations naming those keys must change too.
 
 ## Lists are types too
 

@@ -19,7 +19,7 @@ from configurations import example, generated
 
 from app.engine.model.authoring.cascade import references
 from app.engine.model.authoring.document import Document, Refusal
-from app.engine.model.authoring.kinds import Context, MigrationRequired, apply_operation
+from app.engine.model.authoring.kinds import Context, apply_operation
 from app.engine.model.authoring.layout import held_relations
 from app.engine.model.compiler import compile_model
 
@@ -207,15 +207,14 @@ def test_an_operation_and_then_its_inverse_return_the_document(model_name: str, 
     assert data == original, f"{operation} then {inverse['kind']}"
 
 
-def test_a_draft_only_kind_on_a_released_element_is_refused_before_anything_changes():
+def test_a_draft_only_kind_on_a_released_element_that_data_holds_applies_and_marks_a_migration():
     data = copy.deepcopy(MODELS["example"])
     type_key = data["objectTypes"][0]["key"]
-    document = Document(data)
-    with pytest.raises(MigrationRequired) as refused:
-        apply_operation(Context(document, lambda atom: atom == f"objectType:{type_key}"), {"kind": "removeObjectType", "objectType": type_key})
-    assert refused.value.element == f"objectType:{type_key}"
-    assert document.log == []
-    assert data == MODELS["example"]
+    context = Context(Document(data), lambda atom: atom == f"objectType:{type_key}")
+    apply_operation(context, {"kind": "removeObjectType", "objectType": type_key})
+    assert context.take_marks() == [(f"objectType:{type_key}", False)]
+    assert type_key not in [item["key"] for item in data["objectTypes"]]
+    assert context.take_marks() == []
 
 
 def test_a_removal_drops_the_relation_types_left_unbound_and_keeps_the_bound_ones_released_or_not():
@@ -242,18 +241,18 @@ def test_a_removal_drops_the_relation_types_left_unbound_and_keeps_the_bound_one
         assert {r["key"] for r in held["relationTypes"]} == {r["key"] for r in original["relationTypes"]}
 
 
-def test_a_released_element_data_does_not_hold_changes_but_its_key_stays_fixed():
+def test_a_released_element_data_does_not_hold_changes_unmarked_but_its_key_change_is_always_marked():
     type_key = MODELS["example"]["objectTypes"][0]["key"]
     released = lambda atom: atom == f"objectType:{type_key}"
     unheld = lambda _atom: False
-    with pytest.raises(MigrationRequired):
-        apply_operation(
-            Context(Document(copy.deepcopy(MODELS["example"])), released, in_use=unheld),
-            {"kind": "setKey", "element": {"objectType": type_key}, "key": "renamed"},
-        )
+    renaming = Context(Document(copy.deepcopy(MODELS["example"])), released, in_use=unheld)
+    apply_operation(renaming, {"kind": "setKey", "element": {"objectType": type_key}, "key": "renamed"})
+    assert renaming.take_marks() == [(f"objectType:{type_key}", True)]
     data = copy.deepcopy(MODELS["example"])
-    apply_operation(Context(Document(data), released, in_use=unheld), {"kind": "removeObjectType", "objectType": type_key})
+    removing = Context(Document(data), released, in_use=unheld)
+    apply_operation(removing, {"kind": "removeObjectType", "objectType": type_key})
     assert type_key not in [item["key"] for item in data["objectTypes"]]
+    assert removing.take_marks() == []
 
 
 def test_which_records_a_released_relationship_may_choose_changes_without_a_migration():
@@ -268,8 +267,9 @@ def test_which_records_a_released_relationship_may_choose_changes_without_a_migr
     applied = apply_operation(Context(Document(data), released), {"kind": "setRelationRule", **triple, "candidates": criteria})
     assert data["objectTypeRelations"][0]["candidates"] == criteria
     assert applied.inverse["candidates"] == before
-    with pytest.raises(MigrationRequired):
-        apply_operation(Context(Document(data), released), {"kind": "setRelationRule", **triple, "cardinality": "one-to-one"})
+    tightening = Context(Document(data), released)
+    apply_operation(tightening, {"kind": "setRelationRule", **triple, "cardinality": "one-to-one"})
+    assert [mark for mark, _key in tightening.take_marks()] == [f"relationBinding:{triple['relationType']}/{triple['from']}/{triple['to']}"]
 
 
 def test_every_key_of_the_example_renamed_keeps_it_valid_and_leaves_no_old_reference():

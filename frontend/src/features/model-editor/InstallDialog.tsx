@@ -33,6 +33,7 @@ import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
+import { DraftMigrationNotice, proposalOf, useDraftMigration } from "@/features/model-editor/DraftMigration";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { suggestedVersion, typeName } from "@/features/model-editor/outline";
 
@@ -166,6 +167,7 @@ export function InstallDialog({
   workspaceKey: editorWorkspace,
   onActivated,
   onInstalledOnly,
+  onMigrationStarted,
   onClose,
   onShowIssues,
 }: {
@@ -179,6 +181,8 @@ export function InstallDialog({
   /** The release is active in `workspace`. */
   onActivated: (release: ModelRelease, workspace: Pick<Workspace, "key" | "label">) => Promise<void>;
   onInstalledOnly: () => void;
+  /** The release is installed and its migration previewed with the draft's mappings (0.13 MG): show it. */
+  onMigrationStarted?: (jobId: string) => void;
   onClose: () => void;
   /** Closes the dialog and opens the editor's Issues tab; without it the issues are only named. */
   onShowIssues?: () => void;
@@ -194,6 +198,7 @@ export function InstallDialog({
   const [outcome, setOutcome] = useState<Outcome>();
   const { capabilities } = useCapabilities();
   const canCreate = Boolean(capabilities?.workspaceAdmin.manageWorkspaces);
+  const canMigrate = Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs);
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   const [chosenInto, setInto] = useState<Into>();
   const newWorkspace = useNewWorkspaceIdentity();
@@ -235,6 +240,20 @@ export function InstallDialog({
   }, [draftId, outline.version]);
 
   const contractsBreak = compilation?.consumerContracts?.classification === "version_required";
+  // The chosen workspace's own check when it runs the draft's model (D25); none for another model.
+  const checked =
+    into.kind === "existing"
+      ? compilation?.compatibility.workspaces.find((item) => item.workspaceKey === into.workspaceKey)
+      : undefined;
+  const moves = checked?.classification === "migration_required";
+  // The migration the draft states for that workspace (0.13 MG), read while it needs one.
+  const { migration } = useDraftMigration(
+    draftId,
+    into.kind === "existing" ? into.workspaceKey : undefined,
+    Boolean(compilation?.valid && moves),
+    outline.version,
+  );
+  const migrates = Boolean(moves && canMigrate && onMigrationStarted);
   const blocked =
     !compilation?.valid ||
     contractsBreak ||
@@ -263,6 +282,16 @@ export function InstallDialog({
           });
         } else {
           const state = await api.workspaceModel(into.workspaceKey);
+          if (migrates) {
+            // The data must move first: preview the migration the draft states (0.13 MG).
+            const job = await api.startWorkspaceMigration(into.workspaceKey, {
+              targetReleaseId: release.id,
+              expectedVersion: state.version,
+              ...proposalOf(migration, draftId),
+            });
+            onMigrationStarted?.(job.id);
+            return;
+          }
           await api.activateWorkspaceModel(release.id, state);
           workspace = target!;
         }
@@ -302,11 +331,6 @@ export function InstallDialog({
 
   const lines = compilation ? summarizeChanges(compilation.changes, outline) : [];
   const errors = compilation?.diagnostics.filter((item) => item.severity === "error") ?? [];
-  // The chosen workspace's own check when it runs the draft's model (D25); none for another model.
-  const checked =
-    into.kind === "existing"
-      ? compilation?.compatibility.workspaces.find((item) => item.workspaceKey === into.workspaceKey)
-      : undefined;
   const compatible = checked?.classification === "compatible";
   const others = (workspaces ?? []).filter((item) => into.kind === "new" || item.key !== into.workspaceKey);
   return (
@@ -422,10 +446,21 @@ export function InstallDialog({
                     No record, value or relationship of {target?.label ?? into.workspaceKey} needs a migration.
                   </Notice>
                 ) : checked ? (
-                  <Notice tone="warning" title="Activation needs a migration">
-                    {checked.diagnostics.map((item) => item.message).join(" ")} The release would be installed but not
-                    activated.
-                  </Notice>
+                  <>
+                    {migration ? (
+                      <DraftMigrationNotice
+                        migration={migration}
+                        outline={outline}
+                        label={target?.label ?? into.workspaceKey}
+                        reasons={checked.diagnostics.map((item) => item.message).join(" ")}
+                      />
+                    ) : (
+                      <Notice tone="warning" title="Activation needs a migration">
+                        {checked.diagnostics.map((item) => item.message).join(" ")} The release would be installed but
+                        not activated.
+                      </Notice>
+                    )}
+                  </>
                 ) : (
                   <Notice tone="info" title="Checked when activated">
                     {target?.label ?? into.workspaceKey} runs another model. Its data is checked against this release
@@ -476,7 +511,9 @@ export function InstallDialog({
               ? "Installing…"
               : into.kind === "new"
                 ? `Install ${version.trim()} and create ${newWorkspace.label.trim() || "the workspace"}`
-                : `Install ${version.trim()} and activate in ${target?.label ?? into.workspaceKey}`}
+                : migrates
+                  ? `Install ${version.trim()} and preview the migration…`
+                  : `Install ${version.trim()} and activate in ${target?.label ?? into.workspaceKey}`}
           </button>
         </div>
       </form>

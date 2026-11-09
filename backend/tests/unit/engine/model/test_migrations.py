@@ -166,7 +166,7 @@ def test_the_plan_decides_each_type_value_and_relationship():
     assert values[(KEYS["R"], KEYS["R.ro"])] == (None, None)
     assert values[(KEYS["R"], KEYS["R.n"])] == (KEYS["R.n"], "decimal")
     assert values[(KEYS["R"], KEYS["R.u"])] == (KEYS["R.u"], "text")
-    pairs = {(rel, f, t): kept for rel, f, t, kept, _containment, _parent in plan.pairs}
+    pairs = {(rel, f, t): kept for rel, f, t, kept, *_rest in plan.pairs}
     assert pairs[(KEYS["Breq"], KEYS["H"], KEYS["N"])] is False
     assert pairs[(KEYS["B11"], KEYS["R"], KEYS["K"])] is True
     assert pairs[(KEYS["Bown"], KEYS["R"], KEYS["D"])] is True

@@ -48,7 +48,9 @@ do, are not hardcoded modules and are not a template other models must follow
   the engine and the model schema provide; the built-in UI is one client of it. A capability no API
   route reaches is a defect, and an API option is never removed only because the UI does not use it
   ([testing strategy](docs/testing/STRATEGY.md#what-the-engine-is-for-testing-purposes)).
-- Public IDs and model keys are stable. Never expose database sequence IDs as domain identifiers.
+- Public IDs are stable. A released model key changes only through a workspace migration that the
+  install previews, with every consumer API naming the old key shown first (0.13 MG-D2). Never expose
+  database sequence IDs as domain identifiers.
 - Attribute values retain their declared types. Do not reduce booleans, numbers or dates to strings.
 - Updates use optimistic concurrency. Never silently overwrite a newer version.
 - Model releases are immutable snapshots; schema-language and content-release versions are separate.

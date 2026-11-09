@@ -6,8 +6,8 @@
  * the server's own.
  *
  * A draft-only kind on an element of the base release stays listed and marked; choosing it sends
- * the request, which applies while no data holds the element, and a refusal says what it would
- * affect (D39, AP-D28). A released key stays fixed.
+ * the request, which always applies. Where stored data holds the element, or the key changes, the
+ * step is marked as needing a migration, which installing the draft states (0.13 MG).
  */
 
 import type {
@@ -2478,8 +2478,8 @@ export function menuItems(
     section: sections ? PRESENTATION[item.id]?.section : undefined,
     description: needsMigration(item, target, outline)
       ? item.id.endsWith("-key")
-        ? "Key fixed once released: needs a migration"
-        : "Refused if data uses it: the server checks"
+        ? "Needs a migration when installed: integrations naming the key must change"
+        : "Needs a migration when installed"
       : undefined,
     tone: item.confirm ? "danger" : "default",
     onAction: () => onAction(item),

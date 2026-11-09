@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type {
+  DraftMigration,
   EngineModel,
   Job,
   MigrationCounts,
@@ -33,7 +34,8 @@ import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useSubjectSeen } from "@/features/inbox/useInbox";
-import { MIGRATION_OUTCOMES, MigrationRows } from "./MigrationRows";
+import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "./MigrationRows";
+import { ProposedRows } from "./ProposedRows";
 
 const NOT_KEPT = "";
 
@@ -75,6 +77,21 @@ function mappingsOf(choices: Choices): MigrationTypeMapping[] {
   return [...byType.values()];
 }
 
+/**
+ * The request's type mappings from the page's choices, keeping what a choice does not say: the application
+ * a moved type goes to (0.13 MG), which the job was started with.
+ */
+function mappingsKeeping(choices: Choices, started: MigrationTypeMapping[]): MigrationTypeMapping[] {
+  const found = mappingsOf(choices);
+  for (const earlier of started) {
+    if (!earlier.toApplicationKey || choices[`type:${earlier.fromObjectTypeKey}`] === NOT_KEPT) continue;
+    const kept = found.find((item) => item.fromObjectTypeKey === earlier.fromObjectTypeKey);
+    if (kept) kept.toApplicationKey = earlier.toApplicationKey;
+    else found.push({ ...earlier, attributes: [] });
+  }
+  return found;
+}
+
 interface Missing {
   key: string;
   kind: "Type" | "Field";
@@ -83,7 +100,13 @@ interface Missing {
 }
 
 /** What the target no longer has, each with what it may have become (D70). */
-function missingElements(current: EngineModel, target: EngineModel, choices: Choices): Missing[] {
+function missingElements(
+  current: EngineModel,
+  target: EngineModel,
+  choices: Choices,
+  /** Fields a split or a list conversion carries to the records it creates: not missing (0.13 MG). */
+  carried: Set<string> = new Set(),
+): Missing[] {
   const targetTypes = new Map(target.objectTypes.map((type) => [type.key, type]));
   const currentTypes = new Set(current.objectTypes.map((type) => type.key));
   const attributeName = (model: EngineModel, key: string) =>
@@ -112,7 +135,7 @@ function missingElements(current: EngineModel, target: EngineModel, choices: Cho
     const had = new Set(type.attributes.map((binding) => binding.attributeTypeKey));
     const newFields = becomes.attributes.filter((binding) => !had.has(binding.attributeTypeKey));
     for (const binding of type.attributes) {
-      if (kept.has(binding.attributeTypeKey)) continue;
+      if (kept.has(binding.attributeTypeKey) || carried.has(`${type.key}:${binding.attributeTypeKey}`)) continue;
       found.push({
         key: `field:${type.key}:${binding.attributeTypeKey}`,
         kind: "Field",
@@ -168,6 +191,8 @@ export function MigrationPage({
   // The change set the migration publishes (V2), read once: it is gone once published.
   const [changeSet, setChangeSet] = useState<{ id: string; name: string; version: number; releaseId: string }>();
   const [publicationNumber, setPublicationNumber] = useState<number>();
+  // The migration the model draft states, when the preview was started from it (0.13 MG).
+  const [proposal, setProposal] = useState<DraftMigration>();
 
   useEffect(() => {
     let active = true;
@@ -228,6 +253,21 @@ export function MigrationPage({
   // What the data is read under now: the workspace's release, or for a move the change set's.
   const currentReleaseId =
     job?.migration?.currentReleaseId ?? (moving ? changeSet?.releaseId : releaseRunBy(workspaces, job?.workspaceKey));
+  const draftId = job?.parameters.draftId as string | undefined;
+  useEffect(() => {
+    // Installing based the draft on the release it installed: read the migration from the release the
+    // workspace runs to the one installed from it.
+    if (!draftId || !targetReleaseId || !currentReleaseId) return;
+    let active = true;
+    api
+      .modelDraftMigration(draftId, undefined, { againstReleaseId: currentReleaseId, toReleaseId: targetReleaseId })
+      .then((loaded) => active && setProposal(loaded))
+      // Without it the page is as it always was: the choices for what the target lacks.
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [draftId, targetReleaseId, currentReleaseId]);
   useEffect(() => {
     if (!targetReleaseId || !currentReleaseId) return;
     let active = true;
@@ -251,7 +291,15 @@ export function MigrationPage({
   const label = workspace?.label ?? job?.workspaceKey ?? "the workspace";
   const version = target?.version ?? "the release";
   const choices = useMemo(() => choicesOf(job), [job]);
-  const missing = models ? missingElements(models.current, models.target, choices) : [];
+  const carried = useMemo(() => {
+    const found = new Set<string>();
+    const splits = (job?.parameters.splits ?? []) as { fromObjectTypeKey: string; attributes: string[] }[];
+    const lists = (job?.parameters.listConversions ?? []) as { fromObjectTypeKey: string; attributeTypeKey: string }[];
+    for (const item of splits) for (const key of item.attributes) found.add(`${item.fromObjectTypeKey}:${key}`);
+    for (const item of lists) found.add(`${item.fromObjectTypeKey}:${item.attributeTypeKey}`);
+    return found;
+  }, [job]);
+  const missing = models ? missingElements(models.current, models.target, choices, carried) : [];
   const summary = job?.migration ?? undefined;
   const counts = summary?.counts;
   const previewing = job ? ["queued", "running"].includes(job.state) && !job.confirmedAt : true;
@@ -286,7 +334,16 @@ export function MigrationPage({
           : await api.startWorkspaceMigration(job.workspaceKey, {
               targetReleaseId,
               expectedVersion: (await api.workspaceModel(job.workspaceKey)).version,
-              typeMappings: mappingsOf(next),
+              typeMappings: mappingsKeeping(next, (job.parameters.typeMappings ?? []) as MigrationTypeMapping[]),
+              // What the draft's steps imply beyond the types stays with every new preview (0.13 MG).
+              ...(draftId
+                ? {
+                    relationTypeMappings: job.parameters.relationTypeMappings as never,
+                    splits: job.parameters.splits as never,
+                    listConversions: job.parameters.listConversions as never,
+                    draftId,
+                  }
+                : {}),
               ...(fresh ? { changeSetId: fresh.id, expectedChangeSetVersion: fresh.version } : {}),
             });
       setAccepted(false);
@@ -501,6 +558,21 @@ export function MigrationPage({
             {job.error.message}
           </Notice>
         )}
+        {waiting &&
+          proposal &&
+          models &&
+          (proposal.rows.length > 0 ||
+            proposal.splits.length > 0 ||
+            proposal.listConversions.length > 0 ||
+            proposal.relationTypeMappings.length > 0) && (
+            <ProposedRows
+              proposal={proposal}
+              target={models.target}
+              choices={choices}
+              disabled={pending}
+              onChoose={(typeKey, becomes) => void preview({ ...choices, [`type:${typeKey}`]: becomes })}
+            />
+          )}
         {waiting && missing.length > 0 && (
           <section aria-labelledby="migration-missing" className="migration-section">
             <h2 id="migration-missing" className="install-heading">
@@ -551,9 +623,9 @@ export function MigrationPage({
             </h2>
             <OutcomeCards
               label="Items by outcome"
-              items={MIGRATION_OUTCOMES.map((item) => ({
+              items={outcomesOf(counts).map((item) => ({
                 key: item.key,
-                count: counts[item.key],
+                count: countOf(counts, item.key),
                 label: item.label,
                 hint: item.hint(version, moving),
                 tone: item.key === "loss" ? "warning" : item.key === "refused" ? "error" : undefined,

@@ -296,15 +296,22 @@ def test_a_draft_is_checked_against_every_workspace_running_its_model(world):
     )
 
     def impact():
-        removal = {"kind": "removeObjectType", "objectType": world.key("R")}
-        return refused(
+        """The removal applies; its entry says what holds R in the workspaces running the model."""
+        fresh = ok(
             world.api.post(
-                f"/model-drafts/{draft['id']}/operations",
-                {"expectedVersion": draft["version"], "operations": [removal]},
+                "/model-drafts",
+                {"name": "Without R", "model": release["model"], "baseReleaseId": x1},
             ),
-            409,
-            "OPERATION_REQUIRES_MIGRATION",
-        )["details"]["impact"]["records"]
+            201,
+        )
+        removal = {"kind": "removeObjectType", "objectType": world.key("R")}
+        answer = ok(
+            world.api.post(
+                f"/model-drafts/{fresh['id']}/operations",
+                {"expectedVersion": fresh["version"], "operations": [removal]},
+            )
+        )
+        return answer["entries"][0]["migration"][0]["impact"]["records"]
 
     before = impact()
     world.made("R", "Twin record", workspace=twin)

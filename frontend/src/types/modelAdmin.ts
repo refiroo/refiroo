@@ -7,6 +7,7 @@ import type { EngineModel, ModelPlacements } from "./model";
 import type { Actor, Principal } from "@/types/security";
 
 import type { AiSystemInfo } from "@/types/ai";
+import type { MigrationProposal } from "./integration";
 
 export interface ModelAdminCapabilities {
   readReleases: boolean;
@@ -289,6 +290,13 @@ export interface RemovedElement {
   name: string;
 }
 
+/** An element of the base release a step changes that needs a migration, and what holds it (0.13 MG). */
+export interface DraftOperationMigration {
+  element: Record<string, string>;
+  keyChange: boolean;
+  impact: { records: number | string; values: number | string; relationships: number | string };
+}
+
 export interface ModelDraftOperationEntry {
   sequence: number;
   step: number;
@@ -297,6 +305,8 @@ export interface ModelDraftOperationEntry {
   inverse: Record<string, unknown>;
   /** What the operation could not keep anywhere (a move between applications); empty mostly. */
   removed?: RemovedElement[];
+  /** What the operation changes that needs a migration when the draft is installed (0.13 MG). */
+  migration?: DraftOperationMigration[];
   draftVersion: number;
   /** Who applied it (0.12 Z4); null for an operation from before sign-in. */
   author: Principal | null;
@@ -519,4 +529,46 @@ export interface ModelDraftOutline {
   consumerApis: OutlineConsumerApi[];
   valid: boolean;
   diagnostics: OutlineDiagnostic[];
+}
+
+/** One type the draft's migration changes (0.13 MG). */
+export interface DraftMigrationRow {
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  fromName: string;
+  toName: string;
+  fromApplicationKeys: string[];
+  toApplicationKeys: string[];
+  toApplicationKey: string | null;
+  parent: "unchanged" | "topLevel" | "changed";
+  attributes: { attributeTypeKey: string; from: string }[];
+  records: { records: number | string; values: number | string; relationships: number | string };
+}
+
+/** A released element whose key changed, with the consumer APIs naming the old key. */
+export interface DraftMigrationKeyChange {
+  element: Record<string, string>;
+  from: string;
+  to: string;
+  consumerApis: { key: string; name: string }[];
+}
+
+/** The migration a draft states against its base release (`GET /model-drafts/{id}/migration`, 0.13 MG). */
+export interface DraftMigration extends MigrationProposal {
+  baseReleaseId: string | null;
+  draftVersion: number;
+  required: boolean;
+  /** The history entries that need a migration. */
+  steps: { step: number; sequence: number; kind: string; migration: DraftOperationMigration[] }[];
+  rows: DraftMigrationRow[];
+  keyChanges: DraftMigrationKeyChange[];
+  notes: { code: string; message: string }[];
+  landing?: {
+    workspaceKey: string;
+    moved: number;
+    createdRecords: number;
+    createdRelationships: number;
+    losses: { objectTypeKey: string; records?: number; values?: number; relationships?: number }[];
+    refused: { objectTypeKey: string | null; code: string; message: string; count: number; examples: string[] }[];
+  } | null;
 }

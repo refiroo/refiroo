@@ -15,6 +15,8 @@ from ...engine.model.authoring.consumer_documents import (
     draft_openapi,
     draft_schema,
 )
+from ...engine.model.authoring.draft_migration import derive as derive_migration
+from ...engine.model.authoring.draft_migration import landing
 from ...engine.model.authoring.outline import draft_model, draft_outline
 from ...engine.model.authoring.released import base_model, base_release
 from ...engine.model.compiler import (
@@ -33,7 +35,7 @@ from ...engine.model.drafts import (
     update_draft,
     workspace_draft,
 )
-from ...engine.model.migrations import submit_migration
+from ...engine.model.migrations import installed_release, submit_migration
 from ...engine.model.registry import model_registry
 from ...engine.model.release_lifecycle import set_release_status
 from ...engine.model.releases import (
@@ -78,6 +80,7 @@ from ..schemas.model import (
     ModelCompilationResponse,
     ModelDraftConsumerApiResponse,
     ModelDraftCreate,
+    ModelDraftMigrationResponse,
     ModelDraftModelResponse,
     ModelDraftOperationEntry,
     ModelDraftOperationPage,
@@ -251,7 +254,10 @@ def start_workspace_migration(
     with its ``migration`` summary's ``expectedVersion`` and ``feedPosition`` (and ``acceptLoss``
     when it removes anything), after which the data and the workspace's release switch in one
     transaction. ``typeMappings`` names what a type of the workspace's model became in the target,
-    so its records keep their IDs. Refused before a job exists: ``404 WORKSPACE_NOT_FOUND``, ``404
+    so its records keep their IDs (with ``toApplicationKey``, the application they go to);
+    ``relationTypeMappings`` does the same for relation types, ``splits`` and ``listConversions``
+    name the records a split or an attribute turned into a list type creates (MG). The migration a
+    model draft states is at ``GET /model-drafts/{id}/migration``. Refused before a job exists: ``404 WORKSPACE_NOT_FOUND``, ``404
     MODEL_RELEASE_NOT_FOUND``, ``409 WORKSPACE_RETIRED``, ``409 ACTIVATION_CONFLICT`` (the
     assignment changed since ``expectedVersion``), ``422 UNSUPPORTED_SCHEMA_VERSION``, ``422
     MIGRATION_TARGET_IS_CURRENT``, ``422 INVALID_MIGRATION_MAPPING`` (at ``details.pointer``),
@@ -274,6 +280,14 @@ def start_workspace_migration(
             change_set_id=payload.changeSetId,
             expected_change_set_version=payload.expectedChangeSetVersion,
             permissions=permissions,
+            more={
+                "relationTypeMappings": [
+                    item.model_dump() for item in payload.relationTypeMappings
+                ],
+                "splits": [item.model_dump() for item in payload.splits],
+                "listConversions": [item.model_dump() for item in payload.listConversions],
+                "draftId": payload.draftId,
+            },
         )
     except ConsumerContractVersionRequired as exc:
         raise api_error(
@@ -417,6 +431,35 @@ def list_model_draft_operations(
         message=METADATA_CURSOR_MESSAGE,
     )
     return ModelDraftOperationPage(items=_entries(session, page.items), **page.links())
+
+
+@router.get("/model-drafts/{draft_id}/migration", response_model=ModelDraftMigrationResponse)
+@requires("model.author", at=INSTANCE)
+def read_model_draft_migration(
+    draft_id: str,
+    session: DbSession,
+    workspace_key: str | None = Query(default=None, alias="workspaceKey", max_length=160),
+    against_release_id: str | None = Query(default=None, alias="againstReleaseId", max_length=36),
+    to_release_id: str | None = Query(default=None, alias="toReleaseId", max_length=36),
+) -> ModelDraftMigrationResponse:
+    """The migration the draft states against its base release (MG): which type becomes which,
+    which application a moved type goes to, the parent its records get, the records a split or a
+    conversion creates, and each key change with the consumer APIs naming the old key. It is derived
+    from the steps of the draft's history that stand now, so an undone step takes its part away.
+    ``typeMappings``, ``relationTypeMappings``, ``splits`` and ``listConversions`` are the request
+    of ``POST /workspaces/{key}/model/migration`` for a workspace on the base release. With
+    ``workspaceKey`` the answer also holds ``landing``: what the migration would do to that
+    workspace's live records, every record checked and nothing written. Installing a draft bases it
+    on the release it installed, so a migration read afterwards names the release it starts from
+    (``againstReleaseId``, e.g. the one a workspace runs) and the release installed from the draft
+    (``toReleaseId``): the steps are read against the first and the models are the two releases'."""
+    draft = load_draft(session, draft_id)
+    against = installed_release(session, against_release_id) if against_release_id else None
+    to = installed_release(session, to_release_id) if to_release_id else None
+    migration = derive_migration(session, draft, workspace_key=workspace_key, against=against, to=to)
+    if workspace_key is not None:
+        migration["landing"] = landing(session, draft, workspace_key, migration, to)
+    return ModelDraftMigrationResponse(**migration)
 
 
 @router.get(

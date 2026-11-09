@@ -227,6 +227,10 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
+## Found in 0.13 MG (2026-11-09), not MG's
+
+- `test:browser:authoring-a4a` fails in its first journey at "The reverse name in place": after Enter, `Edit Reverse name: Stored in` never appears (`authoring-a4a-model-editor.mjs`, about line 468). It fails the same on HEAD in a clean worktree, so it is not from MG or from uncommitted hunks; the runner stops there, so the cases after it have not run in this state. Also `test_j36_12_workspace_draft` (the assistant-task draft case, two configurations) fails on HEAD with `AI_NOT_CONFIGURED`: it needs `AI_AGENT_COMMAND` in the test environment.
+
 ## Found in 0.13 DOC1 (2026-11-02), for the next package touching roles
 
 - [ ] **The Data owner role's description omits approving:** the migration

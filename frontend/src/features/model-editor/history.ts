@@ -234,6 +234,33 @@ export function historySteps<E extends StepEntry = ModelDraftOperationEntry>(ent
   return [...steps.values()].sort((a, b) => b.step - a.step);
 }
 
+/**
+ * What a step changes that needs a migration when the draft is installed (0.13 MG), for its mark in the
+ * history: each element with what holds it, from the step's entries. Empty for a step that needs none.
+ */
+export function migrationWords(step: HistoryStep, names: Names): string {
+  const found = new Map<string, string>();
+  for (const entry of step.entries) {
+    for (const item of entry.migration ?? []) {
+      const held = [
+        [item.impact.records, "record", "records"],
+        [item.impact.values, "value", "values"],
+        [item.impact.relationships, "relationship", "relationships"],
+      ] as const;
+      const parts = held
+        .filter(([amount]) => amount !== 0)
+        .map(
+          ([amount, one, many]) =>
+            `${typeof amount === "number" ? amount.toLocaleString("en-GB") : amount} ${amount === 1 ? one : many}`,
+        );
+      const holds = parts.length ? parts.join(", ") : "no stored data";
+      const name = elementWords(item.element, names);
+      found.set(name, `${name}: ${item.keyChange ? "the key changes, " : ""}${holds}`);
+    }
+  }
+  return [...found.values()].join("; ");
+}
+
 /** A step in one line. */
 export function describeStep(step: HistoryStep, names: Names): string {
   if (step.origin.type === "undo") return `Undid step ${(step.origin.steps ?? []).join(" and ")}`;

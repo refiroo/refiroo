@@ -101,6 +101,16 @@ the records stay as they are, the change sets left behind and the workspaces not
 returns to the workspace. When records must move it opens the migration preview first, and nothing changes until
 that is confirmed. Export from the menu exports what the page shows.
 
+In the model editor a change that stored records depend on is applied like any other and marked **Needs a
+migration** in the history, with the records, values and relationships that hold the element: moving a type to
+another application or under another parent, changing a key, merging or splitting a type, turning an attribute into
+a list, tightening a rule, removing a type. The install dialog and Apply to this workspace then state the migration
+the draft implies (which type becomes which, where the records go, the records a split or a list creates, each key
+change with the consumer APIs that name the old key, and the figures for the workspace), and **Install … and
+preview the migration…** opens the migration page filled in from the draft, every row marked Proposed and changeable
+in place; nothing changes until it is confirmed. A record whose type stands at the top after a move becomes a
+top-level record.
+
 Settings › Model opens on a list of models; a model's page has the tabs Overview, Releases, Drafts and Structure (a release's applications, object types, attributes and relations, read only); an opened release or draft has a way back to the tab it came from. Settings › Workspaces opens on a list of workspaces (active ones first, then retired, with search); a workspace's page has tabs: Overview (its facts and its applications, each opening in the workspace), Access,
 Approval and Activity (its changes, newest first, by day); a person sees the tabs they may use.
 

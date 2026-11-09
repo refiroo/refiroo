@@ -443,6 +443,18 @@ class ModelDraftUndoRequest(BaseModel):
     steps: list[int] | None = Field(default=None, min_length=1)
 
 
+class ModelDraftOperationMigration(BaseModel):
+    """An element of the base release an operation changes that needs a migration when the draft is
+    installed (MG): the element by its keys, whether its key changed, and what holds it."""
+
+    element: dict[str, str]
+    keyChange: bool
+    impact: dict[str, int | str] = Field(
+        description="The records, values and relationships holding the element, as they were when "
+        'the operation was applied (a count is exact up to 10,000, then a text such as "10000+")'
+    )
+
+
 class ModelDraftOperationEntry(BaseModel):
     """One operation in a draft's history (D4, ADR-041)."""
 
@@ -463,10 +475,87 @@ class ModelDraftOperationEntry(BaseModel):
         "application after it, each with its kind, applicationKey, view or detail and panel, and "
         "name (a move between applications says what it could not carry)",
     )
+    migration: list[ModelDraftOperationMigration] = Field(
+        default_factory=list,
+        description="The elements of the base release the operation changed that need a migration "
+        "when the draft is installed: a change to what stored data holds, or a key change. The "
+        "operation is applied all the same; none for an operation that changes nothing of the kind",
+    )
 
 
 class ModelDraftOperationPage(CollectionPage[ModelDraftOperationEntry]):
     pass
+
+
+class DraftMigrationStep(BaseModel):
+    """A step of the draft's history that needs a migration."""
+
+    step: int
+    sequence: int
+    kind: str
+    migration: list[ModelDraftOperationMigration]
+
+
+class DraftMigrationRow(BaseModel):
+    """One type the migration changes: what its records become, where they go and under what."""
+
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    fromName: str
+    toName: str
+    fromApplicationKeys: list[str]
+    toApplicationKeys: list[str]
+    toApplicationKey: str | None
+    parent: Literal["unchanged", "topLevel", "changed"] = Field(
+        description="`topLevel`: the type stands at the top now, so its records leave their parents; "
+        "`changed`: it is under other types now, so records the new parents do not hold are "
+        "refused in the preview"
+    )
+    attributes: list[dict[str, str]]
+    records: dict[str, int | str]
+
+
+class DraftMigrationKeyChange(BaseModel):
+    """A released element whose key changed, with the consumer APIs of the base release naming the
+    old key: integrations naming it must change with it."""
+
+    element: dict[str, str]
+    from_: str = Field(alias="from")
+    to: str
+    consumerApis: list[dict[str, str]]
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+
+class DraftMigrationLanding(BaseModel):
+    """The preview's own check of the migration against one workspace's live records."""
+
+    workspaceKey: str
+    moved: int
+    createdRecords: int
+    createdRelationships: int
+    losses: list[dict[str, Any]]
+    refused: list[dict[str, Any]]
+
+
+class ModelDraftMigrationResponse(BaseModel):
+    """The migration a draft states against its base release (MG), derived from the steps of its
+    history that stand now and its model. ``typeMappings``, ``relationTypeMappings``, ``splits`` and
+    ``listConversions`` are a workspace migration's request fields; ``rows`` describe them for
+    reading. ``landing`` is read with ``workspaceKey``."""
+
+    baseReleaseId: str | None
+    draftVersion: int
+    required: bool
+    steps: list[DraftMigrationStep]
+    typeMappings: list[dict[str, Any]]
+    relationTypeMappings: list[dict[str, str]]
+    splits: list[dict[str, Any]]
+    listConversions: list[dict[str, str]]
+    rows: list[DraftMigrationRow]
+    keyChanges: list[DraftMigrationKeyChange]
+    notes: list[dict[str, str]]
+    landing: DraftMigrationLanding | None = None
 
 
 class StepDryRun(BaseModel):

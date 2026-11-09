@@ -4062,19 +4062,20 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
   and `view`; a panel by `applicationKey`, `detail` (its object type) and `panel`; a navigation
   group by `applicationKey` and `group`. A key the operation creates is generated from its name when
   omitted (A-D6: lower-case, hyphen-separated ASCII, accents dropped, `-2`, `-3` on a clash).
-- **Class** (MODEL_AUTHORING): an additive kind is always applied. A draft-only kind applies while
-  every element it touches is absent from the draft's **base release** (the newest installed release
-  of its `release.key` when the draft has none, D37) or no data holds it (impact zero, AP-D28);
-  activation checks the data again, `409 MODEL_MIGRATION_REQUIRED`. `setKey` applies only to an
-  element absent from the base release, whatever the impact: integrations name elements by their
-  keys. Otherwise it is refused `409 OPERATION_REQUIRES_MIGRATION` with
-  `details.index`, `details.kind`, `details.element` (named as operations name it, e.g.
-  `{"objectType": "unit"}` or `{"objectType": "unit", "attributeType": "code"}`),
-  `details.baseReleaseId` and `details.impact`: `records`, `values` and `relationships` in live data of
-  every workspace and in every change set (D33), each counted exactly up to 10,000 and reported as
-  `"10000+"` beyond. Nothing of the request is applied. A key that the active release holds counts as
-  released for a draft without a base, even when the draft created it again: its records would carry
-  over.
+- **Class** (MODEL_AUTHORING): every kind is applied (0.13 MG). A draft-only kind on an element
+  of the draft's **base release** (the newest installed release of its `release.key` when the draft
+  has none, D37) that data holds, and any `setKey` on such an element whatever the data, is marked
+  **needing a migration**: the entry's `migration` lists each such element, named as operations name
+  it (e.g. `{"objectType": "unit"}` or `{"objectType": "unit", "attributeType": "code"}`), whether it
+  is a key change (`keyChange`) and what holds it (`impact`: `records`, `values` and `relationships`
+  in live data of every workspace running the model and in every change set (D33), each counted exactly
+  up to 10,000 and reported as `"10000+"` beyond, as they were when the step was applied). Nothing is
+  refused for it: the draft states the migration its steps imply ([The draft's
+  migration](#the-drafts-migration-delivered-mg)), and activation checks the data again,
+  `409 MODEL_MIGRATION_REQUIRED`, until a migration has run. Integrations name elements by their keys,
+  so a key change shows, before the draft is installed, every consumer API of the base release that
+  names the old key. A key that the active release holds counts as released for a draft without a
+  base, even when the draft created it again: its records would carry over.
 - **The server keeps the model whole.** `setKey` rewrites every reference to the key (bindings,
   views, panels, fields such as `ancestor:<type>` and `related:<key>`, navigation), consumer API
   definitions included: exposed types, public names, field sources, related blocks' `via` and fields,
@@ -4097,7 +4098,7 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
   `details.reason`: `unknownKind`, `internalKind`, `unknownParameter`, `missingParameter`,
   `invalidValue`, `unknownElement`, `keyTaken`, `alreadyAttached`, `alreadyAllowed`,
   `alreadyPresent`, `stillBound`, `outOfRange`, `unsupportedSchemaVersion`, `conflict`),
-  `409 OPERATION_REQUIRES_MIGRATION`, `409 VERSION_CONFLICT` with `details.operations`, the history
+  `409 VERSION_CONFLICT` with `details.operations`, the history
   entries since `expectedVersion` (at most 100, then `details.more: true` and the history route to
   page), `404 MODEL_DRAFT_NOT_FOUND`, `413 OPERATION_BATCH_TOO_LARGE` over
   `MODEL_OPERATION_MAX_ITEMS` (500, `details.limit` and `details.received`).
@@ -4179,7 +4180,7 @@ the layout places the change took.
 | `placeCollection` | `applicationKey`, `collection` (a collection's type) **or** `view` (a relation matrix view of the application, which then has a sidebar entry of its own), `group` (`null`: out of its group), `position` (in the group's one order of collections and matrices; the entry moves from the group it stood in) | additive | `placeCollection` back. Several entries added to a group are several `placeCollection` operations in one request, so one step and one undo; a matrix view removed, or given a new key, takes its entry and its opening with it or follows it (`removeView`, `setKey`) |
 | `setCollectionOpening` | `applicationKey`, `collection`, `view` (a view of that collection; `null`: the application's default view) | additive | `setCollectionOpening` back |
 | `replaceModel` | the whole model; written by `PATCH /model-drafts/{id}`, refused in a request | — | `replaceModel` with the previous model |
-| `restoreElements` | `undoes` (the operation it takes back), `removes` (the elements that operation created, which putting things back takes away: refused `OPERATION_REQUIRES_MIGRATION` once released) and `changes` (the stored prior state); refused in a request | — | the kind it undid |
+| `restoreElements` | `undoes` (the operation it takes back), `removes` (the elements that operation created, which putting things back takes away: marked as needing a migration once released) and `changes` (the stored prior state); refused in a request | — | the kind it undid |
 
 Consumer API side (A4c, delivered, D51–D55). A definition (schema 0.9 and later,
 [CONSUMER_API](CONSUMER_API.md#definition-shape)) is changed by two whole-definition kinds and four
@@ -4214,6 +4215,44 @@ Source and mapping kinds (A5a, delivered, D76): they change the draft's import p
 additive, and are listed with it in [a draft's import profile](#a-drafts-import-profile). The
 model-side kinds above also change the profile when the draft holds one (D13, D78).
 
+### The draft's migration (delivered, MG)
+
+`GET /api/v1/model-drafts/{draftId}/migration[?workspaceKey=&againstReleaseId=&toReleaseId=]` answers the migration the draft states
+against its base release. It is derived each time from the history entries that stand now (an undone
+step takes its part away) and from the draft's model; nothing is stored (MG-D3). `required` is true
+when a step needs a migration or the draft implies a mapping. The answer holds:
+
+- `typeMappings`, `relationTypeMappings`, `splits` and `listConversions`: the fields of the workspace
+  migration's request ([a workspace's data migrated](#a-workspaces-data-migrated-to-another-release-delivered-v1)),
+  ready to send for a workspace running the base release. A type whose key changed or that was merged
+  becomes the type it is now, its renamed attributes name their sources (`attributes`), and a type that
+  moved to another application names it (`toApplicationKey`). A split names the new type, the
+  moved attributes, the relation type and its cardinality; a conversion names the attribute, the list
+  type and the relation type.
+- `rows`: each type the migration changes, for reading: its names, the applications it leaves and
+  enters, `parent` (`unchanged`; `topLevel`, the type stands at the top now so its records leave their
+  parents; `changed`, it stands under other types, so records the new parents do not hold are refused in
+  the preview) and `records`, what holds the type (`records`, `values`, `relationships`, counted as
+  above; in the one workspace named by `workspaceKey` when given).
+- `keyChanges`: each released element whose key changed, with `from`, `to` and `consumerApis`, the
+  consumer APIs of the base release that name the old key: integrations naming it must change with it.
+- `steps`: the history entries that need a migration, with their `migration`; `notes`, what could not be
+  derived (a whole-model replacement hides which type became which).
+- `landing` (with `workspaceKey`): what the migration would do to that workspace's live records, every
+  record checked and nothing written: `moved`, `createdRecords`, `createdRelationships`, `losses` and
+  `refused` by type and reason. `null` when the draft is invalid or the workspace's model does not fit
+  the mappings.
+
+Installing a draft bases it on the release it installed, so a migration read afterwards, by default
+against that base, is empty. `againstReleaseId` names the release the migration starts from (the one a
+workspace runs) and `toReleaseId` the release it goes to (the one installed from the draft): the steps
+are then read against the first, whatever the draft was based on when they were applied, and the models
+are the two releases'. The migration page reads it so when it opens a preview started with `draftId`.
+An unknown release is `404 MODEL_RELEASE_NOT_FOUND`.
+
+Needs `model.author`. Changing a row on the migration page does not change the draft; sending the
+mappings with `draftId` marks them as the draft's proposal.
+
 ### History, undo and redo
 
 `GET /api/v1/model-drafts/{draftId}/operations` lists the draft's history, oldest first, ADR-030 paging
@@ -4224,8 +4263,13 @@ model-side kinds above also change the profile when the draft holds one (D13, D7
   "parameters": { "objectType": "unit", "attributeType": "code", "required": true },
   "inverse": { "kind": "detachAttribute", "objectType": "unit", "attributeType": "code" },
   "draftVersion": 8, "author": null, "at": "2026-10-12T09:00:00Z",
-  "undone": false, "origin": { "type": "request" }, "removed": [] }
+  "undone": false, "origin": { "type": "request" }, "removed": [],
+  "migration": [ { "element": { "objectType": "unit" }, "keyChange": false,
+                   "impact": { "records": 3214, "values": 6428, "relationships": 3214 } } ] }
 ```
+
+`migration` is empty for an entry that changes nothing a migration must carry (0.13 MG): see the
+**Class** rule above.
 
 `removed` names the views and panels an operation took away because they could stand in no
 application after it: `{kind: "view", applicationKey, view, name}` or `{kind: "panel",
@@ -4246,7 +4290,7 @@ keeps none. It answers J08.9.
   together in `steps` (`{ "expectedVersion": 8, "steps": [5, 6] }`, applied latest first as one step).
   A step already undone, or an undo step, named in `step` or `steps` is `409 NOTHING_TO_UNDO` with
   `details.step`. An inverse that would take away an element released since (an installation, D17)
-  is refused `OPERATION_REQUIRES_MIGRATION` as any draft-only operation is.
+  applies as any draft-only operation does; an undo takes the migration it implied away with it.
 - **`POST …/redo`** `{ "expectedVersion": 9 }` takes back the latest undo step not yet taken back
   (origin `{"type": "redo", "step": 9}`), so undos are redone most recent first (D32). A request or
   `PATCH` after an undo leaves nothing to redo; an installation does not.
@@ -5043,8 +5087,15 @@ workspaces running one model ([Counterparts](#counterparts-base-09-j5)).
   "targetReleaseId": "9a1e…", "expectedVersion": 3,
   "typeMappings": [
     { "fromObjectTypeKey": "series", "toObjectTypeKey": "collection",
-      "attributes": [{ "attributeTypeKey": "location-note", "from": "shelf-note" }] }
-  ]
+      "attributes": [{ "attributeTypeKey": "location-note", "from": "shelf-note" }],
+      "toApplicationKey": "archive" }
+  ],
+  "relationTypeMappings": [{ "fromRelationTypeKey": "holds", "toRelationTypeKey": "contains" }],
+  "splits": [{ "fromObjectTypeKey": "unit", "toObjectTypeKey": "unit-class", "attributes": ["class"],
+               "relationTypeKey": "has-class", "cardinality": "many-to-one" }],
+  "listConversions": [{ "fromObjectTypeKey": "unit", "attributeTypeKey": "colour",
+                        "toObjectTypeKey": "colours", "relationTypeKey": "has-colour" }],
+  "draftId": "5c1d…"
 }
 ```
 
@@ -5062,9 +5113,24 @@ records, and a type the target keeps under its key but moves to another applicat
 records, to the one application that lists it (0.11 R, R-F3); in no application or in several, its
 records are lost unless a mapping names the type.
 
+The rest of the request carries what a model draft's steps imply (0.13 MG), as set statements in
+PostgreSQL. `toApplicationKey` names the application a moved type's records go to, so a type the target
+lists in several moves too; it must list the new type. A record whose type stands at the top in the
+target (its type was moved to a top-level place) becomes a top-level record: its parent and the
+containment relationship go; where the type is under other types, a record whose parent the target
+does not allow is refused (`PARENT_RELATION_SEMANTICS_CHANGED`). `relationTypeMappings` carry
+relationships to a relation type whose key changed. `splits` give each record of `fromObjectTypeKey`
+that holds a value of `attributes` a record of the new type `toObjectTypeKey` holding those values,
+related to it by `relationTypeKey` (a record holding none of them gets none; with `cardinality`
+`many-to-one`, records holding the same values share one new record; the new record is named by its
+first moved value, else by the record's name). `listConversions` turn the distinct values of an
+attribute into records of the list type named by the value, each record of the type related to its
+value's record. The values leave the source records. `draftId` names the model draft whose migration
+proposed the mappings (`GET /model-drafts/{id}/migration`), which the migration page marks Proposed.
+
 **The preview** runs in the background and changes nothing. It holds the workspace's records it
 converts while it runs: a write to one of them waits for it to end (0.11 R, R-F7, ARCHITECTURE). Every item the migration changes is a
-row (D72), read in item order at `GET /jobs/{jobId}/rows?status=conversion|reclassified|loss|refused`
+row (D72), read in item order at `GET /jobs/{jobId}/rows?status=conversion|reclassified|loss|refused|created`
 (ADR-030; the same route reads an import's rows, and a status of the other kind is
 `422 INVALID_PAGE_PARAMETER`). A row has `index`, `outcome`, `code` and `objectId`, and as it
 applies `objectName`, `objectTypeKey`, `targetObjectTypeKey`, `applicationKey`,
@@ -5075,7 +5141,8 @@ applies `objectName`, `objectTypeKey`, `targetObjectTypeKey`, `applicationKey`,
 | --- | --- | --- |
 | `conversion` | `VALUE_CONVERTED` | A value converted to the value type the target declares (D69) |
 | `conversion` | `VALUE_CARRIED` | A value carried to another attribute by a type mapping |
-| `reclassified` | `RECORD_RECLASSIFIED` | A record whose type changes by a type mapping |
+| `reclassified` | `RECORD_RECLASSIFIED` | A record whose type, application or parent changes (`parentReleased` when its type stands at the top now) |
+| `created` | `RECORD_CREATED`, `RELATION_CREATED` | A record or relationship a split or a list conversion creates (counted in the summary's `counts.created` only then) |
 | `loss` | `OBJECT_TYPE_IN_USE`, `APPLICATION_IN_USE`, `APPLICATION_OBJECT_TYPE_IN_USE` | A record of a type, or application, the target lacks |
 | `loss` | `PARENT_REMOVED` | A record contained in a lost record |
 | `loss` | `ATTRIBUTE_BINDING_IN_USE` | A value of an attribute the record's new type does not bind |

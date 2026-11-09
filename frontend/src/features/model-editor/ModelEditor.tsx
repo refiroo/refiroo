@@ -1419,6 +1419,7 @@ export function ModelEditor({
           latestVersion={() => version.current}
           workspaceKey={editorWorkspace}
           onInstalledOnly={() => void load()}
+          onMigrationStarted={(jobId) => onNavigate({ kind: "settings", page: "model", migrationJobId: jobId })}
           onActivated={async (release, workspace) => {
             await onActivated(workspace.key);
             await load();

@@ -662,6 +662,7 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/impact-summary": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/installation": frozenset({"post"}),
         # 0.10 A2: operations, their history, undo and redo (ADR-041).
+        "/api/v1/model-drafts/{draft_id}/migration": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/operations": frozenset({"get", "post"}),
         "/api/v1/model-drafts/{draft_id}/undo": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/redo": frozenset({"post"}),

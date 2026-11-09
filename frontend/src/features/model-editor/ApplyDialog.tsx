@@ -18,6 +18,7 @@ import {
   summarizeChanges,
   useReleaseIdentity,
 } from "@/features/model-editor/InstallDialog";
+import { DraftMigrationNotice, proposalOf, useDraftMigration } from "@/features/model-editor/DraftMigration";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
 import { useCapabilities } from "@/features/settings/useSystem";
@@ -116,6 +117,8 @@ export function ApplyDialog({
   const canMigrate = Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs);
   const ready = compilation?.valid && !nothing && !contractsBreak && workspace && (!modelChanged || identity.complete);
   const offered = ready && (!moves || canMigrate);
+  // The migration the draft states for this workspace (0.13 MG), read while the data must move.
+  const { migration } = useDraftMigration(draftId, workspaceKey, Boolean(compilation?.valid && moves), outline.version);
 
   async function apply() {
     if (!workspace) return;
@@ -138,6 +141,7 @@ export function ApplyDialog({
         const job = await api.startWorkspaceMigration(workspaceKey, {
           targetReleaseId: release.id,
           expectedVersion: state.version,
+          ...proposalOf(migration, draftId),
         });
         onMigrationStarted(job.id);
         return;
@@ -217,7 +221,21 @@ export function ApplyDialog({
                     <p className="muted">Nothing new: this draft's release has not reached {label} yet.</p>
                   )}
                 </section>
-                {moves ? (
+                {moves && migration ? (
+                  <>
+                    <DraftMigrationNotice
+                      migration={migration}
+                      outline={outline}
+                      label={label}
+                      reasons={(check?.diagnostics ?? []).map((item) => item.message).join(" ")}
+                    />
+                    <p className="muted">
+                      {canMigrate
+                        ? "Nothing changes yet. The next page lists every conversion and loss, and you confirm there."
+                        : "Migrating needs model administration and background jobs, which this deployment does not run."}
+                    </p>
+                  </>
+                ) : moves ? (
                   <Notice tone="warning" title="Some records must move first">
                     <p>
                       {label}'s data does not fit the changed model as it is.{" "}

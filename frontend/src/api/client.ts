@@ -78,8 +78,11 @@ import type {
   JobState,
   JobRow,
   JobRowPage,
+  MigrationListConversion,
   MigrationOutcome,
+  MigrationRelationTypeMapping,
   MigrationRowPage,
+  MigrationSplit,
   MigrationTypeMapping,
   ImportProfile,
   ImportProfilePage,
@@ -98,6 +101,7 @@ import type {
   SubscriptionPage,
   SubscriptionUpdate,
   ConsumerApiDocumentKind,
+  DraftMigration,
   ModelCompilation,
   ModelDraftConsumerApi,
   DraftOperation,
@@ -763,6 +767,11 @@ export const api = {
       targetReleaseId?: string;
       expectedVersion: number;
       typeMappings?: MigrationTypeMapping[];
+      /** What a model draft's steps imply (0.13 MG), with the draft that proposed them. */
+      relationTypeMappings?: MigrationRelationTypeMapping[];
+      splits?: MigrationSplit[];
+      listConversions?: MigrationListConversion[];
+      draftId?: string;
       changeSetId?: string;
       expectedChangeSetVersion?: number;
     },
@@ -1326,6 +1335,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedVersion }),
     }),
+  /** The migration a draft states against its base release; with a workspace, what it would do to its records (0.13 MG). */
+  modelDraftMigration: (
+    draftId: string,
+    workspaceKey?: string,
+    between?: { againstReleaseId?: string; toReleaseId?: string },
+  ) => {
+    const params = new URLSearchParams();
+    if (workspaceKey) params.set("workspaceKey", workspaceKey);
+    if (between?.againstReleaseId) params.set("againstReleaseId", between.againstReleaseId);
+    if (between?.toReleaseId) params.set("toReleaseId", between.toReleaseId);
+    const query = params.toString();
+    return request<DraftMigration>(
+      `/api/v1/model-drafts/${encodeURIComponent(draftId)}/migration${query ? `?${query}` : ""}`,
+    );
+  },
   modelDraftOutline: (draftId: string) =>
     request<ModelDraftOutline>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/outline`),
   /** The draft compiled as `model` serves the active one, with its placements (0.10 A4b, D43). */

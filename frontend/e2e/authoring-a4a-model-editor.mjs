@@ -6,7 +6,7 @@
 // of its own. On each: a draft of the active release opened in the editor; a type added under a
 // top-level type with a new attribute; a relation allowed from the matrix by keyboard; a group and a
 // collection placed in it; undo and redo; the attribute moved by keyboard (Move to…); the type
-// dragged to the top level; a draft-only operation on a released type refused with its impact; a
+// dragged to the top level; a key change of a released type marked as needing a migration; a
 // stale version answered by applying again; install and activate; the new collection opened and a
 // record created. On generated-b also an application built from an empty draft. Keyboard alone for
 // the pane, the matrix and Move to…; 1440px and 390px; axe on the editor's main states.
@@ -383,25 +383,24 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       );
     }
 
-    // A draft-only operation on a released type is refused with its impact; nothing applies.
+    // A key change of a released type applies and is marked as needing a migration (0.13 MG); undone.
     await row(top.name).click();
     await operations(top.name).click();
     await page.getByRole("menuitem", { name: /^Change key…/ }).waitFor();
-    await page.getByText("Key fixed once released: needs a migration").first().waitFor();
+    await page.getByText("Needs a migration when installed: integrations naming the key must change").first().waitFor();
     await shot("menu-1440");
     await chooseMenu("Change key…");
     await dialog().getByLabel("Key").fill("a4a-renamed");
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
-    await dialog()
-      .getByText(
-        /(needs a migration .* It would affect \d+ records, \d+ values and \d+ relationships|its key is fixed: integrations name it by its key)\.( Nothing was applied\.)?/,
-      )
-      .waitFor();
-    await assertAccessible(page, `a4a-${label}-refused`);
-    await assertDialogLayout(page, `${label}: a refused key change`);
-    await shot("refused-1440");
-    await dialog().getByRole("button", { name: "Cancel" }).click();
-    checks.push(`${label}: a key change of a released type is refused with the records it would affect`);
+    await apply();
+    const history = page.getByRole("button", { name: /^Issues and history/ });
+    if ((await history.getAttribute("aria-expanded")) === "false") await history.click();
+    await page.getByRole("tab", { name: "History" }).click();
+    await page.getByText("Needs a migration", { exact: true }).first().waitFor();
+    await assertAccessible(page, `a4a-${label}-marked`);
+    await shot("marked-1440");
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await row(top.name).waitFor();
+    checks.push(`${label}: a key change of a released type applies, is marked as needing a migration in the history, and is undone`);
 
     // A stale editor: another client applies a step first; the editor asks and applies again (D41).
     const draftId = new URL(page.url()).pathname.split("/")[4];

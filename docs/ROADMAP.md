@@ -449,8 +449,8 @@ workbook) is built first, then the spreadsheet functionality (the plan's D11).
 The editor builds on the Atlas UI foundation delivered in 0.9 (UA, which absorbed U6).
 
 Changes to released structure that data holds (splits, merges, cardinality), and key renames whatever
-the data, are shown with their impact and blocked; they are enabled in 1.0 on the 0.11 migration
-boundary. With nothing holding the element, the change applies (0.16 AP-D28).
+the data, are shown with their impact and blocked; they are enabled in 0.13 (MG, moved from 1.0 on 2026-11-09)
+on the 0.11 migration boundary. With nothing holding the element, the change applies (0.16 AP-D28).
 
 ### Exit gate
 
@@ -634,6 +634,10 @@ reads data, and a steward and a model administrator do their daily work.
 - The management API reference is not written here: 0.14 writes it on `/docs` and the guide links to it
 - 0.16's AI integration is documented too, in a wave after 0.16's release step (decided by the user
   2026-11-02)
+- Changes to released structure that data holds, made in the model editor (application moves, new
+  parents, key renames, splits, merges, conversions, removals, tighter rules), each installed by the
+  migration the draft states, with its preview, on the 0.11 migration boundary (MG, moved from 1.0 by
+  the user on 2026-11-09)
 
 ### Exit gate
 
@@ -777,8 +781,7 @@ need a migration, and reuses proven definitions.
 
 ### Delivery scope
 
-- Migration-class operations in the 0.10 editor (key renames, splits, merges, cardinality changes on
-  released structure), each with its impact preview, on the 0.11 migration boundary
+- (Migration-class operations in the 0.10 editor moved to 0.13 MG by the user on 2026-11-09.)
 - Read-only dependency visualization where it materially improves comprehension
 - Protected publish, activation and rollback workflows built on the 0.11 migration boundary (change-set publication approvals moved to 0.12, ADR-045)
 - Extension packaging and reusable model modules after two concrete reuse cases

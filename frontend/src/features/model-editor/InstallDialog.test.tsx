@@ -27,7 +27,12 @@ const compiled = (valid: boolean): ModelCompilation => ({
 const release = { id: "r2", key: "store", name: "Store", version: "1.2.1" } as ModelRelease;
 
 function renderDialog(run = vi.fn().mockResolvedValue("applied")) {
-  const handlers = { onActivated: vi.fn().mockResolvedValue(undefined), onInstalledOnly: vi.fn(), onClose: vi.fn() };
+  const handlers = {
+    onActivated: vi.fn().mockResolvedValue(undefined),
+    onInstalledOnly: vi.fn(),
+    onMigrationStarted: vi.fn(),
+    onClose: vi.fn(),
+  };
   render(
     <InstallDialog
       draftId="d1"
@@ -117,6 +122,59 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
       screen.getByText(/Activation needs a migration 4 records lose their type\. No workspace's model changed\./),
     ).toBeTruthy();
     expect(onInstalledOnly).toHaveBeenCalled();
+    expect(onActivated).not.toHaveBeenCalled();
+  });
+
+  it("states the migration the draft implies and installs into its preview (0.13 MG)", async () => {
+    const needs = {
+      ...compiled(true),
+      compatibility: {
+        classification: "migration_required",
+        activeReleaseId: "r1",
+        diagnostics: [],
+        workspaces: [
+          {
+            workspaceKey: "default",
+            classification: "migration_required",
+            diagnostics: [{ path: "/x", message: "Records of Bin have no place" }],
+          },
+        ],
+      },
+    } as unknown as ModelCompilation;
+    vi.mocked(api.compileModelDraft).mockResolvedValue(needs);
+    vi.mocked(api.installModelDraft).mockResolvedValue(release);
+    vi.mocked(api.workspaceModel).mockResolvedValue({ workspaceKey: "default", version: 3 } as never);
+    vi.mocked(api.startWorkspaceMigration).mockResolvedValue({ id: "job-1" } as never);
+    const mapping = { fromObjectTypeKey: "bin", toObjectTypeKey: "crate", attributes: [] };
+    vi.mocked(api.modelDraftMigration).mockResolvedValue({
+      required: true,
+      baseReleaseId: "r1",
+      draftVersion: 5,
+      steps: [{ step: 2, sequence: 2, kind: "setKey", migration: [] }],
+      typeMappings: [mapping],
+      relationTypeMappings: [],
+      splits: [],
+      listConversions: [],
+      rows: [],
+      keyChanges: [{ element: { objectType: "bin" }, from: "bin", to: "crate", consumerApis: [] }],
+      notes: [],
+      landing: null,
+    } as never);
+    const { onMigrationStarted, onActivated } = renderDialog();
+    expect(await screen.findByText("Activation needs a migration")).toBeTruthy();
+    expect(await screen.findByText(/Integrations naming/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Install 1.2.1 and preview the migration…" }));
+    await waitFor(() => expect(onMigrationStarted).toHaveBeenCalledWith("job-1"));
+    expect(api.startWorkspaceMigration).toHaveBeenCalledWith("default", {
+      targetReleaseId: "r2",
+      expectedVersion: 3,
+      typeMappings: [mapping],
+      relationTypeMappings: [],
+      splits: [],
+      listConversions: [],
+      draftId: "d1",
+    });
+    expect(api.activateWorkspaceModel).not.toHaveBeenCalled();
     expect(onActivated).not.toHaveBeenCalled();
   });
 

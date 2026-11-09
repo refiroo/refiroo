@@ -211,6 +211,8 @@ class MigrationCounts(BaseModel):
     reclassified: int
     loss: int
     refused: int
+    # Records and relationships a split or a list conversion creates (MG); named only then.
+    created: int | SkipJsonSchema[None] = _by_status()
 
 
 class MigrationSummary(BaseModel):
@@ -447,13 +449,15 @@ class JobConfirmation(BaseModel):
 class MigrationRow(BaseModel):
     """One item a migration changes (0.11 V1, D72). ``outcome``: ``conversion`` (a value converted,
     ``VALUE_CONVERTED``, or carried to another attribute, ``VALUE_CARRIED``), ``reclassified`` (a
-    record's type changes), ``loss`` (a record, value or relationship removed) or ``refused`` (a
-    record the target release refuses, by the rule's ``code`` and ``path``). A record's item names
+    record's type, application or parent changes), ``loss`` (a record, value or relationship
+    removed), ``created`` (a record, ``RECORD_CREATED``, or a relationship, ``RELATION_CREATED``,
+    that a split or a list conversion creates) or ``refused`` (a record the target release
+    refuses, by the rule's ``code`` and ``path``). A record's item names
     it; a relationship's names its ``relationId`` and both ends; a value's its attribute, with
     ``before`` and, converted, ``after``."""
 
     index: int
-    outcome: Literal["conversion", "reclassified", "loss", "refused"]
+    outcome: Literal["conversion", "reclassified", "loss", "refused", "created"]
     code: str
     objectId: str
     objectName: str | SkipJsonSchema[None] = _by_status()

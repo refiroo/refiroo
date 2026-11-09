@@ -3,8 +3,9 @@
 Each kind checks its parameters against the document, applies its change through
 :class:`~.document.Document`, and returns what it did: its parameters as stored (generated keys
 filled in), its inverse, and the elements it created, re-keyed and named (D8). A draft-only kind
-asks :meth:`Context.unreleased` before it changes an element, which refuses when the element is in
-the draft's base release (D17). Elements are named by key, never by position.
+asks :meth:`Context.unreleased` before it changes an element, which marks the step as one that needs a
+migration when the element is in the draft's base release and data holds it (D17, MG). Elements are
+named by key, never by position.
 
 A compound kind (a removal, a split, a merge, a move, a containment change) has the inverse
 ``restoreElements``: the logged changes that put back exactly what it changed (ADR-041).
@@ -80,15 +81,6 @@ def element_of(value: str) -> dict[str, str]:
     return dict(zip(ELEMENT_FIELDS[kind], rest.split("/"), strict=True))
 
 
-class MigrationRequired(Exception):
-    """A draft-only change to an element of the base release that data holds, or to its key (D17,
-    AP-D28): ``element`` is its atom."""
-
-    def __init__(self, element: str) -> None:
-        super().__init__(element)
-        self.element = element
-
-
 @dataclass
 class Applied:
     parameters: dict[str, Any]
@@ -99,6 +91,9 @@ class Applied:
     # Views and panels the kind took away because they could stand nowhere after it, named for the
     # reader (a move between applications says what it could not carry).
     removed: list[dict[str, str]] = field(default_factory=list)
+    # The elements of the base release the step changes that need a migration when the draft is
+    # installed (MG): each ``{element, keyChange, impact}``, set by the history from the context's marks.
+    migration: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -127,6 +122,8 @@ class Context:
         in_use: Callable[[str], bool] | None = None,
     ) -> None:
         self.document = document
+        # What the operation being applied changes that needs a migration: ``(atom, key change)``.
+        self.marks: list[tuple[str, bool]] = []
         self.released = released
         # Released and held by records, values or relationships (AP-D28); without a count, released.
         self.in_use = in_use or released
@@ -145,15 +142,22 @@ class Context:
         return self.document.data
 
     def unreleased(self, *atoms: str) -> None:
-        """Refuses a change to an element data holds: activation checks the data again (AP-D28)."""
+        """Marks a change to an element data holds as needing a migration, which installing the
+        draft states and activation checks again (AP-D28, MG-D1)."""
         for value in atoms:
-            if self.in_use(value):
-                raise MigrationRequired(value)
+            if self.in_use(value) and (value, False) not in self.marks:
+                self.marks.append((value, False))
 
     def key_free(self, value: str) -> None:
-        """Refuses a new key for a released element, held or not: integrations name it by its key."""
+        """Marks a new key for a released element, held or not, as needing a migration: integrations
+        name it by its key (MG-D2)."""
         if self.released(value):
-            raise MigrationRequired(value)
+            self.marks.append((value, True))
+
+    def take_marks(self) -> list[tuple[str, bool]]:
+        """The marks of the operation applied, which the next one starts again from."""
+        marks, self.marks = self.marks, []
+        return marks
 
     # --- finding elements ---
 
@@ -1118,7 +1122,10 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
     named = {atom("objectType", key)}
     before = _layout_items(context.document)
     if target is not None:
-        named |= _move_to_application(context, key, target, params.optional("fromApplication"))
+        moved = _move_to_application(context, key, target, params.optional("fromApplication"))
+        named |= moved
+        # Its records change application with it: a migration moves them (MG).
+        context.unreleased(*(item for item in moved if item.startswith("objectType:")))
     stored, created = dict(raw), set()
     if "parent" in raw:
         stored_parent, created, parents = _set_parent(context, key, raw.get("parent"))

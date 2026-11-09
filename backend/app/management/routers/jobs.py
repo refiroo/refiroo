@@ -353,7 +353,14 @@ def list_job_rows(
     session: DbSession,
     paging: PageQuery,
     status: Literal[
-        "applied", "rejected", "unprocessed", "conversion", "reclassified", "loss", "refused"
+        "applied",
+        "rejected",
+        "unprocessed",
+        "conversion",
+        "reclassified",
+        "loss",
+        "refused",
+        "created",
     ]
     | None = Query(
         default=None,

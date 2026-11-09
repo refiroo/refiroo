@@ -30,7 +30,7 @@ from ...sources import draft_profile
 from ..compiler import ModelDiagnostic, compile_model
 from ..drafts import load_draft_for_update, update_draft
 from .document import PROFILE, PROFILE_IDENTITIES, Document, Refusal
-from .kinds import INTERNAL_KINDS, Applied, Context, MigrationRequired, apply_operation, element_of
+from .kinds import INTERNAL_KINDS, Applied, Context, apply_operation, element_of
 from .released import base_release, impact, released_atoms
 
 # The newer entries a VERSION_CONFLICT carries before it says there are more (API.md).
@@ -257,6 +257,17 @@ def redo(
     return result
 
 
+def effective_entries(session: Session, draft: ModelDraft) -> list[ModelDraftOperation]:
+    """The draft's entries that stand now, in order: what its authors applied and did not undo (an
+    undo step only takes entries away, a redo applies them again). The migration the draft states
+    is derived from them (MG-D3)."""
+    return [
+        row
+        for row in _rows(session, DRAFTS, draft)
+        if row.undone_by_step is None and (row.origin or {}).get("type") in _UNDOABLE
+    ]
+
+
 def record_patch(session: Session, draft: ModelDraft, previous: dict[str, Any]) -> None:
     """A whole-model PATCH as one ``replaceModel`` step of origin ``patch`` (ADR-041)."""
     applied = Applied(
@@ -319,6 +330,9 @@ def _entry_response(row: Any, owner: Owner, authors: dict[Ref, dict[str, str]]) 
         # A proposal step's snapshot is for ownership (0.10 A6, D92), not for readers.
         "origin": {k: v for k, v in (row.origin or {}).items() if k != "snapshot"},
         "removed": list((row.effects or {}).get("removed", [])),
+        # The elements of the base release this entry changes that need a migration when the draft
+        # is installed, with what each holds (MG, MG-D1).
+        "migration": list((row.effects or {}).get("migration", [])),
     }
 
 
@@ -372,14 +386,15 @@ class _Drafts:
         )
         sheets, file_name = draft_profile.sheets(session, draft)
         model_key = base.release_key if base else None
-        held: dict[str, bool] = {}
+        held: dict[str, dict[str, int | str]] = {}
+
+        def counted(element: str) -> dict[str, int | str]:
+            if element not in held:
+                held[element] = impact(session, element, model_key)
+            return held[element]
 
         def in_use(element: str) -> bool:
-            if element not in released:
-                return False
-            if element not in held:
-                held[element] = any(impact(session, element, model_key).values())
-            return held[element]
+            return element in released and any(counted(element).values())
 
         context = Context(document, released.__contains__, profile, sheets, file_name, in_use)
         applied: list[Applied] = []
@@ -391,24 +406,16 @@ class _Drafts:
                     pointer,
                 )
             document.log.clear()
+            context.take_marks()
             try:
                 applied.append(apply_operation(context, operation))
             except Refusal as refusal:
                 raise invalid(index, refusal, pointer) from refusal
-            except MigrationRequired as exc:
-                raise api_error(
-                    409,
-                    "OPERATION_REQUIRES_MIGRATION",
-                    "The operation changes an element of the draft's base release that data holds, or its key;"
-                    " that needs a migration",
-                    {
-                        "index": index,
-                        "kind": operation.get("kind"),
-                        "element": element_of(exc.element),
-                        "baseReleaseId": base.public_id if base else None,
-                        "impact": impact(session, exc.element, model_key),
-                    },
-                ) from exc
+            # What the step changes that needs a migration when installed (MG): kept with its entry.
+            applied[-1].migration = [
+                {"element": element_of(mark), "keyChange": key_change, "impact": counted(mark)}
+                for mark, key_change in context.take_marks()
+            ]
         return applied, (document.data, profile.data or None)
 
     def commit(
@@ -490,6 +497,12 @@ def _write_entries(
                 "rekeyed": sorted(result.rekeyed),
                 "named": sorted(result.named),
                 **({"removed": result.removed} if getattr(result, "removed", None) else {}),
+                # Not on an undo, which only takes what an earlier step marked away (MG).
+                **(
+                    {"migration": result.migration}
+                    if getattr(result, "migration", None) and origin.get("type") != "undo"
+                    else {}
+                ),
             },
             created_at=now,
         )

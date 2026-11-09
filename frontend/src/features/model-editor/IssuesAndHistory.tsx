@@ -17,7 +17,7 @@ import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
-import { describeStep, historySteps, undoable } from "@/features/model-editor/history";
+import { describeStep, historySteps, migrationWords, undoable } from "@/features/model-editor/history";
 import { elementLabel, nameOf } from "@/features/model-editor/outline";
 import { columnsOfIssue } from "@/features/model-editor/mapping";
 import { ActorName } from "@/ui/ActorName";
@@ -141,7 +141,15 @@ export function IssuesAndHistory({
                   {steps.map((step) => (
                     <li key={step.step} className={step.undone ? "undone" : undefined}>
                       <span className="editor-history-step">#{step.step}</span>
-                      <span className="editor-history-text">{describeStep(step, names)}</span>
+                      <span className="editor-history-text">
+                        {describeStep(step, names)}
+                        {migrationWords(step, names) && (
+                          <span className="editor-history-migration">
+                            <StatusPill tone="warning">Needs a migration</StatusPill>
+                            {migrationWords(step, names)}
+                          </span>
+                        )}
+                      </span>
                       <span className="editor-history-at">
                         {formatServerTime(step.at)} <ActorName actor={step.entries[0]?.author ?? null} />
                         {step.origin.proposedByName && `, asked for by ${step.origin.proposedByName}`}

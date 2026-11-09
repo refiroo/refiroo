@@ -1,0 +1,430 @@
+{
+ "wave": "MG",
+ "note": "MG screens on the reference instance: the workspace Stops tidy-up (a Stop code type under Stop) and disposable drafts and migration previews; nothing is confirmed.",
+ "base": "http://localhost:8480",
+ "screens": [
+  {
+   "name": "model-type-fields",
+   "shows": "An object type in the editor (Stop), Attributes tab, with its released mark: 'Released: a key change needs a migration'.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/0c86cfd7-6549-4a3c-b3aa-a8908a0467be/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    }
+   ],
+   "expect": [
+    "Stop",
+    "Attributes (9)",
+    "Value type",
+    "Released: a key change needs a migration"
+   ]
+  },
+  {
+   "name": "model-history",
+   "shows": "The draft's History after moving the released type Stop code to the top level of Systems: the step with its Needs a migration mark and the records, values and relationships that hold the type; Undo and Redo at the top.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/5ef5e043-986d-47cd-ae8f-a09295854092/editor?show=type&key=stop-code"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Issues and history"
+     }
+    },
+    {
+     "click": {
+      "role": "tab",
+      "name": "History"
+     }
+    },
+    {
+     "wait": 900
+    }
+   ],
+   "expect": [
+    "History",
+    "Needs a migration",
+    "Stop code: 12 records"
+   ]
+  },
+  {
+   "name": "model-history-undone",
+   "shows": "The same History after Undo: the move shown as undone, so the draft no longer states that migration.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/6d410513-30db-4ab5-a5b5-ad97063b2179/editor?show=type&key=stop-code"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "tab",
+      "name": "History"
+     }
+    },
+    {
+     "wait": 900
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Undo",
+      "exact": true
+     }
+    },
+    {
+     "wait": 1200
+    }
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Redo",
+      "exact": true
+     }
+    }
+   ],
+   "expect": [
+    "Undone",
+    "Redo"
+   ]
+  },
+  {
+   "name": "model-move-needs-migration",
+   "shows": "Move to… for the released type Stop code with the top level of Systems chosen: the notice 'Needs a migration when installed' says its records move with it and become top-level records.",
+   "height": 900,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/e7224b75-b4f1-47a9-b25f-af74658384c3/editor?show=type&key=stop-code"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "treeitem",
+      "name": "Stop code"
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Operations for Stop code",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Move to…"
+     }
+    },
+    {
+     "wait": 500
+    },
+    {
+     "click": {
+      "text": "Top level of Systems",
+      "exact": true
+     }
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ],
+   "expect": [
+    "Needs a migration when installed",
+    "top-level records"
+   ]
+  },
+  {
+   "name": "model-install-migration",
+   "shows": "Install and activate… for the draft that moves Stop code, into the workspace Stops tidy-up: 'Activation needs a migration' with the proposed line, the figures records move and refused, and the button Install … and preview the migration…",
+   "height": 1500,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/5ef5e043-986d-47cd-ae8f-a09295854092/editor?show=type&key=stop-code"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Install and activate…"
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "css": ".install-dialog button[aria-haspopup='listbox']"
+     }
+    },
+    {
+     "click": {
+      "role": "option",
+      "name": "Stops tidy-up"
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Activation needs a migration",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ],
+   "expect": [
+    "Activation needs a migration",
+    "records move",
+    "preview the migration"
+   ]
+  },
+  {
+   "name": "model-install-key-change",
+   "shows": "Install and activate… for a draft that changes the released key stop-number: the notice that integrations naming the key must change, with the consumer API that names it (Stops).",
+   "height": 1500,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/0c45b578-546c-4b66-80a0-3b7d739a6c19/editor?show=attributeType&key=stop-id"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Install and activate…"
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "css": ".install-dialog button[aria-haspopup='listbox']"
+     }
+    },
+    {
+     "click": {
+      "role": "option",
+      "name": "Stops tidy-up"
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Integrations naming",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ],
+   "expect": [
+    "The key stop-number changes to stop-id",
+    "Stops"
+   ]
+  },
+  {
+   "name": "model-apply-migration",
+   "shows": "Apply to this workspace for the workspace Stops tidy-up, whose draft moves Stop code: the migration stated with its figures, change sets left behind, and the button Preview what happens to the records…",
+   "height": 1500,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/65d77527-19f0-40c8-9fe5-391509cca5a6/editor?show=type&key=stop-code&workspace=mg-pictures"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Apply to this workspace…"
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Activation needs a migration",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ],
+   "expect": [
+    "Activation needs a migration",
+    "Preview what happens to the records"
+   ]
+  },
+  {
+   "name": "model-migration-proposed",
+   "shows": "The migration page opened from the editor: What the draft proposes, one row for Stop code (Records of, Become, In, Under, Records) marked Proposed, and the preview's outcomes.",
+   "height": 1000,
+   "actions": [
+    {
+     "goto": "/settings/model/migrations/f0d65cec-423e-4316-b1ef-bb63436dc1ab"
+    },
+    {
+     "waitFor": {
+      "text": "What the draft proposes",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "expect": [
+    "What the draft proposes",
+    "Proposed",
+    "Type changed"
+   ]
+  },
+  {
+   "name": "model-migration-created",
+   "shows": "The migration page for a split and a list conversion with the Created outcome selected: the records and relationships the migration creates.",
+   "height": 1000,
+   "actions": [
+    {
+     "goto": "/settings/model/migrations/3a5e52d3-14fd-4948-aa56-fe5314f2d7c6"
+    },
+    {
+     "waitFor": {
+      "text": "What the draft proposes",
+      "exact": false
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Created"
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "expect": [
+    "Created",
+    "What the draft proposes"
+   ]
+  },
+  {
+   "name": "model-migration-loss",
+   "shows": "The migration page for a removal with the Removed outcome selected, the loss acceptance ticked and Migrate available.",
+   "height": 1000,
+   "actions": [
+    {
+     "goto": "/settings/model/migrations/44465246-2291-4795-b4c4-fdaac29d919d"
+    },
+    {
+     "waitFor": {
+      "text": "Removed",
+      "exact": false
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Removed"
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "check": {
+      "role": "checkbox",
+      "name": "I accept"
+     }
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Removed",
+    "I accept"
+   ]
+  }
+ ]
+}

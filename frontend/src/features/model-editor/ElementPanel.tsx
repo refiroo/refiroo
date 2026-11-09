@@ -136,14 +136,19 @@ const VIEW_KINDS: Record<string, string> = {
   mappingGrid: "Mapping grid",
 };
 
-/** An element's key, and whether it can still change (A-D6): fixed once released, labels always free. */
+/** An element's key, and whether it can still change (A-D6): a released key changes with a migration, labels always free. */
 const keyFacts = (key: string, mark: OutlineMark | undefined, extra: Fact[] = []) => (
   <Facts
     label="About this element"
     facts={[
       { icon: "type", label: <code>{key}</code>, title: "Key" },
       isReleased(mark)
-        ? { icon: "lock", label: "Key fixed: released", title: "Released, so the key is fixed; labels still change" }
+        ? {
+            icon: "lock",
+            label: "Released: a key change needs a migration",
+            title:
+              "Released, so changing the key needs a migration and integrations naming it must change; labels change freely",
+          }
         : { icon: "pencil", label: "Key editable until released" },
       ...extra,
     ]}

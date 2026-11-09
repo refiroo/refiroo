@@ -241,19 +241,17 @@ def test_the_active_model_extended_by_operations_activates_and_holds_records(wor
     current = _draft(world, draft)
     assert current["baseReleaseId"] == release["id"]
     assert current["version"] == answer["version"]
-    error = refused(
+    renamed = ok(
         _apply(
             world,
             draft,
             current["version"],
             {"kind": "setKey", "element": {"objectType": "j33-note"}, "key": "j33-memo"},
-        ),
-        409,
-        "OPERATION_REQUIRES_MIGRATION",
+        )
     )
-    assert error["details"]["index"] == 0
-    assert error["details"]["element"] == {"objectType": "j33-note"}
-    assert error["details"]["impact"]["records"] == 1
+    (marked,) = renamed["entries"][0]["migration"]
+    assert marked["element"] == {"objectType": "j33-note"} and marked["keyChange"] is True
+    assert marked["impact"]["records"] == 1
 
 
 @pytest.mark.journey("J33.4")
@@ -344,60 +342,58 @@ def test_a_stale_editor_is_answered_with_the_steps_applied_since(world):
 
 @pytest.mark.journey("J33.7")
 @pytest.mark.structures("R", "R.u")
-def test_a_draft_only_operation_on_a_released_element_is_refused_with_its_impact(world):
+def test_a_draft_only_operation_on_a_released_element_applies_and_is_marked_with_its_impact(world):
     """Given a draft of the active release. When a request holding an additive operation and then
-    the removal of R is sent, before and after one more R record exists. Then each is refused
-    OPERATION_REQUIRES_MIGRATION at index 1 with R's records counted, one more the second time, and
-    the draft is unchanged. A key change of R.u counts its values the same way."""
-    draft = _draft_of_active(world)
-    start = _model(world, draft)
-
+    the removal of R is sent, before and after one more R record exists. Then each applies; only the
+    removal is marked as needing a migration, naming R with its records counted (one more the second
+    time). A key change of R.u is marked the same way with its values counted, and an undo takes the
+    request back."""
     def removal() -> dict[str, Any]:
-        return refused(
+        draft = _draft_of_active(world)
+        answer = ok(
             _apply(
                 world,
                 draft,
                 draft["version"],
                 _attribute("j33-extra", "Extra"),
                 {"kind": "removeObjectType", "objectType": world.key("R")},
-            ),
-            409,
-            "OPERATION_REQUIRES_MIGRATION",
-        )["details"]
+            )
+        )
+        assert [bool(entry["migration"]) for entry in answer["entries"]] == [False, True]
+        assert not [t for t in _model(world, draft)["objectTypes"] if t["key"] == world.key("R")]
+        return answer["entries"][1]["migration"][0]
 
     def rekey() -> dict[str, Any]:
-        return refused(
+        draft = _draft_of_active(world)
+        answer = ok(
             _apply(
                 world,
                 draft,
                 draft["version"],
                 {"kind": "setKey", "element": {"attributeType": world.key("R.u")}, "key": "j33-renamed"},
-            ),
-            409,
-            "OPERATION_REQUIRES_MIGRATION",
-        )["details"]
+            )
+        )
+        undone = ok(_undo(world, draft, answer["version"]))
+        assert _model(world, draft) == _model(world, _draft_of_active(world))
+        assert undone["entries"][0]["migration"] == []
+        return answer["entries"][0]["migration"][0]
 
     before, values_before = removal(), rekey()
-    assert before["index"] == 1
-    assert before["element"] == {"objectType": world.key("R")}
+    assert before["element"] == {"objectType": world.key("R")} and before["keyChange"] is False
+    assert values_before["keyChange"] is True
     world.made("R", "One more", values={"R.u": "J33-IMPACT-1"})
     after, values_after = removal(), rekey()
     assert after["impact"]["records"] == before["impact"]["records"] + 1
     assert values_after["impact"]["values"] == values_before["impact"]["values"] + 1
-
-    current = _draft(world, draft)
-    assert current["version"] == draft["version"]
-    assert current["model"] == start
-    assert _history(world, draft)["items"] == []
 
 
 @pytest.mark.journey("J33.7")
 @pytest.mark.structures("R")
 def test_a_released_element_no_data_holds_is_removed_and_activation_checks_the_data_again(world):
     """Given a released type with no records. When its key is changed, then it is removed. Then the
-    key change is refused with nothing held and the removal applies. When a record of it arrives and
-    that draft is installed, activating it is refused; a new draft's removal is refused with the
-    record counted."""
+    key change applies, marked with nothing held, and the removal applies unmarked. When a record of it arrives and
+    that draft is installed, activating it is refused; a new draft's removal is applied and marked with
+    the record counted."""
     model = _model(world, _draft_of_active(world))
     r_app = _application_of_r(world)
     draft = _draft_of_active(world, "Empty type")
@@ -414,8 +410,10 @@ def test_a_released_element_no_data_holds_is_removed_and_activation_checks_the_d
 
     current = _draft(world, draft)
     rekey = {"kind": "setKey", "element": {"objectType": "j33-empty"}, "key": "j33-renamed"}
-    error = refused(_apply(world, draft, current["version"], rekey), 409, "OPERATION_REQUIRES_MIGRATION")
-    assert error["details"]["impact"] == {"records": 0, "values": 0, "relationships": 0}
+    renamed = ok(_apply(world, draft, current["version"], rekey))
+    (marked,) = renamed["entries"][0]["migration"]
+    assert marked["keyChange"] is True and marked["impact"] == {"records": 0, "values": 0, "relationships": 0}
+    current = ok(_undo(world, draft, renamed["version"]))
     removed = ok(
         _apply(
             world,
@@ -433,16 +431,16 @@ def test_a_released_element_no_data_holds_is_removed_and_activation_checks_the_d
     refused(world.activate(release["id"]), 409, "MODEL_MIGRATION_REQUIRED")
 
     later = _draft_of_active(world, "Too late")
-    error = refused(_apply(world, later, later["version"], {"kind": "removeObjectType", "objectType": "j33-empty"}), 409, "OPERATION_REQUIRES_MIGRATION")
-    assert error["details"]["impact"]["records"] == 1
+    gone = ok(_apply(world, later, later["version"], {"kind": "removeObjectType", "objectType": "j33-empty"}))
+    assert gone["entries"][0]["migration"][0]["impact"]["records"] == 1
 
 
 @pytest.mark.journey("J33.7")
 @pytest.mark.structures("R")
-def test_a_required_relationship_to_a_released_type_is_refused_as_a_required_attribute_is(world):
+def test_a_required_relationship_to_a_released_type_is_marked_as_a_required_attribute_is(world):
     """0.10 R-F3. Given a draft of the active release. When a new relation type is allowed to R as
-    required, then as optional. Then the first is refused OPERATION_REQUIRES_MIGRATION at its index
-    with R's records counted, as attaching a required attribute to R is; the second applies."""
+    required, then as optional. Then both apply; the first is marked as needing a migration at its
+    entry with R's records counted, as attaching a required attribute to R is; the second is not."""
     draft = _draft_of_active(world)
     relation = {
         "kind": "addRelationType",
@@ -455,11 +453,11 @@ def test_a_required_relationship_to_a_released_type_is_refused_as_a_required_att
     def allow(required: bool) -> dict[str, Any]:
         return {"kind": "allowRelation", "relationType": "j33-needs", "from": world.key("R"), "to": world.key("R"), "required": required}
 
-    error = refused(_apply(world, draft, draft["version"], relation, allow(True)), 409, "OPERATION_REQUIRES_MIGRATION")
-    assert error["details"]["index"] == 1
-    assert error["details"]["element"] == {"objectType": world.key("R")}
-    assert error["details"]["impact"]["records"] >= 0
-    ok(_apply(world, draft, draft["version"], relation, allow(False)))
+    required = ok(_apply(world, draft, draft["version"], relation, allow(True)))
+    (marked,) = required["entries"][1]["migration"]
+    assert marked["element"] == {"objectType": world.key("R")} and marked["impact"]["records"] >= 0
+    optional = ok(_apply(world, _draft_of_active(world), 1, relation, allow(False)))
+    assert optional["entries"][1]["migration"] == []
 
 
 @pytest.mark.journey("J33.8")
@@ -868,9 +866,8 @@ def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand
     assert [cell["state"] for cell in read["cells"]] == ["one"]
 
     current = _draft(world, draft)
-    error = refused(_apply(world, draft, current["version"], {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key}), 409, "OPERATION_REQUIRES_MIGRATION")
-    assert error["details"]["element"] == {"applicationKey": r_app, "objectType": r_key}
-    assert error["details"]["impact"]["records"] >= 1
+    # The matrix still needs the listing, so it is refused as invalid, not as needing a migration.
+    refused(_apply(world, draft, current["version"], {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key}), 422, "INVALID_OPERATION")
 
 
 def _matrix_application(world) -> tuple[dict[str, Any], dict[str, Any]]:

@@ -20,10 +20,14 @@ Work in a draft with **Model authoring**. Read
    **Sortable** and **Unique**. Inspect every attached type before applying a shared change.
 5. Use **Move up** or **Move down** to order attributes. **Move to…**, or dragging a field onto
    a type in the model pane, moves the attachment; its columns and panel placement move with it.
-   Check the destination rather than creating a duplicate attribute definition.
-6. Review **Issues**. If a released field change is refused, read the affected data counts.
-   Do not detach and recreate it to bypass the refusal. Plan a
-   [migration](/docs/model/migrations/) where existing values need conversion.
+   Check the destination rather than creating a duplicate attribute definition. For a released
+   field, read **Needs a migration when installed**: moving the attachment removes its values
+   from the original type's records. They cannot be carried onto a different type's records.
+6. Review **Issues** and **History**. A released field change that affects stored data applies
+   and is marked **Needs a migration**, with affected records, values and relationships.
+   Installing the draft shows the migration to review. Check conversions, loss and records that
+   break tighter rules before [confirming it](/docs/guide/model/migrate-a-workspace/).
+   Use **Undo** if the draft change is unwanted.
 
 ![Attach an existing shared attribute to a type](/docs/screens/model-attribute-attach-existing.png)
 

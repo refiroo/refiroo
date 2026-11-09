@@ -86,30 +86,21 @@ function renderEditor(selection: Parameters<typeof ModelEditor>[0]["selection"] 
 }
 
 describe("ModelEditor", () => {
-  it("shows a refused draft-only operation with what it would affect, applying nothing (D39)", async () => {
-    vi.mocked(api.applyModelDraftOperations).mockRejectedValue(
-      new ApiError(409, "OPERATION_REQUIRES_MIGRATION", "needs a migration", {
-        element: { objectType: "shelf" },
-        impact: { records: 12, values: "10000+", relationships: 3 },
-      }),
-    );
+  it("applies a key change of a released element, the menu saying it needs a migration (0.13 MG)", async () => {
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
     renderEditor();
     fireEvent.click(await screen.findByRole("button", { name: "Operations for Shelf" }));
     const item = await screen.findByRole("menuitem", { name: /^Change key…/ });
-    expect(item.textContent).toContain("needs a migration");
+    expect(item.textContent).toContain("Needs a migration when installed");
     fireEvent.click(item);
     const dialog = await screen.findByRole("dialog", { name: "Change key" });
     fireEvent.change(within(dialog).getByLabelText("Key"), { target: { value: "rack" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
-    expect(
-      await within(dialog).findByText(
-        "Shelf is released, so this change needs a migration: make it in the JSON view, and installing the release shows the migration to review. It would affect 12 records, 10000+ values and 3 relationships. Nothing was applied.",
-      ),
-    ).toBeTruthy();
-    expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
-      { kind: "setKey", element: { objectType: "shelf" }, key: "rack" },
-    ]);
-    expect(api.modelDraftOutline).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        { kind: "setKey", element: { objectType: "shelf" }, key: "rack" },
+      ]),
+    );
   });
 
   it("counts every step of the draft, though only its latest operations are read (R)", async () => {

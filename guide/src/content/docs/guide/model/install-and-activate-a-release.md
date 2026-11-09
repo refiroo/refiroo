@@ -22,13 +22,27 @@ administration**. Read [Releases](/docs/model/releases/) and
 4. Review **What changes against** the base release, **Valid**, stored-data compatibility and
    **Consumer APIs**. Resolve blocking issues before continuing. A different-model workspace may
    be checked only when activation is attempted; its selection is not a promise its records fit.
-5. Confirm with **Install … and activate in …**, or **Install … and create …** for a new workspace.
-   Wait for the outcome. **Cancel** leaves the draft saved without installing or activating it.
+5. If **Activation needs a migration** appears, read the steps and what each part does.
+   Review where records go, **records move**, **records created**, **relationships created**
+   where shown, and **refused**. For a changed key, the warning names consumer APIs of the base
+   release using it and says integrations naming the key must change. Coordinate those changes.
+6. When a migration is needed, choose **Install … and preview the migration…**. This installs
+   the release and opens the migration page with the draft's proposal filled in. The release
+   is not active yet. Review **What the draft proposes**, its **Proposed** rows and all outcomes,
+   including **Created** for a split or list conversion, then
+   [confirm the migration](/docs/guide/model/migrate-a-workspace/) when acceptable.
+7. Otherwise confirm **Install … and activate in …**, or **Install … and create …** for a new
+   workspace. Wait for the outcome. **Cancel** in the install dialog leaves the draft saved
+   without installing or activating it.
 
 ![Install and activate confirmation with release identity, workspace and compatibility checks](/docs/screens/model-install-dialog.png)
 
 *Above: Guide draft proposes release 1.0.1 for Graubünden, adding Step-free access and Inspected by.
 The captured dialog was cancelled: neither installation nor activation happened.*
+
+![Install review with Activation needs a migration, moving-record counts and a preview action](/docs/screens/model-install-migration.png)
+
+*Above: the draft proposes moving 12 Stop code records to the top level of Systems in Stops tidy-up, with zero refused. Install … and preview the migration… opens the record review; this captured dialog was cancelled.*
 
 A successful installation fixes the release's content; the draft continues as the next editable
 version. If the result says **Installed, not active**, keep the installed release and resolve the
@@ -43,13 +57,23 @@ reported activation problem. Do not assume installation was undone.
 3. Read **Change sets left on** the old version. They stay pinned to that release and cannot be
    published until moved to the new one or discarded. Check **Not changed** for the other workspaces.
 4. If **Your records stay as they are** is shown, confirm **Apply to** the named workspace when ready.
-   If **Some records must move first** appears, choose **Preview what happens to the records…**
-   and review that separate migration before confirming it. Opening the preview is not applying.
+   If **Activation needs a migration** appears, review the steps, destinations, counts and warnings
+   about changed keys and the consumer APIs naming them. **Some records must move first** can
+   appear when the compatibility check finds a migration without a draft proposal.
+5. Choose **Preview what happens to the records…** when a migration is needed. It installs the
+   release and opens a migration preview with the draft's choices where available. Inspect
+   **What the draft proposes**, the **Proposed** rows and outcomes, including **Created** when
+   records and relationships are created. The workspace keeps its current release until you
+   [confirm the migration](/docs/guide/model/migrate-a-workspace/).
 
 ![Workspace apply dialog showing changes, compatible data and change sets left behind](/docs/screens/model-workspace-apply-dialog.png)
 
 *Above: applying Guide draft to Graubünden leaves Default unchanged and names December 2026 timetable
 change as remaining on release 1.0.0. The dialog was cancelled.*
+
+![Workspace Apply review with a proposed type move and Preview what happens to the records action](/docs/screens/model-apply-migration.png)
+
+*Above: Apply to Stops tidy-up shows the same move of 12 Stop code records, with zero refused. Preview what happens to the records… opens the migration review. The captured dialog was cancelled.*
 
 ## Activate an already installed release
 
@@ -81,12 +105,13 @@ before editing records. Review any left-behind change sets through the
 | Result | Next action |
 | --- | --- |
 | Compatible with the workspace's data | Review the named workspace and confirm activation when ready. |
-| A migration is needed | Open **Preview the migration…**, review conversions, removals and items to fix, then confirm only an acceptable result. |
+| A migration is needed | From installation, choose **Install … and preview the migration…**; from Apply, **Preview what happens to the records…**. Review proposed destinations, created items, conversions, removals and items to fix before confirming the migration. |
 | A different model | Review this destination carefully; compatibility is checked when activation is attempted. |
 | A consumer API needs a higher contract version | Coordinate the contract change and raise its version in a draft before rechecking. |
 | Could not be checked | Read the failure, correct its cause and check again; it is not a successful compatibility result. |
 
 The install dialog says **Comparing with the base release** where the draft has one. That
 comparison can differ from the target workspace's current release; read the separate data and
-consumer checks too. Cancelling a preview changes nothing. After a stale preview, review a fresh
+consumer checks too. Cancelling a migration preview leaves workspace data unchanged; a release
+installed to start that preview remains installed. After a stale preview, review a fresh
 one instead of confirming the old counts.

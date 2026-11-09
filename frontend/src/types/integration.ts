@@ -128,6 +128,8 @@ export interface MigrationCounts {
   reclassified: number;
   loss: number;
   refused: number;
+  /** Records and relationships a split or a list conversion creates (0.13 MG); named only then. */
+  created?: number;
 }
 
 export type MigrationOutcome = keyof MigrationCounts;
@@ -183,6 +185,39 @@ export interface MigrationTypeMapping {
   fromObjectTypeKey: string;
   toObjectTypeKey: string;
   attributes?: { attributeTypeKey: string; from: string | null }[];
+  /** The application its records go to, when the target lists the type in several (0.13 MG). */
+  toApplicationKey?: string;
+}
+
+/** What a relation type of the workspace's model became in the target (0.13 MG). */
+export interface MigrationRelationTypeMapping {
+  fromRelationTypeKey: string;
+  toRelationTypeKey: string;
+}
+
+/** A type split in the target: each record holding a moved value gets a record of the new type (MG). */
+export interface MigrationSplit {
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  attributes: string[];
+  relationTypeKey: string;
+  cardinality?: string;
+}
+
+/** An attribute turned into a list type: its distinct values become records (MG). */
+export interface MigrationListConversion {
+  fromObjectTypeKey: string;
+  attributeTypeKey: string;
+  toObjectTypeKey: string;
+  relationTypeKey: string;
+}
+
+/** What a model draft's steps imply for a workspace migration, as its request takes them (MG). */
+export interface MigrationProposal {
+  typeMappings: MigrationTypeMapping[];
+  relationTypeMappings: MigrationRelationTypeMapping[];
+  splits: MigrationSplit[];
+  listConversions: MigrationListConversion[];
 }
 
 export interface JobNotice {

@@ -7,6 +7,7 @@ import {
   describeStep,
   followKeyChange,
   historySteps,
+  migrationWords,
   undoable,
 } from "@/features/model-editor/history";
 import { summarizeChanges } from "@/features/model-editor/InstallDialog";
@@ -285,5 +286,24 @@ describe("what a step could not keep (found 2026-10-19)", () => {
     expect(describeStep(step, names)).toMatch(
       /\. Removed, as their types no longer stand in one application: Shelves by area in Shop and the Shelves panel of Area in Shop\. Undo puts them back\.$/,
     );
+  });
+});
+
+describe("migrationWords (0.13 MG)", () => {
+  const stopCodes = (kind: string, key: string) => (kind === "objectType" && key === "stop-code" ? "Stop code" : key);
+  it("names each element a step marks with what holds it, and nothing for a step that needs no migration", () => {
+    const marked = {
+      ...entry(14, "setContainment", { type: "request" }, false, { objectType: "stop-code", parent: null }),
+      migration: [
+        {
+          element: { objectType: "stop-code" },
+          keyChange: false,
+          impact: { records: 3214, values: 6428, relationships: 3214 },
+        },
+      ],
+    };
+    const steps = historySteps([marked, entry(13, "setLabel", { type: "request" }, false, { name: "Code" })]);
+    expect(migrationWords(steps[0], stopCodes)).toBe("Stop code: 3,214 records, 6,428 values, 3,214 relationships");
+    expect(migrationWords(steps[1], stopCodes)).toBe("");
   });
 });

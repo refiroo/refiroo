@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { count } from "@/features/settings/limits";
-import { MIGRATION_OUTCOMES, MigrationRows } from "@/features/model-admin/MigrationRows";
+import { MIGRATION_OUTCOMES, MigrationRows, countOf, outcomesOf } from "@/features/model-admin/MigrationRows";
 import type { EngineModel, Job, MigrationOutcome as Outcome, MigrationSummary } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { OutcomeCards } from "@/ui/OutcomeCards";
@@ -18,7 +18,9 @@ export function MigrationOutcome({ job, summary, model }: { job: Job; summary: M
   const [models, setModels] = useState<{ current: EngineModel; target: EngineModel }>();
   const { counts } = summary;
   const [show, setShow] = useState<Outcome>(
-    counts.refused ? "refused" : (MIGRATION_OUTCOMES.find((item) => counts[item.key] > 0)?.key ?? "conversion"),
+    counts.refused
+      ? "refused"
+      : (outcomesOf(counts).find((item) => countOf(counts, item.key) > 0)?.key ?? "conversion"),
   );
   useEffect(() => {
     let active = true;
@@ -50,9 +52,9 @@ export function MigrationOutcome({ job, summary, model }: { job: Job; summary: M
         <p className="job-sentence">{sentence}</p>
         <OutcomeCards
           label="What the migration did"
-          items={MIGRATION_OUTCOMES.map((item) => ({
+          items={outcomesOf(counts).map((item) => ({
             key: item.key,
-            count: counts[item.key],
+            count: countOf(counts, item.key),
             label: item.label,
             tone: item.key === "refused" ? "error" : item.key === "loss" ? "warning" : undefined,
           }))}
@@ -63,8 +65,8 @@ export function MigrationOutcome({ job, summary, model }: { job: Job; summary: M
           <Choice
             name={`migration-items-${job.id}`}
             value={show}
-            options={MIGRATION_OUTCOMES.map(
-              (item) => [item.key, `${item.label} (${count(counts[item.key])})`] as const,
+            options={outcomesOf(counts).map(
+              (item) => [item.key, `${item.label} (${count(countOf(counts, item.key))})`] as const,
             )}
             onChange={setShow}
           />

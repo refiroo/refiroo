@@ -108,10 +108,16 @@ def released_atoms(model: dict[str, Any] | None) -> frozenset[str]:
     return frozenset(found)
 
 
-def impact(session: Session, element: str, model_key: str | None) -> dict[str, int | str]:
+def impact(
+    session: Session, element: str, model_key: str | None, workspace_key: str | None = None
+) -> dict[str, int | str]:
     """The records, values and relationships holding ``element``, live and in change sets, in the
-    workspaces running ``model_key``."""
-    scope = workspaces_of_model(model_key)
+    workspaces running ``model_key`` (``workspace_key``: in that one workspace)."""
+    scope = (
+        workspaces_of_model(model_key)
+        if workspace_key is None
+        else select(WorkspaceModel.workspace_key).where(WorkspaceModel.workspace_key == workspace_key)
+    )
     in_scope = RdmObject.workspace_key.in_(scope)
     change_sets = select(ChangeSet.id).where(ChangeSet.workspace_key.in_(scope))
     staged_objects = _staged_objects().where(ChangeSetObject.change_set_id.in_(change_sets))

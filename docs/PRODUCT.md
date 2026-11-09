@@ -176,7 +176,11 @@ can complete the task in the application; "API" means another system can.
 - Edit a model draft as JSON, validate it, install it as a new release and activate it. Activation is
   refused when existing data would not fit; the previous release stays available to roll back to.
 - Through the API, change a draft by typed operations with a readable history, undo and redo; a
-  change that would need a migration of released structure is refused with its impact.
+  change that needs a migration of released structure (a type moved to another application or under
+  another parent, a split, a merge, a key change, a tighter rule) is applied and marked with its
+  impact, and the draft states the migration it implies: which type becomes which, where the records
+  go, and the records a split or an attribute turned into a list creates. Installing the draft previews
+  that migration, which you confirm; activation still refuses a release whose migration has not run.
 - In the model editor, change a draft without writing JSON: applications, types in their containment
   tree, attributes, relation types, the relationship matrix and navigation groups, each marked new,
   changed or released; move attributes and types by drag or Move to…; read the issues and the history,

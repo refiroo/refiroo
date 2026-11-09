@@ -23,7 +23,6 @@ import {
   type OperationSpec,
   type OperationTarget,
 } from "@/features/model-editor/operations";
-import { elementLabel } from "@/features/model-editor/outline";
 import { CandidatesField } from "@/features/model-editor/CandidatesField";
 import { ChoiceListField, type ChoiceOption } from "@/features/model-editor/ChoiceListField";
 import { PairsField } from "@/features/model-editor/PairsField";
@@ -33,23 +32,8 @@ export type StepOutcome = "applied" | "stale";
 
 export type RunStep = (operations: DraftOperation[]) => Promise<StepOutcome>;
 
-/** A refusal in words: what holds a released element, or that its key is fixed (D39, AP-D28). */
-export function refusalText(cause: unknown, outline: ModelDraftOutline): string {
-  if (isApiError(cause, "OPERATION_REQUIRES_MIGRATION")) {
-    const details = (cause.details ?? {}) as {
-      element?: Record<string, string>;
-      impact?: { records?: number | string; values?: number | string; relationships?: number | string };
-    };
-    const impact = details.impact ?? {};
-    const name = details.element ? elementLabel(outline, details.element) : "The element";
-    const held = [impact.records, impact.values, impact.relationships].some((count) => count && count !== 0);
-    if (!held) return `${name} is released, so its key is fixed: integrations name it by its key. Nothing was applied.`;
-    return (
-      `${name} is released, so this change needs a migration: make it in the JSON view, and installing the release shows the migration to review. ` +
-      `It would affect ${impact.records ?? 0} records, ${impact.values ?? 0} values and ` +
-      `${impact.relationships ?? 0} relationships. Nothing was applied.`
-    );
-  }
+/** A refusal in words (a step that cannot apply, or depends on another). */
+export function refusalText(cause: unknown, _outline?: ModelDraftOutline): string {
   if (isApiError(cause, "OPERATION_HAS_DEPENDANTS")) {
     const dependants = ((cause.details ?? {}) as { dependants?: number[] }).dependants ?? [];
     return `Later steps (${dependants.join(", ")}) depend on this one.`;

@@ -10,7 +10,13 @@ Use model operations to shape what a workspace can hold. Installing a release an
 
 A model draft changes through typed operations naming elements by key. One request's operations apply in order, all or none, and form one history step. A draft can be temporarily invalid while being assembled; inspect its diagnostics and validate before installation. Installation refuses an invalid model. Whole-model editing is also recorded as a step.
 
-Read the outline, expanded model and operation history as needed. Undo applies inverse operations; later steps depending on a removed element must be undone first or together. `OPERATION_HAS_DEPENDANTS` identifies those steps. `NOTHING_TO_UNDO`, `NOTHING_TO_REDO` and `NOTHING_TO_APPLY` mean refresh the history rather than inventing another change. `INVALID_OPERATION` and `OPERATION_BATCH_TOO_LARGE` require a valid bounded operation request. `OPERATION_REQUIRES_MIGRATION` means an existing released element needs a migration instead of a draft-only edit.
+Read the outline, expanded model and operation history as needed. Undo applies inverse operations; later steps depending on a removed element must be undone first or together. `OPERATION_HAS_DEPENDANTS` identifies those steps. `NOTHING_TO_UNDO`, `NOTHING_TO_REDO` and `NOTHING_TO_APPLY` mean refresh the history rather than inventing another change. `INVALID_OPERATION` and `OPERATION_BATCH_TOO_LARGE` require a valid bounded operation request.
+
+A change to a released element applies as a draft step even when stored data depends on it.
+Its history entry carries `migration` marks with the affected elements and impact counts; a
+released key change is marked even with no data. `OPERATION_REQUIRES_MIGRATION` is no longer raised.
+Read the [draft migration operation](/docs/api/?api=management#tag/model%20administration)
+before installing changes that need data migration.
 
 Attached source files can be profiled, bound and dry-run without writing data. A draft's dry run without a `profile` reads the file with the profile the draft holds, and the profile the draft's profile read answered can be sent back unchanged. Deterministic inference can propose bindings for review; its job is separate from applying proposals. `INFERENCE_NOT_FOUND`, `INFERENCE_NOT_READY` and `INFERENCE_STALE` require a current completed inference. `PROPOSAL_NOT_FOUND`, `PROPOSAL_ALREADY_APPLIED` and `PROPOSAL_REQUIREMENT_MISSING` require reviewing the proposal and its prerequisites. `INVALID_INFERENCE_REQUEST`, `DRY_RUN_NOT_FOUND` and `IMPACT_SUMMARY_DRAFT_INVALID` require correcting or rerunning the relevant model check. See [Workbook onboarding](/docs/model/workbook-onboarding/).
 
@@ -20,7 +26,7 @@ Compilation checks the draft against its base release, or its model's latest ins
 
 Read the workspace's current assignment and claim its version and release when activating. Other workspaces keep their assignments. Read placements in the target context to discover allowed root types, children and replacement types; parent candidates can be narrowed without losing truthful totals.
 
-`ACTIVATION_CONFLICT` requires a fresh assignment read. `MODEL_MIGRATION_REQUIRED` means data needs reviewed conversion. `CONSUMER_CONTRACT_VERSION_REQUIRED` and `CONSUMER_CONTRACT_VERSION_DECREASED` refuse incompatible version choices. `CONSUMER_API_REMOVED` is a warning: removing the whole API is allowed and ends its address after activation. A release change can leave open change sets on their old pin and pause incompatible subscriptions. Inspect both consequences.
+`ACTIVATION_CONFLICT` requires a fresh assignment read. `MODEL_MIGRATION_REQUIRED` means data needs reviewed conversion. `CONSUMER_CONTRACT_VERSION_REQUIRED` and `CONSUMER_CONTRACT_VERSION_DECREASED` refuse incompatible version choices. `CONSUMER_API_REMOVED` is a warning: removing the whole API is allowed and ends its address after activation. `CONSUMER_KEPT_VERSION_CHANGED` refuses a retained contract that would read differently; restore its definition and model sources, or stop serving it. Raising the current version again does not fix that retained contract. `CONSUMER_VERSION_STOPPED` warns that a retained version is removed and its consumers receive `404 CONTRACT_VERSION_NOT_FOUND` after activation. Review [earlier contracts](/docs/integrate/consumer-apis/#earlier-contract-versions) before confirming. A release change can leave open change sets on their old pin and pause incompatible subscriptions. Subscriptions on a still-served earlier contract keep their accepted version. Inspect both consequences.
 
 `MODEL_RELEASE_NOT_FOUND`, `MODEL_RELEASE_RETIRED`, `MODEL_RELEASE_IN_USE` and `MODEL_RELEASE_IS_DEFAULT` require choosing or retaining an eligible release and resolving its assignments before removal. `MODEL_RELEASE_VERSION_CONFLICT` needs its current version. `UNSUPPORTED_SCHEMA_VERSION`, `UNSUPPORTED_PINNED_MODEL_SCHEMA`, `PINNED_MODEL_INVALID` and `PINNED_MODEL_UNAVAILABLE` require a supported valid release. Stored-release raising is a maintenance operation with its own refusals (`RELEASE_NOT_RAISABLE`, `RELEASE_RAISE_REFUSED`); see [Model language versions](/docs/model/model-language-versions/).
 
@@ -28,7 +34,11 @@ Read the workspace's current assignment and claim its version and release when a
 
 ## Migrate reviewed data
 
-Start a workspace migration as a job, inspect conversion, reclassification, loss and refused rows, then confirm the exact reviewed assignment and feed position. Type mappings explain which old types and attributes become which new ones; unmapped content can be lost. Accept loss explicitly only after reviewing it. Execution converts and changes the workspace's release in one transaction.
+Start a [workspace migration](/docs/api/?api=management#tag/workspaces) as a job using the
+draft's proposed mappings when available. Keep its relationship renames, splits, list conversions,
+named destination applications and draft reference with the type mappings; a type mapping alone
+does not express all of these changes. Inspect converted, reclassified, created, lost and refused
+items, then confirm the exact reviewed assignment and feed position. Type mappings explain which old types and attributes become which new ones; unmapped content can be lost. Accept loss explicitly only after reviewing it. Execution converts and changes the workspace's release in one transaction.
 
 `INVALID_MIGRATION_MAPPING`, `INVALID_TYPE_MAPPING` and `INVALID_CLEAR_ATTRIBUTES` require a valid mapping and clearing instruction. `MIGRATION_HAS_REFUSALS` requires correcting data and previewing again; `MIGRATION_LOSS_NOT_ACCEPTED` needs a deliberate loss decision. `MIGRATION_REVIEW_STALE` requires a new preview after intervening data or model changes. `MIGRATION_TARGET_IS_CURRENT` needs no migration. `MIGRATION_FAILED` changes nothing from that execution and supplies the failure reference.
 
@@ -54,9 +64,26 @@ A structural diff can use a selected installed baseline while activation compati
 
 ## Draft steps and generated documents
 
-Draft operation requests are bounded by `MODEL_OPERATION_MAX_ITEMS` (default 500). A key omitted for a new element is generated from its name, using lowercase hyphenated ASCII and a numeric suffix on collision. An explicit rename of an unreleased key rewrites references, including consumer definitions. Removing a referenced element can leave issues to repair in those definitions. Inspect diagnostics after every step.
+Draft operation requests are bounded by `MODEL_OPERATION_MAX_ITEMS` (default 500). A key omitted for a new element is generated from its name, using lowercase hyphenated ASCII and a numeric suffix on collision. An explicit key change rewrites references in the draft, including consumer definitions.
+For a released key, coordinate integrations naming the old key before migration; the draft's
+migration identifies the consumer APIs of the base release that name it. Removing a referenced element can leave issues to repair in those definitions. Inspect diagnostics after every step.
 
-Draft-only changes to released structures may require migration. A stale draft-version refusal can include up to 100 intervening operations and a continuation to history. Undo respects dependencies and reverses an entire step. A new request or whole-model edit after undo clears redo; installing does not. Installation makes the installed content the draft’s base without changing its content version.
+Changes to released structures apply to the draft; they do not convert stored data. Read
+`GET /model-drafts/{id}/migration` through the
+[model-authoring reference](/docs/api/?api=management#tag/model%20administration) to obtain the
+migration derived from the effective steps and the two models. Undo removes a step's contribution;
+redo restores it. The proposal is computed on every read, rather than stored separately.
+Request a workspace-specific check to inspect expected moves, creations, losses and refusals.
+A whole-model replacement can hide element identity changes; review the returned notes and mappings.
+
+Installation makes the installed release the draft's base. To read the intended migration afterwards,
+use `againstReleaseId` for the workspace's current release and `toReleaseId` for the installed target.
+Start the [workspace migration](/docs/api/?api=management#tag/workspaces) with that proposal and
+retain the draft reference so a client can show its proposed rows. Follow the operation's request
+contract for the mapping options. Review first, confirm second; installation alone activates nothing.
+Activation still refuses `MODEL_MIGRATION_REQUIRED` when the data needs a migration that has not run.
+
+A stale draft-version refusal can include up to 100 intervening operations and a continuation to history. Undo respects dependencies and reverses an entire step. A new request or whole-model edit after undo clears redo; installing does not. Installation makes the installed content the draft’s base without changing its content version.
 
 The outline remains useful while a draft is invalid: it shows what structure can be read and attaches diagnostics to elements. A compiled draft model supplies placements but no records; reads of real records still use a running workspace model. A new type therefore has no live sample merely because its draft can be previewed.
 
@@ -64,7 +91,13 @@ For a consumer declaration, the draft offers its authored and expanded definitio
 
 ## Review conversions and loss
 
-Migration previews distinguish conversion, reclassification, loss and refusal. A target lacking a source type can lose its records; a type moving to an application must have an unambiguous destination or an explicit type mapping. Mapping named attribute sources takes precedence over same-key fallback. Records that survive retain their public identity and history; publications retain their original release.
+Migration previews distinguish conversion, reclassification, creation, loss and refusal.
+Splits create related records holding the moved values; a many-to-one split shares records with
+identical moved values. List conversions create one record per distinct value and relationships
+from the source records. The carried values leave the source records. Moving an attribute
+attachment between types instead lists its source values as loss; it cannot transfer values
+between different records. Top-level moves remove the old parent and containment relationship;
+other parent changes can produce refusals. Relation-key mappings carry existing relationships. A target lacking a source type can lose its records; a type moving to an application must have an unambiguous destination or an explicit type mapping. Mapping named attribute sources takes precedence over same-key fallback. Records that survive retain their public identity and history; publications retain their original release.
 
 Supported value conversions include text and long text, integer to decimal, integral decimal to integer, values to their stored text form and parseable text back to the target type. A date converts to midnight UTC; an instant converts to a date only at midnight UTC. Values can convert to JSON, and text to JSON only when parseable. Review individual losses and refusals instead of assuming a declared conversion succeeds for every value. A migration preview can hold writes to the records being converted until it ends.
 

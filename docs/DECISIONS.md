@@ -1326,8 +1326,9 @@ the hard parts are mapping the workbook onto the model, validation and reviewing
 - **The lifecycles do not change.** The model goes draft → immutable release → activation; data goes
   through an import job, into a change set by default, reviewed on the existing change set review screen.
 - **Operation classes.** Additive operations are always allowed; draft-only ones while their elements are
-  unreleased; changes to released structure are migrations, shown with their impact and enabled in 1.0
-  on the 0.11 migration boundary.
+  unreleased; changes to released structure are migrations, shown with their impact and enabled in 0.13
+  (package MG, moved from 1.0 on 2026-11-09) on the 0.11 migration boundary: the editor applies the step
+  and marks it, the draft states its migration, the workspace migration carries it.
 - **A list is an object type.** Picklists are limited by relation bindings, not by filtering a shared
   list type by a record's name; the model does not reference runtime records.
 - **Structured, not canvas-first.** Drag and drop is a fast path with a keyboard equivalent; layout
