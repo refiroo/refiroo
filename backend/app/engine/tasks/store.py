@@ -76,7 +76,8 @@ def create_task(
 def load_task(session: Session, task_id: str, *, for_update: bool = False) -> AiTask:
     statement = select(AiTask).where(AiTask.public_id == task_id)
     if for_update:
-        statement = statement.with_for_update()
+        # A locked read must see the committed row, not a copy loaded earlier in this session.
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     task = session.scalar(statement)
     if task is None:
         raise not_found(task_id)

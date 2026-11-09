@@ -214,6 +214,9 @@ log.close()
 if "accepted" not in prompt:
     if config.get("early"):
         install(config["both"], name="Early")
+    if "refuses the draft" in prompt and config.get("repair"):
+        held = api("GET", "/model-drafts/" + config["draft"]).json()["version"]
+        api("PATCH", "/model-drafts/" + config["draft"], json={"expectedVersion": held, "model": config["repair"]})
     again = "refuses the draft" in prompt and config.get("fixed")
     proposal = {"draftId": config["fixed"] if again else config["draft"], "summary": "A plan.", "questions": []}
     if config.get("moves") is not None:
@@ -542,6 +545,29 @@ def _proposed(
     task = _ask(world, workspace, words)
     _run(world)
     return _task(world, task)
+
+
+@pytest.mark.journey("J50.45")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_draft_the_session_corrects_in_place_is_checked_as_corrected(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a refused draft, when the session corrects that same draft through the API during its
+    next turn, then the engine checks the corrected draft and the task lands instead of failing."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, parented=True)
+    fixed = ok(world.api.get(f"/model-drafts/{merge.settings['fixed']}"))["model"]
+    merge.settings["repair"] = fixed
+    merge.settings["fixed"] = None
+    (tmp_path / "config.json").write_text(json.dumps(merge.settings))
+    task = _proposed(world, merge.workspace)
+    assert task["state"] == "checked", task["notes"]
+    prompts = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text().splitlines()]
+    sent = [p["prompt"] for p in prompts if "prompt" in p and "refuses the draft" in p["prompt"]]
+    assert len(sent) == 1
 
 
 @pytest.mark.journey("J50.46")

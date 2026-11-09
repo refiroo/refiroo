@@ -1101,7 +1101,11 @@ def _turn(
         failure: tuple[str, str] | None = None
         try:
             task = load_task(session, task_key, for_update=True)
-            held = session.get(ModelDraft, task.draft_id) if task.draft_id is not None else None
+            held = (
+                session.get(ModelDraft, task.draft_id, populate_existing=True)
+                if task.draft_id is not None
+                else None
+            )
             task.design = {
                 **(task.design or {}),
                 # The draft as the turn found it: a stop tells whether the turn had changed it.
@@ -2009,7 +2013,11 @@ def _proposal_landed(
         proposal = None
     draft = (
         session.scalar(
-            select(ModelDraft).where(ModelDraft.public_id == str(proposal.get("draftId")))
+            select(ModelDraft)
+            .where(ModelDraft.public_id == str(proposal.get("draftId")))
+            # The session corrects its draft through the API between rounds: read what is stored,
+            # not the copy this session loaded in an earlier round.
+            .execution_options(populate_existing=True)
         )
         if isinstance(proposal, dict) and proposal.get("draftId") is not None
         else None
