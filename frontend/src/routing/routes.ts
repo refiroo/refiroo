@@ -47,7 +47,9 @@ function matrixQuery(query: URLSearchParams) {
 function viewDefaults(view: ViewDefinition | undefined) {
   return {
     ...DEFAULT_COLLECTION_QUERY,
-    sort: (view?.type === "table" ? view.config.defaultSort : undefined) ?? DEFAULT_COLLECTION_QUERY.sort,
+    sort:
+      (view?.type === "table" || view?.type === "relationTable" ? view.config.defaultSort : undefined) ??
+      DEFAULT_COLLECTION_QUERY.sort,
     pageSize: view?.config.pageSize ?? DEFAULT_COLLECTION_QUERY.pageSize,
   };
 }
@@ -540,14 +542,16 @@ export function parseRoute(
     if (view) {
       const candidateSort = query.get("sort");
       const requestedPageSize = Number(query.get("pageSize"));
-      const tableConfig = view.type === "table" ? view.config : undefined;
+      const tableConfig = view.type === "table" || view.type === "relationTable" ? view.config : undefined;
       // Every column sorts (S4R3 revision), plus the view's further declared sort fields.
       const objectType =
         view.type === "table" && view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
       const allowedSorts = new Set(
-        (objectType && tableConfig
-          ? listSortFields(model, [objectType], tableConfig.columns, tableConfig.sortFields, true)
-          : []
+        (view.type === "relationTable"
+          ? view.config.sortFields
+          : objectType && view.type === "table"
+            ? listSortFields(model, [objectType], view.config.columns, view.config.sortFields, true)
+            : []
         ).flatMap((field) => [field, `-${field}`]),
       );
       // A relationship of the listed type filters whether or not the view declares it (0.16 AG4).

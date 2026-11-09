@@ -45,7 +45,9 @@ Structures:
   ``K`` whose ``K.code`` starts with "OK"; ``Banc`` R→D many-to-many whose ``from`` end takes an ``R``
   with ``R.b`` true and whose ``to`` end a ``D`` under a ``G`` whose name contains "reserved" (any
   case).
-- Views: ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``; ``Vcand`` over
+- Views: ``Vrt`` a relationships table over ``Bnn`` (0.13 RV: ``from:name`` and ``Bnn.weight``
+  filters, four sorts, grouped by ``H``), ``Bassoc`` carries ``Bnn.weight`` and ``Bnn.note`` too (the matrix ``Massoc``);
+  ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``; ``Vcand`` over
   ``Bcand``; the matrix ``Mcand`` over ``Banc`` (R rows, G columns, D cells).
 - ``Capi``: a consumer API exposing ``R``, ``R2`` and ``D`` (generated only): the ``id`` role,
   ``code`` (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default
@@ -175,6 +177,7 @@ def _naming(variant: str) -> dict[str, str]:
         "Bsrc": "branch-lists-token",
         "Vsrc": "branch-token-lists",
         "Mcand": "reserves-by-region",
+        "Vrt": "branch-token-rows",
     }
     if variant == "a":
         return a
@@ -222,8 +225,13 @@ def generated(variant: str) -> Configuration:
         attribute("E.from", "date", features={"filterable": True, "sortable": True}),
         attribute("E.to", "date", features={"filterable": True, "sortable": True}),
         attribute("R2.u", features={**searchable, "unique": True}),
-        attribute("Bnn.weight", "integer", validation={"minimum": 1}),
-        attribute("Bnn.note"),
+        attribute(
+            "Bnn.weight",
+            "integer",
+            validation={"minimum": 1},
+            features={"filterable": True, "sortable": True},
+        ),
+        attribute("Bnn.note", features={"filterable": True, "sortable": True}),
         attribute("Bscope.flag", "boolean"),
         attribute("Bscope.note"),
     ]
@@ -514,6 +522,7 @@ def generated(variant: str) -> Configuration:
             "fromObjectTypeKey": k["R"],
             "toObjectTypeKey": k["D"],
             "cardinality": "many-to-many",
+            "attributeTypeKeys": [k["Bnn.weight"], k["Bnn.note"]],
         },
         {
             "relationTypeKey": k["Bone"],
@@ -598,6 +607,33 @@ def generated(variant: str) -> Configuration:
                 "sourceColumns": ["name", k["H.code"]],
                 "targetDisplayColumns": ["name", k["K.code"]],
                 "candidateSearchFields": ["name", k["K.code"]],
+                "pageSize": 20,
+            },
+        }
+    )
+    # A relationships table over Bnn (0.13 RV): both ends, the relationship's own values, rows
+    # headed by their H record.
+    h_application["views"].append(
+        {
+            "key": k["Vrt"],
+            "name": "Vrt",
+            "type": "relationTable",
+            "config": {
+                "relationTypeKey": k["Bnn"],
+                "fromObjectTypeKey": k["H"],
+                "toObjectTypeKey": k["K"],
+                "fromColumns": ["name", k["H.code"]],
+                "toColumns": ["name", k["K.code"]],
+                "attributeColumns": [k["Bnn.weight"], k["Bnn.note"]],
+                "filterFields": ["from:name", f"relation:{k['Bnn.weight']}"],
+                "sortFields": [
+                    "from:name",
+                    "to:name",
+                    f"relation:{k['Bnn.weight']}",
+                    f"relation:{k['Bnn.note']}",
+                ],
+                "defaultSort": "from:name",
+                "groupBy": "from",
                 "pageSize": 20,
             },
         }

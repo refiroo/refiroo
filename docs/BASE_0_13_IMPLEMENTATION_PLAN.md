@@ -1340,6 +1340,62 @@ has at a site) publish facts about a pairing the same way.
   `test_model_independence` fails on `ai-tasks/designFixture.ts`, which already fails before RA.
 - **Docs.** [CONSUMER_API](CONSUMER_API.md) (sources, related fields, rules, events), two sentences in the guide's
   consumer API pages (the guide build and check pass), CHANGELOG.
+
+## RV: Attributes of the relationship in views
+
+**Status:** Approved by the user on 2026-11-09 (the design, delivered whole; small choices by recommendation).
+Delivered 2026-11-09 (see the record below). Group label "Attributes of the relationship", as 0.13 RA words it.
+
+**What changes.** A relationship's own attributes (the binding's `attributeTypeKeys`) were written only in the
+Edit values dialog. Now:
+
+1. **One shared component**, `RelationAttributes` (`features/objects/relations/`): the fields, the typed values,
+   the save against the relationship's version and the conflict notice, used by the Edit values dialog, a matrix
+   cell and a relationships table.
+2. **Matrix cell.** `relationAttributes` on every cell record (live, change set, publication, history cells, in the
+   same statement); the dialog shows them, edits them (own save, conflict notice), and a link or a create-in-cell
+   sends the values entered.
+3. **Relationships panel.** The attributes of the relation types the panel lists, for the anchor's type and
+   direction, become columns after the related record's, visible by default and listed in the Display menu under
+   "Attributes of the relationship"; empty on a row whose type does not declare them; no sorting by them.
+4. **New view type `relationTable`** ("Relationships table", schema 0.10): configuration, validation with pointers
+   (`application_rules._check_relation_table_view`), the workspace edge list read through the view (`fromObjectId`,
+   `toObjectId`, `filter.<ref>.eq`, `sort`, cursors, positions and seek, `groupCounts`, `relationVersion`, all in SQL,
+   live, in a change set and in a publication), `POST /relations/batch`, the `RelationTableView`, and the editor's
+   **Add a relationships table…**. No migration, no new table.
+
+**Journey cases (from the specification, before the code).** J13.12 (a matrix cell: link with values and read them
+back; a stale edit is refused with `VERSION_CONFLICT`; a change set shows its staged values, live the old),
+J13.13 (a table's filter, sort, groups, paging by cursor and position, in live, a change set and a publication; a
+foreign field refused), J13.14 (a batch sets values on three relationships, values kept, in a change set too; one
+stale or invalid item refuses all, naming each), J33.20 (the table added to a draft, a bad column refused at its
+pointer). Unit: the validation rules, each at its pointer. Frontend: `RelationAttributes`, the panel's columns, the
+cell dialog's link payload and edit, `RelationTableView`, the editor's builders.
+
+**Decisions taken by recommendation.**
+
+| # | Choice | Why |
+| --- | --- | --- |
+| RV-D1 | A batch item's `attributes` are set over the stored values (`null` clears), where `PATCH` replaces | A bulk "set X to v" must not erase the other values |
+| RV-D2 | Matrix values are edited in their own form with their own save and version, not inside the record's form | The record and the relationship have separate versions and one attribute type may serve both |
+| RV-D3 | Filters on a table are equality only, on `filterable` attributes and names; `search` matches either end's name | The brief; the typed operators stay on collections |
+| RV-D4 | A table's end types need not be listed in its application; its source collection is the `from` type | As a mapping grid |
+| RV-D5 | With `groupBy` the group heading stands in the group's first row and the group end's columns leave the rows | A window measures rows by number; a separate heading row would break it |
+| RV-D6 | A refused batch is `409` when a version was stale, else `422` | The caller refreshes on `409` |
+| RV-D7 | The example model's table is over the mapping relationship, which declares no attributes | The starter has no relationship with attributes; adding one is a model decision |
+
+**Checks.** `tests/journeys/test_j13_relation_attributes.py`, J33.20 in `test_j33_operations`,
+`tests/unit/engine/model/validation/test_application_rules.py`; Vitest for the files above; the production build.
+Groups: model, authoring, records, mapping, matrix, contract (the OpenAPI lock, `test_api_journeys`).
+
+**Composable domains (ADR-032).** Generic and opens a door: any binding's attributes show and change in any view of
+any model (a catalogue's price per channel, a rate per listing). No identity, attribute storage, history or
+consumer `match` change; relation set versions and matrix states follow as for any relationship write.
+
+**Still manual / not built.** No sorting of a panel by a relationship attribute; no typed operators in a table's
+filters; the guide has no new prose for the table (guide text comes from Codex); the browser acceptance runner
+(`test:browser`) for the table and the cell dialog is not written.
+
 ## The writing rules
 
 These go into `guide/AGENTS.md` in DOC1; they are the contract between the briefs and the writer.

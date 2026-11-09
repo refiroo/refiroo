@@ -29,6 +29,32 @@ def accepts_field_filters[F: Callable[..., Any]](endpoint: F) -> F:
     return endpoint
 
 
+def field_filters(request: Request) -> list[tuple[str, str, str]]:
+    """Every ``filter.<field>.<operator>=<value>`` of the request, in order."""
+    result: list[tuple[str, str, str]] = []
+    for key, value in request.query_params.multi_items():
+        if not key.startswith("filter."):
+            continue
+        field_operator = key.removeprefix("filter.")
+        if "." not in field_operator:
+            raise api_error(
+                422,
+                "INVALID_FILTER",
+                f"Invalid filter parameter '{key}'",
+                {"path": f"/query/{key}"},
+            )
+        field, operator = field_operator.rsplit(".", 1)
+        if not field or not operator:
+            raise api_error(
+                422,
+                "INVALID_FILTER",
+                f"Invalid filter parameter '{key}'",
+                {"path": f"/query/{key}"},
+            )
+        result.append((field, operator, value))
+    return result
+
+
 def refuse_unknown_parameters(request: Request) -> None:
     """The application-wide dependency: refuse a query parameter the route does not declare. A
     route that needs a token (it declares an action) is left to :func:`refuse_after_authorization`,

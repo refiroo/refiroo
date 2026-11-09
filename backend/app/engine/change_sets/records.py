@@ -38,6 +38,7 @@ from ..records.deletion import (
 )
 from ..records.feed import object_subject
 from ..records.refusals import CHANGE_SET
+from ..records.relation_batch import RelationValues, decide_relation_values
 from ..records.relation_set_versions import (
     SetClaim,
     advance_set_versions,
@@ -728,6 +729,24 @@ def update_change_set_relation(
     row = _written_relation(writes, relation_id)
     session.commit()
     return row
+
+
+def update_change_set_relations(
+    session: Session,
+    change_set_id: str,
+    expected_change_set_version: int,
+    items: list[RelationValues],
+) -> list[ChangeSetRelation]:
+    """Set values on many relationships in a change set as one write, in the order of ``items``;
+    any item refused refuses all of them (``RELATION_BATCH_REFUSED``)."""
+    _change_set, writes, model, lookup = _change_set_relation_lookup(session, change_set_id)
+    decide_relation_values(lookup, model, items)
+    writes.claim(expected_change_set_version)
+    write_change_set(writes, lookup.changes())
+    session.flush()
+    rows = [_written_relation(writes, item.relation_id) for item in items]
+    session.commit()
+    return rows
 
 
 def delete_change_set_relation(

@@ -76,6 +76,7 @@ def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple
             entity.from_object_id,
             entity.to_object_id,
             entity.attributes,
+            entity.version,
             # Who proposed the edge when a person did not (0.16 AP2); only a change set holds one.
             (entity.origin if entity is ChangeSetRelation else _NO_ORIGIN).label("origin"),
         )
@@ -129,6 +130,7 @@ def publication_mapping_projection(session: Session, publication_id: str) -> tup
         PublicationRelation.from_object_id,
         PublicationRelation.to_object_id,
         PublicationRelation.attributes,
+        PublicationRelation.version,
         _NO_ORIGIN.label("origin"),
     ).where(PublicationRelation.publication_id == publication_id)
     return objects.subquery("mapping_objects"), relations.subquery("mapping_relations")
@@ -165,6 +167,7 @@ def context_projection(
         ObjectRelation.from_object_id,
         ObjectRelation.to_object_id,
         ObjectRelation.attributes,
+        ObjectRelation.version,
         _NO_ORIGIN.label("origin"),
     ).subquery("mapping_relations")
     return objects, relations

@@ -52,6 +52,11 @@ def renamed_model(
             head, _, tail = value.partition(":")
             if head == "related" and tail in names:
                 return f"{head}:{names[tail]}"
+            # A relationships table's places (0.13 RV): ``from:<field>``, ``to:<field>``,
+            # ``relation:<attribute>``, a sort with a leading ``-``.
+            sign = "-" if head.startswith("-") else ""
+            if head.removeprefix("-") in _PLACES and tail in names:
+                return f"{value[: len(sign) + len(head.removeprefix('-')) + 1]}{names[tail]}"
             if head == "ancestor":
                 # ``ancestor:<type>`` or, in a consumer projection, ``ancestor:<type>.<field>``.
                 type_key, dot, field = tail.partition(".")
@@ -77,6 +82,7 @@ def renamed_model(
 # Properties whose value is a map keyed by model keys: a sort per child type, and a consumer API's
 # public names.
 _KEYED_MAPS = {"childSort", "publicNames"}
+_PLACES = {"from", "to", "relation"}
 # Properties naming something local to a consumer API, never a model key: a field's role, a related
 # block or filter a part refers to by name, and a filter's routes (``object.related`` itself is a
 # map, renamed within).

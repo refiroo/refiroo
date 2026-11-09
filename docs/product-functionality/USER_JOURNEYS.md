@@ -288,15 +288,36 @@ The containment relationship is not edited here: it follows the record's parent 
   candidates offered) or deletes it from its cell; one that holds several edits the set in a
   dialog of records ticked, saved as one all-or-nothing batch of the records added and removed.
   Containment and required ownership show no icons: the engine refuses to move or unlink them.
+- **J13.12 The relationship's values in a matrix cell** (0.13 RV): a matrix over a binding that
+  declares attributes shows a linked record's relationship values, version included, in the cell's
+  dialog under "Attributes of the relationship"; a link or create-in-cell sends the values typed
+  there, and an edit claims the relationship's version (`409 VERSION_CONFLICT` when it moved, the
+  current relationship shown). In a change set the dialog reads and writes the change set's values;
+  in a publication, on a read-only row or without the right to write there is nothing to edit.
+- **J13.13 A relationships table** (0.13 RV): a view of type `relationTable` lists one binding's
+  relationships as rows: both records' columns, the relationship's attribute columns (shown, and
+  edited in the cell, with the Edit values dialog's checks), filters on its declared fields,
+  sorting on its column headers, rows headed by their `from` or `to` record with the group's
+  count, and scrolling over any number of rows by cursor or position. The same rows are read live, in
+  a change set and in a publication. The Relationships panel of a record shows the attributes of the
+  relationships it lists as columns too.
+- **J13.14 Values on many relationships at once** (0.13 RV): in a relationships table the rows
+  ticked get one attribute set to one value in one request; every item names its relationship's
+  version, and one stale version, unknown relationship or invalid value refuses the whole request,
+  naming each item that failed. The values are those of the relationships, kept as they were
+  except the one set.
 
 **Refusals:** `422 UNKNOWN_RELATION_TYPE`, `422 INVALID_RELATION_PAIR`, `422 RELATION_ENDPOINT_MISSING`,
 `422 RELATION_WRONG_SCOPE`, `422 UNKNOWN_RELATION_ATTRIBUTES`, `422 IMMUTABLE_RELATION`,
 `409 CARDINALITY_VIOLATION`, `409 DUPLICATE_RELATION_SCOPE`, `409 RELATION_SET_VERSION_CONFLICT`,
 `422 RELATION_SET_CLAIM_INCOMPLETE`, `422 REQUIRED_RELATION`, `409 VERSION_CONFLICT`,
-`409 DUPLICATE_RELATION`, `404 RELATION_NOT_FOUND`, `422 RELATION_CANDIDATE_REFUSED` (0.9 K7).
+`409 DUPLICATE_RELATION`, `404 RELATION_NOT_FOUND`, `422 RELATION_CANDIDATE_REFUSED` (0.9 K7),
+`409`/`422 RELATION_BATCH_REFUSED`, `422 DUPLICATE_BATCH_ITEMS`, `413 BATCH_TOO_LARGE` (J13.14),
+`422 RELATION_TABLE_VIEW_REQUIRED`, `422 RELATION_TABLE_BINDING_FIXED`, `422 INVALID_FILTER`,
+`422 INVALID_SORT` (J13.13).
 
 **Evidence today:** `test_relations`, `test_relation_set_versions`, `test_rule_parity`,
-`test_translations`, `test_pg3_concurrency`.
+`test_translations`, `test_pg3_concurrency`; J13.12–J13.14 `test_j13_relation_attributes`.
 
 ### J14 — Build and change a hierarchy
 
@@ -914,6 +935,12 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   the original's figures, and one undo takes it back; undoing an earlier `setValueMap` leaves the later maps in
   place. The operations body is described in `/openapi.json` by one schema per public kind, discriminated by `kind`;
   a kind added to the registry without one fails the contract check.
+- **J33.20 Add a relationships table (0.13 RV)**: an application's Views section adds a relationships
+  table over any declared binding that is not a containment (**Add a relationships table…**): the columns
+  of each end, the binding's own attributes as columns, how the rows are headed; filters and sorts follow
+  from them, and only what validation accepts is offered. A table reads in the sidebar as a lens of its
+  `from` type's collection. Removing it takes along the types only it needed. A table over a relationship
+  removed later goes with it, as a matrix does.
 
 **Refusals:** `422 INVALID_OPERATION`,
 `409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
@@ -928,7 +955,7 @@ followed on a view's new key, removed with its view, refused),
 configurations each); J33.15 through the API: `test_j33_operations` (a three-level branch moved to
 the top of another application, then under a type there, and undone; the refusals); every kind and
 its inverse, every type moved to every other application keeping the draft valid, a tree's top given a
-parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. J33.16 and J33.17 through the API: `test_j33_operations`; J33.19 through the API: `test_j33_migration_in_editor` (two configurations each), the unit tests of `authoring/draft_migration.py` and, in the browser, `test:browser:authoring-mg`; in the browser: `test:browser:authoring-matrix`
+parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. J33.16 and J33.17 through the API: `test_j33_operations`; J33.20: `test_j33_operations` and the unit tests of `validation/application_rules`; J33.19 through the API: `test_j33_migration_in_editor` (two configurations each), the unit tests of `authoring/draft_migration.py` and, in the browser, `test:browser:authoring-mg`; in the browser: `test:browser:authoring-matrix`
 (both designer models). The
 outline: `test_j33_outline` (two configurations each). In the browser: `test:browser:authoring-a4a`
 (the renamed example and generated-b: a type, an attribute, a relation from the matrix, a group,

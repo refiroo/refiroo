@@ -23,7 +23,7 @@ def _collections(application: dict[str, Any]) -> list[str]:
             source = config["rowObjectTypeKey"]
         elif view["type"] == "tree":
             source = config["rootObjectTypeKeys"][0]
-        elif config["direction"] == "outgoing":
+        elif view["type"] == "relationTable" or config["direction"] == "outgoing":
             source = config["fromObjectTypeKey"]
         else:
             source = config["toObjectTypeKey"]

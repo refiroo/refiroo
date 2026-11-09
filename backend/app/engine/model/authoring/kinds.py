@@ -1473,6 +1473,8 @@ def _listed_type(view: dict[str, Any]) -> str | None:
         return config.get("rowObjectTypeKey")
     if view.get("type") == "tree":
         return next(iter(config.get("rootObjectTypeKeys") or []), None)
+    if view.get("type") == "relationTable":
+        return config.get("fromObjectTypeKey")
     return config.get("fromObjectTypeKey") if config.get("direction") == "outgoing" else config.get("toObjectTypeKey")
 
 

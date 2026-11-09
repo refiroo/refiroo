@@ -52,7 +52,7 @@ frontend for each.
 Users move between model-defined applications and their collections in one application browser.
 Navigation, record types, fields, relationships, collection views and detail layouts are read from the
 installed model; the runtime does not recognise the example applications' names. A collection offers
-the views declared over its record type as lenses: table, mapping grid, relation matrix and tree. A
+the views declared over its record type as lenses: table, mapping grid, relation matrix, relationships table and tree. A
 record's detail page is composed of configured panels (fields, children, relationships, tables,
 hierarchy, history), with a sensible default when the model declares none.
 
@@ -381,6 +381,22 @@ language, each cell current, missing, inactive or held only in history, with its
 the record type's colour. It filters to gaps across the
 whole list. From a cell the steward creates, corrects or restores a translation, live or in a change
 set, and the same view links and unlinks system values.
+
+### Attributes of the relationship in views
+
+A relationship can carry values of its own (a weight, a flag, a note) that its type declares. A
+relation matrix cell shows them for each linked record under "Attributes of the relationship", offers
+them when a record is linked or created in the cell, and edits them against the relationship's
+version, as the Edit values dialog does. A record's Relationships panel shows them as columns after
+the related record's, which the Display menu can hide.
+
+A relationships table lists one declared relationship type's relationships as rows: both records'
+columns and the relationship's values, filters, sorting on the column headers, rows headed by their
+`from` or `to` record with a count, and scrolling over any number of rows. A value is edited in its
+cell and saved as it is left; ticked rows get one value set in one request that either changes every
+row or none, naming the rows that refused. Nothing to edit is offered where the data cannot be changed
+(a publication, a read-only view, no permission). A model editor adds one from an application's
+Views section.
 
 Evidence: [relation matrix](../../frontend/src/features/objects/RelationMatrixView.tsx),
 [A5 runner](../../frontend/e2e/a5-matrix-acceptance.mjs),

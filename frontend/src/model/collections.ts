@@ -17,6 +17,7 @@ export function viewSourceObjectTypeKey(view: ViewDefinition): string {
   if (view.type === "table") return view.objectTypeKey;
   if (view.type === "relationMatrix") return view.config.rowObjectTypeKey;
   if (view.type === "tree") return view.config.rootObjectTypeKeys[0];
+  if (view.type === "relationTable") return view.config.fromObjectTypeKey;
   return view.config.direction === "outgoing" ? view.config.fromObjectTypeKey : view.config.toObjectTypeKey;
 }
 

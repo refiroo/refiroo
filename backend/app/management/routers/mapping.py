@@ -31,6 +31,7 @@ from ..projections.mapping import (
     target_details,
     validate_binding,
 )
+from ..query_parameters import accepts_field_filters, field_filters
 from ..schemas.jobs import JobResponse
 from ..schemas.mapping import (
     MappingCandidatePage,
@@ -121,9 +122,14 @@ class EdgeListQuery:
     publication_id: str | None
     search: str | None
     page_size: int | None
+    from_object_id: str | None = None
+    to_object_id: str | None = None
+    sort: str | None = None
+    field_filters: tuple[tuple[str, str, str], ...] = ()
 
 
 def edge_list_query(
+    request: Request,
     workspace_key: str,
     application_key: str | None = Query(default=None, alias="applicationKey"),
     view_key: str | None = Query(default=None, alias="viewKey"),
@@ -135,6 +141,21 @@ def edge_list_query(
     publication_id: str | None = Query(default=None, alias="publicationId"),
     search: str | None = Query(default=None, max_length=500),
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    from_object_id: str | None = Query(
+        default=None, alias="fromObjectId", description="Only relationships from this record"
+    ),
+    to_object_id: str | None = Query(
+        default=None, alias="toObjectId", description="Only relationships to this record"
+    ),
+    sort: str | None = Query(
+        default=None,
+        description=(
+            "A relationships table's sort field, one of the view's sortFields (from:<field>,"
+            " to:<field> or relation:<attribute>); prefix '-' for descending; the view's"
+            " defaultSort when omitted. Needs applicationKey and viewKey naming a relationships"
+            " table"
+        ),
+    ),
 ) -> EdgeListQuery:
     if change_set_id and publication_id:
         raise api_error(
@@ -154,6 +175,10 @@ def edge_list_query(
         publication_id,
         search,
         page_size,
+        from_object_id,
+        to_object_id,
+        sort,
+        tuple(field_filters(request)),
     )
 
 
@@ -161,7 +186,7 @@ EdgeList = Annotated[EdgeListQuery, Depends(edge_list_query)]
 
 
 def edge_list(
-    session: DbSession, query: EdgeListQuery, paging: PageQuery, scope: str
+    session: DbSession, query: EdgeListQuery, paging: SeekablePageQuery, scope: str
 ) -> MappingListPage:
     return list_mappings(
         session,
@@ -176,18 +201,47 @@ def edge_list(
         to_object_type_key=query.to_object_type_key,
         direction=query.direction,
         search=query.search,
+        from_object_id=query.from_object_id,
+        to_object_id=query.to_object_id,
+        sort=query.sort,
+        field_filters=list(query.field_filters),
         page=paging,
         page_size=query.page_size,
     )
 
 
-@router.get("/relations", response_model=MappingListPage, tags=["relations"])
+@router.get(
+    "/relations",
+    response_model=MappingListPage,
+    tags=["relations"],
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "filter.<field>.<operator>",
+                "in": "query",
+                "required": False,
+                "description": (
+                    "Repeatable, on a relationships table (applicationKey and viewKey naming one)"
+                    " only: filter.<ref>.eq=<value>, <ref> one of the view's filterFields"
+                    " (from:<field>, to:<field>, relation:<attribute>). Equalities on one field"
+                    " are alternatives; different fields all must hold"
+                ),
+                "schema": {"type": "string"},
+            }
+        ]
+    },
+)
+@accepts_field_filters
 @requires("records.read", at=WORKSPACE_PATH)
 def get_workspace_relations(
-    session: DbSession, query: EdgeList, paging: PageQuery
+    session: DbSession, query: EdgeList, paging: SeekablePageQuery
 ) -> MappingListPage:
     """The workspace edge list: every relation of any type, in live data, a change set or a
-    publication. ``GET /mappings``, the same list under another name, was removed (H4c, D-1)."""
+    publication. ``GET /mappings``, the same list under another name, was removed (H4c, D-1).
+    With the applicationKey and viewKey of a relationships table it lists that view's rows: the
+    ends' ``fromColumns`` and ``toColumns``, each row's ``relationVersion``, ``sort`` and the
+    field filters over the view's ``sortFields`` and ``filterFields``, and ``groupCounts`` with
+    ``groupBy``."""
     return edge_list(session, query, paging, "workspace-relations")
 
 

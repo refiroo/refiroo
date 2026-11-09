@@ -286,6 +286,7 @@ groups views by their source object type and presents them as lenses of one cont
 - an outgoing `mappingGrid` uses `fromObjectTypeKey`;
 - an incoming `mappingGrid` uses `toObjectTypeKey`;
 - a `relationMatrix` uses `rowObjectTypeKey`;
+- a `relationTable` uses `fromObjectTypeKey`;
 - a `tree` uses its first `rootObjectTypeKeys` entry.
 
 This is a backwards-compatible presentation rule, not a new model field. It lets an arbitrary
@@ -296,7 +297,7 @@ declared one by one; from schema 0.10 an application may arrange them in navigat
 ([below](#navigation-groups-navigation-schema-010)).
 
 Schema 0.5 supports the strict `table` contract. Schema 0.6 adds the `mappingGrid` contract for
-mapping coverage views, and schema 0.7 the `relationMatrix` and `tree` contracts. Each view type has an extra-forbidden configuration that rejects unknown
+mapping coverage views, and schema 0.7 the `relationMatrix` and `tree` contracts, and schema 0.10 the `relationTable` contract (0.13 RV). Each view type has an extra-forbidden configuration that rejects unknown
 properties. Configuration refers to stable object, attribute and relation keys—never backend URLs or
 database IDs.
 
@@ -515,6 +516,50 @@ read `incoming` applies neither. Base 0.8 A2 delivers the
 browser lens: a grid of the rows by the column records, each cell's state with an icon and a label,
 a Filter popover for the columns shown and a cell state, and a cell dialog offering only the view's
 `cellActions`.
+
+### Relationships table view (`type: "relationTable"`, schema 0.10, 0.13 RV)
+
+A relationships table lists one declared binding's relationships, one row each: both records'
+columns, the relationship's own attributes (the binding's `attributeTypeKeys`) as columns, filters,
+sorting and optional heading of the rows by their `from` or `to` record. It is a generic view: any
+application may declare it over any non-containment binding.
+
+```json
+{
+  "key": "system-value-mappings",
+  "name": "System value mappings",
+  "type": "relationTable",
+  "config": {
+    "relationTypeKey": "system-value-maps-to-master",
+    "fromObjectTypeKey": "system-value",
+    "toObjectTypeKey": "master-value",
+    "fromColumns": ["name", "value-code"],
+    "toColumns": ["name", "value-code"],
+    "attributeColumns": [],
+    "filterFields": ["from:active", "to:active"],
+    "sortFields": ["from:name", "from:value-code", "to:name", "to:value-code"],
+    "defaultSort": "from:name",
+    "groupBy": "to",
+    "pageSize": 20
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey` | A binding declared in `objectTypeRelations`; the relation type is not a containment |
+| `fromColumns`, `toColumns` | `name` or a scalar attribute attached to that end's type; non-empty, unique |
+| `attributeColumns` | Attribute types the binding declares in `attributeTypeKeys`; may be empty; unique |
+| `filterFields` | `from:<field>`, `to:<field>` (`name` or a scalar attribute of that end's type) or `relation:<attribute>`; an attribute must be `filterable`; unique; may be empty |
+| `sortFields` | The same references; any non-JSON attribute; non-empty, unique |
+| `defaultSort` | One of `sortFields`, `-` for descending |
+| `groupBy` | `from`, `to` or absent: the rows stand under their record with the group's count |
+| `pageSize` | 1–100 |
+
+Each failing reference is reported at its own pointer (`…/config/attributeColumns/0`,
+`…/config/filterFields/1`). The rows are read from the workspace edge list with the view's
+`applicationKey` and `viewKey` ([API](API.md#relationships-table-rows-and-batch-values-rv)), live, in a
+change set and in a publication.
 
 ### Tree view (`type: "tree"`, schema 0.7)
 

@@ -27,8 +27,16 @@ import { objectTypeTile } from "@/model/hues";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { columnLabel, StateMark, stateLabel, type MatrixBinding } from "@/features/objects/relationMatrixStates";
+import {
+  RelationAttributes,
+  RelationConflictNotice,
+  relationAttributeTypes,
+  relationValuesFromForm,
+  useRelationValues,
+} from "@/features/objects/relations/RelationAttributes";
 import type {
   ApplicationDefinition,
+  AttributeTypeDefinition,
   EngineModel,
   ObjectAttributeInput,
   ObjectTypeDefinition,
@@ -42,9 +50,15 @@ import type {
   RelationMatrixViewDefinition,
 } from "@/types";
 
+/** What a new relationship is given: the values entered, leaving out those left empty. */
+const setValues = (values: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null));
+
 type Mode =
   | { kind: "view" }
   | { kind: "edit"; recordId: string }
+  /** The relationship's own values of one linked record (0.13 RV). */
+  | { kind: "values"; recordId: string }
   | { kind: "create"; prefill?: Record<string, unknown> }
   | { kind: "link" }
   | { kind: "unlink"; recordId: string };
@@ -85,6 +99,19 @@ export function RelationMatrixCellDialog({
   const cellType = objectTypeFor(model, config.cellObjectTypeKey)!;
   const rowType = objectTypeFor(model, config.rowObjectTypeKey)!;
   const can = (action: RelationMatrixCellAction) => actions.includes(action);
+  // The attributes the binding gives its relationships, edited wherever the cell can be written at
+  // all: the row, the relationship and the permission follow `actions` (read-only, publication).
+  const relationAttributes = relationAttributeTypes(
+    model,
+    model.objectTypeRelations.find(
+      (item) =>
+        item.relationTypeKey === config.relationTypeKey &&
+        item.fromObjectTypeKey ===
+          (config.direction === "outgoing" ? config.rowObjectTypeKey : config.cellObjectTypeKey) &&
+        item.toObjectTypeKey === (config.direction === "outgoing" ? config.cellObjectTypeKey : config.rowObjectTypeKey),
+    ),
+  );
+  const writable = actions.length > 0;
   const history = cell.state === "historyOnly";
   const single = (cell.state === "one" || cell.state === "inactive") && cell.records.length === 1;
   const [mode, setMode] = useState<Mode>(() =>
@@ -139,9 +166,13 @@ export function RelationMatrixCellDialog({
 
   const editing = mode.kind === "edit" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
   const unlinking = mode.kind === "unlink" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
+  const valuing = mode.kind === "values" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
   // A re-read after a stale write can drop the record being edited or unlinked; the cell is shown
   // again rather than an empty dialog, and the notice says why.
-  const orphaned = (mode.kind === "edit" && !editing) || (mode.kind === "unlink" && !unlinking);
+  const orphaned =
+    (mode.kind === "edit" && !editing) ||
+    (mode.kind === "unlink" && !unlinking) ||
+    (mode.kind === "values" && !valuing);
   const showing = orphaned ? "view" : mode.kind;
   /** Starts another action from the cell; a notice about an earlier one no longer applies. */
   const choose = (next: Mode) => {
@@ -184,6 +215,7 @@ export function RelationMatrixCellDialog({
                       record={record}
                       fields={config.cellFields}
                       binding={binding}
+                      relationAttributes={relationAttributes}
                     />
                     <div className="matrix-cell-record-actions">
                       {!history && (
@@ -198,6 +230,15 @@ export function RelationMatrixCellDialog({
                           onClick={() => choose({ kind: "edit", recordId: record.id })}
                         >
                           Edit<span className="visually-hidden"> {record.name}</span>
+                        </button>
+                      )}
+                      {!history && writable && relationAttributes.length > 0 && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => choose({ kind: "values", recordId: record.id })}
+                        >
+                          Edit relationship values<span className="visually-hidden"> of {record.name}</span>
                         </button>
                       )}
                       {!history && can("unlink") && (
@@ -253,51 +294,83 @@ export function RelationMatrixCellDialog({
         )}
 
         {editing && (
-          <CellRecordForm
-            key={editing.id}
-            model={model}
-            cellType={cellType}
-            fields={config.cellFields}
-            values={{ name: editing.name, ...editing.fields }}
-            submitLabel="Save"
-            saving={saving}
-            onDirty={() => setDirty(true)}
-            onCancel={single ? onClose : back}
-            cancelLabel={single ? "Cancel" : "Back"}
-            extra={
-              <>
-                {can("unlink") && single && (
-                  <button
-                    type="button"
-                    className="danger-ghost"
-                    disabled={saving}
-                    onClick={() => setMode({ kind: "unlink", recordId: editing.id })}
-                  >
-                    Unlink
+          <>
+            <CellRecordForm
+              key={editing.id}
+              model={model}
+              cellType={cellType}
+              fields={config.cellFields}
+              values={{ name: editing.name, ...editing.fields }}
+              submitLabel="Save"
+              saving={saving}
+              onDirty={() => setDirty(true)}
+              onCancel={single ? onClose : back}
+              cancelLabel={single ? "Cancel" : "Back"}
+              extra={
+                <>
+                  {can("unlink") && single && (
+                    <button
+                      type="button"
+                      className="danger-ghost"
+                      disabled={saving}
+                      onClick={() => setMode({ kind: "unlink", recordId: editing.id })}
+                    >
+                      Unlink
+                    </button>
+                  )}
+                  <button type="button" className="ghost" onClick={() => onOpenRecord(editing.id, cellType.key)}>
+                    Open {editing.name}
                   </button>
-                )}
-                <button type="button" className="ghost" onClick={() => onOpenRecord(editing.id, cellType.key)}>
-                  Open {editing.name}
-                </button>
-              </>
-            }
-            onSubmit={(values) => {
-              const attributes = values.attributes.filter(
-                ({ attributeTypeKey, value }) =>
-                  JSON.stringify(value ?? null) !== JSON.stringify(editing.fields[attributeTypeKey] ?? null),
-              );
-              const name = values.name !== undefined && values.name !== editing.name ? values.name : undefined;
-              if (!attributes.length && name === undefined) {
-                onClose();
-                return;
+                </>
               }
-              void run(() =>
-                api.updateObject(cellType.key, editing.id, {
-                  expectedVersion: editing.version,
-                  ...(name !== undefined ? { name } : {}),
-                  ...(attributes.length ? { attributes } : {}),
-                }),
-              );
+              onSubmit={(values) => {
+                const attributes = values.attributes.filter(
+                  ({ attributeTypeKey, value }) =>
+                    JSON.stringify(value ?? null) !== JSON.stringify(editing.fields[attributeTypeKey] ?? null),
+                );
+                const name = values.name !== undefined && values.name !== editing.name ? values.name : undefined;
+                if (!attributes.length && name === undefined) {
+                  onClose();
+                  return;
+                }
+                void run(() =>
+                  api.updateObject(cellType.key, editing.id, {
+                    expectedVersion: editing.version,
+                    ...(name !== undefined ? { name } : {}),
+                    ...(attributes.length ? { attributes } : {}),
+                  }),
+                );
+              }}
+            />
+            {writable && relationAttributes.length > 0 && (
+              <RelationValuesForm
+                key={`${editing.relationId}:${editing.relationVersion}`}
+                attributes={relationAttributes}
+                record={editing}
+                workspaceKey={workspaceKey}
+                busy={saving}
+                onDirty={() => setDirty(true)}
+                onSaved={async () => {
+                  setDirty(false);
+                  await onSaved();
+                }}
+              />
+            )}
+          </>
+        )}
+
+        {valuing && (
+          <RelationValuesForm
+            key={`${valuing.relationId}:${valuing.relationVersion}`}
+            attributes={relationAttributes}
+            record={valuing}
+            workspaceKey={workspaceKey}
+            busy={saving}
+            onDirty={() => setDirty(true)}
+            onCancel={back}
+            onSaved={async () => {
+              setDirty(false);
+              await onSaved();
             }}
           />
         )}
@@ -311,6 +384,7 @@ export function RelationMatrixCellDialog({
             row={row}
             column={column}
             cellType={cellType}
+            relationAttributes={writable ? relationAttributes : []}
             prefill={mode.prefill}
             saving={saving}
             onDirty={() => setDirty(true)}
@@ -330,15 +404,17 @@ export function RelationMatrixCellDialog({
             cellType={cellType}
             rowType={rowType}
             binding={binding}
+            relationAttributes={relationAttributes}
             saving={saving}
             onCancel={back}
-            onLink={(candidate) =>
+            onDirty={() => setDirty(true)}
+            onLink={(candidate, values) =>
               void run(() =>
                 api.createRelation({
                   relationTypeKey: config.relationTypeKey,
                   fromObjectId: config.direction === "outgoing" ? row.row.id : candidate.id,
                   toObjectId: config.direction === "outgoing" ? candidate.id : row.row.id,
-                  attributes: {},
+                  attributes: values,
                   expectedRelationSetVersion: row.relationSetVersion,
                   relationSetDirection: config.direction,
                 }),
@@ -415,12 +491,14 @@ function RecordSummary({
   record,
   fields,
   binding,
+  relationAttributes,
 }: {
   model: EngineModel;
   objectTypeKey: string;
   record: RelationMatrixCellRecord;
   fields: string[];
   binding: MatrixBinding;
+  relationAttributes: AttributeTypeDefinition[];
 }) {
   return (
     <div className="matrix-record-summary">
@@ -443,13 +521,75 @@ function RecordSummary({
             </div>
           ))}
       </dl>
+      <RelationAttributes
+        attributes={relationAttributes}
+        relation={{ attributes: record.relationAttributes ?? {} }}
+        mode="display"
+      />
     </div>
+  );
+}
+
+/**
+ * The relationship's own values of one linked record, saved against the relationship's version as
+ * the Edit values dialog saves them; a conflict shows the relationship as it is saved now.
+ */
+function RelationValuesForm({
+  attributes,
+  record,
+  workspaceKey,
+  busy,
+  onDirty,
+  onCancel,
+  onSaved,
+}: {
+  attributes: AttributeTypeDefinition[];
+  record: RelationMatrixCellRecord;
+  workspaceKey: string;
+  busy: boolean;
+  onDirty: () => void;
+  onCancel?: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const edit = useRelationValues({ id: record.relationId, version: record.relationVersion }, workspaceKey);
+  const pending = busy || edit.saving;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (await edit.save(relationValuesFromForm(event.currentTarget, attributes))) await onSaved();
+  }
+  return (
+    <form className="matrix-cell-form dialog-form relation-values-form" onSubmit={submit} onChange={onDirty}>
+      <RelationAttributes
+        attributes={attributes}
+        relation={{ attributes: record.relationAttributes ?? {} }}
+        mode="edit"
+      />
+      {edit.current && <RelationConflictNotice attributes={attributes} current={edit.current} />}
+      {edit.error && (
+        <Notice tone="error" title="The relationship values were not saved" focusOnMount>
+          {edit.error}
+        </Notice>
+      )}
+      <div className="dialog-actions">
+        <span className="dialog-actions-spacer" />
+        {onCancel && (
+          <button type="button" className="secondary" disabled={pending} onClick={onCancel}>
+            Back
+          </button>
+        )}
+        <button className="primary" disabled={pending}>
+          {pending ? "Saving…" : "Save relationship values"}
+        </button>
+      </div>
+    </form>
   );
 }
 
 interface CellValues {
   name?: string;
   attributes: ObjectAttributeInput[];
+  /** The relationship's values, when the form asked for them (a create). */
+  relation: Record<string, unknown>;
 }
 
 /** The view's `cellFields` as a form; `name` is the record's name, anything else an attribute. */
@@ -464,6 +604,7 @@ function CellRecordForm({
   children,
   extra,
   cancelLabel = "Cancel",
+  relationAttributes = [],
   onDirty,
   onCancel,
   onSubmit,
@@ -471,6 +612,8 @@ function CellRecordForm({
   model: EngineModel;
   cellType: ObjectTypeDefinition;
   fields: string[];
+  /** The relationship's attributes asked for beside the record's, a create's (0.13 RV). */
+  relationAttributes?: AttributeTypeDefinition[];
   values: Record<string, unknown>;
   submitLabel: string;
   saving: boolean;
@@ -504,6 +647,7 @@ function CellRecordForm({
           attributeTypeKey: definition.key,
           value: attributeValueFromForm(form, definition),
         })),
+      relation: relationValuesFromForm(form, relationAttributes),
     });
   }
   return (
@@ -524,6 +668,7 @@ function CellRecordForm({
           autoFocus={focusFirstField && index === 0}
         />
       ))}
+      <RelationAttributes attributes={relationAttributes} mode="edit" />
       <div className="dialog-actions">
         {extra}
         <span className="dialog-actions-spacer" />
@@ -546,6 +691,7 @@ function CreateCellRecord({
   row,
   column,
   cellType,
+  relationAttributes,
   prefill,
   saving,
   onDirty,
@@ -559,6 +705,7 @@ function CreateCellRecord({
   row: RelationMatrixRow;
   column: RelationMatrixColumn;
   cellType: ObjectTypeDefinition;
+  relationAttributes: AttributeTypeDefinition[];
   prefill?: Record<string, unknown>;
   saving: boolean;
   onDirty: () => void;
@@ -609,6 +756,7 @@ function CreateCellRecord({
       cellType={cellType}
       fields={config.cellFields}
       values={prefill ?? {}}
+      relationAttributes={relationAttributes}
       submitLabel={`Create ${cellType.name.toLowerCase()}`}
       saving={saving}
       // A submit before the containers answer would have no container; once they do, a single one
@@ -639,7 +787,7 @@ function CreateCellRecord({
               // sees it as incoming.
               direction: config.direction === "outgoing" ? "incoming" : "outgoing",
               otherObjectId: row.row.id,
-              attributes: {},
+              attributes: setValues(values.relation),
             },
           ],
         });
@@ -776,8 +924,10 @@ function LinkCandidates({
   cellType,
   rowType,
   binding,
+  relationAttributes,
   saving,
   onCancel,
+  onDirty,
   onLink,
 }: {
   model: EngineModel;
@@ -789,9 +939,12 @@ function LinkCandidates({
   cellType: ObjectTypeDefinition;
   rowType: ObjectTypeDefinition;
   binding: MatrixBinding;
+  /** The relationship's attributes, asked for with the link (0.13 RV). */
+  relationAttributes: AttributeTypeDefinition[];
   saving: boolean;
   onCancel: () => void;
-  onLink: (candidate: RelationMatrixLinkCandidate) => void;
+  onDirty: () => void;
+  onLink: (candidate: RelationMatrixLinkCandidate, values: Record<string, unknown>) => void;
 }) {
   const api = useDataApi();
   const [search, setSearch] = useState("");
@@ -822,9 +975,11 @@ function LinkCandidates({
   return (
     <form
       className="mapping-dialog"
+      onChange={onDirty}
       onSubmit={(event) => {
         event.preventDefault();
-        if (selected?.eligible) onLink(selected);
+        if (selected?.eligible)
+          onLink(selected, setValues(relationValuesFromForm(event.currentTarget, relationAttributes)));
       }}
     >
       <label className="search-box candidate-search">
@@ -903,6 +1058,7 @@ function LinkCandidates({
         </ScrollWindow>
         {candidates.error && <InlineError message={candidates.error} onRetry={candidates.retry} />}
       </fieldset>
+      <RelationAttributes attributes={relationAttributes} mode="edit" />
       <div className="dialog-actions">
         <span className="dialog-actions-spacer" />
         <button type="button" className="secondary" disabled={saving} onClick={onCancel}>

@@ -500,10 +500,42 @@ export interface RelationMatrixCellRecord {
   version: number;
   relationId: string;
   relationVersion: number;
+  /** The relationship's own stored values (the binding's attributes). */
+  relationAttributes: Record<string, unknown>;
   /** Whether it meets the binding's condition; always true without one. */
   meetsCondition: boolean;
   /** The view's `cellFields`. */
   fields: Record<string, unknown>;
+}
+
+/** One relationship of the workspace edge list; on a relationships table `source` is its `from` record. */
+export interface RelationTableRow {
+  relationId: string;
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  source: MappingObjectSummary;
+  target: MappingObjectSummary;
+  attributes: Record<string, unknown>;
+  /** The relationship's own version, which a change to its attributes claims. */
+  relationVersion: number;
+  mappingVersion: number;
+}
+
+export interface RelationTablePage extends PageNavigation {
+  items: RelationTableRow[];
+  /** With `groupBy`: how many rows each group record on the page holds under the filters. */
+  groupCounts?: Record<string, number>;
+}
+
+/** Values set on many relationships as one write; each names the version it read. */
+export interface RelationBatchInput {
+  items: { id: string; expectedVersion: number; attributes: Record<string, unknown> }[];
+  workspaceKey?: string;
+}
+
+export interface RelationBatchResult {
+  items: RelationRecord[];
+  changeSetVersion?: number | null;
 }
 
 export interface RelationMatrixCell {

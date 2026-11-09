@@ -236,6 +236,46 @@ class RelationMatrixViewDefinition(ModelDefinition):
     config: RelationMatrixViewConfig
 
 
+RelationTableGroup = Literal["from", "to"]
+
+
+class RelationTableViewConfig(ModelDefinition):
+    """A table of one binding's relationships, one row each.
+
+    ``fromColumns`` and ``toColumns`` are ``name`` or a scalar attribute of that end's type;
+    ``attributeColumns`` are attribute types the binding declares (``attributeTypeKeys``). A filter
+    or sort field names its place: ``from:<field>``, ``to:<field>`` (``name`` or a scalar attribute
+    of that end's type) or ``relation:<attribute>``. ``defaultSort`` is one of ``sortFields``, with
+    ``-`` for descending. ``groupBy`` heads the rows by their ``from`` or ``to`` record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    relationTypeKey: str
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    fromColumns: tuple[str, ...] = Field(min_length=1)
+    toColumns: tuple[str, ...] = Field(min_length=1)
+    attributeColumns: tuple[str, ...] = ()
+    filterFields: tuple[str, ...] = ()
+    sortFields: tuple[str, ...] = Field(min_length=1)
+    defaultSort: str
+    groupBy: RelationTableGroup | None = None
+    pageSize: int = Field(ge=1, le=100)
+
+
+class RelationTableViewDefinition(ModelDefinition):
+    """Schema 0.10: the relationships of one binding as rows, with the relationship's own
+    attributes as columns."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str
+    type: Literal["relationTable"]
+    config: RelationTableViewConfig
+
+
 TreeAction = Literal["createChild", "rename", "move", "setAvailability"]
 
 
@@ -267,6 +307,7 @@ ViewDefinition = Annotated[
     TableViewDefinition
     | MappingGridViewDefinition
     | RelationMatrixViewDefinition
+    | RelationTableViewDefinition
     | TreeViewDefinition,
     Field(discriminator="type"),
 ]

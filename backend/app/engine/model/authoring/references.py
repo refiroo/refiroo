@@ -9,8 +9,9 @@ a key, with the kind of element it names:
 - ``objectTypeMapKey``: a member name that is an object type key (a tree's ``childSort``);
 - ``field``: a field reference read against ``types``, the object types it is a field of: a built-in
   field or attribute key, ``ancestor:<type>`` or ``ancestor:<type>.<field>``, or ``related:<key>``
-  and ``related:<key>.<field>`` (a relation type's key or reverse key, ADR-029, 0.9 K5); a sort may
-  lead with ``-``.
+  and ``related:<key>.<field>`` (a relation type's key or reverse key, ADR-029, 0.9 K5), or in a
+  relationships table ``from:<field>``, ``to:<field>`` and ``relation:<attribute>`` (0.13 RV); a sort
+  may lead with ``-``.
 
 ``setKey`` rewrites what the slots name; removals find what names a removed element; D8 reads which
 elements an operation names. Consumer API definitions name elements in their own grammar;
@@ -24,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ....models.schema import DETAIL_FIELD_KEYS as BUILT_IN_FIELDS
+from ..relation_table import PLACES
 from .document import Document, Path, identity
 
 
@@ -151,6 +153,20 @@ def _view(path: Path, view: dict[str, Any]) -> Iterator[Slot]:
         yield from _field(path + ["config"], config, "columnLabelField", (column,))
         yield from _fields(path + ["config"], config, "cellFields", (cell,))
         yield from _fields(path + ["config"], config, "searchFields", (row,))
+    elif kind == "relationTable":
+        yield Slot(path + ["config"], "relationTypeKey", "relationType")
+        yield Slot(path + ["config"], "fromObjectTypeKey", "objectType")
+        yield Slot(path + ["config"], "toObjectTypeKey", "objectType")
+        source, target = config.get("fromObjectTypeKey"), config.get("toObjectTypeKey")
+        yield from _fields(path + ["config"], config, "fromColumns", (source,))
+        yield from _fields(path + ["config"], config, "toColumns", (target,))
+        yield from _strings(path + ["config"], config, "attributeColumns", "attributeType")
+        for name in ("filterFields", "sortFields"):
+            for position, value in enumerate(_list(config, name)):
+                if isinstance(value, str):
+                    yield _placed(path + ["config"], name, value, source, target, position)
+        if isinstance(config.get("defaultSort"), str):
+            yield _placed(path + ["config"], "defaultSort", config["defaultSort"], source, target)
     elif kind == "tree":
         yield from _strings(path + ["config"], config, "rootObjectTypeKeys", "objectType")
         yield from _strings(path + ["config"], config, "objectTypeKeys", "objectType")
@@ -227,6 +243,15 @@ def _field(path: Path, node: dict[str, Any], name: str, types: tuple[Any, ...]) 
         yield Slot(path, name, "field", types=_keys(types))
 
 
+def _placed(
+    path: Path, name: str, value: str, source: Any, target: Any, index: int | None = None
+) -> Slot:
+    """A relationships table's field reference, read against the end its place names."""
+    place = value.removeprefix("-").partition(":")[0]
+    types = _keys((source,) if place == "from" else (target,) if place == "to" else ())
+    return Slot(path, name, "field", index=index, types=types)
+
+
 def _keys(types: tuple[Any, ...]) -> tuple[str, ...]:
     return tuple(key for key in types if isinstance(key, str))
 
@@ -250,6 +275,14 @@ class FieldRef:
 def parse_field(text: str, known_types: set[str], relation_keys: set[str]) -> FieldRef:
     descending = text.startswith("-")
     body = text[1:] if descending else text
+    place, separator, rest = body.partition(":")
+    if separator and rest and place in PLACES:
+        return FieldRef(
+            "placed",
+            name=place,
+            field=FieldRef("plain", name=rest),
+            descending=descending,
+        )
     if body.startswith("ancestor:"):
         head, inner = _split_known(body.removeprefix("ancestor:"), known_types)
         return FieldRef(
@@ -286,6 +319,8 @@ def format_field(ref: FieldRef) -> str:
     sign = "-" if ref.descending else ""
     if ref.kind == "plain":
         return f"{sign}{ref.name}"
+    if ref.kind == "placed" and ref.field:
+        return f"{sign}{ref.name}:{format_field(ref.field)}"
     head = f"ancestor:{ref.type_key}" if ref.kind == "ancestor" else f"related:{ref.relation_key}"
     return f"{sign}{head}" + (f".{format_field(ref.field)}" if ref.field else "")
 
@@ -296,6 +331,10 @@ def field_names(ref: FieldRef) -> Iterator[tuple[str, str]]:
     if ref.kind == "plain":
         if ref.name not in BUILT_IN_FIELDS:
             yield ("attributeType", ref.name)
+    elif ref.kind == "placed":
+        if ref.field is not None:
+            yield from field_names(ref.field)
+        return
     elif ref.kind == "ancestor":
         yield ("objectType", ref.type_key)
     else:
@@ -308,6 +347,8 @@ def rename_field(ref: FieldRef, kind: str, old: str, new: str) -> FieldRef:
     inner = rename_field(ref.field, kind, old, new) if ref.field else None
     if ref.kind == "plain" and kind == "attributeType" and ref.name == old:
         return FieldRef("plain", name=new, descending=ref.descending)
+    if ref.kind == "placed":
+        return FieldRef("placed", name=ref.name, field=inner, descending=ref.descending)
     if ref.kind == "ancestor":
         type_key = new if kind == "objectType" and ref.type_key == old else ref.type_key
         return FieldRef("ancestor", type_key=type_key, field=inner, descending=ref.descending)

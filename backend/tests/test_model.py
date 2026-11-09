@@ -37,6 +37,7 @@ def test_starter_model_is_valid():
         "table",
         "mappingGrid",
         "relationMatrix",
+        "relationTable",
         "tree",
     }
 

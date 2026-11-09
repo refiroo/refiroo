@@ -318,13 +318,19 @@ def id_rows(ids: Sequence[str], name: str) -> Any:
 
 
 def cell_records(
-    scope: CellScope, row_ids: Sequence[str] | None, *, rows_of_type: bool = False
+    scope: CellScope,
+    row_ids: Sequence[str] | None,
+    *,
+    rows_of_type: bool = False,
+    relation_attributes: bool = False,
 ) -> CTE:
     """The rows' related cell records through the binding, one row per relation.
 
     ``row_ids`` drives the statement from the listed rows; ``None`` reads every relation of the
     relation type in the context. ``rows_of_type`` keeps relations whose row end is a record of
     the row type in the context, where the caller has not already chosen such rows.
+    ``relation_attributes`` adds each relation's stored values as ``relation_attributes``; the state
+    rebuild leaves them out, so it does not carry them through its walk.
     """
     shape = scope.shape
     edges = []
@@ -342,6 +348,7 @@ def cell_records(
             select(
                 getattr(relation, arm.id).label("relation_id"),
                 relation.version.label("relation_version"),
+                *([relation.attributes.label("relation_attributes")] if relation_attributes else []),
                 getattr(relation, scope.anchor_end).label("row_id"),
                 getattr(relation, scope.other_end).label("cell_id"),
             ).where(*where)
@@ -356,6 +363,7 @@ def cell_records(
             select(
                 edge.c.relation_id,
                 edge.c.relation_version,
+                *([edge.c.relation_attributes] if relation_attributes else []),
                 edge.c.row_id,
                 edge.c.cell_id,
                 record.name.label("name"),
@@ -381,6 +389,7 @@ def cell_records(
             select(
                 edge.c.relation_id,
                 edge.c.relation_version,
+                *([edge.c.relation_attributes] if relation_attributes else []),
                 edge.c.row_id,
                 edge.c.cell_id,
                 record.column("name").label("name"),

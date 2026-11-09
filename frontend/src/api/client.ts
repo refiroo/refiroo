@@ -131,6 +131,9 @@ import type {
   MappingReplacementRequest,
   MappingReplacementResponse,
   RelationMatrixPage,
+  RelationTablePage,
+  RelationBatchInput,
+  RelationBatchResult,
   RelationMatrixContainerPage,
   RelationMatrixLinkCandidatePage,
   RelationSetClaim,
@@ -356,6 +359,23 @@ export interface MappingCoverageQuery extends PageSelector {
   state?: "mapped" | "unmapped" | "ambiguous";
   /** Only the sources whose target the AI proposed; needs `changeSetId` (0.16 AP2). */
   proposed?: boolean;
+}
+
+/** A relationships table's rows: the workspace edge list read through the view (0.13 RV). */
+export interface RelationTableQuery extends PageSelector {
+  workspaceKey: string;
+  applicationKey: string;
+  viewKey: string;
+  changeSetId?: string;
+  publicationId?: string;
+  search?: string;
+  pageSize?: number;
+  fromObjectId?: string;
+  toObjectId?: string;
+  /** One of the view's `sortFields`, `-` for descending. */
+  sort?: string;
+  /** Equalities on the view's `filterFields`, by field reference (`from:name`, `relation:<attribute>`). */
+  filters?: { field: string; value: string }[];
 }
 
 export interface MappingTargetQuery {
@@ -1684,6 +1704,24 @@ export const api = {
       `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-coverage?${params}`,
     );
   },
+  relationTable: (query: RelationTableQuery) => {
+    const params = new URLSearchParams({ applicationKey: query.applicationKey, viewKey: query.viewKey });
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    if (query.publicationId) params.set("publicationId", query.publicationId);
+    if (query.search) params.set("search", query.search);
+    if (query.fromObjectId) params.set("fromObjectId", query.fromObjectId);
+    if (query.toObjectId) params.set("toObjectId", query.toObjectId);
+    if (query.sort) params.set("sort", query.sort);
+    for (const filter of query.filters ?? []) params.append(`filter.${filter.field}.eq`, filter.value);
+    setPaging(params, query);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    return request<RelationTablePage>(
+      `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/relations?${params}`,
+    );
+  },
+  /** Values set on many relationships as one write; any stale or invalid item refuses all (0.13 RV). */
+  updateRelationBatch: (payload: RelationBatchInput & ChangeSetWriteContext) =>
+    request<RelationBatchResult>("/api/v1/relations/batch", { method: "POST", body: JSON.stringify(payload) }),
   /** Asks the AI provider for targets for a view's unmapped sources: `202` with the queued `aiProposal` job (0.16 AP2). */
   proposeMappingTargets: (workspaceKey: string, body: MappingProposalRequest) =>
     request<Job>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/mapping-proposals`, {

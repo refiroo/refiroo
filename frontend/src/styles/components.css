@@ -3711,6 +3711,99 @@ form .admin-hint {
   display: grid;
   gap: 12px;
 }
+/* The attributes of a relationship (0.13 RV): a group in a dialog, formatted in a cell record. */
+.relation-attributes {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.relation-attributes legend,
+.relation-attributes-heading {
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.relation-attributes dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.relation-attributes dl > div {
+  display: contents;
+}
+.relation-attributes dt {
+  color: var(--text-tertiary);
+}
+.relation-attributes dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.relation-values-form {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+/* A relationships table (0.13 RV). */
+.relation-table-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+.relation-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+}
+.relation-bulk .notice {
+  flex-basis: 100%;
+}
+.relation-group-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0 0 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600;
+}
+.relation-group-band .muted,
+.relation-group-count {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  font-weight: 450;
+}
+.relation-attribute-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.relation-attribute-cell.is-editing {
+  flex-wrap: wrap;
+}
+/* The field's name is its accessible name; in a cell the column says it. */
+.relation-attribute-cell label {
+  font-size: 0;
+  gap: 0;
+}
+.relation-attribute-cell input:not([type="checkbox"]),
+.relation-attribute-cell textarea,
+.relation-attribute-cell select {
+  font-size: 13px;
+  min-width: 6ch;
+}
+.relation-attribute-cell .checkbox span {
+  display: none;
+}
 .dialog form .matrix-create-for {
   margin: 0 0 14px;
 }

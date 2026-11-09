@@ -122,6 +122,31 @@ export interface RelationMatrixViewDefinition {
   };
 }
 
+/**
+ * Schema 0.10: one binding's relationships as rows (0.13 RV). Filter and sort fields name where
+ * they read: `from:<field>`, `to:<field>` (`name` or a scalar attribute of that end's type) or
+ * `relation:<attribute>`; `fromColumns` and `toColumns` name the field alone, and `attributeColumns`
+ * are attribute types the binding declares.
+ */
+export interface RelationTableViewDefinition {
+  key: string;
+  name: string;
+  type: "relationTable";
+  config: {
+    relationTypeKey: string;
+    fromObjectTypeKey: string;
+    toObjectTypeKey: string;
+    fromColumns: string[];
+    toColumns: string[];
+    attributeColumns: string[];
+    filterFields: string[];
+    sortFields: string[];
+    defaultSort: string;
+    groupBy?: "from" | "to" | null;
+    pageSize: number;
+  };
+}
+
 export type TreeAction = "createChild" | "rename" | "move" | "setAvailability";
 
 /** Schema 0.7: a containment hierarchy as a tree, from its root types down through its node types. */
@@ -143,7 +168,11 @@ export interface TreeViewDefinition {
 }
 
 export type ViewDefinition =
-  TableViewDefinition | MappingGridViewDefinition | RelationMatrixViewDefinition | TreeViewDefinition;
+  | TableViewDefinition
+  | MappingGridViewDefinition
+  | RelationMatrixViewDefinition
+  | RelationTableViewDefinition
+  | TreeViewDefinition;
 
 export interface BreadcrumbDefinition {
   showApplication: boolean;

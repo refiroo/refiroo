@@ -5829,6 +5829,57 @@ The page carries the row's `relationSetVersion`, which the link claims. A page c
 statements: one walk down from the column record, the page's values and paths (one lookup per
 hierarchy level), and for candidates their relations and the row's cell.
 
+## Relationships table rows and batch values (RV)
+
+Delivered in 0.13 RV. A relationship carries the attributes its binding declares; three reads and writes
+reach them beyond `GET`/`POST`/`PATCH /relations`.
+
+**Matrix cells.** `GET /workspaces/{key}/relation-matrix` gives each cell record `relationAttributes`,
+the relationship's stored values, beside `relationId` and `relationVersion`, live, in a change set and in
+a publication (including the history-only cells).
+
+**The edge list read through a relationships table.** `GET /workspaces/{key}/relations` with the
+`applicationKey` and `viewKey` of a `relationTable` view ([model contract](APPLICATION_MODEL.md)) lists
+that view's rows. `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey` and `direction` are fixed by
+the view (`422 RELATION_TABLE_BINDING_FIXED` when named). Also:
+
+| Parameter | Meaning |
+| --- | --- |
+| `fromObjectId`, `toObjectId` | Only relationships from or to that record (also on any edge list) |
+| `filter.<ref>.eq=<value>` | Repeatable; `<ref>` is one of the view's `filterFields` (`from:<field>`, `to:<field>`, `relation:<attribute>`); equalities on one field are alternatives, different fields all hold; the value is read in the field's type; `422 INVALID_FILTER` for another field or operator |
+| `sort` | One of the view's `sortFields`, `-` for descending; `defaultSort` when omitted; records without a value come last; `422 INVALID_SORT` |
+| `search` | The name of either end, case-insensitively |
+| `cursor`, `position`, `from`, `includeTotal`, `seek`, `pageSize` | As every collection; `seek` takes a value of the first thing the list is ordered by (the group record's name when `groupBy` is set, else the sort field) |
+
+`sort` and `filter.*` without a relationships table give `422 RELATION_TABLE_VIEW_REQUIRED`. Filtering,
+sorting and paging run in SQL, live, in a change set (`changeSetId`) and in a publication
+(`publicationId`). With `groupBy` the rows are ordered by the group end's name first, then the sort, and
+the page's `groupCounts` give, for each group record on the page, its rows under the filters. Each row is
+the edge list's row with `source` the `from` record and `target` the `to` record, their `fields` the
+view's `fromColumns` and `toColumns`, `attributes`, and `relationVersion`, which a change to the
+attributes claims (`mappingVersion` remains the `from` record's relation set's).
+
+**`POST /relations/batch`** sets attribute values on many relationships in one write:
+
+```json
+{
+  "items": [{ "id": "…", "expectedVersion": 3, "attributes": { "weight": 5, "note": null } }],
+  "workspaceKey": "default"
+}
+```
+
+Each item's `attributes` are set over the relationship's stored values (`null` clears one; other values
+stay), unlike `PATCH`, which replaces them. `changeSetId` with `expectedChangeSetVersion` writes into a
+change set instead; `workspaceKey` names the workspace of live relationships (the default one without
+it). The response gives each relationship in the order of the items, at its new version, and
+`changeSetVersion` in a change set. The items are decided as a single `PATCH` is, in order, and written
+as one set: any stale version or invalid value refuses the whole request with `RELATION_BATCH_REFUSED`
+(`409` when a version was stale, otherwise `422`) whose `details.items` name each failing item by
+`index`, `relationId`, `code`, `message` and `details`, and nothing is written. Also `422
+DUPLICATE_BATCH_ITEMS` (a relationship twice) and `413 BATCH_TOO_LARGE` above `BATCH_MAX_ITEMS`. The
+caller needs the right to write the relationships' types, as for `PATCH`; the relation sets' versions
+and the matrix states follow as for any relationship write.
+
 ## Product 0.8 restructuring API (Milestone C design)
 
 Designed in C0 ([ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back));

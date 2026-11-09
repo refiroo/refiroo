@@ -19,6 +19,13 @@ import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { objectTypeHue } from "@/model/hues";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
+import { formatValue } from "@/ui/formatValue";
+import {
+  RELATION_ATTRIBUTES_LABEL,
+  panelRelationAttributeKeys,
+  relationAttributeColumn,
+  relationAttributeOfColumn,
+} from "@/features/objects/relations/relationAttributeColumns";
 
 const PAGE_SIZE = 50;
 
@@ -49,8 +56,20 @@ export function RelationsPanel({
   const own = writes.permits(object.applicationKey, object.objectTypeKey);
   const live = !changeSet && !publication;
   const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
+  // The attributes of the relationships the panel lists, after the related record's columns, shown
+  // unless hidden: one a relation type of the panel declares for this record's type (0.13 RV).
+  const attributeColumns = useMemo(
+    () =>
+      panelRelationAttributeKeys(
+        model,
+        object.objectTypeKey,
+        panel.config.relationTypeKeys,
+        panel.config.direction,
+      ).map(relationAttributeColumn),
+    [model, object.objectTypeKey, panel.config.relationTypeKeys, panel.config.direction],
+  );
   const display = useTableDisplay(
-    panel.config.columns,
+    [...panel.config.columns, ...attributeColumns],
     `${object.applicationKey}:${object.id}:${panel.key}`,
     showRelationshipColumn ? ["relationship"] : [],
   );
@@ -239,23 +258,38 @@ export function RelationsPanel({
           },
         ]
       : []),
-    ...display.columns.map((column) => ({
-      key: column,
-      label: attributeName(model, column),
-      cell: (item: RelationItem) =>
-        column === linkColumn ? (
-          <button
-            className="cell-link"
-            data-row-focus
-            onClick={() => onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)}
-          >
-            <FieldValue item={item.object} field={column} model={model} />
-          </button>
-        ) : (
-          <FieldValue item={item.object} field={column} model={model} />
-        ),
-    })),
+    ...display.columns.map((column): DataColumn<RelationItem> =>
+      relationAttributeOfColumn(column)
+        ? attributeColumn(column)
+        : {
+            key: column,
+            label: attributeName(model, column),
+            cell: (item) =>
+              column === linkColumn ? (
+                <button
+                  className="cell-link"
+                  data-row-focus
+                  onClick={() => onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)}
+                >
+                  <FieldValue item={item.object} field={column} model={model} />
+                </button>
+              ) : (
+                <FieldValue item={item.object} field={column} model={model} />
+              ),
+          },
+    ),
   ];
+
+  /** A relationship's own attribute as a column: empty on a row whose relation type does not declare it. */
+  function attributeColumn(column: string): DataColumn<RelationItem> {
+    const key = relationAttributeOfColumn(column)!;
+    return {
+      key: column,
+      label: attributeName(model, key),
+      cell: (item) =>
+        allowedFor(item)?.attributeTypeKeys?.includes(key) ? formatValue(item.relation.attributes[key]) : null,
+    };
+  }
 
   /** A row's actions as icon buttons (UA8, U-D15), each named for the record it acts on; a row
    * that cannot be changed here shows a lock giving the reason (U-D19). */
@@ -370,6 +404,8 @@ export function RelationsPanel({
         <TableDisplay
           model={model}
           columns={panel.config.columns}
+          extraColumns={{ legend: RELATION_ATTRIBUTES_LABEL, columns: attributeColumns }}
+          columnLabel={(column) => attributeName(model, relationAttributeOfColumn(column) ?? column)}
           display={display}
           pageSize={pageSize}
           defaultPageSize={PAGE_SIZE}

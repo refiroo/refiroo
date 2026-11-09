@@ -474,6 +474,8 @@ def _collection_of(view: dict[str, Any]) -> Any:
         return config.get("rowObjectTypeKey")
     if kind == "tree":
         return (config.get("rootObjectTypeKeys") or [None])[0]
+    if kind == "relationTable":
+        return config.get("fromObjectTypeKey")
     if config.get("direction") == "outgoing":
         return config.get("fromObjectTypeKey")
     return config.get("toObjectTypeKey")

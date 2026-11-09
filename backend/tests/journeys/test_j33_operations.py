@@ -1194,3 +1194,42 @@ def test_navigation_entries_that_name_nothing_valid_are_refused(world):
         if d["severity"] == "error"
     }
     assert found == {("INVALID_REFERENCE", f"{pointer}/opens/j33-tongue")}, found
+
+
+@pytest.mark.journey("J33.20")
+@pytest.mark.structures("H", "K", "Bnn", "Bnn.weight", "Vrt", "R", "R.u")
+def test_a_relationships_table_is_added_to_a_draft_and_checked(world):
+    """Given the active model with a relationship that carries a value. When a relationships table
+    over it is added to a draft of it. Then the draft is valid and the outline lists the table under
+    its from type's collection; one with a column naming an attribute the relationship does not
+    carry leaves the draft invalid at that column."""
+    draft = _draft_of_active(world)
+    application = world.app("H")
+    table = {
+        "key": "j33-relationship-rows",
+        "name": "Relationship rows",
+        "type": "relationTable",
+        "config": {
+            "relationTypeKey": world.key("Bnn"),
+            "fromObjectTypeKey": world.key("H"),
+            "toObjectTypeKey": world.key("K"),
+            "fromColumns": ["name"],
+            "toColumns": ["name"],
+            "attributeColumns": [world.key("Bnn.weight")],
+            "filterFields": [f"relation:{world.key('Bnn.weight')}"],
+            "sortFields": ["from:name", f"relation:{world.key('Bnn.weight')}"],
+            "defaultSort": "-relation:" + world.key("Bnn.weight"),
+            "groupBy": "to",
+            "pageSize": 20,
+        },
+    }
+    added = ok(_apply(world, draft, draft["version"], {"kind": "addView", "applicationKey": application, "view": table}))
+    assert added["valid"] is True, added["diagnostics"]
+    outline = _outline(world, draft)
+    view = _by_key(_by_key(outline["applications"], application)["views"], table["key"])
+    assert view["type"] == "relationTable" and view["collection"] == world.key("H")
+
+    broken = {**table, "key": "j33-broken-rows", "config": {**table["config"], "attributeColumns": [world.key("R.u")]}}
+    refusal = ok(_apply(world, draft, added["version"], {"kind": "addView", "applicationKey": application, "view": broken}))
+    assert refusal["valid"] is False
+    assert any("attributeColumns/0" in item["path"] for item in refusal["diagnostics"]), refusal["diagnostics"]

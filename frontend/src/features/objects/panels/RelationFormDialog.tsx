@@ -13,14 +13,18 @@ import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage } from "@/api/errors";
 import { candidateHint, candidateScope } from "@/model/candidates";
 import type { RelationChoice } from "@/model/lookup";
-import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem, RelationRecord } from "@/types";
-import { AttributeField } from "@/ui/AttributeField";
-import { attributeValueFromForm } from "@/ui/attributeForm";
+import {
+  RelationAttributes,
+  RelationConflictNotice,
+  relationAttributeTypes,
+  relationValuesFromForm,
+  useRelationValues,
+} from "@/features/objects/relations/RelationAttributes";
+import type { EngineModel, ObjectItem, RelationItem } from "@/types";
 import { Notice } from "@/ui/Notice";
-import { formatValue } from "@/ui/formatValue";
 import { Modal } from "@/ui/Modal";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
@@ -60,26 +64,29 @@ export function RelationFormDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [current, setCurrent] = useState<RelationRecord>();
-  const [relationVersion, setRelationVersion] = useState(existing?.relation.version ?? 1);
+  // Saving an existing relationship's values, and what a version conflict leaves, is the one
+  // implementation a matrix cell and a relationships table use too.
+  const edit = useRelationValues(existing?.relation, object.workspaceKey);
   const choice = choices[choiceIndex];
-  const attributes = (choice?.relation.attributeTypeKeys ?? [])
-    .map((key) => model.attributeTypes.find((item) => item.key === key))
-    .filter((item): item is AttributeTypeDefinition => Boolean(item));
+  const attributes = relationAttributeTypes(model, choice?.relation);
 
-  const finishNavigation = useNavigationGuard(dirty, saving, onClose);
+  const busy = saving || edit.saving;
+  const finishNavigation = useNavigationGuard(dirty, busy, onClose);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!choice || (!existing && !candidate)) return;
+    const values = relationValuesFromForm(event.currentTarget, attributes);
+    if (existing) {
+      if (await edit.save(values)) {
+        finishNavigation();
+        onSaved();
+      }
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      const values = Object.fromEntries(
-        attributes.map((attribute) => [attribute.key, attributeValueFromForm(event.currentTarget, attribute)]),
-      );
-      if (existing)
-        await api.updateRelation(existing.relation.id, { attributes: values, expectedVersion: relationVersion });
-      else if (replacing) await replaceHeld(candidate!, values);
+      if (replacing) await replaceHeld(candidate!, values);
       else
         await api.createRelation({
           relationTypeKey: choice.relation.relationTypeKey,
@@ -91,15 +98,6 @@ export function RelationFormDialog({
       onSaved();
     } catch (cause) {
       setError(errorMessage(cause));
-      if (existing && (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))) {
-        try {
-          const fresh = await api.relation(existing.relation.id, object.workspaceKey);
-          setRelationVersion(fresh.version);
-          setCurrent(fresh);
-        } catch (reloadCause) {
-          setError(errorMessage(reloadCause));
-        }
-      }
       setSaving(false);
     }
   }
@@ -140,6 +138,7 @@ export function RelationFormDialog({
   }
 
   if (!choice) return null;
+  const failure = error || edit.error;
   return (
     <Modal
       title={existing || replacing ? choice.label : setting ? `Set ${choice.label.toLowerCase()}` : "Connect an object"}
@@ -152,7 +151,7 @@ export function RelationFormDialog({
               ? "Set relationship"
               : "Create relationship"
       }
-      busy={saving}
+      busy={busy}
       dirty={dirty}
       onClose={onClose}
     >
@@ -206,42 +205,24 @@ export function RelationFormDialog({
             </fieldset>
           </>
         )}
-        {attributes.map((attribute) => (
-          <AttributeField
-            key={attribute.key}
-            attribute={attribute}
-            value={existing?.relation.attributes[attribute.key]}
-          />
-        ))}
-        {current && (
-          <Notice title={`Current saved relationship (v${current.version})`}>
-            <p>Your input is preserved. Review before saving again.</p>
-            <dl>
-              {attributes.map((attribute) => (
-                <div key={attribute.key}>
-                  <dt>{attribute.name}</dt>
-                  <dd>{formatValue(current.attributes[attribute.key])}</dd>
-                </div>
-              ))}
-            </dl>
-          </Notice>
-        )}
-        {error && (
+        <RelationAttributes attributes={attributes} relation={existing?.relation} mode="edit" />
+        {edit.current && <RelationConflictNotice attributes={attributes} current={edit.current} />}
+        {failure && (
           <Notice tone="error" title="The relationship was not saved" focusOnMount>
-            {error}
+            {failure}
           </Notice>
         )}
         <div className="dialog-actions">
           <button
             type="button"
             className="secondary"
-            disabled={saving}
+            disabled={busy}
             onClick={() => (!dirty || window.confirm("Discard your unsaved changes?")) && onClose()}
           >
             Cancel
           </button>
-          <button className="primary" disabled={saving || (!existing && !candidate)}>
-            {saving ? "Saving…" : existing ? "Save" : replacing ? "Change" : setting ? "Set" : "Create"}
+          <button className="primary" disabled={busy || (!existing && !candidate)}>
+            {busy ? "Saving…" : existing ? "Save" : replacing ? "Change" : setting ? "Set" : "Create"}
           </button>
         </div>
       </form>

@@ -86,6 +86,77 @@ describe("RelationsPanel", () => {
     expect(screen.queryByRole("button", { name: /Add relationship/ })).not.toBeInTheDocument();
   });
 
+  it("shows the attributes of the relationships as columns after the record's own, listed in the chooser (0.13 RV)", async () => {
+    const model = structuredClone(testModel);
+    model.attributeTypes.push(
+      { key: "weight", name: "Weight", valueType: "integer", features: {}, validation: {}, ui: {} },
+      { key: "remark", name: "Remark", valueType: "text", features: {}, validation: {}, ui: {} },
+    );
+    model.relationTypes.push({
+      key: "domain-cites-codelist",
+      reverseKey: "codelist-cited-by-domain",
+      name: "Cites",
+      reverseName: "Cited by",
+      isOriented: true,
+      features: {},
+    });
+    model.objectTypeRelations[0].attributeTypeKeys = ["weight"];
+    model.objectTypeRelations.push({
+      relationTypeKey: "domain-cites-codelist",
+      fromObjectTypeKey: "domain",
+      toObjectTypeKey: "codelist",
+      cardinality: "many-to-many",
+      attributeTypeKeys: ["remark"],
+    });
+    const relation = (id: string, key: string, attributes: Record<string, unknown>) => ({
+      direction: "outgoing" as const,
+      relation: {
+        id,
+        relationTypeKey: key,
+        fromObjectId: domainObject.id,
+        toObjectId: codelistObject.id,
+        attributes,
+        version: 1,
+      },
+      object: codelistObject,
+    });
+    vi.mocked(api.relations).mockResolvedValue({
+      items: [
+        relation("a", "domain-contains-codelist", { weight: 3 }),
+        relation("b", "domain-cites-codelist", { remark: "see also" }),
+      ],
+      nextCursor: null,
+    });
+    render(
+      <RelationsPanel
+        model={model}
+        object={domainObject}
+        panel={{
+          ...panel,
+          config: { ...panel.config, relationTypeKeys: ["domain-contains-codelist", "domain-cites-codelist"] },
+        }}
+        onOpen={vi.fn()}
+      />,
+    );
+    const headers = (await screen.findAllByRole("columnheader")).map((header) => header.textContent?.trim());
+    expect(headers.slice(0, 4)).toEqual(["Relationship", "Name", "Weight", "Remark"]);
+    const [first, second] = screen.getAllByRole("row").filter((row) => row.getAttribute("data-row-key"));
+    expect(within(first).getByText("3")).toBeInTheDocument();
+    expect(within(first).queryByText("see also")).toBeNull();
+    expect(within(second).getByText("see also")).toBeInTheDocument();
+    // No sorting by these columns.
+    expect(screen.queryByRole("button", { name: /^Weight/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Display" }));
+    const group = screen.getByRole("group", { name: "Attributes of the relationship" });
+    expect(
+      within(group)
+        .getAllByRole("checkbox")
+        .map((box) => (box as HTMLInputElement).labels?.[0].textContent),
+    ).toEqual(["Weight", "Remark"]);
+    fireEvent.click(within(group).getByRole("checkbox", { name: "Weight" }));
+    expect(screen.queryByRole("columnheader", { name: /^Weight/ })).toBeNull();
+  });
+
   it("can hide a redundant relationship label and show a configured ancestor", async () => {
     render(
       <RelationsPanel

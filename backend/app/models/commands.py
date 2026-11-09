@@ -142,6 +142,33 @@ class RelationUpdate(BaseModel):
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
+class RelationBatchItem(BaseModel):
+    """One relationship in a batch: its version as the caller read it, and the values to set."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID4
+    expectedVersion: int = Field(ge=1)
+    attributes: dict[str, Any]
+
+
+class RelationBatchUpdate(BaseModel):
+    """Values set on many relationships as one write (0.13 RV).
+
+    Each item's ``attributes`` are set over the relationship's stored values and ``null`` clears
+    one. In live data the relationships are those of ``workspaceKey`` (the default workspace
+    without it); with ``changeSetId`` they are the change set's and ``expectedChangeSetVersion`` is
+    required.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[RelationBatchItem] = Field(min_length=1)
+    workspaceKey: str | None = None
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+
+
 class WorkspaceCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -23,6 +23,8 @@ vi.mock("@/api/client", () => ({
     createObject: vi.fn(),
     updateObject: vi.fn(),
     createRelation: vi.fn(),
+    updateRelation: vi.fn(),
+    relation: vi.fn(),
     deleteRelation: vi.fn(),
   },
 }));
@@ -69,6 +71,14 @@ model.relationTypes.push(
   { key: "has-note", reverseKey: "note-of", name: "Has note", reverseName: "Note of", isOriented: true, features: {} },
   { key: "tags", reverseKey: "tagged-by", name: "Tags", reverseName: "Tagged by", isOriented: true, features: {} },
 );
+model.attributeTypes.push({
+  key: "weight",
+  name: "Weight",
+  valueType: "integer",
+  features: {},
+  validation: {},
+  ui: {},
+});
 model.objectTypeRelations.push(
   {
     relationTypeKey: "has-note",
@@ -81,7 +91,13 @@ model.objectTypeRelations.push(
       uniqueWhenToAttributeEquals: { attributeTypeKey: "active", value: true },
     },
   },
-  { relationTypeKey: "tags", fromObjectTypeKey: "note", toObjectTypeKey: "codelist", cardinality: "many-to-many" },
+  {
+    relationTypeKey: "tags",
+    fromObjectTypeKey: "note",
+    toObjectTypeKey: "codelist",
+    cardinality: "many-to-many",
+    attributeTypeKeys: ["weight"],
+  },
 );
 const application = model.applications[0];
 application.objectTypeKeys.push("region", "note");
@@ -139,6 +155,7 @@ const noteRecord = (id: string, name: string, code: string, active = true) => ({
   version: 2,
   relationId: `rel-${id}`,
   relationVersion: 1,
+  relationAttributes: {},
   meetsCondition: active,
   fields: { code, active },
 });
@@ -193,7 +210,11 @@ const tagsPage: RelationMatrixPage = {
       "codelist",
       "Sizes",
       [
-        cell("c-east", "one", { recordCount: 1, matchingCount: 1, records: [noteRecord("n5", "Size tag", "SZ")] }),
+        cell("c-east", "one", {
+          recordCount: 1,
+          matchingCount: 1,
+          records: [{ ...noteRecord("n5", "Size tag", "SZ"), relationAttributes: { weight: 2 } }],
+        }),
         cell("c-west", "none"),
       ],
       7,
@@ -612,6 +633,69 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
         relationSetDirection: "incoming",
       }),
     );
+  });
+
+  it("links with the relationship's values typed in the dialog, leaving out one left empty (0.13 RV)", async () => {
+    vi.mocked(api.relationMatrixLinkCandidates).mockResolvedValue({
+      items: [
+        {
+          id: "n6",
+          objectTypeKey: "note",
+          name: "West tag",
+          version: 1,
+          path: [],
+          fields: {},
+          eligible: true,
+          reason: null,
+        },
+      ],
+      nextCursor: null,
+      relationSetVersion: 7,
+      totalCount: 1,
+      startIndex: 0,
+    });
+    vi.mocked(api.createRelation).mockResolvedValue({} as never);
+    renderMatrix(tagsView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Link existing note" }));
+    fireEvent.click(await within(dialog).findByRole("radio", { name: /West tag/ }));
+    expect(within(dialog).getByRole("group", { name: "Attributes of the relationship" })).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Weight"), { target: { value: "5" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Link" }));
+    await waitFor(() =>
+      expect(api.createRelation).toHaveBeenCalledWith(expect.objectContaining({ attributes: { weight: 5 } })),
+    );
+  });
+
+  it("shows a linked record's relationship values and edits them against the relationship's version (0.13 RV)", async () => {
+    vi.mocked(api.updateRelation).mockRejectedValueOnce(
+      new ApiError(409, "VERSION_CONFLICT", "Relation version has changed", { currentVersion: 3 }),
+    );
+    vi.mocked(api.relation).mockResolvedValue({ id: "rel-n5", version: 3, attributes: { weight: 8 } } as never);
+    renderMatrix(tagsView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    // The cell's one record opens in Edit; the relationship's values follow the record's own fields.
+    const form = within(dialog).getByRole("group", { name: "Attributes of the relationship" });
+    expect(within(form).getByLabelText("Weight")).toHaveValue(2);
+    fireEvent.change(within(form).getByLabelText("Weight"), { target: { value: "6" } });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Save relationship values" })));
+    expect(api.updateRelation).toHaveBeenCalledWith("rel-n5", { attributes: { weight: 6 }, expectedVersion: 1 });
+    expect(await within(dialog).findByText("Current saved relationship (v3)")).toBeInTheDocument();
+  });
+
+  it("offers no relationship values to edit in a read-only matrix, and shows them (0.13 RV)", async () => {
+    renderMatrix(tagsView, { readOnly: true });
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    expect(
+      within(dialog).queryByRole("button", { name: /Save relationship values|Edit relationship values/ }),
+    ).toBeNull();
+    expect(within(dialog).getByRole("group", { name: "Attributes of the relationship" })).toHaveTextContent("2");
   });
 
   it("unlinks a record with its relation version and the row's set claim, and shows a stale claim", async () => {

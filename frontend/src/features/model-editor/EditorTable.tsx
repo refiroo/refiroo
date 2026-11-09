@@ -47,14 +47,14 @@ export function EditorTable<Row>({
     edit && editing
       ? {
           ...column,
-          cell: (row: Row) => {
+          cell: (row: Row, index: number) => {
             const spec = edit(row);
             return spec ? (
               <EditableCell edit={spec} outline={editing.outline} run={editing.run}>
-                {column.cell(row)}
+                {column.cell(row, index)}
               </EditableCell>
             ) : (
-              column.cell(row)
+              column.cell(row, index)
             );
           },
         }

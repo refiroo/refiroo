@@ -134,6 +134,7 @@ const VIEW_KINDS: Record<string, string> = {
   tree: "Tree",
   relationMatrix: "Relation matrix",
   mappingGrid: "Mapping grid",
+  relationTable: "Relationships table",
 };
 
 /** An element's key, and whether it can still change (A-D6): a released key changes with a migration, labels always free. */

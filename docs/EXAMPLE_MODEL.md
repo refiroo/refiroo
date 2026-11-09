@@ -33,7 +33,7 @@ association relation. If the model declares that structure, any application can 
 | Application | Object types | `table` | `tree` | `mappingGrid` | `relationMatrix` |
 | --- | --- | --- | --- | --- | --- |
 | RDM Master | domain, codelist, master-value | domains, codelists, master-values | `domain-hierarchy` | `master-to-system-mapping` | – |
-| RDM Systems | system, system-group, system-value, codelist, master-value | systems, system-values | `system-hierarchy` | `system-to-master-mapping` | `codelists-by-system`, `master-values-by-system` |
+| RDM Systems | system, system-group, system-value, codelist, master-value | systems, system-values | `system-hierarchy` | `system-to-master-mapping` | `codelists-by-system`, `master-values-by-system` (and the `relationTable` `system-value-mappings`) |
 | RDM Translations | language, translation-group, translation, codelist, master-value | languages, translations | – | – | `codelist-translations`, `master-value-translations` |
 
 Structure that the declarations rely on:

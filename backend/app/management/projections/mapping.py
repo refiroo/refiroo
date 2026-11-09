@@ -28,7 +28,12 @@ from ...models.database import (
     AttributeValue,
     RelationSetVersion,
 )
-from ...models.schema import MappingGridViewConfig, MappingGridViewDefinition
+from ...models.schema import (
+    MappingGridViewConfig,
+    MappingGridViewDefinition,
+    RelationTableViewConfig,
+    RelationTableViewDefinition,
+)
 from ..schemas.mapping import (
     MappingCandidatePage,
     MappingCoveragePage,
@@ -39,6 +44,7 @@ from ..schemas.mapping import (
     MappingTargetPage,
     MappingTargetSummary,
 )
+from .relation_table import relation_table_page
 
 
 def projection_bundle(projection: Subquery) -> Bundle:
@@ -613,12 +619,17 @@ def list_mappings(
     to_object_type_key: str | None = None,
     direction: str | None = None,
     search: str | None = None,
+    from_object_id: str | None = None,
+    to_object_id: str | None = None,
+    sort: str | None = None,
+    field_filters: list[tuple[str, str, str]] | None = None,
     page: PageRequest = FIRST_PAGE,
     page_size: int | None = None,
 ) -> MappingListPage:
     """The workspace edge list, published as ``/mappings`` and ``/relations``.
 
-    ``scope`` names the route, so neither accepts the other's cursors.
+    ``scope`` names the route, so neither accepts the other's cursors. Named a relationships
+    table, it lists that view's rows (``sort`` and ``field_filters`` need one).
     """
     begin_snapshot_read(session)
     resolve_workspace(session, workspace_key)
@@ -634,6 +645,24 @@ def list_mappings(
             if application
             else None
         )
+        if isinstance(view, RelationTableViewDefinition):
+            return _relation_table(
+                session,
+                workspace_key,
+                snapshot,
+                view.config,
+                scope=scope,
+                change_set_id=change_set_id,
+                publication_id=publication_id,
+                bound=(relation_type_key, from_object_type_key, to_object_type_key, direction),
+                from_object_id=from_object_id,
+                to_object_id=to_object_id,
+                field_filters=field_filters or [],
+                search=search,
+                sort=sort,
+                page=page,
+                page_size=page_size,
+            )
         if not isinstance(view, MappingGridViewDefinition):
             raise api_error(
                 404, "MAPPING_VIEW_NOT_FOUND", "Mapping view not found in the selected model"
@@ -644,6 +673,13 @@ def list_mappings(
             422,
             "INCOMPLETE_VIEW_IDENTITY",
             "Both applicationKey and viewKey are required when either is supplied",
+        )
+    if sort or field_filters:
+        raise api_error(
+            422,
+            "RELATION_TABLE_VIEW_REQUIRED",
+            "sort and filter.<field>.<operator> need applicationKey and viewKey naming a "
+            "relationships table",
         )
 
     objects, relations = context_projection(session, workspace_key, change_set_id, publication_id)
@@ -659,6 +695,7 @@ def list_mappings(
             select(
                 relations.c.id.label("relation_id"),
                 relations.c.attributes.label("relation_attributes"),
+                relations.c.version.label("relation_version"),
                 relations.c.relation_type_key,
                 literal(d).label("direction"),
                 source_col.label("source_id"),
@@ -671,6 +708,10 @@ def list_mappings(
         )
         if relation_type_key:
             part = part.where(relations.c.relation_type_key == relation_type_key)
+        if from_object_id:
+            part = part.where(relations.c.from_object_id == from_object_id)
+        if to_object_id:
+            part = part.where(relations.c.to_object_id == to_object_id)
         if from_object_type_key:
             part = part.where(from_obj.c.object_type_key == from_object_type_key)
         if to_object_type_key:
@@ -698,6 +739,8 @@ def list_mappings(
         "toObjectTypeKey": to_object_type_key,
         "direction": direction,
         "search": search,
+        "fromObjectId": from_object_id,
+        "toObjectId": to_object_id,
     }
     edge_page = paginate_statement(
         session,
@@ -793,10 +836,80 @@ def list_mappings(
                 target=all_summaries_target.get(row.target_id)
                 or all_summaries_source[row.target_id],
                 attributes=row.relation_attributes or {},
+                relationVersion=row.relation_version,
                 mappingVersion=_get_version(row),
             )
         )
     return MappingListPage(items=rows, **edge_page.links())
+
+
+def _relation_table(
+    session: Session,
+    workspace_key: str,
+    snapshot: ModelSnapshot,
+    config: RelationTableViewConfig,
+    *,
+    scope: str,
+    change_set_id: str | None,
+    publication_id: str | None,
+    bound: tuple[str | None, str | None, str | None, str | None],
+    from_object_id: str | None,
+    to_object_id: str | None,
+    field_filters: list[tuple[str, str, str]],
+    search: str | None,
+    sort: str | None,
+    page: PageRequest,
+    page_size: int | None,
+) -> MappingListPage:
+    """A relationships table's rows; its binding is the view's, so a request naming another is refused."""
+    if any(bound):
+        raise api_error(
+            422,
+            "RELATION_TABLE_BINDING_FIXED",
+            "A relationships table lists its own binding; leave out relationTypeKey, "
+            "fromObjectTypeKey, toObjectTypeKey and direction",
+        )
+    objects, relations = context_projection(session, workspace_key, change_set_id, publication_id)
+    # The summaries only read records, so a grid config of the table's own columns stands in.
+    reader = MappingRead(
+        session,
+        workspace_key,
+        change_set_id,
+        publication_id,
+        snapshot,
+        MappingGridViewConfig(
+            relationTypeKey=config.relationTypeKey,
+            fromObjectTypeKey=config.fromObjectTypeKey,
+            toObjectTypeKey=config.toObjectTypeKey,
+            direction="outgoing",
+            sourceColumns=config.fromColumns,
+            targetDisplayColumns=config.toColumns,
+            candidateSearchFields=("name",),
+            pageSize=config.pageSize,
+        ),
+        {},
+        objects,
+        relations,
+    )
+    return relation_table_page(
+        session,
+        snapshot.model,
+        config,
+        objects,
+        relations,
+        reader.summary,
+        workspace_key=workspace_key,
+        change_set_id=change_set_id,
+        publication_id=publication_id,
+        from_object_id=from_object_id,
+        to_object_id=to_object_id,
+        field_filters=field_filters,
+        search=search,
+        sort=sort,
+        scope=scope,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def target_details(

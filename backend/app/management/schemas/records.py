@@ -99,6 +99,14 @@ class RelationResponse(RelationCreate):
     relationSetVersion: int | None = None
 
 
+class RelationBatchResponse(BaseModel):
+    """The relationships a batch changed, in the order of its items, each at its new version;
+    ``changeSetVersion`` when the batch wrote to a change set."""
+
+    items: list[RelationResponse]
+    changeSetVersion: int | None = None
+
+
 class RelationExpansion(BaseModel):
     direction: Literal["outgoing", "incoming"]
     relation: RelationResponse

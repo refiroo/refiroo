@@ -46,6 +46,7 @@ const READS = [
   "mappingCoverage",
   "mappingCandidates",
   "mappingTargets",
+  "relationTable",
   "relationMatrix",
   "relationMatrixContainers",
   "relationMatrixLinkCandidates",

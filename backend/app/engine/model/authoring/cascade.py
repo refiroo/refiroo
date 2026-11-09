@@ -239,7 +239,7 @@ def _drop_related_fields(
 def _view_over(view: dict[str, Any], gone: set[tuple[str, str, str]]) -> bool:
     """Whether a mapping grid or matrix view stands on a binding that is gone."""
     config = view.get("config") or {}
-    if view.get("type") == "mappingGrid":
+    if view.get("type") in ("mappingGrid", "relationTable"):
         return (config.get("relationTypeKey"), config.get("fromObjectTypeKey"), config.get("toObjectTypeKey")) in gone
     if view.get("type") == "relationMatrix":
         row, cell = config.get("rowObjectTypeKey"), config.get("cellObjectTypeKey")
@@ -291,6 +291,8 @@ def _drop_orphan_collections(document: Document, app: Path) -> None:
             matrices.add(view.get("key"))
         elif view.get("type") == "tree":
             source = (config.get("rootObjectTypeKeys") or [None])[0]
+        elif view.get("type") == "relationTable":
+            source = config.get("fromObjectTypeKey")
         elif view.get("type") == "mappingGrid":
             source = config.get(
                 "fromObjectTypeKey" if config.get("direction") == "outgoing" else "toObjectTypeKey"

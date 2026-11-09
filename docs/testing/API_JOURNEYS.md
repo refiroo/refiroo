@@ -18,8 +18,8 @@ parameter or code missing here fails it.
 | `changeSetId`, `publicationId` (exclusive with each other) | every read with a context; `changeSetId` on writes | J01.1, J05, J07.1, J20.1, J21.6, J22 |
 | `expectedVersion`, `expectedChangeSetVersion` | every write and delete | J02.2, J05.6, J13, J19 |
 | `pageSize`, `cursor`, `from`, `position`, `includeTotal` | every collection | J21, J21.1, J21.2, J21.4 |
-| `seek` | objects, lookup, relations, mapping coverage, relation matrix | J21.3 |
-| `search`, `sort`, `filter.<field>.<operator>` | per-type list, lookup (built-in fields), relations, coverage | J01, J01.3, J22, J22.3 |
+| `seek` | objects, lookup, relations, the workspace edge list, mapping coverage, relation matrix | J21.3, J13.13 |
+| `search`, `sort`, `filter.<field>.<operator>` | per-type list, lookup (built-in fields), relations, coverage; on the edge list `sort` and `filter.<ref>.eq` over a relationships table's declared fields (`from:`, `to:`, `relation:`; 0.13 RV) | J01, J01.3, J22, J22.3, J13.13 |
 | `filter.related:<key>.eq`, `filter.related:<key>.isNull` (relationship filters; 0.9 K6) | per-type list | J01.10, J32.6 |
 | `parentObjectId`, `topLevel` | per-type list, lookup, coverage, matrix | J01, J14 |
 | `expand`, `expandLimit` (relation columns: a relation key or reverse key, optionally `.<field>` (0.9 K5a), each once, as many as the type has (D142 revised in K6a); 1–20 records each, 3 by default; 0.9 K5) | per-type list | J01.8, J01.9 |
@@ -27,6 +27,7 @@ parameter or code missing here fails it.
 | `asOf` | per-type list, query body; on the lookup it is refused (D21); on the consumer API: get by ID, lists, XREF, batch resolve's URL | J23, J22.4, J23.6–J23.8 |
 | `applicationKey`, `viewKey` | lookup, mapping and matrix reads | J01, J10, J16, J22.1 |
 | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction` | relations, edge list, mapping reads | J10, J13, J22.2, J22.3 |
+| `fromObjectId`, `toObjectId` (0.13 RV) | the workspace edge list: only the relationships from or to this record | J13.13 |
 | `Idempotency-Key` header | `POST /batches` | J11.5, J24 |
 | `Authorization` header (`Bearer <access token>`, 0.12 I1): `401 AUTHENTICATION_REQUIRED` without one, `401 TOKEN_INVALID` with its reason | every route but `/health`, `/health/live`, `/openapi.json`, `/docs` and the OAuth endpoints; on `POST /oauth/token`, `Basic` client credentials | J39, J41, J41.4, J41.5, J43.2 |
 | `X-Expected-Model-Release-Id` header (0.11 M6a) | every route of the management API: a record, relation or value write live or in a change set, a batch, an import; a read naming its context's release | J36.9 |
@@ -128,7 +129,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /objects/{type}/{id}/history` | J01.6, J15 |
 | `POST /workspaces/{key}/queries/objects` | J22, J23 |
 | `GET/POST/PATCH/DELETE /objects/{type}/{id}/attributes/{key}` | J01.5, J02.4 |
-| `POST /relations`, `PATCH/DELETE /relations/{id}` (`expectedRelationSetVersion`, `relationSetDirection`) | J13, J13.3, J13.5, J16 |
+| `POST /relations`, `PATCH/DELETE /relations/{id}` (`expectedRelationSetVersion`, `relationSetDirection`) | J13, J13.3, J13.5, J16, J13.12 |
+| `POST /relations/batch` (`items` of `id`, `expectedVersion`, `attributes`; `workspaceKey`, `changeSetId`, `expectedChangeSetVersion`; all or none, 0.13 RV) | J13.14 |
 | `GET /relations` (`objectId`), `GET /relations/{id}` | J01, J22.3; `relationSets` (each anchored set's version) J13.5 |
 | `GET /relations/held` (`objectTypeKey`, `relationTypeKey`, `direction`, `objectId` repeatable up to 500, a context, paging) | J32.7 |
 | `GET /workspaces/{key}/mapping-coverage` (`state`, `proposed` with a change set) | J10, J49.7 |
@@ -141,7 +143,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /objects/{type}` `filter.related:<key>.under` and `.notUnder` (a record ID; each entry must hold), live and in a change set or publication; the same condition as a related hop with `ancestor:<type>` in a query and an export | J54.8 (0.16 AG4) |
 | `GET /workspaces/{key}/mapping-candidates`, `GET /workspaces/{key}/mapping-targets` (`sourceObjectId`, `mappingVersion`) | J10, J10.3 |
 | `PUT /workspaces/{key}/mappings` | J10 |
-| `GET /workspaces/{key}/relations` | J22.2, J10 (a relationship view's edges, with `applicationKey` and `viewKey`) |
+| `GET /workspaces/{key}/relations` | J22.2, J10 (a relationship view's edges, with `applicationKey` and `viewKey`); J13.13 (a relationships table's rows: `fromObjectId`, `toObjectId`, `sort`, `filter.<ref>.eq`, `groupCounts`, `relationVersion`) |
 | `GET /workspaces/{key}/relation-matrix` (`columnIds`, `columnCursor`, `columnPageSize`, `state`) | J16 |
 | `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
 | `POST /batches` (`run`: `inline`) | J11; relationship items J11.7, J11.8; `replaceRelationSet` J10.10, J11.8; an upsert in a change set keyed by a unique number J06.5 |
@@ -255,7 +257,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | Every route | `REQUEST_VALIDATION_ERROR`, `UNKNOWN_PARAMETER` (J21.8), `INTERNAL_ERROR` (with a correlation ID, the request's `X-Request-Id`, 0.11 O1), `DATABASE_UNAVAILABLE` (J12.8, J12.11; 0.11 Q1; `transactionEnded`, J24.3, 0.11 N3), `INVALID_CURSOR`, `INVALID_POSITION`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_SEEK`, `MUTUALLY_EXCLUSIVE_CONTEXT`, `WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`, `PUBLICATION_NOT_FOUND`, `WORKSPACE_CONTEXT_MISMATCH`, `MODEL_REGISTRY_UNAVAILABLE`, `MODEL_RUNTIME_STATE_UNAVAILABLE`, `WORKSPACE_RUNTIME_STATE_MISSING` |
 | J32.7 | `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `TOO_MANY_RECORDS` |
 | J01, J21, J22 | `OBJECT_NOT_FOUND`, `UNKNOWN_OBJECT_TYPE`, `INVALID_FILTER`, `INVALID_SORT`, `INVALID_EXPAND` (J01.8), `INVALID_FILTER` for a relationship filter (J01.10), `INVALID_QUERY`, `MUTUALLY_EXCLUSIVE_SCOPE`, `WORKSPACE_KEY_REQUIRED`, `ATTRIBUTE_NOT_FOUND` |
-| J02, J03, J13, J14 (the write rules) | `VERSION_CONFLICT`, `VERSION_REQUIRED`, `INVALID_ATTRIBUTE_VALUE`, `ATTRIBUTE_BELOW_MINIMUM`, `ATTRIBUTE_ABOVE_MAXIMUM`, `UNKNOWN_ATTRIBUTES`, `UNKNOWN_ATTRIBUTE_TYPE`, `DUPLICATE_ATTRIBUTE`, `DUPLICATE_ATTRIBUTE_VALUE`, `MISSING_REQUIRED_ATTRIBUTES`, `OBJECT_ATTRIBUTE_RULE_VIOLATION`, `CANNOT_DELETE_REQUIRED_ATTRIBUTE`, `READ_ONLY_ATTRIBUTES`, `ATTRIBUTE_ALREADY_EXISTS`, `OBJECT_ALREADY_EXISTS`, `UNKNOWN_APPLICATION`, `INVALID_OBJECT_TYPE_FOR_APPLICATION`, `OBJECT_TYPE_NOT_IN_APPLICATION`, `PARENT_REQUIRED`, `INVALID_PARENT_TYPE`, `PARENT_WRONG_SCOPE`, `PARENT_CYCLE`, `MISSING_REQUIRED_RELATIONS`, `DUPLICATE_INITIAL_RELATION`, `DUPLICATE_RELATION`, `DUPLICATE_RELATION_SCOPE`, `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `RELATION_ENDPOINT_MISSING`, `RELATION_WRONG_SCOPE`, `UNKNOWN_RELATION_ATTRIBUTES`, `IMMUTABLE_RELATION`, `REQUIRED_RELATION`, `CARDINALITY_VIOLATION`, `RELATION_NOT_FOUND`, `RELATION_SET_VERSION_CONFLICT`, `RELATION_SET_CLAIM_INCOMPLETE`, `RELATION_CANDIDATE_REFUSED` (J13.9, J03.9; 0.9 K7), `WORKSPACE_RETIRED` |
+| J02, J03, J13, J14 (the write rules) | `VERSION_CONFLICT`, `VERSION_REQUIRED`, `INVALID_ATTRIBUTE_VALUE`, `ATTRIBUTE_BELOW_MINIMUM`, `ATTRIBUTE_ABOVE_MAXIMUM`, `UNKNOWN_ATTRIBUTES`, `UNKNOWN_ATTRIBUTE_TYPE`, `DUPLICATE_ATTRIBUTE`, `DUPLICATE_ATTRIBUTE_VALUE`, `MISSING_REQUIRED_ATTRIBUTES`, `OBJECT_ATTRIBUTE_RULE_VIOLATION`, `CANNOT_DELETE_REQUIRED_ATTRIBUTE`, `READ_ONLY_ATTRIBUTES`, `ATTRIBUTE_ALREADY_EXISTS`, `OBJECT_ALREADY_EXISTS`, `UNKNOWN_APPLICATION`, `INVALID_OBJECT_TYPE_FOR_APPLICATION`, `OBJECT_TYPE_NOT_IN_APPLICATION`, `PARENT_REQUIRED`, `INVALID_PARENT_TYPE`, `PARENT_WRONG_SCOPE`, `PARENT_CYCLE`, `MISSING_REQUIRED_RELATIONS`, `DUPLICATE_INITIAL_RELATION`, `DUPLICATE_RELATION`, `DUPLICATE_RELATION_SCOPE`, `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `RELATION_ENDPOINT_MISSING`, `RELATION_WRONG_SCOPE`, `UNKNOWN_RELATION_ATTRIBUTES`, `IMMUTABLE_RELATION`, `REQUIRED_RELATION`, `CARDINALITY_VIOLATION`, `RELATION_NOT_FOUND`, `RELATION_SET_VERSION_CONFLICT`, `RELATION_SET_CLAIM_INCOMPLETE`, `RELATION_CANDIDATE_REFUSED` (J13.9, J03.9; 0.9 K7), `RELATION_BATCH_REFUSED`, `DUPLICATE_BATCH_ITEMS` (J13.14), `RELATION_TABLE_VIEW_REQUIRED`, `RELATION_TABLE_BINDING_FIXED` (J13.13), `WORKSPACE_RETIRED` |
 | J04 | `DELETION_PREVIEW_REQUIRED`, `DELETION_PREVIEW_CHANGED`, `OBJECT_HAS_DEPENDANTS` |
 | J05, J06, J07, J17 | `CHANGE_SET_REQUIRED`, `CHANGE_SET_VERSION_CONFLICT`, `CHANGE_SET_SNAPSHOT_RETRY`, `CHANGE_SET_SOURCE_INVALID`, `CHANGE_SET_BASE_INVALID`, `WORKSPACE_GRAPH_INVALID`, `ACTIVATION_CONFLICT`, `WORKSPACE_ACTIVE_PUBLICATION_CONFLICT` |
 | J10 | `MAPPING_VERSION_CONFLICT`, `INVALID_CLEAR_ATTRIBUTES`, `REQUIRED_OWNERSHIP_BINDING`, `RELATION_ANCESTOR_REQUIRED`, `MAPPING_VIEW_REQUIRED`, `MAPPING_VIEW_NOT_FOUND`, `MAPPING_VIEW_BINDING_MISMATCH`, `MAPPING_BINDING_NOT_FOUND`, `MAPPING_SOURCE_NOT_FOUND`, `MAPPING_CANDIDATE_TYPE_MISMATCH`, `MAPPING_ENDPOINT_NOT_FOUND`, `MAPPING_ENDPOINT_TYPE_MISMATCH`, `MAPPING_PARENT_NOT_FOUND`, `MAPPING_PARENT_SCOPE_MISMATCH`, `INCOMPLETE_VIEW_IDENTITY` |

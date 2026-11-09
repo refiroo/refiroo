@@ -108,9 +108,15 @@ export function TableDisplay({
   onPageSize,
   defaultPageSize,
   urlBacked = false,
+  extraColumns,
+  columnLabel = (column) => attributeName(model, column),
 }: {
   model: EngineModel;
   columns: string[];
+  /** A further named group of columns the chooser lists after `columns` (one display preference covers both). */
+  extraColumns?: { legend: string; columns: string[] };
+  /** A column's name in the chooser; a field's by default. */
+  columnLabel?: (column: string) => string;
   display: ReturnType<typeof useTableDisplay>;
   pageSize: number;
   defaultPageSize: number;
@@ -129,11 +135,26 @@ export function TableDisplay({
               disabled={column === display.identity}
               onChange={() => display.toggle(column)}
             />
-            {attributeName(model, column)}
+            {columnLabel(column)}
             {column === display.identity && " (record identity)"}
           </label>
         ))}
       </fieldset>
+      {extraColumns && extraColumns.columns.length > 0 && (
+        <fieldset className="display-columns">
+          <legend>{extraColumns.legend}</legend>
+          {extraColumns.columns.map((column) => (
+            <label key={column}>
+              <input
+                type="checkbox"
+                checked={display.columns.includes(column)}
+                onChange={() => display.toggle(column)}
+              />
+              {columnLabel(column)}
+            </label>
+          ))}
+        </fieldset>
+      )}
       <label className="toolbar-field">
         Density
         <select value={display.density} onChange={(event) => display.setDensity(event.target.value as ViewDensity)}>

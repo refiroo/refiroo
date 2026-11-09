@@ -1,6 +1,6 @@
 ---
 title: Applications
-description: Understand the collections and four kinds of view an application can offer.
+description: Understand the collections and the kinds of view an application can offer.
 reader: steward
 ---
 
@@ -9,7 +9,7 @@ Follow [Open an application](/docs/guide/use/open-an-application/) for the steps
 
 An **application** groups record types and views. Its name, collections and starting view come
 from the workspace's model. Applications are not fixed modules of refiroo: a model can rename,
-replace or remove them. Any application can offer any of the four view kinds when the model
+replace or remove them. Any application can offer any of the view kinds when the model
 declares the structure that view needs.
 
 ## Collections and views
@@ -29,6 +29,7 @@ use the tabs to switch to another view when needed. **Browse records** offers an
 | Table | Search, filter and sort records, then open one. See [Records](/docs/use/records/) and [Find records](/docs/guide/use/find-records/). |
 | Tree | Browse parents and children and move records to an allowed place. See [Hierarchies](/docs/use/hierarchies/) and [Arrange records in a tree](/docs/guide/use/arrange-records-in-a-tree/). |
 | Mapping grid | Inspect connections, missing connections and multiple targets. See [Mapping grids](/docs/use/mapping-grids/) and [Map codes between systems](/docs/guide/use/map-codes-between-systems/). |
+| Relationships table | List one relationship's records and its own values (a weight, a flag) as rows. Declared by the model; in the model contract (`relationTable`). |
 | Relation matrix | Compare related records across columns and find missing connections. See [Relation matrices](/docs/use/relation-matrices/) and [Fill in a relation matrix](/docs/guide/use/fill-in-a-relation-matrix/). |
 
 ![A collection with a table and two mapping views](/docs/screens/app-systems.png)
@@ -74,7 +75,7 @@ The matrix opens directly; its row collection is still available.*
 
 A record page combines panels for fields, children, relationships, tables, hierarchy and history.
 The model chooses their arrangement. If it declares no detail layout, refiroo provides a default.
-The four collection views above are the supported kinds; dedicated form and dashboard views are
+The collection views above are the supported kinds; dedicated form and dashboard views are
 not available.
 
 The group page's **Find a collection or matrix** searches collection and matrix names. **This group has no collections or relation matrices.**

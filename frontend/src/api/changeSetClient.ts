@@ -63,6 +63,7 @@ export function createChangeSetClient(
     relation: (id, workspace) => api.relation(id, workspace, initial.id),
     mappingCoverage: (query) => api.mappingCoverage({ ...query, changeSetId: initial.id }),
     mappingTargets: (query) => api.mappingTargets({ ...query, changeSetId: initial.id }),
+    relationTable: (query) => api.relationTable({ ...query, changeSetId: initial.id }),
     mappingCandidates: (query) => api.mappingCandidates({ ...query, changeSetId: initial.id }),
     relationMatrix: (query) => api.relationMatrix({ ...query, changeSetId: initial.id }),
     relationMatrixContainers: (query) => api.relationMatrixContainers({ ...query, changeSetId: initial.id }),
@@ -86,6 +87,7 @@ export function createChangeSetClient(
       write((context) => api.deleteAttribute(type, id, key, version, context)),
     createRelation: (payload) => write((context) => api.createRelation({ ...payload, ...context })),
     updateRelation: (id, payload) => write((context) => api.updateRelation(id, { ...payload, ...context })),
+    updateRelationBatch: (payload) => write((context) => api.updateRelationBatch({ ...payload, ...context })),
     deleteRelation: (id, version, _context, claim) =>
       write((context) => api.deleteRelation(id, version, context, claim)),
   };

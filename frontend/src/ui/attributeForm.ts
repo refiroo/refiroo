@@ -20,8 +20,8 @@ export function parseAttributeValue(
   return String(raw);
 }
 
-export function attributeValueFromForm(form: HTMLFormElement, attribute: AttributeTypeDefinition) {
-  const input = form.elements.namedItem(attribute.key) as HTMLInputElement | HTMLTextAreaElement | null;
+export function attributeValueFromForm(form: HTMLFormElement, attribute: AttributeTypeDefinition, prefix = "") {
+  const input = form.elements.namedItem(`${prefix}${attribute.key}`) as HTMLInputElement | HTMLTextAreaElement | null;
   return parseAttributeValue(
     attribute,
     input?.value ?? null,

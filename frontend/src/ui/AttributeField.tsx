@@ -5,14 +5,17 @@ export function AttributeField({
   binding,
   value,
   autoFocus = false,
+  prefix = "",
 }: {
   attribute: AttributeTypeDefinition;
   binding?: ObjectTypeAttributeDefinition;
   value?: unknown;
   autoFocus?: boolean;
+  /** Put before the control's name, so two sets of attributes in one form do not share a name. */
+  prefix?: string;
 }) {
   const helpText = String(binding?.ui?.helpText ?? attribute.ui?.helpText ?? "");
-  const name = attribute.key;
+  const name = `${prefix}${attribute.key}`;
   if (attribute.valueType === "boolean") {
     return (
       <label className="checkbox">

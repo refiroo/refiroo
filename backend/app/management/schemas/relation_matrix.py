@@ -28,6 +28,8 @@ class RelationMatrixCellRecord(BaseModel):
     ``meetsCondition`` is whether it meets the binding's ``uniqueWhenToAttributeEquals`` condition
     (always true without one); ``fields`` holds the view's ``cellFields``. ``version`` is the
     record's and ``relationVersion`` the relation's, which an edit and an unlink claim.
+    ``relationAttributes`` are the relation's own stored values (the binding's attributes), as
+    ``GET /relations/{id}`` answers them.
     """
 
     id: str
@@ -35,6 +37,7 @@ class RelationMatrixCellRecord(BaseModel):
     version: int
     relationId: str
     relationVersion: int
+    relationAttributes: dict[str, Any]
     meetsCondition: bool
     fields: dict[str, Any]
 

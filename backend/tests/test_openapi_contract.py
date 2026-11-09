@@ -429,9 +429,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `placeCollection` takes `view` in place of `collection` and `setCollectionOpening` is a public kind
     # (`SetCollectionOpeningOperation`); nothing else changed. Re-baselined for 0.13 RA (additive): the
     # draft outline's `OutlineRelation` gains an optional `attributeTypeKeys`; nothing else changed.
+    # Re-baselined for 0.13 RV (additive): `relationAttributes` on a matrix cell record; `POST
+    # /relations/batch` (`RelationBatchUpdate`, `RelationBatchItem`, `RelationBatchResponse`); the
+    # workspace edge list takes `fromObjectId`, `toObjectId`, `sort`, `filter.<field>.<operator>`
+    # and the seek parameters, and its rows carry `relationVersion` and its page `groupCounts`.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "5e8470d0fbee727b801d2d221ded6a932374d438525af19bd1dc5742fc19917d"
+        "bc8be555995d119fa0e1f9a8d9182f650ca4182b287fa9b4dc1d88c2668b30f8"
     )
 
 
@@ -464,6 +468,7 @@ def test_paging_openapi_inventory():
         "/api/v1/objects",
         "/api/v1/objects/{object_type_key}",
         "/api/v1/relations",
+        "/api/v1/workspaces/{workspace_key}/relations",
         "/api/v1/workspaces/{workspace_key}/mapping-coverage",
         "/api/v1/workspaces/{workspace_key}/relation-matrix",
     }

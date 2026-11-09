@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,8 +9,13 @@ from ...engine.change_sets.records import (
     delete_change_set_relation,
     put_change_set_relation,
     update_change_set_relation,
+    update_change_set_relations,
 )
-from ...engine.model.registry import resolve_record_snapshot, resolve_relation_snapshot
+from ...engine.model.registry import (
+    resolve_model_snapshot,
+    resolve_record_snapshot,
+    resolve_relation_snapshot,
+)
 from ...engine.reads.relation_queries import (
     build_relation_query,
     build_snapshot_relation_query,
@@ -27,18 +32,21 @@ from ...engine.reads.snapshot_reads import (
     publication_context,
 )
 from ...engine.records.context import load_active_projection
+from ...engine.records.relation_batch import RelationValues
 from ...engine.records.relation_set_versions import anchored_set_versions, set_claim
 from ...engine.records.relations import (
     create_live_relation,
     delete_live_relation,
     load_relation,
     update_live_relation,
+    update_live_relations,
 )
 from ...engine.workspaces.catalogue import resolve_workspace
 from ...errors import api_error
 from ...models.commands import (
     ChangeSetRelationUpdate,
     ChangeSetRelationWrite,
+    RelationBatchUpdate,
     RelationCreate,
     RelationUpdate,
 )
@@ -46,6 +54,7 @@ from ...models.database import RdmObject
 from ...models.schema import EngineModel
 from ..access import (
     CONTEXT,
+    RECORD_CREATE,
     RELATION_CREATE,
     RELATION_READ,
     RELATION_WRITE,
@@ -59,6 +68,7 @@ from ..schemas.records import (
     HeldObject,
     HeldRecord,
     HeldRecordPage,
+    RelationBatchResponse,
     RelationExpansion,
     RelationPage,
     RelationResponse,
@@ -111,6 +121,49 @@ def create_relation(payload: RelationCreate, session: DbSession) -> RelationResp
         return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, str(payload.changeSetId)).change_set.version, "relationSetVersion": set_version})
     row, set_version = create_live_relation(session, resolve_record_snapshot(session, str(payload.fromObjectId)).model, payload, claim)
     return build_relation_response(row).model_copy(update={"relationSetVersion": set_version})
+
+@router.post("/relations/batch", response_model=RelationBatchResponse)
+@requires("records.write", at=RECORD_CREATE)
+def update_relations(
+    payload: RelationBatchUpdate, request: Request, session: DbSession
+) -> RelationBatchResponse:
+    """Set attribute values on many relationships as one write, live or in a change set (0.13 RV).
+
+    Every item names a relationship, the version the caller read and the values to set over its
+    stored ones (``null`` clears one). The batch is atomic: any stale version, unknown relationship
+    or invalid value refuses it all, ``409 RELATION_BATCH_REFUSED`` when a version was stale and
+    ``422`` otherwise, with ``details.items`` naming each item that failed by position,
+    relationship, code and message. ``413 BATCH_TOO_LARGE`` above ``BATCH_MAX_ITEMS``;
+    ``422 DUPLICATE_BATCH_ITEMS`` for a relationship named twice."""
+    maximum = request.app.state.batch_limits.max_items
+    if len(payload.items) > maximum:
+        raise api_error(
+            413,
+            "BATCH_TOO_LARGE",
+            f"The batch has {len(payload.items)} items; at most {maximum} are set in one request",
+            {"setting": "BATCH_MAX_ITEMS", "maximum": maximum, "items": len(payload.items)},
+        )
+    items = [
+        RelationValues(str(item.id), item.expectedVersion, item.attributes)
+        for item in payload.items
+    ]
+    if payload.changeSetId:
+        change_set = str(payload.changeSetId)
+        expected = _ctx(change_set, payload.expectedChangeSetVersion)
+        rows = update_change_set_relations(session, change_set, expected, items)
+        version = change_set_context(session, change_set).change_set.version
+        return RelationBatchResponse(
+            items=[_change_set_response(row) for row in rows], changeSetVersion=version
+        )
+    workspace = resolve_workspace(session, payload.workspaceKey)
+    model = resolve_model_snapshot(session, workspace.key).model
+    return RelationBatchResponse(
+        items=[
+            build_relation_response(row)
+            for row in update_live_relations(session, model, workspace.key, items)
+        ]
+    )
+
 
 @router.get("/relations", response_model=RelationPage)
 @requires("records.read", at=CONTEXT)

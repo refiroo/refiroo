@@ -74,7 +74,7 @@ from ..presenters import (
 )
 from ..projections.model_query import expand_records
 from ..projections.parent_candidates import parent_candidates
-from ..query_parameters import accepts_field_filters
+from ..query_parameters import accepts_field_filters, field_filters
 from ..schemas.common import CalendarDate
 from ..schemas.queries import QueryObject, TypedObjectPage
 from ..schemas.records import (
@@ -737,28 +737,7 @@ def _spanning_lookup(
 
 
 def _field_filters(request: Request) -> list[tuple[str, str, str]]:
-    result: list[tuple[str, str, str]] = []
-    for key, value in request.query_params.multi_items():
-        if not key.startswith("filter."):
-            continue
-        field_operator = key.removeprefix("filter.")
-        if "." not in field_operator:
-            raise api_error(
-                422,
-                "INVALID_FILTER",
-                f"Invalid filter parameter '{key}'",
-                {"path": f"/query/{key}"},
-            )
-        field, operator = field_operator.rsplit(".", 1)
-        if not field or not operator:
-            raise api_error(
-                422,
-                "INVALID_FILTER",
-                f"Invalid filter parameter '{key}'",
-                {"path": f"/query/{key}"},
-            )
-        result.append((field, operator, value))
-    return result
+    return field_filters(request)
 
 
 @router.get("/objects/{object_type_key}/{object_id}", response_model=ObjectResponse)

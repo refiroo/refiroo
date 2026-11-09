@@ -40,6 +40,14 @@ import {
   type MatrixPreview,
 } from "@/features/model-editor/matrixView";
 import {
+  addTable,
+  attributeOptions,
+  bindingOptions,
+  endColumnOptions,
+  followTable,
+  newTableValues,
+} from "@/features/model-editor/relationTableView";
+import {
   exposesOf,
   FILTER_VERBS,
   filtersOf,
@@ -572,6 +580,50 @@ const matrixFields = (outline: ModelDraftOutline): OperationField[] => [
   { name: "name", label: "Name", type: "text", required: true },
 ];
 
+const tableFields = (outline: ModelDraftOutline): OperationField[] => [
+  {
+    name: "binding",
+    label: "Relationships",
+    type: "select",
+    options: bindingOptions(outline),
+    required: true,
+    hint: "One declared relationship between two types; its own attributes become columns.",
+  },
+  {
+    name: "fromColumns",
+    label: "Columns of the from record",
+    type: "choices",
+    ordered: true,
+    options: (v) => endColumnOptions(outline, v.binding, "from"),
+    required: true,
+  },
+  {
+    name: "toColumns",
+    label: "Columns of the to record",
+    type: "choices",
+    ordered: true,
+    options: (v) => endColumnOptions(outline, v.binding, "to"),
+    required: true,
+  },
+  {
+    name: "attributeColumns",
+    label: "Attributes of the relationship",
+    type: "checkboxes",
+    options: (v) => attributeOptions(outline, v.binding),
+  },
+  {
+    name: "groupBy",
+    label: "Head the rows by",
+    type: "select",
+    options: [
+      { value: "", label: "Nothing: one list" },
+      { value: "from", label: "The from record" },
+      { value: "to", label: "The to record" },
+    ],
+  },
+  { name: "name", label: "Name", type: "text", required: true },
+];
+
 export const RELATION_DEFAULTS: FieldValues = { relationType: NEW, cardinality: "many-to-one" };
 
 export const OPERATIONS: OperationSpec[] = [
@@ -686,6 +738,18 @@ export const OPERATIONS: OperationSpec[] = [
     build: (values, t, o) => addMatrix(o, t.applicationKey, values),
   }),
   spec<On<"application">>({
+    id: "application-add-relation-table",
+    on: "application",
+    label: "Add a relationships table…",
+    title: (t, o) =>
+      `Add a relationships table to ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? t.applicationKey}`,
+    available: (_, o) => bindingOptions(o).length > 0,
+    fields: (_, o) => tableFields(o),
+    initial: (_, o) => newTableValues<FieldValues>(o),
+    follow: (next, previous, changed, o) => followTable(o, next, previous, changed),
+    build: (values, t, o) => addTable(o, t.applicationKey, values),
+  }),
+  spec<On<"application">>({
     id: "application-list-type",
     on: "application",
     label: "List an existing type…",
@@ -789,6 +853,14 @@ export const OPERATIONS: OperationSpec[] = [
     build: (values, t) => [
       { kind: "placeCollection", applicationKey: t.applicationKey, view: t.view, group: text(values, "group") || null },
     ],
+  }),
+  spec<On<"view">>({
+    id: "view-table-remove",
+    on: "view",
+    label: "Remove relationships table",
+    available: (t, o) => viewOf(t, o)?.type === "relationTable",
+    confirm: (t, o) => `Remove ${viewOf(t, o)?.name ?? t.view}? Types only it needed stop being listed here.`,
+    build: (_, t) => [{ kind: "removeView", applicationKey: t.applicationKey, view: t.view, unlist: true }],
   }),
   spec<On<"view">>({
     id: "view-matrix-remove",

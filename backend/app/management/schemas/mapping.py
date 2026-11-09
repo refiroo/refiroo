@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 from pydantic.json_schema import SkipJsonSchema
 
-from .common import ChangeOrigin, CollectionPage, optional_origin
+from .common import ChangeOrigin, CollectionPage, optional_origin, requested_count
 
 
 class MappingObjectSummary(BaseModel):
@@ -44,17 +44,26 @@ class MappingCandidatePage(CollectionPage[MappingObjectSummary]):
 
 
 class MappingListRow(BaseModel):
+    """One relationship of the workspace edge list. ``relationVersion`` is the relationship's own
+    version, which a change to its ``attributes`` claims; ``mappingVersion`` is its relation set's.
+    On a relationships table ``source`` is the ``from`` record and ``target`` the ``to`` record,
+    their ``fields`` the view's ``fromColumns`` and ``toColumns``."""
+
     relationId: str
     relationTypeKey: str
     direction: Literal["outgoing", "incoming"]
     source: MappingObjectSummary
     target: MappingObjectSummary
     attributes: dict[str, Any]
+    relationVersion: int
     mappingVersion: int
 
 
 class MappingListPage(CollectionPage[MappingListRow]):
-    pass
+    """``groupCounts`` is set on a relationships table with ``groupBy``: for each group record the
+    page shows, how many rows it holds under the request's filters."""
+
+    groupCounts: dict[str, int] | SkipJsonSchema[None] = requested_count()
 
 
 class MappingReplacementResponse(BaseModel):

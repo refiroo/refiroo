@@ -533,6 +533,7 @@ def _rows(
                             version=record.version,
                             relationId=record.relation_id,
                             relationVersion=record.relation_version,
+                            relationAttributes=record.relation_attributes or {},
                             meetsCondition=bool(record.meets),
                             fields={
                                 field: cell_values.get((record.owner, record.cell_id), {}).get(field)
@@ -584,7 +585,7 @@ def _ranked(cells: Any, column_ids: list[str]) -> Select[Any]:
 
 def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[tuple[str, str], list[Any]]:
     """The page's cells in one statement: relations, related records and the walk to columns."""
-    cells = cell_columns(read, cell_records(read, row_ids))
+    cells = cell_columns(read, cell_records(read, row_ids, relation_attributes=True))
     result: dict[tuple[str, str], list[Any]] = {}
     for row in read.session.execute(_ranked(cells, column_ids)):
         result.setdefault((row.row_id, row.column_id), []).append(row)
@@ -605,6 +606,7 @@ def _history_cells(
             publications.c.publication_number.label("publication_number"),
             relation.relation_id.label("relation_id"),
             relation.version.label("relation_version"),
+            relation.attributes.label("relation_attributes"),
             getattr(relation, read.anchor_end).label("row_id"),
             getattr(relation, read.other_end).label("cell_id"),
             record.name.label("name"),

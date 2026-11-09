@@ -56,7 +56,8 @@ export interface DataColumn<Row> {
   /** The column's field (or another stable key): its sort field and the key of its stored width. */
   key: string;
   label: string;
-  cell: (row: Row) => ReactNode;
+  /** The cell's content; `index` is the row's place in the whole list, for a cell that reads its neighbour. */
+  cell: (row: Row, index: number) => ReactNode;
 }
 
 export function DataTable<Row>({
@@ -542,7 +543,7 @@ function DataRowContent<Row>({
         {selection && <td className="selection-column">{selection.cell(row)}</td>}
         {columns.map((column) => (
           <td key={column.key} className={secondary(column.key)} data-reveal="">
-            <CellRoom.Provider value={rooms?.[column.key]}>{column.cell(row)}</CellRoom.Provider>
+            <CellRoom.Provider value={rooms?.[column.key]}>{column.cell(row, index)}</CellRoom.Provider>
           </td>
         ))}
         {actions && (

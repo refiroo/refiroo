@@ -14,6 +14,7 @@ from ....models.schema import (
     ObjectTypeRelationDefinition,
     RelationMatrixViewConfig,
     RelationMatrixViewDefinition,
+    RelationTableViewDefinition,
     TableViewDefinition,
     TreeViewConfig,
     TreeViewDefinition,
@@ -21,6 +22,7 @@ from ....models.schema import (
 )
 from ..diagnostics import ModelReferenceError, ModelReferenceErrors
 from ..related_columns import RELATED_FIELD_PREFIX, is_related_field, related_field_column
+from ..relation_table import END_BUILT_INS, descending, split_ref
 from ..traversal import ancestor_type_keys, parent_type_keys
 from .detail_view_rules import check_details
 from .fields import check_fields
@@ -65,6 +67,8 @@ def _check_application(
                 _check_mapping_grid_view(application, view, view_path, model, index)
             elif isinstance(view, RelationMatrixViewDefinition):
                 _check_relation_matrix_view(application, view, view_path, model, index)
+            elif isinstance(view, RelationTableViewDefinition):
+                _check_relation_table_view(application, view, view_path, model, index)
             elif isinstance(view, TreeViewDefinition):
                 _check_tree_view(application, view, view_path, model, index)
         except ModelReferenceError as error:
@@ -82,6 +86,8 @@ def view_source(view: ViewDefinition) -> str:
         return view.config.rowObjectTypeKey
     if isinstance(view, TreeViewDefinition):
         return view.config.rootObjectTypeKeys[0]
+    if isinstance(view, RelationTableViewDefinition):
+        return view.config.fromObjectTypeKey
     if view.config.direction == "outgoing":
         return view.config.fromObjectTypeKey
     return view.config.toObjectTypeKey
@@ -579,6 +585,146 @@ def _check_relation_matrix_view(
                 f"{config_path}/cellActions/{position}",
                 f"{label} cannot offer '{action}': {reason}",
             )
+
+
+def _check_relation_table_view(
+    application: ApplicationDefinition,
+    view: RelationTableViewDefinition,
+    view_path: str,
+    model: EngineModel,
+    index: ModelIndex,
+) -> None:
+    """The relationships of one declared binding, one row each (0.13 RV).
+
+    The relation type is not a containment, and every field a column, filter or sort names exists where it is read: on an end's type, or on the
+    binding as an attribute of the relationship.
+    """
+    config = view.config
+    config_path = f"{view_path}/config"
+    label = f"Relationships table '{application.key}.{view.key}'"
+
+    for field in ("fromObjectTypeKey", "toObjectTypeKey"):
+        key = getattr(config, field)
+        if key not in index.object_types:
+            raise ModelReferenceError(
+                "UNKNOWN_OBJECT_TYPE",
+                f"{config_path}/{field}",
+                f"{label} references unknown object type '{key}'",
+            )
+    relation_path = f"{config_path}/relationTypeKey"
+    if config.relationTypeKey not in index.relation_types:
+        raise ModelReferenceError(
+            "UNKNOWN_RELATION_TYPE",
+            relation_path,
+            f"{label} references unknown relation type '{config.relationTypeKey}'",
+        )
+    if index.relation_types[config.relationTypeKey].features.get("parentOf"):
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            relation_path,
+            f"{label} cannot use containment relation type '{config.relationTypeKey}'",
+        )
+    binding = model.allowed_relation(
+        config.relationTypeKey, config.fromObjectTypeKey, config.toObjectTypeKey
+    )
+    if binding is None:
+        raise ModelReferenceError(
+            "INVALID_REFERENCE",
+            relation_path,
+            f"{label} references a relation binding ({config.relationTypeKey}, "
+            f"{config.fromObjectTypeKey} \u2192 {config.toObjectTypeKey}) that is not declared in "
+            "objectTypeRelations",
+        )
+
+    ends = {
+        "from": index.object_types[config.fromObjectTypeKey],
+        "to": index.object_types[config.toObjectTypeKey],
+    }
+    scalar = {end: _scalar_fields(item.attributes, index) for end, item in ends.items()}
+    for name, end in (("fromColumns", "from"), ("toColumns", "to")):
+        columns: tuple[str, ...] = getattr(config, name)
+        _check_unique_fields(columns, view_path, name)
+        for position, field in enumerate(columns):
+            if field not in END_BUILT_INS and field not in scalar[end]:
+                raise ModelReferenceError(
+                    "INVALID_MODEL",
+                    f"{config_path}/{name}/{position}",
+                    f"{label} {name} references '{field}', which is not 'name' or a scalar "
+                    f"attribute attached to '{ends[end].key}'",
+                )
+
+    declared = set(binding.attributeTypeKeys)
+    _check_unique_fields(config.attributeColumns, view_path, "attributeColumns")
+    for position, field in enumerate(config.attributeColumns):
+        if field not in declared:
+            raise ModelReferenceError(
+                "INVALID_MODEL",
+                f"{config_path}/attributeColumns/{position}",
+                f"{label} attributeColumns references '{field}', which binding "
+                f"({config.relationTypeKey}, {config.fromObjectTypeKey} \u2192 "
+                f"{config.toObjectTypeKey}) does not declare in attributeTypeKeys",
+            )
+
+    for purpose, fields in (("filter", config.filterFields), ("sort", config.sortFields)):
+        name = f"{purpose}Fields"
+        _check_unique_fields(fields, view_path, name)
+        for position, ref in enumerate(fields):
+            _check_relation_table_ref(
+                ref, purpose, f"{config_path}/{name}/{position}", label, binding, ends, scalar, index
+            )
+    if descending(config.defaultSort)[0] not in config.sortFields:
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            f"{config_path}/defaultSort",
+            f"{label} defaultSort must name one of its sortFields",
+        )
+
+
+def _check_relation_table_ref(
+    ref: str,
+    purpose: str,
+    path: str,
+    label: str,
+    binding: ObjectTypeRelationDefinition,
+    ends: dict[str, ObjectTypeDefinition],
+    scalar: dict[str, set[str]],
+    index: ModelIndex,
+) -> None:
+    """One ``from:<field>``, ``to:<field>`` or ``relation:<attribute>`` of a filter or a sort."""
+    parts = split_ref(ref)
+    if parts is None:
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            path,
+            f"{label} {purpose} field '{ref}' must be from:<field>, to:<field> or "
+            "relation:<attribute>",
+        )
+    place, field = parts
+    if place == "relation":
+        if field not in binding.attributeTypeKeys:
+            raise ModelReferenceError(
+                "INVALID_MODEL",
+                path,
+                f"{label} {purpose} field '{ref}': the binding does not declare attribute "
+                f"'{field}' in attributeTypeKeys",
+            )
+    elif field in END_BUILT_INS:
+        return
+    elif field not in scalar[place]:
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            path,
+            f"{label} {purpose} field '{ref}': '{field}' is not 'name' or a scalar attribute "
+            f"attached to '{ends[place].key}'",
+        )
+    if purpose == "filter" and not index.attribute_types[field].features.get("filterable"):
+        raise ModelReferenceError(
+            "INVALID_MODEL", path, f"{label} filter field '{ref}': attribute '{field}' is not filterable"
+        )
+    if index.attribute_types[field].valueType == "json":
+        raise ModelReferenceError(
+            "INVALID_MODEL", path, f"{label} {purpose} field '{ref}' holds JSON and cannot be used"
+        )
 
 
 def _cell_action_refusal(

@@ -70,6 +70,14 @@ is:
 - `form`: grouped fields, relations and validation
 - `mappingGrid`: source values, selected targets, coverage filters and atomic mapping; bounded bulk
   mapping is a later integration capability
+- `relationMatrix`: a row type against the records of an ancestor type; a cell dialog shows, edits
+  and, when linking or creating, asks for the relationship's own attributes under "Attributes of the
+  relationship" (0.13 RV)
+- `relationTable` ("Relationships table", 0.13 RV): one binding's relationships as rows over a cursor
+  window; both records' columns and the relationship's attributes as columns, a filter bar from
+  `filterFields`, sort on the headers, group headings with counts, a cell edited where it stands
+  through the shared `RelationAttributes` and saved as it is left, ticked rows set through
+  `POST /relations/batch`; edit controls are hidden where the data cannot be written
 - `tree`: hierarchy browsing, contextual child creation and safe parent selection; sibling ordering
   has no separately accepted contract
 - `dashboard`: unscheduled concept, not a release commitment

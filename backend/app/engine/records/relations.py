@@ -14,6 +14,7 @@ from .batch_lookup import LiveBatchLookup
 from .bulk import write_live
 from .context import load_object
 from .refusals import LIVE
+from .relation_batch import RelationValues, decide_relation_values
 from .relation_set_versions import SetClaim
 from .relation_writes import decide_relation_create, decide_relation_delete, decide_relation_update
 from .writes import LiveWrites
@@ -189,6 +190,26 @@ def update_live_relation(
     write_live(writes, model, lookup.changes())
     session.commit()
     return load_relation(session, relation_id)
+
+
+def update_live_relations(
+    session: Session, model: EngineModel, workspace_key: str, items: list[RelationValues]
+) -> list[ObjectRelation]:
+    """Set values on many live relationships of one workspace as one write, in the order of
+    ``items``; any item refused refuses all of them (``RELATION_BATCH_REFUSED``)."""
+    resolve_workspace(session, workspace_key, require_active=True)
+    writes = LiveWrites(session, workspace_key)
+    lookup = LiveBatchLookup.of(session, workspace_key)
+    decide_relation_values(lookup, model, items)
+    write_live(writes, model, lookup.changes())
+    session.commit()
+    rows = {
+        row.id: row
+        for row in session.scalars(
+            select(ObjectRelation).where(ObjectRelation.id.in_([item.relation_id for item in items]))
+        )
+    }
+    return [rows[item.relation_id] for item in items]
 
 
 def delete_live_relation(
