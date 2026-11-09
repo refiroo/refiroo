@@ -132,13 +132,14 @@ def _relation_condition(
         return column.ilike(f"%{escape_like(value)}%", escape="\\")
     if operator == "startsWith":
         return column.ilike(f"{escape_like(value)}%", escape="\\")
+    # Only the asked comparison is built: a Yes or no value takes nothing but equality.
     return {
-        "eq": column == value,
-        "lt": column < value,
-        "lte": column <= value,
-        "gt": column > value,
-        "gte": column >= value,
-    }[operator]
+        "eq": lambda: column == value,
+        "lt": lambda: column < value,
+        "lte": lambda: column <= value,
+        "gt": lambda: column > value,
+        "gte": lambda: column >= value,
+    }[operator]()
 
 
 # The most column groups one read shows; the answer says how many there are in all.

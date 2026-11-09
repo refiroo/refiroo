@@ -109,6 +109,33 @@ describe("a relationships table in the dialog (0.13 RV)", () => {
     });
   });
 
+  it("never makes a JSON attribute a filter or a sort, though it stays a column", () => {
+    const base = worded();
+    const json = {
+      ...base,
+      attributeTypes: [
+        ...base.attributeTypes,
+        {
+          key: "extra",
+          name: "Extra",
+          valueType: "json",
+          features: { filterable: true },
+          boundBy: [],
+          mark: "released" as const,
+        },
+      ],
+      relations: base.relations.map((item) =>
+        item.relationType === "at" ? { ...item, attributeTypeKeys: ["weight", "note", "extra"] } : item,
+      ),
+    };
+    const values = { ...newTableValues<Record<string, unknown>>(json), name: "Item places" };
+    const config = (addTable(json, "a", values)[1] as unknown as { view: { config: Record<string, string[]> } }).view
+      .config;
+    expect(config.attributeColumns).toContain("extra");
+    expect(config.sortFields).not.toContain("relation:extra");
+    expect(config.filterFields).not.toContain("relation:extra");
+  });
+
   it("writes the grid layout only when it is chosen", () => {
     const values = { ...newTableValues<Record<string, unknown>>(outline), name: "Item places" };
     const config = (layout: string) =>

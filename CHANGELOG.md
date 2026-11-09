@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed (Layout… of a relationships table, 0.13 RV)
 
+- **A relationship attribute holding JSON can be a column of a new relationships table.** Cause: the Add a view dialog put every selected attribute into `sortFields` (and a filterable one into `filterFields`), and the model refuses a JSON field as either, so the draft became invalid. A JSON attribute is now left out of both.
+- **A relationships grid can filter by a Yes or no relationship value.** Cause: the filter built every comparison (`<`, `<=`, `>`, `>=`) before choosing one, and SQLAlchemy refuses those on a Yes or no value, so the read answered 500; only the asked comparison is built now (`reads/relation_grid.py`).
 - **"Layout…" opens on the view's current layout.** Cause: the draft outline (`GET /model-drafts/{id}/outline`) carried a view's `config` only for tree and mapping-grid views; it now carries a relationships table's too, so a grid view opens on "Grid".
 
 ### Added (attributes of the relationship in views, 0.13 RV)

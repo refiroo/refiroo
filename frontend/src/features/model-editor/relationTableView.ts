@@ -94,7 +94,10 @@ function configOf(outline: ModelDraftOutline, values: Values) {
   const fromColumns = list(values.fromColumns);
   const toColumns = list(values.toColumns);
   const attributes = list(values.attributeColumns);
-  const filterable = (ref: string, key: string) => (features(key).filterable === true ? [ref] : []);
+  // The model's validation refuses a JSON attribute as a filter or a sort; it may still be a column.
+  const json = (key: string) => outline.attributeTypes.find((item) => item.key === key)?.valueType === "json";
+  const filterable = (ref: string, key: string) => (features(key).filterable === true && !json(key) ? [ref] : []);
+  const sortable = (key: string) => (json(key) ? [] : [`relation:${key}`]);
   return {
     relationTypeKey: relationType,
     fromObjectTypeKey: from,
@@ -112,7 +115,7 @@ function configOf(outline: ModelDraftOutline, values: Values) {
       ...fromColumns.filter((key) => key !== "name").map((key) => `from:${key}`),
       "to:name",
       ...toColumns.filter((key) => key !== "name").map((key) => `to:${key}`),
-      ...attributes.map((key) => `relation:${key}`),
+      ...attributes.flatMap(sortable),
     ],
     defaultSort: "from:name",
     groupBy: values.groupBy === "from" || values.groupBy === "to" ? values.groupBy : null,
