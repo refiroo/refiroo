@@ -104,7 +104,10 @@ are unaffected. Coordinate changed contracts with their owners before confirming
 - A renamed type or a merged type keeps its records under the resulting type. Renamed attributes
   carry their values to the new definitions. A relation type's new key carries its relationships.
 - A type moved to another application takes its records to the application named by the draft,
-  including when several applications list the type. Moving from containment to the top level
+  including when several applications list the type. A type the target release still has never
+  loses its records: with no named application they go to the one application that lists the type,
+  or the one that lists it newly; when several qualify the preview refuses them under **Must be
+  fixed** and a mapping's application chooses. Moving from containment to the top level
   removes the old parent and its containment relationship. Under different parent types, records
   whose existing parent is no longer allowed appear under **Must be fixed**.
 - A split creates a related record of the new type for each source record holding at least one

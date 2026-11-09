@@ -36,9 +36,14 @@ change it with **Save**, or leave it with **Cancel**. Menus offer operations suc
 | Changed | The element, or something within it, differs from the base release. |
 | Proposed | The element still reflects the engine's suggestion from a source. Review it before relying on it. |
 
-Released keys are fixed. Renaming a label does not change that identity. Removing, moving,
-splitting or merging a type can be refused when stored data uses it; read the impact reported by
-the server. Changing a draft does not move live records.
+Renaming a label does not change its key. A released key can also change, but integrations
+that name it must change with it. The element panel says **Released: a key change needs a migration**.
+
+Removing, moving, splitting or merging a released type, converting a field to a list type,
+or tightening a rule saves a draft step even when stored data uses the element. Menus warn
+**Needs a migration when installed** where an action can need one. **Move to…** explains what
+happens to the records or values when the migration runs. Changing the draft does not move
+live records; review the migration before activating the release.
 
 ## Work with a navigation group
 
@@ -112,6 +117,10 @@ Expand **Issues and history** and choose **History**. Steps appear newest first,
 author, time and whether they are applied or undone. A single step may contain related actions,
 such as creating an attribute and attaching it to a type.
 
+A step that changes a released element used by stored data is marked **Needs a migration**,
+with the counts of records, values and relationships using it. A released key change has the
+mark even when no stored data uses it. Other changes to unused released elements have no mark.
+
 ![History showing two applied steps and their Undo actions](/docs/screens/model-history.png)
 
 *Above: Guide draft records adding Step-free access and allowing Inspected by as two saved steps.*
@@ -119,7 +128,9 @@ such as creating an attribute and attaching it to a type.
 **Undo** reverses a step in the draft; **Redo** restores an undone step. A new edit clears what
 can be redone. If later steps depend on the step you undo, refiroo names them and offers to undo
 them together. Read that list before confirming. Undoing a draft step never rewrites an installed
-release or reverses already published record changes.
+release or reverses already published record changes. Undo also takes the step's part out of
+the draft's proposed migration; redo puts it back. The proposal follows the steps that are
+currently applied.
 
 If another administrator edits the draft first, your older edit can be refused. The **Another change came first** notice lists the steps applied since you opened it, and the
 model below shows the newer version. Read those steps, then choose **Apply mine again** if your
@@ -135,6 +146,26 @@ model, if one exists; a wholly new model has no earlier definitions to compare.
 Read those differences together with validation, stored-data compatibility and **Consumer APIs**.
 A comparison of definitions does not prove that the workspace's existing records fit. The separate
 checks are explained in [Issues and dry runs](/docs/model/issues-and-dry-run/).
+
+When the selected workspace needs a migration, **Install and activate…** and **Apply to this
+workspace…** show **Activation needs a migration**. Read the steps and the proposed changes:
+which types records become, where they move, and whether they leave their parents. The figures
+show records moving, records and relationships created where applicable, and refused items.
+For each key change, the dialog warns that integrations naming the old key must change and
+lists the consumer APIs of the base release that name it.
+
+Choose **Install … and preview the migration…**, or **Preview what happens to the records…**
+from **Apply to this workspace…**. This installs the release and opens the migration preview;
+it does not activate the release in the workspace yet.
+
+On the migration page, **What the draft proposes** is already filled in. Each type's row shows
+**Records of**, **Become**, **In**, **Under** and **Records**, with a **Proposed** mark for the
+draft's choice. Change **Become** to preview another choice without editing the draft.
+Splits and list conversions can create records and relationships; inspect them under **Created**.
+Fix refused items before confirming, and review and explicitly accept any removals.
+The workspace keeps its current release until the migration is confirmed and succeeds.
+See [Migrations](/docs/model/migrations/) for what each kind of change carries or removes,
+and follow [Migrate a workspace](/docs/guide/model/migrate-a-workspace/) to complete the review.
 
 ## Header, keyboard and phone controls
 
@@ -203,3 +234,27 @@ pane, moving near its upper or lower edge scrolls the pane. Keyboard and phone u
 You can also [ask the assistant to propose a model change](/docs/model/ai-model-changes/)
 and open its draft in this editor. Review the proposal before accepting; direct edits here
 are read again when the assistant continues.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+operation:add-application
+operation:group-add
+operation:application-group-add
+operation:entry-up
+operation:entry-down
+operation:entry-move
+operation:entry-out
+operation:view-group
+applications[].navigation.opens
+menu:ModelEditor.tsx:deleteDraft
+menu:ModelEditor.tsx:propose
+menu:ModelEditor.tsx:apply
+menu:ModelEditor.tsx:close
+menu:ModelEditor.tsx:json
+menu:ModelEditor.tsx:install
+menu:ModelEditor.tsx:load
+menu:ModelEditor.tsx:install#2
+menu:ModelEditor.tsx:load#2
+menu:operations.ts:item
+confirm:ModelEditor.tsx:Undo steps
+confirm:OperationDialog.tsx:dialog
+-->

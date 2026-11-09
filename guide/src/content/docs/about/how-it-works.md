@@ -43,3 +43,27 @@ Withdraw a publication to remove its current designation; this leaves Live and h
 A **model draft** proposes changes to the definition. Install a validated draft to create an immutable **model release**. Activate the release to use it in a workspace; installing alone does not switch the workspace. Existing data must fit the selected release, or an administrator must review a migration.
 
 [Three kinds of change](/docs/about/three-kinds-of-change/) explains when to edit Live, prepare a change set or change the model. [Model releases](/docs/model/releases/) explains installation and activation.
+
+## Shape the working screens
+
+A model administrator uses [the model editor](/docs/model/the-model-editor/) to change a draft,
+review its issues and history, and preview it against records without changing those records.
+[Types, attributes and relations](/docs/model/types-attributes-relations/) defines the reusable
+fields, permitted parents, ownership and candidate rules behind the screens.
+
+[Applications and views](/docs/model/applications-and-views/) chooses collections, navigation
+groups and the table, tree, mapping-grid or relation-matrix views each collection offers.
+[Record pages and tables](/docs/model/record-pages-and-tables/) arranges fields, related-record
+panels, columns, filters and sort choices. Hiding a panel changes presentation; it does not
+remove stored data or revoke access.
+
+[Issues and dry runs](/docs/model/issues-and-dry-run/) distinguishes a valid definition from
+one that also fits existing records or a proposed workbook load. [Workbook proposals](/docs/model/workbook-proposals/)
+can help turn sheets and columns into a reviewed design. The [specialist workbench](/docs/model/json-view/)
+handles supported definitions without visual forms; an absent form does not necessarily mean
+the capability is unavailable.
+
+For later changes, use [migrations](/docs/model/migrations/) to convert existing data under an explicit
+loss review. A [model mapping](/docs/model/model-mappings/) describes how records transfer
+between workspaces with different definitions. Neither installing a draft nor switching to
+another workspace transfers records by itself.

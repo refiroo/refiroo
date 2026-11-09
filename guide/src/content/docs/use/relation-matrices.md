@@ -60,6 +60,15 @@ Search narrows the rows. **Filter** offers **Cell state** and a column chooser n
 column type, followed by **to show**. A state filter finds rows with that state in at least one
 chosen column across the whole list, including rows not yet scrolled into view.
 
+The matrix includes all records of its column type, even those that do not concern the rows you
+are working on. Use the column chooser on its own, with **Any state**, to show only the columns
+you need; **Show all** followed by the column type's plural name brings every column back.
+
+The choice belongs to the page you have open, not to the view's saved settings, and does not
+change what other people see. The page's address keeps the chosen columns and cell state, so a
+bookmark or shared link opens the same selection. Opening the view again from the navigation
+shows all columns.
+
 Choose the columns before interpreting results for cells in state **None**. If no columns were explicitly selected,
 choosing a state uses the columns currently shown. A result with no matching rows means no
 matches for that search, state and column selection; it does not prove coverage in omitted columns.

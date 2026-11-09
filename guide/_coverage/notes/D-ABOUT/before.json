@@ -1,0 +1,22 @@
+{
+  "src/content/docs/about/accessibility.md": 495,
+  "src/content/docs/about/compatibility-and-licence.md": 534,
+  "src/content/docs/about/data-quality-rules.md": 512,
+  "src/content/docs/about/how-it-is-built.md": 739,
+  "src/content/docs/about/how-it-works.md": 655,
+  "src/content/docs/about/people-and-access.md": 598,
+  "src/content/docs/about/security-and-trust.md": 1252,
+  "src/content/docs/about/sharing-data-with-other-systems.md": 664,
+  "src/content/docs/about/three-kinds-of-change.md": 625,
+  "src/content/docs/about/what-is-refiroo.md": 928,
+  "src/content/docs/journeys/change-with-approval.md": 807,
+  "src/content/docs/journeys/index.md": 697,
+  "src/content/docs/journeys/integrate-a-system.md": 1574,
+  "src/content/docs/journeys/look-after-data.md": 1215,
+  "src/content/docs/journeys/manage-access.md": 706,
+  "src/content/docs/journeys/receive-notices.md": 532,
+  "src/content/docs/journeys/run-the-service.md": 490,
+  "src/content/docs/journeys/shape-a-model.md": 1500,
+  "src/content/docs/journeys/work-with-an-assistant.md": 1625,
+  "src/content/docs/index.md": 591
+}

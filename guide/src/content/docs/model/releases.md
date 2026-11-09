@@ -153,3 +153,10 @@ offers **What this change does**. [Accounts of model changes](/docs/model/model-
 explains the facts, sent data, costs and limits. Follow
 [Explain a model change](/docs/guide/model/explain-a-model-change/) to ask; opening the dialog
 alone makes no provider request.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+release
+release.key
+release.name
+release.version
+-->

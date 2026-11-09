@@ -97,8 +97,20 @@ another; resize the selected-pair panel if the choices need more room.
    Select shared definitions of the right value type: a date stays a date, and a Yes or no value
    becomes a checkbox. Check the from and to types in the dialog title: this choice applies to
    that directed pair, not every pair using the relation type.
+3. To revise limits together, choose **Cardinality and required…** and apply the intended
+   combination. Released pairs may withhold these structural actions. Use the refusal and
+   compatibility check to decide whether a migration is necessary.
+4. Select the shared **Relation type** to review both names and its **Settings**. Change
+   **Oriented** only after reviewing its effect on record deletion; see
+   [relationship settings](/docs/model/types-attributes-relations/#visibility-help-and-relationship-settings).
+
+![Allowed relationship showing Carries beside number limits and candidate criteria](/docs/screens/model-relation-carries.png)
 
 After installation, check the relationship's columns on a record or in a matrix cell. To give
 people a dedicated view for these values, [add a relationships table](/docs/guide/model/add-a-relationships-table/).
 To expose them to another system, [choose them in a consumer API's related block](/docs/guide/model/define-a-consumer-api/).
 Each connection holds its own values; selecting Carries creates no values on existing connections.
+
+**Remove relation type** also stops allowing that relation between its listed pairs. Read the
+confirmation’s pair list before accepting. Removing a definition from a draft does not delete
+live connections immediately; stored use can prevent the change or require a migration.

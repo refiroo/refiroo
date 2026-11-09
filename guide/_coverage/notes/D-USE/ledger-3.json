@@ -1,0 +1,202 @@
+[
+  {
+    "id": "C0397",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0514",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0518",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0562",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0567",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0569",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0570",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0580",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0581",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0582",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0583",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0584",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0586",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0591",
+    "source": "backend/app/management/mcp_tools.py",
+    "resolution": "not for readers: facts-only assistant tool contract for integrators; browser history account is documented in use/history."
+  },
+  {
+    "id": "C0592",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0596",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0597",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0599",
+    "source": "backend/app/engine/agent_access/calls.py",
+    "resolution": "not for readers: security-administrator tool-call log and database storage design; not a steward screen."
+  },
+  {
+    "id": "C0603",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0606",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0607",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0608",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0609",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0622",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0623",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0624",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0640",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0666",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0674",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded three-file proposal; current browser takes one XLSX or CSV file as documented in use/loading-with-the-assistant."
+  },
+  {
+    "id": "C0675",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded profile-tool assistant transport; current session receives the whole workbook, documented in use/ai-and-your-data."
+  },
+  {
+    "id": "C0682",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded one-provider planning architecture; current session and provider are independent."
+  },
+  {
+    "id": "C0703",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded five-kind plan representation; current task proposals and review documented without internal step names."
+  },
+  {
+    "id": "C0714",
+    "source": "backend/app/models/schema.py; backend/app/engine/imports/ (no unpivot reader)",
+    "resolution": "not for readers: future 0.17 profile unpivot design, not delivered by this wave."
+  },
+  {
+    "id": "C0716",
+    "source": "frontend/src/features/settings/navigation.ts",
+    "resolution": "not for readers: administration screen inventory; steward actions are documented at their task surfaces."
+  },
+  {
+    "id": "C0719",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0752",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0753",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0756",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0758",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0762",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  }
+]

@@ -1,6 +1,6 @@
 # Automatic HTTPS in front of the web container (compose.acme.yml, 0.12 DP4). The site is
 # PUBLIC_URL: for a public name Caddy gets and renews a Let's Encrypt (or ZeroSSL) certificate by
-# itself and redirects HTTP to HTTPS; for localhost it uses its own local authority.
+# itself (through port 443 alone) and redirects HTTP to HTTPS where port 80 is open; for localhost it uses its own local authority.
 # To be told when a certificate is about to expire, add a global block above:  { email you@example.org }
 {$PUBLIC_URL} {
 	reverse_proxy web:8080 {

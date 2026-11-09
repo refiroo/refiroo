@@ -121,3 +121,39 @@ limit without checking their workload and memory cost; production connection cap
 The reference database stores its files at `/var/lib/postgresql/data`. Do not copy that live
 filesystem directory as though it were a consistent database backup; use
 [the PostgreSQL dump and restore procedure](/docs/run/backup-and-restore/).
+
+
+## Watch database growth
+
+Measure both PostgreSQL data and the filesystem holding its volume. From the installation root:
+
+```bash
+docker compose exec -T database psql -U rdm -d rdm -c \
+  'SELECT pg_size_pretty(pg_database_size(current_database())) AS database_size;'
+docker compose exec -T database psql -U rdm -d rdm -c \
+  'SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) AS total_size FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 15;'
+docker compose exec -T database df -h /var/lib/postgresql/data
+```
+
+The first query gives the database size; the second lists the largest tables including their
+indexes. `df` includes other filesystem use, so its free space can fall faster than the database
+size suggests. Record these readings over time and alert before the volume fills. refiroo does not
+reserve disk space or supply a database-size limit or automatic storage expansion.
+
+Retention removes finished job details, superseded source files, old delivery logs and eligible
+consumer events, and expires older feed positions. It does not delete the feed's audit history or
+set a maximum database size. Expired job summaries remain. Audit history,
+publications and change-set snapshots also occupy space. Unused model releases have an explicit
+[pruning command](/docs/run/model-releases-and-rollback/); do not delete snapshot, history or index
+rows directly. A workspace without a publication retains its feed, and entries newer than the
+active publication remain even beyond the configured days. See [retention settings](/docs/run/configure/).
+
+A long export keeps its read snapshot open and can delay PostgreSQL reclaiming changed rows.
+Inspect [jobs](/docs/run/background-jobs/) and active transactions when growth is unexpected.
+Deleted rows do not mean the volume immediately shrinks: PostgreSQL manages reusable space.
+Plan database maintenance with its administrator; refiroo has no shrink-volume button.
+
+If space is nearly exhausted, pause new loads, preserve diagnostics and extend the affected storage.
+Do not remove database files or volumes. After resolving capacity, check PostgreSQL, readiness,
+workspace status and interrupted jobs before reopening writers. Moving to a larger server uses
+[the matching database and file restore](/docs/run/backup-and-restore/#restore-on-a-replacement-host).

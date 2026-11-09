@@ -1,0 +1,202 @@
+[
+  {
+    "id": "C0788",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0790",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0797",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0802",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded task-plan batch-construction implementation, not a browser action."
+  },
+  {
+    "id": "C0804",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0823",
+    "source": "backend/app/engine/proposals/impact_summary.py",
+    "resolution": "not for readers: model-administrator and integrator summary-route contract; not a steward task."
+  },
+  {
+    "id": "C0824",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0826",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0829",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0876",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0895",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0901",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0928",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0929",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0930",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0931",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0932",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0933",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0934",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0935",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0936",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0937",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0938",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0939",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0940",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0941",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0942",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0943",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0944",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0945",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0946",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0947",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0948",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0949",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0950",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0952",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0953",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0954",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0955",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0956",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  }
+]

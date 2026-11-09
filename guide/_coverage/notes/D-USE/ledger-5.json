@@ -1,0 +1,127 @@
+[
+  {
+    "id": "C0958",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0959",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0960",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0962",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0963",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0964",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0965",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0966",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0971",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0972",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0979",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0981",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0985",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0987",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C1066",
+    "source": "frontend/src/features/settings/AgentAccessPage.tsx",
+    "resolution": "not for readers: security-administrator Calls screen, not a steward task."
+  },
+  {
+    "id": "C1099",
+    "source": "backend/app/config.py",
+    "resolution": "not for readers: operator startup migration of settings and a runtime dependency, not a steward task; operator settings live in run/ai."
+  },
+  {
+    "id": "C1104",
+    "source": "backend/app/management/mcp_tools.py",
+    "resolution": "not for readers: MCP tool annotations and response formatting contract for integrators, not a browser control."
+  },
+  {
+    "id": "C1106",
+    "source": "backend/app/models/schema.py",
+    "resolution": "not for readers: schema-design decision about a field-proposal feature not delivered in 0.16."
+  },
+  {
+    "id": "C1117",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C1230",
+    "source": "backend/app/models/schema.py; backend/app/engine/proposals/query_translation.py",
+    "resolution": "not for readers: model-query and relationship-candidate configuration contract, not an AI task-specific steward control."
+  },
+  {
+    "id": "C1234",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C1279",
+    "source": "backend/app/engine/proposals/impact_summary.py",
+    "resolution": "not for readers: model-activation summary fact representation for model administrators and integrators, not a steward task."
+  },
+  {
+    "id": "C1280",
+    "source": "backend/app/management/routers/mcp.py",
+    "resolution": "not for readers: tool refusal wire format for integrators, not browser-facing text."
+  },
+  {
+    "id": "C1281",
+    "source": "backend/app/management/mcp_tools.py",
+    "resolution": "not for readers: generated MCP tool naming contract for integrators, not a steward control."
+  },
+  {
+    "id": "C1283",
+    "source": "backend/app/management/mcp_tools.py",
+    "resolution": "not for readers: MCP resource URI and paging contract for integrators, not a browser control."
+  }
+]

@@ -42,3 +42,40 @@ full view and panel declarations; consumer contracts; and import-profile instruc
 applicable. Visual controls cover only the options described on their pages. Do not infer that
 an absent form means the model cannot declare a feature. Integrators use
 [Integrate](/docs/integrate/overview/) for the model contract details rather than browser steps.
+
+## Settings that still need a specialist
+
+Use the named controls first. The type’s **Settings** now sets its display attribute,
+effective period, grouped field requirement and parent relationships; attribute Settings
+sets numeric limits, Hidden and Help text. Relationship **Carries**, application **Default
+view**, **Add a view…**, **Header and breadcrumbs…** and panel **Settings…** also have forms.
+See [Types](/docs/model/types-attributes-relations/), [Views](/docs/model/applications-and-views/)
+and [Record pages](/docs/model/record-pages-and-tables/) for those tasks.
+
+These supported choices still require the complete document workbench:
+
+| Choice | What to review with the specialist |
+| --- | --- |
+| Model title and description | The product wording used by the top bar comes from the default workspace’s model. A draft title alone does not change it. |
+| Application or type icon | Choose an icon supported by refiroo; the visual editor displays it but has no icon picker. |
+| Existing application, type or shared-field description | The new-application form takes a description; the element tables do not provide a general description editor. |
+| Released field’s value type | A specialist can save the changed definition here when the visual editor refuses it. Compile and compare, install the release, then review the workspace migration before changing stored values. |
+| Attribute default | A typed starting value used on creation, not a rule that refills cleared values. |
+| Relationship uniqueness within an ancestor and its condition | Review the allowed type pair, ancestor and target field; these rules govern writes, not just one view. |
+| Tree actions and detailed ordering | Create, Rename and Move, different ordering per child type, descending order and reading size. The visual tree form controls availability and one common child-order field. |
+| Mapping-grid reading size | The visual form chooses endpoints, columns and candidate search, and new grids read 20 rows at a time. |
+| Relation-matrix search and reading size | The matrix form sets structure, displayed fields and cell actions; additional row search fields and reading size need the workbench. |
+| Full panel declarations | Creating a Table or Hierarchy panel directly, changing a table panel’s record type or a contained panel’s type list after creation. Existing hierarchy and table panels have Settings controls. |
+| Detailed consumer declarations | The consumer editor has named forms for ordinary choices; a specialist can edit an entire API or item with **Edit as JSON…** when a combination has no form. |
+
+Every saved change still needs validation. A free-form setting accepted in a document is not
+proof that refiroo uses it. Ask the specialist to confirm the behavior and inspect the preview
+and release checks before activation. Export preserves model definitions; it does not back up
+workspace records, files, access settings or history. Use the operator’s
+[backup and restore procedure](/docs/run/backup-and-restore/) for the installation.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+product
+product.description
+product.name
+-->

@@ -54,3 +54,15 @@ Stopping a job does not undo chunks it has already committed. If a colleague cha
 change set between chunks, the next chunk can fail while earlier chunks remain applied.
 
 ![Selected rows and selection bar, followed by a Change values preview with changed, unchanged and refused counts and Apply.](/docs/screens/bulk-selection-preview.png)
+
+## Default limits
+
+Normally one background change can hold up to 1,000,000 items, a preview tries at most
+10,000 items, and **Change none** or **Delete none** can hold at most 10,000 items.
+The operator can change these limits; use the count and limit shown by your dialog.
+An item is a requested change, so one selected record can contribute several items to a
+relationship change. A sampled preview is not a promise that all remaining items can succeed.
+
+For **Delete**, the refusal choices are **Delete the rest** and **Delete none**. The first
+allows valid deletions to continue when another item is refused. The second applies none
+unless the whole operation can succeed within its limit.

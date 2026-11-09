@@ -66,6 +66,7 @@ restart the engine after changing `.dev/settings.env`. A refused start names the
 correct it and start again. Booleans recognise `1`, `true`, `yes` and `on` (case-insensitive) as on;
 other values mean off. Check the effective value to catch a spelling mistake. Count and time limits
 must be positive integers, except the overflow and idle-transaction settings which also accept zero.
+AI confidence is a number from 0 to 1, and a configured AI context window needs at least 256 tokens.
 `PASSWORD_MIN_LENGTH` must be between 1 and 128.
 
 Compose's explicit environment entries override the file: it constructs `DATABASE_URL` and sets
@@ -88,6 +89,12 @@ Raise limits only after checking workload and storage. Size and item limits appl
 Larger chunks and previews can make other writes in the same workspace wait longer. A batch over
 a limit returns `413 BATCH_TOO_LARGE`, naming its setting. Imports can return `IMPORT_TOO_LARGE`
 or `IMPORT_TOO_MANY_ITEMS`; draft edits use `OPERATION_BATCH_TOO_LARGE`.
+
+Turning a capability off does not delete its existing records, jobs or configuration. Turning
+jobs off also stops their hourly cleanup on that instance; keep a job-enabled instance running
+where cleanup is required. Read [Background jobs](/docs/run/background-jobs/) before using this
+as a pause mechanism. Limits normally govern new requests or work, rather than undoing work
+already accepted. Retention changes cannot bring back expired files or details.
 
 An old feed position returns `410 FEED_POSITION_EXPIRED`, naming a publication to read again;
 consumer events use `EVENTS_EXPIRED`. Entries after the active publication, or all entries in a

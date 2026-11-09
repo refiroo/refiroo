@@ -15,3 +15,13 @@ Use a model mapping when the destination has a different structure. Counterpart 
 7. For a move, inspect any prepared source-deletion change set. Source records changed since preview or needed by records left behind can be retained with a reason. Publish source deletions only after the target copy is published. If the target copy was discarded, discard the dependent deletion instead of forcing it.
 
 Keep both jobs and change-set identities in your reconciliation record. A completed load prepares changes; it does not mean the full two-workspace transfer has been published.
+
+## Keep the two publication boundaries visible
+
+Save the source selection/context, both releases, mapping key/version, preview job, target change set and any source-deletion change set in one transfer record. Download or retain the row outcomes before job retention removes them. Keep the source-to-target identities, including reused target records, so a retry can be reconciled instead of assumed to be a new copy.
+
+After loading, inspect both change sets and their latest versions before any publication action. A successful target publication makes that side visible. A failed source publication leaves the source records present; it does not undo the target. This intermediate state can be legitimate while conflicts are resolved. Report the transfer as complete only when the intended publication on each side has succeeded, or when the owner deliberately chooses to keep both copies.
+
+If a preview is wrong, cancel it and submit another after correcting the mapping. If loading fails or is cancelled, inspect the job and any linked change sets before starting new work; committed prepared rows are not evidence that the transfer finished. Do not publish a partial target merely to unblock source deletion. If the transfer is abandoned, discard unwanted open change sets through the [change-set operations](/docs/api/?api=management#tag/change-sets), claiming their current versions. A set already published needs a new reviewed correction; job cancellation does not reverse it.
+
+A transfer is not a database restore and creates no ongoing synchronization schedule. Back up the integration's transfer record separately from the instance's [operator backup](/docs/run/backup-and-restore/). Recheck actual publication state after either side is restored.

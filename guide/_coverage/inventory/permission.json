@@ -1,0 +1,783 @@
+[
+ {
+  "kind": "permission",
+  "key": "group:browse",
+  "labels": [
+   "Browse",
+   "browse"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:33",
+  "section": "administer",
+  "summary": "Read a workspace: its model, records, relations, history, change sets and publications; export to a file"
+ },
+ {
+  "kind": "permission",
+  "key": "group:edit-live",
+  "labels": [
+   "Edit live",
+   "edit-live"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:40",
+  "section": "administer",
+  "summary": "Create, change and delete records, values and relationships without a change set"
+ },
+ {
+  "kind": "permission",
+  "key": "group:change-sets",
+  "labels": [
+   "Work in change sets",
+   "change-sets"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:47",
+  "section": "administer",
+  "summary": "Create, change, validate and discard change sets, and edit records inside them"
+ },
+ {
+  "kind": "permission",
+  "key": "group:publish",
+  "labels": [
+   "Publish",
+   "publish"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:54",
+  "section": "administer",
+  "summary": "Publish a change set; withdraw a publication"
+ },
+ {
+  "kind": "permission",
+  "key": "group:approve",
+  "labels": [
+   "Approve publications",
+   "approve"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:61",
+  "section": "administer",
+  "summary": "Decide a submitted change set: approve it, which publishes it, or send it back"
+ },
+ {
+  "kind": "permission",
+  "key": "group:bulk",
+  "labels": [
+   "Bulk and import",
+   "bulk"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:67",
+  "section": "administer",
+  "summary": "Batches and imports; import profiles and source files"
+ },
+ {
+  "kind": "permission",
+  "key": "group:copy-move",
+  "labels": [
+   "Copy and move",
+   "copy-move"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:74",
+  "section": "administer",
+  "summary": "Model-to-model mappings, and moving records between workspaces"
+ },
+ {
+  "kind": "permission",
+  "key": "group:model-authoring",
+  "labels": [
+   "Model authoring",
+   "model-authoring"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:81",
+  "section": "administer",
+  "summary": "Model drafts and everything on them; reading model releases"
+ },
+ {
+  "kind": "permission",
+  "key": "group:model-install",
+  "labels": [
+   "Install a model",
+   "model-install"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:87",
+  "section": "administer",
+  "summary": "Install a draft as a release, without activating it anywhere"
+ },
+ {
+  "kind": "permission",
+  "key": "group:model-release",
+  "labels": [
+   "Model release",
+   "model-release"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:93",
+  "section": "administer",
+  "summary": "Install a draft as a release, activate a release in a workspace, migrate a workspace"
+ },
+ {
+  "kind": "permission",
+  "key": "group:workspace-admin",
+  "labels": [
+   "Workspace administration",
+   "workspace-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:99",
+  "section": "administer",
+  "summary": "Create, rename, retire and delete workspaces; set the default workspace"
+ },
+ {
+  "kind": "permission",
+  "key": "group:integration-admin",
+  "labels": [
+   "Integration administration",
+   "integration-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:105",
+  "section": "administer",
+  "summary": "Consumer API subscriptions and their deliveries"
+ },
+ {
+  "kind": "permission",
+  "key": "group:feed",
+  "labels": [
+   "Feed",
+   "feed"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:110",
+  "section": "administer",
+  "summary": "Read a workspace's change feed"
+ },
+ {
+  "kind": "permission",
+  "key": "group:operations",
+  "labels": [
+   "Operations",
+   "operations"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:112",
+  "section": "administer",
+  "summary": "Processes, readiness, metrics, backup rehearsals and the deployment's settings"
+ },
+ {
+  "kind": "permission",
+  "key": "group:security-admin",
+  "labels": [
+   "Security administration",
+   "security-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:118",
+  "section": "administer",
+  "summary": "People, groups, roles, grants, clients and token signing keys"
+ },
+ {
+  "kind": "permission",
+  "key": "group:ai-proposals",
+  "labels": [
+   "Use AI proposals",
+   "ai-proposals"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:126",
+  "section": "administer",
+  "summary": "Ask the configured AI provider for proposals the person then edits, keeps or removes, and for summaries"
+ },
+ {
+  "kind": "permission",
+  "key": "action:signed-in",
+  "labels": [
+   "signed-in"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:150",
+  "section": "administer",
+  "summary": "Anything a signed-in caller may read about themselves or the engine"
+ },
+ {
+  "kind": "permission",
+  "key": "action:workspaces.list",
+  "labels": [
+   "workspaces.list"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:152",
+  "section": "administer",
+  "summary": "List the workspaces the caller holds a role in (D288)"
+ },
+ {
+  "kind": "permission",
+  "key": "action:changes.read",
+  "labels": [
+   "changes.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:154",
+  "section": "administer",
+  "summary": "Read the data and model changes the caller may see, across workspaces (Z6, D342)"
+ },
+ {
+  "kind": "permission",
+  "key": "action:model.read",
+  "labels": [
+   "Reading the model",
+   "model.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:158",
+  "section": "administer",
+  "summary": "Read a workspace's model",
+  "groups": [
+   "browse"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:workspace.read",
+  "labels": [
+   "Reading the workspace",
+   "workspace.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:159",
+  "section": "administer",
+  "summary": "Read a workspace",
+  "groups": [
+   "browse"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:records.read",
+  "labels": [
+   "Reading records",
+   "records.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:161",
+  "section": "administer",
+  "summary": "Read records, relationships, history and queries",
+  "groups": [
+   "browse"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:change-sets.read",
+  "labels": [
+   "Reading change sets",
+   "change-sets.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:167",
+  "section": "administer",
+  "summary": "Read change sets and their changes",
+  "groups": [
+   "browse"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:publications.read",
+  "labels": [
+   "Reading publications",
+   "publications.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:172",
+  "section": "administer",
+  "summary": "Read publications",
+  "groups": [
+   "browse"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:exports.create",
+  "labels": [
+   "Exporting records",
+   "exports.create"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:174",
+  "section": "administer",
+  "summary": "Export records to a file",
+  "groups": [
+   "browse"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:records.write",
+  "labels": [
+   "Changing records",
+   "records.write"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:177",
+  "section": "administer",
+  "summary": "Change records, values and relationships: live, or in a change set",
+  "groups": [
+   "edit-live",
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:change-sets.write",
+  "labels": [
+   "Changing change sets",
+   "change-sets.write"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:183",
+  "section": "administer",
+  "summary": "Create, change, validate and discard change sets",
+  "groups": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:change-sets.publish",
+  "labels": [
+   "Publishing a change set",
+   "change-sets.publish"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:189",
+  "section": "administer",
+  "summary": "Publish a change set",
+  "groups": [
+   "publish"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:change-sets.submit",
+  "labels": [
+   "Submitting a change set",
+   "change-sets.submit"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:195",
+  "section": "administer",
+  "summary": "Submit a change set for publication, or withdraw its submission",
+  "groups": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:change-sets.withdraw",
+  "labels": [
+   "Withdrawing a submission",
+   "change-sets.withdraw"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:201",
+  "section": "administer",
+  "summary": "Withdraw a change set's submission: the person who submitted it, or an approver",
+  "groups": [
+   "change-sets",
+   "approve"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:change-sets.decide",
+  "labels": [
+   "Deciding on a change set",
+   "change-sets.decide"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:207",
+  "section": "administer",
+  "summary": "Approve a submitted change set, which publishes it, or send it back",
+  "groups": [
+   "approve"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:approval-policy.write",
+  "labels": [
+   "Changing the approval policy",
+   "approval-policy.write"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:213",
+  "section": "administer",
+  "summary": "Change a workspace's approval policy",
+  "groups": [
+   "workspace-admin"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:publications.withdraw",
+  "labels": [
+   "Withdrawing a publication",
+   "publications.withdraw"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:219",
+  "section": "administer",
+  "summary": "Withdraw a publication",
+  "groups": [
+   "publish"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:bulk.write",
+  "labels": [
+   "Sending a batch or an import",
+   "bulk.write"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:225",
+  "section": "administer",
+  "summary": "Send a batch or an import",
+  "groups": [
+   "bulk"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:import-profiles.manage",
+  "labels": [
+   "Using import profiles",
+   "import-profiles.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:231",
+  "section": "administer",
+  "summary": "Read and change import profiles",
+  "groups": [
+   "bulk"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:source-files.manage",
+  "labels": [
+   "Using source files",
+   "source-files.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:237",
+  "section": "administer",
+  "summary": "Upload, read and delete source files",
+  "groups": [
+   "bulk"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:model-mappings.manage",
+  "labels": [
+   "Using model mappings",
+   "model-mappings.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:243",
+  "section": "administer",
+  "summary": "Read and change model-to-model mappings",
+  "groups": [
+   "copy-move"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:moves.create",
+  "labels": [
+   "Moving records",
+   "moves.create"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:249",
+  "section": "administer",
+  "summary": "Move records into another workspace",
+  "groups": [
+   "copy-move"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:model.author",
+  "labels": [
+   "Authoring models",
+   "model.author"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:255",
+  "section": "administer",
+  "summary": "Author model drafts",
+  "groups": [
+   "model-authoring"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:model-releases.read",
+  "labels": [
+   "Reading model releases",
+   "model-releases.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:258",
+  "section": "administer",
+  "summary": "Read model releases and their differences",
+  "groups": [
+   "model-authoring",
+   "model-release"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:model.install",
+  "labels": [
+   "Installing a model release",
+   "model.install"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:264",
+  "section": "administer",
+  "summary": "Install a model draft as a release",
+  "groups": [
+   "model-release",
+   "model-install"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:model.activate",
+  "labels": [
+   "Changing the workspace's model",
+   "model.activate"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:270",
+  "section": "administer",
+  "summary": "Activate a release in a workspace, or migrate it",
+  "groups": [
+   "model-release"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:workspaces.manage",
+  "labels": [
+   "Administering workspaces",
+   "workspaces.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:276",
+  "section": "administer",
+  "summary": "Create, change and delete workspaces",
+  "groups": [
+   "workspace-admin"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:feed.read",
+  "labels": [
+   "Reading the change feed",
+   "feed.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:282",
+  "section": "administer",
+  "summary": "Read a workspace's change feed",
+  "groups": [
+   "feed"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:subscriptions.manage",
+  "labels": [
+   "Managing consumer subscriptions",
+   "subscriptions.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:288",
+  "section": "administer",
+  "summary": "Manage consumer API subscriptions",
+  "groups": [
+   "integration-admin"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:operations.read",
+  "labels": [
+   "Reading the service's operations",
+   "operations.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:294",
+  "section": "administer",
+  "summary": "Read the running service's state and settings",
+  "groups": [
+   "operations"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:ai.test",
+  "labels": [
+   "Testing the AI provider",
+   "ai.test"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:300",
+  "section": "administer",
+  "summary": "Send the AI provider a test request",
+  "groups": [
+   "operations"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:security.manage",
+  "labels": [
+   "Security administration",
+   "security.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:306",
+  "section": "administer",
+  "summary": "Manage people, groups, roles, grants and keys",
+  "groups": [
+   "security-admin"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:agent-access.read",
+  "labels": [
+   "Reading agent access",
+   "agent-access.read"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:312",
+  "section": "administer",
+  "summary": "Read agent access: its settings, assistants, agent clients and calls",
+  "groups": [
+   "security-admin"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:agent-access.write",
+  "labels": [
+   "Changing agent access",
+   "agent-access.write"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:318",
+  "section": "administer",
+  "summary": "Register, block and restore the assistants people sign in with",
+  "groups": [
+   "security-admin"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:jobs.use",
+  "labels": [
+   "Using this job",
+   "jobs.use"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:324",
+  "section": "administer",
+  "summary": "Read, follow, cancel and confirm a job, by the group that starts its kind (D285)",
+  "groups": [
+   "bulk",
+   "browse",
+   "copy-move",
+   "model-release",
+   "change-sets",
+   "model-authoring"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "role:reader",
+  "labels": [
+   "reader"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:342",
+  "section": "administer",
+  "summary": "Groups: browse"
+ },
+ {
+  "kind": "permission",
+  "key": "role:contributor",
+  "labels": [
+   "contributor"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:343",
+  "section": "administer",
+  "summary": "Groups: browse, change-sets"
+ },
+ {
+  "kind": "permission",
+  "key": "role:steward",
+  "labels": [
+   "steward"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:344",
+  "section": "administer",
+  "summary": "Groups: browse, edit-live, change-sets, publish, bulk, ai-proposals"
+ },
+ {
+  "kind": "permission",
+  "key": "role:owner",
+  "labels": [
+   "owner"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:345",
+  "section": "administer",
+  "summary": "Groups: browse, edit-live, change-sets, publish, approve, bulk, feed, copy-move, ai-proposals"
+ },
+ {
+  "kind": "permission",
+  "key": "role:model-admin",
+  "labels": [
+   "model admin",
+   "model-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:356",
+  "section": "administer",
+  "summary": "Groups: model-authoring, model-install, model-release, ai-proposals"
+ },
+ {
+  "kind": "permission",
+  "key": "role:workspace-admin",
+  "labels": [
+   "workspace admin",
+   "workspace-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:357",
+  "section": "administer",
+  "summary": "Groups: workspace-admin, ai-proposals"
+ },
+ {
+  "kind": "permission",
+  "key": "role:integration-admin",
+  "labels": [
+   "integration admin",
+   "integration-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:358",
+  "section": "administer",
+  "summary": "Groups: integration-admin, feed, ai-proposals"
+ },
+ {
+  "kind": "permission",
+  "key": "role:operator",
+  "labels": [
+   "operator"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:359",
+  "section": "administer",
+  "summary": "Groups: operations"
+ },
+ {
+  "kind": "permission",
+  "key": "role:security-admin",
+  "labels": [
+   "security admin",
+   "security-admin"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:360",
+  "section": "administer",
+  "summary": "Groups: security-admin"
+ },
+ {
+  "kind": "permission",
+  "key": "role:agent",
+  "labels": [
+   "agent"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:363",
+  "section": "administer",
+  "summary": "Groups: browse, change-sets"
+ },
+ {
+  "kind": "permission",
+  "key": "agent-ceiling",
+  "labels": [
+   "ceiling"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:366",
+  "section": "administer",
+  "summary": "The most an assistant token holds: browse, change-sets",
+  "context": [
+   "agent",
+   "assistant"
+  ]
+ }
+]

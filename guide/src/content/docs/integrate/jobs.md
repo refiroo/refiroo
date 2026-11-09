@@ -61,3 +61,11 @@ The named limits are `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `BACKGROUND_JOB_MAX_I
 ## AI jobs
 
 A mapping-target proposal runs as `aiProposal`; an assistant task uses `aiTask` jobs for its work and `dryRun` jobs for checks. The job completes a step, while the task can still wait for a person. Use the [jobs operations](/docs/api/?api=management#tag/jobs) to list by kind, and the [AI operations](/docs/api/?api=management#tag/ai) to inspect the linked task or proposal. Cancelling a mapping proposal keeps the mappings already prepared; stopping an assistant turn follows the task-specific recovery described in [Assistant tasks](/docs/integrate/assistant-tasks/). AI needs the requester's Use AI proposals rights as well as the write permissions; requests can send data and incur service charges. [About AI](/docs/run/ai/) explains what is sent and retained.
+
+## Reconnect a progress stream
+
+The [job events operation](/docs/api/?api=management#tag/jobs) sends `event: job` with the current job immediately, then sends a new job snapshot when committed state changes. Comment lines every 15 seconds keep an idle connection open. They are not progress and need no acknowledgement. The stream ends after `completed`, `failed`, `cancelled` or `expired`; awaiting confirmation is still waiting, not a final execution result.
+
+A lost stream does not cancel the job. Reconnect with a valid management token to receive its current snapshot, or read the job directly. There is no event-ID replay sequence for this stream; use paged item and row outcomes for reconciliation rather than counting SSE messages. Multiple intermediate progress snapshots may pass while disconnected.
+
+Keep job IDs, source-row references, final outcomes and downloaded exports in your integration's reconciliation storage before expiry. Restoring refiroo itself, including its job files, is an [operator backup and restore task](/docs/run/backup-and-restore/). An export of records is not a backup of jobs, profiles, credentials or history. If a restore predates a submitted job, reconcile the actual data before submitting it again; do not assume a replay key survived.

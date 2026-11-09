@@ -109,8 +109,10 @@ be able to reach this public installation to complete its challenge. A local bro
 site is not enough.
 
 1. Choose a public DNS name and point it at this host. Check that its DNS addresses lead here,
-   including any published IPv6 address. Make inbound ports **80 and 443** reachable from the
-   internet. Another service must not already own those host ports.
+   including any published IPv6 address. Make inbound TCP **443** reachable from the
+   internet: certificate issuance and renewal can use **TLS-ALPN** on that port alone. Port **80**
+   is optional and only redirects people who type `http://`. You may leave it closed in the
+   firewall. The overlay still binds both host ports, so neither may already belong to another service.
 2. Set `PUBLIC_URL` in the private environment to the HTTPS origin for that name. The
    overlay publishes Caddy on host ports 80 and 443 directly; `WEB_HTTP_PORT` and
    `WEB_HTTPS_PORT` do not change those overlay ports.
@@ -134,16 +136,42 @@ site is not enough.
    removes web's published ports and certificate mount, and makes Caddy the only public entry.
    It forwards to `web:8080`, which forwards engine paths privately. Streaming responses flush
    immediately through Caddy. Keep both `-f` arguments on subsequent commands.
-5. Check HTTP redirection and HTTPS readiness from the caller's network:
+5. Check HTTPS readiness from the caller's network. Check the HTTP redirect too if you opened port 80:
 
    ```bash
    curl -I http://refiroo.example.org/
    curl -i https://refiroo.example.org/health
    ```
 
-   Substitute your real name. Expect a redirect to HTTPS and readiness 200 with a trusted
-   certificate. Follow the broader [public checks](#verify-from-the-callers-network) before
+   Substitute your real name. Expect readiness 200 with a trusted certificate. If port 80 is
+   open, expect the HTTP request to redirect to HTTPS; if you left it closed, HTTP cannot connect. Follow the broader [public checks](#verify-from-the-callers-network) before
    opening traffic. Never bypass certificate validation to call issuance successful.
+
+<!-- Inventory key caddy:{$PUBLIC_URL}: the coverage checker normalises braced placeholders. -->
+
+### Read the Caddyfile
+
+Compose mounts `./caddy/Caddyfile` read only at `/etc/caddy/Caddyfile` inside Caddy. Its site block is:
+
+```text
+{$PUBLIC_URL} {
+    reverse_proxy web:8080 {
+        flush_interval -1
+    }
+}
+```
+
+| Part | What it does |
+| --- | --- |
+| `{$PUBLIC_URL}` | Reads the HTTPS site address from Caddy's environment. Changing the host also changes the certificate needed; coordinate DNS and [sign-in settings](/docs/run/sign-in-and-mail-setup/). |
+| `reverse_proxy web:8080` | Sends requests to private web over HTTP. Web serves the browser files and forwards engine paths; this is not the engine address. |
+| `flush_interval -1` | Flushes streamed responses immediately, so job events arrive while a request is still open. |
+| `email operator@example.org` | Optional global contact address, in the global block shown above. It is not an SMTP configuration or a substitute for expiry alerts. |
+
+After editing the mounted file, validate it with the command below, restart Caddy with both Compose
+files, then check the public site and a running job's stream. To undo a file change, restore the
+previous Caddyfile and validate/restart again. To change `PUBLIC_URL`, recreate the containers that
+receive it; restarting alone retains their old environment. Keep `caddy-data` through either change.
 
 ### Preserve certificates and renewal
 
@@ -151,7 +179,9 @@ Caddy's `/data` is the **`caddy-data` volume**. It holds both certificates and t
 authority account. Preserve it across container rebuilds and upgrades, and include it in protected
 storage backups. Do not remove it to force a retry: losing it causes new issuance requests, which
 the authorities rate limit. Caddy renews its managed certificates automatically; do not replace
-its managed files by hand. Keep DNS, inbound reachability and Caddy running for renewals too.
+its managed files by hand. Keep DNS, inbound TCP 443 and Caddy available for renewals too. Port 80 may remain closed.
+An expired certificate can stop browsers, integrations and provider callbacks from connecting
+even while the engine itself remains ready. Monitor expiry outside the host as well as readiness.
 
 Inspect the certificate actually served, rather than only a container's state:
 
@@ -166,22 +196,21 @@ A contact address does not replace certificate-expiry monitoring.
 ### If a certificate is not issued or renewed
 
 Read bounded Caddy logs using both Compose files. A name resolving elsewhere or a blocked public
-port prevents the authority's challenge from reaching Caddy: correct DNS or the firewall, then
+TCP 443 prevents the authority's TLS-ALPN challenge from reaching Caddy: correct DNS or the firewall, then
 check the next attempt in the logs. If DNS publishes both IPv4 and IPv6, both advertised paths
 must lead to the right entry. A host-port binding error requires freeing ports 80/443 or reviewing
 the chosen topology. If the log reports an authority rate limit, preserve the account volume and
 follow the retry time in that message instead of repeatedly recreating storage.
 
 Check outbound connectivity from Caddy to the authority as well as inbound connectivity. A changed
-Caddyfile must parse successfully; inspect its error before restarting repeatedly. For a running
-container, validate the mounted file with:
+Caddyfile must parse successfully; inspect its error before restarting repeatedly. Validate the mounted file even when Caddy cannot start:
 
 ```bash
 docker compose -f compose.yml -f compose.acme.yml run --rm --no-deps -T caddy \
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-After a valid change, restart Caddy with the same overlay arguments and repeat the public checks.
+Expect `Valid configuration`. After a valid change, restart Caddy with the same overlay arguments and repeat the public checks.
 Keep the existing `caddy-data` volume. This public flow is unsuitable for a name only your network
 knows: use your organisation's certificate files. Caddy can use its own local authority for
 `localhost`, but that does not make its certificate publicly trusted or replace the
@@ -216,8 +245,9 @@ the public origin after any proxy change. Several instances also need [shared se
 ## Check prerequisites and certificate files
 
 You need the chosen public DNS name, access to its DNS and firewall rules, and either a certificate
-and private key or a public name reachable by the certificate authority. Port 80 must reach the
-HTTP entry and 443 the HTTPS entry unless an organisation's balancer owns those ports. The engine
+and private key or a public name reachable by the certificate authority. TCP 443 must reach the
+HTTPS entry unless an organisation's balancer owns it. Open port 80 only to offer HTTP redirects;
+it is not required for TLS-ALPN certificate issuance or renewal. The engine
 and PostgreSQL do not need public ports. For certificate mode, place a certificate covering your
 public host and its intermediate chain in `fullchain.pem`, and the matching private key in
 `privkey.pem`. The web container runs unprivileged: both files must be readable by that container
@@ -259,7 +289,8 @@ HTTP 200 with `{"status":"ok"}` for readiness. Public `/metrics` must return 404
 `Strict-Transport-Security: max-age=31536000`, `X-Content-Type-Options: nosniff`,
 `Referrer-Policy: same-origin`, `Content-Security-Policy: frame-ancestors 'none'` and
 `X-Frame-Options: DENY` on the application response. Header names are case-insensitive.
-Automatic HTTPS also redirects HTTP; in proxy mode the external balancer owns redirection.
+Automatic HTTPS also redirects HTTP when port 80 is open; with it closed the HTTP test cannot
+connect and can be skipped. In proxy mode the external balancer owns redirection.
 
 Open the application in a browser and sign in. Open a running job's page if jobs are used: updates
 should arrive without waiting for the response to close. The supplied nginx disables proxy

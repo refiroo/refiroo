@@ -60,3 +60,30 @@ It is not a general data catalogue, business glossary, lineage scanner or enterp
 suite. A small product catalogue or a lightweight master-data use can fit when its needs can
 be expressed through the same records, fields, relationships and views. These are uses you
 model; they do not add fixed domain modules to refiroo.
+
+## What you can do
+
+Start with [Home](/docs/use/home/) to find workspaces, recent visits and work waiting for you.
+Within the chosen workspace, these capabilities work with the types its model defines:
+
+| Work | Where to read on |
+| --- | --- |
+| Find records | [Lists, search and filters](/docs/use/lists-and-filters/) combines search, typed conditions, sorting, related columns and navigation through long lists. |
+| Maintain records | [Records](/docs/use/records/) covers names, typed fields, availability, validity dates and reviewed deletion. |
+| Connect records | [Relationships](/docs/use/relationships/) describes associations, ownership and allowed candidates, including connections across applications. |
+| Arrange parents and children | [Hierarchies](/docs/use/hierarchies/) supports browsing, moves and reviewed changes of type or level. |
+| Connect equivalent values | [Mapping grids](/docs/use/mapping-grids/) shows missing connections and lets you review or replace targets. |
+| Find gaps across groups | [Relation matrices](/docs/use/relation-matrices/) shows missing, filled, inactive and conflicting cells, with actions to fill them. |
+| Change a collection | [Changing many records](/docs/use/changing-many-records/) previews changes to values, relationships or selected records before a job applies them. |
+| Exchange workbooks | [Importing and exporting](/docs/use/importing-and-exporting/) supports repeatable profiles and workbooks people can edit and import back. |
+| Transfer data | [Copying and moving](/docs/use/copying-and-moving/) prepares reviewed changes in another workspace using a mapping between models. |
+| Follow background work | [Jobs](/docs/use/jobs/) shows progress, item results and cancellation, including work that only partly succeeded. |
+| Coordinate and review | [Change sets](/docs/use/change-sets/) keeps proposals separate, [Inbox and approvals](/docs/use/inbox-and-approvals/) routes decisions, and [Publications](/docs/use/publications/) preserves results. |
+| Understand a change | [History](/docs/use/history/) records changes to one record or across a workspace, including their authors and causes. |
+| Hear about work | [Notification settings](/docs/use/notifications-settings/) offers immediate email, digests and following another person's publications in a workspace. |
+| Ask for help | [AI and your data](/docs/use/ai-and-your-data/) explains optional list questions, proposed mapping targets, explanations and an assistant that prepares records or models for review. |
+
+A capability can be disabled by the operator, an action can need permission, and a view can be
+absent from a model. These are separate reasons an option might not appear. Begin with
+[User journeys](/docs/journeys/) for the complete path through a task, or
+[Applications](/docs/use/applications/) for the screens a model can offer.

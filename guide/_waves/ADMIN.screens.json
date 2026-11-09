@@ -486,7 +486,7 @@
     },
     {
       "name": "admin-clients",
-      "shows": "The Clients list with the one client, Stops reader (guide), and New client.",
+      "shows": "The Clients list: Active 1 (Stops checker (guide), an agent client), Deactivated 1, and New client.",
       "actions": [
         {
           "goto": "/settings/clients"
@@ -502,7 +502,8 @@
         }
       ],
       "expect": [
-        "Stops reader (guide)",
+        "Stops checker (guide)",
+        "Deactivated",
         "New client"
       ]
     },

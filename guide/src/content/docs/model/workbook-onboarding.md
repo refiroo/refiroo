@@ -308,3 +308,19 @@ For a file whose meaning needs more than the workbook rules can infer,
 [review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/).
 It proposes the model first and lets you correct it in words or in the editor before acceptance.
 This is separate from the rules-based proposals described here.
+
+## Leave out a whole sheet
+
+Open a sheet’s menu in **Source** and choose **Ignore this sheet** when none of it should load.
+This removes reading sources for that sheet and records it as ignored in the profile; it does
+not delete the sheet from your file or delete live records. The action is unavailable when it
+is already ignored. Review **History**, **Issues** and a fresh dry run afterwards, especially
+if another source looked up records from that sheet. Use **Undo** for an unwanted saved step.
+Ignoring one column or choosing **Don’t load this list** has a narrower scope.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+menu:ModelEditor.tsx:workbook
+menu:ModelEditor.tsx:workbook#2
+menu:SourcePane.tsx:ignore
+menu:SourcePane.tsx:ignore#2
+-->

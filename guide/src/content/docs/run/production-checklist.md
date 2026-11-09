@@ -13,9 +13,10 @@ and setup steps are in the linked pages; record your outcomes and recovery conta
 2. **Fix the public address and choose HTTPS.** Set the permanent HTTPS `PUBLIC_URL`, matching
    browser origins and provider callbacks. For a public name, choose [automatic HTTPS](/docs/run/https/)
    with `compose.acme.yml`: Caddy obtains and renews the certificate. Confirm DNS points here,
-   ports 80 and 443 are reachable from the internet and the `caddy-data` volume is preserved.
+   TCP 443 is reachable from the internet and the `caddy-data` volume is preserved. Port 80 is
+   optional for HTTP redirects; TLS-ALPN issuance and renewal work on 443 alone.
    Alternatively, supply your organisation's certificates or use its HTTPS balancer. Check
-   certificate trust, HTTP redirection and renewal. If behind a balancer, check its trusted address
+   certificate trust and renewal, plus HTTP redirection if port 80 is open. If behind a balancer, check its trusted address
    range and forwarded headers.
 3. **Protect secrets.** Store the database password, sealing key and stable cursor key outside
    version control and images. Keep the same keys across processes. Associate each backup with
@@ -36,7 +37,8 @@ and setup steps are in the linked pages; record your outcomes and recovery conta
    reported request ID leads to its log: [Monitoring](/docs/run/monitoring/).
 9. **Protect files and capacity.** Persist job files, share them if several instances run, and
    budget connections across all processes. Exercise a representative import/export and check
-   disk retention. Production CPU, memory, throughput and recovery sizing are **not measured**
+   disk retention. Use the [database growth checks](/docs/run/database/#watch-database-growth) and
+   set external log/metric retention; job retention does not bound all storage. Production CPU, memory, throughput and recovery sizing are **not measured**
    for your workload; collect your own evidence.
 10. **Check integrations.** Confirm receiver trust, signature verification, event deduplication,
     retry recovery and re-sync procedures if using [webhooks](/docs/run/webhook-delivery/).
@@ -72,8 +74,9 @@ curl -i https://refiroo.example.org/health
 curl -i https://refiroo.example.org/metrics
 ```
 
-Use your real host. Expect valid Compose input, running services, HTTP redirected to the fixed
-HTTPS origin, trusted TLS, health 200 with `{"status":"ok"}`, and **404** for public metrics.
+Use your real host. If port 80 is closed, skip the HTTP command; a failed connection there is
+expected. Otherwise expect HTTP redirected to the fixed HTTPS origin. Expect valid Compose input,
+running services, trusted TLS, health 200 with `{"status":"ok"}`, and **404** for public metrics.
 Check container port mappings: only web (or Caddy) publishes. If an engine/database port is public,
 correct that exposure before accepting users. Follow [HTTPS](/docs/run/https/#verify-from-the-callers-network)
 for the response-header checks. Do not suppress certificate verification.

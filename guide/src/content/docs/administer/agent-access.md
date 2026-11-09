@@ -54,7 +54,7 @@ History identifies work **Prepared by an assistant**, with the name the assistan
 
 **Assistants people sign in with** shows **Assistant**, **Returns to**, **Signed in now** and **Last used**. An assistant appears after someone connects it, or after an administrator registers it. Registration allows sign-in; it does not grant workspace access.
 
-The operator can allow assistants to register themselves. Self-registration permits return addresses on the same computer or approved HTTPS hosts. Otherwise an administrator must use **Register an assistant**, providing a name and exact return addresses. A registration accepts at most ten return addresses, each at most 2,000 characters, without fragments. The default permits self-registration with no external hosts approved. Unused registrations with no open session are removed after 30 days; at most 1,000 unused self-registrations may stand.
+The operator can allow assistants to register themselves. Self-registration permits return addresses on the same computer or approved HTTPS hosts. Otherwise an administrator must use **Register an assistant**, providing a name and exact return addresses. A registration accepts at most ten return addresses, each at most 2,000 characters, without fragments. The default permits self-registration with no external hosts approved. Self-registered assistants unused for 30 days are removed when they have no open session. Administrator registrations and blocked registrations remain; at most 1,000 unused self-registrations may stand.
 
 **Block** prevents new sign-ins and ends existing sessions on their next call. **Restore** permits new sign-ins but does not revive sessions that ended. For a system's assistant, open its agent client and use **Deactivate** instead. A person can end only their own assistant session through their account. If a permission was revoked, the next call is checked against the remaining grants.
 
@@ -69,3 +69,27 @@ Tool-call records are normally kept for 90 days; the operator controls this rete
 Data returned by a tool can go to the external assistant and its provider. The built-in AI send levels do not restrict that assistant after it reads permitted records. Check its data handling, retention and charges under your organisation's agreement. This page records calls, not the assistant's complete conversation or provider bill. [AI retention and costs](/docs/run/ai/#what-is-kept) explains the separate built-in records.
 
 Text inside a record may mislead an assistant. refiroo treats record text as data, and its tools do not execute instructions found there. Review what an assistant proposes and check its facts against the records before approving publication.
+
+## Change or remove a connection
+
+There is no edit or delete control for an assistant registration on this page. If its
+return addresses need changing, register the replacement and have people connect and
+sign in again; block the old registration when it must no longer be used. **Restore**
+acts immediately without a second confirmation. It permits new sign-ins and does not
+restore ended sessions.
+
+To turn off all external assistant connections, ask the operator to disable agent access
+and restart. This does not turn off the built-in assistant or erase already prepared
+change sets. While **Agent access is off**, the page hides its connection, client,
+registration and call sections. Turning it back on does not create new grants.
+
+For **Failed**, obtain the actual error from the assistant or its integration owner;
+**Calls** shows the outcome and argument names, not the full request, response or failure
+explanation. A failed section offers **Retry**; it is not an empty-list confirmation.
+For **Limit reached**, allow the requested wait. Calls by several connections of the
+same person or client share that caller's limit.
+
+Moving or restoring registrations, client identities and retained call records belongs
+to the operator's [instance backup and restore procedure](/docs/run/backup-and-restore/).
+A public-address change also requires updating assistants with the new connection address.
+Keep review and publication of their existing proposals in the normal workspace process.

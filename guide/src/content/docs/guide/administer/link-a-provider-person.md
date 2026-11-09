@@ -16,3 +16,8 @@ Use this task when someone already has an account and their first organisation-p
 ![Provider sign-in linking dialog with the fictional existing target person selected](/docs/screens/admin-person-link-provider.png)
 
 To undo a mistaken provider link, open the remaining person’s **Sign-in** section and choose **Unlink…** beside that provider. Read **Unlink …?** and confirm **Unlink** only after checking their remaining sign-in route. A later sign-in through that provider creates a separate person again; unlinking does not merge or rewrite history.
+
+Unlinking also removes this provider's group memberships from the remaining person and
+ends their sessions started through it. Check direct and local-group access separately.
+The source person's earlier history stays under that source person; linking moves sign-in
+and provider membership, rather than reassigning earlier actions.

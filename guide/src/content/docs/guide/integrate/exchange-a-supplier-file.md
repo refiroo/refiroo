@@ -16,3 +16,15 @@ Prepare a repeatable exchange so resending a corrected file does not create dupl
 To return data to a supplier, start an [export](/docs/api/?api=management#tag/exports) with the agreed scope and format, wait for completion and download its output. Keep its metadata and checksum with the file. A cancelled or failed export is not a partial deliverable.
 
 For an export loaded into another workspace of the same model, explicitly choose counterparts. For different models use a model mapping and move. Do not reuse source IDs as though they belonged to the destination.
+
+## Check the first exchange before scheduling it
+
+Use a small file whose intended results you know. Include a new row, an unchanged keyed row and an update to an existing row. In the **reference-data example**, these might be stop identifiers and names; the profile still uses ordinary types, attributes and relationships. Check the preview's interpreted values and cells, not just its total row count. A row can produce several items.
+
+Keep the exact uploaded bytes, request and key together. Import idempotency includes the file's SHA-256: a corrected cell changes the request fingerprint. Use a new key and a new preview after correcting a file. Replaying the original key with changed bytes gives `IDEMPOTENCY_KEY_REUSED`.
+
+When testing blanks, distinguish attributes from replacing relationship lists. An empty attribute cell leaves its value alone; an empty replacing relationship cell requests an empty set. Check formula results are stored as cached values in XLSX before upload. Convert legacy `.xls` files to XLSX. If the file lacks a recognised extension, name its supported format in the request.
+
+After execution, compare final row and item reports with the preview. Save them before `expiresAt`, together with the profile definition, source checksum, job ID, resulting IDs and any remaining refusals. If data or access changed between preview and confirmation, reread the job and current context. A confirmation refusal does not prove execution started; the job can still be awaiting confirmation.
+
+For the return file, check the downloaded file's SHA-256 against the completed job's manifest before handing it over. Keep the manifest's workspace, release and context beside the file so the recipient knows what it contains. Changing or deleting a saved profile does not reverse a prior load; deliberate data corrections use a new reviewed load or change set.

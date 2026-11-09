@@ -1,6 +1,7 @@
 # Automatic HTTPS for a public installation (0.12 DP4): Caddy in front of `web` gets and renews a
 # Let's Encrypt (or ZeroSSL) certificate for the name in PUBLIC_URL. Needs that name's DNS pointing at
-# this host and ports 80 and 443 reachable from the internet. Use it on top of compose.yml:
+# this host and port 443 reachable from the internet (port 80 is optional: it only redirects http://
+# to https://). Use it on top of compose.yml:
 #   docker compose -f compose.yml -f compose.acme.yml up -d --build
 # No certificate files and no ./certs folder are needed. Not for a name only your network knows (the
 # certificate authority could not reach it): use the default, with your own certificate files.

@@ -24,3 +24,5 @@ Choose email copies without changing your inbox. See
 To stop all email, turn the master switch off. To stop just one kind, choose **Off** beside
 it. Inbox notices remain either way. Immediate mail does not backfill notices from before
 you enabled email and only sends unread notices less than a day old.
+
+![Notification email enabled with one kind assigned to a daily digest and its next time visible](/docs/screens/use-notification-email-digest-settings.png)

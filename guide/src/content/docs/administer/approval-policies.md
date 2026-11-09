@@ -60,3 +60,24 @@ An assistant cannot approve or publish. A person reviews its proposed records an
 A built-in assistant's move of only part of a type uses a change set and follows this approval policy. A whole type becoming another is confirmed as a migration by someone holding **Model release**; it does not go through a change-set approval. Review the proposal and migration preview before confirming. See [Model changes with the assistant](/docs/model/ai-model-changes/).
 
 Read [AI settings and access](/docs/administer/ai/) for the built-in assistant's permissions, data sent, costs and retained files, and [Agent access](/docs/administer/agent-access/) for external assistants.
+
+## Change a policy while work is waiting
+
+Both settings are off until a workspace has an approval policy. A saved change is used
+for subsequent decisions and publications, including work already submitted. It does
+not publish, send back or withdraw a waiting request, and it does not undo an earlier
+publication. Under the second-person rule, the submitter cannot **Send back** their own
+submission either: another person must decide it, or the submitter can withdraw it.
+
+**This workspace requires a second person to decide a change set; you submitted this one**
+means another authorised approver must decide. **Sending a change set back needs a comment**
+means the approver must explain what needs correcting. **This change set is not submitted
+for publication** means there is no waiting request to decide; reload its current state.
+If the active publication changed during review, reload and review the current workspace
+before approving again. A refusal records no decision.
+
+To turn the policy off, clear **Changes need approval before they are published** and
+choose **Save approval policy**. This also clears the second-person choice. Existing
+submission and decision history remains. Workspaces, their policies and that history are
+preserved through the operator's [instance backup](/docs/run/backup-and-restore/), rather
+than through an export on this tab.

@@ -33,7 +33,7 @@ For an existing local account, open the newly created provider person's page and
 The provider sign-in and provider memberships move to the existing person, whose roles
 and history continue. The new person is deactivated and their sessions end. Linking is refused if that new person
 already has a password, direct roles or local group memberships; resolve those before retrying.
-Follow [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) for the complete task. **Unlink…** removes a mistaken provider link. Their next provider sign-in creates a separate person again.
+Follow [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) for the complete task. **Unlink…** removes a mistaken provider link, removes memberships in that provider’s groups and ends sessions started through it. Their next provider sign-in creates a separate person again. Direct roles and local group memberships on the remaining person stay in place.
 
 ## A person's page
 
@@ -117,3 +117,24 @@ On the Groups list, **Search groups** searches **Group name**. Entries show the 
 Removing several selected local members is all-or-nothing. If it would remove the last active human Security administrator, nobody in that removal is removed. Arrange another administrator before retrying. Adding several members instead reports each result, so check which people actually joined.
 
 For outgoing messages and forgotten-password recovery, see [Mail](/docs/administer/mail/). For retained recovery accounts, follow [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/).
+
+## Correct an account or group problem
+
+**The person was not created** means creation failed; correct the field or reason shown.
+A username already used by another person cannot be reused, including for a deactivated
+person. Search both lists before choosing a different username for the same person.
+
+**Nobody was added**, **People could not be searched** and **The list could not be checked**
+are different failures in Add members. A search or checking failure does not add anyone.
+Retry that step before submitting the selected people. **Nobody was removed** means the
+selected removal did not take effect; check the reason and the current member list.
+
+Group names must be distinct. A provider group also has a distinct provider claim value:
+renaming it does not let you create another group for the same value. Use the existing
+group and review its grants. There is no undo for deleting a group; creating another with
+the same name does not restore its old memberships or grants.
+
+Access records are stored with the instance, rather than in a browser. For moving or
+restoring the installation, involve the operator and use the
+[backup and restore procedure](/docs/run/backup-and-restore/). Recreating names manually
+does not restore the identities used by their history.

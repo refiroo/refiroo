@@ -266,3 +266,17 @@ engine's machine cannot reach that public address, for example behind a proxy th
 outside callers. Use an address for this engine's API that the session can reach from that machine,
 then run the assistant check in step 6. Provider credentials still use their own settings; an
 internal API address does not change the AI provider's endpoint.
+
+
+## Maintain or remove the setup
+
+After a credential, endpoint or model change, recreate the engine and repeat the two independent
+checks in step 6. Keep task and session volumes mounted through replacement. To recover after a
+host failure, restore the matching database, job files and keys; preserve the assistant volumes
+as well if open sessions must retain their folders. Without those optional volumes, records remain
+but an open task can lack the files needed to continue.
+
+For planned switch-off, credential replacement and what stays stored, follow
+[AI maintenance](/docs/run/ai/#switch-off-a-feature-or-change-its-credentials).
+Do not delete a volume to turn off a feature. Subscription-token renewal takes place through
+Claude Code's authentication process; refiroo has no automatic renewal setting for that credential.

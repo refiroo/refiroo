@@ -14,6 +14,7 @@ export default [
     "Roles and grants",
     [
       ["administer/roles-and-grants", "About roles and grants"],
+      "administer/permissions-reference",
       "guide/administer/grant-a-role",
       "guide/administer/create-a-custom-role",
       "guide/administer/narrow-a-grant-to-record-types",

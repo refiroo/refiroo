@@ -22,7 +22,12 @@ Begin with [What refiroo is](/docs/about/what-is-refiroo/) to decide whether it 
 - [How refiroo works](/docs/about/how-it-works/) — models, records, connections and workspaces.
 - [The example data](/docs/examples/the-example-data/) — public transport stops showing the capabilities together.
 - [Sharing data with other systems](/docs/about/sharing-data-with-other-systems/) — how integrations read, supply and follow data.
+- [How refiroo protects data](/docs/about/data-quality-rules/) — model rules, concurrent saves and reviewed changes.
+- [Who can do what](/docs/about/people-and-access/) — responsibilities, grants and sign-in.
 - [Security and trust](/docs/about/security-and-trust/) — access, protection and operational responsibilities.
+- [How refiroo is built](/docs/about/how-it-is-built/) — technology, deployment and recovery.
+- [Versions, compatibility and licence](/docs/about/compatibility-and-licence/) — stable contracts and the running source offer.
+- [Accessibility and devices](/docs/about/accessibility/) — keyboard and phone use, display choices and evidence limits.
 
 ## Look after data
 
@@ -32,6 +37,10 @@ As a data steward, begin with [Home](/docs/use/home/) to find the workspaces and
 - [Find records](/docs/guide/use/find-records/) — search, filter and open the records you need.
 - [Records](/docs/use/records/) — read and correct fields and understand refused saves.
 - [Change sets](/docs/use/change-sets/) — prepare, review and publish coordinated changes.
+- [Importing and exporting](/docs/use/importing-and-exporting/) — exchange files and repeat a checked load.
+- [Copying and moving](/docs/use/copying-and-moving/) — prepare records in another workspace.
+- [AI and your data](/docs/use/ai-and-your-data/) — decide whether to use optional proposals or an assistant.
+- [Notification settings](/docs/use/notifications-settings/) — follow publications and choose immediate email or digests.
 
 ## Shape a model
 
@@ -39,7 +48,9 @@ As a model administrator, begin with [Models](/docs/model/models/) to understand
 
 - [The model editor](/docs/model/the-model-editor/) — find and change the model's definitions.
 - [Types, attributes and relations](/docs/model/types-attributes-relations/) — define records, reusable fields and connections.
-- [Applications and views](/docs/model/applications-and-views/) — arrange the screens people use.
+- [Applications and views](/docs/model/applications-and-views/) — arrange navigation and the screens people use.
+- [Record pages and tables](/docs/model/record-pages-and-tables/) — choose panels, columns and filters.
+- [Workbook onboarding](/docs/model/workbook-onboarding/) — turn an existing file into a reviewed model and loading profile.
 - [Releases](/docs/model/releases/) — check, install and activate a model release.
 
 ## Administer access

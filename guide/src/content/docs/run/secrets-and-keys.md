@@ -124,3 +124,39 @@ Token signing-key rotation and client/webhook secret rotation are administrator 
 their own overlap and retirement rules. Use [Signing keys](/docs/administer/signing-keys/),
 [Clients](/docs/administer/clients/) and [Webhook delivery](/docs/run/webhook-delivery/).
 Resealing is storage-key maintenance and does not rotate those underlying credentials.
+
+
+## Change the database password
+
+`POSTGRES_PASSWORD` initializes a new PostgreSQL volume. Editing `.env` alone does not change the
+stored role password. For the reference installation, arrange a maintenance window and keep the
+old private settings until you have checked the new connection:
+
+1. Stop every engine using the database. For the single reference engine, run
+   `docker compose stop engine`. Keep the database running.
+2. Open an interactive PostgreSQL session through the database container:
+
+   ```bash
+   docker compose exec database psql -U rdm -d rdm
+   ```
+
+   At its prompt, enter `\password rdm`. Type the new password twice when prompted; do not put
+   it in a SQL statement or shell command. Leave with `\q`. Use a URL-safe generated password
+   for this deployment: Compose embeds it in the engine URL without encoding it.
+3. Save the same password as `POSTGRES_PASSWORD` in the private environment file. Recreate the
+   services with `docker compose up -d`, preserving the same project and volumes. This updates
+   the engine connection; it does not reinitialize PostgreSQL.
+4. Require readiness 200 and a successful sign-in. Inspect engine logs for connection failures.
+   Update the protected configuration copy associated with your next backup.
+
+If the new connection fails, check that the role and environment contain the same password and
+that the URL is valid. To undo during the maintenance window, use the database session to set the
+previous password, restore the previous private settings and recreate again. Do not delete the
+database volume to make initialization run again. For an externally managed database, coordinate
+the role change with its administrator and update every engine's connection secret together.
+
+Provider, SMTP and AI credentials are changed at their issuing service and in their respective
+[sign-in and mail](/docs/run/sign-in-and-mail-setup/) or [AI](/docs/run/set-up-ai/) configuration.
+Test the replacement before revoking the old credential where the issuer permits overlap.
+Resealing does not replace those external credentials. Certificate private keys follow the
+[HTTPS renewal procedure](/docs/run/https/#renew-or-undo-a-proxy-change).

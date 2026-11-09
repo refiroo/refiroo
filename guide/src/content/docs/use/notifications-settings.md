@@ -40,6 +40,8 @@ Enabling email recalculates its next time; changing the frequency or time zone m
 Saving the same schedule preserves its next time. With email off or no schedule, no next time
 is shown. The browser supplies the time zone when you choose the schedule.
 
+![Enabled notification email with delivery choices, digest frequency, time zone and next digest](/docs/screens/use-notification-email-digest-settings.png)
+
 A digest counts all eligible unread, unhandled notices since email was enabled and lists the
 newest 50, with links to the rest. Unlike immediate mail, it has no 24-hour cutoff. Job entries
 can include applied and rejected counts while their results remain retained. Notices already
@@ -77,3 +79,8 @@ Nothing eligible means no digest message. Check the inbox first: reading or hand
 can remove it from the next message. Turning a kind **Off** affects email only. There is no
 interface-language or general account-locale chooser here; the digest time zone is a separate
 schedule choice, not a language preference.
+
+The unavailable-email messages are **Email is not set up for this installation, so there is
+nothing to choose here.** and **Your account has no email address, so there is nothing to
+choose here.** Neither means notifications are lost. Read them in **Notifications** and ask
+an administrator to set up mail or correct your account's address.

@@ -79,3 +79,8 @@ Following starts off. Losing Browse or deactivation pauses notices without delet
 choice, so they can resume if access returns. **Stop following** deliberately removes the
 choice. Follow [Follow a workspace](/docs/guide/use/follow-a-workspace/) for the steps and
 [Notification settings](/docs/use/notifications-settings/) for email copies and digests.
+
+A card can say **This version cannot open the workspace's model.** instead of offering
+application buttons. Your data has not been deleted. Follow
+[Open a retired or unavailable workspace](/docs/guide/use/open-a-retired-or-unavailable-workspace/)
+to read the reason and find the responsible administrator.

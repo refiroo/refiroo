@@ -6,7 +6,7 @@ import type { AiCall, AiSendLevel } from "@/types";
 export function sendLevelText(level: AiSendLevel, sampleValues: number): string {
   if (level === "structure") return "Names, headers and types; no values";
   if (level === "samples") return `Also up to ${sampleValues} values per column`;
-  return `Also the record values a feature needs, up to ${sampleValues} per column`;
+  return "Also the record values a feature needs, with no limit per column";
 }
 
 export const PURPOSE: Record<AiCall["purpose"], string> = {

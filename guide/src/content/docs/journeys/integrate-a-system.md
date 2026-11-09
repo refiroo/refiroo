@@ -180,3 +180,46 @@ A reset skips missed events, so restore a baseline before treating the receiver 
 Filters can hide the change by which an object leaves their scope. If your copy must remove such
 objects, follow the necessary type-wide events and apply narrower criteria locally. This matters
 for pull reads and webhook subscriptions alike.
+
+## Automate a reviewed change and its approval handover
+
+[Changes, approvals and publication](/docs/integrate/changes-approvals-and-publication/)
+connects capture of an explicit base, versioned writes, complete validation and submission.
+Present the differences and diagnostics to a person who may decide under the current policy.
+Submission changes no Live data; approval publishes the reviewed version and can still refuse
+competing live changes. Keep publication identity and feed position after success.
+
+An open set is not a job that expires under item-result retention. To abandon it, withdraw a
+submission where necessary and discard its prepared work. After losing a publication response,
+read publication and change-set state before retrying. A consumed proposal can mean success.
+Use approval events or inbox operations for review notifications; these are separate from the
+data feed used for synchronisation. The page links to each [management operation](/docs/api).
+
+## Administer models and transfer records through the API
+
+[Model and release operations](/docs/integrate/model-and-release-operations/) connects draft
+steps, validation, generated documents, installation and activation. Keep the model release
+and record versions explicit. A data conversion needs a fresh migration preview with blockers
+and losses presented for a person's confirmation; installing alone does not activate.
+
+[Move records between models](/docs/guide/integrate/move-records-between-models/) follows a
+saved mapping through selection, complete dry run and loading into change sets. Review omitted
+values and dropped relationships as well as successful records. A move needs publication of
+the target before source deletions. Changed releases or mappings invalidate an old review.
+Use the linked [model operations](/docs/api) rather than editing stored definitions directly.
+
+## Submit an assistant task from an integration
+
+[Assistant tasks](/docs/integrate/assistant-tasks/) explains submitting instructions or a file,
+following work, displaying checked changes and accepting a reviewed proposal. The requester
+needs **Use AI proposals**, **Bulk and import**, and the permissions for model or change-set
+work. This needs the built-in assistant and permission to send values, separately from an
+external MCP connection.
+
+Keep the task and job identities. Read current state before every action; distinguish a checked
+proposal, a loaded change set and a migration requiring human confirmation. Session work cannot
+approve, publish or activate. A matching saved-layout path can activate a draft with the right
+permission, so show the actual path and result. Stopping, correcting or discarding can remove
+an unpublished result and people's subsequent edits; show that consequence before acting.
+Read its data, cost and retention rules, and link users to
+[Work with an assistant](/docs/journeys/work-with-an-assistant/) for review and recovery.

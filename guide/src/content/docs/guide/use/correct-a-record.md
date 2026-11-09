@@ -20,7 +20,8 @@ To change connections, follow [Relate records](/docs/guide/use/relate-records/).
    first](/docs/guide/use/prepare-and-publish-a-change-set/), then check its name in the orange banner.
 3. Select the value you need to correct in the heading or a details panel. An editor opens for
    that field. Enter the verified replacement using the control shown: text, number, date or
-   Yes/No. Where **Set null** is offered, select it only to remove the stored value.
+   Yes/No. Where **Set null** is offered, it stores an explicit null value. To make an optional
+   field **Not set** instead, cancel this edit and use its remove-value button and confirmation.
 4. Choose **Save**. On success, the editor closes and the saved value appears. Check it before
    leaving. Choose **Cancel** instead to abandon the correction.
 

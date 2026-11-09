@@ -39,3 +39,37 @@ The change feed records live changes in order. A system remembers where it stopp
 Webhooks push model-declared events to a receiver. Deliveries are signed, retried on failure and may arrive more than once. Receivers must recognise repeated events and verify signatures. These events do not include the author's identity; management history does. See [Following changes](/docs/integrate/following-changes/) and [Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/).
 
 Start implementation in [Integrating with refiroo](/docs/integrate/overview/). The [API reference](/docs/api) describes the available operations and their exact contracts.
+
+## Prepare a reliable connection
+
+[Discovering the model](/docs/integrate/discovering-the-model/) lets an integration learn the
+selected workspace's types, relationships and allowed placements. [System sign-in](/docs/integrate/signing-in-and-tokens/)
+explains the system's identity, while [the security model for integrations](/docs/integrate/security-model-for-integrators/)
+explains management roles, consumer grants and access that changes during a job.
+
+[Reading records](/docs/integrate/reading-records/) covers precise queries over fields,
+ancestors and related records. [Reading business objects](/docs/integrate/reading-business-objects/)
+combines the data a consumer contract exposes; [looking up and resolving](/docs/integrate/looking-up-and-resolving/)
+finds an object from a supplied value or translates it to another representation without hiding
+missing or ambiguous results.
+
+[Identifiers, paging and errors](/docs/integrate/identifiers-paging-and-errors/) explains complete
+reads and continuation. [Versions and conflicts](/docs/integrate/versions-and-conflicts/) protects
+record and model changes from competing edits. [Writing in bulk](/docs/integrate/writing-in-bulk/)
+and [Jobs](/docs/integrate/jobs/) cover controlled batches, safe retries and item outcomes;
+[changes, approvals and publication](/docs/integrate/changes-approvals-and-publication/) gives
+automated proposals the same review path as browser work.
+
+[Workspace contexts](/docs/integrate/workspaces-contexts-and-models/) keeps the chosen dataset
+explicit, and [model and release operations](/docs/integrate/model-and-release-operations/)
+supports automated model administration and reviewed transfers. [Compatibility](/docs/integrate/compatibility/)
+explains which contract changes callers must tolerate.
+
+## Connect an assistant
+
+[Assistants and agents](/docs/integrate/assistants-and-agents/) lets an external assistant read
+permitted data and prepare change sets through the Model Context Protocol (MCP), with a person
+responsible for approval and publication. [Assistant tasks](/docs/integrate/assistant-tasks/)
+lets an integration submit work to the separately enabled built-in assistant and follow its
+proposal. Both require review; their data-sharing boundaries differ. See
+[AI help stays under your control](/docs/about/security-and-trust/#ai-help-stays-under-your-control).

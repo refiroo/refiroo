@@ -1,0 +1,202 @@
+[
+  {
+    "id": "C0091",
+    "source": "frontend/src/features/settings/AgentAccessPage.tsx",
+    "resolution": "not for readers: security-administrator registration, blocking and restoration screen; steward sign-in and ending a session are covered in use/account and use/ai-and-your-data."
+  },
+  {
+    "id": "C0104",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0105",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0106",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0107",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0109",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0112",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0113",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0114",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0115",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0116",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0117",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0119",
+    "source": "backend/app/engine/agent_access/calls.py; backend/app/management/mcp_tools.py",
+    "resolution": "not for readers: audit channel is an integration contract with no browser control or Changes-page mark; record origin is covered in use/history."
+  },
+  {
+    "id": "C0120",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0126",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0128",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0141",
+    "source": "backend/app/management/routers/mcp.py; backend/app/management/routers/oauth.py",
+    "resolution": "not for readers: token scopes and client kinds are an authentication implementation and integration contract, not a steward control."
+  },
+  {
+    "id": "C0142",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0143",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: internal task-client lifecycle; its early cleanup-at-load wording is superseded by the session-end rules documented in use/loading-with-the-assistant."
+  },
+  {
+    "id": "C0145",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0146",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0153",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0155",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0157",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0158",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0160",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0161",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: removal of superseded implementation paths; current saved-layout and session behavior is documented instead."
+  },
+  {
+    "id": "C0163",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0164",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0166",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0167",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0168",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0169",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0170",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0188",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0222",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0223",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0227",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0238",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0243",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  }
+]

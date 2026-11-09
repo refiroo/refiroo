@@ -57,7 +57,7 @@ Inspect its pending attempt, last error and next-attempt time before restarting 
 | --- | --- |
 | `DELIVERY_FAILED` | Fix the receiver or URL, then resume from the first unacknowledged event. Editing the URL retries immediately. |
 | `FILTER_MATCHES_NOTHING` | Fix the filter and resume. |
-| `EVENTS_EXPIRED` | Resume with reset first, then re-sync the receiver from the publication named in the details. |
+| `EVENTS_EXPIRED` | Resume with reset first (it starts after the feed head named in the message), then reload the receiver from current data taken after the reset. The publication named in the details may be older than the head. |
 | `MODEL_CHANGED` | Review what the activated model removed; correct the subscription before resuming. |
 | `CONTRACT_VERSION_CHANGED` | Update the receiver for the selected consumer contract, then resume. |
 | `WORKSPACE_RETIRED` | Resolve the workspace's retired state before resuming delivery. |

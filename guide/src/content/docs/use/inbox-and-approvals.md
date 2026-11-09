@@ -44,8 +44,9 @@ marked its notice read.*
 Tick notices to **Mark read**, **Mark unread** or **Delete** them. Shift selects a range; Cmd or
 Ctrl adds one. **Select all** selects loaded notices, not every matching notice in storage.
 At most 500 notices can be changed at once. Changing filters clears the selection.
-**Delete all read…** asks for confirmation and permanently deletes all your read notices,
-including those outside the current filters. Unread notices and the jobs or change sets remain.
+**Delete all read…** opens **Delete all read notifications?**. Choose **Delete read
+notifications** to permanently delete all your read notices, including those outside the
+current filters, or **Cancel** to keep them. Unread notices and the jobs or change sets remain.
 If an action fails, read the error and retry; clearing a notice does not fix its underlying job.
 
 **Notification email settings** opens your mail choices. Where mail is configured and your account

@@ -83,3 +83,31 @@ Call records remain after their request and answer content expires; the 30-day t
 Turning this content logging off does not remove an assistant task's workbook, working files or Claude Code transcript. Tasks normally expire after 90 days from completion or their last change. Failed, stopped and loaded tasks keep session files while the person can continue the work. Publication or discard of the change set, confirmation of the migration, or discard or expiry of the task ends that continuation; cleanup removes session files and deactivates the client. Read [What is kept](/docs/run/ai/#what-is-kept) for the full retention rules and deployment limits.
 
 refiroo's retention does not control a provider's own retention. Review that separately under your organisation's agreement.
+
+## Change or stop AI use
+
+To change the provider, its credentials or the send level, agree the change with the
+operator, who applies the server configuration and restarts. Afterward, reopen **AI**,
+read **What may be sent** and test the provider. Test the built-in assistant separately
+through a real task; the provider test does not check its Claude Code sign-in.
+
+To remove one person's access, remove the grants supplying **Use AI proposals**, including
+group and whole-instance grants. Other grants can still provide it. To stop a built-in
+assistant task already under way, use its task controls; taking away a permission can
+refuse later work but does not recall information already sent.
+
+Turning off the provider removes its proposal, question and explanation actions; it does
+not undo kept filters, prepared change sets or published work. The built-in assistant and
+external Agent access are separate and need their own controls. Disabling either built-in
+feature is not a deletion of its retained records or files.
+
+When neither built-in feature is configured, this page shows only the setup notice;
+the Calls section is hidden. That does not mean earlier call records were
+deleted. Ask the operator to inspect retained information when both features are off.
+There is no call-delete or content-delete button here. Content expiry, task cleanup and
+instance [backup and restore](/docs/run/backup-and-restore/) are separate operator concerns;
+provider-held copies follow the provider's rules.
+
+At **Values**, a feature can send all the record values it needs. Do not treat a sample
+count displayed beside that level as a maximum for those requests. Use **Samples** when
+the policy must restrict sampled values; features requiring Values are then unavailable.

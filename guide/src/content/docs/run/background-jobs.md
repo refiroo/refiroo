@@ -158,6 +158,35 @@ future retained results; it cannot reconstruct content already deleted. An expor
 can delay PostgreSQL cleanup without blocking writers: if disk use rises while large exports run,
 inspect those jobs and database activity before assuming a workspace lock is stuck.
 
+## Change retention or move the file directory
+
+`JOB_RETENTION_DAYS` sets the expiry recorded when a job finishes or a preview begins waiting.
+Changing it does not reset the stored expiry of jobs already finished or awaiting confirmation.
+It also cannot restore expired outcomes, removed input files or old idempotency keys. Before
+lowering retention, agree the download and preview-confirmation window with users and integrators.
+Source workbooks still attached to a draft/profile have their own lifetime, as listed above.
+
+Only the batch worker performs the job/file expiry sweep. With `INTEGRATION_JOBS_ENABLED=false`,
+that instance runs no job cleanup; another job-enabled instance sharing the database and files
+can do it. Disabling jobs is not a disk-cleanup action. Expiry retains the job's summary but removes
+its item outcomes, inputs and idempotency keys. A later request with an expired key is new work,
+so the integration must not rely on that key forever to prevent duplicates.
+
+To relocate storage, stop every engine that uses the directory, take the
+[consistent database and file backup](/docs/run/backup-and-restore/), then copy the whole directory
+with its ownership and permissions preserved. Mount the replacement at the configured container
+path on every instance before starting any worker. In the reference image, changing
+`JOB_FILE_DIR` alone does not move the Compose volume: its mount is fixed at
+`/opt/refiroo/rdm-engine/data/job-files`. Adapt the mount too or keep that container path and move
+the storage underneath it.
+
+Start with the matching database and check writability, readiness and an existing source/download
+file as well as a new export. Preserve the previous copy until these checks pass. If the storage
+change fails, keep all workers stopped while restoring the previous mount and path; do not let
+different instances process the same jobs against different file copies. Assistant folders and
+session files require their separate mounts too, as [What you run](/docs/run/overview/#network-and-storage)
+explains. No running instance automatically copies files to a new directory.
+
 ## Consumer-event derivation
 
 The `eventDeriver` thread reads each workspace's change feed for consumer APIs whose model declares

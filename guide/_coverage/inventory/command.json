@@ -1,0 +1,297 @@
+[
+ {
+  "kind": "command",
+  "key": "app.cli.create_admin",
+  "labels": [
+   "create_admin"
+  ],
+  "source": "backend/app/cli/create_admin.py:1",
+  "section": "run",
+  "summary": "Create the first administrator on the server (Product 0.12 I1, D235)."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_admin --username",
+  "labels": [
+   "--username"
+  ],
+  "source": "backend/app/cli/create_admin.py:39",
+  "section": "run",
+  "context": [
+   "create_admin",
+   "app.cli.create_admin"
+  ]
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_admin --name",
+  "labels": [
+   "--name"
+  ],
+  "source": "backend/app/cli/create_admin.py:40",
+  "section": "run",
+  "context": [
+   "create_admin",
+   "app.cli.create_admin"
+  ]
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_admin --email",
+  "labels": [
+   "--email"
+  ],
+  "source": "backend/app/cli/create_admin.py:41",
+  "section": "run",
+  "context": [
+   "create_admin",
+   "app.cli.create_admin"
+  ]
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_admin --password-stdin",
+  "labels": [
+   "--password-stdin"
+  ],
+  "source": "backend/app/cli/create_admin.py:42",
+  "section": "run",
+  "context": [
+   "create_admin",
+   "app.cli.create_admin"
+  ],
+  "summary": "read the password from standard input"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_client",
+  "labels": [
+   "create_client"
+  ],
+  "source": "backend/app/cli/create_client.py:1",
+  "section": "run",
+  "summary": "Create an OAuth client on the server and print its credentials once (Product 0.12 I1, D262)."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_client --name",
+  "labels": [
+   "--name"
+  ],
+  "source": "backend/app/cli/create_client.py:26",
+  "section": "run",
+  "context": [
+   "create_client",
+   "app.cli.create_client"
+  ]
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_client --role",
+  "labels": [
+   "--role"
+  ],
+  "source": "backend/app/cli/create_client.py:27",
+  "section": "run",
+  "context": [
+   "create_client",
+   "app.cli.create_client"
+  ],
+  "summary": "a role's key, granted at the instance"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.create_client --json",
+  "labels": [
+   "--json"
+  ],
+  "source": "backend/app/cli/create_client.py:30",
+  "section": "run",
+  "context": [
+   "create_client",
+   "app.cli.create_client"
+  ],
+  "summary": "print one JSON object"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.database_upgrade",
+  "labels": [
+   "database_upgrade"
+  ],
+  "source": "backend/app/cli/database_upgrade.py:1",
+  "section": "run",
+  "summary": "Upgrade the configured database with operator-facing errors and no traceback."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.generate_key",
+  "labels": [
+   "generate_key"
+  ],
+  "source": "backend/app/cli/generate_key.py:1",
+  "section": "run",
+  "summary": "Print a new key for ``SECRETS_ENCRYPTION_KEY``: 32 random bytes in URL-safe base64."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.model_release_prune",
+  "labels": [
+   "model_release_prune"
+  ],
+  "source": "backend/app/cli/model_release_prune.py:1",
+  "section": "run",
+  "summary": "Delete the stored model releases nothing refers to."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.model_release_prune --unused",
+  "labels": [
+   "--unused"
+  ],
+  "source": "backend/app/cli/model_release_prune.py:22",
+  "section": "run",
+  "context": [
+   "model_release_prune",
+   "app.cli.model_release_prune"
+  ],
+  "summary": "also delete active releases nothing refers to, not only retired ones"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.model_release_prune --dry-run",
+  "labels": [
+   "--dry-run"
+  ],
+  "source": "backend/app/cli/model_release_prune.py:27",
+  "section": "run",
+  "context": [
+   "model_release_prune",
+   "app.cli.model_release_prune"
+  ],
+  "summary": "report what would be deleted and change nothing"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.model_release_raise",
+  "labels": [
+   "model_release_raise"
+  ],
+  "source": "backend/app/cli/model_release_raise.py:1",
+  "section": "run",
+  "summary": "Raise stored model releases of a schema older than the window to the window's schema, in place."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.model_release_raise --dry-run",
+  "labels": [
+   "--dry-run"
+  ],
+  "source": "backend/app/cli/model_release_raise.py:63",
+  "section": "run",
+  "context": [
+   "model_release_raise",
+   "app.cli.model_release_raise"
+  ],
+  "summary": "report what would change and change nothing"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.reseal_secrets",
+  "labels": [
+   "reseal_secrets"
+  ],
+  "source": "backend/app/cli/reseal_secrets.py:1",
+  "section": "run",
+  "summary": "Re-seal every sealed secret under a new ``SECRETS_ENCRYPTION_KEY`` (Product 0.12 K1, D414)."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.reseal_secrets --check",
+  "labels": [
+   "--check"
+  ],
+  "source": "backend/app/cli/reseal_secrets.py:27",
+  "section": "run",
+  "context": [
+   "reseal_secrets",
+   "app.cli.reseal_secrets"
+  ],
+  "summary": "only prove every sealed value opens; change nothing"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.restore_check",
+  "labels": [
+   "restore_check"
+  ],
+  "source": "backend/app/cli/restore_check.py:1",
+  "section": "run",
+  "summary": "Check a restored copy of this instance's database and record the result (Product 0.11 O2)."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.restore_check --restored",
+  "labels": [
+   "--restored"
+  ],
+  "source": "backend/app/cli/restore_check.py:76",
+  "section": "run",
+  "context": [
+   "restore_check",
+   "app.cli.restore_check"
+  ],
+  "summary": "URL of the separate database the backup was restored into"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.restore_check --backup",
+  "labels": [
+   "--backup"
+  ],
+  "source": "backend/app/cli/restore_check.py:81",
+  "section": "run",
+  "context": [
+   "restore_check",
+   "app.cli.restore_check"
+  ],
+  "summary": "the backup's name, recorded with the result"
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.settings_template",
+  "labels": [
+   "settings_template"
+  ],
+  "source": "backend/app/cli/settings_template.py:1",
+  "section": "run",
+  "summary": "Print every engine setting as a commented template, from the settings catalogue (``config.py``)."
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.settings_template --for",
+  "labels": [
+   "--for"
+  ],
+  "source": "backend/app/cli/settings_template.py:136",
+  "section": "run",
+  "context": [
+   "settings_template",
+   "app.cli.settings_template"
+  ]
+ },
+ {
+  "kind": "command",
+  "key": "app.cli.settings_template --update",
+  "labels": [
+   "--update"
+  ],
+  "source": "backend/app/cli/settings_template.py:137",
+  "section": "run",
+  "context": [
+   "settings_template",
+   "app.cli.settings_template"
+  ],
+  "summary": "Bring an existing settings file up to date"
+ }
+]

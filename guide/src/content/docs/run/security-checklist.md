@@ -9,7 +9,8 @@ reference is the tested installation. A custom balancer or network boundary need
 own; historical security tests do not certify your deployment.
 
 - **HTTPS and one origin:** use a valid certificate and the permanent HTTPS `PUBLIC_URL`.
-  Check HTTP redirection and certificate renewal. See [HTTPS](/docs/run/https/).
+  Check certificate renewal and HTTP redirection if port 80 is open. Public TCP 443 alone is
+  sufficient for automatic certificates; port 80 may remain closed. See [HTTPS](/docs/run/https/).
 - **Private services:** publish only `web`, or Caddy with the automatic overlay. Keep PostgreSQL,
   engine and metrics ports private. The engine trusts forwarded caller addresses from web.
 - **Trusted balancers:** with `WEB_TLS=proxy`, restrict access to the balancer, replace untrusted
@@ -43,15 +44,12 @@ own; historical security tests do not certify your deployment.
   [readiness and failures](/docs/run/monitoring/). Use a release receiving security fixes;
   before 1.0 that is the latest minor release.
 
-## What the recorded security sweep covers
+## Repeat checks after a change
 
-The repository records an authorization sweep across API operations and predefined roles, including
-unauthenticated requests and caller-without-grants refusals. It also records deployment checks for
-forwarded addresses and framing, and a generic provider trial with Keycloak. These are bounded
-project checks, not an assurance about every provider and proxy. The recorded review excludes,
-among other areas, real passkey ceremonies in the sweep, person/group consumer grants, and a full
-review of workbook parsing and webhook delivery. Verify your chosen provider, network and recovery
-procedures rather than treating that sweep as a production certificate.
+Check the real installation after changing a proxy, public address, identity provider, key or
+permission. A sign-in test at the old address does not verify the new one. Use a narrowly granted
+test person and a working recovery administrator; preserve previous configuration and a matching
+backup before maintenance. Follow the linked procedures for credential rotation and recovery.
 
 ## Check the installed boundary
 

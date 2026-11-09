@@ -29,6 +29,11 @@ Find, maintain and connect records in the workspace you are working in. See [loo
 - [See and fill relationship coverage across ancestors](/docs/journeys/look-after-data/#see-and-fill-relationship-coverage-across-ancestors).
 - [Change many records of a collection at once](/docs/journeys/look-after-data/#change-many-records-of-a-collection-at-once).
 - [See who changed what](/docs/journeys/look-after-data/#see-who-changed-what).
+- [Stop offering a value without deleting it](/docs/journeys/look-after-data/#stop-offering-a-value-without-deleting-it).
+- [Exchange a workbook and repeat the load](/docs/journeys/look-after-data/#exchange-a-workbook-and-repeat-the-load).
+- [Copy or move records to another workspace](/docs/journeys/look-after-data/#copy-or-move-records-to-another-workspace).
+- [Continue in a retired or unavailable workspace](/docs/journeys/look-after-data/#continue-in-a-retired-or-unavailable-workspace).
+- [Adjust the display and work with a keyboard](/docs/journeys/look-after-data/#adjust-the-display-and-work-with-a-keyboard).
 
 ## Change with approval
 
@@ -40,6 +45,7 @@ Prepare coordinated proposals, review them and bring them into Live safely. See 
 - [Review what a change set changes](/docs/journeys/change-with-approval/#review-what-a-change-set-changes).
 - [Prepare under the next model version while live keeps the current one](/docs/journeys/change-with-approval/#prepare-under-the-next-model-version-while-live-keeps-the-current-one).
 - [Propose and approve a change](/docs/journeys/change-with-approval/#propose-and-approve-a-change).
+- [Resume or abandon unfinished work](/docs/journeys/change-with-approval/#resume-or-abandon-unfinished-work).
 
 ## Work with an assistant
 
@@ -53,6 +59,7 @@ Review machine-made proposals and keep control of what changes. See [work with a
 - [An assistant prepares a change](/docs/journeys/work-with-an-assistant/#an-assistant-prepares-a-change).
 - [Ask in words](/docs/journeys/work-with-an-assistant/#ask-in-words).
 - [What changed in a period](/docs/journeys/work-with-an-assistant/#what-changed-in-a-period).
+- [Reuse a checked layout or stop using AI](/docs/journeys/work-with-an-assistant/#reuse-a-checked-layout-or-stop-using-ai).
 
 ## Shape a model
 
@@ -61,13 +68,18 @@ Define applications and data rules, load workbooks and manage workspace releases
 - [Create and activate an application-model release](/docs/journeys/shape-a-model/#create-and-activate-an-application-model-release).
 - [Administer workspaces](/docs/journeys/shape-a-model/#administer-workspaces).
 - [Define a consumer API in the model](/docs/journeys/shape-a-model/#define-a-consumer-api-in-the-model).
-- [An account of a model change](/docs/journeys/shape-a-model/#an-account-of-a-model-change).
 - [Design a model in the editor](/docs/journeys/shape-a-model/#design-a-model-in-the-editor).
 - [Onboard a workbook](/docs/journeys/shape-a-model/#onboard-a-workbook).
 - [Load the next version of a workbook](/docs/journeys/shape-a-model/#load-the-next-version-of-a-workbook).
 - [Run a workspace on a model of its own](/docs/journeys/shape-a-model/#run-a-workspace-on-a-model-of-its-own).
 - [Move a workspace to another release](/docs/journeys/shape-a-model/#move-a-workspace-to-another-release).
 - [Move data between workspaces whose models differ](/docs/journeys/shape-a-model/#move-data-between-workspaces-whose-models-differ).
+- [An account of a model change](/docs/journeys/shape-a-model/#an-account-of-a-model-change).
+- [Add types, fields and relationships](/docs/journeys/shape-a-model/#add-types-fields-and-relationships).
+- [Arrange navigation, views and record pages](/docs/journeys/shape-a-model/#arrange-navigation-views-and-record-pages).
+- [Refine a draft without losing identity or colleagues' work](/docs/journeys/shape-a-model/#refine-a-draft-without-losing-identity-or-colleagues-work).
+- [Recheck a workbook design or a saved mapping](/docs/journeys/shape-a-model/#recheck-a-workbook-design-or-a-saved-mapping).
+- [Maintain released contracts and definitions](/docs/journeys/shape-a-model/#maintain-released-contracts-and-definitions).
 
 ## Integrate a system
 
@@ -84,6 +96,9 @@ Connect another system through complete reads, controlled writes and reliable ch
 - [Read a business object through a consumer API](/docs/journeys/integrate-a-system/#read-a-business-object-through-a-consumer-api).
 - [Resolve a business object through a consumer API](/docs/journeys/integrate-a-system/#resolve-a-business-object-through-a-consumer-api).
 - [Follow a consumer API's changes](/docs/journeys/integrate-a-system/#follow-a-consumer-apis-changes).
+- [Automate a reviewed change and its approval handover](/docs/journeys/integrate-a-system/#automate-a-reviewed-change-and-its-approval-handover).
+- [Administer models and transfer records through the API](/docs/journeys/integrate-a-system/#administer-models-and-transfer-records-through-the-api).
+- [Submit an assistant task from an integration](/docs/journeys/integrate-a-system/#submit-an-assistant-task-from-an-integration).
 
 ## Manage access
 
@@ -94,6 +109,10 @@ Sign in, grant people and systems access, and review its security. See [manage a
 - [A system calls with a client](/docs/journeys/manage-access/#a-system-calls-with-a-client).
 - [Rotate a key](/docs/journeys/manage-access/#rotate-a-key).
 - [Check the security model](/docs/journeys/manage-access/#check-the-security-model).
+- [Move people to the organisation's sign-in provider](/docs/journeys/manage-access/#move-people-to-the-organisations-sign-in-provider).
+- [Tailor a responsibility and remove access when it ends](/docs/journeys/manage-access/#tailor-a-responsibility-and-remove-access-when-it-ends).
+- [Configure publication review and system delivery](/docs/journeys/manage-access/#configure-publication-review-and-system-delivery).
+- [Control assistant access and inspect AI use](/docs/journeys/manage-access/#control-assistant-access-and-inspect-ai-use).
 
 ## Run the service
 
@@ -101,6 +120,11 @@ Start, inspect and recover the deployment. See [run the service](/docs/journeys/
 
 - [Run the service, and recover from an expected refusal](/docs/journeys/run-the-service/#run-the-service-and-recover-from-an-expected-refusal).
 - [Check what a deployment runs and how it is configured](/docs/journeys/run-the-service/#check-what-a-deployment-runs-and-how-it-is-configured).
+- [Open a production installation over HTTPS](/docs/journeys/run-the-service/#open-a-production-installation-over-https).
+- [Upgrade and recover a failed cutover](/docs/journeys/run-the-service/#upgrade-and-recover-a-failed-cutover).
+- [Back up, rehearse and move to another host](/docs/journeys/run-the-service/#back-up-rehearse-and-move-to-another-host).
+- [Replace secrets and watch growing storage](/docs/journeys/run-the-service/#replace-secrets-and-watch-growing-storage).
+- [Enable optional AI or prepare a developer instance](/docs/journeys/run-the-service/#enable-optional-ai-or-prepare-a-developer-instance).
 
 ## Receive notices
 

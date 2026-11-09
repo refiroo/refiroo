@@ -125,7 +125,7 @@ provider, appears in the call log and may incur usage. It does not test the assi
 | --- | --- |
 | Call metadata, outcome, tokens and reported cost | Kept after request content expires. There is no configured expiry for the call records themselves; the 30-day totals are a reporting window. |
 | A call's request and answer | Not kept in the call log by default. `AI_LOG_CONTENT=true` keeps them for `AI_LOG_CONTENT_DAYS`, default 7, after which content is cleared while the call record remains. For assistant turns this is the prompt and final answer, not the full stream. |
-| Assistant task and workbook | `AI_TASK_RETENTION_DAYS`, default 90 days after completion or the last change. The worker's expiry sweep deletes the task and its files. |
+| Assistant task and workbook | `AI_TASK_RETENTION_DAYS`, default 90 days after completion or the last change. The worker's expiry sweep deletes the task and its files; cleanup needs a job-enabled instance. |
 | Session folder, session logs and Claude Code transcript | Kept while the task can continue, including failed, stopped and loaded tasks. Once the change set is published or discarded, the migration confirmed, or the task discarded, the next task read removes them and deactivates its client. Expiry also triggers cleanup. |
 | MCP tool-call records | `MCP_CALLS_DAYS`, default 90 days. Argument names are recorded, not their values. |
 
@@ -284,3 +284,30 @@ unset. For command, credential, sandbox and startup failures, follow [Set up AI]
 ![AI settings showing the assistant and provider on and the permitted send level](/docs/screens/run-ai-settings.png)
 
 ![AI provider test result and recorded calls](/docs/screens/run-ai-provider-calls.png)
+
+
+## Switch off a feature or change its credentials
+
+Use each feature's own switch. Empty `AI_PROVIDER` removes provider features; empty
+`AI_AGENT_COMMAND` removes the built-in assistant; `MCP_ENABLED=false` removes external agent
+access. Apply the change by [recreating the engine](/docs/run/configure/#apply-a-change) on every
+instance that serves the feature. Turning off one switch leaves the other two independent.
+
+Before a planned assistant shutdown, ask requesters to stop running turns and review outstanding
+loads. Removing a command is not a way to undo an accepted proposal or published data. Stored call
+records, tasks, drafts and files are not erased by these switches; their normal lifetimes still
+apply. Keep job workers enabled where expiry cleanup is needed. For external agents, use the
+[registration and session controls](/docs/administer/agent-access/) when access must be revoked,
+rather than assuming an endpoint switch deletes identities or stored grants.
+
+To replace a provider credential, change `AI_API_KEY` in the private environment, recreate the
+engine and send the fixed provider test. To replace the assistant credential, update its
+`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`, recreate, then test an actual assistant turn.
+These are separate checks. Revoke the previous credential at its issuer after checking the new
+one, or immediately when responding to a leak. refiroo does not renew external credentials for you.
+Changing the sealing key does not rotate a provider's API key.
+
+A provider/model change affects later requests; it does not rewrite existing proposals or call
+records. Keep the previous private configuration for a reversible setting change, apply it again
+if needed, and repeat the relevant feature test. The provider's credential expiry and billing
+limits are determined by that provider; inspect a refused call and its issuer's controls.

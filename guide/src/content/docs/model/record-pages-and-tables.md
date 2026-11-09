@@ -111,7 +111,9 @@ related-record panel sort choices. A declared initial order can be descending.
 List panels can read 1–100 rows per page. A reading size limits a page of results, not the
 whole collection. The record header normally shows the name and type; a declared title or
 subtitle field can supply other context. Breadcrumbs can include the application, type and
-ancestors. Header and breadcrumb settings have no visual layout form.
+ancestors. In **Record page**, choose **Header and breadcrumbs…** to set the title, optional
+line under it, type label and each breadcrumb part. This page-specific header does not change
+the type’s shared Display attribute.
 
 ## Table columns, filters and sort
 
@@ -151,8 +153,8 @@ or headers. The table view's **Columns…** offers the related fields directly. 
 **Columns…** offers its listed records' fields and **Where it sits** instead.
 
 Follow [Choose table columns, filters and sort](/docs/guide/model/choose-table-columns-filters-and-sort/).
-**The draft declares no table view** means there is no table to arrange here. This editor has
-no separate create-table-view, table-density, tree or mapping-grid layout form.
+**The draft declares no table view** means there is no table to arrange here. Add one through
+the application’s **Add a view…**; see [Add a view](/docs/guide/model/add-a-view/).
 
 ## Preview and validation
 
@@ -171,3 +173,84 @@ references. This model check does not prove compatibility with every stored reco
 Every saved layout change is a draft history step. A refused action shows **Not applied**
 and changes nothing. Review populated and empty records, check **Issues**, then follow
 [Install and activate a release](/docs/guide/model/install-and-activate-a-release/).
+
+## Panel settings and reading sizes
+
+Open a panel’s **Settings…** in the record-page layout. The choices depend on its kind:
+
+| Panel | Settings you can change |
+| --- | --- |
+| Related records | **Relationships listed**, **Listed from**, the relationship label column and allowed sort fields. Leaving the sort choices empty lists by name. |
+| Hierarchy | **Show the parent** and **Show the records above the parent**, independently. |
+| Contained records | **Rows on a page**. The contained types were selected when the panel was added. |
+| Table | **List only the records under this one** and **Rows on a page**. The table’s record type itself needs a specialist to change. |
+| Fields | No additional Settings dialog; use the field and group controls. |
+
+**Listed from** can read **This record to the others**, **The others to this record**, or
+**Both ways**. Changing direction changes which connections appear, without reversing any
+stored relationship. **Show which relationship joins each record** is useful when combining
+several relationships in one panel. Changing panel contents can make existing columns invalid;
+check Issues and revise the columns as needed.
+
+In **Table**, **Sort menu and page size…** chooses the fields people can sort by and the
+number of **Rows on a page**. The form offers Name, current choices and fields marked Sortable.
+If you remove the initial sort field, the first remaining field becomes the default. Leaving
+all choices unchecked keeps the current table sort list. This differs from a related-record
+panel, where no sort choices returns to name order.
+
+Reading sizes in these forms are 10, 20, 25, 50 or 100; an existing different valid size is
+also preserved as an option. The model permits 1–100. Table and contained-record panels default to 20 when no size is specified; generated table
+views start at 50. A reading size does not cap a collection: people continue scrolling to read more.
+Some supported declarations still need the [JSON view](/docs/model/json-view/): changing the
+record type of a table panel, changing a contained panel’s type list after creation.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+applications[].details
+applications[].details[].breadcrumbs
+applications[].details[].breadcrumbs.showAncestors
+applications[].details[].breadcrumbs.showApplication
+applications[].details[].breadcrumbs.showObjectType
+applications[].details[].header
+applications[].details[].header.showObjectType
+applications[].details[].header.subtitleField
+applications[].details[].header.titleField
+applications[].details[].objectTypeKey
+applications[].details[].panels
+applications[].details[].panels[].config
+applications[].details[].panels[].config.columns
+applications[].details[].panels[].config.defaultSort
+applications[].details[].panels[].config.direction
+applications[].details[].panels[].config.fields
+applications[].details[].panels[].config.filterByParent
+applications[].details[].panels[].config.objectTypeKey
+applications[].details[].panels[].config.objectTypeKeys
+applications[].details[].panels[].config.pageSize
+applications[].details[].panels[].config.relationTypeKeys
+applications[].details[].panels[].config.showAncestors
+applications[].details[].panels[].config.showParent
+applications[].details[].panels[].config.showRelationshipColumn
+applications[].details[].panels[].config.sortFields
+applications[].details[].panels[].key
+applications[].details[].panels[].order
+applications[].details[].panels[].region
+applications[].details[].panels[].title
+applications[].details[].panels[].type
+applications[].details[].panels[].visible
+menu:TypePreview.tsx:up
+menu:TypePreview.tsx:down
+menu:TypePreview.tsx:region
+menu:TypePreview.tsx:visible
+menu:TypePreview.tsx:rename
+menu:TypePreview.tsx:columns
+menu:TypePreview.tsx:sort
+menu:TypePreview.tsx:settings
+menu:TypePreview.tsx:add
+menu:TypePreview.tsx:remove
+menu:TypePreview.tsx:up#2
+menu:TypePreview.tsx:down#2
+menu:TypePreview.tsx:item
+menu:TypePreview.tsx:remove#2
+menu:TypePreview.tsx:left
+menu:TypePreview.tsx:right
+menu:TypePreview.tsx:remove#3
+-->

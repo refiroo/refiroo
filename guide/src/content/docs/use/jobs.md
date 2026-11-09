@@ -104,4 +104,12 @@ of making another one. Moving a copy back can update the original, or recreate i
 identity if it was removed. Inspect the source links and results before publishing. A move's
 source deletions wait for the target copy to be published first; the deletion proposal cannot
 be published ahead of the copy it depends on. See [Model mappings](/docs/model/model-mappings/)
-for the administrator's copy-and-move task.
+for mapping design, or [Copying and moving records](/docs/use/copying-and-moving/)
+for preparing and reviewing a transfer.
+
+On a waiting preview's own page, **Cancel this import?** offers **Discard the import**,
+or **Cancel this preview?** offers **Discard the preview**. **Keep the import** or **Keep the
+preview** returns to the preview. Discarding writes nothing and leaves the preview readable
+until expiry. On the Jobs list, the confirmation button is **Cancel job** instead.
+Results and files are normally kept for seven days; your deployment's **Limits** and the job's
+**Kept until** give the applicable retention.

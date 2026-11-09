@@ -13,6 +13,8 @@ field rules and [Hierarchies](/docs/use/hierarchies/) for placement.
 2. The **New …** form opens. Enter the name and editable fields. Required fields must have
    values, including at least one field where the form gives that rule. Read-only fields
    cannot be filled through this form. Keep numbers, dates and Yes/No values in their proper controls.
+   Read help below the fields before filling them. Fields hidden by the model are omitted;
+   ask the model administrator if a required piece of information cannot be supplied.
 3. Where **Parent** is offered, select the allowed parent type and search for the record.
    Some types require a parent and cannot be created at the top. **No parent available** means
    you must first provide an allowed parent. Open the hierarchy view and use **Add …**

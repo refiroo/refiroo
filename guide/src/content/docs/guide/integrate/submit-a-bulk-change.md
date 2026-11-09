@@ -15,6 +15,14 @@ Use a batch when your source supplies several changes together. Read [Writing in
 
 For independent work, retain earlier committed outcomes when a job fails or is cancelled. For an atomic refusal, nothing from the batch applied. Check which case occurred before planning a retry.
 
+## Keep a reconciliation ledger
+
+For each submitted batch, save the exact request, idempotency key, workspace, model release, job ID and your source-row references. Record the policy and whether it was preview or execution. Keep the credentials separately. The [batch and job operations](/docs/api/?api=management#tag/jobs) define the request and result fields.
+
+After confirmation, wait for a final job state and page item outcomes until there is no continuation. Separate applied changes, unchanged applied items, rejected items and unprocessed items. For example, if an independent batch loads a parent but refuses a child, keep the committed parent's ID. Correct the child and any dependent relationships without blindly recreating that parent.
+
+A correction is a new request with a new key. A network retry is the same saved request with the same key. If the old key has expired, first reconcile IDs, unique keys and versions against current data: the server can no longer recognise it as a replay. Cancel a pending job when abandoning it, then inspect what committed before cancellation. Cancelling or deleting your local ledger does not undo those changes.
+
 ## Change relationship values from a grid selection
 
 Use this sequence when an integration needs to set one scalar value across many connections,

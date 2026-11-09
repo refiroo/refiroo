@@ -151,3 +151,19 @@ those records. Keep full debug traces under controlled access only when the ordi
 cannot explain the failure. End temporary DEBUG logging by restoring the prior `LOG_LEVEL` and
 recreating the engine. Capacity, custom-provider behavior and recovery duration that were not
 exercised remain unverified; report them as such instead of saying the whole installation works.
+
+
+## A certificate expires or disk space runs low
+
+For automatic HTTPS, inspect Caddy's bounded logs with the same overlay files used to start it.
+Check DNS and public TCP 443 for issuance and renewal; port 80 may remain closed. Preserve
+`caddy-data` and follow [certificate recovery](/docs/run/https/#if-a-certificate-is-not-issued-or-renewed).
+An expired public certificate can block callers even when internal health checks still pass.
+For file mode, replace the matching certificate/key pair and validate/restart web.
+
+For storage pressure, identify whether PostgreSQL, job files, assistant/session files, Docker logs
+or backups occupy the affected filesystem. Use the [database size checks](/docs/run/database/#watch-database-growth)
+and [file lifecycle](/docs/run/background-jobs/#keep-and-back-up-the-file-directory) before acting.
+Pause new loads and extend capacity rather than deleting database files or active workbooks.
+Lowering retention cannot immediately shrink the database or rewrite expiry times already stored
+on jobs. Logs and metric archives have their own [retention policy](/docs/run/monitoring/#keep-monitoring-history-and-retire-a-scraper).

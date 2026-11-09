@@ -45,3 +45,31 @@ People can use a local account or the organisation's configured OpenID Connect s
 People can review and end their browser sessions on Account. A system uses its own **client**, with its own credentials and grants. Reading a consumer API requires a separate grant for that API in a workspace; no general role opens it, and these grants belong to clients, not people or groups.
 
 See [Sign-in](/docs/administer/sign-in/), [Your account](/docs/use/account/) and [Clients](/docs/administer/clients/).
+
+## Keep access current
+
+[People and groups](/docs/administer/people-and-groups/) manages account details, memberships
+and deactivation when someone leaves. [Roles and grants](/docs/administer/roles-and-grants/)
+lets an administrator create a custom role where predefined responsibilities do not fit;
+changing it affects everyone holding it. The [permissions reference](/docs/administer/permissions-reference/)
+lists the actions each group permits. Removing one grant may leave access from another grant
+or group. An unused custom role can be deleted only after its grants have been removed.
+
+[Sign-in](/docs/administer/sign-in/) covers provider links, required second factors and recovery
+after a lost device. An administrator can turn ordinary local password sign-in off after a
+provider has successfully signed someone in, while preserving a tested local recovery route.
+refiroo prevents removing the last active security administrator and protects the last retained
+local sign-in route while ordinary local sign-in is off.
+
+[Signing keys](/docs/administer/signing-keys/) separates routine replacement from emergency
+retirement. [Agent access](/docs/administer/agent-access/) controls connections for external
+assistants, and [AI administration](/docs/administer/ai/) shows built-in availability, send
+policy and call records. [Mail](/docs/administer/mail/) provides outgoing delivery and its
+failure queue; personal notification choices do not change permissions.
+
+[Webhooks](/docs/administer/webhooks/) manages receivers, signing keys and delivery recovery.
+[Approval policies](/docs/administer/approval-policies/) changes publication review for a
+workspace. [Jobs and limits](/docs/administer/jobs-and-limits/) explains who can inspect or
+cancel work. [About, Deployment and Operations](/docs/administer/deployment-pages/) identifies
+the running service and its configuration, while [API and consumer documentation pages](/docs/administer/api-reference-and-consumer-api-pages/)
+helps an administrator find contracts without granting access to their data.

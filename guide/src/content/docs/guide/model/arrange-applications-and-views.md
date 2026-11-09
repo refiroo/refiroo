@@ -25,7 +25,8 @@ Any application can use a view when its structure fits. See
 6. Use [Preview a type](/docs/guide/model/preview-a-type/), then
    [Edit a record page](/docs/guide/model/edit-a-record-page/) or
    [Choose table columns, filters and sort](/docs/guide/model/choose-table-columns-filters-and-sort/)
-   for screen layout. The visual editor does not configure tree or mapping-grid views.
+   for screen layout. Use [Add a table, tree or mapping grid](/docs/guide/model/add-a-view/)
+   for the other view forms.
 7. Check **Issues** and review the saved steps before installing. A **Not applied** notice means
    the attempted step was refused; correct its named problem. **Undo** reverses unwanted saved work.
 
@@ -37,3 +38,9 @@ Any application can use a view when its structure fits. See
 in that model, rather than features reserved for the subject of that application.*
 
 The live workspace keeps its current navigation and layouts until the release is activated.
+
+To choose the opening view, edit **Default view** under the application’s **Settings**, select
+one of its views, then **Save**. To remove a non-matrix view, choose **Remove view**. Read
+“Types only it needed stop being listed here.” before confirming: review the application’s
+listings as well as the view list afterwards. Removal changes navigation, not the stored
+records. Restore an unwanted draft change with **Undo**.

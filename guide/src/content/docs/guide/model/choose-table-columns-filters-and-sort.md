@@ -16,7 +16,8 @@ differ from the columns inside a record-page panel.
 1. Select a type in the model editor and choose **Preview**, then **Edit layout**.
 2. Choose **Table**. If there is more than one table view, use **View** to select it.
 3. Check that you have a declared table view to arrange. **The draft declares no table view**
-   means there is none for this type; the layout editor has no separate create-table-view form.
+   means there is none for this type. Return to the application and use **Add a view…**,
+   **Table: the records of one type in rows** to [add one](/docs/guide/model/add-a-view/).
 
 ![Table layout with column frames and the Columns, Filters and Default sort controls](/docs/screens/model-layout-table-tab.png)
 
@@ -79,5 +80,19 @@ again; a refused step changes nothing.
 
 ![Table default sort dialog with Sorted by and Descending choices](/docs/screens/model-layout-sort-dialog.png)
 
-People continue to see the active layout until activation. Table density, tree and mapping-grid
-layout have no form here; see [Applications and views](/docs/model/applications-and-views/).
+People continue to see the active layout until activation. Tree and mapping-grid settings are
+in the application’s view menu; see [Add a view](/docs/guide/model/add-a-view/).
+
+## Set the sort menu and reading size
+
+1. In the Table layout, choose **Sort menu and page size…**.
+2. Select **Fields a reader can sort by**. Name, existing choices and attributes marked
+   Sortable are offered. To add another attribute, first enable Sortable on its shared
+   definition. Ordinary field columns can still sort from their headers.
+3. Keep at least one choice. If the current default is removed, the first selected field
+   becomes the default; if you uncheck everything, the current list is retained.
+4. Choose **Rows on a page** and **Apply**. The choices are 10, 20, 25, 50 and 100, plus an
+   existing different size. This is the amount read at once, not a total-result limit.
+5. Review **Default sort** again, and check the preview and Issues before activation.
+
+![Table Sort menu and page size dialog](/docs/screens/model-table-menu-size.png)

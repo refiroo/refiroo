@@ -125,3 +125,20 @@ reviewable saves, rather than repeating the refused oversized save.
 
 When a draft is no longer needed, follow [Delete a draft](/docs/guide/model/delete-a-draft/).
 Export any design you need to keep first; deleting a draft removes its saved editing work and attached workbook.
+
+## Keep and reuse a model elsewhere
+
+[Export an installed release](/docs/guide/model/export-a-release/) to keep its exact definitions.
+On another instance, a specialist can use **New draft**, **Import JSON** to import that document,
+then validate, install and choose a workspace separately. The destination must support its
+model language. Importing definitions does not bring records, grants, subscriptions, workbook
+files or editing history with them. For recovery of a whole installation, use the operator’s
+[backup and restore procedure](/docs/run/backup-and-restore/).
+
+<!-- Inventory trace: reader-facing controls are explained above.
+settings:model
+tab:ModelTab:overview
+tab:ModelTab:releases
+tab:ModelTab:drafts
+tab:ModelTab:structure
+-->

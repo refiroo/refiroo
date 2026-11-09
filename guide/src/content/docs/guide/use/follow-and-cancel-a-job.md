@@ -13,8 +13,11 @@ states, access and retention.
 2. Read **State** and progress. A preview waiting for confirmation has not written its proposed
    changes. Review the items before choosing **Load the file** for an import or **Apply** for
    a bulk preview. A running job updates while the page stays open.
-3. To stop remaining work, use **Cancel job**, or **Cancel import** for a waiting import.
-   Read the confirmation, then confirm cancellation. **Keep the job** or **Keep the import**
+3. To stop remaining work, use **Cancel job**, **Cancel import** for a waiting import,
+   or **Cancel preview** for a waiting batch preview.
+   Read the confirmation, then choose **Stop the job** for running work or **Discard the
+   import** / **Discard the preview** for a waiting preview. From the Jobs list, choose **Cancel
+   job** in its confirmation. **Keep the job**, **Keep the preview** or **Keep the import**
    dismisses that confirmation.
 4. Wait for the state to settle. **Cancel requested** is still pending. Already committed
    chunks remain applied: inspect the final counts rather than assuming cancellation undoes them.

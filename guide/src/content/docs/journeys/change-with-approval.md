@@ -92,3 +92,17 @@ and a second person are required. With a second-person rule, the submitter canno
 request. To resume editing while waiting, the submitter or an authorised approver withdraws the
 request; that keeps the proposed changes. Approval rechecks current data and can still refuse a
 conflict. Reload and review the current request before another decision.
+
+## Resume or abandon unfinished work
+
+An open change set remains until published or discarded; job retention does not expire it.
+Reopen it, check its context and review its current differences before continuing. Live or model
+changes since the last visit can require fresh validation or a migration. See
+[Change sets](/docs/use/change-sets/).
+
+If the proposal is no longer needed, withdraw a waiting submission before discarding it.
+Discarding removes proposed work, while sending it back keeps it available for correction.
+Neither undoes Live or removes a publication. After a lost publication response, inspect
+publications and history before repeating the request: a consumed change set can mean that
+publication succeeded. [Changes, approvals and publication](/docs/integrate/changes-approvals-and-publication/)
+explains the corresponding integration recovery.

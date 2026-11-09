@@ -32,3 +32,18 @@ If **The settings were not saved** appears, read the reason and correct the name
 4. To stop a waiting message, choose its **Stop sending**, check the recipient and confirm **Stop sending**. **Keep trying** leaves it queued. Its text is erased, but its existing link remains valid until used, replaced or expired.
 
 Removing the mail settings stops sending; waiting messages remain until their delivery window ends. Use **Remove settings…**, read the warning and confirm **Remove them** only when that is intended. People choose their own notice mail and digests under **Settings › General › Notification email**; configuring a server does not opt them in.
+
+## Replace credentials or move the site
+
+1. For a replacement mail password, enter it in **Password**, keep the agreed server and
+   sender, and choose **Save**. Blank keeps an existing password for the same server; it
+   does not replace an expired one.
+2. Send a test and check both delivery and the link destination. If the site moved, save
+   the new **Application address** before creating any new password links.
+3. Check Waiting messages. Existing links keep their old address. Where that address no
+   longer works, stop the waiting entry when possible and make a fresh password link;
+   do not assume changing the setting rewrites the outbox.
+
+After removing mail settings, recovery means entering and testing them again. Previously
+failed messages do not restart when settings return, and the deleted password cannot be
+read back from refiroo.

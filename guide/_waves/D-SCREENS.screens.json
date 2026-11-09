@@ -1,0 +1,899 @@
+{
+  "wave": "D-SCREENS",
+  "note": "Screens wanted by the D-USE and D-MODEL documentation waves (guide/_waves/screens-wanted/D-USE.md, D-MODEL.md), taken from the reference instance with guide/tools/screens.mjs --file D-SCREENS.screens.json (add --scheme dark for the -dark files). Editor URLs hold the id of a disposable draft 'Guide draft D-MODEL' of guide-reference-swiss 1.4.0 (created through New draft); recreate it and replace the id to retake. Dialogs are cancelled; nothing is installed or published.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "model-type-settings",
+      "shows": "Settings tab of the type Guide stop in a disposable draft: Display attribute, Effective period (Valid from to Valid to), At least one of, Parent relationships.",
+      "height": 700,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=type&key=guide-stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Settings"
+          }
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "expect": [
+        "Display attribute",
+        "Effective period",
+        "At least one of",
+        "Parent relationships",
+        "Valid from"
+      ]
+    },
+    {
+      "name": "model-attribute-settings",
+      "shows": "Settings of the shared decimal attribute Height (m): Minimum 0, Maximum 4500, Hidden No, Help text 'Height above sea level, in metres.'. The three edits were made in the disposable draft before the capture (Edit Minimum and Maximum in one dialog, Edit Help text inline); the scene only opens the page.",
+      "height": 760,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=attributeType&key=height"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "Minimum",
+        "Maximum",
+        "Hidden",
+        "Help text",
+        "4500",
+        "Height above sea level"
+      ]
+    },
+    {
+      "name": "model-relation-carries",
+      "shows": "Relations tab of Guide stop with the new relation Inspected by (Guide stop to Operator) carrying Description and Active (set in the disposable draft before the capture; a released relation cannot be changed): the Carries column beside Cardinality, Required and Which records; direction under From to.",
+      "height": 1000,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=type&key=guide-stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Relations (6)"
+          }
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "expect": [
+        "Relation",
+        "From → to",
+        "Cardinality",
+        "Carries",
+        "Which records",
+        "Inspected by",
+        "Description, Active"
+      ]
+    },
+    {
+      "name": "model-add-tree-view",
+      "shows": "Add a view to Network with Tree selected: roots, label, second line, order and availability fields.",
+      "height": 1300,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "View",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Kind of view"
+          },
+          "value": "Tree: records under the records that contain them"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Add a view to Network",
+        "Kind of view",
+        "Name"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-add-mapping-grid",
+      "shows": "Add a view to Network with Mapping grid selected: relationship, Rows are, both column lists and candidate search fields.",
+      "height": 1300,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "View",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Kind of view"
+          },
+          "value": "Mapping grid: records of one type matched to records of another"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Add a view to Network",
+        "Kind of view",
+        "Name"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-header-breadcrumbs",
+      "shows": "Layout editor, Record page of Guide stop: the Header and breadcrumbs dialog with the title and line under it selectors and the four checkboxes.",
+      "height": 800,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=type&key=guide-stop&mode=layout"
+        },
+        {
+          "waitFor": {
+            "text": "Layout editor",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Header and breadcrumbs"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Title of the record",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Header and breadcrumbs",
+        "Title of the record",
+        "Line under the title",
+        "Breadcrumbs name the type"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-panel-settings",
+      "shows": "Layout editor: Settings of the Modes panel with the relationships listed, Listed from, the relationship-column toggle and the sort fields.",
+      "height": 800,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=type&key=guide-stop&mode=layout"
+        },
+        {
+          "waitFor": {
+            "text": "Layout editor",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Layout of panel Modes"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Settings…"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Relationships listed",
+            "exact": false
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Name",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Settings of Modes",
+        "Relationships listed",
+        "Listed from",
+        "Show which relationship joins each record",
+        "Fields a reader can sort by"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-table-menu-size",
+      "shows": "Layout editor, Table tab: the Sort menu and page size dialog with the sortable fields and Rows on a page.",
+      "height": 900,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/71856655-a7d2-416b-a91a-b9d458e88bde/editor?show=type&key=guide-stop&mode=layout"
+        },
+        {
+          "waitFor": {
+            "text": "Layout editor",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Table"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Sort menu and page size"
+          }
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "expect": [
+        "Sort menu",
+        "Rows on a page"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-notification-email-digest-settings",
+      "shows": "Notification email of the reference administrator (address guide.admin@example.org, mail configured, email switched on): How each kind reaches me with At once / Digest / Off, one kind on Digest (A job you started has finished), the others Off; The digest with Every morning at 07:00 and Mondays at 07:00, the saved time zone and Next digest.",
+      "height": 1300,
+      "actions": [
+        {
+          "goto": "/settings/notifications"
+        },
+        {
+          "waitFor": {
+            "text": "How each kind reaches me",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "text": "Off",
+            "exact": true,
+            "nth": 0
+          }
+        },
+        {
+          "click": {
+            "text": "Off",
+            "exact": true,
+            "nth": 1
+          }
+        },
+        {
+          "click": {
+            "text": "Off",
+            "exact": true,
+            "nth": 2
+          }
+        },
+        {
+          "click": {
+            "text": "Off",
+            "exact": true,
+            "nth": 4
+          }
+        },
+        {
+          "click": {
+            "text": "Off",
+            "exact": true,
+            "nth": 5
+          }
+        },
+        {
+          "click": {
+            "text": "Off",
+            "exact": true,
+            "nth": 6
+          }
+        },
+        {
+          "click": {
+            "text": "Digest",
+            "exact": true,
+            "nth": 3
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Email me when something arrives in my inbox",
+        "How each kind reaches me",
+        "At once",
+        "Digest",
+        "Off",
+        "The digest",
+        "Every morning at 07:00",
+        "Mondays at 07:00",
+        "In your time zone",
+        "Next digest"
+      ]
+    },
+    {
+      "name": "use-appearance-themes",
+      "shows": "Appearance, the whole Display section: Theme Normal / Website purple, Light or dark System / Light / Dark, Table density, Type colours, Edit pencil.",
+      "height": 800,
+      "actions": [
+        {
+          "goto": "/settings/appearance"
+        },
+        {
+          "waitFor": {
+            "text": "Edit pencil",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Appearance",
+        "Display",
+        "Theme",
+        "Normal",
+        "Website purple",
+        "System",
+        "Light",
+        "Dark",
+        "Table density",
+        "Type colours",
+        "Edit pencil"
+      ]
+    },
+    {
+      "name": "use-import-profile-delete-actions",
+      "shows": "Import profiles with the Haltestellen_Busbetrieb_Nord.xlsx profile selected and its next version uploaded and retained (uploaded in the reference instance before the capture): Delete the file… and Delete the profile… both shown.",
+      "height": 700,
+      "actions": [
+        {
+          "goto": "/settings/import-profiles"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Delete the file…",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Upload the next version",
+        "Delete the file…",
+        "Delete the profile…"
+      ]
+    },
+    {
+      "name": "use-import-file-delete-confirm",
+      "shows": "Delete Haltestellen_Busbetrieb_Nord.xlsx? confirmation from Delete the file…: what happens, Cancel and Delete the file. Cancelled.",
+      "height": 700,
+      "actions": [
+        {
+          "goto": "/settings/import-profiles"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Delete the file…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Delete the file…",
+            "exact": true
+          }
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "expect": [
+        "Delete",
+        "Cancel"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-import-profile-delete-confirm",
+      "shows": "Delete the profile Haltestellen_Busbetrieb_Nord.xlsx? confirmation from Delete the profile…: loaded records kept, Cancel and Delete the profile. Cancelled.",
+      "height": 700,
+      "actions": [
+        {
+          "goto": "/settings/import-profiles"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Delete the file…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Delete the profile…",
+            "exact": true
+          }
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "expect": [
+        "Delete the profile",
+        "Cancel"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-sign-in-second-step",
+      "shows": "The sign-in screen after the password of the fictional Guide device person (an authenticator app and a passkey enrolled) was accepted: Use a passkey, Code from the app, Sign in with the code, Use a recovery code instead and Start again. The scene signs in as the person (GUIDE_DEVICE_USERNAME and GUIDE_DEVICE_PASSWORD in guide/reference/.env, set through Reset password) and stops at the second step.",
+      "as": "device",
+      "height": 800,
+      "actions": [
+        {
+          "wait": 300
+        }
+      ],
+      "expect": [
+        "Use a passkey",
+        "Code from the app",
+        "Sign in with the code",
+        "Use a recovery code instead",
+        "Start again"
+      ]
+    },
+    {
+      "name": "use-copy-dry-run",
+      "shows": "Copy and move editor, Copy from Graubünden to the Default workspace with the saved mapping Guide mapping: a dry run ready (79 records), From and To with their models, What to copy, Create / Update / Cannot be copied counts, '71 values not carried', and What cannot be copied opened with the refusal reasons. Nothing is copied.",
+      "height": 1150,
+      "actions": [
+        {
+          "goto": "/settings/moves/guide-mapping?from=graubuenden&to=default&job=2038559e-20be-4688-86b3-3429fcf99285"
+        },
+        {
+          "waitFor": {
+            "text": "Dry run ready",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "What cannot be copied"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "every item listed",
+            "exact": false
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "Dry run ready",
+        "Copy",
+        "Create",
+        "Update",
+        "Cannot be copied",
+        "What cannot be copied",
+        "Value not carried"
+      ]
+    },
+    {
+      "name": "use-move-review-change-sets",
+      "shows": "A finished Move of the whole workspace C10 jobs pictures into the new empty workspace Stops receiving workspace (same model, mapping 'Stops between workspaces of one model'), before publication: 'Move complete', actual counts (598 created, 633 relationships carried, nothing left behind), 598 deleted and 0 kept with their reason, Review the change set and Review the deletions, and the line that the deletions can be published only after the copy. The move was started in the reference instance before the capture.",
+      "height": 700,
+      "actions": [
+        {
+          "goto": "/settings/moves/stops-between-workspaces-of-one-model?from=c10-jobs-pictures&to=stops-receiving-workspace&job=5919ceda-dbb4-4f8f-bcb6-8d6875333d7f&mode=move&view=report"
+        },
+        {
+          "waitFor": {
+            "text": "Move complete",
+            "exact": false
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "Move complete",
+        "Review the change set",
+        "Review the deletions",
+        "598",
+        "published only after the copy"
+      ]
+    },
+    {
+      "name": "model-delete-mapping",
+      "shows": "Settings, Copy and move: the Mappings list with Guide mapping (guide-reference-swiss to rdm-starter) and its Delete… button, and the confirmation 'Delete the mapping Guide mapping?' with what happens to history and proposals, Cancel and Delete the mapping. Cancelled.",
+      "height": 800,
+      "actions": [
+        {
+          "goto": "/settings/moves"
+        },
+        {
+          "waitFor": {
+            "text": "Guide mapping",
+            "exact": false
+          }
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": {
+            "css": "tr:has-text(\"Guide mapping\") button:has-text(\"Delete\")"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Delete the mapping",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Delete the mapping",
+        "history and proposals",
+        "Cancel"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-webhook-workspace-events",
+      "shows": "New webhook, Events from = Workspace events, Chosen events with the choice list open showing all three change-set events. Not saved.",
+      "height": 1400,
+      "actions": [
+        {
+          "goto": "/settings/webhooks"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New webhook",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "New webhook",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "text": "Workspace events",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": {
+            "text": "Chosen events",
+            "exact": true
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Choose events"
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Select all",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Done",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New webhook",
+        "Workspace events",
+        "All events (3)",
+        "Chosen events"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-client-inactive-rotate",
+      "shows": "Rotate secret dialog of the deactivated client DF2 try: inactive-client note, Stop it now selected. Not submitted.",
+      "height": 900,
+      "actions": [
+        {
+          "goto": "/settings/clients"
+        },
+        {
+          "waitFor": {
+            "text": "Choose a client.",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Deactivated",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": {
+            "text": "DF2 try",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Secrets",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Rotate secret…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": {
+            "text": "Stop it now",
+            "exact": true
+          }
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "expect": [
+        "Rotate secret",
+        "Stop it now"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "model-consumer-earlier-versions",
+      "shows": "Stops API in a throwaway draft 'DF throwaway draft' (deleted after the capture): v2 current, Earlier versions with v1, Superseded, Sunset day 2027-06-30, Stop serving.",
+      "height": 900,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/1b9dd7d8-4c9e-43e5-9df6-3c0ebaaedcc0/editor?show=consumerApi&key=stops"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Types and related"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Earlier versions",
+        "Superseded",
+        "Sunset day",
+        "Stop serving",
+        "2027-06-30"
+      ]
+    }
+  ]
+}

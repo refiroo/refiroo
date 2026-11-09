@@ -42,3 +42,15 @@ Installing alone changes no workspace. A release that existing data does not fit
 | Which records were valid on a business date? | A [business-date read](/docs/integrate/business-dates/), for types whose model declares a validity period. |
 
 A business-date read is not a reconstruction of everything stored on that date. A publication is not an archive of every intervening live edit. Withdrawing a publication removes its current designation without undoing data; starting a change set from it is not a full restore. Recovery of an entire dataset belongs to [backup and restore](/docs/run/backup-and-restore/).
+
+## Keep something readable without offering it for new work
+
+Changing a record's model-defined availability or validity dates can keep its identity and
+history while ending its use under the agreed reading rules. It does not delete the record,
+withdraw a publication or schedule publication for a future date. See
+[Stop offering a value](/docs/guide/use/stop-offering-a-value/).
+
+Retiring a model release instead hides it from future choices; workspaces already using it keep
+working. Retiring a workspace preserves reading and stops changes. These choices have different
+consequences from permanent deletion. See [Releases](/docs/model/releases/) and
+[Managing workspaces](/docs/model/managing-workspaces/).

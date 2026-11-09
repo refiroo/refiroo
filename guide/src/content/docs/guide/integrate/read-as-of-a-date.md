@@ -13,3 +13,18 @@ Use this when a downstream system needs data valid on a business day. [Business 
 5. Continue with the returned cursor and the same date and context. If related records must also be constrained, express their dates in the query criteria; expansion alone does not date them.
 
 On `AS_OF_NOT_SUPPORTED`, choose a dated type or remove the date intentionally. Do not retry without the date while presenting the answer as dated. For a mixed consumer lookup, check which returned types the engine actually dated.
+
+## Try the reference contract
+
+**Reference-data example:** this request pages the reference contract's stops valid on 2 November 2026. Obtain a consumer token and use the instance's [all-stops operation](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/lists/all-stops):
+
+```http
+GET /api/consumer/stops/v1/lists/all-stops?workspace=graubuenden&asOf=2026-11-02&pageSize=20 HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+On success, read `items`, check `asOfApplied` and the `RDM-As-Of-Applied` header, then pass `nextCursor` with the same workspace, date and filters. A pinned extract also sends the same publication selection on every page. The date is a calendar day; it is not interpreted in the client's local time zone.
+
+An empty dated list is a valid answer. A known dated object read by ID outside its period gives `OBJECT_NOT_FOUND`. An invalid consumer date gives `INVALID_AS_OF` with the message **asOf must be one calendar date, written YYYY-MM-DD**; correct the value rather than retrying. On a mixed lookup, retain `asOfApplied` with your result so downstream readers know which public types were dated. The full consumer shapes and filtering rules are in [Reading business objects](/docs/integrate/reading-business-objects/).

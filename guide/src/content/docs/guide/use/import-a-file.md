@@ -7,6 +7,10 @@ reader: steward
 Load into Live or a change set after checking exactly what the file means. See
 [Importing and exporting](/docs/use/importing-and-exporting/) for file and profile rules.
 
+If **Load a workbook** opens because the assistant is enabled, choose **Import without the
+assistant…** to reach the manual import form used below. That manual path does not send the
+file to an AI assistant.
+
 1. Open the intended workspace and collection. Choose **Workspace actions › Import**. To
    choose another destination, open **Settings › Data operations › Jobs › New import** and
    choose the workspace and **Load into** context.

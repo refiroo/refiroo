@@ -18,7 +18,7 @@ Docker Compose runs the reference installation. Its nginx 1.28 web server serves
 
 People can sign in through an organisation's OpenID Connect provider or local accounts. Local accounts support WebAuthn passkeys and time-based one-time passwords (TOTP) from authenticator apps. External systems authenticate with OAuth 2.0 client credentials. See [Who can do what](/docs/about/people-and-access/).
 
-The APIs exchange JSON and publish OpenAPI 3.1 contract documents. Consumer webhooks use HMAC-SHA256 signatures and offer RDM JSON or CloudEvents 1.0 messages. File exchange supports Excel .xlsx workbooks and CSV; notifications use SMTP mail. Operators can collect Prometheus metrics. These connections are configured by the organisation; reading the interface does not require a hosted analytics service.
+The APIs publish OpenAPI 3.1 contract documents. Consumer webhooks use HMAC-SHA256 signatures and offer a native message format or CloudEvents 1.0 messages. File exchange supports Excel .xlsx workbooks and CSV; notifications use SMTP mail. Operators can collect Prometheus metrics. These connections are configured by the organisation; reading the interface does not require a hosted analytics service.
 
 ## Open-source components
 
@@ -49,3 +49,27 @@ This local delivery concerns viewing documentation and the interface. Configured
 Startup checks refuse unsafe database and model states with a reason and a recovery instruction. Health checks distinguish a process that answers from one ready to serve data. Operators can rehearse restoring a backup into a separate database and inspect the result.
 
 Activating an older model release does not restore older data. See [Health and startup checks](/docs/run/health-and-startup-checks/) and [Backup and restore](/docs/run/backup-and-restore/).
+
+## Plan the installation's lifetime
+
+[Configuration](/docs/run/configure/) controls capability switches and limits; the
+[command-line tools](/docs/run/command-line/) support operator maintenance without browser
+access. [The database](/docs/run/database/) explains connection budgets and storage growth.
+[Sign-in and mail setup](/docs/run/sign-in-and-mail-setup/) connects the public address to
+identity providers and outgoing messages, and [webhook delivery](/docs/run/webhook-delivery/)
+explains receiver failures, retries and recovery.
+
+[Upgrades](/docs/run/upgrades/) covers software cutover and refusal recovery.
+[Model releases and rollback](/docs/run/model-releases-and-rollback/) distinguishes choosing an
+older compatible model from restoring the application's database. [Backup and restore](/docs/run/backup-and-restore/)
+includes files and matching keys as well as PostgreSQL, and covers moving to a replacement host.
+Deleting deployment storage is not a recovery procedure.
+
+[AI operation](/docs/run/ai/) covers the optional provider, assistant and external-agent
+connection; [Set up AI](/docs/run/set-up-ai/) gives the installation steps. A
+[developer instance](/docs/run/developer-instance/) serves local code work and has a different
+support boundary from the reference Compose installation.
+
+The [production checklist](/docs/run/production-checklist/) brings together transport,
+access, storage, monitoring and restore checks. Production sizing and recovery time depend
+on the organisation's workload; these pages do not promise a measured capacity for it.

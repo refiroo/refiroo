@@ -123,3 +123,16 @@ matching rule and dry run. This is different from splitting a model definition i
 The browser mapping editor offers the rows described here; specialist mapping transformations
 beyond those controls need an integrator. Release comparisons show relationships and views,
 not changes to these separately saved model mappings.
+
+## Delete a saved mapping
+
+In **Mappings**, **Delete…** is shown to people with **Copy and move** access. The confirmation
+is **Delete the mapping …?**. **Delete the mapping** removes the mapping together with its
+history and proposals. **Cancel** keeps it. Copies and moves already made stay as they are;
+a new operation needs another mapping. This is separate from deleting records or discarding
+a change set. Deletion has no Undo in this list.
+
+The delete uses the version you viewed. If someone changes the mapping first, deletion is
+refused; refresh the list, inspect the new mapping and decide again. A failed deletion leaves
+its error in the confirmation. Do not assume a mapping disappeared until the list removes it.
+Follow [Delete a model mapping](/docs/guide/model/delete-a-model-mapping/) for the steps.

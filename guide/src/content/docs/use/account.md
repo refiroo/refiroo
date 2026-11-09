@@ -173,3 +173,25 @@ request. A blocked assistant also loses access; restoring it does not restore th
 You must sign in for it again. Its sign-in page shows the name it claims and where it returns.
 Check those details before allowing it. See [AI and your data](/docs/use/ai-and-your-data/)
 for what it may read, what it may prepare and why its provider privacy settings matter.
+
+## Complete a second sign-in step
+
+After your password, refiroo can ask for another proof of identity:
+
+1. If **Use a passkey** is offered, choose it and complete the device prompt. Cancelling the
+   prompt leaves you at sign-in; it does not remove your passkey.
+2. To use an authenticator app, enter its current six-digit **Code** or **Code from the app**.
+   Choose **Sign in** or **Sign in with the code**, as shown. A refused code needs a new
+   current code; repeated failed attempts can require a wait.
+3. If you cannot use the app, choose **Use a recovery code instead**, enter one unused
+   **Recovery code** and choose **Sign in**. That code cannot be used again. **Use the app's
+   code** returns to the ordinary code entry. **Start again** returns to the first sign-in step.
+4. If setup is required before you can continue, scan the displayed code with your app or
+   copy the displayed key into it. Enter **Code from the app** and choose **Confirm and
+   continue**. Save the recovery codes when they are shown.
+
+If you have lost all usable proofs, ask a security administrator to help restore access.
+After removing a passkey in refiroo, also remove its saved entry from your device or password
+manager; the entry there is not deleted automatically.
+
+![Second sign-in step offering a passkey, an authenticator code and recovery-code sign-in](/docs/screens/use-sign-in-second-step.png)

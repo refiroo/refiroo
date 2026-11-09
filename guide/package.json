@@ -13,10 +13,11 @@
     "build:public": "PUBLIC_GUIDE_SITE=1 npm run build && PYTHONPATH=../backend ../backend/.venv/bin/python -m app.management.reference.static_site \"${GUIDE_OUT:-dist}\"",
     "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview",
     "check": "node tools/check.mjs all",
-    "verify": "npm run build && npm run check && npm run check:links",
+    "verify": "npm run build && npm run check && npm run check:coverage && npm run check:links",
     "check:terms": "node tools/check.mjs terms",
     "check:brand": "node tools/check.mjs brand",
-    "check:links": "node tools/check.mjs links"
+    "check:links": "node tools/check.mjs links",
+    "check:coverage": "node tools/check.mjs coverage"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "0.4.6",

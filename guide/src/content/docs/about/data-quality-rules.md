@@ -33,3 +33,16 @@ Bulk changes and file loads offer previews showing what can be applied and what 
 ## History makes changes accountable
 
 Record history names who changed what and when, including the person or client behind a background job. Publication changes name their publication. Older entries without attribution say **Before sign-in**; some operations did not record the previous value. History is evidence of changes, not a substitute for a complete backup. See [History](/docs/use/history/) and [Security, audit and privacy](/docs/about/security-and-trust/).
+
+## A limit is not an incomplete answer
+
+Long collections are read in pages so people can continue through the complete matching list.
+A page size does not limit the whole dataset. Bulk selections and file loads have separate
+operation limits; exceeding one calls for a smaller operation, not an assumption that omitted
+records succeeded. See [Lists, search and filters](/docs/use/lists-and-filters/) and
+[Jobs and limits](/docs/administer/jobs-and-limits/).
+
+Validation checks the rules the model declares. It cannot decide whether a real-world name or
+code is correct, or whether a workbook's matching column identifies the right record. Review
+proposed matches, omissions and losses before confirming a load or transfer. See
+[Workbook onboarding](/docs/model/workbook-onboarding/) and [Copying and moving](/docs/use/copying-and-moving/).

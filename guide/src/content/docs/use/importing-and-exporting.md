@@ -71,8 +71,8 @@ CSV or workbook that was not exported by refiroo. Profile setup belongs to
 [load its next version](/docs/guide/use/load-the-next-version-of-a-workbook/).
 
 A missing or ambiguous related name is refused. Parents can be resolved from existing records
-or the same file, and are loaded before children. Repeated keys with compatible filled cells
-combine into one record; conflicting filled values refuse all contributing rows. Blank cells
+or the same file, and are loaded before children. Repeated keys with compatible filled cells,
+in one sheet or several sheets of the file, combine into one record; conflicting filled values refuse all contributing rows. Blank cells
 do not conflict with another row's supplied value. A profile without a stable key warns that
 later uploads may create new records instead of finding earlier ones.
 
@@ -197,3 +197,39 @@ the assistant…** opens the ordinary manual import. See
 [Load a workbook with the assistant](/docs/guide/use/load-a-workbook-with-the-assistant/).
 The whole file and your words go to Claude Code, turns can incur costs, and task files are
 retained; [AI and your data](/docs/use/ai-and-your-data/) explains those rules.
+
+## Remove an uploaded file or an import profile
+
+Open **Settings › Data operations › Import profiles** and select the profile. People with
+**Bulk and import** are offered the deletion buttons; without that access the buttons are absent.
+Deleting either item does not undo a load or remove records already loaded into a workspace.
+
+- **Delete the file…** asks **Delete <file name>?**. **Delete the file** removes that upload,
+  its stored cells and the analysis of its sheets and columns. A check still reading it is
+  asked to stop. The import profile stays. Upload the file again before checking or loading it.
+- **Delete the profile…** asks **Delete the profile <profile name>?**. **Delete the profile**
+  removes the saved instructions for reading the workbook and returns you to the profile list.
+  Loading the workbook again needs a new profile saved by installing a model draft that holds it;
+  ask a model administrator to prepare this through [Workbook onboarding](/docs/model/workbook-onboarding/).
+
+Choose **Cancel** in either confirmation to keep the item. A refusal stays in the confirmation
+with its reason. If someone changed the file or profile since you opened it, cancel, reload the
+page and inspect the latest version before trying again. There is no undo button for either
+deletion. Keep the original workbook outside refiroo if you need to upload it later.
+
+![Import profile showing separate buttons to delete its uploaded file and the profile](/docs/screens/use-import-profile-delete-actions.png)
+
+## Default file and preview limits
+
+An import normally accepts a file of up to 200 MiB. Its preview tries at most 10,000 items;
+**Load nothing unless every row loads** normally allows at most 10,000 items. Your operator
+can change these limits. Read **Limits** on Jobs and the limit reported by the import form.
+If a file exceeds the limit, split or reduce it, or agree a suitable limit with the operator.
+If splitting a recurring workbook whose profile deletes missing records, ask its owner first:
+each part could otherwise treat records in the other parts as missing.
+
+Jobs and their downloadable files are normally retained for seven days. Download an export
+before its **Kept until** time. A retained import profile can outlive its last load's job;
+**Last load** is not an archive of every workbook loaded through it.
+
+![Confirmation to remove an import profile while retaining previously loaded records](/docs/screens/use-import-profile-delete-confirm.png)

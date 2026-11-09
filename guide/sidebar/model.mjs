@@ -41,6 +41,7 @@ export default [
     [
       ["model/applications-and-views", "About applications and views"],
       "guide/model/arrange-applications-and-views",
+      "guide/model/add-a-view",
       "guide/model/group-collections-in-navigation",
       "guide/model/add-a-relation-matrix",
       "guide/model/add-a-relationships-table",
@@ -61,6 +62,7 @@ export default [
       ["model/consumer-apis", "About consumer APIs in the model"],
       "guide/model/define-a-consumer-api",
       "guide/model/raise-a-contract-version",
+      "guide/model/stop-serving-an-earlier-contract-version",
       "guide/model/see-a-consumer-apis-documents",
     ],
   ],
@@ -136,6 +138,7 @@ export default [
       "guide/model/move-records-to-another-model",
       "guide/model/edit-a-mapping-row",
       "guide/model/choose-what-moves",
+      "guide/model/delete-a-model-mapping",
     ],
   ],
 ];

@@ -42,3 +42,11 @@ a new key is active. Follow [Rotate signing keys](/docs/guide/administer/rotate-
 for both procedures.
 
 Signing keys are not deleted from this page. Normal replacement preserves verification until existing access expires; emergency retirement refuses it immediately. For webhook delivery keys, follow [Rotate a webhook key](/docs/guide/administer/rotate-a-webhook-key/); those keys are managed on each webhook, not here.
+
+## Restore or move an installation
+
+Signing keys are held with the instance, shared by its engine processes. They are not
+exported or imported from this page. The operator must preserve the database and its
+secret storage through the [backup and restore procedure](/docs/run/backup-and-restore/).
+Starting a new signing key does not repair an installation that cannot open its saved
+secrets. Give the operator that failure message before attempting more replacements.

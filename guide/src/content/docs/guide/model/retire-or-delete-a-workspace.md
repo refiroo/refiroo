@@ -13,7 +13,9 @@ Open **Settings › Workspaces** with **Workspace administration**. See
    **Retire workspace**, or cancel. It leaves the active selector and becomes read-only.
    Records, change sets, publications and history remain readable through workspace management.
 3. To resume work later, open the retired workspace in this list and choose **Reactivate**.
-   Check the active state. Reactivation does not change its model release.
+   Check the active state. Reactivation does not change its model release. Retirement also
+   suspends its active webhook subscriptions; ask their administrator to resume them separately
+   after reactivation.
 4. Use **Delete…** only for an empty workspace that has never been published and has no change
    sets or webhook subscriptions. Read the page's explanation of anything preventing deletion.
    Even an emptied workspace with past publications must be retired instead.

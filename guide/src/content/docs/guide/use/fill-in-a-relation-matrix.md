@@ -35,6 +35,24 @@ The same steps apply when columns represent something else:
 *Above: Municipalities by system in Systems compares System codes under their systems. One
 means exactly one related record here, without the name matrix's Active condition.*
 
+## Choose which columns to show
+
+A matrix includes all records of its column type, even those that do not concern the rows you
+are working on. Choose just the columns you need without filtering by cell state.
+
+1. Choose **Filter**. In the section named after the column type followed by **to show**,
+   search for and select the columns you need. You can select up to 20; deselect one before
+   adding another if you reach the limit.
+2. Leave **Cell state** on **Any state**, or choose it to remove an existing state restriction.
+   Choose **Done**. The matrix shows only your selected columns.
+3. To bring every column back, open **Filter** and choose **Show all** followed by the column
+   type's plural name, then **Done**. Use the column navigation if they do not all fit on one page.
+   This also clears any cell-state restriction.
+
+Your choice belongs to the page you have open; it is not saved as a setting for the view and
+does not change what other people see. Bookmark or share the page's address to reopen the same
+column selection. Opening the view again from the navigation shows all columns.
+
 ## Find empty cells across the list
 
 1. Clear the row search if you intend to check the whole list, then choose **Filter**.
@@ -116,6 +134,12 @@ with “Merged municipality, old code kept”. These values belong to its connec
 *Above: Chur · rm opens the Romansh name Cuira with Active selected. Open Chur (rm) leads to the
 full name record. Cancel leaves its fields unchanged.*
 
+The **Conflict** branch applies only if the workspace already contains a cell inconsistent
+with its model’s counting limit. Ordinary saves refuse a second counting record where only
+one is allowed; do not try to create a duplicate to follow these steps. If no Conflict cell
+exists, continue with the states present in your workspace. See
+[Cell states](/docs/use/relation-matrices/#cell-states) for the distinction from Several.
+
 For an **Inactive** cell, review existing records before adding another. For **Several** or
 **Conflict**, inspect all counting records and decide which should count. Where **Unlink** is
 offered, it asks for confirmation and keeps the related record; required ownership cannot be
@@ -133,12 +157,6 @@ A duplicate refusal can offer **Open the … already here**. Inspect that record
 creating another. If **Changed elsewhere** appears, review the refreshed cell and your retained
 input before retrying. If the record moved out of the cell, inspect the current contents first.
 A loading failure needs a retry, not a new record to fill an apparently empty cell.
-
-The **Conflict** branch applies only if the workspace already contains a cell inconsistent
-with its model’s counting limit. Ordinary saves refuse a second counting record where only
-one is allowed; do not try to create a duplicate to follow these steps. If no Conflict cell
-exists, continue with the states present in your workspace. See
-[Cell states](/docs/use/relation-matrices/#cell-states) for the distinction from Several.
 
 If actions are missing, check that the context is editable, you have **Edit live** or **Work
 in change sets** as appropriate, and the model offers the intended action. Reader can inspect

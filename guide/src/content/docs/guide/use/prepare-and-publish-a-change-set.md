@@ -108,3 +108,13 @@ No publication has been confirmed in this screenshot; Cancel leaves it unpublish
 An intervening live edit can still prevent publication after validation. See
 [Publishing and intervening live work](/docs/use/change-sets/#publishing-and-intervening-live-work)
 for what conflicts and what is preserved. A refusal needs review before another attempt.
+
+## Discard work you no longer need
+
+1. Open the change set and check all its proposed changes, including work by colleagues.
+   If it is waiting for approval, its submitter or an approver must **Withdraw request** first.
+2. Open **More change set actions** and choose **Discard change set**.
+3. Read **Discard this change set?**. **Discard change set** removes all staged work in it.
+   Choose **Cancel** to keep it. Live records and existing publications stay unchanged.
+4. If the action fails, read its reason and refresh the change set before trying again.
+   There is no undo for discarded work; a fresh change set does not recover those edits.

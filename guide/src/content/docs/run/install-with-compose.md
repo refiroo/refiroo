@@ -27,8 +27,8 @@ version, `git version`, `OpenSSL` and curl's version information. The automatic 
 Compose's `!reset` syntax to remove the web container's published ports and certificate mounts.
 Docker must be able to download base images and build dependencies.
 
-Point a public DNS name at this host, including any published IPv6 address. Allow inbound TCP 80
-and 443 to the entry service. Keep 5432 (PostgreSQL) and 8000 (engine) unpublished. DNS must resolve
+Point a public DNS name at this host, including any published IPv6 address. Allow inbound TCP 443 to the entry service. Port 80 is optional: open it only if you want
+HTTP requests redirected to HTTPS. Certificate issuance and renewal can use TLS-ALPN on 443 alone. Keep 5432 (PostgreSQL) and 8000 (engine) unpublished. DNS must resolve
 the public name to the installation or its HTTPS balancer. For this walkthrough Caddy is the entry
 service, and nothing else may occupy ports 80 and 443. See the
 [network and storage inventory](/docs/run/overview/#network-and-storage).
@@ -403,6 +403,26 @@ There is no supported database downgrade. To go back, stop the new deployment an
 pre-upgrade backup with the old tag and matching configuration. This restores the data as it was
 at backup time. See [Upgrade refiroo](/docs/run/upgrades/) for explicit migration checks and
 [Back up and restore](/docs/run/backup-and-restore/) for recovery.
+
+## Database and upstream values in Compose
+
+The following values are set directly in `compose.yml`, rather than selected from `.env`. To use
+an external database or another engine address, adapt your deployment file deliberately; adding
+these names to `.env` alone does not change the checked-in values.
+
+| Value | Checked-in value | What it controls |
+| --- | --- | --- |
+| `POSTGRES_DB` | `rdm` | Database created when the PostgreSQL volume is first initialized. |
+| `POSTGRES_USER` | `rdm` | PostgreSQL initialization account. The engine connection and database health check also use this name. |
+| `POSTGRES_INITDB_ARGS` | `--locale-provider=icu --icu-locale=und --locale=C` | Creates a new database cluster with the ICU root collation required by the engine. |
+| `ENGINE_UPSTREAM` | `http://engine:8000` | Private engine address nginx forwards API, documentation and health requests to. |
+
+The PostgreSQL initialization values apply only to an empty database volume. Changing them does
+not rename an existing database or role, change its password, or convert its collation. Preserve
+the volume and use [database administration](/docs/run/database/) and a checked restore when
+needed. If you customize names, update `DATABASE_URL` and the database health check together.
+An incorrect upstream can leave web running while API requests fail; inspect web and engine logs
+and check public readiness after recreating web. Keep the engine address private.
 
 ## Settings and paths for other installations
 

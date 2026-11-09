@@ -1,0 +1,29 @@
+{
+  "pages_reviewed": 68,
+  "pages_changed": 26,
+  "new_pages": 2,
+  "words_before": 49229,
+  "words_after": 52023,
+  "inventory_use": {
+    "total": 159,
+    "covered": 153,
+    "excluded": 6,
+    "uncovered": 0
+  },
+  "ledger": {
+    "total": 917,
+    "covered": 812,
+    "not_for_readers": 105,
+    "open": 0
+  },
+  "build": "passed",
+  "terms": "passed",
+  "brand": "passed",
+  "sidebar_syntax": "passed",
+  "links": {
+    "status": "failed",
+    "cause": "eight screenshots awaiting capture",
+    "references": 10
+  },
+  "global_inventory_uncovered_outside_use": 13
+}

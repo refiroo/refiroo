@@ -87,3 +87,56 @@ credential storage and deployment controls. Integrators can continue with
 [the security model for integrations](/docs/integrate/security-model-for-integrators/).
 This review connects the documented rules and evidence; it is not a separate security-checking
 screen in refiroo.
+
+## Move people to the organisation's sign-in provider
+
+A security administrator [adds a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/)
+and tests complete sign-in, then [links an existing person](/docs/guide/administer/link-a-provider-person/)
+where needed to preserve their grants and history. Review any provider-group mappings as well
+as direct grants. Changing the provider's credentials requires coordination with its owner;
+[Sign-in](/docs/administer/sign-in/) explains the recovery path.
+
+[Require a second factor](/docs/guide/administer/require-a-second-factor/) for local accounts
+and prepare recovery before losing a device. When provider sign-in is proven,
+[turn off ordinary local sign-in](/docs/guide/administer/turn-off-local-sign-in/) only after
+testing the retained local administrator route. That switch keeps accounts, roles and existing
+second-factor requirements. Test both intended sign-in and recovery afterwards.
+
+## Tailor a responsibility and remove access when it ends
+
+[Create a custom role](/docs/guide/administer/create-a-custom-role/) from an existing role or
+from nothing, choose its action groups, then grant it in the intended scope. Changing it later
+affects every holder; copying a role does not keep the copy linked to its source. Review the
+[permissions reference](/docs/administer/permissions-reference/) and the recipient's effective
+access after changing it. Remove all grants before deleting an unwanted custom role.
+
+When a person leaves, [People and groups](/docs/administer/people-and-groups/) connects
+account deactivation, membership and retained attribution. Removing one grant can leave other
+access in place. Deactivation stops the next request without erasing data history; refiroo
+refuses changes that would remove the last active security administrator.
+
+## Configure publication review and system delivery
+
+[Set an approval policy](/docs/guide/administer/set-an-approval-policy/) with the workspace's
+administrator, then use [Change with approval](/docs/journeys/change-with-approval/) for an
+actual proposal and decision. A changed policy affects waiting decisions too; inspect the
+current policy rather than assuming the one used during preparation still applies.
+
+For event delivery, [create a webhook](/docs/guide/administer/create-a-webhook/), agree its
+signing key with the receiver and inspect a real delivery. If it stops,
+[find out why a webhook paused](/docs/guide/administer/find-out-why-a-webhook-paused/) before
+resuming or resetting. Reset can skip changes; restore the receiver's baseline when needed.
+See [Webhooks](/docs/administer/webhooks/) for disabling, deleting and rotating delivery keys.
+
+## Control assistant access and inspect AI use
+
+[Manage agent access](/docs/guide/administer/manage-agent-access/) to inspect external-assistant
+registrations, clients and call records, or stop an unwanted connection. Its read-and-prepare
+ceiling still applies when the underlying person's grants are broader. Ending a personal
+connection and blocking an assistant have different scopes.
+
+With **Operations**, [check the AI provider](/docs/guide/administer/check-the-ai-provider/),
+read the send policy and inspect calls and costs. Server settings are changed by the operator,
+not by this page. [AI administration](/docs/administer/ai/) explains retained records and
+separately enabled features; [Work with an assistant](/docs/journeys/work-with-an-assistant/)
+connects them to their actual tasks.

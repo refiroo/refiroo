@@ -12,7 +12,10 @@ across nodes also needs shared file storage and a load balancer that you arrange
 
 Use the same `PUBLIC_URL`, `SECRETS_ENCRYPTION_KEY` and `RDM_CURSOR_SIGNING_KEY` everywhere.
 The two keys are secrets; never commit them. Mount the same `JOB_FILE_DIR` on shared storage:
-a job can be accepted by one process and handled by another. Budget all their
+a job can be accepted by one process and handled by another. If the built-in assistant is enabled,
+also preserve its task folders and Claude Code session files across every process that can take
+over its work; the reference mounts are listed in [What you run](/docs/run/overview/#network-and-storage).
+Separate local directories on different nodes do not form shared storage. Budget all their
 [database connections](/docs/run/database/) together. Capability groups may differ by instance,
 for example an internal administration instance and a more restricted public instance.
 

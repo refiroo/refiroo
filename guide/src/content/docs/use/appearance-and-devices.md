@@ -12,7 +12,8 @@ Follow [Change how refiroo looks](/docs/guide/use/change-how-refiroo-looks/) for
 
 | Setting | Choices and effect |
 |---|---|
-| Theme | **System**, **Light**, **Dark**. System follows your device's light or dark setting. |
+| Theme | **Normal** or **Website purple** changes the application colours. Either works in light or dark mode. |
+| Light or dark | **System**, **Light**, **Dark**. System follows your device's light or dark setting. |
 | Table density | **Comfortable** or **Compact** sets the default; a table's own Display choice overrides it. |
 | Type colours | **B: magenta and olive** or **A: plum and gold**. The palettes differ in their third and fourth colours. |
 | Edit pencil | **On hover and focus** or **Always, faintly**. Touch screens always show edit hints. |
@@ -66,7 +67,7 @@ relationship labels accompany colours, and controls have accessible names. These
 describe how to operate the interface, rather than a guarantee for every browser or assistive
 device combination.
 
-![Appearance settings with theme, table density, type colours and edit-pencil choices](/docs/screens/appearance-display-choices.png)
+![Appearance settings with Normal and Website purple themes, light or dark mode, density and edit hints](/docs/screens/use-appearance-themes.png)
 
 Settings groups its pages under **General**, **Administration**, **Data operations**,
 **Security** and **Integration**. Your permissions determine which pages and groups appear.
@@ -83,3 +84,8 @@ The documentation and API reference share a header: the logo returns to the appl
 **Documentation** and **API reference** switch between them, and the documentation has search.
 The **System**, **Light** and **Dark** theme choice is shared with the application, including
 other open tabs in this browser.
+
+The initial choices are **Normal**, **System**, **Comfortable**, **B: magenta and olive**
+and **On hover and focus**. To return to those defaults, select them again. Clearing this
+site's browser storage also loses display preferences, so keep any collection addresses you
+need separately. Display preferences do not change your roles or the workspace model.

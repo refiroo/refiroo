@@ -1,0 +1,202 @@
+[
+  {
+    "id": "C0247",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0253",
+    "source": "frontend/src/features/objects/TreeMoveDialog.tsx",
+    "resolution": "not for readers: future 0.17 gesture design, not delivered 0.16 behavior."
+  },
+  {
+    "id": "C0255",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded plan-step ownership design; the current assistant rereads the editable model draft."
+  },
+  {
+    "id": "C0256",
+    "source": "backend/tests/journeys/",
+    "resolution": "not for readers: test design and acceptance process, not product instructions."
+  },
+  {
+    "id": "C0259",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0261",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded in-process planning-tool loop; current Claude Code task described in use/loading-with-the-assistant."
+  },
+  {
+    "id": "C0262",
+    "source": "backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/",
+    "resolution": "not for readers: superseded provider-based assistant design; the current built-in assistant uses Claude Code independently of the provider."
+  },
+  {
+    "id": "C0267",
+    "source": "backend/app/engine/proposals/fake.py",
+    "resolution": "not for readers: test fake and release-validation procedure, not product behavior."
+  },
+  {
+    "id": "C0269",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0271",
+    "source": "frontend/src/features/model-editor/ (no canvas implementation)",
+    "resolution": "not for readers: future 0.17 canvas design, not a delivered screen."
+  },
+  {
+    "id": "C0275",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0282",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0289",
+    "source": "backend/app/config.py; backend/app/engine/tasks/agent.py; frontend/src/features/ai-tasks/useAssistantOffers.ts",
+    "resolution": "[use/ai-and-your-data](../../src/content/docs/use/ai-and-your-data.md)"
+  },
+  {
+    "id": "C0292",
+    "source": "backend/app/management/routers/ai.py",
+    "resolution": "not for readers: request-level send policy is an integration contract; these browser screens have no send-level selector."
+  },
+  {
+    "id": "C0295",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0301",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0302",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0303",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0304",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0305",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0306",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0308",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0309",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0310",
+    "source": "frontend/src/features/objects/MappingGridView.tsx; backend/app/engine/proposals/mapping_targets.py, mapping_selection.py and mapping_job.py",
+    "resolution": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)"
+  },
+  {
+    "id": "C0311",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0312",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0313",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0314",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0315",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0316",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0317",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0318",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0319",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0320",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0332",
+    "source": "frontend/src/features/ai-tasks/; backend/app/engine/tasks/agent.py and store.py",
+    "resolution": "[use/loading-with-the-assistant](../../src/content/docs/use/loading-with-the-assistant.md)"
+  },
+  {
+    "id": "C0346",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0390",
+    "source": "frontend/src/features/objects/ObjectToolbar.tsx; backend/app/engine/proposals/query_translation.py",
+    "resolution": "[use/ask-in-words](../../src/content/docs/use/ask-in-words.md)"
+  },
+  {
+    "id": "C0391",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0393",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  },
+  {
+    "id": "C0396",
+    "source": "frontend/src/features/objects/panels/HistoryPanel.tsx; backend/app/engine/proposals/history_account.py and summaries.py; backend/app/management/mcp_tools.py",
+    "resolution": "[use/history](../../src/content/docs/use/history.md)"
+  }
+]

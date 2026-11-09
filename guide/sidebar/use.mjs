@@ -17,6 +17,8 @@ export default [
       ["use/workspaces", "About workspaces"],
       "guide/use/switch-workspace",
       "guide/use/open-a-retired-or-unavailable-workspace",
+      ["use/copying-and-moving", "About copying and moving records"],
+      "guide/use/copy-or-move-records",
     ],
   ],
   [

@@ -45,7 +45,7 @@ Set the live instance's `DATABASE_URL` and original key securely before running 
 
 ```bash
 createdb -T template0 --locale-provider=icu --icu-locale=und --locale=C rdm_restore_check
-pg_restore --no-owner -d rdm_restore_check refiroo-backup.dump
+pg_restore --no-owner --exit-on-error -d rdm_restore_check refiroo-backup.dump
 cd backend
 .venv/bin/python -m app.cli.restore_check \
   --restored postgresql+psycopg://rdm@db/rdm_restore_check \
@@ -258,3 +258,24 @@ Restoring into a populated database causes conflicts; stop and prepare a deliber
 target instead of ignoring errors. A wrong encryption key may allow database restore yet prevent
 sign-in or stored-secret use: supply the key associated with that backup. Never generate a new key
 as a recovery shortcut. Whole-instance recovery reverts data written after the backup.
+
+
+## Move the installation and retire the old host
+
+Use the replacement-host procedure for a planned move too. Keep one authoritative writer:
+stop every old engine before making the final database/file pair, restore that pair on the new
+host and leave the old host isolated while validating. Preserve `PUBLIC_URL` if the public name
+stays the same; changing the name also needs the
+[sign-in cutover](/docs/run/sign-in-and-mail-setup/#change-the-public-address-or-move-the-host).
+
+Keep the old environment, source version, keys and volumes until the replacement and its first
+new backup have been checked. Forward new backups and monitoring to protected storage independent
+of the replacement host. A working restored database alone does not check DNS, TLS, mail,
+provider callbacks, webhook receivers or the availability of retained source files.
+
+After acceptance, stop/remove the old containers and arrange deliberate retirement of their volumes,
+private configuration, certificate keys and backup copies according to your retention policy.
+`docker compose down` keeps volumes; `down -v` destroys them. Do not run either against the wrong
+project or while relying on its only recovery copy. Credentials shared with the replacement must
+remain valid there; retire obsolete host access and rotate compromised credentials separately.
+The application supplies no host decommissioning or offsite-backup scheduler.

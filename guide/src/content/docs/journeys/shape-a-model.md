@@ -174,3 +174,69 @@ If the provider fails, read the facts alone or choose **Try again**. Fix an inva
 before asking again. Asking does not apply or activate anything, and an explanation cannot remove
 a compatibility refusal. Continue through the normal activation review, or use
 [the migration path](/docs/guide/model/migrate-a-workspace/) when the existing data needs conversion.
+
+## Add types, fields and relationships
+
+With **Model authoring**, [add a record type and fields](/docs/guide/model/add-a-record-type-and-fields/),
+[reuse and change attributes](/docs/guide/model/reuse-and-change-attributes/) and
+[add a relationship](/docs/guide/model/add-a-relationship/). A shared attribute change affects
+all its attachments. Review required values, allowed parents and relationship candidates, then
+[fix issues before installing](/docs/guide/model/fix-issues-before-installing/).
+[Turn an attribute into a list](/docs/guide/model/turn-an-attribute-into-a-list/) when values
+should become maintained records. Released values can need migration; a saved draft does not
+populate that list or convert Live.
+
+## Arrange navigation, views and record pages
+
+[Find your way around the editor](/docs/guide/model/find-your-way-around-the-editor/), then
+[arrange applications and views](/docs/guide/model/arrange-applications-and-views/) and
+[group collections in navigation](/docs/guide/model/group-collections-in-navigation/).
+[Add a view](/docs/guide/model/add-a-view/) for another way to read a collection, or
+[add a relation matrix](/docs/guide/model/add-a-relation-matrix/) when its structure supports one.
+Removing a navigation group keeps its collections; hiding a page panel keeps its stored values.
+
+[Edit a record page](/docs/guide/model/edit-a-record-page/) to arrange fields and panels, and
+[choose table columns, filters and sort](/docs/guide/model/choose-table-columns-filters-and-sort/)
+for a view's defaults. [Preview a type](/docs/guide/model/preview-a-type/) against populated and
+empty records before installation. Preview cannot write records. An invalid draft needs its
+issues repaired first. [The specialist workbench](/docs/model/json-view/) owns supported
+settings without visual forms; ask a specialist to
+[edit that draft](/docs/guide/model/edit-a-draft-as-json/) where needed.
+
+## Refine a draft without losing identity or colleagues' work
+
+[Rename or re-key an element](/docs/guide/model/rename-or-re-key-an-element/) distinguishes a
+label change from a stable identity: released keys are fixed even without records.
+[Split, merge and move types](/docs/guide/model/split-merge-and-move-types/) reshapes definitions;
+[remove an element](/docs/guide/model/remove-an-element/) first reviews affected uses and data.
+Neither changes Live simply by saving the draft. Plan a migration when released data blocks a change.
+
+[Work on a draft with others](/docs/guide/model/work-on-a-draft-with-others/) explains reviewing
+a colleague's newer steps before retrying an edit. Use
+[Undo and draft history](/docs/guide/model/undo-and-review-the-draft-history/) for an unwanted
+saved step. [Delete a draft](/docs/guide/model/delete-a-draft/) only after preserving needed
+work: its history and attached workbook go with it; installed releases stay.
+
+## Recheck a workbook design or a saved mapping
+
+[Propose again with a newer workbook](/docs/guide/model/propose-again-with-a-newer-workbook/)
+keeps the distinction between design proposals, accepted draft edits and a fresh dry run.
+Inspect changed columns and skipped sheets, then return to the normal loading and review path.
+
+For transfers, [edit a mapping row](/docs/guide/model/edit-a-mapping-row/) and
+[choose what moves](/docs/guide/model/choose-what-moves/) before reviewing a fresh complete dry
+run. [Delete a model mapping](/docs/guide/model/delete-a-model-mapping/) only when future
+transfers no longer need it; deletion does not undo earlier copies or moves.
+
+## Maintain released contracts and definitions
+
+[Raise a contract version](/docs/guide/model/raise-a-contract-version/) before activating a
+breaking consumer change, and coordinate it with callers. This does not raise the model language:
+[Raise a model language version](/docs/guide/model/raise-a-model-language-version/) is the
+separate review for a stored model outside the supported window. Keep retained publications and
+their definitions in the recovery plan.
+
+[Retire or delete a release](/docs/guide/model/retire-or-delete-a-release/) hides unused choices
+or permanently removes an unreferenced release. Existing references can prevent deletion.
+Retirement does not stop workspaces already using a release. Review current use rather than
+treating an older version as automatically disposable.

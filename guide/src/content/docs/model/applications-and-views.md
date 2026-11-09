@@ -82,11 +82,15 @@ a separate choice.
 
 A type created through the editor receives a table view. **Views** lists each view's kind,
 what it shows and its state. Use its menu's **Rename…** for a label change.
-The browser can arrange existing table columns, filters and sort and create, change or remove
-relation matrices. It has no tree-view or mapping-grid configuration form, general table-view
-creation form, icon or colour editor. Specialist authors use the [JSON view](/docs/model/json-view/)
-for settings beyond the visual controls, including application descriptions, default view,
-icons, colours and other declared presentation settings.
+Choose **Add a view…** in the application’s menu to add a Table, Tree, Mapping grid or
+Relation matrix. The kind list offers only views for which the model has suitable types and
+relationships. Existing trees and mapping grids have **Change…**; table layouts are arranged
+from the type’s Preview. Follow [Add a table, tree or mapping grid](/docs/guide/model/add-a-view/).
+
+Application **Settings** has **Default view**, the view that opens first. Choose an existing
+view and Save. A collection's **Opens on** choice takes precedence when opening that collection.
+This changes the starting lens, not which types users can access. Icons,
+colours and free-form presentation settings still need the [JSON view](/docs/model/json-view/).
 
 ## A relation matrix needs a particular structure
 
@@ -104,12 +108,11 @@ navigation and views become active only when its release is applied to the works
 
 ## Application settings
 
-Application declarations can also carry a description, a starting view, presentation settings
-and an application state. The visual **Application…** form includes **Name** and **Description**;
-there is no general application-settings or state form. An application state is separate from
-retiring a workspace or an installed release. Have a specialist maintain settings outside the
-listed controls and validate the draft; the presence of a setting in a document does not imply
-that the editor offers a button for it.
+The visual **Application…** form includes **Name** and **Description**. In an existing
+application, **Settings** lets you change **Default view**. Application and type icons and
+existing descriptions need a specialist in the [JSON view](/docs/model/json-view/).
+Removing an application is a structural model change; retiring a workspace or release is a
+separate administrative task. Check the removal confirmation for types only that application lists.
 
 ## Collections and their lenses
 
@@ -134,8 +137,9 @@ the underlying relationship's cardinality for other clients.
 
 A grid's model sets a page size of 1–100. The parent scope and coverage choices people select
 while using it are temporary filters, not model settings. **Mapped**, **Unmapped** and
-**Ambiguous** describe coverage for the configured relationship. The visual editor has no
-mapping-grid configuration form; ask a specialist author to maintain this declaration.
+**Ambiguous** describe coverage for the configured relationship. **Add a view…** and the view’s **Change…** set its relationship, row end, display columns
+and candidate search fields. New grids read 20 rows per page; changing that reading size
+still needs the specialist view.
 
 ## Relation-matrix rules
 
@@ -192,5 +196,86 @@ action. These choices enable controls; they do not grant permissions.
 At runtime a node's menu offers allowed actions; F2 renames where enabled. Creating a child
 offers only shown types the parent can contain. Move lists possible parents with unsuitable
 choices disabled and their reasons. Search and opening a record reveal its path by loading
-the relevant branches. There is no visual tree-configuration form in the model editor; have a
-specialist maintain it and check Issues before activation.
+the relevant branches. **Add a view…** and **Change…** offer roots, a label, a second line, one shared child-order
+field and an availability field. The editor includes reachable contained types already listed
+in the application. New trees read 50 records per branch page. The form does not offer
+separate ordering for each type, descending order, page size or the create, rename and move
+actions: a specialist maintains those in the JSON view. Applying Change rebuilds the tree’s
+action choices from the availability selection, so review previously declared actions afterwards.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+applications
+applications[].defaultView
+applications[].description
+applications[].icon
+applications[].key
+applications[].name
+applications[].navigation
+applications[].navigation.groups
+applications[].navigation.opens
+applications[].navigation.groups[].collapsed
+applications[].navigation.groups[].collections
+applications[].navigation.groups[].key
+applications[].navigation.groups[].label
+applications[].objectTypeKeys
+applications[].views
+applications[].views[].config
+applications[].views[].config.actions
+applications[].views[].config.availabilityField
+applications[].views[].config.candidateSearchFields
+applications[].views[].config.cellActions
+applications[].views[].config.cellFields
+applications[].views[].config.cellObjectTypeKey
+applications[].views[].config.childSort
+applications[].views[].config.columnLabelField
+applications[].views[].config.columnObjectTypeKey
+applications[].views[].config.columns
+applications[].views[].config.defaultSort
+applications[].views[].config.direction
+applications[].views[].config.filterFields
+applications[].views[].config.fromObjectTypeKey
+applications[].views[].config.labelField
+applications[].views[].config.objectTypeKeys
+applications[].views[].config.pageSize
+applications[].views[].config.relationTypeKey
+applications[].views[].config.rootObjectTypeKeys
+applications[].views[].config.rowColumns
+applications[].views[].config.rowObjectTypeKey
+applications[].views[].config.searchFields
+applications[].views[].config.secondaryField
+applications[].views[].config.sortFields
+applications[].views[].config.sourceColumns
+applications[].views[].config.targetDisplayColumns
+applications[].views[].config.toObjectTypeKey
+applications[].views[].key
+applications[].views[].name
+applications[].views[].objectTypeKey
+applications[].views[].type
+operation:add-group
+operation:application-rename
+operation:application-key
+operation:application-add-type
+operation:application-add-view
+operation:application-list-type
+operation:application-add-group
+operation:application-remove
+operation:view-rename
+operation:view-matrix-change
+operation:view-tree-change
+operation:view-grid-change
+operation:view-remove
+operation:view-matrix-remove
+operation:group-add
+operation:application-group-add
+operation:entry-up
+operation:entry-down
+operation:entry-move
+operation:entry-out
+operation:view-group
+operation:group-rename
+operation:group-fold
+operation:group-key
+operation:group-up
+operation:group-down
+operation:group-remove
+-->

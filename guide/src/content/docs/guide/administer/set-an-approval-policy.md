@@ -50,3 +50,7 @@ the current values and apply the intended change again. Other failures show thei
 check it before retrying. To stop requiring approval, clear the first setting and save.
 That also clears the second-person setting. This policy governs change-set publication;
 it does not remove any grants that allow direct edits to Live.
+
+A saved policy also applies to the next decision on work already waiting. It does not
+decide those requests automatically. With the second-person rule on, the submitter cannot
+send their own submission back; they can withdraw it, or another approver can decide it.

@@ -69,3 +69,37 @@ Choosing Digest for the first kind starts a daily digest in the browser’s time
 After downtime, only one digest is sent, rather than one for each missed morning. Without saved
 mail settings, the due time waits until mail is set up. Daylight-saving changes preserve 07:00 in
 the person's saved time zone; it is not the engine server's clock zone.
+
+## Correct a failure or replace the mail login
+
+Use the test's heading to decide who needs to act:
+
+| Test result | Check with the operator or mail administrator |
+| --- | --- |
+| The server could not be reached | Server name, port, network access and whether the mail service is running. |
+| The secure connection failed | Connection choice and the server certificate, name and trusted certificate authority. |
+| The login was refused | User name, replacement password and whether the mail service offers login. |
+| The server refused the address | The recipient address and the server's stated refusal. |
+| The server refused the from address | An approved sender in From address. |
+| The server did not accept the message | The server's reason for rejecting the message. |
+
+For a replaced or expired mail password, enter its replacement in **Password**, choose
+**Save**, then **Send test message**. refiroo does not renew the mail account's credentials.
+To stop using login and use an unencrypted trusted relay instead, clear **User name**;
+the saved password is removed when no login is used.
+
+**A user name needs a password** means the first login cannot be saved without one.
+**The password is not kept when the host or the port changes: send the password again**
+requires the password for the newly chosen server. **The mail settings have changed**
+means another save won; inspect the refreshed settings before submitting again.
+
+If **Stop sending** reports **The message is being sent just now; try again in a moment**,
+wait and refresh. It may already have reached the mail server. Stopping an outbox entry
+cannot recall mail already sent. **Not sent within 24 hours** means the retry window ended;
+fix the cause and create a fresh link or notice through its original task.
+
+For a move or restore, ask the operator to preserve saved mail settings and waiting
+messages using the [instance backup procedure](/docs/run/backup-and-restore/). Test the
+sender and **Application address** afterwards. Queued password links already contain
+the address chosen when they were made; changing the setting does not rewrite them.
+Make fresh links when the old address is no longer reachable.

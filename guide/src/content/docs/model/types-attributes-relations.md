@@ -42,7 +42,8 @@ column headings.
 *Above: Stop has nine attributes with their value types and local rules. Its facts say Released: a key change needs a migration.*
 
 [Reuse and change attributes](/docs/guide/model/reuse-and-change-attributes/) explains the controls.
-The visual editor has no attribute default-value, format, length or effective-period control.
+The visual editor sets numeric bounds and effective periods. Attribute defaults need a specialist in the [JSON view](/docs/model/json-view/).
+The editor does not offer text-format or length rules.
 A list of reference choices is modelled as related records, rather than as another value type:
 [Turn an attribute into a list](/docs/guide/model/turn-an-attribute-into-a-list/).
 
@@ -104,12 +105,12 @@ See [Rename or re-key an element](/docs/guide/model/rename-or-re-key-an-element/
 
 ## Rules beyond the visual forms
 
-Specialist authors can declare display fields, name-editing rules, effective periods, value
-validation and relationship attributes through the [JSON view](/docs/model/json-view/). A display
+The type’s **Settings** chooses a **Display attribute**, an **Effective period**, **At least one of**
+and **Parent relationships**. A display
 field must be attached to its type. An effective period uses appropriately typed fields and
 requires a valid date order. Relationship attributes retain their types just as record fields do.
 
-A uniqueness rule can also be limited by a declared ancestor scope or condition. Those references
+A relationship’s uniqueness rule can also be limited by a declared ancestor scope or condition. Those references
 must resolve to the appropriate type and field. Such rules apply to writes through all clients;
 a hidden field or filtered view does not bypass them. The visual candidate editor offers
 **Which records may be chosen** and **Which records may choose**, with names, fields and ancestor
@@ -147,8 +148,10 @@ the value or review the intended definition. Other value types cannot declare nu
 A type can also require at least one of a declared group of fields. This differs from making
 each field required. The rule checks the complete result of an edit, including clearing a field:
 people cannot clear the last populated field in that group. All named fields must be attached
-to the type. Defaults, bounds and this grouped requirement need a specialist author; the visual
-attribute form does not expose them.
+to the type. Choose **At least one of…** in the type’s Settings to select the group. Clear every selection
+to remove the grouped requirement. Set numeric bounds through an attribute type’s
+**Minimum and maximum…**; leave either end empty for no bound. Attribute defaults still need
+a specialist in the JSON view.
 
 ## Number limits and ownership
 
@@ -235,5 +238,134 @@ Correct the affected dates under the current model or revise the declaration bef
 This period is independent of record versions, history and publications. Other systems can read
 records valid on a chosen business date when the type declares a period. Removing the declaration
 keeps the date values but removes that date-based reading capability; for an exposed type this
-can require a higher consumer contract version. A specialist maintains the declaration because
-the visual type editor has no effective-period control.
+can require a higher consumer contract version. To set the period, open the type’s **Settings**, edit **Effective period**, and choose
+**Starts on** and **Ends on**. The control is offered when two Date attributes are attached,
+or a period already exists. Choose **None: records have no effective period** in Starts on
+to remove it. Check existing dates before applying the release.
+
+## Visibility, help and relationship settings
+
+A type’s **Attributes** table has editable **Hidden** and **Help text** cells. Hidden leaves a
+field off record screens and forms; it does not remove its values or its validation rules.
+Do not hide a required field unless records can obtain its value another way. At **Attribute
+types**, the shared definition’s **Settings** applies Hidden and Help text wherever it is used.
+A locally hidden field stays hidden; a local No does not reveal a field hidden by its shared
+definition. Local help text takes precedence over shared help text; clearing it uses the shared text.
+Neither setting grants or removes access to stored data.
+
+Select a **Relation type** and edit **Oriented** in **Settings**. It defaults to Yes.
+This affects cascade deletion: an oriented required one-to-one or one-to-many relationship
+can take the owned target records with its source. Optional relationships lose the connection
+while keeping the other record. Containment descendants are included independently.
+It does not rename the two directions or change their number limits.
+
+On a type’s **Relations** table, **Carries** shows the shared attributes attached to that
+allowed pair. Choose **Attributes of the relationship…** to select them. This is available
+for non-containment pairs with attribute definitions to choose from; changing a released pair
+that stored data uses can need a migration. **Cardinality and required…** edits the pair’s number and ownership
+rules together. Saving definitions creates no relationships or values between actual records.
+
+**Parent relationships…** selects incoming relationships that supply parent context for this
+type in trees and matrices. It is a draft-only structural choice. It differs from moving an
+existing record or choosing its containment parent. Review the eligible choices and Issues;
+do not use it to bypass the type’s placement rules.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+attributeTypes
+attributeTypes[].default
+attributeTypes[].description
+attributeTypes[].features
+attributeTypes[].key
+attributeTypes[].name
+attributeTypes[].ui
+attributeTypes[].validation
+attributeTypes[].valueType
+objectTypeRelations
+objectTypeRelations[].attributeTypeKeys
+objectTypeRelations[].candidates
+objectTypeRelations[].candidates.from
+objectTypeRelations[].candidates.from[].field
+objectTypeRelations[].candidates.from[].op
+objectTypeRelations[].candidates.from[].value
+objectTypeRelations[].candidates.to
+objectTypeRelations[].candidates.to[].field
+objectTypeRelations[].candidates.to[].op
+objectTypeRelations[].candidates.to[].value
+objectTypeRelations[].cardinality
+objectTypeRelations[].features
+objectTypeRelations[].fromObjectTypeKey
+objectTypeRelations[].relationTypeKey
+objectTypeRelations[].required
+objectTypeRelations[].toObjectTypeKey
+objectTypes
+objectTypes[].attributes
+objectTypes[].attributes[].attributeTypeKey
+objectTypes[].attributes[].order
+objectTypes[].attributes[].readOnly
+objectTypes[].attributes[].required
+objectTypes[].attributes[].ui
+objectTypes[].behavior
+objectTypes[].description
+objectTypes[].displayAttributeTypeKey
+objectTypes[].effectivePeriod
+objectTypes[].effectivePeriod.endAttributeTypeKey
+objectTypes[].effectivePeriod.startAttributeTypeKey
+objectTypes[].features
+objectTypes[].icon
+objectTypes[].key
+objectTypes[].name
+objectTypes[].pluralName
+objectTypes[].validation
+relationTypes
+relationTypes[].features
+relationTypes[].isOriented
+relationTypes[].key
+relationTypes[].name
+relationTypes[].reverseKey
+relationTypes[].reverseName
+operation:add-type
+operation:add-attribute-type
+operation:add-relation-type
+operation:type-unlist
+operation:type-rename
+operation:type-key
+operation:type-move
+operation:type-group
+operation:type-new-attribute
+operation:type-attach
+operation:type-allow
+operation:type-split
+operation:type-merge
+operation:type-remove
+operation:attribute-rename
+operation:attribute-key
+operation:attribute-move
+operation:attribute-required
+operation:attribute-read-only
+operation:attribute-unique
+operation:attribute-value-type
+operation:attribute-list
+operation:attribute-up
+operation:attribute-down
+operation:attribute-detach
+operation:attribute-type-rename
+operation:attribute-type-key
+operation:attribute-type-features
+operation:attribute-type-value-type
+operation:attribute-type-attach
+operation:attribute-type-remove
+operation:relation-type-rename
+operation:relation-type-key
+operation:relation-type-allow
+operation:relation-type-remove
+operation:type-display-attribute
+operation:type-effective-period
+operation:type-at-least-one
+operation:type-parent-relations
+operation:attribute-type-limits
+operation:relation-attributes
+operation:relation-rule
+operation:relation-required
+operation:relation-candidates
+operation:relation-remove
+-->

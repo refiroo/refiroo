@@ -53,6 +53,9 @@ be edited. The following table lists their action groups; the descriptions below
 Administrative responsibilities do not imply Browse or data editing. Give additional roles
 only where the person's task needs them. Roles also do not enable a feature the deployment has disabled.
 
+For the complete list of actions, the roles holding each group and what someone without it sees,
+see the [Permissions reference](/docs/administer/permissions-reference/).
+
 ## Where a grant applies
 
 **The whole instance** covers every workspace now and later. **Workspaces** limits a grant

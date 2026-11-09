@@ -1,0 +1,206 @@
+[
+ {
+  "kind": "mcp-tool",
+  "key": "describe_access",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:670",
+  "section": "integrate",
+  "summary": "Who this connection acts as and what it may do: its grants and consumer APIs."
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "list_workspaces",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:676",
+  "section": "integrate",
+  "summary": "The active workspaces this connection may read, a page at a time. Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "describe_model",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:684",
+  "section": "integrate",
+  "summary": "A workspace's model by key and name: its applications with their views, its record types, relation types and consumer APIs.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "describe_type",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:692",
+  "section": "integrate",
+  "summary": "One record type: its attributes with their types and filters, its parents, its relationships and the views that show it. With changeSetId, as that change set's model release has it.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "find_records",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:706",
+  "section": "integrate",
+  "summary": "Records of one type matching criteria over their fields, ancestors and one relation hop. Live data, or with changeSetId that change set's. Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "read_record",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:715",
+  "section": "integrate",
+  "summary": "One record with its values and path, and a page of its relationships; with changeSetId as that change set holds it. Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "mapping_coverage",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:731",
+  "section": "integrate",
+  "summary": "The source records of a mapping view with what they map to; state=unmapped lists those without a target. describe_model names the views. Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "record_history",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:749",
+  "section": "integrate",
+  "summary": "A record's history, newest first. Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "history_facts",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:765",
+  "section": "integrate",
+  "summary": "The facts of what changed in a workspace, or in one record, over a period: what the engine counted over every live change, each with where it leads. Give objectType and id for one record. since is included, until is not; the days read in timeZone (UTC without one). Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "list_changes",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:783",
+  "section": "integrate",
+  "summary": "A workspace's changes, newest first; since is included, until is not. Pass nextCursor back as cursor to read on.",
+  "group": "browse"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "my_change_sets",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:805",
+  "section": "integrate",
+  "summary": "The open change sets this connection created, newest change first, with version and submission state. Pass nextCursor back as cursor to read on.",
+  "group": "change-sets"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "read_change_set",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:814",
+  "section": "integrate",
+  "summary": "One of your change sets: its version, model release and submission state, with the last decision's outcome and comment, such as why it was sent back.",
+  "group": "change-sets"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "change_set_changes",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:822",
+  "section": "integrate",
+  "summary": "The records or relationships one of your change sets adds, changes or removes against live data. Pass nextCursor back as cursor to read on.",
+  "group": "change-sets"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "validate_change_set",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:836",
+  "section": "integrate",
+  "summary": "Check one of your change sets against the model's rules, as submitting does, and list what is wrong. A long list comes in parts: pass nextCursor back as cursor to read on.",
+  "group": "change-sets",
+  "writes": "change-sets.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "create_change_set",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:845",
+  "section": "integrate",
+  "summary": "Start a change set in a workspace, from its live data. Changes are prepared in it and reach live data only when a person approves it.",
+  "group": "change-sets",
+  "writes": "change-sets.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "add_record",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:858",
+  "section": "integrate",
+  "summary": "Add a new record to one of your change sets. It reaches live data only when a person approves the change set. Answers its ID and versions.",
+  "group": "change-sets",
+  "writes": "records.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "change_record",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:875",
+  "section": "integrate",
+  "summary": "Change a record's name, parent or values in one of your change sets; attributes given are set, others kept. It reaches live data only when a person approves the change set.",
+  "group": "change-sets",
+  "writes": "records.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "set_field",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:899",
+  "section": "integrate",
+  "summary": "Set one value of a record in one of your change sets, adding it or replacing it. It reaches live data only when a person approves the change set.",
+  "group": "change-sets",
+  "writes": "records.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "add_relation",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:922",
+  "section": "integrate",
+  "summary": "Relate two records in one of your change sets. It reaches live data only when a person approves the change set.",
+  "group": "change-sets",
+  "writes": "records.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "change_relation",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:944",
+  "section": "integrate",
+  "summary": "Replace the values of a relationship in one of your change sets. It reaches live data only when a person approves the change set.",
+  "group": "change-sets",
+  "writes": "records.write"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "submit_change_set",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:965",
+  "section": "integrate",
+  "summary": "Send one of your change sets to a person for approval, after checking it. It is then frozen; the change reaches live data only when a person approves it.",
+  "group": "change-sets",
+  "writes": "change-sets.submit"
+ },
+ {
+  "kind": "mcp-tool",
+  "key": "read_resource",
+  "labels": [],
+  "source": "backend/app/management/mcp_tools.py:1058",
+  "section": "integrate",
+  "group": "browse"
+ }
+]

@@ -162,3 +162,35 @@ Expired or invalid proof of access is refused before an operation runs. The brow
 With no mail server, the screen instead says **Forgotten your password? Ask a security administrator for a reset link.** With mail, the person requests a one-time link, enters **New password** and **Type it again**, then chooses **Set password**. **Your password is set. You were signed out everywhere.** leads back to **Sign in**. The request gives the same answer for known, unknown, provider-only and deactivated accounts; mail is sent only for a qualifying local account. An app or recovery code is still required afterwards when configured. See [Mail](/docs/administer/mail/#password-links).
 
 For the administrator’s tasks, follow [Add a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/), [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) and [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/). On the provider catalogue, **No provider yet: people sign in with a password.** describes an empty list, not a connection failure. Saved provider details include separate Enable, Disable and Delete actions; disabling or deleting one ends the sessions it started.
+
+## Change provider credentials and recover access
+
+If the provider's client secret expires or is replaced there, open the saved provider,
+enter its replacement **Client secret** under **Settings** and choose **Save**. A blank
+field keeps the saved secret for an unchanged issuer; it does not clear it. Arrange the
+handover with the provider administrator and test a new sign-in in a separate browser.
+refiroo does not renew that provider credential for you. Existing refiroo sessions are
+separate from a new provider sign-in, so an already open page does not prove the new
+credential works.
+
+Turning local sign-in off or changing the second-factor requirement changes subsequent
+sign-ins; it does not sign out existing sessions. Use **Sign out everywhere** on a person's
+page when their existing sessions must end. Turning the requirement off leaves registered
+apps, recovery codes and passkeys in place.
+
+The following messages call for different corrections:
+
+| Message | What to do |
+| --- | --- |
+| Local sign-in stays on until an enabled sign-in provider has signed someone in, so nobody is locked out | Enable the provider and complete a successful sign-in before trying again. |
+| Local sign-in is off and this is the last person who keeps it; turn local sign-in on, or let someone else keep it first | Prepare another recovery account or turn local sign-in on before removing this route. |
+| This provider changed while the page was open. It is shown as it is now; try again. | Review the refreshed provider before applying your change. |
+| Another sign-in provider has this key | Open the existing provider or choose a distinct key for a different registration. |
+
+A provider's **Disabled** state is reversible with **Enable**. Deleting an unused provider
+has no undo: its registration details must be supplied again. Disable a used provider
+rather than replacing its issuer. Keep a tested local recovery account while correcting
+a failed provider. If none can sign in, the operator uses
+[server recovery](/docs/run/sign-in-and-mail-setup/). Moving or restoring the installation
+also needs the operator's [backup and restore procedure](/docs/run/backup-and-restore/);
+changing the public address affects registered provider return addresses and passkeys.

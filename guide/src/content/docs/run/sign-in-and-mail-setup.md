@@ -27,6 +27,31 @@ Compose supplies `PUBLIC_URL` instead. Each listed origin allows the browser's s
 Apply environment changes by recreating the engine. A public host change signs people out,
 requires new passkeys for that host, and needs provider callback addresses to be registered again.
 
+## Change the public address or move the host
+
+Moving the server while keeping the same public HTTPS origin preserves the issuer and passkey
+host. Use [replacement-host recovery](/docs/run/backup-and-restore/#restore-on-a-replacement-host),
+keep the keys and configuration, and move DNS/traffic only after checking the replacement.
+
+Changing the public origin needs a coordinated sign-in change:
+
+1. Keep a working local recovery administrator and its password/second factor available. Arrange
+   a maintenance window and preserve the previous configuration and database/file backup.
+2. Prepare DNS and a trusted certificate for the new host. Update `PUBLIC_URL` and browser origins;
+   Compose derives `CORS_ORIGINS` from `PUBLIC_URL`. Recreate engine, web and Caddy as applicable,
+   using the same Compose files and stored volumes. See [HTTPS](/docs/run/https/).
+3. Register the new provider callback and signed-out addresses with your identity provider. Check
+   the configured Mail application address too: queued messages and already-issued links can
+   still contain the old address. Coordinate their use rather than assuming the text is rewritten.
+4. Verify OAuth discovery, local recovery sign-in, provider sign-in and a newly generated mail link
+   at the new public address. Clients must use the new issuer/address and fetch fresh tokens.
+5. Ask people to sign in again and register passkeys for the new host while another sign-in method
+   is available. Passkeys registered for the old host cannot authenticate at the new one.
+
+If the cutover fails, keep writers closed and restore the previous address, DNS/proxy configuration
+and provider callbacks, then recreate and verify the former entry. A configuration rollback is
+separate from restoring database state and does not undo writes accepted during the cutover.
+
 ## API authentication
 
 There is no switch to disable authentication. Requests without access tokens return
@@ -63,10 +88,8 @@ Success is silent. Stop if the command fails; inspect the error rather than usin
 or older token. With a client that has Browse, check the workspace list:
 
 ```bash
-curl --fail -u "$CLIENT_ID:$CLIENT_SECRET" -d grant_type=client_credentials \
-  http://localhost:8000/oauth/token
-curl --fail -H "Authorization: Bearer $ACCESS_TOKEN" \
-  http://localhost:8000/api/v1/workspaces
+curl --fail --silent --show-error -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$INSTANCE_URL/api/v1/workspaces"
 ```
 
 The Compose installation does not publish engine port 8000. Use its public origin for both
@@ -80,29 +103,6 @@ On expiry or a refusal caused by signing-key retirement, the client fetches anot
 unchanged credentials. See [Signing in and tokens](/docs/integrate/signing-in-and-tokens/) and the
 [API reference](/docs/api) for integration details.
 
-## Browser sessions and throttling
-
-Browser sign-in uses the OAuth authorization-code flow with PKCE. Access tokens stay in page
-memory. The `oauth_refresh` session cookie is `HttpOnly`, `SameSite=Strict` and scoped to `/oauth`;
-it is `Secure` when `PUBLIC_URL` uses HTTPS. Each renewal replaces its refresh token. Presenting
-an already-used refresh token ends that session as a suspected copied credential.
-
-If `VITE_API_URL` separates the frontend and engine, both must share a site, such as
-`refiroo.example.org` and `api.refiroo.example.org`. Unrelated domains cannot share this strict
-cookie even when CORS permits requests. Outside applications can use the engine's
-`/oauth/authorize` page; it cannot be framed. Its passkey script is served by the engine itself.
-
-The first five failed attempts for a username and twenty for a caller address incur no delay.
-Subsequent attempts wait 1 second, then 2, 4 and so on, up to 15 minutes after the last failure.
-A correct password is not checked during a wait. Success clears the username count; counts lapse
-after 24 hours. Wrong current passwords, passkey proofs and client secrets also count against
-throttling. Logs identify failures with `sign_in_failed`, username and caller address.
-Trust forwarded caller addresses only from the actual proxy, or everyone shares its address limit.
-At most 2,000 unfinished provider sign-ins can be open per provider. Further starts show HTTP 429
-until starts expire after ten minutes.
-
-Password links prefer the Mail settings' application address, then the first `CORS_ORIGINS`
-entry. If neither is available, they use the engine's `/oauth/password` page; older links can
 ## Make a first write without a browser
 
 To check administrative writing on a new installation, create an empty workspace. This does
@@ -136,6 +136,29 @@ the setup client when finished and clear its credentials and token from this she
 unset ACCESS_TOKEN CLIENT_ID CLIENT_SECRET
 ```
 
+## Browser sessions and throttling
+
+Browser sign-in uses the OAuth authorization-code flow with PKCE. Access tokens stay in page
+memory. The `oauth_refresh` session cookie is `HttpOnly`, `SameSite=Strict` and scoped to `/oauth`;
+it is `Secure` when `PUBLIC_URL` uses HTTPS. Each renewal replaces its refresh token. Presenting
+an already-used refresh token ends that session as a suspected copied credential.
+
+If `VITE_API_URL` separates the frontend and engine, both must share a site, such as
+`refiroo.example.org` and `api.refiroo.example.org`. Unrelated domains cannot share this strict
+cookie even when CORS permits requests. Outside applications can use the engine's
+`/oauth/authorize` page; it cannot be framed. Its passkey script is served by the engine itself.
+
+The first five failed attempts for a username and twenty for a caller address incur no delay.
+Subsequent attempts wait 1 second, then 2, 4 and so on, up to 15 minutes after the last failure.
+A correct password is not checked during a wait. Success clears the username count; counts lapse
+after 24 hours. Wrong current passwords, passkey proofs and client secrets also count against
+throttling. Logs identify failures with `sign_in_failed`, username and caller address.
+Trust forwarded caller addresses only from the actual proxy, or everyone shares its address limit.
+At most 2,000 unfinished provider sign-ins can be open per provider. Further starts show HTTP 429
+until starts expire after ten minutes.
+
+Password links prefer the Mail settings' application address, then the first `CORS_ORIGINS`
+entry. If neither is available, they use the engine's `/oauth/password` page; older links can
 also point there. A newer reset link replaces the previous one. Using it ends all sessions.
 Changing a password from Account instead preserves the current browser session and ends the others.
 

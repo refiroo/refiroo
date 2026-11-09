@@ -1,0 +1,2802 @@
+[
+ {
+  "kind": "model-feature",
+  "key": "applications",
+  "labels": [
+   "applications"
+  ],
+  "source": "backend/app/models/schema.py:835 (EngineModel)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].color",
+  "labels": [
+   "color"
+  ],
+  "source": "backend/app/models/schema.py:414 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].defaultView",
+  "labels": [
+   "defaultView"
+  ],
+  "source": "backend/app/models/schema.py:417 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:412 (ApplicationDefinition)",
+  "section": "model",
+  "context": [
+   "applications",
+   "application"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details",
+  "labels": [
+   "details"
+  ],
+  "source": "backend/app/models/schema.py:419 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].breadcrumbs",
+  "labels": [
+   "breadcrumbs"
+  ],
+  "source": "backend/app/models/schema.py:384 (DetailViewDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].breadcrumbs.showAncestors",
+  "labels": [
+   "showAncestors"
+  ],
+  "source": "backend/app/models/schema.py:280 (BreadcrumbDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].breadcrumbs.showApplication",
+  "labels": [
+   "showApplication"
+  ],
+  "source": "backend/app/models/schema.py:278 (BreadcrumbDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].breadcrumbs.showObjectType",
+  "labels": [
+   "showObjectType"
+  ],
+  "source": "backend/app/models/schema.py:279 (BreadcrumbDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].header",
+  "labels": [
+   "header"
+  ],
+  "source": "backend/app/models/schema.py:385 (DetailViewDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].header.showObjectType",
+  "labels": [
+   "showObjectType"
+  ],
+  "source": "backend/app/models/schema.py:288 (DetailHeaderDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].header.subtitleField",
+  "labels": [
+   "subtitleField"
+  ],
+  "source": "backend/app/models/schema.py:287 (DetailHeaderDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].header.titleField",
+  "labels": [
+   "titleField"
+  ],
+  "source": "backend/app/models/schema.py:286 (DetailHeaderDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].objectTypeKey",
+  "labels": [
+   "objectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:383 (DetailViewDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels",
+  "labels": [
+   "panels"
+  ],
+  "source": "backend/app/models/schema.py:386 (DetailViewDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config",
+  "labels": [
+   "config"
+  ],
+  "source": "backend/app/models/schema.py:347 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.columns",
+  "labels": [
+   "columns"
+  ],
+  "source": "backend/app/models/schema.py:301 (ChildrenPanelConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.defaultSort",
+  "labels": [
+   "defaultSort"
+  ],
+  "source": "backend/app/models/schema.py:316 (RelationsPanelConfig)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.direction",
+  "labels": [
+   "direction"
+  ],
+  "source": "backend/app/models/schema.py:309 (RelationsPanelConfig)",
+  "section": "model",
+  "types": [
+   "one of outgoing, incoming, both"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:294 (AttributesPanelConfig)",
+  "section": "model",
+  "context": [
+   "config",
+   "config"
+  ],
+  "weak": true,
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.filterByParent",
+  "labels": [
+   "filterByParent"
+  ],
+  "source": "backend/app/models/schema.py:324 (TablePanelConfig)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.objectTypeKey",
+  "labels": [
+   "objectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:322 (TablePanelConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.objectTypeKeys",
+  "labels": [
+   "objectTypeKeys"
+  ],
+  "source": "backend/app/models/schema.py:300 (ChildrenPanelConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.pageSize",
+  "labels": [
+   "pageSize"
+  ],
+  "source": "backend/app/models/schema.py:302 (ChildrenPanelConfig)",
+  "section": "model",
+  "types": [
+   "integer"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.relationTypeKeys",
+  "labels": [
+   "relationTypeKeys"
+  ],
+  "source": "backend/app/models/schema.py:308 (RelationsPanelConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.showAncestors",
+  "labels": [
+   "showAncestors"
+  ],
+  "source": "backend/app/models/schema.py:332 (HierarchyPanelConfig)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.showParent",
+  "labels": [
+   "showParent"
+  ],
+  "source": "backend/app/models/schema.py:331 (HierarchyPanelConfig)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.showRelationshipColumn",
+  "labels": [
+   "showRelationshipColumn"
+  ],
+  "source": "backend/app/models/schema.py:311 (RelationsPanelConfig)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].config.sortFields",
+  "labels": [
+   "sortFields"
+  ],
+  "source": "backend/app/models/schema.py:313 (RelationsPanelConfig)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:395 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].order",
+  "labels": [
+   "order"
+  ],
+  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "integer"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].region",
+  "labels": [
+   "region"
+  ],
+  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "one of main, side"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].title",
+  "labels": [
+   "title"
+  ],
+  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].type",
+  "labels": [
+   "type"
+  ],
+  "source": "backend/app/models/schema.py:346 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "const 'attributes'",
+   "const 'children'",
+   "const 'hierarchy'",
+   "const 'relations'",
+   "const 'table'"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].details[].panels[].visible",
+  "labels": [
+   "visible"
+  ],
+  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "section": "model",
+  "context": [
+   "panels",
+   "panel"
+  ],
+  "weak": true,
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].icon",
+  "labels": [
+   "icon"
+  ],
+  "source": "backend/app/models/schema.py:413 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:410 (ApplicationDefinition)",
+  "section": "model",
+  "context": [
+   "applications",
+   "application"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:411 (ApplicationDefinition)",
+  "section": "model",
+  "context": [
+   "applications",
+   "application"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation",
+  "labels": [
+   "navigation"
+  ],
+  "source": "backend/app/models/schema.py:422 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation.groups",
+  "labels": [
+   "groups"
+  ],
+  "source": "backend/app/models/schema.py:404 (NavigationDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation.groups[].collapsed",
+  "labels": [
+   "collapsed"
+  ],
+  "source": "backend/app/models/schema.py:398 (NavigationGroupDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation.groups[].collections",
+  "labels": [
+   "collections"
+  ],
+  "source": "backend/app/models/schema.py:397 (NavigationGroupDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation.groups[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:395 (NavigationGroupDefinition)",
+  "section": "model",
+  "context": [
+   "groups",
+   "group"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation.groups[].label",
+  "labels": [
+   "label"
+  ],
+  "source": "backend/app/models/schema.py:396 (NavigationGroupDefinition)",
+  "section": "model",
+  "context": [
+   "groups",
+   "group"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].objectTypeKeys",
+  "labels": [
+   "objectTypeKeys"
+  ],
+  "source": "backend/app/models/schema.py:416 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].settings",
+  "labels": [
+   "settings"
+  ],
+  "source": "backend/app/models/schema.py:420 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].state",
+  "labels": [
+   "state"
+  ],
+  "source": "backend/app/models/schema.py:415 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "one of draft, active, retired"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views",
+  "labels": [
+   "views"
+  ],
+  "source": "backend/app/models/schema.py:418 (ApplicationDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config",
+  "labels": [
+   "config"
+  ],
+  "source": "backend/app/models/schema.py:181 (TableViewDefinition)",
+  "section": "model",
+  "context": [
+   "views",
+   "view"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.actions",
+  "labels": [
+   "actions"
+  ],
+  "source": "backend/app/models/schema.py:251 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.availabilityField",
+  "labels": [
+   "availabilityField"
+  ],
+  "source": "backend/app/models/schema.py:252 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.candidateSearchFields",
+  "labels": [
+   "candidateSearchFields"
+  ],
+  "source": "backend/app/models/schema.py:196 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.cellActions",
+  "labels": [
+   "cellActions"
+  ],
+  "source": "backend/app/models/schema.py:224 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.cellFields",
+  "labels": [
+   "cellFields"
+  ],
+  "source": "backend/app/models/schema.py:222 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.cellObjectTypeKey",
+  "labels": [
+   "cellObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:219 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.childSort",
+  "labels": [
+   "childSort"
+  ],
+  "source": "backend/app/models/schema.py:249 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.columnLabelField",
+  "labels": [
+   "columnLabelField"
+  ],
+  "source": "backend/app/models/schema.py:221 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.columnObjectTypeKey",
+  "labels": [
+   "columnObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:218 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.columns",
+  "labels": [
+   "columns"
+  ],
+  "source": "backend/app/models/schema.py:167 (TableViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.defaultSort",
+  "labels": [
+   "defaultSort"
+  ],
+  "source": "backend/app/models/schema.py:170 (TableViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.direction",
+  "labels": [
+   "direction"
+  ],
+  "source": "backend/app/models/schema.py:193 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "one of outgoing, incoming"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.filterFields",
+  "labels": [
+   "filterFields"
+  ],
+  "source": "backend/app/models/schema.py:168 (TableViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.fromObjectTypeKey",
+  "labels": [
+   "fromObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:191 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.labelField",
+  "labels": [
+   "labelField"
+  ],
+  "source": "backend/app/models/schema.py:247 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.objectTypeKeys",
+  "labels": [
+   "objectTypeKeys"
+  ],
+  "source": "backend/app/models/schema.py:246 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.pageSize",
+  "labels": [
+   "pageSize"
+  ],
+  "source": "backend/app/models/schema.py:171 (TableViewConfig)",
+  "section": "model",
+  "types": [
+   "integer"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.relationTypeKey",
+  "labels": [
+   "relationTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:190 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.rootObjectTypeKeys",
+  "labels": [
+   "rootObjectTypeKeys"
+  ],
+  "source": "backend/app/models/schema.py:245 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.rowColumns",
+  "labels": [
+   "rowColumns"
+  ],
+  "source": "backend/app/models/schema.py:220 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.rowObjectTypeKey",
+  "labels": [
+   "rowObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:217 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.searchFields",
+  "labels": [
+   "searchFields"
+  ],
+  "source": "backend/app/models/schema.py:223 (RelationMatrixViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.secondaryField",
+  "labels": [
+   "secondaryField"
+  ],
+  "source": "backend/app/models/schema.py:248 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.sortFields",
+  "labels": [
+   "sortFields"
+  ],
+  "source": "backend/app/models/schema.py:169 (TableViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.sourceColumns",
+  "labels": [
+   "sourceColumns"
+  ],
+  "source": "backend/app/models/schema.py:194 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.targetDisplayColumns",
+  "labels": [
+   "targetDisplayColumns"
+  ],
+  "source": "backend/app/models/schema.py:195 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.toObjectTypeKey",
+  "labels": [
+   "toObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:192 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:177 (TableViewDefinition)",
+  "section": "model",
+  "context": [
+   "views",
+   "view"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:178 (TableViewDefinition)",
+  "section": "model",
+  "context": [
+   "views",
+   "view"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].objectTypeKey",
+  "labels": [
+   "objectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:180 (TableViewDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].type",
+  "labels": [
+   "type"
+  ],
+  "source": "backend/app/models/schema.py:179 (TableViewDefinition)",
+  "section": "model",
+  "context": [
+   "views",
+   "view"
+  ],
+  "weak": true,
+  "types": [
+   "const 'mappingGrid'",
+   "const 'relationMatrix'",
+   "const 'table'",
+   "const 'tree'"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes",
+  "labels": [
+   "attributeTypes"
+  ],
+  "source": "backend/app/models/schema.py:831 (EngineModel)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].default",
+  "labels": [
+   "default"
+  ],
+  "source": "backend/app/models/schema.py:60 (AttributeTypeDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:58 (AttributeTypeDefinition)",
+  "section": "model",
+  "context": [
+   "attributeTypes",
+   "attributeType"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].features",
+  "labels": [
+   "features"
+  ],
+  "source": "backend/app/models/schema.py:61 (AttributeTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:56 (AttributeTypeDefinition)",
+  "section": "model",
+  "context": [
+   "attributeTypes",
+   "attributeType"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:57 (AttributeTypeDefinition)",
+  "section": "model",
+  "context": [
+   "attributeTypes",
+   "attributeType"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].ui",
+  "labels": [
+   "ui"
+  ],
+  "source": "backend/app/models/schema.py:63 (AttributeTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].validation",
+  "labels": [
+   "validation"
+  ],
+  "source": "backend/app/models/schema.py:62 (AttributeTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "attributeTypes[].valueType",
+  "labels": [
+   "valueType"
+  ],
+  "source": "backend/app/models/schema.py:59 (AttributeTypeDefinition)",
+  "section": "model",
+  "types": [
+   "one of text, longText, integer, decimal, boolean, date, dateTime, json"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis",
+  "labels": [
+   "consumerApis"
+  ],
+  "source": "backend/app/models/schema.py:837 (EngineModel)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].contractVersion",
+  "labels": [
+   "contractVersion"
+  ],
+  "source": "backend/app/models/schema.py:806 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "integer"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (ConsumerApiDocument)",
+  "section": "model",
+  "context": [
+   "consumerApis",
+   "consumerApi"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].exposes",
+  "labels": [
+   "exposes"
+  ],
+  "source": "backend/app/models/schema.py:807 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters",
+  "labels": [
+   "filters"
+  ],
+  "source": "backend/app/models/schema.py:811 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.byType",
+  "labels": [
+   "byType"
+  ],
+  "source": "backend/app/models/schema.py:789 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.crosswalk",
+  "labels": [
+   "crosswalk"
+  ],
+  "source": "backend/app/models/schema.py:797 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (FilterSpec)",
+  "section": "model",
+  "context": [
+   "filters",
+   "filter"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.keepOnlyMatching",
+  "labels": [
+   "keepOnlyMatching"
+  ],
+  "source": "backend/app/models/schema.py:795 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.linkedTo",
+  "labels": [
+   "linkedTo"
+  ],
+  "source": "backend/app/models/schema.py:791 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.matchOn",
+  "labels": [
+   "matchOn"
+  ],
+  "source": "backend/app/models/schema.py:794 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.onRelated",
+  "labels": [
+   "onRelated"
+  ],
+  "source": "backend/app/models/schema.py:793 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.scoreOnlyMatching",
+  "labels": [
+   "scoreOnlyMatching"
+  ],
+  "source": "backend/app/models/schema.py:796 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.through",
+  "labels": [
+   "through"
+  ],
+  "source": "backend/app/models/schema.py:792 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].filters.{}.under",
+  "labels": [
+   "under"
+  ],
+  "source": "backend/app/models/schema.py:790 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:803 (ConsumerApiDocument)",
+  "section": "model",
+  "context": [
+   "consumerApis",
+   "consumerApi"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:804 (ConsumerApiDocument)",
+  "section": "model",
+  "context": [
+   "consumerApis",
+   "consumerApi"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object",
+  "labels": [
+   "object"
+  ],
+  "source": "backend/app/models/schema.py:809 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:722 (ObjectSpec)",
+  "section": "model",
+  "context": [
+   "object",
+   "object"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.fields.{}.default",
+  "labels": [
+   "default"
+  ],
+  "source": "backend/app/models/schema.py:691 (FieldSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.fields.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (FieldSpec)",
+  "section": "model",
+  "context": [
+   "fields",
+   "field"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.fields.{}.from",
+  "labels": [
+   "from"
+  ],
+  "source": "backend/app/models/schema.py:685 (FieldSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.fields.{}.role",
+  "labels": [
+   "role"
+  ],
+  "source": "backend/app/models/schema.py:692 (FieldSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "one of id, code, name, active, validFrom, validTo"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.hierarchy",
+  "labels": [
+   "hierarchy"
+  ],
+  "source": "backend/app/models/schema.py:725 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "boolean",
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.parent",
+  "labels": [
+   "parent"
+  ],
+  "source": "backend/app/models/schema.py:723 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.parent.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:710 (ParentSpec)",
+  "section": "model",
+  "context": [
+   "parent",
+   "parent"
+  ],
+  "weak": true,
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.parent.output",
+  "labels": [
+   "output"
+  ],
+  "source": "backend/app/models/schema.py:709 (ParentSpec)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.path",
+  "labels": [
+   "path"
+  ],
+  "source": "backend/app/models/schema.py:724 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "boolean",
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.related",
+  "labels": [
+   "related"
+  ],
+  "source": "backend/app/models/schema.py:726 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.related.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (RelatedSpec)",
+  "section": "model",
+  "context": [
+   "related",
+   "related"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.related.{}.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:718 (RelatedSpec)",
+  "section": "model",
+  "context": [
+   "related",
+   "related"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].object.related.{}.via",
+  "labels": [
+   "via"
+  ],
+  "source": "backend/app/models/schema.py:717 (RelatedSpec)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations",
+  "labels": [
+   "operations"
+  ],
+  "source": "backend/app/models/schema.py:810 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events",
+  "labels": [
+   "events"
+  ],
+  "source": "backend/app/models/schema.py:782 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom",
+  "labels": [
+   "custom"
+  ],
+  "source": "backend/app/models/schema.py:774 (EventsOperation)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom[].changes",
+  "labels": [
+   "changes"
+  ],
+  "source": "backend/app/models/schema.py:768 (EventSpec)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:766 (EventSpec)",
+  "section": "model",
+  "context": [
+   "custom",
+   "custom"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom[].objectTypes",
+  "labels": [
+   "objectTypes"
+  ],
+  "source": "backend/app/models/schema.py:767 (EventSpec)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom[].watch",
+  "labels": [
+   "watch"
+  ],
+  "source": "backend/app/models/schema.py:769 (EventSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom[].watch.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:759 (EventWatch)",
+  "section": "model",
+  "context": [
+   "watch",
+   "watch"
+  ],
+  "weak": true,
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.custom[].watch.related",
+  "labels": [
+   "related"
+  ],
+  "source": "backend/app/models/schema.py:760 (EventWatch)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (EventsOperation)",
+  "section": "model",
+  "context": [
+   "events",
+   "event"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.events.perType",
+  "labels": [
+   "perType"
+  ],
+  "source": "backend/app/models/schema.py:773 (EventsOperation)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists",
+  "labels": [
+   "lists"
+  ],
+  "source": "backend/app/models/schema.py:781 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (ListSpec)",
+  "section": "model",
+  "context": [
+   "lists",
+   "list"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists.{}.of",
+  "labels": [
+   "of"
+  ],
+  "source": "backend/app/models/schema.py:751 (ListSpec)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists.{}.sortBy",
+  "labels": [
+   "sortBy"
+  ],
+  "source": "backend/app/models/schema.py:753 (ListSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists.{}.within",
+  "labels": [
+   "within"
+  ],
+  "source": "backend/app/models/schema.py:752 (ListSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists.{}.within.filter",
+  "labels": [
+   "filter"
+  ],
+  "source": "backend/app/models/schema.py:746 (Within)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.lists.{}.within.types",
+  "labels": [
+   "types"
+  ],
+  "source": "backend/app/models/schema.py:747 (Within)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.objects",
+  "labels": [
+   "objects"
+  ],
+  "source": "backend/app/models/schema.py:778 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.objects.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (Operation)",
+  "section": "model",
+  "context": [
+   "objects",
+   "object"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.resolve",
+  "labels": [
+   "resolve"
+  ],
+  "source": "backend/app/models/schema.py:780 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.resolve.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (Operation)",
+  "section": "model",
+  "context": [
+   "resolve",
+   "resolve"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref",
+  "labels": [
+   "xref"
+  ],
+  "source": "backend/app/models/schema.py:779 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough",
+  "labels": [
+   "alsoMatchThrough"
+  ],
+  "source": "backend/app/models/schema.py:742 (XrefOperation)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough[].firstOf",
+  "labels": [
+   "firstOf"
+  ],
+  "source": "backend/app/models/schema.py:731 (AlsoMatchThrough)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough[].firstOf[].contains",
+  "labels": [
+   "contains"
+  ],
+  "source": "backend/app/models/schema.py:504 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough[].firstOf[].exact",
+  "labels": [
+   "exact"
+  ],
+  "source": "backend/app/models/schema.py:503 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough[].firstOf[].field",
+  "labels": [
+   "field"
+  ],
+  "source": "backend/app/models/schema.py:502 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough[].preferTypes",
+  "labels": [
+   "preferTypes"
+  ],
+  "source": "backend/app/models/schema.py:732 (AlsoMatchThrough)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.alsoMatchThrough[].related",
+  "labels": [
+   "related"
+  ],
+  "source": "backend/app/models/schema.py:730 (AlsoMatchThrough)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:805 (XrefOperation)",
+  "section": "model",
+  "context": [
+   "xref",
+   "xref"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.matchOn",
+  "labels": [
+   "matchOn"
+  ],
+  "source": "backend/app/models/schema.py:741 (XrefOperation)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.matchOn[].contains",
+  "labels": [
+   "contains"
+  ],
+  "source": "backend/app/models/schema.py:504 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.matchOn[].exact",
+  "labels": [
+   "exact"
+  ],
+  "source": "backend/app/models/schema.py:503 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].operations.xref.matchOn[].field",
+  "labels": [
+   "field"
+  ],
+  "source": "backend/app/models/schema.py:502 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].publicNames",
+  "labels": [
+   "publicNames"
+  ],
+  "source": "backend/app/models/schema.py:808 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations",
+  "labels": [
+   "objectTypeRelations"
+  ],
+  "source": "backend/app/models/schema.py:834 (EngineModel)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].attributeTypeKeys",
+  "labels": [
+   "attributeTypeKeys"
+  ],
+  "source": "backend/app/models/schema.py:151 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates",
+  "labels": [
+   "candidates"
+  ],
+  "source": "backend/app/models/schema.py:153 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.from",
+  "labels": [
+   "from"
+  ],
+  "source": "backend/app/models/schema.py:130 (BindingCandidates)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.from[].field",
+  "labels": [
+   "field"
+  ],
+  "source": "backend/app/models/schema.py:125 (CandidateCriterion)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.from[].op",
+  "labels": [
+   "op"
+  ],
+  "source": "backend/app/models/schema.py:126 (CandidateCriterion)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.from[].value",
+  "labels": [
+   "value"
+  ],
+  "source": "backend/app/models/schema.py:127 (CandidateCriterion)",
+  "section": "model",
+  "context": [
+   "from",
+   "from"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.to",
+  "labels": [
+   "to"
+  ],
+  "source": "backend/app/models/schema.py:137 (BindingCandidates)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.to[].field",
+  "labels": [
+   "field"
+  ],
+  "source": "backend/app/models/schema.py:125 (CandidateCriterion)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.to[].op",
+  "labels": [
+   "op"
+  ],
+  "source": "backend/app/models/schema.py:126 (CandidateCriterion)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].candidates.to[].value",
+  "labels": [
+   "value"
+  ],
+  "source": "backend/app/models/schema.py:127 (CandidateCriterion)",
+  "section": "model",
+  "context": [
+   "to",
+   "to"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].cardinality",
+  "labels": [
+   "cardinality"
+  ],
+  "source": "backend/app/models/schema.py:149 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "one of one-to-one, one-to-many, many-to-one, many-to-many"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].features",
+  "labels": [
+   "features"
+  ],
+  "source": "backend/app/models/schema.py:152 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].fromObjectTypeKey",
+  "labels": [
+   "fromObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:147 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].relationTypeKey",
+  "labels": [
+   "relationTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:146 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].required",
+  "labels": [
+   "required"
+  ],
+  "source": "backend/app/models/schema.py:150 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypeRelations[].toObjectTypeKey",
+  "labels": [
+   "toObjectTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:148 (ObjectTypeRelationDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes",
+  "labels": [
+   "objectTypes"
+  ],
+  "source": "backend/app/models/schema.py:832 (EngineModel)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].attributes",
+  "labels": [
+   "attributes"
+  ],
+  "source": "backend/app/models/schema.py:98 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].attributes[].attributeTypeKey",
+  "labels": [
+   "attributeTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:69 (ObjectTypeAttributeDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].attributes[].order",
+  "labels": [
+   "order"
+  ],
+  "source": "backend/app/models/schema.py:72 (ObjectTypeAttributeDefinition)",
+  "section": "model",
+  "context": [
+   "attributes",
+   "attribute"
+  ],
+  "weak": true,
+  "types": [
+   "integer"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].attributes[].readOnly",
+  "labels": [
+   "readOnly"
+  ],
+  "source": "backend/app/models/schema.py:71 (ObjectTypeAttributeDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].attributes[].required",
+  "labels": [
+   "required"
+  ],
+  "source": "backend/app/models/schema.py:70 (ObjectTypeAttributeDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].attributes[].ui",
+  "labels": [
+   "ui"
+  ],
+  "source": "backend/app/models/schema.py:73 (ObjectTypeAttributeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].behavior",
+  "labels": [
+   "behavior"
+  ],
+  "source": "backend/app/models/schema.py:100 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:95 (ObjectTypeDefinition)",
+  "section": "model",
+  "context": [
+   "objectTypes",
+   "objectType"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].displayAttributeTypeKey",
+  "labels": [
+   "displayAttributeTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:97 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].effectivePeriod",
+  "labels": [
+   "effectivePeriod"
+  ],
+  "source": "backend/app/models/schema.py:103 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].effectivePeriod.endAttributeTypeKey",
+  "labels": [
+   "endAttributeTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:86 (EffectivePeriodDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].effectivePeriod.startAttributeTypeKey",
+  "labels": [
+   "startAttributeTypeKey"
+  ],
+  "source": "backend/app/models/schema.py:85 (EffectivePeriodDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].features",
+  "labels": [
+   "features"
+  ],
+  "source": "backend/app/models/schema.py:99 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].icon",
+  "labels": [
+   "icon"
+  ],
+  "source": "backend/app/models/schema.py:96 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:92 (ObjectTypeDefinition)",
+  "section": "model",
+  "context": [
+   "objectTypes",
+   "objectType"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:93 (ObjectTypeDefinition)",
+  "section": "model",
+  "context": [
+   "objectTypes",
+   "objectType"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].pluralName",
+  "labels": [
+   "pluralName"
+  ],
+  "source": "backend/app/models/schema.py:94 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "objectTypes[].validation",
+  "labels": [
+   "validation"
+  ],
+  "source": "backend/app/models/schema.py:101 (ObjectTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "product",
+  "labels": [
+   "product"
+  ],
+  "source": "backend/app/models/schema.py:830 (EngineModel)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "product.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:816 (ProductDefinition)",
+  "section": "model",
+  "context": [
+   "product",
+   "product"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "product.name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:815 (ProductDefinition)",
+  "section": "model",
+  "context": [
+   "product",
+   "product"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes",
+  "labels": [
+   "relationTypes"
+  ],
+  "source": "backend/app/models/schema.py:833 (EngineModel)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes[].features",
+  "labels": [
+   "features"
+  ],
+  "source": "backend/app/models/schema.py:116 (RelationTypeDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes[].isOriented",
+  "labels": [
+   "isOriented"
+  ],
+  "source": "backend/app/models/schema.py:115 (RelationTypeDefinition)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:111 (RelationTypeDefinition)",
+  "section": "model",
+  "context": [
+   "relationTypes",
+   "relationType"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes[].name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:113 (RelationTypeDefinition)",
+  "section": "model",
+  "context": [
+   "relationTypes",
+   "relationType"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes[].reverseKey",
+  "labels": [
+   "reverseKey"
+  ],
+  "source": "backend/app/models/schema.py:112 (RelationTypeDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "relationTypes[].reverseName",
+  "labels": [
+   "reverseName"
+  ],
+  "source": "backend/app/models/schema.py:114 (RelationTypeDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "release",
+  "labels": [
+   "release"
+  ],
+  "source": "backend/app/models/schema.py:829 (EngineModel)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "release.key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:820 (ModelReleaseDefinition)",
+  "section": "model",
+  "context": [
+   "release",
+   "release"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "release.name",
+  "labels": [
+   "name"
+  ],
+  "source": "backend/app/models/schema.py:821 (ModelReleaseDefinition)",
+  "section": "model",
+  "context": [
+   "release",
+   "release"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "release.version",
+  "labels": [
+   "version"
+  ],
+  "source": "backend/app/models/schema.py:822 (ModelReleaseDefinition)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "schemaVersion",
+  "labels": [
+   "schemaVersion"
+  ],
+  "source": "backend/app/models/schema.py:828 (EngineModel)",
+  "section": "model",
+  "types": [
+   "const '0.10'"
+  ]
+ }
+]

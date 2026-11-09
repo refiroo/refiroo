@@ -1,0 +1,579 @@
+[
+ {
+  "kind": "deployment",
+  "key": "service:database@compose.yml",
+  "labels": [],
+  "source": "compose.yml:11",
+  "section": "run",
+  "summary": "postgres:17-alpine",
+  "aliases": [
+   "database"
+  ],
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:database:/var/lib/postgresql/data@compose.yml",
+  "labels": [
+   "database"
+  ],
+  "source": "compose.yml:21",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "database"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "service:engine@compose.yml",
+  "labels": [],
+  "source": "compose.yml:28",
+  "section": "run",
+  "summary": "built from this repository",
+  "aliases": [
+   "engine"
+  ],
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:engine:/opt/refiroo/rdm-engine/data/job-files@compose.yml",
+  "labels": [
+   "job-files"
+  ],
+  "source": "compose.yml:50",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "engine"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:engine:/opt/refiroo/rdm-engine/data/assistant@compose.yml",
+  "labels": [
+   "assistant"
+  ],
+  "source": "compose.yml:54",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "engine"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:engine:/opt/refiroo/rdm-engine/data/assistant-claude@compose.yml",
+  "labels": [
+   "assistant-claude"
+  ],
+  "source": "compose.yml:55",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "engine"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "service:web@compose.yml",
+  "labels": [],
+  "source": "compose.yml:60",
+  "section": "run",
+  "summary": "built from this repository",
+  "aliases": [
+   "web"
+  ],
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:web:/opt/refiroo/rdm-engine/frontend/certs@compose.yml",
+  "labels": [
+   "./certs",
+   "WEB_CERTS_DIR"
+  ],
+  "source": "compose.yml:79",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "web"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "port:web:${WEB_HTTP_PORT:-80}:8080@compose.yml",
+  "labels": [
+   "8080"
+  ],
+  "source": "compose.yml:75",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "port:web:${WEB_HTTPS_PORT:-443}:8443@compose.yml",
+  "labels": [
+   "8443"
+  ],
+  "source": "compose.yml:76",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "volume:database@compose.yml",
+  "labels": [
+   "database"
+  ],
+  "source": "compose.yml:11",
+  "section": "run",
+  "context": [
+   "volume"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "volume:job-files@compose.yml",
+  "labels": [
+   "job-files"
+  ],
+  "source": "compose.yml:86",
+  "section": "run",
+  "context": [
+   "volume"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "volume:assistant@compose.yml",
+  "labels": [
+   "assistant"
+  ],
+  "source": "compose.yml:87",
+  "section": "run",
+  "context": [
+   "volume"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "volume:assistant-claude@compose.yml",
+  "labels": [
+   "assistant-claude"
+  ],
+  "source": "compose.yml:88",
+  "section": "run",
+  "context": [
+   "volume"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "env:AI_AGENT_API_URL@compose.yml",
+  "labels": [],
+  "source": "compose.yml:46",
+  "section": "run",
+  "aliases": [
+   "AI_AGENT_API_URL"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:CORS_ORIGINS@compose.yml",
+  "labels": [],
+  "source": "compose.yml:44",
+  "section": "run",
+  "aliases": [
+   "CORS_ORIGINS"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:DATABASE_URL@compose.yml",
+  "labels": [],
+  "source": "compose.yml:38",
+  "section": "run",
+  "aliases": [
+   "DATABASE_URL"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:ENGINE_UPSTREAM@compose.yml",
+  "labels": [],
+  "source": "compose.yml:71",
+  "section": "run",
+  "aliases": [
+   "ENGINE_UPSTREAM"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:FORWARDED_ALLOW_IPS@compose.yml",
+  "labels": [],
+  "source": "compose.yml:48",
+  "section": "run",
+  "aliases": [
+   "FORWARDED_ALLOW_IPS"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:POSTGRES_DB@compose.yml",
+  "labels": [],
+  "source": "compose.yml:15",
+  "section": "run",
+  "aliases": [
+   "POSTGRES_DB"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:POSTGRES_INITDB_ARGS@compose.yml",
+  "labels": [],
+  "source": "compose.yml:19",
+  "section": "run",
+  "aliases": [
+   "POSTGRES_INITDB_ARGS"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:POSTGRES_PASSWORD@compose.yml",
+  "labels": [],
+  "source": "compose.yml:17",
+  "section": "run",
+  "aliases": [
+   "POSTGRES_PASSWORD"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:POSTGRES_USER@compose.yml",
+  "labels": [],
+  "source": "compose.yml:16",
+  "section": "run",
+  "aliases": [
+   "POSTGRES_USER"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:PUBLIC_URL@compose.yml",
+  "labels": [],
+  "source": "compose.yml:43",
+  "section": "run",
+  "aliases": [
+   "PUBLIC_URL"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:RDM_CURSOR_SIGNING_KEY@compose.yml",
+  "labels": [],
+  "source": "compose.yml:40",
+  "section": "run",
+  "aliases": [
+   "RDM_CURSOR_SIGNING_KEY"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:RDM_ENV_FILE@compose.yml",
+  "labels": [],
+  "source": "compose.yml:36",
+  "section": "run",
+  "aliases": [
+   "RDM_ENV_FILE"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:SECRETS_ENCRYPTION_KEY@compose.yml",
+  "labels": [],
+  "source": "compose.yml:39",
+  "section": "run",
+  "aliases": [
+   "SECRETS_ENCRYPTION_KEY"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_CERTS_DIR@compose.yml",
+  "labels": [],
+  "source": "compose.yml:79",
+  "section": "run",
+  "aliases": [
+   "WEB_CERTS_DIR"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_HTTPS_PORT@compose.yml",
+  "labels": [],
+  "source": "compose.yml:76",
+  "section": "run",
+  "aliases": [
+   "WEB_HTTPS_PORT"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_HTTP_PORT@compose.yml",
+  "labels": [],
+  "source": "compose.yml:75",
+  "section": "run",
+  "aliases": [
+   "WEB_HTTP_PORT"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_MAX_BODY@compose.yml",
+  "labels": [],
+  "source": "compose.yml:73",
+  "section": "run",
+  "aliases": [
+   "WEB_MAX_BODY"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_TLS@compose.yml",
+  "labels": [],
+  "source": "compose.yml:67",
+  "section": "run",
+  "aliases": [
+   "WEB_TLS"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_TRUSTED_PROXIES@compose.yml",
+  "labels": [],
+  "source": "compose.yml:70",
+  "section": "run",
+  "aliases": [
+   "WEB_TRUSTED_PROXIES"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "service:web@compose.acme.yml",
+  "labels": [],
+  "source": "compose.acme.yml:9",
+  "section": "run",
+  "summary": "built from this repository",
+  "aliases": [
+   "web"
+  ],
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "service:caddy@compose.acme.yml",
+  "labels": [],
+  "source": "compose.acme.yml:22",
+  "section": "run",
+  "summary": "caddy:2",
+  "aliases": [
+   "caddy"
+  ],
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:caddy:/etc/caddy/Caddyfile@compose.acme.yml",
+  "labels": [
+   "./caddy/Caddyfile"
+  ],
+  "source": "compose.acme.yml:31",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "caddy"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "mount:caddy:/data@compose.acme.yml",
+  "labels": [
+   "caddy-data"
+  ],
+  "source": "compose.acme.yml:34",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker",
+   "caddy"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "port:caddy:80:80@compose.acme.yml",
+  "labels": [
+   "80"
+  ],
+  "source": "compose.acme.yml:28",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "port:caddy:443:443@compose.acme.yml",
+  "labels": [
+   "443"
+  ],
+  "source": "compose.acme.yml:29",
+  "section": "run",
+  "context": [
+   "compose",
+   "docker"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "volume:caddy-data@compose.acme.yml",
+  "labels": [
+   "caddy-data"
+  ],
+  "source": "compose.acme.yml:40",
+  "section": "run",
+  "context": [
+   "volume"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "env:PUBLIC_URL@compose.acme.yml",
+  "labels": [],
+  "source": "compose.acme.yml:26",
+  "section": "run",
+  "aliases": [
+   "PUBLIC_URL"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_TLS@compose.acme.yml",
+  "labels": [],
+  "source": "compose.acme.yml:14",
+  "section": "run",
+  "aliases": [
+   "WEB_TLS"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "env:WEB_TRUSTED_PROXIES@compose.acme.yml",
+  "labels": [],
+  "source": "compose.acme.yml:20",
+  "section": "run",
+  "aliases": [
+   "WEB_TRUSTED_PROXIES"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
+  "key": "caddy:{$PUBLIC_URL}",
+  "labels": [
+   "{$PUBLIC_URL}"
+  ],
+  "source": "caddy/Caddyfile:5",
+  "section": "run",
+  "context": [
+   "Caddy"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "caddy:reverse_proxy",
+  "labels": [
+   "reverse_proxy"
+  ],
+  "source": "caddy/Caddyfile:6",
+  "section": "run",
+  "context": [
+   "Caddy"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "caddy:flush_interval",
+  "labels": [
+   "flush_interval"
+  ],
+  "source": "caddy/Caddyfile:8",
+  "section": "run",
+  "context": [
+   "Caddy"
+  ]
+ },
+ {
+  "kind": "deployment",
+  "key": "caddy:email",
+  "labels": [
+   "email"
+  ],
+  "source": "caddy/Caddyfile:4",
+  "section": "run",
+  "context": [
+   "Caddy"
+  ],
+  "summary": "named in a comment as the global option to be told of expiry"
+ }
+]

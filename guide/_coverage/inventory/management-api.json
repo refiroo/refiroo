@@ -1,0 +1,3471 @@
+[
+ {
+  "kind": "management-api",
+  "key": "GET /health",
+  "labels": [
+   "/health"
+  ],
+  "source": "backend/app/main.py:586",
+  "section": "run",
+  "operationId": "health_health_get",
+  "summary": "Health"
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /health/live",
+  "labels": [
+   "/health/live"
+  ],
+  "source": "backend/app/main.py:600",
+  "section": "run",
+  "operationId": "live_health_live_get",
+  "summary": "Live"
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /.well-known/oauth-authorization-server",
+  "labels": [
+   "/.well-known/oauth-authorization-server"
+  ],
+  "source": "backend/app/management/routers/oauth.py:87",
+  "section": "integrate",
+  "operationId": "server_metadata__well_known_oauth_authorization_server_get",
+  "summary": "Server Metadata",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /.well-known/oauth-protected-resource",
+  "labels": [
+   "/.well-known/oauth-protected-resource"
+  ],
+  "source": "backend/app/management/routers/oauth.py:130",
+  "section": "integrate",
+  "operationId": "protected_resource__well_known_oauth_protected_resource_get",
+  "summary": "Protected Resource",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /.well-known/oauth-protected-resource/mcp",
+  "labels": [
+   "/.well-known/oauth-protected-resource/mcp"
+  ],
+  "source": "backend/app/management/routers/oauth.py:137",
+  "section": "integrate",
+  "operationId": "protected_resource_of_mcp__well_known_oauth_protected_resource_mcp_get",
+  "summary": "Protected Resource Of Mcp",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /oauth/jwks",
+  "labels": [
+   "/oauth/jwks"
+  ],
+  "source": "backend/app/management/routers/oauth.py:147",
+  "section": "integrate",
+  "operationId": "json_web_keys_oauth_jwks_get",
+  "summary": "Json Web Keys",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /oauth/register",
+  "labels": [
+   "/oauth/register"
+  ],
+  "source": "backend/app/management/routers/oauth.py:967",
+  "section": "integrate",
+  "operationId": "register_assistant_oauth_register_post",
+  "summary": "Register Assistant",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /oauth/token",
+  "labels": [
+   "/oauth/token"
+  ],
+  "source": "backend/app/management/routers/oauth.py:1040",
+  "section": "integrate",
+  "operationId": "token_oauth_token_post",
+  "summary": "Token",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /oauth/revoke",
+  "labels": [
+   "/oauth/revoke"
+  ],
+  "source": "backend/app/management/routers/oauth.py:1212",
+  "section": "integrate",
+  "operationId": "revoke_oauth_revoke_post",
+  "summary": "Revoke",
+  "tags": [
+   "oauth"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me",
+  "labels": [
+   "/api/v1/me"
+  ],
+  "source": "backend/app/management/routers/identity.py:89",
+  "section": "administer",
+  "operationId": "get_me_api_v1_me_get",
+  "summary": "Get Me",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/sessions",
+  "labels": [
+   "/api/v1/me/sessions"
+  ],
+  "source": "backend/app/management/routers/identity.py:103",
+  "section": "administer",
+  "operationId": "list_my_sessions_api_v1_me_sessions_get",
+  "summary": "List My Sessions",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/me/sessions",
+  "labels": [
+   "/api/v1/me/sessions"
+  ],
+  "source": "backend/app/management/routers/identity.py:128",
+  "section": "administer",
+  "operationId": "delete_my_sessions_api_v1_me_sessions_delete",
+  "summary": "Delete My Sessions",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/me/sessions/{session_id}",
+  "labels": [
+   "/api/v1/me/sessions/{session_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:119",
+  "section": "administer",
+  "operationId": "delete_my_session_api_v1_me_sessions__session_id__delete",
+  "summary": "Delete My Session",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/me/password",
+  "labels": [
+   "/api/v1/me/password"
+  ],
+  "source": "backend/app/management/routers/identity.py:136",
+  "section": "administer",
+  "operationId": "post_my_password_api_v1_me_password_post",
+  "summary": "Post My Password",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/second-factor",
+  "labels": [
+   "/api/v1/me/second-factor"
+  ],
+  "source": "backend/app/management/routers/identity.py:176",
+  "section": "administer",
+  "operationId": "get_my_second_factor_api_v1_me_second_factor_get",
+  "summary": "Get My Second Factor",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/me/second-factor",
+  "labels": [
+   "/api/v1/me/second-factor"
+  ],
+  "source": "backend/app/management/routers/identity.py:184",
+  "section": "administer",
+  "operationId": "post_my_second_factor_api_v1_me_second_factor_post",
+  "summary": "Post My Second Factor",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/me/second-factor",
+  "labels": [
+   "/api/v1/me/second-factor"
+  ],
+  "source": "backend/app/management/routers/identity.py:240",
+  "section": "administer",
+  "operationId": "delete_my_second_factor_api_v1_me_second_factor_delete",
+  "summary": "Delete My Second Factor",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/me/second-factor/confirmation",
+  "labels": [
+   "/api/v1/me/second-factor/confirmation"
+  ],
+  "source": "backend/app/management/routers/identity.py:203",
+  "section": "administer",
+  "operationId": "post_my_second_factor_confirmation_api_v1_me_second_factor_confirmation_post",
+  "summary": "Post My Second Factor Confirmation",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/me/second-factor/recovery-codes",
+  "labels": [
+   "/api/v1/me/second-factor/recovery-codes"
+  ],
+  "source": "backend/app/management/routers/identity.py:222",
+  "section": "administer",
+  "operationId": "post_my_recovery_codes_api_v1_me_second_factor_recovery_codes_post",
+  "summary": "Post My Recovery Codes",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/passkeys",
+  "labels": [
+   "/api/v1/me/passkeys"
+  ],
+  "source": "backend/app/management/routers/identity.py:258",
+  "section": "administer",
+  "operationId": "list_my_passkeys_api_v1_me_passkeys_get",
+  "summary": "List My Passkeys",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/me/passkeys/{passkey_id}",
+  "labels": [
+   "/api/v1/me/passkeys/{passkey_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:274",
+  "section": "administer",
+  "operationId": "patch_my_passkey_api_v1_me_passkeys__passkey_id__patch",
+  "summary": "Patch My Passkey",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/me/passkeys/{passkey_id}",
+  "labels": [
+   "/api/v1/me/passkeys/{passkey_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:284",
+  "section": "administer",
+  "operationId": "delete_my_passkey_api_v1_me_passkeys__passkey_id__delete",
+  "summary": "Delete My Passkey",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/users/{user_id}/passkeys",
+  "labels": [
+   "/api/v1/users/{user_id}/passkeys"
+  ],
+  "source": "backend/app/management/routers/identity.py:311",
+  "section": "administer",
+  "operationId": "list_user_passkeys_api_v1_users__user_id__passkeys_get",
+  "summary": "List User Passkeys",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/users/{user_id}/passkeys/{passkey_id}",
+  "labels": [
+   "/api/v1/users/{user_id}/passkeys/{passkey_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:326",
+  "section": "administer",
+  "operationId": "delete_user_passkey_api_v1_users__user_id__passkeys__passkey_id__delete",
+  "summary": "Delete User Passkey",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/users",
+  "labels": [
+   "/api/v1/users"
+  ],
+  "source": "backend/app/management/routers/identity.py:335",
+  "section": "administer",
+  "operationId": "list_users_api_v1_users_get",
+  "summary": "List Users",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/users",
+  "labels": [
+   "/api/v1/users"
+  ],
+  "source": "backend/app/management/routers/identity.py:351",
+  "section": "administer",
+  "operationId": "post_user_api_v1_users_post",
+  "summary": "Post User",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/users/{user_id}",
+  "labels": [
+   "/api/v1/users/{user_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:359",
+  "section": "administer",
+  "operationId": "get_user_api_v1_users__user_id__get",
+  "summary": "Get User",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/users/{user_id}",
+  "labels": [
+   "/api/v1/users/{user_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:365",
+  "section": "administer",
+  "operationId": "patch_user_api_v1_users__user_id__patch",
+  "summary": "Patch User",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/users/{user_id}/password-reset",
+  "labels": [
+   "/api/v1/users/{user_id}/password-reset"
+  ],
+  "source": "backend/app/management/routers/identity.py:376",
+  "section": "administer",
+  "operationId": "post_password_reset_api_v1_users__user_id__password_reset_post",
+  "summary": "Post Password Reset",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/users/{user_id}/identities",
+  "labels": [
+   "/api/v1/users/{user_id}/identities"
+  ],
+  "source": "backend/app/management/routers/identity.py:401",
+  "section": "administer",
+  "operationId": "post_user_identities_api_v1_users__user_id__identities_post",
+  "summary": "Post User Identities",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/users/{user_id}/identities/{provider}",
+  "labels": [
+   "/api/v1/users/{user_id}/identities/{provider}"
+  ],
+  "source": "backend/app/management/routers/identity.py:412",
+  "section": "administer",
+  "operationId": "delete_user_identity_api_v1_users__user_id__identities__provider__delete",
+  "summary": "Delete User Identity",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/users/{user_id}/second-factor",
+  "labels": [
+   "/api/v1/users/{user_id}/second-factor"
+  ],
+  "source": "backend/app/management/routers/identity.py:421",
+  "section": "administer",
+  "operationId": "delete_user_second_factor_api_v1_users__user_id__second_factor_delete",
+  "summary": "Delete User Second Factor",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/users/{user_id}/sessions",
+  "labels": [
+   "/api/v1/users/{user_id}/sessions"
+  ],
+  "source": "backend/app/management/routers/identity.py:431",
+  "section": "administer",
+  "operationId": "delete_user_sessions_api_v1_users__user_id__sessions_delete",
+  "summary": "Delete User Sessions",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/clients",
+  "labels": [
+   "/api/v1/clients"
+  ],
+  "source": "backend/app/management/routers/identity.py:439",
+  "section": "administer",
+  "operationId": "list_clients_api_v1_clients_get",
+  "summary": "List Clients",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/clients",
+  "labels": [
+   "/api/v1/clients"
+  ],
+  "source": "backend/app/management/routers/identity.py:457",
+  "section": "administer",
+  "operationId": "post_client_api_v1_clients_post",
+  "summary": "Post Client",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/clients/{client_id}",
+  "labels": [
+   "/api/v1/clients/{client_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:467",
+  "section": "administer",
+  "operationId": "get_client_api_v1_clients__client_id__get",
+  "summary": "Get Client",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/clients/{client_id}",
+  "labels": [
+   "/api/v1/clients/{client_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:473",
+  "section": "administer",
+  "operationId": "patch_client_api_v1_clients__client_id__patch",
+  "summary": "Patch Client",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/clients/{client_id}/secrets",
+  "labels": [
+   "/api/v1/clients/{client_id}/secrets"
+  ],
+  "source": "backend/app/management/routers/identity.py:481",
+  "section": "administer",
+  "operationId": "post_client_secret_api_v1_clients__client_id__secrets_post",
+  "summary": "Post Client Secret",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/clients/{client_id}/secrets/{secret_id}",
+  "labels": [
+   "/api/v1/clients/{client_id}/secrets/{secret_id}"
+  ],
+  "source": "backend/app/management/routers/identity.py:492",
+  "section": "administer",
+  "operationId": "delete_client_secret_api_v1_clients__client_id__secrets__secret_id__delete",
+  "summary": "Delete Client Secret",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/token-signing-keys",
+  "labels": [
+   "/api/v1/token-signing-keys"
+  ],
+  "source": "backend/app/management/routers/identity.py:499",
+  "section": "administer",
+  "operationId": "list_signing_keys_api_v1_token_signing_keys_get",
+  "summary": "List Signing Keys",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/token-signing-keys/rotation",
+  "labels": [
+   "/api/v1/token-signing-keys/rotation"
+  ],
+  "source": "backend/app/management/routers/identity.py:510",
+  "section": "administer",
+  "operationId": "rotate_signing_key_api_v1_token_signing_keys_rotation_post",
+  "summary": "Rotate Signing Key",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/security-events",
+  "labels": [
+   "/api/v1/security-events"
+  ],
+  "source": "backend/app/management/routers/identity.py:526",
+  "section": "administer",
+  "operationId": "list_security_events_api_v1_security_events_get",
+  "summary": "List Security Events",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/sign-in-providers",
+  "labels": [
+   "/api/v1/sign-in-providers"
+  ],
+  "source": "backend/app/management/routers/identity.py:550",
+  "section": "administer",
+  "operationId": "list_sign_in_providers_api_v1_sign_in_providers_get",
+  "summary": "List Sign In Providers",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/sign-in-providers",
+  "labels": [
+   "/api/v1/sign-in-providers"
+  ],
+  "source": "backend/app/management/routers/identity.py:566",
+  "section": "administer",
+  "operationId": "post_sign_in_provider_api_v1_sign_in_providers_post",
+  "summary": "Post Sign In Provider",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/sign-in-providers/local",
+  "labels": [
+   "/api/v1/sign-in-providers/local"
+  ],
+  "source": "backend/app/management/routers/identity.py:579",
+  "section": "administer",
+  "operationId": "get_local_sign_in_api_v1_sign_in_providers_local_get",
+  "summary": "Get Local Sign In",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/sign-in-providers/local",
+  "labels": [
+   "/api/v1/sign-in-providers/local"
+  ],
+  "source": "backend/app/management/routers/identity.py:586",
+  "section": "administer",
+  "operationId": "patch_local_sign_in_api_v1_sign_in_providers_local_patch",
+  "summary": "Patch Local Sign In",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/sign-in-providers/{key}",
+  "labels": [
+   "/api/v1/sign-in-providers/{key}"
+  ],
+  "source": "backend/app/management/routers/identity.py:598",
+  "section": "administer",
+  "operationId": "get_sign_in_provider_api_v1_sign_in_providers__key__get",
+  "summary": "Get Sign In Provider",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/sign-in-providers/{key}",
+  "labels": [
+   "/api/v1/sign-in-providers/{key}"
+  ],
+  "source": "backend/app/management/routers/identity.py:606",
+  "section": "administer",
+  "operationId": "patch_sign_in_provider_api_v1_sign_in_providers__key__patch",
+  "summary": "Patch Sign In Provider",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/sign-in-providers/{key}",
+  "labels": [
+   "/api/v1/sign-in-providers/{key}"
+  ],
+  "source": "backend/app/management/routers/identity.py:618",
+  "section": "administer",
+  "operationId": "delete_sign_in_provider_api_v1_sign_in_providers__key__delete",
+  "summary": "Delete Sign In Provider",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/mail-settings",
+  "labels": [
+   "/api/v1/mail-settings"
+  ],
+  "source": "backend/app/management/routers/mail.py:37",
+  "section": "administer",
+  "operationId": "get_mail_settings_api_v1_mail_settings_get",
+  "summary": "Get Mail Settings",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/mail-settings",
+  "labels": [
+   "/api/v1/mail-settings"
+  ],
+  "source": "backend/app/management/routers/mail.py:45",
+  "section": "administer",
+  "operationId": "put_mail_settings_api_v1_mail_settings_put",
+  "summary": "Put Mail Settings",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/mail-settings",
+  "labels": [
+   "/api/v1/mail-settings"
+  ],
+  "source": "backend/app/management/routers/mail.py:58",
+  "section": "administer",
+  "operationId": "delete_mail_settings_api_v1_mail_settings_delete",
+  "summary": "Delete Mail Settings",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/mail-settings/test",
+  "labels": [
+   "/api/v1/mail-settings/test"
+  ],
+  "source": "backend/app/management/routers/mail.py:67",
+  "section": "administer",
+  "operationId": "post_mail_test_api_v1_mail_settings_test_post",
+  "summary": "Post Mail Test",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/mail-outbox/{message_id}/stop",
+  "labels": [
+   "/api/v1/mail-outbox/{message_id}/stop"
+  ],
+  "source": "backend/app/management/routers/mail.py:92",
+  "section": "administer",
+  "operationId": "post_stop_mail_message_api_v1_mail_outbox__message_id__stop_post",
+  "summary": "Post Stop Mail Message",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/mail-outbox",
+  "labels": [
+   "/api/v1/mail-outbox"
+  ],
+  "source": "backend/app/management/routers/mail.py:102",
+  "section": "administer",
+  "operationId": "list_mail_outbox_api_v1_mail_outbox_get",
+  "summary": "List Mail Outbox",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/notification-mail",
+  "labels": [
+   "/api/v1/me/notification-mail"
+  ],
+  "source": "backend/app/management/routers/mail.py:117",
+  "section": "administer",
+  "operationId": "get_my_notification_mail_api_v1_me_notification_mail_get",
+  "summary": "Get My Notification Mail",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/me/notification-mail",
+  "labels": [
+   "/api/v1/me/notification-mail"
+  ],
+  "source": "backend/app/management/routers/mail.py:126",
+  "section": "administer",
+  "operationId": "put_my_notification_mail_api_v1_me_notification_mail_put",
+  "summary": "Put My Notification Mail",
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/ai/status",
+  "labels": [
+   "/api/v1/ai/status"
+  ],
+  "source": "backend/app/management/routers/ai.py:65",
+  "section": "administer",
+  "operationId": "get_ai_status_api_v1_ai_status_get",
+  "summary": "Get Ai Status",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/ai/calls",
+  "labels": [
+   "/api/v1/ai/calls"
+  ],
+  "source": "backend/app/management/routers/ai.py:74",
+  "section": "administer",
+  "operationId": "list_ai_calls_api_v1_ai_calls_get",
+  "summary": "List Ai Calls",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/test",
+  "labels": [
+   "/api/v1/ai/test"
+  ],
+  "source": "backend/app/management/routers/ai.py:86",
+  "section": "administer",
+  "operationId": "test_ai_provider_api_v1_ai_test_post",
+  "summary": "Test Ai Provider",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/query-translations",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/query-translations"
+  ],
+  "source": "backend/app/management/routers/ai.py:125",
+  "section": "administer",
+  "operationId": "post_query_translation_api_v1_workspaces__workspace_key__query_translations_post",
+  "summary": "Post Query Translation",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-releases/{release_id}/impact-summary",
+  "labels": [
+   "/api/v1/model-releases/{release_id}/impact-summary"
+  ],
+  "source": "backend/app/management/routers/ai.py:236",
+  "section": "administer",
+  "operationId": "post_release_impact_summary_api_v1_model_releases__release_id__impact_summary_post",
+  "summary": "Post Release Impact Summary",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/history/account",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/history/account"
+  ],
+  "source": "backend/app/management/routers/ai.py:290",
+  "section": "administer",
+  "operationId": "post_workspace_history_account_api_v1_workspaces__workspace_key__history_account_post",
+  "summary": "Post Workspace History Account",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/objects/{object_type_key}/{object_id}/history/account",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/history/account"
+  ],
+  "source": "backend/app/management/routers/ai.py:334",
+  "section": "administer",
+  "operationId": "post_object_history_account_api_v1_objects__object_type_key___object_id__history_account_post",
+  "summary": "Post Object History Account",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/agent-access",
+  "labels": [
+   "/api/v1/agent-access"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:31",
+  "section": "administer",
+  "operationId": "get_agent_access_api_v1_agent_access_get",
+  "summary": "Get Agent Access",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/agent-access/clients",
+  "labels": [
+   "/api/v1/agent-access/clients"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:51",
+  "section": "administer",
+  "operationId": "list_agent_clients_api_v1_agent_access_clients_get",
+  "summary": "List Agent Clients",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/agent-access/applications",
+  "labels": [
+   "/api/v1/agent-access/applications"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:89",
+  "section": "administer",
+  "operationId": "list_agent_applications_api_v1_agent_access_applications_get",
+  "summary": "List Agent Applications",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/agent-access/applications",
+  "labels": [
+   "/api/v1/agent-access/applications"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:105",
+  "section": "administer",
+  "operationId": "post_agent_application_api_v1_agent_access_applications_post",
+  "summary": "Post Agent Application",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/agent-access/applications/{application_id}/block",
+  "labels": [
+   "/api/v1/agent-access/applications/{application_id}/block"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:117",
+  "section": "administer",
+  "operationId": "block_agent_application_api_v1_agent_access_applications__application_id__block_post",
+  "summary": "Block Agent Application",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/agent-access/applications/{application_id}/restore",
+  "labels": [
+   "/api/v1/agent-access/applications/{application_id}/restore"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:125",
+  "section": "administer",
+  "operationId": "restore_agent_application_api_v1_agent_access_applications__application_id__restore_post",
+  "summary": "Restore Agent Application",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/agent-access/calls",
+  "labels": [
+   "/api/v1/agent-access/calls"
+  ],
+  "source": "backend/app/management/routers/agent_access.py:133",
+  "section": "administer",
+  "operationId": "list_agent_calls_api_v1_agent_access_calls_get",
+  "summary": "List Agent Calls",
+  "tags": [
+   "agent-access"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/notifications",
+  "labels": [
+   "/api/v1/me/notifications"
+  ],
+  "source": "backend/app/management/routers/notifications.py:47",
+  "section": "use",
+  "operationId": "list_my_notifications_api_v1_me_notifications_get",
+  "summary": "List My Notifications",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/me/notifications/read",
+  "labels": [
+   "/api/v1/me/notifications/read"
+  ],
+  "source": "backend/app/management/routers/notifications.py:84",
+  "section": "use",
+  "operationId": "mark_my_notifications_read_api_v1_me_notifications_read_post",
+  "summary": "Mark My Notifications Read",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/me/notifications/removal",
+  "labels": [
+   "/api/v1/me/notifications/removal"
+  ],
+  "source": "backend/app/management/routers/notifications.py:102",
+  "section": "use",
+  "operationId": "remove_my_notifications_api_v1_me_notifications_removal_post",
+  "summary": "Remove My Notifications",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/followed-workspaces",
+  "labels": [
+   "/api/v1/me/followed-workspaces"
+  ],
+  "source": "backend/app/management/routers/notifications.py:139",
+  "section": "use",
+  "operationId": "list_followed_workspaces_api_v1_me_followed_workspaces_get",
+  "summary": "List Followed Workspaces",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/me/followed-workspaces/{workspace_key}",
+  "labels": [
+   "/api/v1/me/followed-workspaces/{workspace_key}"
+  ],
+  "source": "backend/app/management/routers/notifications.py:190",
+  "section": "use",
+  "operationId": "follow_workspace_api_v1_me_followed_workspaces__workspace_key__put",
+  "summary": "Follow Workspace",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/me/followed-workspaces/{workspace_key}",
+  "labels": [
+   "/api/v1/me/followed-workspaces/{workspace_key}"
+  ],
+  "source": "backend/app/management/routers/notifications.py:207",
+  "section": "use",
+  "operationId": "unfollow_workspace_api_v1_me_followed_workspaces__workspace_key__delete",
+  "summary": "Unfollow Workspace",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/notifications/events",
+  "labels": [
+   "/api/v1/me/notifications/events"
+  ],
+  "source": "backend/app/management/routers/notifications.py:224",
+  "section": "use",
+  "operationId": "my_notification_events_api_v1_me_notifications_events_get",
+  "summary": "My Notification Events",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/notifications/{notification_id}",
+  "labels": [
+   "/api/v1/me/notifications/{notification_id}"
+  ],
+  "source": "backend/app/management/routers/notifications.py:284",
+  "section": "use",
+  "operationId": "get_my_notification_api_v1_me_notifications__notification_id__get",
+  "summary": "Get My Notification",
+  "tags": [
+   "notifications"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/permissions",
+  "labels": [
+   "/api/v1/me/permissions"
+  ],
+  "source": "backend/app/management/routers/authorization.py:48",
+  "section": "administer",
+  "operationId": "get_my_permissions_api_v1_me_permissions_get",
+  "summary": "Get My Permissions",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/action-groups",
+  "labels": [
+   "/api/v1/me/action-groups"
+  ],
+  "source": "backend/app/management/routers/authorization.py:61",
+  "section": "administer",
+  "operationId": "get_my_action_groups_api_v1_me_action_groups_get",
+  "summary": "Get My Action Groups",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/grants",
+  "labels": [
+   "/api/v1/me/grants"
+  ],
+  "source": "backend/app/management/routers/authorization.py:69",
+  "section": "administer",
+  "operationId": "list_my_grants_api_v1_me_grants_get",
+  "summary": "List My Grants",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/action-groups",
+  "labels": [
+   "/api/v1/action-groups"
+  ],
+  "source": "backend/app/management/routers/authorization.py:84",
+  "section": "administer",
+  "operationId": "list_action_groups_api_v1_action_groups_get",
+  "summary": "List Action Groups",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/roles",
+  "labels": [
+   "/api/v1/roles"
+  ],
+  "source": "backend/app/management/routers/authorization.py:92",
+  "section": "administer",
+  "operationId": "list_roles_api_v1_roles_get",
+  "summary": "List Roles",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/roles",
+  "labels": [
+   "/api/v1/roles"
+  ],
+  "source": "backend/app/management/routers/authorization.py:101",
+  "section": "administer",
+  "operationId": "post_role_api_v1_roles_post",
+  "summary": "Post Role",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/roles/{role_key}",
+  "labels": [
+   "/api/v1/roles/{role_key}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:109",
+  "section": "administer",
+  "operationId": "get_role_api_v1_roles__role_key__get",
+  "summary": "Get Role",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/roles/{role_key}",
+  "labels": [
+   "/api/v1/roles/{role_key}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:115",
+  "section": "administer",
+  "operationId": "patch_role_api_v1_roles__role_key__patch",
+  "summary": "Patch Role",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/roles/{role_key}",
+  "labels": [
+   "/api/v1/roles/{role_key}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:123",
+  "section": "administer",
+  "operationId": "delete_role_api_v1_roles__role_key__delete",
+  "summary": "Delete Role",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/groups",
+  "labels": [
+   "/api/v1/groups"
+  ],
+  "source": "backend/app/management/routers/authorization.py:131",
+  "section": "administer",
+  "operationId": "list_groups_api_v1_groups_get",
+  "summary": "List Groups",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/groups",
+  "labels": [
+   "/api/v1/groups"
+  ],
+  "source": "backend/app/management/routers/authorization.py:149",
+  "section": "administer",
+  "operationId": "post_group_api_v1_groups_post",
+  "summary": "Post Group",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/groups/{group_id}",
+  "labels": [
+   "/api/v1/groups/{group_id}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:158",
+  "section": "administer",
+  "operationId": "get_group_api_v1_groups__group_id__get",
+  "summary": "Get Group",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/groups/{group_id}",
+  "labels": [
+   "/api/v1/groups/{group_id}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:164",
+  "section": "administer",
+  "operationId": "patch_group_api_v1_groups__group_id__patch",
+  "summary": "Patch Group",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/groups/{group_id}",
+  "labels": [
+   "/api/v1/groups/{group_id}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:170",
+  "section": "administer",
+  "operationId": "delete_group_api_v1_groups__group_id__delete",
+  "summary": "Delete Group",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/groups/{group_id}/members",
+  "labels": [
+   "/api/v1/groups/{group_id}/members"
+  ],
+  "source": "backend/app/management/routers/authorization.py:178",
+  "section": "administer",
+  "operationId": "list_group_members_api_v1_groups__group_id__members_get",
+  "summary": "List Group Members",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/groups/{group_id}/members",
+  "labels": [
+   "/api/v1/groups/{group_id}/members"
+  ],
+  "source": "backend/app/management/routers/authorization.py:190",
+  "section": "administer",
+  "operationId": "post_group_member_api_v1_groups__group_id__members_post",
+  "summary": "Post Group Member",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/groups/{group_id}/members/batch",
+  "labels": [
+   "/api/v1/groups/{group_id}/members/batch"
+  ],
+  "source": "backend/app/management/routers/authorization.py:200",
+  "section": "administer",
+  "operationId": "post_group_members_api_v1_groups__group_id__members_batch_post",
+  "summary": "Post Group Members",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/groups/{group_id}/members/removal",
+  "labels": [
+   "/api/v1/groups/{group_id}/members/removal"
+  ],
+  "source": "backend/app/management/routers/authorization.py:221",
+  "section": "administer",
+  "operationId": "post_group_members_removal_api_v1_groups__group_id__members_removal_post",
+  "summary": "Post Group Members Removal",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/groups/{group_id}/members/{user_id}",
+  "labels": [
+   "/api/v1/groups/{group_id}/members/{user_id}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:232",
+  "section": "administer",
+  "operationId": "delete_group_member_api_v1_groups__group_id__members__user_id__delete",
+  "summary": "Delete Group Member",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/grants",
+  "labels": [
+   "/api/v1/grants"
+  ],
+  "source": "backend/app/management/routers/authorization.py:240",
+  "section": "administer",
+  "operationId": "list_grants_api_v1_grants_get",
+  "summary": "List Grants",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/grants",
+  "labels": [
+   "/api/v1/grants"
+  ],
+  "source": "backend/app/management/routers/authorization.py:267",
+  "section": "administer",
+  "operationId": "post_grant_api_v1_grants_post",
+  "summary": "Post Grant",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/grants/{grant_id}",
+  "labels": [
+   "/api/v1/grants/{grant_id}"
+  ],
+  "source": "backend/app/management/routers/authorization.py:279",
+  "section": "administer",
+  "operationId": "delete_grant_api_v1_grants__grant_id__delete",
+  "summary": "Delete Grant",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/users/{user_id}/grants",
+  "labels": [
+   "/api/v1/users/{user_id}/grants"
+  ],
+  "source": "backend/app/management/routers/authorization.py:288",
+  "section": "administer",
+  "operationId": "list_user_grants_api_v1_users__user_id__grants_get",
+  "summary": "List User Grants",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/grant-options",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/grant-options"
+  ],
+  "source": "backend/app/management/routers/authorization.py:301",
+  "section": "administer",
+  "operationId": "get_grant_options_api_v1_workspaces__workspace_key__grant_options_get",
+  "summary": "Get Grant Options",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/access",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/access"
+  ],
+  "source": "backend/app/management/routers/authorization.py:318",
+  "section": "administer",
+  "operationId": "list_workspace_access_api_v1_workspaces__workspace_key__access_get",
+  "summary": "List Workspace Access",
+  "tags": [
+   "security"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/capabilities",
+  "labels": [
+   "/api/v1/capabilities"
+  ],
+  "source": "backend/app/management/routers/model.py:57",
+  "section": "model",
+  "operationId": "get_capabilities_api_v1_capabilities_get",
+  "summary": "Get Capabilities",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model",
+  "labels": [
+   "/api/v1/model"
+  ],
+  "source": "backend/app/management/routers/model.py:112",
+  "section": "model",
+  "operationId": "get_model_api_v1_model_get",
+  "summary": "Get Model",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model/placements",
+  "labels": [
+   "/api/v1/model/placements"
+  ],
+  "source": "backend/app/management/routers/model.py:144",
+  "section": "model",
+  "operationId": "get_model_placements_api_v1_model_placements_get",
+  "summary": "Get Model Placements",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model/consumer-apis/{consumerApi}",
+  "labels": [
+   "/api/v1/model/consumer-apis/{consumerApi}"
+  ],
+  "source": "backend/app/management/routers/model.py:154",
+  "section": "model",
+  "operationId": "get_consumer_api_definition_api_v1_model_consumer_apis__consumerApi__get",
+  "summary": "Get Consumer Api Definition",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-validations",
+  "labels": [
+   "/api/v1/model-validations"
+  ],
+  "source": "backend/app/management/routers/model.py:187",
+  "section": "model",
+  "operationId": "validate_model_api_v1_model_validations_post",
+  "summary": "Validate Model",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/applications",
+  "labels": [
+   "/api/v1/applications"
+  ],
+  "source": "backend/app/management/routers/model.py:201",
+  "section": "model",
+  "operationId": "get_applications_api_v1_applications_get",
+  "summary": "Get Applications",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/applications/{application_key}",
+  "labels": [
+   "/api/v1/applications/{application_key}"
+  ],
+  "source": "backend/app/management/routers/model.py:223",
+  "section": "model",
+  "operationId": "get_application_detail_api_v1_applications__application_key__get",
+  "summary": "Get Application Detail",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/attribute-types",
+  "labels": [
+   "/api/v1/attribute-types"
+  ],
+  "source": "backend/app/management/routers/model.py:232",
+  "section": "model",
+  "operationId": "list_attribute_types_api_v1_attribute_types_get",
+  "summary": "List Attribute Types",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/attribute-types/{attribute_type_key}",
+  "labels": [
+   "/api/v1/attribute-types/{attribute_type_key}"
+  ],
+  "source": "backend/app/management/routers/model.py:254",
+  "section": "model",
+  "operationId": "get_attribute_type_api_v1_attribute_types__attribute_type_key__get",
+  "summary": "Get Attribute Type",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/object-types",
+  "labels": [
+   "/api/v1/object-types"
+  ],
+  "source": "backend/app/management/routers/model.py:267",
+  "section": "model",
+  "operationId": "list_object_types_api_v1_object_types_get",
+  "summary": "List Object Types",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/object-types/{object_type_key}",
+  "labels": [
+   "/api/v1/object-types/{object_type_key}"
+  ],
+  "source": "backend/app/management/routers/model.py:289",
+  "section": "model",
+  "operationId": "get_object_type_detail_api_v1_object_types__object_type_key__get",
+  "summary": "Get Object Type Detail",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/relation-types",
+  "labels": [
+   "/api/v1/relation-types"
+  ],
+  "source": "backend/app/management/routers/model.py:298",
+  "section": "model",
+  "operationId": "list_relation_types_api_v1_relation_types_get",
+  "summary": "List Relation Types",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/relation-types/{relation_type_key}",
+  "labels": [
+   "/api/v1/relation-types/{relation_type_key}"
+  ],
+  "source": "backend/app/management/routers/model.py:320",
+  "section": "model",
+  "operationId": "get_relation_type_api_v1_relation_types__relation_type_key__get",
+  "summary": "Get Relation Type",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/object-type-relations",
+  "labels": [
+   "/api/v1/object-type-relations"
+  ],
+  "source": "backend/app/management/routers/model.py:333",
+  "section": "model",
+  "operationId": "get_object_type_relations_api_v1_object_type_relations_get",
+  "summary": "Get Object Type Relations",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/system",
+  "labels": [
+   "/api/v1/system"
+  ],
+  "source": "backend/app/management/routers/system.py:61",
+  "section": "run",
+  "operationId": "get_system_api_v1_system_get",
+  "summary": "Get System",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/system/configuration",
+  "labels": [
+   "/api/v1/system/configuration"
+  ],
+  "source": "backend/app/management/routers/system.py:96",
+  "section": "run",
+  "operationId": "get_configuration_api_v1_system_configuration_get",
+  "summary": "Get Configuration",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/system/processes",
+  "labels": [
+   "/api/v1/system/processes"
+  ],
+  "source": "backend/app/management/routers/system.py:118",
+  "section": "run",
+  "operationId": "list_processes_api_v1_system_processes_get",
+  "summary": "List Processes",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/system/readiness",
+  "labels": [
+   "/api/v1/system/readiness"
+  ],
+  "source": "backend/app/management/routers/system.py:144",
+  "section": "run",
+  "operationId": "list_readiness_api_v1_system_readiness_get",
+  "summary": "List Readiness",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/system/summary",
+  "labels": [
+   "/api/v1/system/summary"
+  ],
+  "source": "backend/app/management/routers/system.py:173",
+  "section": "run",
+  "operationId": "get_summary_api_v1_system_summary_get",
+  "summary": "Get Summary",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/system/backup-rehearsals",
+  "labels": [
+   "/api/v1/system/backup-rehearsals"
+  ],
+  "source": "backend/app/management/routers/system.py:183",
+  "section": "run",
+  "operationId": "list_backup_rehearsals_api_v1_system_backup_rehearsals_get",
+  "summary": "List Backup Rehearsals",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /metrics",
+  "labels": [
+   "/metrics"
+  ],
+  "source": "backend/app/management/routers/system.py:211",
+  "section": "run",
+  "operationId": "get_metrics_metrics_get",
+  "summary": "Get Metrics",
+  "tags": [
+   "system"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-releases",
+  "labels": [
+   "/api/v1/model-releases"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:60",
+  "section": "model",
+  "operationId": "list_model_releases_api_v1_model_releases_get",
+  "summary": "List Model Releases",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-releases/{release_id}",
+  "labels": [
+   "/api/v1/model-releases/{release_id}"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:111",
+  "section": "model",
+  "operationId": "get_model_release_api_v1_model_releases__release_id__get",
+  "summary": "Get Model Release",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/model-releases/{release_id}",
+  "labels": [
+   "/api/v1/model-releases/{release_id}"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:126",
+  "section": "model",
+  "operationId": "patch_model_release_api_v1_model_releases__release_id__patch",
+  "summary": "Patch Model Release",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/model-releases/{release_id}",
+  "labels": [
+   "/api/v1/model-releases/{release_id}"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:146",
+  "section": "model",
+  "operationId": "delete_model_release_api_v1_model_releases__release_id__delete",
+  "summary": "Delete Model Release",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-releases/{release_id}/activations",
+  "labels": [
+   "/api/v1/model-releases/{release_id}/activations"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:161",
+  "section": "model",
+  "operationId": "list_model_release_activations_api_v1_model_releases__release_id__activations_get",
+  "summary": "List Model Release Activations",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-releases/{release_id}/diff",
+  "labels": [
+   "/api/v1/model-releases/{release_id}/diff"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:212",
+  "section": "model",
+  "operationId": "diff_model_release_api_v1_model_releases__release_id__diff_get",
+  "summary": "Diff Model Release",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-releases/{release_id}/raising",
+  "labels": [
+   "/api/v1/model-releases/{release_id}/raising"
+  ],
+  "source": "backend/app/management/routers/model_releases.py:293",
+  "section": "model",
+  "operationId": "raise_model_release_api_v1_model_releases__release_id__raising_post",
+  "summary": "Raise Model Release",
+  "tags": [
+   "model"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces",
+  "labels": [
+   "/api/v1/workspaces"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:90",
+  "section": "use",
+  "operationId": "list_workspaces_api_v1_workspaces_get",
+  "summary": "List Workspaces",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces",
+  "labels": [
+   "/api/v1/workspaces"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:254",
+  "section": "use",
+  "operationId": "post_workspace_api_v1_workspaces_post",
+  "summary": "Post Workspace",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/workspaces",
+  "labels": [
+   "/api/v1/me/workspaces"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:115",
+  "section": "use",
+  "operationId": "list_own_workspaces_api_v1_me_workspaces_get",
+  "summary": "List Own Workspaces",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:155",
+  "section": "use",
+  "operationId": "get_workspace_api_v1_workspaces__workspace_key__get",
+  "summary": "Get Workspace",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/workspaces/{workspace_key}",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:262",
+  "section": "use",
+  "operationId": "patch_workspace_api_v1_workspaces__workspace_key__patch",
+  "summary": "Patch Workspace",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/workspaces/{workspace_key}",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:270",
+  "section": "use",
+  "operationId": "delete_workspace_route_api_v1_workspaces__workspace_key__delete",
+  "summary": "Delete Workspace Route",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/model",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/model"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:161",
+  "section": "use",
+  "operationId": "get_workspace_model_api_v1_workspaces__workspace_key__model_get",
+  "summary": "Get Workspace Model",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspace-models",
+  "labels": [
+   "/api/v1/workspace-models"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:168",
+  "section": "use",
+  "operationId": "list_workspace_models_api_v1_workspace_models_get",
+  "summary": "List Workspace Models",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/feed",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/feed"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:219",
+  "section": "use",
+  "operationId": "get_feed_api_v1_workspaces__workspace_key__feed_get",
+  "summary": "Get Feed",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspace-runtime-state",
+  "labels": [
+   "/api/v1/workspace-runtime-state"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:248",
+  "section": "use",
+  "operationId": "get_workspace_runtime_state_api_v1_workspace_runtime_state_get",
+  "summary": "Get Workspace Runtime State",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/workspace-runtime-state",
+  "labels": [
+   "/api/v1/workspace-runtime-state"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:280",
+  "section": "use",
+  "operationId": "patch_workspace_runtime_state_api_v1_workspace_runtime_state_patch",
+  "summary": "Patch Workspace Runtime State",
+  "tags": [
+   "workspaces"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/change-sets",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/change-sets"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:185",
+  "section": "use",
+  "operationId": "list_change_sets_api_v1_workspaces__workspace_key__change_sets_get",
+  "summary": "List Change Sets",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/change-sets",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/change-sets"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:307",
+  "section": "use",
+  "operationId": "post_change_set_api_v1_workspaces__workspace_key__change_sets_post",
+  "summary": "Post Change Set",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/me/change-sets",
+  "labels": [
+   "/api/v1/me/change-sets"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:222",
+  "section": "use",
+  "operationId": "list_own_change_sets_api_v1_me_change_sets_get",
+  "summary": "List Own Change Sets",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/change-sets/{change_set_id}",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:361",
+  "section": "use",
+  "operationId": "get_change_set_api_v1_change_sets__change_set_id__get",
+  "summary": "Get Change Set",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/change-sets/{change_set_id}",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:372",
+  "section": "use",
+  "operationId": "patch_change_set_api_v1_change_sets__change_set_id__patch",
+  "summary": "Patch Change Set",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/change-sets/{change_set_id}",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:436",
+  "section": "use",
+  "operationId": "delete_change_set_api_v1_change_sets__change_set_id__delete",
+  "summary": "Delete Change Set",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/change-sets/{change_set_id}/model-release",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/model-release"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:382",
+  "section": "use",
+  "operationId": "patch_change_set_model_release_api_v1_change_sets__change_set_id__model_release_patch",
+  "summary": "Patch Change Set Model Release",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/change-sets/{change_set_id}/object-changes",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/object-changes"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:527",
+  "section": "use",
+  "operationId": "get_object_changes_api_v1_change_sets__change_set_id__object_changes_get",
+  "summary": "Get Object Changes",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/change-sets/{change_set_id}/relation-changes",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/relation-changes"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:569",
+  "section": "use",
+  "operationId": "get_relation_changes_api_v1_change_sets__change_set_id__relation_changes_get",
+  "summary": "Get Relation Changes",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/restructurings/preview",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/restructurings/preview"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:681",
+  "section": "use",
+  "operationId": "post_restructuring_preview_api_v1_change_sets__change_set_id__restructurings_preview_post",
+  "summary": "Post Restructuring Preview",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/restructurings",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/restructurings"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:708",
+  "section": "use",
+  "operationId": "post_restructuring_api_v1_change_sets__change_set_id__restructurings_post",
+  "summary": "Post Restructuring",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/validation",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/validation"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:731",
+  "section": "use",
+  "operationId": "post_change_set_validation_api_v1_change_sets__change_set_id__validation_post",
+  "summary": "Post Change Set Validation",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/publication",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/publication"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:768",
+  "section": "use",
+  "operationId": "post_change_set_publication_api_v1_change_sets__change_set_id__publication_post",
+  "summary": "Post Change Set Publication",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/submission",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/submission"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:793",
+  "section": "use",
+  "operationId": "post_change_set_submission_api_v1_change_sets__change_set_id__submission_post",
+  "summary": "Post Change Set Submission",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/change-sets/{change_set_id}/submission",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/submission"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:812",
+  "section": "use",
+  "operationId": "delete_change_set_submission_api_v1_change_sets__change_set_id__submission_delete",
+  "summary": "Delete Change Set Submission",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/decisions",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/decisions"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:820",
+  "section": "use",
+  "operationId": "post_change_set_decision_api_v1_change_sets__change_set_id__decisions_post",
+  "summary": "Post Change Set Decision",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/publication-requests",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/publication-requests"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:851",
+  "section": "use",
+  "operationId": "list_publication_requests_api_v1_workspaces__workspace_key__publication_requests_get",
+  "summary": "List Publication Requests",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/approval-policy",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/approval-policy"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:888",
+  "section": "use",
+  "operationId": "get_approval_policy_api_v1_workspaces__workspace_key__approval_policy_get",
+  "summary": "Get Approval Policy",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/workspaces/{workspace_key}/approval-policy",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/approval-policy"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:904",
+  "section": "use",
+  "operationId": "put_approval_policy_api_v1_workspaces__workspace_key__approval_policy_put",
+  "summary": "Put Approval Policy",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/publications",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/publications"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:927",
+  "section": "use",
+  "operationId": "list_publications_api_v1_workspaces__workspace_key__publications_get",
+  "summary": "List Publications",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/publications/{publication_id}",
+  "labels": [
+   "/api/v1/publications/{publication_id}"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:959",
+  "section": "use",
+  "operationId": "get_publication_api_v1_publications__publication_id__get",
+  "summary": "Get Publication",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/publications/{publication_id}/withdrawal",
+  "labels": [
+   "/api/v1/publications/{publication_id}/withdrawal"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:968",
+  "section": "use",
+  "operationId": "post_publication_withdrawal_api_v1_publications__publication_id__withdrawal_post",
+  "summary": "Post Publication Withdrawal",
+  "tags": [
+   "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/changes",
+  "labels": [
+   "/api/v1/changes"
+  ],
+  "source": "backend/app/management/routers/changes.py:21",
+  "section": "use",
+  "operationId": "list_changes_api_v1_changes_get",
+  "summary": "List Changes",
+  "tags": [
+   "changes"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/objects",
+  "labels": [
+   "/api/v1/objects"
+  ],
+  "source": "backend/app/management/routers/objects.py:184",
+  "section": "use",
+  "operationId": "create_object_api_v1_objects_post",
+  "summary": "Create Object",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects",
+  "labels": [
+   "/api/v1/objects"
+  ],
+  "source": "backend/app/management/routers/objects.py:533",
+  "section": "use",
+  "operationId": "lookup_objects_api_v1_objects_get",
+  "summary": "Lookup Objects",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/objects/{object_type_key}/{object_id}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}"
+  ],
+  "source": "backend/app/management/routers/objects.py:205",
+  "section": "use",
+  "operationId": "update_object_api_v1_objects__object_type_key___object_id__patch",
+  "summary": "Update Object",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/objects/{object_type_key}/{object_id}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}"
+  ],
+  "source": "backend/app/management/routers/objects.py:221",
+  "section": "use",
+  "operationId": "delete_object_api_v1_objects__object_type_key___object_id__delete",
+  "summary": "Delete Object",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects/{object_type_key}/{object_id}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}"
+  ],
+  "source": "backend/app/management/routers/objects.py:764",
+  "section": "use",
+  "operationId": "get_object_api_v1_objects__object_type_key___object_id__get",
+  "summary": "Get Object",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects/{object_type_key}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}"
+  ],
+  "source": "backend/app/management/routers/objects.py:285",
+  "section": "use",
+  "operationId": "list_objects_api_v1_objects__object_type_key__get",
+  "summary": "List Objects",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects/{object_type_key}/{object_id}/parent-candidates",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/parent-candidates"
+  ],
+  "source": "backend/app/management/routers/objects.py:836",
+  "section": "use",
+  "operationId": "get_parent_candidates_api_v1_objects__object_type_key___object_id__parent_candidates_get",
+  "summary": "Get Parent Candidates",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects/{object_type_key}/{object_id}/history",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/history"
+  ],
+  "source": "backend/app/management/routers/objects.py:891",
+  "section": "use",
+  "operationId": "get_object_history_api_v1_objects__object_type_key___object_id__history_get",
+  "summary": "Get Object History",
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/queries/objects",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/queries/objects"
+  ],
+  "source": "backend/app/management/routers/queries.py:20",
+  "section": "use",
+  "operationId": "query_workspace_objects_api_v1_workspaces__workspace_key__queries_objects_post",
+  "summary": "Query Workspace Objects",
+  "tags": [
+   "objects",
+   "queries"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
+  ],
+  "source": "backend/app/management/routers/attributes.py:31",
+  "section": "use",
+  "operationId": "get_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__get",
+  "summary": "Get Attribute Value",
+  "tags": [
+   "attributes"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
+  ],
+  "source": "backend/app/management/routers/attributes.py:110",
+  "section": "use",
+  "operationId": "create_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__post",
+  "summary": "Create Attribute Value",
+  "tags": [
+   "attributes"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
+  ],
+  "source": "backend/app/management/routers/attributes.py:117",
+  "section": "use",
+  "operationId": "update_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__patch",
+  "summary": "Update Attribute Value",
+  "tags": [
+   "attributes"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
+  ],
+  "source": "backend/app/management/routers/attributes.py:124",
+  "section": "use",
+  "operationId": "remove_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__delete",
+  "summary": "Remove Attribute Value",
+  "tags": [
+   "attributes"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/relations",
+  "labels": [
+   "/api/v1/relations"
+  ],
+  "source": "backend/app/management/routers/relations.py:105",
+  "section": "use",
+  "operationId": "create_relation_api_v1_relations_post",
+  "summary": "Create Relation",
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/relations",
+  "labels": [
+   "/api/v1/relations"
+  ],
+  "source": "backend/app/management/routers/relations.py:115",
+  "section": "use",
+  "operationId": "list_relations_api_v1_relations_get",
+  "summary": "List Relations",
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/relations/held",
+  "labels": [
+   "/api/v1/relations/held"
+  ],
+  "source": "backend/app/management/routers/relations.py:235",
+  "section": "use",
+  "operationId": "list_held_records_api_v1_relations_held_get",
+  "summary": "List Held Records",
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/relations/{relation_id}",
+  "labels": [
+   "/api/v1/relations/{relation_id}"
+  ],
+  "source": "backend/app/management/routers/relations.py:299",
+  "section": "use",
+  "operationId": "get_relation_api_v1_relations__relation_id__get",
+  "summary": "Get Relation",
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/relations/{relation_id}",
+  "labels": [
+   "/api/v1/relations/{relation_id}"
+  ],
+  "source": "backend/app/management/routers/relations.py:320",
+  "section": "use",
+  "operationId": "update_relation_api_v1_relations__relation_id__patch",
+  "summary": "Update Relation",
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/relations/{relation_id}",
+  "labels": [
+   "/api/v1/relations/{relation_id}"
+  ],
+  "source": "backend/app/management/routers/relations.py:329",
+  "section": "use",
+  "operationId": "remove_relation_api_v1_relations__relation_id__delete",
+  "summary": "Remove Relation",
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/mapping-coverage",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/mapping-coverage"
+  ],
+  "source": "backend/app/management/routers/mapping.py:89",
+  "section": "use",
+  "operationId": "mapping_coverage_api_v1_workspaces__workspace_key__mapping_coverage_get",
+  "summary": "Mapping Coverage",
+  "tags": [
+   "mapping"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/relations",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/relations"
+  ],
+  "source": "backend/app/management/routers/mapping.py:184",
+  "section": "use",
+  "operationId": "get_workspace_relations_api_v1_workspaces__workspace_key__relations_get",
+  "summary": "Get Workspace Relations",
+  "tags": [
+   "mapping",
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/mapping-candidates",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/mapping-candidates"
+  ],
+  "source": "backend/app/management/routers/mapping.py:194",
+  "section": "use",
+  "operationId": "mapping_candidates_api_v1_workspaces__workspace_key__mapping_candidates_get",
+  "summary": "Mapping Candidates",
+  "tags": [
+   "mapping"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/mapping-targets",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/mapping-targets"
+  ],
+  "source": "backend/app/management/routers/mapping.py:252",
+  "section": "use",
+  "operationId": "mapping_targets_api_v1_workspaces__workspace_key__mapping_targets_get",
+  "summary": "Mapping Targets",
+  "tags": [
+   "mapping"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/workspaces/{workspace_key}/mappings",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/mappings"
+  ],
+  "source": "backend/app/management/routers/mapping.py:264",
+  "section": "use",
+  "operationId": "put_mapping_api_v1_workspaces__workspace_key__mappings_put",
+  "summary": "Put Mapping",
+  "tags": [
+   "mapping"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/mapping-proposals",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/mapping-proposals"
+  ],
+  "source": "backend/app/management/routers/mapping.py:286",
+  "section": "use",
+  "operationId": "post_mapping_proposals_api_v1_workspaces__workspace_key__mapping_proposals_post",
+  "summary": "Post Mapping Proposals",
+  "tags": [
+   "mapping"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/relation-matrix",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/relation-matrix"
+  ],
+  "source": "backend/app/management/routers/relation_matrix.py:45",
+  "section": "use",
+  "operationId": "get_relation_matrix_api_v1_workspaces__workspace_key__relation_matrix_get",
+  "summary": "Get Relation Matrix",
+  "tags": [
+   "relation-matrix"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/relation-matrix/containers",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/relation-matrix/containers"
+  ],
+  "source": "backend/app/management/routers/relation_matrix.py:101",
+  "section": "use",
+  "operationId": "get_relation_matrix_containers_api_v1_workspaces__workspace_key__relation_matrix_containers_get",
+  "summary": "Get Relation Matrix Containers",
+  "tags": [
+   "relation-matrix"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates"
+  ],
+  "source": "backend/app/management/routers/relation_matrix.py:120",
+  "section": "use",
+  "operationId": "get_relation_matrix_link_candidates_api_v1_workspaces__workspace_key__relation_matrix_link_candidates_get",
+  "summary": "Get Relation Matrix Link Candidates",
+  "tags": [
+   "relation-matrix"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/jobs",
+  "labels": [
+   "/api/v1/jobs"
+  ],
+  "source": "backend/app/management/routers/jobs.py:245",
+  "section": "use",
+  "operationId": "list_jobs_api_v1_jobs_get",
+  "summary": "List Jobs",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/jobs/{job_id}",
+  "labels": [
+   "/api/v1/jobs/{job_id}"
+  ],
+  "source": "backend/app/management/routers/jobs.py:279",
+  "section": "use",
+  "operationId": "get_job_api_v1_jobs__job_id__get",
+  "summary": "Get Job",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/jobs/{job_id}/items",
+  "labels": [
+   "/api/v1/jobs/{job_id}/items"
+  ],
+  "source": "backend/app/management/routers/jobs.py:285",
+  "section": "use",
+  "operationId": "list_job_items_api_v1_jobs__job_id__items_get",
+  "summary": "List Job Items",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/jobs/{job_id}/rows",
+  "labels": [
+   "/api/v1/jobs/{job_id}/rows"
+  ],
+  "source": "backend/app/management/routers/jobs.py:304",
+  "section": "use",
+  "operationId": "list_job_rows_api_v1_jobs__job_id__rows_get",
+  "summary": "List Job Rows",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/jobs/{job_id}/output",
+  "labels": [
+   "/api/v1/jobs/{job_id}/output"
+  ],
+  "source": "backend/app/management/routers/jobs.py:355",
+  "section": "use",
+  "operationId": "get_job_output_api_v1_jobs__job_id__output_get",
+  "summary": "Get Job Output",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/jobs/{job_id}/events",
+  "labels": [
+   "/api/v1/jobs/{job_id}/events"
+  ],
+  "source": "backend/app/management/routers/jobs.py:416",
+  "section": "use",
+  "operationId": "job_events_api_v1_jobs__job_id__events_get",
+  "summary": "Job Events",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles",
+  "labels": [
+   "/api/v1/import-profiles"
+  ],
+  "source": "backend/app/management/routers/imports.py:58",
+  "section": "use",
+  "operationId": "list_import_profiles_api_v1_import_profiles_get",
+  "summary": "List Import Profiles",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/import-profiles",
+  "labels": [
+   "/api/v1/import-profiles"
+  ],
+  "source": "backend/app/management/routers/imports.py:88",
+  "section": "use",
+  "operationId": "create_import_profile_api_v1_import_profiles_post",
+  "summary": "Create Import Profile",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles/{profile_key}",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}"
+  ],
+  "source": "backend/app/management/routers/imports.py:74",
+  "section": "use",
+  "operationId": "get_import_profile_api_v1_import_profiles__profile_key__get",
+  "summary": "Get Import Profile",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/import-profiles/{profile_key}",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}"
+  ],
+  "source": "backend/app/management/routers/imports.py:100",
+  "section": "use",
+  "operationId": "update_import_profile_api_v1_import_profiles__profile_key__put",
+  "summary": "Update Import Profile",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/import-profiles/{profile_key}",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}"
+  ],
+  "source": "backend/app/management/routers/imports.py:112",
+  "section": "use",
+  "operationId": "delete_import_profile_api_v1_import_profiles__profile_key__delete",
+  "summary": "Delete Import Profile",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles/{profile_key}/check",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}/check"
+  ],
+  "source": "backend/app/management/routers/imports.py:228",
+  "section": "use",
+  "operationId": "get_profile_check_api_v1_import_profiles__profile_key__check_get",
+  "summary": "Get Profile Check",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/import-profiles/{profile_key}/check",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}/check"
+  ],
+  "source": "backend/app/management/routers/imports.py:240",
+  "section": "use",
+  "operationId": "run_profile_check_api_v1_import_profiles__profile_key__check_post",
+  "summary": "Run Profile Check",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles/{profile_key}/check/new-values",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}/check/new-values"
+  ],
+  "source": "backend/app/management/routers/imports.py:259",
+  "section": "use",
+  "operationId": "list_check_new_values_api_v1_import_profiles__profile_key__check_new_values_get",
+  "summary": "List Check New Values",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles/{profile_key}/check/drift",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}/check/drift"
+  ],
+  "source": "backend/app/management/routers/imports.py:282",
+  "section": "use",
+  "operationId": "list_check_drift_api_v1_import_profiles__profile_key__check_drift_get",
+  "summary": "List Check Drift",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles/{profile_key}/check/missing-records",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}/check/missing-records"
+  ],
+  "source": "backend/app/management/routers/imports.py:304",
+  "section": "use",
+  "operationId": "list_check_missing_records_api_v1_import_profiles__profile_key__check_missing_records_get",
+  "summary": "List Check Missing Records",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/import-profiles/{profile_key}/check/rows",
+  "labels": [
+   "/api/v1/import-profiles/{profile_key}/check/rows"
+  ],
+  "source": "backend/app/management/routers/imports.py:329",
+  "section": "use",
+  "operationId": "list_check_rows_api_v1_import_profiles__profile_key__check_rows_get",
+  "summary": "List Check Rows",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/ai/tasks",
+  "labels": [
+   "/api/v1/ai/tasks"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:135",
+  "section": "administer",
+  "operationId": "list_ai_tasks_api_v1_ai_tasks_get",
+  "summary": "List Ai Tasks",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks",
+  "labels": [
+   "/api/v1/ai/tasks"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:73",
+  "section": "administer",
+  "operationId": "create_ai_task_api_v1_ai_tasks_post",
+  "summary": "Create Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/ai/tasks/{task_id}",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:160",
+  "section": "administer",
+  "operationId": "get_ai_task_api_v1_ai_tasks__task_id__get",
+  "summary": "Get Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/ai/tasks/{task_id}/changes",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/changes"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:169",
+  "section": "administer",
+  "operationId": "list_ai_task_changes_api_v1_ai_tasks__task_id__changes_get",
+  "summary": "List Ai Task Changes",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/source-files",
+  "labels": [
+   "/api/v1/source-files"
+  ],
+  "source": "backend/app/management/routers/source_files.py:135",
+  "section": "use",
+  "operationId": "list_source_files_api_v1_source_files_get",
+  "summary": "List Source Files",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/source-files",
+  "labels": [
+   "/api/v1/source-files"
+  ],
+  "source": "backend/app/management/routers/source_files.py:92",
+  "section": "use",
+  "operationId": "create_source_file_api_v1_source_files_post",
+  "summary": "Create Source File",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/source-files/{source_file_id}",
+  "labels": [
+   "/api/v1/source-files/{source_file_id}"
+  ],
+  "source": "backend/app/management/routers/source_files.py:159",
+  "section": "use",
+  "operationId": "get_source_file_api_v1_source_files__source_file_id__get",
+  "summary": "Get Source File",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/source-files/{source_file_id}",
+  "labels": [
+   "/api/v1/source-files/{source_file_id}"
+  ],
+  "source": "backend/app/management/routers/source_files.py:170",
+  "section": "use",
+  "operationId": "remove_source_file_api_v1_source_files__source_file_id__delete",
+  "summary": "Remove Source File",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/source-files/{source_file_id}/profile/sheets",
+  "labels": [
+   "/api/v1/source-files/{source_file_id}/profile/sheets"
+  ],
+  "source": "backend/app/management/routers/source_files.py:189",
+  "section": "use",
+  "operationId": "list_source_sheets_api_v1_source_files__source_file_id__profile_sheets_get",
+  "summary": "List Source Sheets",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns",
+  "labels": [
+   "/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns"
+  ],
+  "source": "backend/app/management/routers/source_files.py:205",
+  "section": "use",
+  "operationId": "list_source_columns_api_v1_source_files__source_file_id__profile_sheets__sheet__columns_get",
+  "summary": "List Source Columns",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells",
+  "labels": [
+   "/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells"
+  ],
+  "source": "backend/app/management/routers/source_files.py:225",
+  "section": "use",
+  "operationId": "list_source_cells_api_v1_source_files__source_file_id__profile_sheets__sheet__cells_get",
+  "summary": "List Source Cells",
+  "tags": [
+   "source files"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-mappings",
+  "labels": [
+   "/api/v1/model-mappings"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:102",
+  "section": "model",
+  "operationId": "list_model_mappings_api_v1_model_mappings_get",
+  "summary": "List Model Mappings",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-mappings",
+  "labels": [
+   "/api/v1/model-mappings"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:219",
+  "section": "model",
+  "operationId": "create_model_mapping_api_v1_model_mappings_post",
+  "summary": "Create Model Mapping",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-mappings/{key}",
+  "labels": [
+   "/api/v1/model-mappings/{key}"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:124",
+  "section": "model",
+  "operationId": "get_model_mapping_api_v1_model_mappings__key__get",
+  "summary": "Get Model Mapping",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/model-mappings/{key}",
+  "labels": [
+   "/api/v1/model-mappings/{key}"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:238",
+  "section": "model",
+  "operationId": "delete_model_mapping_api_v1_model_mappings__key__delete",
+  "summary": "Delete Model Mapping",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-mappings/{key}/operations",
+  "labels": [
+   "/api/v1/model-mappings/{key}/operations"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:144",
+  "section": "model",
+  "operationId": "list_model_mapping_operations_api_v1_model_mappings__key__operations_get",
+  "summary": "List Model Mapping Operations",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-mappings/{key}/operations",
+  "labels": [
+   "/api/v1/model-mappings/{key}/operations"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:248",
+  "section": "model",
+  "operationId": "apply_model_mapping_operations_api_v1_model_mappings__key__operations_post",
+  "summary": "Apply Model Mapping Operations",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-mappings/{key}/inference",
+  "labels": [
+   "/api/v1/model-mappings/{key}/inference"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:167",
+  "section": "model",
+  "operationId": "get_mapping_inference_api_v1_model_mappings__key__inference_get",
+  "summary": "Get Mapping Inference",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-mappings/{key}/inference",
+  "labels": [
+   "/api/v1/model-mappings/{key}/inference"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:289",
+  "section": "model",
+  "operationId": "run_mapping_inference_api_v1_model_mappings__key__inference_post",
+  "summary": "Run Mapping Inference",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-mappings/{key}/inference/proposals",
+  "labels": [
+   "/api/v1/model-mappings/{key}/inference/proposals"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:178",
+  "section": "model",
+  "operationId": "list_mapping_proposals_api_v1_model_mappings__key__inference_proposals_get",
+  "summary": "List Mapping Proposals",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/batches",
+  "labels": [
+   "/api/v1/batches"
+  ],
+  "source": "backend/app/management/routers/jobs.py:69",
+  "section": "use",
+  "operationId": "create_batch_api_v1_batches_post",
+  "summary": "Create Batch",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/jobs/{job_id}/cancel",
+  "labels": [
+   "/api/v1/jobs/{job_id}/cancel"
+  ],
+  "source": "backend/app/management/routers/jobs.py:148",
+  "section": "use",
+  "operationId": "cancel_job_api_v1_jobs__job_id__cancel_post",
+  "summary": "Cancel Job",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/jobs/{job_id}/confirm",
+  "labels": [
+   "/api/v1/jobs/{job_id}/confirm"
+  ],
+  "source": "backend/app/management/routers/jobs.py:166",
+  "section": "use",
+  "operationId": "confirm_job_api_v1_jobs__job_id__confirm_post",
+  "summary": "Confirm Job",
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/exports",
+  "labels": [
+   "/api/v1/exports"
+  ],
+  "source": "backend/app/management/routers/jobs.py:217",
+  "section": "use",
+  "operationId": "create_export_api_v1_exports_post",
+  "summary": "Create Export",
+  "tags": [
+   "jobs",
+   "exports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/imports",
+  "labels": [
+   "/api/v1/imports"
+  ],
+  "source": "backend/app/management/routers/imports.py:123",
+  "section": "use",
+  "operationId": "create_import_api_v1_imports_post",
+  "summary": "Create Import",
+  "tags": [
+   "imports"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/run",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/run"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:192",
+  "section": "administer",
+  "operationId": "run_ai_task_api_v1_ai_tasks__task_id__run_post",
+  "summary": "Run Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/answers",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/answers"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:236",
+  "section": "administer",
+  "operationId": "answer_ai_task_api_v1_ai_tasks__task_id__answers_post",
+  "summary": "Answer Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/model",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/model"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:263",
+  "section": "administer",
+  "operationId": "correct_ai_task_model_api_v1_ai_tasks__task_id__model_post",
+  "summary": "Correct Ai Task Model",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/accept",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/accept"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:296",
+  "section": "administer",
+  "operationId": "accept_ai_task_model_api_v1_ai_tasks__task_id__accept_post",
+  "summary": "Accept Ai Task Model",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/retry",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/retry"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:328",
+  "section": "administer",
+  "operationId": "retry_ai_task_api_v1_ai_tasks__task_id__retry_post",
+  "summary": "Retry Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/discard",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/discard"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:356",
+  "section": "administer",
+  "operationId": "discard_ai_task_api_v1_ai_tasks__task_id__discard_post",
+  "summary": "Discard Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/proposal",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/proposal"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:382",
+  "section": "administer",
+  "operationId": "reopen_ai_task_proposal_api_v1_ai_tasks__task_id__proposal_post",
+  "summary": "Reopen Ai Task Proposal",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/ai/tasks/{task_id}/cancel",
+  "labels": [
+   "/api/v1/ai/tasks/{task_id}/cancel"
+  ],
+  "source": "backend/app/management/routers/ai_tasks.py:403",
+  "section": "administer",
+  "operationId": "cancel_ai_task_api_v1_ai_tasks__task_id__cancel_post",
+  "summary": "Cancel Ai Task",
+  "tags": [
+   "ai"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-mappings/{key}/undo",
+  "labels": [
+   "/api/v1/model-mappings/{key}/undo"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:268",
+  "section": "model",
+  "operationId": "undo_model_mapping_step_api_v1_model_mappings__key__undo_post",
+  "summary": "Undo Model Mapping Step",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-mappings/{key}/redo",
+  "labels": [
+   "/api/v1/model-mappings/{key}/redo"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:280",
+  "section": "model",
+  "operationId": "redo_model_mapping_step_api_v1_model_mappings__key__redo_post",
+  "summary": "Redo Model Mapping Step",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-mappings/{key}/inference/application",
+  "labels": [
+   "/api/v1/model-mappings/{key}/inference/application"
+  ],
+  "source": "backend/app/management/routers/model_mappings.py:315",
+  "section": "model",
+  "operationId": "apply_mapping_proposals_api_v1_model_mappings__key__inference_application_post",
+  "summary": "Apply Mapping Proposals",
+  "tags": [
+   "model mappings"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/change-sets/{change_set_id}/model-migrations",
+  "labels": [
+   "/api/v1/change-sets/{change_set_id}/model-migrations"
+  ],
+  "source": "backend/app/management/routers/change_sets.py:398",
+  "section": "use",
+  "operationId": "start_change_set_migration_api_v1_change_sets__change_set_id__model_migrations_post",
+  "summary": "Start Change Set Migration",
+  "tags": [
+   "change-sets"
+  ]
+ }
+]

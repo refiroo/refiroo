@@ -48,3 +48,7 @@ To stop requiring the second step, clear **Require a second factor with a passwo
 This saves immediately. It does not remove anyone's configured app or passkeys; an account
 with an authenticator app continues to use it until that factor is removed.
 People cannot remove their own required factor while the requirement is on.
+
+Changing this policy does not end existing sessions. To require a particular person to
+sign in again, open their People page and use **Sign out everywhere**, then check their
+next password sign-in. Do not treat an already open session as a test of the new policy.

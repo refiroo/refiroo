@@ -35,3 +35,29 @@ Work in a draft with **Model authoring**. Read
 
 **Detach from …** removes the attachment and its uses in that type's views and panels; it does
 not mean remove the attribute from every type. Read the confirmation, or cancel to keep it.
+
+## Set bounds and field guidance
+
+1. Select the shared definition under **Attribute types**. For Whole number or Decimal number,
+   edit **Minimum** or **Maximum** in **Settings**. Both open **Minimum and maximum…**. Enter
+   either or both, or leave them empty to remove bounds, then **Apply**. A minimum greater
+   than the maximum is invalid. All uses of the shared field receive these bounds.
+2. Edit **Hidden** or **Help text** in the same Settings table and **Save**. These are shared
+   presentation choices. Hidden leaves the field off record forms without deleting its data.
+3. To provide guidance for just one type, select that type’s **Attributes** table and edit
+   **Hidden** or **Help text** there. A local help text replaces the shared help; clearing it
+   returns to shared help. A field hidden by the shared definition remains hidden even when
+   the local cell says No. Review a populated and an empty record in Preview.
+4. Check Issues and the release comparison. Bounds apply to stored values too; saving the draft
+   does not convert or fill data. Correct incompatible records or review a migration before
+   activating the release.
+
+![Shared attribute Settings with bounds, field guidance and a released-key migration notice](/docs/screens/model-attribute-settings.png)
+
+*Above: Height (m) has a minimum of 0, a maximum of 4500, Hidden set to No and help text. Its facts say Released: a key change needs a migration.*
+
+The shared definition’s **Attach to a type…** is another way to reuse it. **Change key…** is
+also available after release, with a migration and a warning that integrations naming the key
+must change. See [Rename or re-key an element](/docs/guide/model/rename-or-re-key-an-element/). **Remove attribute type** removes the common definition where
+allowed; review its attachments and the confirmation. Detaching from one type is the smaller
+change when other types still need it.

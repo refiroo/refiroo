@@ -180,8 +180,8 @@ An external assistant can prepare and submit only change sets created by its own
 client, not a colleague's. It can add or change records and relationships and set fields,
 but cannot remove records or relationships, clear values, discard a set, withdraw a submission,
 change the model, approve or publish. A person reviews the submitted work through
-[change-set review](/docs/guide/use/review-what-a-change-set-changes/). Editing a submitted change
-set withdraws its submission; a second-person policy still needs a different approver from
+[change-set review](/docs/guide/use/review-what-a-change-set-changes/). Withdraw the request before editing a submitted change
+set; a second-person policy still needs a different approver from
 the person whose assistant submitted it. Correct mistaken additions yourself or have the
 assistant prepare a new set. These external-assistant limits differ from the built-in workbook
 task's fuller preparation abilities. See [AI and your data](/docs/use/ai-and-your-data/) before

@@ -48,6 +48,12 @@ values, rather than empty fields. Depending on the model, a field may be require
 unique, or limited to a range. A save that breaks a rule is refused with a reason. A blank optional
 field means that no value has been set.
 
+A model can hide a field from record forms and the fields panel. A hidden field is absent,
+rather than an empty field you should fill. Hiding it does not delete its stored value.
+Ask the model administrator if information needed for your task is missing. Read any help
+text below a form field: it explains that field's use. The model can give a field different
+help for different record types. Read-only fields can be shown but cannot be changed.
+
 The model also chooses how the record's page presents it. Fields may appear in the heading or
 in a details panel; other panels show children, relationships and history. For ways to edit a
 single value or several fields together, see [Correct a record](/docs/guide/use/correct-a-record/).

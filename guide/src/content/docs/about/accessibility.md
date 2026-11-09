@@ -16,9 +16,13 @@ Long lists load and draw a bounded part of their records. Use the collection's s
 
 ## Choose the display
 
-**Settings → Appearance** offers **System**, **Light** and **Dark** themes. System follows the device's theme. **Table density** sets a comfortable or compact default; a table's own display choice can override it. **Type colours** offers two palettes, and **Edit pencil** controls whether edit hints appear on hover and focus or remain faintly visible. Touch screens always show the hints.
+**Settings → Appearance** offers **Normal** and **Website purple** under **Theme**.
+The separate **Light or dark** choice offers **System**, **Light** and **Dark**; System follows
+the device's light or dark setting. Both colour themes work with either light or dark. **Table density** sets a comfortable or compact default; a table's own display choice can override it. **Type colours** offers two palettes, and **Edit pencil** controls whether edit hints appear on hover and focus or remain faintly visible. Touch screens always show the hints.
 
-Choices are saved in that browser, so another browser or device keeps its own settings. Panel widths can be adjusted where the layout offers a separator. See [Change how refiroo looks](/docs/guide/use/change-how-refiroo-looks/).
+Choices take effect immediately without a Save button and are saved in that browser, so another
+browser or device keeps its own settings. To reset them, choose **Normal**, **System**,
+**Comfortable**, **B: magenta and olive** and **On hover and focus** again. Panel widths can be adjusted where the layout offers a separator. See [Change how refiroo looks](/docs/guide/use/change-how-refiroo-looks/).
 
 ## Use a phone or touch screen
 

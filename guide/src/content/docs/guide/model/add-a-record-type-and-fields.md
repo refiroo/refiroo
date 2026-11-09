@@ -85,5 +85,17 @@ A list of allowed records is a relationship to a list type, rather than another 
 type. **Turn into a list type…** on an attribute asks for the relationship's name and which
 records may be chosen. Configure its candidate criteria as described in
 [Add a relationship](/docs/guide/model/add-a-relationship/#limit-which-records-can-be-chosen).
-The field editor has no controls for default values, validity periods, formats or lengths;
-do not expect adding a field here to configure those rules.
+After adding fields, open the type’s **Settings**. Edit **Display attribute** to choose which
+attached field names records in lists, links and titles, or choose **None: records are named
+by their name**. Edit **At least one of** to select fields of which one must hold a value;
+clear the selection to remove that requirement.
+
+For business validity, attach two **Date** fields, then edit **Effective period**. Select
+**Starts on** and **Ends on**, and **Apply**. The fields must differ; the end is exclusive and
+must be later than the start when both are filled. Empty dates leave that end open. Adding
+the rule does not repair existing dates: review compatibility before activation.
+
+![Type Settings with display attribute, effective period and grouped requirement](/docs/screens/model-type-settings.png)
+
+Default values still need a specialist; see [the JSON view](/docs/model/json-view/).
+Text-format and length rules are not offered by these controls.

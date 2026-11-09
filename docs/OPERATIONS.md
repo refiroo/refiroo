@@ -1118,7 +1118,7 @@ which does not use these containers.
 
 For an installation on a public name, `compose.acme.yml` (0.12 DP4) puts Caddy in front of `web`,
 which gets and renews a Let's Encrypt (or ZeroSSL) certificate for the host in `PUBLIC_URL` by itself
-and redirects HTTP to HTTPS. Point the name's DNS at the host, open ports 80 and 443 to the internet,
+and redirects HTTP to HTTPS. Point the name's DNS at the host, open port 443 to the internet (port 80 is optional: it only redirects people who type `http://`),
 set `PUBLIC_URL`, and start with both files:
 
 ```bash
@@ -1137,7 +1137,7 @@ publishing `web`, so Caddy is the only way in. Caddy's configuration is `caddy/C
 `{ email you@example.org }` above the site to be told of an expiring certificate). The certificates
 and the account with the authority live in the `caddy-data` volume: keep it, because the authority
 limits how often a name may be issued. If the first certificate does not arrive, `docker compose
-logs caddy` says why (usually DNS not yet pointing here, or port 80 closed). **Not for a name only
+logs caddy` says why (usually DNS not yet pointing here, or port 443 closed). **Not for a name only
 your network knows**: the authority cannot reach it, so use your own certificate files above.
 
 ## Deployment topologies

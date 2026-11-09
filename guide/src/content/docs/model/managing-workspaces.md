@@ -101,3 +101,16 @@ creation, and a retired workspace still reserves its key. Change **Name** to ren
 Retirement waits for a write already in progress to finish. Once retirement succeeds, later
 live and change-set writes are refused. If two administrators change the default from the same
 starting state, one succeeds and the other must refresh and review the new default.
+
+Retiring also suspends active webhook subscriptions for this workspace. Reactivation makes the
+workspace writable again but does not resume those subscriptions automatically. Ask their
+administrator to review and resume them; undelivered events are kept only for their retention
+period. See [Webhooks](/docs/administer/webhooks/) for delivery recovery.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+settings:workspaces
+tab:WorkspaceTab:overview
+tab:WorkspaceTab:access
+tab:WorkspaceTab:approval
+tab:WorkspaceTab:activity
+-->

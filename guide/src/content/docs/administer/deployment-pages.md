@@ -41,3 +41,17 @@ Read the explanation next to a setting before asking for a change. Values come f
 ![Operations with workspace readiness, engine processes and backup rehearsal](/docs/screens/run-operations.png)
 
 For an access problem, first check the person’s active state and [roles and grants](/docs/administer/roles-and-grants/). For a service problem, pass the operator the time, selected workspace, visible failure message and versions from About. Never include a password, client secret, signing key or one-time password link.
+
+## Earlier checks and unavailable information
+
+Under **Last backup rehearsal**, **Show earlier rehearsals** expands older recorded
+results. **Load more rehearsals** reads more; **Hide earlier rehearsals** folds them
+away. Give the operator the failed rehearsal's reason and the affected workspace checks,
+rather than assuming a newer backup fixes the cause. **How to rehearse a restore** is
+operator guidance; use the [restore runbook](/docs/run/backup-and-restore/) with them.
+
+**Could not refresh** means Operations could not obtain a fresh reading. Check the
+reported time before forwarding figures. Use **Refresh** once the connection is restored.
+A failure to read Deployment is also different from a capability being Off: retry the
+read before asking for a configuration change. None of these pages grants permissions
+or modifies records, so there is no removal or undo procedure on them.

@@ -10,8 +10,8 @@ Deletion can remove more records than you selected. Read
 
 1. Select the records in an editable collection. Check the workspace and whether you are in
    **Live** or a change set. Choose **Delete** in the selection bar.
-2. Read the dialog and choose the offered refusal policy: delete those that can be deleted,
-   or delete none unless all pass. Choose **Preview**.
+2. Read the dialog and choose **Delete the rest** to continue with valid deletions despite
+   refusals, or **Delete none** to require all items to pass, where that choice is available. Choose **Preview**.
 3. Review selected records, children and owned dependants by type, relationships removed,
    and the connections reaching records that stay. A selected record may already be included
    beneath another selected record; do not count it twice.

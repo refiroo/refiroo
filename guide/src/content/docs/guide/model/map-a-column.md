@@ -43,3 +43,7 @@ how the file is read before matching or conversion.
 ![UIC-Nr column mapped to an existing integer attribute, with row type, column meaning and key choice](/docs/screens/model-workbook-map-column.png)
 
 ![Value map with an unsaved J-to-true replacement and placeholder entries that become empty](/docs/screens/model-workbook-value-map.png)
+
+If none of a sheet belongs in the load, open its Source menu and choose **Ignore this sheet**.
+It removes that sheet’s reading sources, not its cells or live records. Check other sheets’
+lookups and the refreshed dry run; use Undo if excluding the sheet was unintended.

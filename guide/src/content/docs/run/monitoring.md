@@ -211,7 +211,7 @@ Illustrative lines for the same request in the two formats:
 ```
 
 ```json
-{"time":"2026-11-03T10:00:00.123+00:00","level":"INFO","logger":"app.access","message":"GET /api/v1/workspaces 200 12.3 ms","process":123,"thread":"MainThread","requestId":"operator-check","method":"GET","route":"/api/v1/workspaces","path":"/api/v1/workspaces","status":200,"durationMs":12.3}
+{"time": "2026-11-03T10:00:00.123+00:00", "level": "INFO", "logger": "app.access", "message": "GET /api/v1/workspaces 200 12.3 ms", "process": 123, "thread": "MainThread", "requestId": "operator-check", "method": "GET", "route": "/api/v1/workspaces", "path": "/api/v1/workspaces", "status": 200, "durationMs": 12.3}
 ```
 
 To trace a harmless probe, temporarily enable DEBUG, recreate the engine and send:
@@ -240,3 +240,24 @@ Its separate call list shows answered, refused, limited and failed calls, includ
 but never values. Use its request identifier when tracing a failure. See [AI and agent settings](/docs/run/ai/)
 for send policy, cost, retention and revocation. Logging provider content is optional and can retain
 sensitive reference data; do not enable it merely to collect call counts.
+
+
+## Keep monitoring history and retire a scraper
+
+refiroo exposes current metrics; it does not store a Prometheus time series archive. The Operations
+page's process reports and counters are not a replacement for your monitoring history. Set metric
+retention, storage capacity and backups in Prometheus or your monitoring platform. A rebuilt engine
+cannot restore the old process's in-memory counters from a database backup.
+
+Keep log retention separate from `JOB_RETENTION_DAYS`, feed retention and webhook delivery-log
+retention. Those settings do not rotate container logs or shorten a metrics archive. The reference
+Compose files do not set a Docker logging rotation policy. Configure bounded retention in the
+container platform or collector for engine, web, database and Caddy, and watch the host disk too.
+Avoid leaving DEBUG enabled after diagnosis.
+
+When replacing the monitoring client secret, update the scraper's protected secret file and verify
+fresh token acquisition and successful scrapes before retiring the old secret where overlap is
+available. Use the [client administration workflow](/docs/administer/clients/). To remove a scraper,
+remove its scrape job and deactivate its dedicated client. This stops new collection; retained
+metrics and logs remain under the collector's own retention policy. Removing monitoring grants
+does not stop the engine or erase application records.

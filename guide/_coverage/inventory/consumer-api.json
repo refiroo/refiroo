@@ -1,0 +1,182 @@
+[
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/{consumer_api}/v{contract_version}/objects/{object_id}",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/objects/{object_id}"
+  ],
+  "source": "backend/app/consumer/router.py:281",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/{consumer_api}/v{contract_version}/lists/{list_key}",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/lists/{list_key}"
+  ],
+  "source": "backend/app/consumer/router.py:314",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/{consumer_api}/v{contract_version}/xref",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/xref"
+  ],
+  "source": "backend/app/consumer/router.py:361",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "POST /api/consumer/{consumer_api}/v{contract_version}/resolve",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/resolve"
+  ],
+  "source": "backend/app/consumer/router.py:406",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/{consumer_api}/v{contract_version}/publications",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/publications"
+  ],
+  "source": "backend/app/consumer/router.py:446",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/{consumer_api}/v{contract_version}/events",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/events"
+  ],
+  "source": "backend/app/consumer/router.py:479",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer",
+  "labels": [
+   "/api/consumer"
+  ],
+  "source": "backend/app/consumer/router.py:636",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/{consumer_api}/v{contract_version}/openapi.json",
+  "labels": [
+   "/api/consumer/{consumer_api}/v{contract_version}/openapi.json"
+  ],
+  "source": "backend/app/consumer/router.py:688",
+  "section": "integrate",
+  "generic": true
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/objects/{id}",
+  "labels": [
+   "/api/consumer/stops/v1/objects/{id}"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "Get by ID"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/lists/municipalities",
+  "labels": [
+   "/api/consumer/stops/v1/lists/municipalities"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "List municipalities"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/lists/stops",
+  "labels": [
+   "/api/consumer/stops/v1/lists/stops"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "List stops"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/lists/all-stops",
+  "labels": [
+   "/api/consumer/stops/v1/lists/all-stops"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "List all-stops"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/lists/operators",
+  "labels": [
+   "/api/consumer/stops/v1/lists/operators"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "List operators"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/lists/modes",
+  "labels": [
+   "/api/consumer/stops/v1/lists/modes"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "List modes"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/xref",
+  "labels": [
+   "/api/consumer/stops/v1/xref"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "XREF lookup"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "POST /api/consumer/stops/v1/resolve",
+  "labels": [
+   "/api/consumer/stops/v1/resolve"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "Batch resolve"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/publications",
+  "labels": [
+   "/api/consumer/stops/v1/publications"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "Publications"
+ },
+ {
+  "kind": "consumer-api",
+  "key": "GET /api/consumer/stops/v1/events",
+  "labels": [
+   "/api/consumer/stops/v1/events"
+  ],
+  "source": "guide/samples/model.json (consumer_openapi, api 'stops')",
+  "section": "integrate",
+  "summary": "Events"
+ }
+]

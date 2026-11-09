@@ -40,3 +40,7 @@ and **Raise and reopen**. It lists every workspace using the release and leaves 
 change sets and publications unchanged. This recovery is a special in-place definition update;
 ordinary model editing continues to create immutable releases. If the browser cannot offer the
 repair, use the operator path above.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+schemaVersion
+-->

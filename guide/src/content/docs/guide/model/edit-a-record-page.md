@@ -95,3 +95,34 @@ records that have different relationships or parents. Review **Issues** before
 [installing and activating the release](/docs/guide/model/install-and-activate-a-release/).
 If an action shows **Not applied**, it has changed nothing: read the reason, correct the
 choice and try again.
+
+## Set the header and breadcrumbs
+
+1. In **Record page**, choose **Header and breadcrumbs…**.
+2. Select **Title of the record** from Name or an attached field. **Line under the title**
+   adds a second field; choose **None** to remove it.
+3. Choose **Show the type’s name in the header** as needed. Set **Breadcrumbs start with the
+   application**, **Breadcrumbs name the type** and **Breadcrumbs name the records above it**
+   independently. These change this page’s context, not a record’s parent or name.
+4. Apply and inspect the preview with a record that has parents. Undo restores the saved step.
+
+![Record page Header and breadcrumbs dialog](/docs/screens/model-header-breadcrumbs.png)
+
+## Change what a panel lists
+
+1. Open the panel’s menu and choose **Settings…**. Fields groups have no extra settings.
+2. For related records, select **Relationships listed** and **Listed from**. Choose **This
+   record to the others**, **The others to this record**, or **Both ways**. Tick **Show which
+   relationship joins each record** when one panel combines several meanings.
+3. Select **Fields a reader can sort by** if people need a sort menu. Leaving these unchecked
+   lists related records by name. A default sort no longer in the list moves to the first
+   remaining choice, or is cleared when the list is empty.
+4. For hierarchy, set **Show the parent** and **Show the records above the parent**. For a
+   contained-record or table panel, choose **Rows on a page**. A table also offers **List
+   only the records under this one**; clear it only when the page should show that type’s
+   records beyond the open record’s direct children.
+5. Apply and review columns, sorting and Issues. Changing settings does not rewrite stored
+   connections. A panel with no matching records is empty; check its direction and selection
+   before concluding that data is missing.
+
+![Related-record panel Settings with relationship selection, direction and sort fields](/docs/screens/model-panel-settings.png)

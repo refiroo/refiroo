@@ -9,8 +9,9 @@ Adjust the display without changing the data. See
 
 1. Open **All settings** from your account menu, then **Appearance** under **General**.
    On a phone, open **Settings: …** to reach the settings navigation.
-2. Under **Theme**, choose **System**, **Light** or **Dark**. System follows the device.
-   The page changes immediately; there is no Save button.
+2. Under **Theme**, choose **Normal** or **Website purple** for the colours. Under **Light
+   or dark**, choose **System**, **Light** or **Dark**. System follows the device. Both themes
+   work in either mode. The page changes immediately; there is no Save button.
 3. Under **Table density**, choose **Comfortable** for more space or **Compact** for more
    rows. If one table does not change, open its **Display** menu: its own density overrides
    this default. Choose Default there to use the browser preference again.
@@ -21,3 +22,5 @@ Adjust the display without changing the data. See
 
 The choices stay in this browser. Repeat them on another device if needed. For individual
 column visibility and widths, use the collection's **Display** menu rather than Appearance.
+
+![Appearance showing its two colour themes separately from light or dark mode](/docs/screens/use-appearance-themes.png)

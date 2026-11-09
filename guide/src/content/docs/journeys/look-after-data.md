@@ -139,3 +139,59 @@ and recorded before-and-after values. These reads respect access and do not undo
 For sign-in, access or administration events, continue to [Audit](/docs/administer/audit/)
 and [find who changed something](/docs/guide/administer/find-who-changed-something/).
 An empty filtered result calls for widening the filters, rather than assuming nothing changed.
+
+## Stop offering a value without deleting it
+
+Read [Records](/docs/use/records/#validity-periods), then
+[stop offering a value](/docs/guide/use/stop-offering-a-value/) through the model's availability
+field or validity dates. Keep its identity for older references and check the saved value and
+history. A validity end is the first day excluded. Neither choice deletes the record, schedules
+publication or guarantees every consuming system filters it out. If the type declares neither
+mechanism, ask the model administrator rather than deleting it to hide it.
+
+## Exchange a workbook and repeat the load
+
+A steward with **Bulk and import** starts with [Importing and exporting](/docs/use/importing-and-exporting/).
+[Export records](/docs/guide/use/export-records/) for an extract, or
+[edit in Excel and import back](/docs/guide/use/edit-in-excel-and-import-back/) when people need
+to return corrections with their record identities and versions. To add related owned records
+as columns, follow [Add a language with a workbook](/docs/guide/use/add-a-language-with-a-workbook/);
+its ownership and parent choices apply beyond languages.
+
+For a supplier layout, [import a file](/docs/guide/use/import-a-file/) through the agreed profile,
+inspect its preview and choose whether the work must succeed together. Read saved and refused
+outcomes; a cancelled independent job can already have saved work. Use
+[Load the next version of a workbook](/docs/guide/use/load-the-next-version-of-a-workbook/) to
+review layout changes and reuse the profile. Missing rows stay unless deletion is explicitly
+configured. Review the resulting change set before publishing. Ask a model administrator about
+an invalid profile binding instead of bypassing the check.
+
+## Copy or move records to another workspace
+
+A steward begins with [Copying and moving](/docs/use/copying-and-moving/) and an agreed model
+mapping, then [copies or moves records](/docs/guide/use/copy-or-move-records/). Read access to
+the source and **Copy and move** for the destination are required; a move also needs
+**Work in change sets** in the source. Check scope, omissions, losses and the complete dry run
+before starting. Review actual results even when the preview passed.
+
+Publish the target proposal first, then review and separately publish source deletions for a
+move. Records changed meanwhile or needed by records staying behind can be kept with reasons.
+A failure needs inspection of the job and retained proposals before repeating it. Discard an
+unwanted proposal before publication; deleting the mapping does not undo a published transfer.
+
+## Continue in a retired or unavailable workspace
+
+[Switch workspace](/docs/guide/use/switch-workspace/) when the data or model you need lives
+elsewhere. [Open a retired or unavailable workspace](/docs/guide/use/open-a-retired-or-unavailable-workspace/)
+distinguishes readable retired data from a model that cannot be served. Read the displayed
+reason and give it to the model administrator or operator. Missing Browse access requires a
+grant; an unsupported model needs model recovery. Choosing another workspace never moves data.
+
+## Adjust the display and work with a keyboard
+
+Follow [Change how refiroo looks](/docs/guide/use/change-how-refiroo-looks/) for this browser's
+colour, light or dark, density and edit-hint choices. [Appearance and devices](/docs/use/appearance-and-devices/)
+explains keyboard operation, resizable panels and phone navigation. Changes are immediate and
+do not affect colleagues' settings or records. For a long collection,
+[continue a long list](/docs/guide/use/continue-a-long-list/) with scrolling or a position jump;
+use its search rather than the browser's Find to reach records not currently drawn.

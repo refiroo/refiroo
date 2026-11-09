@@ -54,6 +54,11 @@ Use client deactivation for a system's assistant, and account sign-out for one p
 
 Read **Calls**, newest first. **Who** is the person or client; **Through** identifies the assistant or says **Its own client**. **Tool** is the operation it asked for and **Arguments** lists names only, never values. **Outcome** says **Answered**, **Refused**, **Limit reached** or **Failed**. Choose **Load more** for older calls.
 
-For **Refused**, inspect the caller's grants and the work it requested. An assistant cannot reach a colleague's change set or approve or publish, even when its person can. A submitted change set is frozen to it; a person must deal with the review. For **Limit reached**, allow the wait requested by the service before another attempt. For **Failed**, ask the integrator or operator to investigate the reported failure; the call list does not contain the assistant's conversation.
+For **Refused**, inspect the caller's grants and the work it requested. An assistant cannot reach a colleague's change set or approve or publish, even when its person can. A submitted change set is frozen to it; a person must deal with the review. For **Limit reached**, allow the wait requested by the service before another attempt. For **Failed**, ask the integrator for the error returned to the assistant, then involve the operator as needed. The call list shows the outcome, not the failure explanation or the assistant’s conversation.
 
 Calls normally remain for 90 days. The client row's 30-day count is a reporting window. Check actual data changes in [the audit and history](/docs/administer/audit/), and review prepared changes through [the normal approval process](/docs/administer/approval-policies/).
+
+To replace registered return addresses, register a new assistant with the corrected
+addresses, have people reconnect and sign in, then block the old registration. There is
+no registration edit or delete control. Blocked and administrator registrations are kept;
+inactivity cleanup applies only to unblocked self-registrations without an open session.

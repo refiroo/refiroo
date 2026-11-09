@@ -20,21 +20,25 @@ A client with only a consumer API grant sees that API's lookup tool, without gen
 
 Start by discovering the connection's tools rather than assuming that every tool exists.
 
-| Purpose | Tools |
+| Tool | Use and result |
 | --- | --- |
-| Discover identity and readable workspaces | `describe_access`, `list_workspaces` |
-| Understand a workspace's model and one type | `describe_model`, `describe_type` |
-| Find records and read their values, path and relationships | `find_records`, `read_record` |
-| Read mapping coverage, including sources with `state=unmapped` | `mapping_coverage` |
-| Read record history and workspace changes | `record_history`, `list_changes` |
-| Read the facts of changes over a period, without a provider call | `history_facts` |
-| Read a declared consumer API | A generated `lookup_<key>` tool |
+| `describe_access` | Read who the connection acts as, its grants and consumer APIs before choosing a task. No workspace argument is needed. |
+| `list_workspaces` | Page through active workspaces the identity can browse; optionally search their names. |
+| `describe_model` | Read one workspace's applications, views, record types, relation types and consumer APIs by key and name. |
+| `describe_type` | Inspect a type's attributes, value types, filters, parents, relationships and views. Supply `changeSetId` to inspect an owned change set's pinned definition. |
+| `find_records` | Query one type using fields, ancestors and one relationship hop. It reads live data unless an owned `changeSetId` selects proposed data. Continue with cursors. |
+| `read_record` | Read one record's values and path, with a page of relationships. Continue to read all relationships; an owned `changeSetId` selects proposed data. |
+| `mapping_coverage` | Read a mapping view's source records and their targets. Use `state=unmapped`, `mapped` or `ambiguous`, with optional search and parent scope. |
+| `record_history` | Page through one record's history, newest first; optionally filter by kind or actor. |
+| `history_facts` | Read counted facts for a workspace or record over a period. Supply `since` and `until`; dates use UTC unless an IANA `timeZone` is given. This is a nonpaged answer; narrow the period if it exceeds the answer limit. |
+| `list_changes` | Page through workspace changes, newest first; optionally narrow by kinds, actor and period. |
+| Generated `lookup_<key>` | Read one granted consumer contract using the operations and inputs described below. Discover its actual name from the connection. |
 
 These tools return the corresponding API shapes. Use the [record and query operations](/docs/api/?api=management#tag/objects), [mapping operations](/docs/api/?api=management#tag/mappings), [changes operations](/docs/api/?api=management#tag/changes) and [agent-access reference](/docs/api/?api=management#tag/agent-access) for the contracts.
 
 `mapping_coverage` takes the application and view; refiroo reads the relationship binding from that view. `history_facts` reads a workspace or a record over a period whose start is included and end excluded, with an optional IANA time zone. `HISTORY_PERIOD_INVALID` means the dates or time zone need correcting. The assistant receives the facts and can word them itself; it cannot request a provider-written history account through this connection.
 
-A workspace's model is also a listed resource at `refiroo://workspaces/{key}/model`. Resource templates expose its applications at `…/applications/{key}`, types at `…/object-types/{key}` and views at `…/views/{application}/{key}`. These resources require Browse. `RESOURCE_NOT_FOUND` means the requested resource URI does not identify an available resource; rediscover the listed resources and templates.
+A workspace's model is also a listed resource at `refiroo://workspaces/{key}/model`. Resource templates expose its applications at `…/applications/{key}`, types at `…/object-types/{key}` and views at `…/views/{application}/{key}`. These resources require Browse. Use the MCP resource-read operation with the listed URI. The server records that operation internally as `read_resource`; it is not a callable tool in the tool list. `RESOURCE_NOT_FOUND` means the requested resource URI does not identify an available resource; rediscover the listed resources and templates.
 
 ### Consumer API tools
 
@@ -54,11 +58,19 @@ The per-person or per-client rate limit is `MCP_RATE_PER_MINUTE`, default 120 ca
 
 With Work in change sets, an assistant can use the following tools:
 
-| Purpose | Tools |
+| Tool | Use and result |
 | --- | --- |
-| Find and inspect its change sets | `my_change_sets`, `read_change_set`, `change_set_changes` |
-| Create and edit proposed data | `create_change_set`, `add_record`, `change_record`, `set_field`, `add_relation`, `change_relation` |
-| Check and submit | `validate_change_set`, `submit_change_set` |
+| `my_change_sets` | Page through this identity's open change sets, newest change first, with versions and submission states. Optionally narrow to one workspace. |
+| `read_change_set` | Read an owned set's version, model release and submission state, including the last decision and comment. |
+| `change_set_changes` | Page through records or relationships added, changed or removed compared with live data. |
+| `create_change_set` | Start a named set from the workspace's live data. Keep the returned ID and version for subsequent calls. |
+| `add_record` | Add a named record with its application, type, optional parent and typed values. It returns the proposed record's ID and versions. |
+| `change_record` | Change an existing record's name, parent or selected values. Attributes omitted from the call are kept. |
+| `set_field` | Add or replace one typed attribute value on a proposed record. It does not clear a value. |
+| `add_relation` | Connect two records using a declared relation type and optional relationship attributes. |
+| `change_relation` | Replace a relationship's attribute values, using its current version. This is a replacement, so read and retain every value you intend to keep. |
+| `validate_change_set` | Check the owned set's data against model rules. Read all diagnostic parts using the returned `nextCursor`. Validation does not publish. |
+| `submit_change_set` | Validate and freeze the set for a person's decision, with an optional comment. Submission does not make its rows live. |
 
 It may work only in change sets created by its own person or client. A person's own browser-created change set counts. A colleague's change set answers `CHANGE_SET_NOT_FOUND`, even when the management API would allow collaboration. `find_records`, `read_record` and `describe_type` accept `changeSetId` for those unpublished rows and their pinned model release; without it they read live data.
 

@@ -17,3 +17,8 @@ You need **Integration administration** in the webhook’s workspace. Arrange th
 ![Webhook key rotation dialog with overlap choices, before making a key](/docs/screens/admin-webhook-rotate.png)
 
 If the replacement was lost, make another rotation and arrange the handover again. Do not expect the old one-time dialog to reopen with the key.
+
+If another rotation starts during an overlap, the key retained from the earlier rotation
+stops signing immediately. Coordinate the receiver's switch before rotating again. A
+rotation on a suspended webhook changes its key but leaves it suspended; resume it
+separately when the cause is repaired.

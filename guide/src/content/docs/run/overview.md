@@ -56,7 +56,7 @@ source builds, so keep the exact source version with your deployment record.
 | Connection | Port and direction | Exposure |
 | --- | --- | --- |
 | Browser → web | Host TCP 443 → container 8443 with certificate files | Public HTTPS entry. TCP 80 → 8080 redirects to the fixed public address. |
-| Browser → Caddy, with the overlay | Host TCP 80 and 443 | Caddy is public and forwards to private `web:8080`. |
+| Browser → Caddy, with the overlay | Host TCP 443; optional 80 for HTTP redirects | Caddy is public and forwards to private `web:8080`. |
 | HTTPS balancer → web, in proxy mode | Container 8080, through your selected host port | Restrict to the balancer. This hop is HTTP on a trusted network. |
 | web → engine | `engine:8000`, HTTP on the Compose network | Private. Never publish engine port 8000 with the reference trust settings. |
 | engine → database | `database:5432`, PostgreSQL | Private. No host port is published. |

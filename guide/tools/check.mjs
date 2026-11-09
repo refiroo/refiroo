@@ -3,8 +3,9 @@
 //   npm run check:terms | check:brand
 //   npm run check:links    links and anchors in the built site (run `npm run build` first)
 //   npm run verify         build, then every check including links
+//   node tools/check.mjs coverage   every inventory entry is named on a page or excluded (CP; not in verify yet)
 // Each check prints what it found and exits 1 when it found a problem.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -154,9 +155,117 @@ function links() {
   notes.push(`links: ${checked} local links and sources in ${files.length} built pages`);
 }
 
+// --- coverage of the inventory ----------------------------------------------------------------------
+
+// guide/tools/inventory.py writes guide/_coverage/inventory/<kind>.json from the code. An entry is covered when
+// its key (or an alias) stands on a page exactly, or one of its labels stands on a page, ignoring case and only
+// as a whole word (a label starting with "/" is a path: its {placeholders} are compared without their names and it
+// must not run on into a longer path). An entry with `context` counts a label or alias only on a page that also
+// names one of the context words. An entry is excluded by a line `kind key — reason` in
+// guide/_coverage/exclusions.md. Prints the counts per kind and section, writes inventory/uncovered.md, and fails
+// while anything is uncovered.
+const INVENTORY = join(ROOT, "_coverage", "inventory");
+const EXCLUSIONS = join(ROOT, "_coverage", "exclusions.md");
+const SECTION_ORDER = ["run", "administer", "model", "use", "integrate", "about"];
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const normalPath = (text) => text.replace(/\{[^}]*\}/g, "{}");
+
+function labelPattern(label) {
+  const isPath = label.startsWith("/");
+  const text = escapeRegExp(isPath ? normalPath(label) : label).replace("\\{\\}", "\\{\\}");
+  const before = /^\w/.test(label) ? "(?<![A-Za-z0-9_])" : "";
+  const after = isPath ? "(?![A-Za-z0-9_\\-{/])" : /\w$/.test(label) ? "(?![A-Za-z0-9_])" : "";
+  return new RegExp(`${before}${text}${after}`, "i");
+}
+
+function exclusions() {
+  const found = new Map();
+  if (!existsSync(EXCLUSIONS)) return found;
+  for (const line of readFileSync(EXCLUSIONS, "utf8").split("\n")) {
+    if (!line.trim() || /^[#>]/.test(line)) continue;
+    const match = line.match(/^(\S+)\s+(.+?)\s+—\s+(.+)$/);
+    if (match) found.set(`${match[1]} ${match[2]}`, match[3]);
+    else fail("coverage", "exclusions.md", `not "kind key — reason": ${line}`);
+  }
+  return found;
+}
+
+function coverage() {
+  if (!existsSync(INVENTORY) || !readdirSync(INVENTORY).some((name) => name.endsWith(".json"))) {
+    fail("coverage", "_coverage/inventory", "no inventory; run backend/.venv/bin/python guide/tools/inventory.py first");
+    return;
+  }
+  const texts = pages().map((page) => ({ where: page.where, raw: page.text, flat: normalPath(page.text), low: page.text.toLowerCase() }));
+  const excluded = exclusions();
+  const entries = walk(INVENTORY, [".json"]).flatMap((file) => JSON.parse(readFileSync(file, "utf8")));
+  const unused = new Set(excluded.keys());
+  const table = new Map();
+  const uncovered = [];
+  for (const item of entries) {
+    const cell = table.get(`${item.kind}\t${item.section}`) ?? { total: 0, covered: 0, excluded: 0, uncovered: 0 };
+    table.set(`${item.kind}\t${item.section}`, cell);
+    cell.total += 1;
+    const reason = excluded.get(`${item.kind} ${item.key}`);
+    unused.delete(`${item.kind} ${item.key}`);
+    if (reason !== undefined) {
+      cell.excluded += 1;
+      continue;
+    }
+    // A management operation is documented by the API reference at /docs/api, generated from the code with its summary;
+    // the Integrate pages explain the concepts and link there, so the guide does not name every path.
+    if (item.kind === "management-api" && item.summary) {
+      cell.covered += 1;
+      continue;
+    }
+    const context = (item.context ?? []).map((word) => word.toLowerCase());
+    const patterns = [...(item.labels ?? []), ...(item.aliases ?? [])].map(labelPattern);
+    const hit = texts.some(
+      (page) =>
+        page.raw.includes(item.key) ||
+        (patterns.length > 0 && (!context.length || context.some((word) => page.low.includes(word))) && patterns.some((pattern) => pattern.test(page.flat))),
+    );
+    if (hit) cell.covered += 1;
+    else {
+      cell.uncovered += 1;
+      uncovered.push(item);
+    }
+  }
+  for (const key of unused) notes.push(`coverage: exclusion matches no inventory entry: ${key}`);
+
+  const rows = [...table.entries()]
+    .map(([name, cell]) => ({ kind: name.split("\t")[0], section: name.split("\t")[1], ...cell }))
+    .sort((a, b) => a.kind.localeCompare(b.kind) || SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section));
+  const widths = [16, 10, 7, 8, 9, 10];
+  const line = (cells) => cells.map((value, i) => String(value).padEnd(widths[i])).join(" ");
+  notes.push(line(["kind", "section", "total", "covered", "excluded", "uncovered"]));
+  for (const row of rows) notes.push(line([row.kind, row.section, row.total, row.covered, row.excluded, row.uncovered]));
+  const sum = (field) => rows.reduce((total, row) => total + row[field], 0);
+  notes.push(line(["all", "", sum("total"), sum("covered"), sum("excluded"), sum("uncovered")]));
+
+  const out = ["# Uncovered inventory entries", "", `Written by \`node tools/check.mjs coverage\`. ${uncovered.length} of ${entries.length} entries.`, ""];
+  for (const section of SECTION_ORDER) {
+    const inSection = uncovered.filter((item) => item.section === section);
+    if (!inSection.length) continue;
+    out.push(`## ${section} (${inSection.length})`, "");
+    for (const kind of [...new Set(inSection.map((item) => item.kind))].sort()) {
+      const ofKind = inSection.filter((item) => item.kind === kind);
+      out.push(`### ${kind} (${ofKind.length})`, "");
+      for (const item of ofKind) {
+        const labels = item.labels?.length ? ` — ${item.labels.map((label) => `"${label}"`).join(", ")}` : "";
+        out.push(`- \`${item.key}\`${labels}${item.summary ? `: ${item.summary}` : ""} (${item.source})`);
+      }
+      out.push("");
+    }
+  }
+  mkdirSync(INVENTORY, { recursive: true });
+  writeFileSync(join(INVENTORY, "uncovered.md"), out.join("\n"));
+  if (uncovered.length) fail("coverage", "inventory", `${uncovered.length} entries are neither on a page nor excluded; see _coverage/inventory/uncovered.md`);
+}
+
 // --- running --------------------------------------------------------------------------------------
 
-const CHECKS = { terms, brand, links };
+const CHECKS = { terms, brand, links, coverage };
 const STATIC = ["terms", "brand"];
 
 const [, , command, argument] = process.argv;

@@ -133,7 +133,7 @@ forwards requests to `https://localhost:8000`. The engine's browser-origin list 
 frontend names and its own HTTPS names, so the API reference works through either port.
 The engine command enables proxy headers for the locally forwarded caller address.
 
-Vite forwards `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and `/health`.
+Vite forwards `/api`, `/oauth`, `/mcp`, `/.well-known`, `/docs`, `/openapi.json` and `/health`.
 It does not forward `/metrics`; scrape the engine directly. `/brand` belongs to the frontend.
 By default the browser calls the address where the page was opened. Only a build-time
 `VITE_API_URL` selects a different engine; it is not a runtime environment override.
