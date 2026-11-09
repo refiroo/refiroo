@@ -828,6 +828,14 @@ their events produced from C10 (J30); written in schema 0.9 since C18.
 - **J25.8 Mistakes at the author's pointers**: a `via` naming no relation, a filter with two verbs,
   a role given to two fields and an `alsoMatchThrough` naming no related block are each
   refused at their pointer in the 0.9 document (C-D141).
+- **J25.9 Keep an earlier contract version (0.13 DF3)**: a definition keeps frozen copies of itself
+  at older contract versions (`earlierVersions`, each with the day it was superseded and an optional
+  `sunset` day). The editor keeps the previous version when the author raises the version, and the
+  author can set the sunset day or stop serving a version. A kept version is checked against the model
+  as the current one is, so a type or attribute the model no longer has refuses the release at that
+  version's pointer, naming the version; it must also read as it did in the active release, or
+  activation is refused. The notice period is the author's: the engine serves the version until it is
+  removed.
 
 The identity (the field with role `id`) reads the object ID, and any other source is refused at
 `/consumerApis/<key>/object/fields/<field>/from` (C-D24). Another identifier, such as a former
@@ -948,7 +956,7 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   place. The operations body is described in `/openapi.json` by one schema per public kind, discriminated by `kind`;
   a kind added to the registry without one fails the contract check.
 - **J33.20 Add a relationships table (0.13 RV)**: an application's Views section adds a relationships
-  table over any declared binding that is not a containment (**Add a relationships table…**): the columns
+  table over any declared binding that is not a containment (**Add a view…**, kind Relationships table): the columns
   of each end, the binding's own attributes as columns, how the rows are headed; filters and sorts follow
   from them, and only what validation accepts is offered. A table reads in the sidebar as a lens of its
   `from` type's collection. Removing it takes along the types only it needed. A table over a relationship
@@ -1796,6 +1804,11 @@ C6a); XREF is J29 (0.9 C4); the rest follows in C6b and C16 ([CONSUMER_API.md](.
   newest first with `eventSequence`, the feed position to follow changes from, and `status`; every
   `GET` read answers an `ETag`, and `If-None-Match` with it answers `304` until the data, the model
   release or the contract changes. A pinned read's tag never changes.
+- **J28.15 An earlier version (0.13 DF3)**: every route and the OpenAPI document of a version the
+  model keeps answers from the current data through that version's definition, with a `Deprecation`
+  header (RFC 9745) and, when the author set a day, a `Sunset` header (RFC 8594). The index lists it
+  as deprecated. A version the model does not serve is `404 CONTRACT_VERSION_NOT_FOUND`, naming the
+  versions it serves.
 
 **Refusals:** `404 CONSUMER_API_NOT_FOUND`, `404 CONTRACT_VERSION_NOT_FOUND`,
 `404 OBJECT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND` (unknown or retired), `404 LIST_NOT_FOUND`,
@@ -1978,6 +1991,11 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   manual`, once, during the call, also while suspended, in the format it was sent in; the new
   request names the one it repeats. UI: Settings › Integration › Webhooks, Deliveries, where a
   delivered event is resent only after a confirmation.
+- **J30.11 A subscription on a kept version (0.13 DF3)**: a subscription accepted under a version the
+  model then keeps stays active and receives its events in that version's shape (its objects, and the
+  events that version declares); it names the version in every request. A new subscription may ask for a
+  kept version with `contractVersion`. When the model stops serving the version, the subscription is
+  suspended `CONTRACT_VERSION_CHANGED`, and resuming accepts the version served.
 
 **Refusals:** `404 EVENTS_NOT_DECLARED`, `400 UNKNOWN_EVENT`, `400 PARAMETER_NOT_SUPPORTED`
 (`publication`, `asOf`, `to.`), `400 INVALID_PAGE_SIZE` (1–100 with the full payload, 1–1,000 with
@@ -2742,6 +2760,19 @@ API; it calls no AI provider.
 - **J50.66 A request that changes only the model (0.13 AQ)**: an accepted task whose session installs one release and
   makes no change set ends `loaded` with a migration of no type mappings; nothing moves until the person confirms it,
   and confirming puts the workspace on the release with every record kept.
+- **J50.67 The assistant's items, previewed (0.13 AB)**: a session sends the records it made of a file, as the batch
+  API's items, to its draft's dry run; the proposal shows per type what the load does (new, matched, changed,
+  refused), the relationships, up to three example items with the cells they came from, the rows read and the engine's
+  finding that one name appears twice in a type; nothing is written.
+- **J50.68 Accepting runs the previewed items (0.13 AB)**: accepting installs the draft as one release, makes a change
+  set on it and loads exactly the previewed records and relationships as one atomic batch, with no further assistant
+  turn; the task is loaded with the change set's counts and live data is as it was.
+- **J50.69 A refusal at accept (0.13 AB)**: when stored data has moved away from an item before the person accepts,
+  the atomic batch is refused; the task fails naming the item and its cells, no change set is left, nothing was
+  written, and the person may give the assistant other words. A draft edited after the check has every item
+  checked again first, and a refusal then fails the task before anything is installed.
+- **J50.70 A refused item in an items dry run (0.13 AB)**: an item the draft's model refuses is counted and listed with
+  its ref and the engine's code; a dry run takes either a source file or items, never both and never neither.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

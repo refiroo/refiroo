@@ -76,7 +76,7 @@ from ...common.time import as_utc
 from ...config import get_settings
 from ...errors import ApiError, api_error
 from ...models.commands import BatchItem
-from ...models.database import ChangeSet, Job, SourceFile
+from ...models.database import AiTask, ChangeSet, Job, SourceFile
 from ..agent_access import applications
 from ..agent_access import calls as agent_calls
 from ..authorization.requesters import job_writer
@@ -92,10 +92,12 @@ from ..proposals.registry import AiConfiguration
 from ..sources.dry_run import (
     book_opener,
     dry_run_context,
+    is_items_run,
     record_dry_run,
     superseded,
 )
 from ..sources.inference.run import run_inference
+from ..sources.items_summary import name_twice
 from ..sources.profile_check import (
     complete_unbound,
     prepare,
@@ -591,12 +593,23 @@ class JobWorker:
             limit=job.total if job.kind in _STAGED_KINDS else self.settings.preview_max_items,
             should_stop=self._stop_check(job),
         )
+        # What only the loaded state shows is read before the rollback (0.13 AB).
+        findings = (
+            name_twice(session, job, [o.index for o in outcomes if o.status == "applied"])
+            if dry_run and is_items_run(job.parameters)
+            else None
+        )
         session.rollback()
         self._hold_lease(session, sequence_id, cancellable=job.kind in _STAGED_KINDS)
         job = session.get(Job, sequence_id)
         if dry_run:
             record_dry_run(
-                session, job, outcomes, context.model, retention_days=self.settings.retention_days
+                session,
+                job,
+                outcomes,
+                context.model,
+                retention_days=self.settings.retention_days,
+                findings=findings,
             )
             if "taskId" in job.parameters:
                 ai_task.checked(
@@ -974,6 +987,16 @@ class JobWorker:
                     ai=self.settings.ai,
                     retention_days=self.settings.retention_days,
                 )
+            if job.kind == "aiTask" and state == "failed":
+                # The task the job served is told now, not at its next read: nothing then shows a
+                # task as working that no job works on.
+                task = session.scalar(
+                    select(AiTask)
+                    .where(AiTask.public_id == job.parameters.get("taskId"))
+                    .with_for_update()
+                )
+                if task is not None and task.job_id == job.id:
+                    task_store.sync(session, task, get_settings().ai_task_retention_days)
             session.commit()
             self._finished_import(job)
 

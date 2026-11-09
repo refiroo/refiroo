@@ -61,7 +61,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       else router.openWorkspace(changeSetWorkspace);
     });
   // The assistant's load is a journey over the task's page, the editor opened from it and the change set.
-  const journeyTaskId = route.page === "ai-tasks" ? route.taskId : editing?.journey?.taskId;
+  const editingJourney = editing?.journey?.kind === "aiTask" ? editing.journey : undefined;
+  const journeyTaskId = route.page === "ai-tasks" ? route.taskId : editingJourney?.taskId;
   const journeyBar = journeyTaskId && (
     <AiTaskJourneyBar
       key={journeyTaskId}
@@ -205,6 +206,14 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onReturnToWorkspace={router.openWorkspace}
           onReturnToTask={(taskId) => navigate({ kind: "settings", page: "ai-tasks", taskId })}
           onOpenChangeSet={openChangeSet}
+          onOpenChangeSetReview={(review) => navigate(review)}
+          onOpenApplication={(applicationWorkspace, applicationKey) =>
+            void workspaceModel(applicationWorkspace).then((active) => {
+              const opened = applicationFor(active, applicationKey) ?? active.applications[0];
+              if (opened) navigate(viewRoute(opened, opened.defaultView, applicationWorkspace));
+              else router.openWorkspace(applicationWorkspace);
+            })
+          }
         />
       ) : null}
     </SettingsShell>

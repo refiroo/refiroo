@@ -216,7 +216,10 @@ export type SettingsRoute =
     };
 
 /** A user journey across pages (the journey bar): today the assistant's load of a workbook. */
-export type JourneyRef = { kind: "aiTask"; taskId: string };
+export type JourneyRef =
+  | { kind: "aiTask"; taskId: string }
+  /** A change set moved to a newer model on the way to publishing it: the migration page leads back. */
+  | { kind: "changeSet"; changeSetId: string; workspaceKey: string; applicationKey: string };
 
 /**
  * What the model editor's centre shows: an element by its key, or the relationship matrix. A type

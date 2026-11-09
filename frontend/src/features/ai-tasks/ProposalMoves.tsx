@@ -1,17 +1,46 @@
 /** "What happens to the records" (0.16 AP12, board 2): the types the proposal turns into others, with the
  * records the workspace holds of each, from the engine's own figures. */
 
-import type { AiTask } from "@/types";
+import type { ReactElement } from "react";
+import type { AiTask, AiTaskMove } from "@/types";
 import { Card } from "@/ui/Card";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { count } from "@/features/settings/limits";
+
+/** A move that only changes the application of a type, which keeps its key. */
+function onlyApplication(move: AiTaskMove): boolean {
+  return move.from === move.to && !!move.toApplication;
+}
+
+/** What a move does to the type: it becomes another type, goes to another application, or both. */
+export function moveWords(move: AiTaskMove): ReactElement {
+  const where = move.toApplicationName ?? move.toApplication;
+  if (onlyApplication(move)) {
+    return (
+      <>
+        moves to <strong>{where}</strong>
+      </>
+    );
+  }
+  return (
+    <>
+      becomes <strong>{move.toName}</strong>
+      {where ? <> in {where}</> : null}
+    </>
+  );
+}
 
 /** The sentence over a proposal's moves, or nothing when it moves no whole type. */
 export function movesSentence(task: Pick<AiTask, "design">): string | undefined {
   const moves = task.design?.moves ?? [];
   if (moves.length === 0) return undefined;
   const records = moves.reduce((total, move) => total + move.records, 0);
-  return `${count(records)} ${records === 1 ? "record keeps" : "records keep"} ${records === 1 ? "its" : "their"} IDs, history and relationships.`;
+  const kept = `${count(records)} ${records === 1 ? "record keeps" : "records keep"} ${records === 1 ? "its" : "their"} IDs, history and relationships.`;
+  const across = moves.filter(onlyApplication);
+  const apps = [...new Set(across.map((move) => move.toApplicationName ?? move.toApplication))];
+  if (across.length === 0 || apps.length !== 1) return kept;
+  const here = across.reduce((total, move) => total + move.records, 0);
+  return `${count(across.length)} ${across.length === 1 ? "type moves" : "types move"} to ${apps[0]}, ${count(here)} ${here === 1 ? "record" : "records"}. ${kept}`;
 }
 
 /** What changes for the consumers of the model: each consumer API whose version the proposal raises. */
@@ -63,7 +92,11 @@ export function ProposalMoves({ task }: { task: Pick<AiTask, "design"> }) {
             <th scope="row" data-label="Now">
               {move.fromName}
             </th>
-            <td data-label="Becomes">{move.toName}</td>
+            <td data-label="Becomes">
+              {onlyApplication(move)
+                ? `${move.toName}, in ${move.toApplicationName ?? move.toApplication}`
+                : move.toName}
+            </td>
             <td data-label="Records">{count(move.records)}</td>
           </tr>
         ))}

@@ -9,6 +9,7 @@ import type { AiTask, EngineModel } from "@/types";
 import { AssistantText } from "@/ui/AssistantText";
 import { Card } from "@/ui/Card";
 import { Notice } from "@/ui/Notice";
+import { DesignLoad } from "./DesignLoad";
 import { DesignModel } from "./DesignModel";
 import { DesignQuestions } from "./DesignQuestions";
 import { DesignSheets } from "./DesignSheets";
@@ -76,7 +77,7 @@ export function DesignView({
         names={names}
         onOpenEditor={draftId && onOpenEditor ? () => onOpenEditor(draftId) : undefined}
       />
-      <DesignSheets design={design} names={names} />
+      {design.load ? <DesignLoad load={design.load} names={names} /> : <DesignSheets design={design} names={names} />}
       <DesignQuestions
         key={questionsKey}
         questions={design.questions}

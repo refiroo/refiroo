@@ -27,6 +27,7 @@ import type {
 import { isResting, useJobStream } from "@/features/jobs/useJobStream";
 import { routePath } from "@/routing/routes";
 import { Breadcrumbs } from "@/ui/Breadcrumbs";
+import { TrailBar, TrailLink } from "@/ui/TrailBar";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { OutcomeCards } from "@/ui/OutcomeCards";
@@ -164,6 +165,8 @@ export function MigrationPage({
   onOpenChangeSet,
   onReturnToWorkspace,
   onBackToProposal,
+  onBackToChangeSet,
+  openApplication,
 }: {
   jobId: string;
   workspaces: Workspace[];
@@ -179,6 +182,13 @@ export function MigrationPage({
   onReturnToWorkspace?: () => void;
   /** Opened from an assistant's proposal (0.16 AP12): the way back to it. */
   onBackToProposal?: () => void;
+  /** Opened from a change set's banner: the way back to the change set, wherever the migration stands. */
+  onBackToChangeSet?: () => void;
+  /**
+   * Opened from a change set's banner, whose migration also publishes it: once done, the application
+   * the person came from, in the workspace, on the new model.
+   */
+  openApplication?: { applicationKey: string; onOpen: () => void };
 }) {
   const [job, setJob] = useState<Job>();
   const [models, setModels] = useState<{ current: EngineModel; target: EngineModel }>();
@@ -406,19 +416,29 @@ export function MigrationPage({
   return (
     <SettingsLayout
       trail={
-        <Breadcrumbs
-          items={[
-            {
-              key: "model",
-              content: (
-                <RouteLink href={routePath({ kind: "settings", page: "model" })} onNavigate={onBack}>
-                  Model
-                </RouteLink>
-              ),
-            },
-            { key: "migration", content: moving ? "Move" : "Migration", current: true },
-          ]}
-        />
+        onBackToChangeSet ? (
+          <TrailBar
+            back={{
+              label: `‹ Back to the change set${changeSet ? ` ${changeSetName}` : ""}`,
+              onClick: onBackToChangeSet,
+            }}
+            trail={[<TrailLink onClick={onBack}>Model</TrailLink>, moving ? "Move" : "Migration"]}
+          />
+        ) : (
+          <Breadcrumbs
+            items={[
+              {
+                key: "model",
+                content: (
+                  <RouteLink href={routePath({ kind: "settings", page: "model" })} onNavigate={onBack}>
+                    Model
+                  </RouteLink>
+                ),
+              },
+              { key: "migration", content: moving ? "Move" : "Migration", current: true },
+            ]}
+          />
+        )
       }
       eyebrow={moving ? "Change set" : "Workspace model"}
       title={title}
@@ -476,7 +496,11 @@ export function MigrationPage({
             title={`${changeSetName} works under ${target?.name ?? "the release"} ${version}`}
             focusOnMount
             actions={
-              changeSetId && onOpenChangeSet ? (
+              onBackToChangeSet ? (
+                <button type="button" className="primary" onClick={onBackToChangeSet}>
+                  Open the change set to publish it
+                </button>
+              ) : changeSetId && onOpenChangeSet ? (
                 <button
                   type="button"
                   className="secondary"
@@ -498,8 +522,16 @@ export function MigrationPage({
             title={`${label} runs ${target?.name ?? "the release"} ${version}${changeSetId ? `, and ${changeSetName} is live` : ""}`}
             focusOnMount
             actions={
-              (onReturnToWorkspace || onBackToProposal) && (
+              (onReturnToWorkspace || onBackToProposal || openApplication) && (
                 <>
+                  {openApplication && (
+                    <button type="button" className="primary" onClick={openApplication.onOpen}>
+                      Open{" "}
+                      {models?.target.applications?.find((item) => item.key === openApplication.applicationKey)?.name ??
+                        "the application"}{" "}
+                      in {label}
+                    </button>
+                  )}
                   {onReturnToWorkspace && (
                     <button type="button" className="primary" onClick={onReturnToWorkspace}>
                       Back to {label}
@@ -515,7 +547,10 @@ export function MigrationPage({
             }
           >
             {changeSetId && (
-              <>{publicationNumber ? `Published as Publication ${publicationNumber}. ` : "Published. "}</>
+              <>
+                {changeSet ? changeSetName : "The change set"} was published with the move
+                {publicationNumber ? `, as Publication ${publicationNumber}` : ""}.{" "}
+              </>
             )}
             {counted(counts.conversion, "value", "values")} converted,{" "}
             {counted(counts.reclassified, "record", "records")} changed type, {lossText(counts)} removed. Each

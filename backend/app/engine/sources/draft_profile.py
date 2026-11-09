@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
 from ...models.database import (
+    AuditEvent,
     ImportProfile,
     Job,
     ModelDraft,
@@ -38,6 +39,8 @@ from ..imports.profiles import MISMATCH, check_profile, definition_of, model_key
 from ..model.authoring.kinds import Sheet
 from ..model.compiler import compile_model
 from ..model.diagnostics import ModelDiagnostic
+from ..model.release_lifecycle import set_release_status
+from ..model.releases import install_model_release
 from ..workspaces.catalogue import resolve_workspace
 from .dry_run import runs_dry_run, submit_dry_run
 from .profile_export import definition
@@ -310,3 +313,36 @@ def save_at_installation(session: Session, draft: ModelDraft, release: ModelRele
     session.flush()
     return stored
 
+
+
+def install_draft(
+    session: Session, draft: ModelDraft, model: EngineModel
+) -> tuple[ModelRelease, bool, ImportProfile | None]:
+    """Install the draft's compiled model as a release, as ``POST /model-drafts/{id}/installation``
+    does (and an assistant task's accept, 0.13 AB): the profile's key is checked, the release is
+    installed (or found), the draft is based on it (D17), its profile is saved against it (D80), the
+    installation is audited, and a retired release installed again is active again (0.12 MR1).
+    The caller commits. ``ReleaseIdentityConflict`` when the key and version are taken by another
+    model."""
+    require_installable(session, draft, model)
+    release, created = install_model_release(session, model)
+    draft.base_model_release_id = release.id
+    saved = save_at_installation(session, draft, release, model)
+    if created:
+        session.add(
+            AuditEvent(
+                aggregate_type="model_release",
+                aggregate_id=release.public_id,
+                action="installed",
+                version=1,
+                changes={
+                    "draftId": draft.public_id,
+                    "releaseKey": release.release_key,
+                    "releaseVersion": release.release_version,
+                    "modelHash": release.model_hash,
+                },
+            )
+        )
+    elif release.status == "retired":
+        set_release_status(session, release.public_id, "active", release.status_version)
+    return release, created, saved

@@ -37,7 +37,6 @@ from ...engine.model.drafts import (
 )
 from ...engine.model.migrations import installed_release, submit_migration
 from ...engine.model.registry import model_registry
-from ...engine.model.release_lifecycle import set_release_status
 from ...engine.model.releases import (
     ActivationConflict,
     ConsumerContractVersionRequired,
@@ -49,12 +48,11 @@ from ...engine.model.releases import (
     WorkspaceNotFound,
     WorkspaceRetired,
     activate_model_release,
-    install_model_release,
 )
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
 from ...errors import api_error
-from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation
+from ...models.database import ModelDraft, ModelDraftOperation
 from ..access import (
     INSTANCE,
     MODEL_DRAFT_PATH,
@@ -723,37 +721,14 @@ def install_model_draft(
             diagnostic_details(compiled.diagnostics),
         )
     # Installing is instance-wide and checks no workspace's data; activation does (ADR-042).
-    draft_profile.require_installable(session, draft, compiled.model)
     try:
-        release, created = install_model_release(session, compiled.model)
+        release, created, saved = draft_profile.install_draft(session, draft, compiled.model)
     except ReleaseIdentityConflict as exc:
         raise api_error(
             409,
             "RELEASE_IDENTITY_CONFLICT",
             f"Release '{exc.release_key}@{exc.release_version}' is already installed with different content",
         ) from exc
-    # D17: what the draft held is now released; its version is unchanged (D34).
-    draft.base_model_release_id = release.id
-    # D80: the draft's import profile becomes the instance profile of its key.
-    saved = draft_profile.save_at_installation(session, draft, release, compiled.model)
-    if created:
-        session.add(
-            AuditEvent(
-                aggregate_type="model_release",
-                aggregate_id=release.public_id,
-                action="installed",
-                version=1,
-                changes={
-                    "draftId": draft.public_id,
-                    "releaseKey": release.release_key,
-                    "releaseVersion": release.release_version,
-                    "modelHash": release.model_hash,
-                },
-            )
-        )
-    elif release.status == "retired":
-        # Installing a retired release's model again brings it back (0.12 MR1, D457).
-        set_release_status(session, release.public_id, "active", release.status_version)
     session.commit()
     if not created:
         response.status_code = status.HTTP_200_OK

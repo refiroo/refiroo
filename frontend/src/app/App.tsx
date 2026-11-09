@@ -583,10 +583,24 @@ function AppContent({
         }}
         canMigrate={Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs)}
         canMove={Boolean(capabilities?.integrationJobs.createJobs)}
-        onMigrationStarted={(jobId) => navigate({ kind: "settings", page: "model", migrationJobId: jobId })}
+        onMigrationStarted={(jobId) =>
+          navigate({
+            kind: "settings",
+            page: "model",
+            migrationJobId: jobId,
+            journey: {
+              kind: "changeSet",
+              changeSetId: data.changeSet!.id,
+              workspaceKey: data.changeSet!.workspaceKey,
+              applicationKey: application.key,
+            },
+          })
+        }
         onModelChanged={async () => {
           if (data.reloadChangeSetModel) {
             await data.reloadChangeSetModel();
+            // The router parses addresses under the change set's model, which has just changed.
+            await router.reloadModel(data.changeSet!.workspaceKey);
             setRefreshToken((value) => value + 1);
           }
         }}

@@ -63,13 +63,57 @@ def test_a_session_left_by_a_stopped_worker_is_ended_and_another_process_is_not(
         _stop_earlier({"pid": other.pid, "session": session})
         assert other.poll() is None
         _stop_earlier({"pid": left.pid, "session": session})
-        assert left.wait(timeout=5) == -signal.SIGKILL
+        assert left.wait(timeout=5) == -signal.SIGTERM
         _stop_earlier({"pid": left.pid, "session": session})
     finally:
         other.kill()
         other.wait()
         if left.poll() is None:
             left.kill()
+
+
+def test_stopping_a_session_in_an_image_without_ps_ends_it_and_never_raises(monkeypatch):
+    """The reference engine's image has no ``ps``: a person's Stop must still reach the task as
+    their stop, not as an internal error (0.13 DOC11 F6)."""
+    from app.engine.tasks import agent
+
+    def no_ps(*args, **kwargs):
+        raise FileNotFoundError("ps")
+
+    monkeypatch.setattr(agent.subprocess, "run", no_ps)
+    gone = 4_000_000
+    assert agent._command_of(gone) == ""
+    _stop_earlier({"pid": gone, "session": "5f1c0f7e-no-ps"})
+    # A process this machine can name without ps (/proc) is ended the same way.
+    if agent.Path("/proc/self/cmdline").exists():
+        session = "5f1c0f7e-proc"
+        left = subprocess.Popen(["sh", "-c", f"sleep 30; : {session}"], start_new_session=True)
+        try:
+            _stop_earlier({"pid": left.pid, "session": session})
+            assert left.wait(timeout=5) == -signal.SIGTERM
+        finally:
+            if left.poll() is None:
+                left.kill()
+
+
+def test_a_session_stopped_before_it_wrote_a_transcript_has_nothing_to_resume(
+    monkeypatch, tmp_path
+):
+    """A Stop in the first seconds leaves no conversation: Go on as it was starts the session
+    again instead of resuming one that does not exist (0.13 DOC11 13)."""
+    from app.engine.tasks import agent
+
+    files = SimpleNamespace(directory=tmp_path / "files")
+    task = SimpleNamespace(public_id="t1", design={"agentSession": "s-1"})
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    assert agent.resumable(files, task) is True
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    assert agent.resumable(files, task) is False
+    folder = agent.folder_of(files, task)
+    kept = tmp_path / "claude" / "projects" / agent._transcript_name(folder)
+    kept.mkdir(parents=True)
+    (kept / "s-1.jsonl").write_text("{}")
+    assert agent.resumable(files, task) is True
 
 
 def _type(key, *attributes):
@@ -301,3 +345,67 @@ def test_accepting_a_proposal_without_a_draft_asks_for_the_change_set_on_the_liv
         agent._ACCEPTED_UNCHANGED
     )
     assert "Install" in agent._ACCEPTED
+
+
+def test_a_proposal_prompt_says_a_partial_move_is_prepared_on_acceptance_not_done_by_hand():
+    """The session of a split of some records of a type is told what accepting prepares, so its
+    summary never hands the person manual restructuring (0.13 DOC11 14)."""
+    from app.engine.tasks import agent
+
+    prompt = agent._propose_prompt("Split the routes", "ws", "http://engine", {}, workbook=False)
+    assert "partial move" in prompt and "stage nothing now" in prompt
+    assert "Never tell the person to prepare a release or to restructure records by hand" in prompt
+
+
+def test_the_note_of_a_type_removed_in_a_partial_move_says_its_records_move_not_that_they_are_deleted():
+    """A removed type whose records the change set restructures into other types is not a deletion
+    (0.13 DOC11 14); a real deletion keeps its counts."""
+    from app.engine.tasks.agent import _removal_account, _requested_removals
+
+    base = {"objectTypes": [{"key": "route", "name": "Route"}]}
+    final = {
+        "objectTypes": [
+            {"key": "local", "name": "Local route"},
+            {"key": "other", "name": "Other route"},
+        ]
+    }
+    landing = SimpleNamespace(
+        losses={"route": {"records": 4}},
+        value_losses={},
+        relationship_losses={("served-by", "stop", "route"): 72},
+    )
+    words = "remove the emptied Route type"
+    asked = {"kind": "objectType", "key": "route", "words": words}
+    moved = _requested_removals({"removals": [{**asked, "movedTo": ["local", "other"]}]}, words)
+    _, stated = _removal_account(landing, moved, base, final)
+    assert stated[0]["text"] == (
+        "As you asked, Route is removed: its 4 records move to Local route and Other route."
+    )
+    deleted = _requested_removals({"removals": [asked]}, words)
+    _, stated = _removal_account(landing, deleted, base, final)
+    assert stated[0]["text"] == (
+        "As you asked, Route is deleted, deleting 4 records, 72 relationships."
+    )
+
+
+def test_the_note_the_person_reads_drops_sentences_that_talk_about_the_proposal_file_and_its_keys():
+    """The session's closing words are shown on the task: sentences about its own file, draftId,
+    the moves or removals lists and movedTo are not (0.13 DOC11 15, as F4)."""
+    from app.engine.tasks.agent import _said
+
+    said = (
+        "This is a partial move: Route splits into Local route and Other route. "
+        "Its draftId is the draft's ID and its moves list is empty, because Route splits into two types. "
+        "Its removals list has one entry, Route, with movedTo set to the two new types. "
+        "The proposal is in proposal.json in this folder. "
+        "Nothing is staged now."
+    )
+    progress = SimpleNamespace(
+        result={"result": said, "duration_ms": 43000, "total_cost_usd": 0.16}
+    )
+    text = _said(progress)
+    assert text.startswith(
+        "This is a partial move: Route splits into Local route and Other route. Nothing is staged now."
+    )
+    for internal in ("draftId", "movedTo", "moves list", "removals list", "proposal.json"):
+        assert internal not in text

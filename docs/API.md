@@ -2788,7 +2788,7 @@ fixed values it matches. A list pages in key order (ADR-030).
   `INVALID_IMPORT_PROFILE` with `KEY_NOT_BOUND` at `/sources/{i}/key/field`. A row keyed by name
   that has a parent (fixed by the source or from a column) is the record of that name among the
   parent's children (0.10 A8c, D142): rows of one name under one parent are one key across
-  sources, a row under a parent the load creates is a new record, and so a record a parent column
+  sources (as is any upsert key of one type, D69), a row under a parent the load creates is a new record, and so a record a parent column
   moves to another parent is a new record there. Such a row is not matched by another row's
   relationship or lookup by name within the same file.
   Without a key every row creates a record, so sending such a file twice creates its records twice. A found record is updated (under `onExisting`, below);
@@ -2960,10 +2960,11 @@ of them: its error is the first cell's, and `details.cells` lists each failing c
 `code` and `message`. The refusals: `INVALID_ATTRIBUTE_VALUE` (and the attribute's range
 codes), `REFERENCE_NOT_FOUND` and `REFERENCE_AMBIGUOUS` (`details.count`) for a match finding no
 record or several, `DUPLICATE_KEY_IN_FILE` (rows with one key and different values, all of them,
-`details.rows` naming the others; rows with one key and equal values are one record, and their
+`details.rows` naming the others and `details.refs` their sheet and row, `Sheet!2`; rows with one key and equal values are one record, and their
 relationship columns add up, D69; an empty cell agrees with any value and the record takes every
-value the rows fill, 0.16 AP6; rows of two sources keyed alike by an attribute are also one new
-record, the first source's row creating it and the later ones updating it), `REFERENCE_CYCLE` (rows whose parent columns form a ring),
+value the rows fill, 0.16 AP6; a key is one record across the load's sources: upsert rows of one type with one key, from
+one sheet or several, are grouped the same way, so two sheets listing one record load it once with
+the values and relationships of both, and refuse both rows when they fill one field differently), `REFERENCE_CYCLE` (rows whose parent columns form a ring),
 `MISSING_RECORD_KEY` (an empty key attribute, or an empty cell of a key of several attributes; an empty ID column creates a record, except under
 `record: "existing"`), `KEY_AMBIGUOUS` (a stored-unique or several-attribute key two stored records hold), `NAME_REQUIRED` (a new record without a name),
 `INVALID_NAME` (over 500 characters). Rejected rows are the job's first outcomes, in row order;
@@ -3776,7 +3777,7 @@ deployment data, not part of a model release. [Delivery](#webhook-delivery-base-
 
 | Route | Answer |
 |---|---|
-| `POST /api/v1/consumer-subscriptions` | `201`, the subscription with `signingSecret`. `source` (default `consumerApi`) or `workspace` (A2, D428): then no `consumerApi`, `filters` or `payload` (`422`); `events` are `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (`400 UNKNOWN_EVENT` otherwise); `startAfter` is a position of the workspace's events. A subscription reads `source`, and `consumerApi` is `null`, `contractVersion` 1 for the workspace source; an edit that puts filters or a payload into it is `400 NOT_SUPPORTED_BY_SOURCE`. Events are signed, batched, retried, logged, resent and rotated as record events; an event reads `eventId`, `scope: "workspace"`, `event`, `change` (`submitted`, `approved`, `sentBack`), `objectType: "change-set"`, `id` (the change set), `position`, `occurredAt`, `workspaceKey`, `submissionId`, `changeSet` (`id`, `name`, `version`), `submitter` and `decider` (`kind`, `id`, `name`; no e-mail, D429), `comment`, `publicationId`. Positions are per workspace without gaps; events are kept for the feed retention, and a subscription that missed expired ones is suspended `EVENTS_EXPIRED`. A model release never suspends it |
+| `POST /api/v1/consumer-subscriptions` | `201`, the subscription with `signingSecret`. `source` (default `consumerApi`) or `workspace` (A2, D428): then no `consumerApi`, `filters` or `payload` (`422`); `events` are `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (`400 UNKNOWN_EVENT` otherwise); `startAfter` is a position of the workspace's events. A consumer API subscription may name `contractVersion`: the current version (default) or an earlier one the model keeps (0.13 DF3; `400 CONTRACT_VERSION_NOT_FOUND` at `/contractVersion` for one not served, with `details.contractVersion` the current one and `details.servedContractVersions` every version served; `422` with the workspace source); it keeps receiving that version's shape while the model serves it, and is suspended `CONTRACT_VERSION_CHANGED` when the model stops serving it. A subscription reads `source`, and `consumerApi` is `null`, `contractVersion` 1 for the workspace source; an edit that puts filters or a payload into it is `400 NOT_SUPPORTED_BY_SOURCE`. Events are signed, batched, retried, logged, resent and rotated as record events; an event reads `eventId`, `scope: "workspace"`, `event`, `change` (`submitted`, `approved`, `sentBack`), `objectType: "change-set"`, `id` (the change set), `position`, `occurredAt`, `workspaceKey`, `submissionId`, `changeSet` (`id`, `name`, `version`), `submitter` and `decider` (`kind`, `id`, `name`; no e-mail, D429), `comment`, `publicationId`. Positions are per workspace without gaps; events are kept for the feed retention, and a subscription that missed expired ones is suspended `EVENTS_EXPIRED`. A model release never suspends it |
 | `GET /api/v1/consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`, paging) | the subscriptions, newest first (ADR-030) |
 | `GET /api/v1/consumer-subscriptions/{id}` | the subscription |
 | `PATCH /api/v1/consumer-subscriptions/{id}` | the edited subscription |
@@ -3825,10 +3826,10 @@ and `reset` (default false).
 - **Start.** Delivery continues after `acknowledgedThrough`: the workspace's feed head at create, or
   `startAfter`, refused as the pull feed's `after` is (`410 EVENTS_EXPIRED` with `publication`,
   `409 EVENT_POSITION_AHEAD`).
-- **Contract version.** `contractVersion` is the version the subscription was accepted under.
+- **Contract version.** `contractVersion` is the version the subscription was accepted under; it is served while the model serves that version, the current one or an earlier one it keeps (0.13 DF3).
 - **Suspension reasons:** `SUSPENDED_BY_USER`; `MODEL_CHANGED` (an activated release no longer
   declares the API, an event or a filter's parameter; `details.errors`); `CONTRACT_VERSION_CHANGED`
-  (an activated release serves another version; `details.contractVersion`,
+  (an activated release no longer serves the version it was accepted under; `details.contractVersion`,
   `details.servedContractVersion`); `WORKSPACE_RETIRED`. The dispatcher (C12) adds
   `DELIVERY_FAILED` (`deliveryId`, `attempts`, `failingSince`, `lastError`), `FILTER_MATCHES_NOTHING`
   (`parameter`, `values`, `pointer`, and `position`, the acknowledged position) and
@@ -3837,8 +3838,9 @@ and `reset` (default false).
   `code`, `message` and `pointer` in `details.errors`. It continues after `acknowledgedThrough`, at
   once, the failing batch's retries cleared. If events after `acknowledgedThrough` expired, it is
   `409 EVENTS_EXPIRED` with `fromPosition`, `toPosition` and `publication`. With `reset: true` it
-  starts after the workspace's feed head instead, whatever happened before: the receiver re-syncs
-  what it missed after the reset (a publication's lists), so nothing falls between. A resume
+  starts after the workspace's feed head instead, whatever happened before: the receiver reloads
+  current data taken after the reset (a live export or a publication made after it; the publication
+  named in `details` may be older than the head), so nothing falls between. A resume
   accepts the contract version served.
 - **Delivery state** (`delivery`, C-D108): `lastDeliveredAt`, when a request was last acknowledged
   (`null` before the first); `pending`, `null` unless a batch is failing: its `deliveryId`, the
@@ -4153,16 +4155,19 @@ the layout places the change took.
 | `removeAttributeType` | `attributeType` (not bound anywhere) | draft-only | `restoreElements` |
 | `setAttributeTypeFeatures` | `attributeType`, features to set | additive; draft-only to add `unique` | `setAttributeTypeFeatures` back |
 | `setValueType` | `attributeType`, `valueType`, `validation`? | draft-only | `setValueType` back |
+| `setAttributeTypeProperty` (0.13 ED) | `attributeType`, `property` (`minimum`, `maximum`: numbers on an integer or decimal type, the minimum not above the maximum; `hidden`: true or false; `helpText`: text), `value` (`null` takes the setting away). Stored values outside a new bound are found by the compatibility check when the release is installed | additive | `restoreElements` |
 | `attachAttribute` | `objectType`, `attributeType`, `required`, `readOnly`, `position`, `layout` | additive; draft-only when `required` on a released type | `detachAttribute` |
 | `detachAttribute` | `objectType`, `attributeType` | draft-only | `restoreElements` |
 | `moveAttribute` | `attributeType`, `from`, `to` (a type), `layout` | draft-only | `restoreElements` |
-| `setAttributeBinding` | `objectType`, `attributeType`; `required`, `readOnly`, `position` | additive for `position`; draft-only otherwise | `setAttributeBinding` back; `restoreElements` when the move changed an `order` |
+| `setAttributeBinding` | `objectType`, `attributeType`; `required`, `readOnly`, `position`, `ui` (`hidden`, `helpText`: hints this type gives the attribute; `null`, `false` or empty text takes one away) | additive for `position` and `ui`; draft-only otherwise | `setAttributeBinding` back; `restoreElements` when the move changed an `order` or `ui` was set |
+| `setObjectTypeProperty` (0.13 ED) | `objectType`, `property`, `value` (`null` takes the setting away): `displayAttributeTypeKey` (an attribute the type binds); `effectivePeriod` (`{startAttributeTypeKey, endAttributeTypeKey}`: two different date attributes the type binds); `atLeastOneOf` (a list of attributes the type binds; stored records that do not meet it are found by the compatibility check when the release is installed); `parentRelationTypeKeys` (relation types with a relationship allowed to the type) | additive; draft-only for `parentRelationTypeKeys` | `restoreElements` |
 | `setContainment` | `objectType`, `parent` (D30; the `parentOf` relation type, its bindings, the type's `parentRelationTypeKeys` and the parents' children panels changed together), `application`?, `fromApplication`? (where the type stands: with `application`, the type and every type under it in the application it leaves move there, with the leaving application's views of them (a view is of the type it lists: a table's type, a tree's top, a matrix's rows, a mapping grid's listed end) and of other types that need one of them and can stand in `application`, and their detail pages (where `application` has a page of the type already, it takes the panels it lacks); nothing that can stand in `application` is left out, a key it holds being renamed. Only what the validator holds to an application's types is checked against `application`: a relation or ancestor column, a relation panel and a mapping grid's other end may name another application's types and are kept, in what moves and in what stays. What cannot stand in either application goes: a relation matrix whose three types no application lists together, a children or table panel of a page staying behind that lists a type that moved; a tree staying behind loses the nodes that moved; an arriving type with no view gets a table view and a detail page; a type staying behind whose last view went gets a table view; the import profile's sources follow. `fromApplication` is required when the type is in several applications. `parent` may be left out with `application` to keep the containment, and only then is a released type moved without a migration step in the editor; activating the release where records of the type exist needs a workspace migration, which carries them to the application that lists the type (0.11 R, R-F3)). A tree view keeps a valid top: a top given a parent makes way for the nearest parents its application lists that may stand at the top, the tree's label, secondary and availability fields falling back where those lack them; a node no longer reached stands at the top when it may, else leaves; an action it can no longer offer goes; a tree left with no top goes. Refused: `application` the type is already in, `fromApplication` not listing it or equal to `application` (`invalidValue`), several applications and no `fromApplication` (`missingParameter`) | draft-only with `parent`; additive with `application` alone | `restoreElements` |
 | `addRelationType` | `key`?, `reverseKey`?, `name`, `reverseName`, `isOriented` | additive | `removeRelationType` |
 | `removeRelationType` | `relationType` (no binding left) | draft-only | `restoreElements` |
+| `setRelationTypeProperty` (0.13 ED) | `relationType`, `property` (`isOriented`), `value` (true: deleting a record also deletes the target records it owns through required one-to-one or one-to-many relationships of this type; `null` is the default, true) | additive | `setRelationTypeProperty` back |
 | `allowRelation` | `relationType`, `from`, `to`, `cardinality`, `required`, `layout` | additive; draft-only when `required` to a released type (0.10 R-F3) | `disallowRelation` |
 | `disallowRelation` | relation binding | draft-only | `restoreElements` |
-| `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only; additive for `candidates` alone (compatible in a release, 0.9 K7; corrected in A4a) | `setRelationRule` back |
+| `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey`, `attributeTypeKeys` (the attribute types a relationship of the binding carries) | draft-only; additive for `candidates` alone (compatible in a release, 0.9 K7; corrected in A4a) | `setRelationRule` back |
 | `addView` | `applicationKey`, `view` (a declaration; a table view may give only `objectTypeKey`, with `key` and `name` optional, and the rest is generated), `position`, `default` | additive | `removeView` |
 | `removeView` | view, `unlist`? (also the types it named that the application then lists for nothing) | additive | `addView` with its declaration; `restoreElements` when types left with it |
 | `listObjectType` | `applicationKey`, `objectType` (a type it does not list yet). Records keep the application they stand in: a matrix there reads them, a table there lists only records stored there | additive | `unlistObjectType` |
@@ -4171,7 +4176,8 @@ the layout places the change took.
 | `addPanel` | `applicationKey`, `detail` (a declared page's type), `show`: `{"relations": {"relation", "direction"}}` (`outgoing` or `incoming`, a relationship the type holds) or `{"children": {"objectTypeKeys"}}` (types the application lists and the type contains), `region` (`main` default, or `side`), `title`?, `key`? (generated free; a given one that is taken is refused `keyTaken`). The server builds the panel with the rule a type's page follows (0.13 RL), so every client gets the same panel; the answer's `parameters` carry its `key`, `title` and `region` | additive | `removeViewItem` |
 | `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back; `restoreElements` when the move changed a panel's `order` |
 | `removeViewItem` | view or panel, `list`, `item` | additive | `insertViewItem` at its old position |
-| `setViewProperty` | view or panel, `property` (`name`, `defaultSort`, `pageSize`, `region`, `visible`, `title`, …), `value` | additive | `setViewProperty` back |
+| `setViewProperty` | view, panel or detail page, `property` (`name`, `defaultSort`, `pageSize`, `region`, `visible`, `title`, any `config` member such as `sortFields`, `relationTypeKeys`, `showParent`, `rootObjectTypeKeys`, `labelField`; on a detail page `header.<name>` and `breadcrumbs.<name>`), `value` | additive | `setViewProperty` back |
+| `setApplicationProperty` (0.13 ED) | `applicationKey`, `property` (`defaultView`), `value` (a view of the application). Its colour is `setLabel`'s `color`; its `state` is read by nothing, so it has no operation | additive | `setApplicationProperty` back |
 | `addDetailPage` | `applicationKey`, `objectType` (a type of the application without a page); `page` and `position` only as `removeDetailPage`'s inverse | additive | `removeDetailPage`; `restoreElements` when it started the application's list of pages |
 | `removeDetailPage` | `applicationKey`, `objectType` | additive | `addDetailPage` with its declaration and position |
 | `addNavigationGroup` | `applicationKey`, `key`?, `label`, `collapsed`, `position` | additive | `removeNavigationGroup` |
@@ -4202,6 +4208,20 @@ against the active release protects its consumers at activation (D55, C-D17).
 | `insertConsumerApiPart` | `consumerApi`, `pointer` (a list, or a keyed map with `key` naming the member), `value`, `position`; a list or map its object lacks is started | additive | `removeConsumerApiPart` |
 | `moveConsumerApiPart` | `consumerApi`, `pointer` (the member or item), `position` | additive | `moveConsumerApiPart` back |
 | `removeConsumerApiPart` | `consumerApi`, `pointer` (the member or item) | additive | `insertConsumerApiPart` at its old position |
+| `raiseConsumerApiVersion` | `consumerApi`, `version`? (default: the next), `keep`? (default `true`), `deprecated`? (a day `YYYY-MM-DD`, default today) | additive | `setConsumerApiPart` with the whole old definition |
+| `removeConsumerApiVersion` | `consumerApi`, `version` (an earlier version the definition keeps; `unknownElement` otherwise) | additive | `insertConsumerApiPart` at its old position |
+| `setConsumerApiSunset` | `consumerApi`, `version` (an earlier version), `sunset` (a day `YYYY-MM-DD`; `null` takes it back; another text is `invalidValue`) | additive | `setConsumerApiSunset` with the old day |
+
+**Earlier contract versions (0.13 DF3).** `raiseConsumerApiVersion` sets `contractVersion` to `version` (refused
+`outOfRange` when it is not above the current one) and, with `keep`, freezes the definition as it was, at the
+version it had, as the first of `earlierVersions` with the `deprecated` day, so the consumers of the old version
+go on reading it ([CONSUMER_API.md](CONSUMER_API.md#earlier-versions-served-beside-the-new-one-013-df3)).
+`removeConsumerApiVersion` stops serving one after the next activation; `setConsumerApiSunset` announces the day it
+stops in the `Sunset` header. A kept version that reads a type or attribute the draft no longer has is reported by
+the step's `diagnostics` at `/consumerApis/<key>/earlierVersions/<index>/…`, naming the version; activation also
+refuses a kept version that would read differently from the same version in the active release
+(`409 CONSUMER_CONTRACT_VERSION_REQUIRED`, diagnostic code `CONSUMER_KEPT_VERSION_CHANGED`); a kept version that
+stops is a warning (`CONSUMER_VERSION_STOPPED`).
 
 **The starting definition** `addConsumerApi` writes (D53): `contractVersion` 1; the fields `id`
 (role `id`) and `name` (role `name`) and one field per attribute an exposed type binds, in binding
@@ -4361,10 +4381,14 @@ can be read, beside its diagnostics.
   release does not list them here.
 - **`uniquePer`** on an allowed relation names the ancestor type under which a source may hold only one
   target (`features.uniqueToAncestorTypeKey`); absent without that rule.
+- **The settings the editor shows** (0.13 ED): an application's `defaultView`; a type's `displayAttribute`,
+  `effectivePeriod`, `atLeastOneOf` and `parentRelationTypeKeys`; an attribute binding's `hidden` and
+  `helpText`; an attribute type's `minimum`, `maximum`, `hidden` and `helpText`; a relation type's
+  `isOriented`; an allowed relation's `attributeTypeKeys`.
 - **`relations[].candidates`**: which records the relationship may choose at each end (0.9 K7), as the
   model declares it; absent when it has none.
 - **`relations[].attributeTypeKeys`**: the attribute types the relationship itself carries, as the
-  model binds them; absent when it carries none. The consumer API editor offers them as
+  model binds them; empty when it carries none. The consumer API editor offers them as
   `relation:<key>` sources (0.13 RA).
 - **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model
   (every problem of the views and detail pages together, the first one of any other rule), each with
@@ -4513,7 +4537,7 @@ with the file and its profile's state:
   break, each with the `cells` holding it and their `share`), `placeholders`, `values` (its 10 most
   frequent, each with its `count`; 0.10 A6) and `overlaps`, with `limits` (`valuesListed` among
   them).
-- **`GET …/profile/sheets/{sheet}/cells?range=A3:C12`** (0.10 A8b, D124; paged by rows with cursors
+- **`GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells?range=A3:C12`** (0.10 A8b, D124; paged by rows with cursors
   and positions, `pageSize` up to 500) gives the rows of the range that hold a cell, in row order,
   each `{"row": 4, "cells": {"A": {"text": "…", "kind": "text"}}}`: the staged text as an import
   matches it and its value type (`text`, `integer`, `decimal`, `boolean`, `date`, `dateTime`); a
@@ -4602,6 +4626,72 @@ of its own, D79) stops as `cancelled`; a rename or a layout change leaves it run
   the draft does not own, `409 SOURCE_FILE_PROFILE_NOT_READY`, `404 DRY_RUN_NOT_FOUND` (reads
   before the first), the workspace's codes. The routes are model administration's and need
   `INTEGRATION_JOBS_ENABLED` too (D6).
+
+
+#### A dry run of items (0.13 AB)
+
+`POST /api/v1/model-drafts/{draftId}/dry-run` also takes **`items`** in place of `sourceFileId` (and
+`profile`): exactly one of the two forms.
+
+```json
+{ "workspaceKey": "main", "onExisting": "reject",
+  "items": [ { "op": "create", "id": "5f0e…", "applicationKey": "reference", "objectTypeKey": "country",
+               "name": "Brazil", "ref": "Person!Q31:S31" },
+             { "op": "createRelation", "relationTypeKey": "has-iso", "from": { "id": "5f0e…" },
+               "to": { "id": "c1d2…" }, "ref": "Person!N32:P32" } ] }
+```
+
+The items are the batch items of [Batches and jobs](#batches-and-jobs) (`create`, `upsert`, `update`,
+`createRelation`, `ensureRelation` …), each with an optional `ref` naming the cells it comes from
+(`Sheet!Q31:S31`, or one cell). A new record is given an `id` of the client's own so later items can
+point to it; an existing one is found by reading it and named by its ID. The body holds up to
+`BACKGROUND_JOB_MAX_ITEMS` items and `BATCH_BACKGROUND_MAX_BYTES` bytes, and, since accepting an
+assistant task loads them as one atomic batch, up to `ATOMIC_JOB_MAX_ITEMS` (`413 BATCH_TOO_LARGE`
+names the setting). The worker previews **every** item against the draft's compiled model in the
+workspace, in a transaction it rolls back, as the profile form previews the items a profile binds, and
+stores the items with the completed job (they stay until its retention ends; a newer items dry run of
+the draft removes the older ones'). A refused item is an outcome with its `ref`, as in a batch; it
+writes nothing and does not stop the others.
+
+`GET …/dry-run` then answers `summary: null`, `sourceFileId: null` and **`items`**:
+
+```json
+{ "mode": "items", "jobId": "…", "draftId": "…", "draftVersion": 9, "workspaceKey": "main",
+  "items": 4332,
+  "figures": { "recordsNew": 1699, "recordsMatched": 237, "recordsChanged": 0, "recordsRemoved": 0,
+               "relationshipsNew": 2633, "relationshipsMatched": 0, "refused": 0, "rowsRead": 333 },
+  "types": [ { "objectTypeKey": "country", "new": 0, "matched": 237, "changed": 0, "removed": 0,
+               "refused": 0, "linkedTo": [ "iso-country" ],
+               "examples": [ { "index": 12, "ref": "Person!N32:P32", "objectTypeKey": "country",
+                               "action": "unchanged", "name": "Brazil", "id": "…",
+                               "values": [ { "attributeTypeKey": "code", "value": "BR" } ],
+                               "links": [ { "relationTypeKey": "has-iso", "direction": "outgoing",
+                                            "objectTypeKey": "iso-country", "name": "BR" } ],
+                               "error": null } ] } ],
+  "relationships": [ { "relationTypeKey": "has-iso", "new": 2633, "matched": 0, "refused": 0 } ],
+  "sheets": [ { "sheet": "Person", "rows": 300 } ],
+  "parts": [ { "sheet": "Person", "firstColumn": "N", "lastColumn": "P", "firstRow": 8, "lastRow": 247,
+               "objectTypeKey": "country", "relationTypeKey": null, "items": 237 } ], "partsTotal": 1,
+  "findings": [ { "kind": "nameTwice", "objectTypeKey": "person-subtype", "name": "Driver", "count": 2,
+                  "parents": [ { "id": "…", "name": "Affiliate", "objectTypeKey": "person-type" }, null ] } ],
+  "refused": [ { "index": 4, "ref": "Person!A9", "key": "country", "code": "UNKNOWN_ATTRIBUTES",
+                 "message": "…" } ],
+  "refusedByCode": [ { "code": "UNKNOWN_ATTRIBUTES", "items": 1 } ], "ranAt": "…" }
+```
+
+- Per type: records `new`, existing records found (`matched`, of which `changed` were updated;
+  the rest `unchanged`), `removed`, and items `refused`; `linkedTo` the types the load's
+  relationships join it to; up to three `examples` (a refused item first), each with its `ref`, its
+  first values and links. `relationships` counts per relation type, including a created record's
+  `initialRelations`. `rowsRead` is the distinct sheet and row of the refs; `parts` groups the refs
+  by sheet, columns and type (up to 100; `partsTotal` counts them all).
+- `findings` is what only the loaded state shows, read in the preview's transaction before it is
+  rolled back: a name that appears more than once in one type among the records the load touches,
+  with the parent each record sits under (`null` at the root).
+- `refused` lists up to 100 refused items with their `ref`, `refusedByCode` counts them all.
+- The job is a `dryRun` with `parameters.mode: "items"`; `GET …/dry-run/rows` and `GET /jobs/{id}`
+  read it as any job. An assistant task's proposal takes this summary as `design.load`
+  ([Loading a workbook, or changing records, with the assistant](#loading-a-workbook-or-changing-records-with-the-assistant)).
 
 ### A draft's import profile
 
@@ -4884,13 +4974,13 @@ after the profile changed; a check still running for the profile and workspace i
   while a column it names is missing or renamed: the client updates the profile first.
 - Per source, the counts of three lists, each read by its own route (paged by position; `source` in
   load order; each with the check's `workspaceKey`):
-  - `GET …/check/new-values`: each value of a match column that names no record (`column`, `value`,
+  - `GET /api/v1/import-profiles/{profile_key}/check/new-values`: each value of a match column that names no record (`column`, `value`,
     `cells`, `created`: the load creates it, the column's `missing: "create"`, or refuses it);
-  - `GET …/check/drift`: each row whose key finds a record named otherwise (`row`, `recordId`,
+  - `GET /api/v1/import-profiles/{profile_key}/check/drift`: each row whose key finds a record named otherwise (`row`, `recordId`,
     `key`, `name` in the file, `recordName`);
-  - `GET …/check/missing-records`: each record of the type no row names (`recordId`, `name`,
+  - `GET /api/v1/import-profiles/{profile_key}/check/missing-records`: each record of the type no row names (`recordId`, `name`,
     `key`), kept or deleted by the load as the source's `missing` says.
-- `GET …/check/rows` (paged; `source`, `status`, `code`) lists the rows behind the summary's
+- `GET /api/v1/import-profiles/{profile_key}/check/rows` (paged; `source`, `status`, `code`) lists the rows behind the summary's
   figures, as a dry run's rows route does.
 - Refusals: `404 PROFILE_CHECK_NOT_FOUND` before the profile's first file in the workspace is
   checked, `404 IMPORT_PROFILE_NOT_FOUND`; `POST …/check` also `404 SOURCE_FILE_NOT_FOUND` (the
@@ -5048,7 +5138,7 @@ is unreachable or no workspace can be served; readiness listing the unavailable 
 - **Consumer APIs** (D10, D27): the index (`GET /api/consumer`) and each definition's OpenAPI
   document take `workspace`, as the read routes do, and answer `RDM-Workspace` and
   `X-Model-Release-Id` naming the workspace and release they describe; the index's document links
-  carry the `workspace` asked for. A definition key may mean different contracts in two workspaces.
+  carry the `workspace` asked for; the index lists one entry per version the release serves, an earlier one with `deprecated` and its `sunset` (0.13 DF3). A definition key may mean different contracts in two workspaces.
   Events, checkpoints, subscriptions and webhooks are derived under the workspace's release (M1).
   The API reference page (`GET /docs/api`) takes `?workspace=` (D39).
 
@@ -5146,7 +5236,7 @@ applies `objectName`, `objectTypeKey`, `targetObjectTypeKey`, `applicationKey`,
 | `conversion` | `VALUE_CARRIED` | A value carried to another attribute by a type mapping |
 | `reclassified` | `RECORD_RECLASSIFIED` | A record whose type, application or parent changes (`parentReleased` when its type stands at the top now) |
 | `created` | `RECORD_CREATED`, `RELATION_CREATED` | A record or relationship a split or a list conversion creates (counted in the summary's `counts.created` only then) |
-| `loss` | `OBJECT_TYPE_IN_USE`, `APPLICATION_IN_USE`, `APPLICATION_OBJECT_TYPE_IN_USE` | A record of a type, or application, the target lacks |
+| `loss` | `OBJECT_TYPE_IN_USE`, `APPLICATION_IN_USE`, `APPLICATION_OBJECT_TYPE_IN_USE` | A record of a type the target lacks, or lists in no application. A type the target still has is never lost: its records move to the application that lists it (one holder, or the one that lists it newly) |
 | `loss` | `PARENT_REMOVED` | A record contained in a lost record |
 | `loss` | `ATTRIBUTE_BINDING_IN_USE` | A value of an attribute the record's new type does not bind |
 | `loss` | `VALUE_NOT_CONVERTIBLE` | A value that does not convert (and, required by the target, a refusal too) |
@@ -5154,6 +5244,7 @@ applies `objectName`, `objectTypeKey`, `targetObjectTypeKey`, `applicationKey`,
 | `loss` | `RELATION_ATTRIBUTE_IN_USE` | A relationship's value the target's binding drops |
 | `refused` | the compatibility codes (`REQUIRED_ATTRIBUTE_MISSING`, `ATTRIBUTE_UNIQUENESS_VIOLATED`, …) with `path` | A record the migrated data would break a rule of the target for |
 | `refused` | `PARENT_RELATION_SEMANTICS_CHANGED` | A record the target has no place for under its parent |
+| `refused` | `APPLICATION_TARGET_AMBIGUOUS` | A record of a type the target lists in several applications, none newly: the message names them; the mapping's `toApplicationKey` chooses |
 
 Conversions (D69): text and long text into each other; a whole number into a decimal and a decimal
 without a fraction into a whole number; any value into text in its stored form and back; text into
@@ -5325,7 +5416,7 @@ carry when both types declare one.
 | `DELETE /model-mappings/{key}?expectedVersion` | `204`; its history and proposals go with it (D112) |
 | `POST /model-mappings/{key}/operations` | One step: `{expectedVersion, operations}` answered with `version`, `entries` (as a draft's, with `mappingVersion`) and `problems` |
 | `GET /model-mappings/{key}/operations` | The history in sequence order |
-| `POST /model-mappings/{key}/undo`, `…/redo` | As a draft's: the latest step, `step` or `steps`; `409 OPERATION_HAS_DEPENDANTS` names the later steps relying on it |
+| `POST /model-mappings/{key}/undo`, `POST /model-mappings/{key}/redo` | As a draft's: the latest step, `step` or `steps`; `409 OPERATION_HAS_DEPENDANTS` names the later steps relying on it |
 | `POST /model-mappings/{key}/inference` | `202`: a job of kind `mappingInference` over `sourceWorkspaceKey` and `targetWorkspaceKey`, which must run the mapping's two models |
 | `GET /model-mappings/{key}/inference` | Its state, counts by status (`open`, `applied`, `held`, `rejected`) and warnings |
 | `GET /model-mappings/{key}/inference/proposals?sourceType` | Proposals in the order they apply: `kind` (`type`, `relation`), `sourceType`, `relation`, `target`, `score`, `summary`, `evidence`, `operations`, `alternatives` (operations to send after it), `requires`, `status` |
@@ -7280,11 +7371,11 @@ registered with `INTEGRATION_JOBS_ENABLED`.
 | --- | --- |
 | `POST /ai/tasks` | `multipart/form-data`: `file` (XLSX or CSV, optional) and `request` JSON `{workspaceKey, words?, sendLevel?}`. `202` with the task (state `reading`, `jobId`). `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`, `409 AI_SEND_LEVEL_TOO_LOW`, `403 FORBIDDEN`, `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `422 AI_TASK_NEEDS_WORDS` (neither a file nor words) |
 | `GET /ai/tasks` | The caller's tasks and those of the workspaces they administer, newest first (paging) |
-| `GET /ai/tasks/{id}` | The task. `ahead` (0.13 AQ): while the task's job waits for the assistant's worker, the number of assistant jobs before it (queued or running, by the order the worker takes them; a close count, not a promise); `null` once it runs and in every other state |
+| `GET /ai/tasks/{id}` | The task. `ahead` (0.13 AQ): while the task's job waits for the assistant's worker, the number of assistant jobs before it (queued or running, by the order the worker takes them; a close count, not a promise); `null` once it runs and in every other state. `design.load` (0.13 AB): when the session sent its records as `items` to the draft's dry run, that run's summary ([A dry run of items](#a-dry-run-of-items-013-ab)): per type the records new, matched, changed and refused, the relationships, examples with their cells, the engine's findings; `design.itemsLoad` is then `true` and accepting loads exactly those items; `check.mode` is `items` and `check.sheets` is empty |
 | `GET /ai/tasks/{id}/changes?source=0` | The records the latest check would change in a sheet of the check (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` for a source the check has no figures for |
 | `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. When **every answer is its question's `assumed` option** (0.13 AQ) the answers are recorded and nothing is queued: `202` with the task still `checked` and a new `version`, no job `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
 | `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}`: the person's words, in every state where a task can go on (0.16 AP13). Allowed when `checked` (the proposal, or a saved layout's load stage: a session starts on the same task and file, `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`), `failed` or `stopped` (the same session goes on; a session that never ran starts, with the task's words and the new ones; the task's notes, its old reasons, are cleared), or `loaded` with a change set not yet published (needs Work in change sets: the change set is discarded and the same session loads again from the proposal with the words; `409 AI_TASK_STATE` for a published or discarded change set or a session that ended). `202`, state `checking`: the session changes the model as the words say (kept in `design.corrections`, the newest last) and proposes again, or loads again. Same refusals |
-| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `403 FORBIDDEN` naming Work in change sets unless the proposal only moves whole types (it loads no change set); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. It never activates, migrates or publishes. A words-only task (no file) whose model does not change has a proposal without a draft (`draftId` null, `design.modelUnchanged` true, "no change to the model"): accepting installs and activates nothing, and the session makes the change set on the workspace's current live release; a workbook task always has a draft. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
+| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `403 FORBIDDEN` naming Work in change sets unless the proposal only moves whole types (it loads no change set); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. **When the proposal holds a dry run of items** (0.13 AB: the session sent `items` to its draft's dry run; the task shows the summary as `design.load` and has `design.itemsLoad: true`; [A dry run of items](#a-dry-run-of-items-013-ab)) no session turn runs: the engine itself installs the draft as one release (what `POST /model-drafts/{id}/installation` does; none when the draft does not change the model), makes a change set on it over the live data (on the workspace's current release when the model does not change), and runs the stored items into it as **one atomic batch**, then the task is `loaded` with `result.counts` (the change set's records and relationships), `result.importJobId` (the batch job) and the change set. A draft changed after the dry run (a step that can change what the load writes) has every item checked again first; a refusal then fails the task before anything is installed. A refusal at the atomic batch (the data moved since the check) writes nothing: the change set is discarded, the task is `failed` with a note naming the refused records and their cells, and `POST …/model` or `…/retry` goes to the session as a correction of the proposal, which checks the records again. The batch is the job `batch` of the task (its `parameters.taskId`). It never activates, migrates or publishes. A words-only task (no file) whose model does not change has a proposal without a draft (`draftId` null, `design.modelUnchanged` true, "no change to the model"): accepting installs and activates nothing, and the session makes the change set on the workspace's current live release; a workbook task always has a draft. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
 | `POST /ai/tasks/{id}/retry` | `{expectedVersion, words?}`. A task that `failed` or `stopped` goes on from where the session was, its folder and session kept, with the person's `words` when there are some (no words: "go on from where you were"); a session that never ran starts again. A `checked` task with no session (a saved layout that does not fit) is read with the assistant, which starts on the same task and file. `409 AI_NOT_CONFIGURED`, `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/proposal` | `{expectedVersion}`. A saved layout's load stage (`checked`, `design.stage: load`, no session) goes back to its proposal; `200`, no job. `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/discard` | The way to end a task: it becomes `cancelled`, its draft, working folder and session client go, and a release its session installed that nothing uses is retired. Allowed when the task waits for the person, `failed`, `stopped`, or `loaded` and not published; a loaded task's change set is discarded with it (Work in change sets) and a note says so. `409 AI_TASK_STATE` otherwise |
@@ -7356,8 +7447,8 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   change set sits on a second release holding both shapes; activating the final release is refused while an
   old type holds a record); and `migration` (`{releaseId, typeMappings}`), a whole-type move's end: the person
   starts `POST /workspaces/{key}/model/migrations` with these, confirms it with Model release, and no change
-  set exists. Neither release is retired with the task; any other the session installed is. **A saved profile:** the engine saves one from
-  the load, whichever route the session took, and `result.profileKey` names it; the same layout of file
+  set exists. Neither release is retired with the task; any other the session installed is. **A saved profile:** a session load that read the workbook through an import saves one,
+  and `result.profileKey` names it (a load made from items, 0.13 AB, saves none: `profileKey` and `profileNotSaved` are absent); the same layout of file
   next time is read by it with no assistant (below), and a second load of the key is its next version. When
   none is saved, `result.profileNotSaved` says why in a sentence, and the load stands: the change came only
   through batches, so there is no import to repeat ("This load did not import the workbook, so it cannot be
@@ -7426,7 +7517,7 @@ An assistant works only in change sets its own person or client created; any oth
 - `GET /agent-access/clients`: agent clients as `GET /clients` answers them, with `calls30Days` and `lastCallAt`.
 - `GET /agent-access/applications`: the assistants people sign in with: `id` (the `client_id`), `name` (its own claim), `source`, `returnsTo`, `blocked`, `signedIn`, `createdAt`, `lastUsedAt`.
 - `POST /agent-access/applications` (`name`, `redirectUris`: HTTPS or loopback, else `422 AGENT_APPLICATION_INVALID`).
-- `POST /agent-access/applications/{id}/block`: no one signs in with it and its sessions end. `POST …/restore`: people may sign in again; ended sessions stay ended. `404 AGENT_APPLICATION_NOT_FOUND`.
+- `POST /agent-access/applications/{id}/block`: no one signs in with it and its sessions end. `POST /agent-access/applications/{application_id}/restore`: people may sign in again; ended sessions stay ended; answers the application as the list does (Security administration). `404 AGENT_APPLICATION_NOT_FOUND`.
 - `GET /agent-access/calls`: each tool call, newest first: `principal`, `principalKind`, `principalId`, `application`, `tool`, `arguments` (names, never values), `outcome` (`answered`, `refused`, `limited`, `failed`), `durationMs`, `requestId`.
 
 `GET /clients` takes `kind`; a client answers `kind`. _Delivered by AP9:_ `session` is a third kind, the client of one assistant task; it is left out of `GET /clients` unless `kind=session`, and `POST /clients/{id}/secrets` on it is `409 CLIENT_HAS_NO_SECRETS`. `GET /me/sessions` answers `application`, the assistant a session was started for. `GET /system` answers `mcp: {enabled}`.

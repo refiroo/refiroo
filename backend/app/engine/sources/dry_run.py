@@ -9,6 +9,11 @@ binds its file and previews every item (D67) in a transaction it rolls back, as 
 with the draft's model in the context in place of the active release's. A dry run whose draft has
 changed since it was sent stops as ``cancelled``: its answer would be about a model no longer there.
 
+A dry run may instead carry ``items`` (0.13 AB): the batch items of ``POST /batches``, each with an
+optional ``ref`` naming the cells it comes from, previewed against the draft's model in the same
+rolled-back transaction, as a batch's preview is. The items are the job's inputs and stay with the
+completed job, so accepting a task runs exactly those (``items_summary.py`` summarizes the run).
+
 The summary counts, per source in load order: rows, records created, updated, unchanged and
 deleted, the values they write, relationships, related records, the records missing from the file
 (0.10 A5c, D82), the rows skipped for want of a key (0.10 A7, D110) and the rows refused by code;
@@ -16,34 +21,54 @@ and the difference from the draft's previous completed dry run of the same file.
 (``profile_check.py``) summarizes its run the same way.
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import TypeAdapter
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from ...db import lock_job_subject
 from ...errors import api_error
-from ...models.database import Job, ModelDraft, ModelDraftOperation, SourceFile
+from ...models.commands import BatchItem
+from ...models.database import Job, JobInput, ModelDraft, ModelDraftOperation, SourceFile
 from ...models.imports import ImportProfileDefinition
 from ...models.schema import EngineModel
 from ...models.sources import DryRunRequest
 from ..imports.profiles import check_profile, invalid_profile, source_order
 from ..imports.readers import TabularFile, open_tabular
 from ..jobs.background import open_job_context
-from ..jobs.batches import BatchContext, JobCancelled
+from ..jobs.batches import BatchContext, JobCancelled, run_items
 from ..jobs.files import JobFiles
-from ..jobs.store import ItemOutcome, complete_job, job_parameter, record_outcomes, start_job
+from ..jobs.inline import BatchLimits
+from ..jobs.store import (
+    ItemOutcome,
+    complete_job,
+    job_parameter,
+    record_outcomes,
+    start_job,
+    store_inputs,
+)
 from ..model.compiler import compile_model
 from ..model.drafts import load_draft
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
+from .items_summary import summarize
 from .profile_export import definition as exported_profile
 from .staged import StagedFile
 from .store import load_source_file, require_profile
 
 KIND = "dryRun"
 RUNNING = ("queued", "running")
+# The parameter that marks a dry run of items (0.13 AB), and its value.
+MODE = "mode"
+ITEMS = "items"
+
+
+def is_items_run(parameters: dict[str, Any] | None) -> bool:
+    """Whether a dry run's job (its ``parameters``) previews items rather than a source file."""
+    return (parameters or {}).get(MODE) == ITEMS
 
 
 class InvalidDraft(Exception):
@@ -55,10 +80,18 @@ class InvalidDraft(Exception):
 
 
 def submit_dry_run(
-    session: Session, draft_id: str, request: DryRunRequest, *, retention_days: int
+    session: Session,
+    draft_id: str,
+    request: DryRunRequest,
+    *,
+    retention_days: int,
+    limits: BatchLimits | None = None,
 ) -> Job:
     """Queue the draft's dry run and stop its earlier one; commits."""
     draft = load_draft(session, draft_id)
+    if request.items is not None:
+        return _submit_items(session, draft, request, retention_days, limits)
+    assert request.sourceFileId is not None
     source = _draft_source(session, draft, request.sourceFileId)
     require_profile(session, source)
     model = _compiled(draft)
@@ -127,6 +160,80 @@ def submit_dry_run(
     return job
 
 
+def _submit_items(
+    session: Session,
+    draft: ModelDraft,
+    request: DryRunRequest,
+    retention_days: int,
+    limits: BatchLimits | None,
+) -> Job:
+    """Queue the dry run of items: they are stored as the job's inputs, whole, and the worker
+    previews every one against the draft's model. Accepting loads them as one atomic batch, so the
+    set is held to the background limits and to the atomic one."""
+    assert request.items is not None
+    _compiled(draft)
+    workspace = resolve_workspace(session, request.workspaceKey, require_active=True)
+    items = [item.model_dump(mode="json", exclude_unset=True) for item in request.items]
+    if limits is not None:
+        size = len(json.dumps(items, separators=(",", ":")))
+        for setting, maximum, found, unit in (
+            ("BACKGROUND_JOB_MAX_ITEMS", limits.background_max_items, len(items), "items"),
+            ("ATOMIC_JOB_MAX_ITEMS", limits.atomic_max_items, len(items), "items"),
+            ("BATCH_BACKGROUND_MAX_BYTES", limits.background_max_bytes, size, "bytes"),
+        ):
+            if found > maximum:
+                raise api_error(
+                    413,
+                    "BATCH_TOO_LARGE",
+                    f"The items have {found} {unit}; at most {maximum} are checked and loaded "
+                    "as one batch",
+                    {"setting": setting, "maximum": maximum, unit: found},
+                )
+    lock_job_subject(session, KIND, draft.public_id)
+    session.execute(
+        update(Job)
+        .where(
+            Job.kind == KIND,
+            Job.state.in_(RUNNING),
+            job_parameter("draftId") == draft.public_id,
+        )
+        .values(cancel_requested_at=datetime.now(UTC))
+        .execution_options(synchronize_session=False)
+    )
+    # Only the newest items run of a draft can be accepted: the older ones' inputs go.
+    session.execute(
+        text(
+            "DELETE FROM job_inputs i USING jobs j WHERE j.sequence_id = i.job_id"
+            " AND j.kind = 'dryRun' AND j.parameters ->> 'draftId' = :draft"
+            " AND j.parameters ->> 'mode' = 'items'"
+        ),
+        {"draft": draft.public_id},
+    )
+    job = start_job(
+        session,
+        kind=KIND,
+        workspace_key=workspace.key,
+        change_set_id=None,
+        model_release_id=resolve_model_snapshot(session, workspace.key).release_db_id,
+        parameters={
+            "policy": "independent",
+            "run": "background",
+            "stage": "preview",
+            "onExisting": request.onExisting,
+            "otherWorkspaceIds": "refuse",
+            "draftId": draft.public_id,
+            "draftVersion": draft.version,
+            MODE: ITEMS,
+        },
+        total=len(items),
+        retention_days=retention_days,
+        queued=True,
+    )
+    store_inputs(session, job, items)
+    session.commit()
+    return job
+
+
 def dry_run_context(session: Session, job: Job) -> BatchContext:
     """The dry run's context: the workspace, with the draft's model at the version the dry run
     was sent for. A draft changed since stops the dry run (``JobCancelled``); a release activated
@@ -160,6 +267,8 @@ NO_DRY_RUN = frozenset(
         "moveViewItem",
         "removeViewItem",
         "setViewProperty",
+        "setApplicationProperty",
+        "setRelationTypeProperty",
         "addDetailPage",
         "removeDetailPage",
         "addNavigationGroup",
@@ -173,6 +282,9 @@ NO_DRY_RUN = frozenset(
         "insertConsumerApiPart",
         "moveConsumerApiPart",
         "removeConsumerApiPart",
+        "raiseConsumerApiVersion",
+        "removeConsumerApiVersion",
+        "setConsumerApiSunset",
     }
 )
 
@@ -241,9 +353,20 @@ def record_dry_run(
     model: EngineModel,
     *,
     retention_days: int,
+    findings: list[dict[str, Any]] | None = None,
 ) -> None:
     """The dry run's outcomes, its summary and its difference from the draft's previous one; the
-    job completes. The caller commits."""
+    job completes. The caller commits. A dry run of items (0.13 AB) has the summary of
+    ``items_summary.py``, with the findings read before the preview was rolled back."""
+    if is_items_run(job.parameters):
+        record_outcomes(session, job, outcomes)
+        session.execute(text("ANALYZE job_items, job_inputs"))
+        job.report = {
+            **(job.report or {}),
+            "itemsDryRun": summarize(session, job, found_names=findings or []),
+        }
+        complete_job(session, job, retention_days=retention_days)
+        return
     require_file(session, job)
     record_outcomes(session, job, outcomes)
     found = summary(session, job, model)
@@ -484,3 +607,39 @@ def _compiled(draft: ModelDraft) -> EngineModel:
     if not compiled.valid or compiled.model is None:
         raise InvalidDraft(compiled.diagnostics)
     return compiled.model
+
+
+def inputs_of(session: Session, job: Job) -> list[tuple[int, Any]]:
+    """The items a dry run of items kept, in order (0.13 AB), as the batch executor takes them."""
+    adapter = TypeAdapter(BatchItem)
+    return [
+        (index, adapter.validate_python(item))
+        for index, item in session.execute(
+            select(JobInput.item_index, JobInput.item)
+            .where(JobInput.job_id == job.sequence_id)
+            .order_by(JobInput.item_index)
+        )
+    ]
+
+
+def preview_again(session: Session, job: Job, draft: ModelDraft) -> list[ItemOutcome]:
+    """Preview a dry run's kept items once more against the draft as it is now, every item, in a
+    transaction rolled back before this returns (an accept whose draft changed since the check,
+    0.13 AB)."""
+    model = _compiled(draft)
+    workspace = resolve_workspace(session, job.workspace_key, require_active=True)
+    snapshot = resolve_model_snapshot(session, workspace.key)
+    context = BatchContext(workspace.key, None, model, snapshot.release_db_id, None)
+    outcomes = run_items(
+        session,
+        context,
+        inputs_of(session, job),
+        policy="independent",
+        on_existing=job.parameters.get("onExisting", "reject"),
+        other_workspace_ids=job.parameters.get("otherWorkspaceIds", "refuse"),
+        expected_change_set_version=None,
+        job_id=job.id,
+        previewing=True,
+    )
+    session.rollback()
+    return outcomes

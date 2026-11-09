@@ -396,7 +396,10 @@ def _finish(session: Session, job: Job, state: str, *, retention_days: int) -> N
     counts = job.counts
     now = datetime.now(UTC)
     job.result = (
-        "applied"
+        # A job that ended in failure before it had an item applied nothing, whatever "all of none" says.
+        None
+        if job.total == 0 and state in ("failed", "cancelled", "expired")
+        else "applied"
         if counts["applied"] == job.total
         else "rejected"
         if counts["applied"] == 0
@@ -408,7 +411,12 @@ def _finish(session: Session, job: Job, state: str, *, retention_days: int) -> N
     job.expires_at = now + timedelta(days=retention_days)
     job.lease_owner = None
     job.lease_expires_at = None
-    session.execute(delete(JobInput).where(JobInput.job_id == job.sequence_id))
+    if not (
+        state == "completed" and job.kind == "dryRun" and job.parameters.get("mode") == "items"
+    ):
+        # A completed dry run of items keeps them: accepting runs exactly those (0.13 AB). Its
+        # retention removes them, as it removes any job's inputs.
+        session.execute(delete(JobInput).where(JobInput.job_id == job.sequence_id))
     keep_key_with(session, job)
 
 

@@ -116,7 +116,7 @@ export function AppShell({
   return (
     <ShellFrame
       journey={
-        activeRoute.kind === "changeSetChanges" && activeRoute.journey ? (
+        activeRoute.kind === "changeSetChanges" && activeRoute.journey?.kind === "aiTask" ? (
           <AiTaskJourneyBar
             key={activeRoute.journey.taskId}
             journey={activeRoute.journey}

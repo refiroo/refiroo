@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import CollectionPage, PrincipalResponse
+from .sources import ItemsDryRunSummary
 
 TaskState = Literal[
     "reading", "read", "checking", "checked", "loading", "loaded", "failed", "cancelled", "stopped"
@@ -245,6 +246,10 @@ class TaskDesign(BaseModel):
     # What the proposal moves, whole types: ``{from, fromName, to, toName, records, attributes}``
     # from the engine's own plan and counts (AP-D47).
     moves: list[dict[str, Any]] = []
+    # What the person's words explicitly ask to remove, with the records, values and relationships
+    # each deletes (the engine's counts) and a plain sentence: ``{kind, key, objectType, words,
+    # name, records, values, relationships, text}``. Nothing else may be lost.
+    removals: list[dict[str, Any]] = []
     # The consumer APIs the draft raises the contractVersion of, from the engine's diff:
     # ``{api, name, from, to, changes}``.
     consumerChanges: list[dict[str, Any]] = []
@@ -274,6 +279,10 @@ class TaskDesign(BaseModel):
     # A words task whose model does not change: the proposal has no draft, and accepting makes the
     # change set on the workspace's live release.
     modelUnchanged: bool = False
+    # What the load does (0.13 AB): the summary of the dry run of items the assistant sent for its
+    # draft. Accepting then installs the model and loads exactly those items, with no assistant turn.
+    load: ItemsDryRunSummary | None = None
+    itemsLoad: bool = False
 
 
 class DesignSheet(BaseModel):
@@ -304,6 +313,8 @@ class DesignCheck(BaseModel):
     rounds: int
     # The draft changed after this dry run, so it does not cover the model as it stands.
     draftChanged: bool = False
+    # ``items`` for a dry run of items (0.13 AB): no sheets, the summary is in ``design.load``.
+    mode: Literal["items"] | None = None
 
 
 class TaskNote(BaseModel):
@@ -319,6 +330,10 @@ class TaskMigration(BaseModel):
 
     releaseId: str
     typeMappings: list[dict[str, Any]]
+    # What the draft's steps imply beside the types, as the migration takes them (0.13 AB).
+    relationTypeMappings: list[dict[str, Any]] = []
+    splits: list[dict[str, Any]] = []
+    listConversions: list[dict[str, Any]] = []
 
 
 class TaskResult(BaseModel):

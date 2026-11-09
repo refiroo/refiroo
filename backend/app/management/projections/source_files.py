@@ -176,8 +176,9 @@ def dry_run_response(job: Job) -> DryRunResponse:
         state="checking" if job.state in {"queued", "running"} else job.state,
         draftId=parameters["draftId"],
         draftVersion=parameters["draftVersion"],
-        sourceFileId=parameters["sourceFileId"],
+        sourceFileId=parameters.get("sourceFileId"),
         workspaceKey=job.workspace_key,
+        items=report.get("itemsDryRun"),
         summary=(
             {key: summary[key] for key in (
                 "coverage", "rows", "sources", "difference", "previousJobId", "ranAt"

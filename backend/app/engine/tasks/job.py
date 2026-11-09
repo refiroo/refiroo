@@ -33,7 +33,7 @@ from ..proposals.registry import AiConfiguration
 from ..sources.profiling import profile_source_file
 from ..sources.store import load_source_file, store_task_file, upload_format
 from ..workspaces.catalogue import resolve_workspace
-from . import agent, design_job, plan, reading, workbook
+from . import agent, design_job, items_load, plan, reading, workbook
 from .store import (
     claim,
     create_task,
@@ -228,7 +228,13 @@ def run_design(session: Session, job: Job, ctx: Context) -> None:
     """A session's next turn, or a saved layout's next step (``design_job``)."""
     sequence_id = job.sequence_id
     _stage(session, job, "designing")
-    design_job.run_turns(session, job, ctx, job.parameters["taskId"], record_call=ctx.record)
+    task_id = job.parameters["taskId"]
+    if items_load.accepts(load_task(session, task_id)):
+        # The person accepted what the engine checked (0.13 AB): the engine loads exactly those
+        # items, with no assistant turn.
+        items_load.run(session, job, ctx, task_id)
+    else:
+        design_job.run_turns(session, job, ctx, task_id, record_call=ctx.record)
     ctx.hold(cancellable=True)
     job = session.get(Job, sequence_id)
     complete_job(session, job, retention_days=ctx.retention_days)

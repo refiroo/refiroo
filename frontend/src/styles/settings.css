@@ -3629,6 +3629,90 @@ a.account-reach-app:hover {
   }
 }
 
+/* What the load does (0.13 AB): the figures, the rows of types that open to example records, and the accept bar. */
+.load-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.load-figures li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.load-figures strong {
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+}
+.load-figures span {
+  color: var(--text-secondary);
+}
+.load-type {
+  cursor: pointer;
+}
+.load-type[aria-expanded="true"] {
+  background: var(--surface-sunken);
+}
+.load-type:focus-visible {
+  box-shadow: inset var(--focus-ring);
+  outline: none;
+}
+.load-chevron {
+  display: inline-block;
+  width: 1.25em;
+  color: var(--text-secondary);
+}
+.load-examples td {
+  background: var(--surface-sunken);
+}
+.load-examples ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+.load-values,
+.load-link {
+  color: var(--text-secondary);
+}
+.load-source {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.load-accept {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--card-radius);
+  background: var(--surface-sunken);
+}
+.load-accept p {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-secondary);
+}
+@media (max-width: 760px) {
+  .task-check .settings-table .load-examples {
+    padding: 0;
+    border: 0;
+  }
+  .task-check .settings-table .load-examples td {
+    display: block;
+    padding: var(--space-2) var(--space-3);
+  }
+  .load-accept .task-actions {
+    width: 100%;
+  }
+}
+
 /* The command line that connects Claude Code, on Agent access (0.16 AG1). */
 .agent-command {
   margin: var(--space-3) 0 0;

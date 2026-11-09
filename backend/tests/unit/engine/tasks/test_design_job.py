@@ -52,3 +52,47 @@ def test_a_check_run_on_another_version_of_the_draft_is_stale():
     assert not design_job.check_is_stale(_session(None), draft)
     running = SimpleNamespace(state="running", parameters={"draftVersion": 1})
     assert not design_job.check_is_stale(_session(running), draft)
+
+
+def test_the_check_of_a_dry_run_of_items_reads_records_and_relationships_apart_and_groups_refusals():
+    from types import SimpleNamespace
+
+    from app.engine.tasks.design_job import items_check
+
+    summary = {
+        "figures": {
+            "recordsNew": 3,
+            "recordsMatched": 2,
+            "recordsChanged": 1,
+            "refused": 2,
+            "relationshipsNew": 4,
+        },
+        "refused": [
+            {
+                "index": 5,
+                "ref": "S!A6",
+                "code": "UNKNOWN_ATTRIBUTES",
+                "message": "No such attribute",
+            },
+            {"index": 9, "ref": None, "code": "UNKNOWN_ATTRIBUTES", "message": "No such attribute"},
+        ],
+        "refusedByCode": [{"code": "UNKNOWN_ATTRIBUTES", "items": 2}],
+        "ranAt": "2026-11-09T10:00:00Z",
+    }
+    job = SimpleNamespace(id="job-1", report={"itemsDryRun": summary})
+    check = items_check(job)
+    assert check["mode"] == "items" and check["sheets"] == [] and check["itemsSummary"] is summary
+    assert check["summary"] == {
+        "created": 3,
+        "updated": 1,
+        "unchanged": 1,
+        "refused": 2,
+        "relationships": 4,
+        "skipped": 0,
+    }
+    (group,) = check["refused"]
+    assert (group["code"], group["rows"]) == ("UNKNOWN_ATTRIBUTES", 2)
+    assert [e["message"] for e in group["examples"]] == [
+        "S!A6: No such attribute",
+        "No such attribute",
+    ]

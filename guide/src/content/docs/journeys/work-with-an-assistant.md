@@ -55,10 +55,12 @@ permissions. Follow [Load a workbook with the assistant](/docs/guide/use/load-a-
 or [Change records with the assistant](/docs/guide/use/change-records-with-the-assistant/).
 
 Give a file and a few words, or words alone. Review the proposed types, fields, relationships,
-questions and **Checks**, including every sheet's counts. New records beside existing records
-can mean an intended update failed to match them. Answer questions, tell the assistant what to
-change or, if it has a draft, edit it in the model editor. A stale check does not cover your
-latest edits.
+questions and **Checks**. For a workbook, **What the load does** shows new records, existing
+records matched, new relationships, refused items and rows read. Open a type's row for example
+records with their source cells; inspect repeated-name findings and **Where each part of the
+file goes**. Unexpected new records can mean an intended update failed to match them. Answer
+questions, tell the assistant what to change or edit its draft in the model editor. If the draft
+changed after the check, acceptance checks every record and relationship again first.
 [Review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/)
 explains this review.
 
@@ -69,21 +71,28 @@ related records and assumed answers; the type summary begins below. Nothing is l
 
 A words-only proposal that says **No change to the model.** uses **Accept**. It has no model
 draft and prepares a change set on the workspace’s current release, installing and activating
-nothing. A proposal with a model draft uses **Accept the model**, letting the assistant install
-a needed release without activating it and load into a change set. Review and publish the
-result; accepting does not publish. A saved import profile lets a later matching workbook use the engine without another assistant session. If no
-repeatable key exists, the page explains why no profile was saved; the current load still stands.
+nothing. A workbook proposal uses **Accept and load to change set**: the engine installs the model if it
+changed and loads exactly the checked records and relationships into a change set as one batch,
+without another assistant turn. Nothing is activated or published. If any item is refused,
+none of the batch is loaded and its change set is discarded; read the reason and correct the
+proposal. A release installed before a failed load can remain installed. Review and publish
+the successful change set through the normal approval process. If it uses a different model
+version, review offers migration and publication together; a model administrator with
+publication permission previews it and confirms **Migrate and publish**. The assistant saves no import profile: send the next file to it again.
+Model-only and record-move proposals keep **Accept the model** and their separate endings.
 
 **Stop** ends the turn, not the task. A stopped load discards the change set being loaded and
 returns to the accepted proposal. A failed or stopped task takes words or a retry. On a wrong
 loaded result, **Discard and load again** removes that change set, including manual edits, before
-preparing another. [Continue an assistant task](/docs/guide/use/continue-an-assistant-task/) covers
+preparing another. For a workbook, review the revised proposal and choose **Accept and load to change set**
+again before the replacement is loaded. [Continue an assistant task](/docs/guide/use/continue-an-assistant-task/) covers
 these recovery paths and expired tasks.
 
 To reshape the model from words, follow
 [Change a model with the assistant](/docs/guide/model/change-a-model-with-the-assistant/).
 A whole-type move needs a person's migration preview and confirmation, which changes live data
-directly. A partial move uses release activation, change-set publication and, when old types are
+directly. A model-only change also ends with migration review and confirmation, with no type
+moves and every record left as it is. A partial move uses release activation, change-set publication and, when old types are
 removed, final activation. These different reviews are explained in
 [Model changes with the assistant](/docs/model/ai-model-changes/).
 
@@ -170,3 +179,20 @@ The facts cover live changes, including publication, rather than counting unpubl
 as live work. A period without changes makes no provider request. If the provider fails, the
 facts remain readable. A removed job has no link to open. The account can be wrong and is English
 only. [History](/docs/use/history/#what-changed-in-a-period) explains periods and attribution.
+
+## Reuse a checked layout or stop using AI
+
+An assistant load saves no import profile. Send the next workbook of the same layout to the
+assistant again. If you already have a separately saved import profile, the engine can check
+and load a matching file without an assistant session. Follow [Load the next version of a workbook](/docs/guide/use/load-the-next-version-of-a-workbook/)
+and inspect its current mapping and dry run. A saved-layout load can activate a changed draft
+when the requester has **Model release**; that differs from the assistant session, which cannot
+activate. Read the shown result and next steps rather than assuming every task ends the same way.
+
+To stop a built-in task, [continue or discard it](/docs/guide/use/continue-an-assistant-task/)
+with the unpublished-change consequences visible. To stop an external connection, end its
+session or ask the security administrator to [manage agent access](/docs/guide/administer/manage-agent-access/).
+The operator can disable future built-in help through [AI settings](/docs/run/ai/).
+Disabling help does not undo published records or erase history; task retention and the outside
+provider's retention are separate. Manual filters, modelling and file-loading paths remain
+available within their own permissions and deployment switches.

@@ -4,6 +4,7 @@ import type { AiTask } from "@/types";
 import { ModelProposal } from "./ModelProposal";
 import { designTask } from "./designFixture";
 import { taskJourney } from "./aiTaskJourney";
+import { wordsTaskName } from "./aiTaskText";
 
 const proposal = (): AiTask => {
   const task = designTask();
@@ -69,6 +70,33 @@ describe("ModelProposal", () => {
     expect(within(table).getByText("720")).toBeInTheDocument();
     expect(screen.getByText(/2,140 records keep their IDs, history and relationships/)).toBeInTheDocument();
     expect(screen.getByText(/no record moves before you confirm the migration/)).toBeInTheDocument();
+  });
+
+  it("says types that keep their key and change application move there, with the records", () => {
+    const task = proposal();
+    task.design!.moves = [
+      {
+        from: "a",
+        fromName: "A",
+        to: "a",
+        toName: "A",
+        records: 6,
+        toApplication: "ref",
+        toApplicationName: "Reference lists",
+      },
+      {
+        from: "b",
+        fromName: "B",
+        to: "b",
+        toName: "B",
+        records: 4,
+        toApplication: "ref",
+        toApplicationName: "Reference lists",
+      },
+    ];
+    render_(task);
+    expect(screen.getByText(/2 types move to Reference lists, 10 records/)).toBeInTheDocument();
+    expect(screen.getAllByText("A, in Reference lists")).toHaveLength(1);
   });
 
   it("says what the migration would lose of each moved type, from the engine's counts", () => {
@@ -173,6 +201,31 @@ describe("a proposal of a words task whose model does not change", () => {
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     expect(onAccept).toHaveBeenCalledTimes(1);
     expect(taskJourney(unchanged()).primary).toEqual({ label: "Accept", action: "acceptModel" });
+  });
+});
+
+describe("a model-only proposal that changes only views", () => {
+  const viewsOnly = (): AiTask => {
+    const task = proposal();
+    task.fileName = "";
+    task.design = { ...task.design!, operations: [], summary: "Add a review table view to the stops." };
+    return task;
+  };
+
+  it("does not say a workbook fits the model, and points to the draft where the views are (DOC11 F9)", () => {
+    render_(viewsOnly(), { onOpenEditor: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "Show the model change" }));
+    expect(screen.queryByText(/the workbook fits it/)).not.toBeInTheDocument();
+    expect(screen.getByText(/No type, attribute or relationship changes/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Open in the model editor" }).length).toBeGreaterThan(0);
+  });
+
+  it("is named by what it is, and a records-only words task is not a model change (DOC11 F7)", () => {
+    expect(wordsTaskName(viewsOnly())).toBe("Change this model");
+    const records = viewsOnly();
+    records.design = { ...records.design!, modelUnchanged: true };
+    expect(wordsTaskName(records)).toBe("Change records");
+    expect(wordsTaskName({ design: null, draftId: null })).toBe("Change with the assistant");
   });
 });
 

@@ -66,7 +66,8 @@ def preview_items(
         job_id=job.id,
         should_stop=should_stop,
         previewing=True,
-        file_rows=job.kind in ROW_KINDS,
+        # A dry run of items is a batch's preview: no file rows (0.13 AB).
+        file_rows=job.kind in ROW_KINDS and job.parameters.get("mode") != "items",
     )
 
 

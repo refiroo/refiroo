@@ -163,7 +163,14 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; ca
           sentence: design?.modelUnchanged
             ? "Read the proposed change. Correct it in words, or accept it; nothing is loaded before."
             : "Read the proposed model. Correct it in words, or accept it; nothing is loaded before.",
-          primary: { label: design?.modelUnchanged ? "Accept" : "Accept the model", action: "acceptModel" },
+          primary: {
+            label: design?.itemsLoad
+              ? "Accept and load to change set"
+              : design?.modelUnchanged
+                ? "Accept"
+                : "Accept the model",
+            action: "acceptModel",
+          },
         };
   if (checked && unanswered > 0)
     return {

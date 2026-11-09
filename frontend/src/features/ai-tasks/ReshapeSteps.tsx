@@ -14,6 +14,7 @@ import type { AiTask, ChangeSet, Job, ModelReleaseDiff, RouteState, WorkspaceMod
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
+import { moveWords } from "./ProposalMoves";
 import { TellAssistant } from "./TellAssistant";
 
 /** The steps of a part-of-a-type reshaping, from what the workspace runs and whether the change set is open. */
@@ -195,7 +196,12 @@ export function ReshapeSteps({
   const migration = result.migration;
   const moves = task.design?.moves ?? [];
   // The model alone changes: the migration moves no type, and every record stays as it is.
-  const modelOnly = !!migration && migration.typeMappings.length === 0;
+  const modelOnly =
+    !!migration &&
+    migration.typeMappings.length === 0 &&
+    !migration.relationTypeMappings?.length &&
+    !migration.splits?.length &&
+    !migration.listConversions?.length;
 
   const refusal = !migration
     ? ""
@@ -213,6 +219,7 @@ export function ReshapeSteps({
     />
   );
 
+  const removals = task.design?.removals ?? [];
   if (migration) {
     const finished = workspace?.releaseId === migration.releaseId;
     const preview = async () => {
@@ -224,6 +231,9 @@ export function ReshapeSteps({
           targetReleaseId: migration.releaseId,
           expectedVersion: current.version,
           typeMappings: migration.typeMappings,
+          relationTypeMappings: migration.relationTypeMappings,
+          splits: migration.splits,
+          listConversions: migration.listConversions,
         });
         onNavigate({
           kind: "settings",
@@ -239,6 +249,16 @@ export function ReshapeSteps({
     };
     return (
       <Section title={modelOnly ? "Move the workspace to the new model" : "Move the records to the new model"}>
+        {!finished && removals.length > 0 && (
+          <Notice tone="warning" title="Deleted as you asked">
+            <ul>
+              {removals.map((item) => (
+                <li key={`${item.kind}:${item.key}`}>{item.text}</li>
+              ))}
+            </ul>
+            <p>The migration preview lists each deleted item, and you accept the loss when you confirm.</p>
+          </Notice>
+        )}
         {finished ? (
           <Notice tone="success">
             {workspaceLabel} runs the new model
@@ -247,8 +267,8 @@ export function ReshapeSteps({
         ) : modelOnly ? (
           <p>
             Nothing has changed yet. The migration puts {workspaceLabel} on the new model; no record moves and every
-            record keeps its ID, values, relationships and history. It goes live when you confirm, with no change set to
-            review.
+            {removals.length > 0 ? " other" : ""} record keeps its ID, values, relationships and history. It goes live
+            when you confirm, with no change set to review.
           </p>
         ) : (
           <p>
@@ -261,8 +281,7 @@ export function ReshapeSteps({
           <ul className="task-next" aria-label="What becomes what">
             {moves.map((move) => (
               <li key={move.from}>
-                {move.fromName} becomes <strong>{move.toName}</strong> ({count(move.records)}{" "}
-                {move.records === 1 ? "record" : "records"})
+                {move.fromName} {moveWords(move)} ({count(move.records)} {move.records === 1 ? "record" : "records"})
               </li>
             ))}
           </ul>

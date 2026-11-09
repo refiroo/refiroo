@@ -71,6 +71,25 @@ const CARDINALITY: Record<string, string> = {
   "many-to-one": "many to one",
   "many-to-many": "many to many",
 };
+/** What a type's changed fields are called to a reader: the key of a field is never shown. */
+const TYPE_FIELDS: Record<string, string> = {
+  name: "its name",
+  pluralName: "its plural name",
+  description: "its description",
+  icon: "its icon",
+  displayAttributeTypeKey: "the attribute that names its records",
+};
+const fieldWords = (field: unknown): string => {
+  const key = text(field);
+  // A field this list does not know reads as its key's words ("sortOrder" as "sort order").
+  return (
+    TYPE_FIELDS[key] ??
+    key
+      .replace(/Key$/, "")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+  );
+};
 const cardinality = (value: unknown) => CARDINALITY[text(value)] ?? text(value);
 
 /** The operations as rows of "The model: what changes", in the order of their kinds. */
@@ -105,7 +124,7 @@ export function modelChanges(operations: AiTaskOperation[], names?: ModelNames):
         detail: `A rule of the relationship “${relationName(op.relationType)}” is set.`,
       });
     } else if (op.kind === "changeObjectType") {
-      const fields = Array.isArray(op.fields) ? op.fields.map(text).join(", ") : "";
+      const fields = Array.isArray(op.fields) ? op.fields.map(fieldWords).join(", ") : "";
       other.push({
         change: "Other change",
         name: typeName(op.objectType),

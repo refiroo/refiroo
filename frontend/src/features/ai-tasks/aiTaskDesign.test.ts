@@ -64,6 +64,14 @@ describe("notLoadedEntries of a design", () => {
 });
 
 describe("modelChanges", () => {
+  it("says a changed type's fields in words, never by their keys (DOC11 F4)", () => {
+    const [row] = modelChanges(
+      [{ kind: "changeObjectType", objectType: "station", fields: ["displayAttributeTypeKey", "pluralName"] }],
+      names,
+    );
+    expect(row.detail).toBe("Changes the attribute that names its records, its plural name.");
+  });
+
   it("reads a changed type and an other change from the draft's result", () => {
     const rows = modelChanges(
       [

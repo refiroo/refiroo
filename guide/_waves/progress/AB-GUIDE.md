@@ -1,0 +1,24 @@
+
+- 2026-11-09T02:03:58+01:00: Finished `guide/src/content/docs/guide/use/load-a-workbook-with-the-assistant.md`. Updated proposal review, Accept and load, atomic record loading, correction and next-file guidance; kept saved-layout activation and publication instructions. No steering file was present. The loaded screenshot still shows a saved profile and needs replacement.
+
+- 2026-11-09T02:04:34+01:00: Finished `guide/src/content/docs/guide/model/review-an-assistants-workbook-design.md`. Replaced profile mapping and per-row review with record examples, file parts, repeated-name findings and rechecking on acceptance; corrected load, next-file and reload steps. Kept permissions, disclosure, model-editor ownership and publication rules. No steering file was present; proposal and loaded screenshots are outdated.
+
+- 2026-11-09T02:04:52+01:00: Finished `guide/src/content/docs/guide/use/continue-an-assistant-task.md`. Added the workbook acceptance button and fresh-proposal review after a correction, and distinguished atomic refusal from older task paths that can retain work. Kept Stop, discard, saved-layout and migration recovery instructions. No steering file was present.
+
+- 2026-11-09T02:05:08+01:00: Finished `guide/src/content/docs/guide/use/change-records-with-the-assistant.md`. Kept the words-only Accept flow, distinguished workbook batch acceptance, linked model/move endings, and removed the suggestion that this produces a reusable import layout. Kept entry points, permissions, disclosure, questions and publication. No steering file was present.
+
+- 2026-11-09T02:05:37+01:00: Finished `guide/src/content/docs/guide/model/change-a-model-with-the-assistant.md`. Distinguished workbook batch acceptance from model-only and move acceptance, and made the no-type-move migration ending explicit. Kept whole-type and partial-move steps and recovery rules. No steering file was present.
+
+- 2026-11-09T02:05:48+01:00: Finished `guide/src/content/docs/guide/model/load-a-workbook-into-a-change-set.md`. Clarified that its profile, activation and row-loading steps describe the manual editor route, and linked assistant loads to their own guide. Kept the manual stages, counts, failure recovery and review instructions. No steering file was present; no screenshot change needed for this route.
+
+- 2026-11-09T02:06:26+01:00: Finished `guide/src/content/docs/integrate/assistant-tasks.md`. Documented design.load and empty check.sheets, atomic acceptance without a session turn, batch result identity, correction/reacceptance and no saved profile; kept profile-based checks and human-controlled endings distinct. No steering file was present. API.md still has conflicting legacy profile prose, recorded for the final report.
+
+- 2026-11-09T02:06:58+01:00: Finished `guide/src/content/docs/use/loading-with-the-assistant.md`. Replaced profile-key and row-check explanations with checked records, source examples and findings; documented atomic acceptance, rechecking, correction and the next file. Kept access, costs, retention, saved-layout rules, model-move endings and Stop/discard rules. No steering file was present; use-assistant-proposal.png is outdated.
+
+- 2026-11-09T02:07:18+01:00: Finished `guide/src/content/docs/model/ai-model-changes.md`. Added workbook check/acceptance and correction rules, no-profile repeat guidance and the model-only migration ending. Kept permissions, disclosure, whole-type and partial-move semantics, Stop and discard consequences. No steering file was present; this page has no pictures.
+
+- 2026-11-09T02:07:39+01:00: Finished `guide/src/content/docs/journeys/work-with-an-assistant.md`. Updated the workbook journey to record examples, checked batch acceptance, correction/reacceptance and no saved profile, and distinguished model-only migration. Kept other AI journeys, MCP access, words-only Accept, saved-layout activation and disable/retention guidance. No steering file was present; use-assistant-proposal.png is outdated.
+
+- 2026-11-09T02:09:28+01:00: Finished final review of `integrate/assistant-tasks.md` and `use/loading-with-the-assistant.md`. Corrected the new bulk-writing link and model-administration API tag, and clarified which failed loads can retain work. No steering file was present. The isolated build passed before these final corrections; rebuilding now.
+
+- 2026-11-09T02:10:18+01:00: Finished validation of all ten assigned pages. `GUIDE_OUT=_build/AB-GUIDE npm run build` passed (253 pages, 3.99 s), `npm run check` passed terms/brand, and the isolated `check:links` passed 73,495 links/sources. No steering file was present. Five existing screenshots need recapture; evidence notes record the task-bar button, false activation claim, reload text and API profile-prose discrepancies. No live assistant/browser run was performed; no commits or changes to application code or images.

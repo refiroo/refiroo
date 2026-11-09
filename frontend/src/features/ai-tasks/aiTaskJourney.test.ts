@@ -102,6 +102,8 @@ describe("the assistant load as a journey", () => {
     expect(told.primary).toBeUndefined();
     expect(told.sentence).toContain("Someone who does can accept and load from this page");
     expect(taskJourney(proposal).primary).toEqual({ label: "Accept the model", action: "acceptModel" });
+    const items = { ...proposal, design: { ...proposal.design!, itemsLoad: true } };
+    expect(taskJourney(items).primary).toEqual({ label: "Accept and load to change set", action: "acceptModel" });
     const ready = designTask();
     ready.design = { ...ready.design!, questions: [] };
     expect(taskJourney(ready, { modelReviewed: true, canLoad: false }).primary).toBeUndefined();

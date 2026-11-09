@@ -394,6 +394,29 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
     );
   });
 
+  it("says an items load only installed its release, and that new words are a correction checked again", async () => {
+    vi.mocked(ai.task).mockResolvedValue(
+      task({
+        state: "loaded",
+        canTell: true,
+        design: { ...task().design!, itemsLoad: true },
+        result: { changeSetId: "cs-1", changeSetName: "Load", releaseId: "rel-2", counts: { created: 3 } },
+      }),
+    );
+    open();
+    await screen.findByRole("heading", { name: "Loaded into the change set “Load”" });
+    expect(screen.getByText(/installed, not activated: publishing the change set moves/)).toBeInTheDocument();
+    expect(screen.queryByText(/installed and activated/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Not what you wanted? Tell the assistant"), {
+      target: { value: "Leave out packages." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Discard and load again" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(/correction of its proposal, which is checked again and accepted again/),
+    ).toBeInTheDocument();
+  });
+
   it("discards a loaded change set from the task and says the task was discarded", async () => {
     vi.mocked(ai.task).mockResolvedValue(
       task({ state: "loaded", canTell: false, result: { changeSetId: "cs-1", changeSetName: "Load" } }),

@@ -538,6 +538,22 @@ describe("A user journey in the address", () => {
     }
     expect(routePath({ ...editor, journey: undefined })).not.toContain("journey");
   });
+
+  it("carries a change set as journey=change-set:<workspace>/<application>/<change set>, beside the assistant's form", () => {
+    const journey = {
+      kind: "changeSet" as const,
+      changeSetId: "cs 1",
+      workspaceKey: "south",
+      applicationKey: "test-app",
+    };
+    const migration: RouteState = { kind: "settings", page: "model", migrationJobId: "job-1", journey };
+    const path = routePath(migration);
+    expect(path).toContain("journey=change-set%3Asouth%2Ftest-app%2Fcs%25201");
+    const [pathname, search] = path.split("?");
+    expect(parseRoute(testModel, "default", { pathname, search: `?${search}` })).toEqual(migration);
+    const task = { ...migration, journey: { kind: "aiTask" as const, taskId: "t-1" } } as RouteState;
+    expect(routePath(task)).toContain("journey=ai-task%3At-1");
+  });
 });
 
 describe("A collection moved to another application (relocatedPath)", () => {

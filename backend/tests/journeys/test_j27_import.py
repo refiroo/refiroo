@@ -1138,8 +1138,8 @@ def test_a_sheet_finds_its_records_by_a_number_another_sheet_of_the_file_writes(
 @pytest.mark.structures("R", "R.u", "R.q", "R.x1")
 def test_two_sheets_listing_the_same_new_number_load_one_record(world):
     """Given no ledgers. When a file's two sheets both upsert ledgers keyed by number and both list
-    N-5. Then one ledger N-5 is created by the first sheet and updated by the second, and nothing
-    is refused as a repeated unique value."""
+    N-5 with values that agree. Then N-5 is one record, created once whichever sheet lists it, and
+    nothing is refused as a repeated unique value (one key is one record across the sources, D69)."""
     ws = _workspace(world)
     k, app = world.key, world.app("R")
 
@@ -1167,14 +1167,15 @@ def test_two_sheets_listing_the_same_new_number_load_one_record(world):
     content = _xlsx(
         {
             "Old list": [header, ("N-5", "Fifth", "Ann", "Old"), ("N-6", "Sixth", "Ann", "Old")],
-            "Current list": [header, ("N-5", "Fifth", "Bob", "Current")],
+            "Current list": [header, ("N-5", "Fifth", "Ann", None)],
         }
     )
     job = _imported(world, "lists.xlsx", content, _request(ws, profileKey=profile["key"]))
     assert job["result"] == "applied", job["error"]
     ledgers = _named(world, "R", ws)
     assert set(ledgers) == {"Fifth", "Sixth"}
-    assert world.value(ledgers["Fifth"], "R.q") == "Bob"
+    assert world.value(ledgers["Fifth"], "R.q") == "Ann"
+    assert world.value(ledgers["Fifth"], "R.x1") == "Old"
 
 
 @pytest.mark.journey("J27.10")
@@ -1210,6 +1211,113 @@ def test_rows_repeating_a_key_with_equal_values_load_as_one_record_with_every_re
     assert list(ledgers) == ["Ledger"]
     assert world.value(ledgers["Ledger"], "R.x1") == "Summary"
     assert _related(world, ledgers["Ledger"]["id"], "B1n", ws) == {first["id"], second["id"]}
+
+
+def _two_sheet_profile(world, owner_in_second=False):
+    """Two sources of ledgers keyed by number: the first gives the owner, the second a summary (and
+    the owner when asked) and the token each ledger relates to."""
+    k, app = world.key, world.app("R")
+    token = {
+        "column": "Token",
+        "relation": {
+            "relationTypeKey": k("B1n"),
+            "objectTypeKey": k("K"),
+            "matchBy": {"attributeTypeKey": k("K.code")},
+        },
+    }
+    owner = {"column": "Owner", "attributeTypeKey": k("R.q")}
+    base = {"applicationKey": app, "objectTypeKey": k("R"), "key": {"attributeTypeKey": k("R.u")}}
+    columns = [
+        {"column": "Number", "attributeTypeKey": k("R.u")},
+        {"column": "Name", "field": "name"},
+    ]
+    second = columns + [{"column": "Summary", "attributeTypeKey": k("R.x1")}, token]
+    profile = {
+        "key": f"halves-{uuid4().hex[:8]}",
+        "name": "Halves",
+        "sources": [
+            {**base, "sheet": "Owners", "columns": columns + [owner]},
+            {**base, "sheet": "Details", "columns": second + ([owner] if owner_in_second else [])},
+        ],
+    }
+    return ok(world.api.post("/import-profiles", profile), 201)
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1", "K", "K.code", "B1n")
+def test_two_sheets_giving_halves_of_one_record_load_one_record_in_preview_and_load(world):
+    """Given two tokens. When one file's two sheets key ledgers by number, the first giving each
+    ledger's owner and the second its summary and the token it relates to. Then the preview counts
+    one created record per ledger, and the load creates each once, holding the owner, the summary
+    and the relationship."""
+    ws = _workspace(world)
+    one = world.made("K", "One", workspace=ws, values={"K.code": "T1"})
+    two = world.made("K", "Two", workspace=ws, values={"K.code": "T2"})
+    profile = _two_sheet_profile(world)
+    content = _xlsx(
+        {
+            "Owners": [
+                ("Number", "Name", "Owner"),
+                ("N-1", "Alpha", "Ann"),
+                ("N-2", "Beta", "Bob"),
+            ],
+            "Details": [
+                ("Number", "Name", "Summary", "Token"),
+                ("N-1", "Alpha", "First", "T1"),
+                ("N-2", "Beta", "Second", "T2"),
+            ],
+        }
+    )
+    request = _request(ws, profileKey=profile["key"])
+    preview = _previewed(world, "halves.xlsx", content, request)["preview"]
+    assert preview["rows"]["rejected"] == 0 and preview["counts"]["rejected"] == 0
+    # Records count once whichever sheet gave them: two ledgers and their two relationships.
+    assert preview["counts"]["created"] == 4
+    job = _imported(world, "halves.xlsx", content, request)
+    assert job["result"] == "applied", job["error"]
+    made = [i for i in _outcomes(world, job) if i.get("objectTypeKey") == world.key("R")]
+    assert [i["action"] for i in made] == ["created", "created"]
+    assert job["counts"]["created"] == 4, job["counts"]  # two ledgers and their two relationships
+    page = ok(world.api.get(f"/objects/{world.key('R')}", workspaceKey=ws, pageSize=100))
+    assert sorted(item["name"] for item in page["items"]) == ["Alpha", "Beta"]
+    ledgers = _named(world, "R", ws)
+    assert world.value(ledgers["Alpha"], "R.q") == "Ann"
+    assert world.value(ledgers["Alpha"], "R.x1") == "First"
+    assert world.value(ledgers["Beta"], "R.x1") == "Second"
+    assert _related(world, ledgers["Alpha"]["id"], "B1n", ws) == {one["id"]}
+    assert _related(world, ledgers["Beta"]["id"], "B1n", ws) == {two["id"]}
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1", "K", "K.code", "B1n")
+def test_two_sheets_giving_one_field_different_values_refuse_both_rows_naming_each_other(world):
+    """Given two sheets keying ledgers by number that both fill the owner of Alpha, differently, and
+    agree on Beta. When it is loaded. Then both Alpha rows are refused naming each other with
+    their sheets, and Beta loads."""
+    ws = _workspace(world)
+    profile = _two_sheet_profile(world, owner_in_second=True)
+    content = _xlsx(
+        {
+            "Owners": [
+                ("Number", "Name", "Owner"),
+                ("N-1", "Alpha", "Ann"),
+                ("N-2", "Beta", "Bob"),
+            ],
+            "Details": [
+                ("Number", "Name", "Summary", "Token", "Owner"),
+                ("N-1", "Alpha", "First", None, "Zed"),
+                ("N-2", "Beta", "Second", None, "Bob"),
+            ],
+        }
+    )
+    job = _imported(world, "clash.xlsx", content, _request(ws, profileKey=profile["key"]))
+    assert job["result"] == "partial", job["error"]
+    rows = _by_ref(_outcomes(world, job))
+    for ref, other in (("Owners!2", "Details!2"), ("Details!2", "Owners!2")):
+        error = rows[ref][0]["error"]
+        assert error["code"] == "DUPLICATE_KEY_IN_FILE"
+        assert error["details"]["refs"] == [other] and other in error["message"]
+    assert set(_named(world, "R", ws)) == {"Beta"}
 
 
 @pytest.mark.journey("J27.10", "J27.8")

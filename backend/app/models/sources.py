@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .commands import BatchItem
 from .imports import Block, CsvOptions, InlineProfile
 
 SourceFormat = Literal["xlsx", "csv"]
@@ -42,18 +43,29 @@ class SourceFileRequest(BaseModel):
 
 
 class DryRunRequest(BaseModel):
-    """``POST /model-drafts/{id}/dry-run``: the draft's source file, the workspace the import would
-    write in, and the profile that binds the file (D65), checked against the draft's model.
-    Without ``profile`` the file is read with the profile the draft holds (0.13 AT); one sent may be
-    the profile ``GET /model-drafts/{id}/profile`` answered, whose read-only ``key``, ``unmapped``,
-    ``ignoredSheets`` and source ``id`` are ignored."""
+    """``POST /model-drafts/{id}/dry-run``: either the draft's source file, the workspace the import
+    would write in, and the profile that binds the file (D65), checked against the draft's model; or
+    ``items``, the batch items of ``POST /batches`` (each with an optional ``ref`` naming the cells
+    it comes from), previewed against the draft's model in the workspace (0.13 AB). Exactly one of
+    ``sourceFileId`` and ``items``. Without ``profile`` a source file is read with the profile the
+    draft holds (0.13 AT); one sent may be the profile ``GET /model-drafts/{id}/profile`` answered,
+    whose read-only ``key``, ``unmapped``, ``ignoredSheets`` and source ``id`` are ignored."""
 
     model_config = ConfigDict(extra="forbid")
 
-    sourceFileId: str
+    sourceFileId: str | None = None
     workspaceKey: str = Field(min_length=1)
     profile: InlineProfile | None = None
     onExisting: Literal["reject", "overwrite"] = "reject"
+    items: list[BatchItem] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _a_file_or_items(self) -> DryRunRequest:
+        if (self.sourceFileId is None) == (self.items is None):
+            raise ValueError("Send either sourceFileId (a source file) or items, not both")
+        if self.items is not None and self.profile is not None:
+            raise ValueError("profile applies only to a source file")
+        return self
 
     @field_validator("profile", mode="before")
     @classmethod

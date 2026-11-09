@@ -17,6 +17,7 @@ import { changeReviewFor } from "@/routing/routes";
 import type { JourneyRef, RouteState } from "@/types";
 import { LoadWorkbookDialog } from "./LoadWorkbookDialog";
 import { taskApplicationKey, taskJourney, type JourneyAction } from "./aiTaskJourney";
+import { wordsTaskName } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
 
 /** Where the bar is: the journey's home (the task), the model editor or the change set. */
@@ -46,9 +47,12 @@ function scrollToAndFocus(id: string) {
   const target = document.getElementById(id);
   if (!target) return;
   target.scrollIntoView?.({ block: "start" });
-  (target.querySelector<HTMLElement>("textarea, button.primary, button, input") ?? target).focus({
-    preventScroll: true,
-  });
+  // The first of these that exists, in this order: a querySelector with all four would take the first
+  // in the page, which on a proposal is "Open in the model editor", not the Accept beside it.
+  const first = ["textarea", "button.primary", "button", "input"]
+    .map((selector) => target.querySelector<HTMLElement>(selector))
+    .find((found) => found !== null);
+  (first ?? target).focus({ preventScroll: true });
 }
 
 export function AiTaskJourneyBar({
@@ -127,7 +131,7 @@ export function AiTaskJourneyBar({
   return (
     <>
       <JourneyBar
-        label={task.fileName ? "Import with the assistant" : "Change this model"}
+        label={task.fileName ? "Import with the assistant" : wordsTaskName(task)}
         steps={plan.steps}
         sentence={problem || plan.sentence}
         primary={plan.primary && onClick ? { label: plan.primary.label, onClick } : undefined}

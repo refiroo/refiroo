@@ -2,6 +2,7 @@
 
 import type { AiOrigin } from "@/types/ai";
 import type { PageNavigation } from "@/types/runtime";
+import type { MigrationListConversion, MigrationRelationTypeMapping, MigrationSplit } from "@/types/integration";
 import type { Principal } from "@/types/security";
 
 export type AiTaskState =
@@ -247,11 +248,105 @@ export interface AiTaskDesignCheckItem {
   explanation?: string;
 }
 
+/** A value of an example record in "What the load does". */
+export interface AiTaskLoadValue {
+  attributeTypeKey: string | null;
+  value: unknown;
+}
+
+export interface AiTaskLoadLink {
+  relationTypeKey: string | null;
+  direction: "outgoing" | "incoming";
+  objectTypeKey: string | null;
+  name: string | null;
+}
+
+/** One item of a type, with the cells it came from (`ref`, as `Sheet!Q31:S31`). */
+export interface AiTaskLoadExample {
+  index: number;
+  ref: string | null;
+  objectTypeKey: string;
+  action: "created" | "updated" | "unchanged" | "refused";
+  name: string | null;
+  id: string | null;
+  values: AiTaskLoadValue[];
+  links: AiTaskLoadLink[];
+  error: { code: string | null; message: string | null } | null;
+}
+
+export interface AiTaskLoadType {
+  objectTypeKey: string;
+  new: number;
+  matched: number;
+  changed: number;
+  removed: number;
+  refused: number;
+  linkedTo: string[];
+  examples: AiTaskLoadExample[];
+}
+
+export interface AiTaskLoadFinding {
+  kind: "nameTwice";
+  objectTypeKey: string;
+  name: string;
+  count: number;
+  /** The parent each record sits under, `null` at the root. */
+  parents: ({ id: string; name: string; objectTypeKey: string } | null)[];
+}
+
+export interface AiTaskLoadPart {
+  sheet: string;
+  firstColumn: string;
+  lastColumn: string;
+  firstRow: number;
+  lastRow: number;
+  objectTypeKey: string | null;
+  relationTypeKey: string | null;
+  items: number;
+}
+
+/** What the load does (0.13 AB): the engine's summary of the dry run of the assistant's items; accepting loads exactly these. */
+export interface AiTaskLoad {
+  mode: "items";
+  jobId: string;
+  draftId: string;
+  draftVersion: number;
+  workspaceKey: string;
+  items: number;
+  figures: {
+    recordsNew: number;
+    recordsMatched: number;
+    recordsChanged: number;
+    recordsRemoved: number;
+    relationshipsNew: number;
+    /** How many of `relationshipsNew` are a new record's link to its parent. */
+    parentLinksNew?: number;
+    relationshipsMatched: number;
+    refused: number;
+    rowsRead: number;
+  };
+  types: AiTaskLoadType[];
+  relationships: { relationTypeKey: string; new: number; matched: number; refused: number }[];
+  sheets: { sheet: string; rows: number }[];
+  parts: AiTaskLoadPart[];
+  partsTotal: number;
+  findings: AiTaskLoadFinding[];
+  refused: { index: number; ref: string | null; key: string | null; code: string | null; message: string | null }[];
+  refusedByCode: { code: string; items: number }[];
+  ranAt: string;
+}
+
 export interface AiTaskDesign {
+  /** What the load does, from the dry run of the assistant's items; accepting loads exactly these (0.13 AB). */
+  load?: AiTaskLoad | null;
+  /** Accepting runs the previewed items with no assistant turn (0.13 AB). */
+  itemsLoad?: boolean;
   /** "model": the proposed model awaits the person; "load" (and absent): the sheets are mapped and checked. */
   stage?: "model" | "load";
   /** The types the proposal turns into others, with the records each holds. */
   moves?: AiTaskMove[];
+  /** What the person's words explicitly ask to remove, with the engine's counts of what it deletes. */
+  removals?: AiTaskRemoval[];
   /** The consumer APIs the proposal raises the contractVersion of, with what their consumers read differently. */
   consumerChanges?: AiTaskConsumerChange[];
   /** One plain sentence per proposed type. */
@@ -324,12 +419,27 @@ export interface AiTaskDesignCheck {
   };
   /** The draft changed after this dry run, so it does not cover the model as it stands. */
   draftChanged?: boolean;
+  /** `items`: the check of the assistant's items (0.13 AB); `design.load` holds the summary. */
+  mode?: "items" | null;
 }
 
 export interface AiTaskNote {
   kind: "note" | "warning" | "refused";
   text: string;
   at: string;
+}
+
+/** One removal the person asked for, in the person's words and the engine's counts. */
+export interface AiTaskRemoval {
+  kind: "objectType" | "application" | "attribute" | "relationType";
+  key: string;
+  words: string;
+  name: string;
+  records: number;
+  values: number;
+  relationships: number;
+  /** "As you asked, the Drug list is deleted, deleting 16 records." */
+  text: string;
 }
 
 /** What a proposal moves as whole types: the engine's own figures (AP-D47). */
@@ -341,6 +451,9 @@ export interface AiTaskMove {
   /** The records the workspace holds of the type that moves. */
   records: number;
   attributes?: { attributeTypeKey: string; from: string | null }[];
+  /** The application the records go to, when the type moves to another one. */
+  toApplication?: string;
+  toApplicationName?: string;
   /** What the migration would drop of this type, counted by the engine over every record. */
   lost?: { records?: number; values?: number; relationships?: number };
 }
@@ -361,7 +474,12 @@ export interface AiTaskMigration {
     fromObjectTypeKey: string;
     toObjectTypeKey: string;
     attributes?: { attributeTypeKey: string; from: string | null }[];
+    /** The application the type's records go to when the type moves between applications. */
+    toApplicationKey?: string;
   }[];
+  relationTypeMappings?: MigrationRelationTypeMapping[];
+  splits?: MigrationSplit[];
+  listConversions?: MigrationListConversion[];
 }
 
 export interface AiTaskResult {

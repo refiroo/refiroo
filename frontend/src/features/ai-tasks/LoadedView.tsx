@@ -139,7 +139,11 @@ export function LoadedView({
       </Notice>
       <ul className="task-next">
         {result?.releaseId && (
-          <li>The model change was installed and activated in {workspaceLabel ?? task.workspaceKey}.</li>
+          <li>
+            {task.design?.itemsLoad
+              ? `The model change was installed, not activated: publishing the change set moves ${workspaceLabel ?? task.workspaceKey} to it.`
+              : `The model change was installed and activated in ${workspaceLabel ?? task.workspaceKey}.`}
+          </li>
         )}
         {review && <li>Review the change set, and submit it for approval from there.</li>}
         {profile && (
@@ -219,8 +223,11 @@ export function LoadedView({
             onTell(words);
           }}
         >
-          Everything loaded into “{result?.changeSetName ?? "Unnamed"}” is removed, with any edits you made in it. The
-          same assistant then loads again with your words. Live data was never changed.
+          Everything loaded into “{result?.changeSetName ?? "Unnamed"}” is removed, with any edits you made in it.{" "}
+          {task.design?.itemsLoad
+            ? "Your words go to the assistant as a correction of its proposal, which is checked again and accepted again before anything is loaded."
+            : "The same assistant then loads again with your words."}{" "}
+          Live data was never changed.
         </ConfirmDialog>
       )}
       {discarding && (

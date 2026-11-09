@@ -98,10 +98,24 @@ function changeReviewRoute(
 
 /** A change set review opened on its records, with no filter. */
 const JOURNEY_PREFIX = "ai-task:";
+const CHANGE_SET_JOURNEY_PREFIX = "change-set:";
 
-/** The journey a URL carries (`journey=ai-task:<id>`), else nothing. */
+/**
+ * The journey a URL carries: `journey=ai-task:<id>`, or
+ * `journey=change-set:<workspace>/<application>/<change set>` (each part encoded), else nothing.
+ */
 export function journeyIn(query: URLSearchParams): { journey?: JourneyRef } {
   const value = query.get("journey")?.trim();
+  if (value?.startsWith(CHANGE_SET_JOURNEY_PREFIX)) {
+    const parts = value.slice(CHANGE_SET_JOURNEY_PREFIX.length).split("/");
+    if (parts.length !== 3 || parts.some((part) => !part)) return {};
+    try {
+      const [workspaceKey, applicationKey, changeSetId] = parts.map(decodeURIComponent);
+      return { journey: { kind: "changeSet", changeSetId, workspaceKey, applicationKey } };
+    } catch {
+      return {};
+    }
+  }
   const taskId = value?.startsWith(JOURNEY_PREFIX) ? value.slice(JOURNEY_PREFIX.length) : "";
   return taskId ? { journey: { kind: "aiTask", taskId } } : {};
 }
@@ -120,7 +134,11 @@ function withForWorkspace(path: string, workspaceKey: string | undefined) {
 /** The query parameter for a journey, to add to a path with or without a query. */
 function withJourney(path: string, journey: JourneyRef | undefined) {
   if (!journey) return path;
-  return `${path}${path.includes("?") ? "&" : "?"}journey=${encodeURIComponent(`${JOURNEY_PREFIX}${journey.taskId}`)}`;
+  const value =
+    journey.kind === "aiTask"
+      ? `${JOURNEY_PREFIX}${journey.taskId}`
+      : `${CHANGE_SET_JOURNEY_PREFIX}${[journey.workspaceKey, journey.applicationKey, journey.changeSetId].map(encodeURIComponent).join("/")}`;
+  return `${path}${path.includes("?") ? "&" : "?"}journey=${encodeURIComponent(value)}`;
 }
 
 export function changeReviewFor(

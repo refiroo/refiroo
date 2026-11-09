@@ -45,12 +45,31 @@ Answer the questions or use **Tell the assistant what to change**. You can also 
 **Open in the model editor** and edit the draft directly. The same assistant reads those edits
 when it continues. A second assistant task cannot take over a draft another task holds.
 
-**Accept the model** permits the next preparation step. What happens next depends on the move.
-A whole-type move still needs migration confirmation. A partial move still needs publication.
-For a workbook design, the session installs the proposed release without activating it and
-prepares records in a change set. Loading an already saved layout is a separate path: its
-confirmation can install and activate a model change before importing. Read the confirmation
-for the path you are using.
+For a workbook load, **What the load does** shows new and matched records, new relationships,
+refused items and rows read. Open a type's row for example records with their source cells,
+read any **One name twice in one type** finding, and expand **Where each part of the file goes**
+to review how the file is used. The assistant reads the file, model and workspace records and
+prepares records and relationships for the engine to check; it writes no import profile.
+
+**Accept and load to change set** lets the engine install the changed model and load exactly those checked
+records and relationships into a new change set as one batch. No assistant turn runs, and nothing
+is activated or published. A draft changed after the check is checked again first; any refusal
+then prevents installation and loading. If changed data causes a refusal during the batch, none
+of the batch is loaded and the change set is discarded. A release installed before that failure
+can remain installed. Correct the proposal in words, review the new check and accept again.
+An assistant load saves no profile for the next file; send that file to the assistant again.
+
+Model-only and record-move proposals keep **Accept the model**. A whole-type move still needs
+migration confirmation. A partial move still needs publication. Loading an already saved layout
+is a separate path: its confirmation can install and activate a model change before importing.
+Read the confirmation for the path you are using.
+
+## Only the model changes
+
+When the request changes the model alone, such as adding a view without changing records,
+acceptance installs the release and ends with a migration that moves no type. Review
+**Preview the migration** and confirm it with **Model release** to put the workspace on the
+new model. No change set is created and every record stays as it is.
 
 ## Every record of a type moves
 
@@ -66,7 +85,10 @@ removal and refusal in the [migration preview](/docs/guide/model/migrate-a-works
 
 ## Only some records move
 
-A split based on a field value prepares record changes in a change set. The usual sequence is:
+For a split based on a field value, the proposal describes what acceptance prepares: a
+release holding the old types beside the new ones, a change set moving the selected records,
+and the final release removing the emptied types. The removal note says which records move
+and where they go. After accepting, complete the prepared steps:
 
 1. Activate the release holding the new types beside the old. No record moves yet.
 2. Review and publish the change set, following the workspace's approval rules. The records
@@ -92,6 +114,7 @@ if it has a loaded change set, that is discarded too. Discard does not reverse a
 migration or an already published change.
 
 For a loaded change set that is wrong, **Discard and load again** removes that change set,
-including your manual edits in it, before the assistant prepares another. Review the confirmation
-carefully. Once published, the task offers new work through **Change this model…** or
+including your manual edits in it. For a workbook load, the assistant then revises the proposal
+and checks its records again. Review it and choose **Accept and load to change set** to prepare the replacement
+change set. Review the discard confirmation carefully. Once published, the task offers new work through **Change this model…** or
 **Ask about these records…**, subject to your current permissions.

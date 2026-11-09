@@ -62,10 +62,11 @@ from ..identity.clients import create_session_client, retire_session_client
 from ..identity.settings import IdentitySettings
 from ..imports.profiles import model_key_of, save_for_release
 from ..jobs.batches import JobCancelled
+from ..model.authoring.draft_migration import derive
 from ..model.compiler import parse_model
 from ..model.consumer_contract import contract_diagnostics, raised_contracts
 from ..model.diagnostics import ModelValidationError
-from ..model.migrations import LandingRefusal, check_landing, parse_type_mappings, plan_migration
+from ..model.migrations import LandingRefusal, Mappings, check_landing, plan_migration
 from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
 from .cell_coverage import cells_left_out
@@ -73,7 +74,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "agent/14"
+PROMPT_VERSION = "agent/18"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -134,21 +135,13 @@ def _starting_point(held: dict[str, int]) -> str:
     total = sum(held.values())
     if total:
         return (
-            f"The workspace holds {total} records: keep its model and add to it, unless the words "
-            "ask otherwise."
+            f"The workspace holds {total} records in all its applications together: keep its model "
+            "and add to it, unless the words ask otherwise."
         )
     return (
         "The workspace holds no records: if the words ask for a model, it may be a new one with "
         "only what this needs."
     )
-
-
-_KEYS = (
-    "Give each source of a load a key that finds its records in the next file, of several columns "
-    "(attributeTypeKeys) if no one column does; if the file has none, say so in one line of the "
-    "summary and give the source no key. "
-    "An empty cell is no value: never call its row skipped or left out."
-)
 
 
 _SHAPE = (
@@ -158,16 +151,29 @@ _SHAPE = (
 )
 
 
+_ITEMS = (
+    "Load the file as the engine's batch items, not as an import profile: read the workbook in Python "
+    "(layout, hidden rows and columns, blocks shifted against each other, notes), read the model and "
+    "the workspace's records through the API, and change the draft where the file needs it. Write a "
+    "script in your folder that turns the file into items (openapi.json, POST /batches; items only: "
+    "send no batch and write nothing live): every new record gets an id you generate (uuid4) so later "
+    "items can point to it; an existing record is found by reading the workspace's records and named by "
+    "its ID; give each item a ref naming the cells it comes from, as Sheet!Q31:S31. Send the items to "
+    "POST /model-drafts/{id}/dry-run as {workspaceKey, items} (no sourceFileId, no profile), read "
+    "GET /model-drafts/{id}/dry-run until it completes, and read its items summary (per type: new, "
+    "matched, changed, refused; the relationships; examples with their refs; the findings). Fix your "
+    "items or the draft until nothing is refused and every finding is explained, then write the "
+    "proposal. What you sent last is exactly what is loaded when the person accepts. An empty cell is "
+    "no value: never call its row skipped or left out."
+)
+
+
 _QUESTIONS = (
-    "Ask a question only for a choice that changes the model or a consumer contract and that only a "
-    "person can make, and put the answer you assumed in the draft. What the data gives as it is (two "
-    "names for one thing, likely typos, no key column, a repetition kept flat) is one line of the "
-    "summary, never a question. Something the load cannot read is never a question either: a binding "
-    'names its column by its letter ({"letter": "AJ", ...} in place of "column") when the header cell '
-    "is empty or repeated, and the draft's operations take letter beside column. Once a profile has "
-    "passed a dry run, set it on the draft in one setProfile operation with the profile as "
-    "GET /model-drafts/{id}/profile answers it in definition (sources and valueMaps), not one "
-    "operation per column. The kinds and their parameters are in openapi.json."
+    "Ask a question only about what the file and the words leave open, in the person's terms (what "
+    "ends up in their data), the question first and each option an outcome, with the answer you "
+    "assumed already in the draft and the items; never about the engine or how to load. What the data "
+    "gives as it is (two names for one thing, likely typos, a repetition kept flat) and the findings "
+    "are one line of the summary, never a question. The kinds of draft operation are in openapi.json."
 )
 
 
@@ -179,6 +185,16 @@ _RECORDS = (
     "new type where it exposed the old one: the engine refuses the release otherwise. A type that "
     "merges others must give their records the places they have now, their parents and "
     "relationships, or the engine refuses to move them; a migration creates no records."
+)
+
+
+_PARTIAL = (
+    "When the words move only some of a type's records to other types, that is a partial move: put "
+    "the final model in the draft, say so in the summary, and stage nothing now. Accepting is what "
+    "prepares it, as steps the person takes: a release holding the final model with the old types "
+    "beside it, a change set that restructures those records for review, and the release that "
+    "removes the emptied types. Never tell the person to prepare a release or to restructure "
+    "records by hand."
 )
 
 
@@ -203,8 +219,8 @@ def _propose_prompt(
     words: str | None, workspace: str, url: str, held: dict[str, int], *, workbook: bool = True
 ) -> str:
     check = (
-        f"Build the model in a model draft of your own, {_OWN_DRAFT}, and check every row with the "
-        "draft's dry run"
+        f"Build the model in a model draft of your own, {_OWN_DRAFT}, and check what you load with "
+        "the draft's dry run"
         if workbook
         else f"Put any model change the words need in a model draft of your own, {_OWN_DRAFT}; if "
         "the model does not change, make no draft and write draftId null. Work out every record the words touch, and write "
@@ -213,13 +229,20 @@ def _propose_prompt(
     return (
         f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
         f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
-        f"{_WORDS} {_RECORDS} {_SHAPE + ' ' + _KEYS + ' ' + _QUESTIONS + ' ' if workbook else ''}{check}; install, "
+        f"{_WORDS} {_RECORDS} {_PARTIAL} {_SHAPE + ' ' + _ITEMS + ' ' + _QUESTIONS + ' ' if workbook else ''}{check}; install, "
         "activate, load and publish nothing yet: the person reviews first. Then write "
         f'{PROPOSAL}: {{"draftId": {"..." if workbook else "... (null when the model does not change)"}, "summary": two sentences a person reads, "questions": '
         '[{"text": the question itself first, at most three short sentences, "options", "assumed"}] '
         'for what only a person can decide, "moves": '
         '[{"from": a type key, "to": its type key in the draft, "attributes": [{"attributeTypeKey", '
-        '"from"}]}] only for a whole type that becomes another, kept in order}.'
+        '"from"}]}] only for a whole type that becomes another, kept in order, "removals": '
+        '[{"kind": "objectType", "application", "attribute" or "relationType", "key", "objectType" '
+        '(the type that holds the field, for an attribute), "words": the person\'s own words that ask '
+        "for it; for a type whose records the change set restructures into other types, also "
+        "\"movedTo\": those types' keys}] listing only what the person's words explicitly ask "
+        "to remove, quoted, never "
+        "something you decided to drop: every other record, value, relationship and translation must "
+        "come through, and a change that would lose any of them is not offered}."
     )
 
 
@@ -274,7 +297,8 @@ def _said_prompt(said: str) -> str:
     return (
         f"The person says:\n{said}\n\nThey may have edited the draft in the model editor: read it "
         f"again. Change the draft as they say (if the model does not change, there is none: change the "
-        f"proposal as they say), check every row again and write {PROPOSAL} again."
+        f"proposal as they say), check the records again (send the items to the dry run again) and "
+        f"write {PROPOSAL} again."
     )
 
 
@@ -537,6 +561,20 @@ def _openapi(url: str) -> bytes:
         return answer.read()
 
 
+def resumable(files: Any, task: AiTask) -> bool:
+    """Whether the task's session left a transcript Claude Code can resume. A session ended before
+    it wrote one (a Stop in the first seconds) has nothing to go on from: its next turn starts
+    again (0.13 DOC11 13)."""
+    session_id = (task.design or {}).get("agentSession")
+    if not session_id:
+        return False
+    if not os.environ.get("CLAUDE_CONFIG_DIR", "").strip():
+        # Where Claude Code keeps transcripts is not this engine's to say (the image sets it).
+        return True
+    transcript = _transcripts() / _transcript_name(folder_of(files, task)) / f"{session_id}.jsonl"
+    return transcript.exists()
+
+
 def folder_of(ctx_files: Any, task: AiTask) -> Path:
     return _agent_root(ctx_files) / task.public_id
 
@@ -590,8 +628,8 @@ def sweep(session: Session, files: Any) -> None:
                 shutil.rmtree(path, ignore_errors=True)
 
 
-def _plain(command: str) -> str:
-    """A call in a person's words."""
+def _call_in_words(command: str) -> str:
+    """A call in a person's words: the command itself is never shown."""
     found = _CALL.search(command)
     if not found:
         return "Working through the workbook" if "workbook" in command else "Working"
@@ -749,27 +787,67 @@ class _Progress:
             elif block.get("type") == "tool_use":
                 command = str((block.get("input") or {}).get("command") or "")
                 if command:
-                    self.now = _plain(command)
+                    self.now = _call_in_words(command)
                     moved = True
         return moved
+
+
+def _command_of(pid: int) -> str:
+    """The command line of a process, or nothing when it is gone or cannot be read: from /proc where
+    there is one (the engine's image has no ``ps``), otherwise from ``ps``."""
+    try:
+        return (
+            Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+        )
+    except OSError:
+        pass
+    try:
+        shown = subprocess.run(
+            ["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return ""
+    return shown.stdout
+
+
+def _group_alive(pid: int) -> bool:
+    """Whether the process still runs: a process that ended and is not yet collected does not."""
+    try:
+        fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+        return fields[0] != "Z"
+    except OSError, IndexError:
+        pass
+    try:
+        os.killpg(pid, 0)
+    except ProcessLookupError, PermissionError:
+        return False
+    return True
 
 
 def _stop_earlier(earlier: dict[str, Any] | None) -> None:
     """Ends a session left running by a worker that stopped: its job came back, and two sessions in
     one folder would overwrite each other. The process counts only if it still names its session,
-    as its number may be another's by now."""
+    as its number may be another's by now. It never raises: a Stop, or a failure the turn already
+    has, must reach the task as what it was. In a container the group's leader is ``sudo``, which
+    the engine's user may only ask to end (it passes the request on to the session): it is asked
+    first, and the group is killed if it has not ended in five seconds."""
     if not earlier:
         return
     pid = int(earlier["pid"])
-    shown = subprocess.run(
-        ["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, check=False
-    )
-    if str(earlier["session"]) not in shown.stdout:
+    if str(earlier["session"]) not in _command_of(pid):
         return
-    try:
-        os.killpg(pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    for signal_number, wait in ((signal.SIGTERM, 5.0), (signal.SIGKILL, 0.0)):
+        try:
+            os.killpg(pid, signal_number)
+        except ProcessLookupError, PermissionError:
+            return
+        deadline = time.monotonic() + wait
+        while _group_alive(pid):
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.1)
+        else:
+            return
 
 
 def _provider() -> str:
@@ -942,8 +1020,14 @@ def _run_turn(
 _VOICE = (
     "Your messages are shown to the person in the app. Write them in the person's terms: the model, "
     "its types and fields, the records and the change. Never name files (such as proposal.json), JSON "
-    "keys (such as draftId), ids, endpoints or commands, except the closing lines the instructions "
-    f"ask for ({LAST_LINE} and {THEN_LINE})."
+    "keys or lists (such as draftId, moves, removals or movedTo: say what they hold, in words), ids, "
+    "endpoints or commands, except the closing lines the instructions "
+    f"ask for ({LAST_LINE} and {THEN_LINE}). Every count you give says plainly what it counts, so "
+    "nobody can read it as something else: the records the change touches are counted for the "
+    'types, lists or applications it touches, named (such as "the 179 records of the 20 lists that '
+    'move"), and the rest of the workspace, if you mention it, is said apart (such as "the other '
+    "4478 records of the workspace are not touched\"). Never give the workspace's total as if it "
+    "were the size of the change."
 )
 
 
@@ -1086,6 +1170,15 @@ def _turn(
                 session.commit()
             if failure is None and (not progress.result or progress.result.get("is_error")):
                 failure = ("failed", "The session ended without an answer.")
+            if failure is not None and failure[0] == "failed":
+                # A turn that failed after the session made a change set (a correction of a load)
+                # leaves it with no task to link it. A failed load stage keeps a set that holds
+                # changes reachable (recover_load); the other turns undo what they began (0.13
+                # DOC11 F8).
+                if load:
+                    _discard_empty_sets(session, client, since)
+                else:
+                    _undo_load(session, task_key, client, since)
             _record_turn(session, task_key, job.id, progress, since, prompt, failure)
             _log_split(session, task_key, client, since, started, progress)
     return progress
@@ -1139,6 +1232,26 @@ def _undo_load(session: Session, task_id: str, client: int, since: datetime) -> 
         discard_change_set(session, change_set.id, change_set.version)
 
 
+def _discard_empty_sets(session: Session, client: int, since: datetime) -> None:
+    """The change sets the session's client made in a turn that failed and left empty: nothing in
+    them is worth keeping, and no task would link them. Not while a job of the client still runs."""
+    running = select(Job.id).where(
+        Job.requested_by_client_id == client,
+        Job.kind != "aiTask",
+        Job.state.in_(("queued", "running")),
+    )
+    if session.scalar(running.limit(1)) is not None:
+        return
+    for change_set in session.scalars(
+        select(ChangeSet).where(
+            ChangeSet.created_by_client_id == client, ChangeSet.created_at >= since
+        )
+    ).all():
+        if not _holds_changes(_counts(session, change_set.id)):
+            discard_change_set(session, change_set.id, change_set.version)
+    session.commit()
+
+
 def undo_interrupted_load(session: Session, task_id: str) -> None:
     """A load turn whose worker stopped is run again: what it began is stopped and undone first, so
     the change set it made does not stay beside the new one (R-F18)."""
@@ -1150,13 +1263,30 @@ def undo_interrupted_load(session: Session, task_id: str) -> None:
     _undo_load(session, task_id, task.client_id, datetime.fromisoformat(earlier["startedAt"]))
 
 
+# The proposal file's own vocabulary: a sentence that names one of its keys or lists is the
+# session talking about its file, not about the person's data.
+_INTERNAL = re.compile(
+    r"\b(draftId|movedTo|changeSetId|releaseId|thenReleaseId)\b"
+    r"|\b(moves|removals|questions)\s+(list|entry|entries|array|field)\b"
+    r"|\b(list|entry|entries)\s+of\s+(moves|removals)\b",
+    re.IGNORECASE,
+)
+
+
+def _without_files(line: str) -> str:
+    """A line of the session's closing words without the sentences that name its own file: the
+    person reads the proposal on the page, not in a folder they cannot open."""
+    sentences = re.split(r"(?<=[.!?])\s+", line)
+    return " ".join(s for s in sentences if PROPOSAL not in s and not _INTERNAL.search(s))
+
+
 def _said(progress: _Progress) -> str:
     result = progress.result
     cost = result.get("total_cost_usd")
     seconds = round((result.get("duration_ms") or 0) / 1000)
     # The closing lines carry ids for the engine; the person reads the rest.
     words = "\n".join(
-        line
+        _without_files(line)
         for line in str(result.get("result") or "").splitlines()
         if LAST_LINE not in line and THEN_LINE not in line
     ).strip()
@@ -1344,21 +1474,69 @@ def _requested_moves(proposal: dict[str, Any]) -> list[dict[str, Any]]:
     return found
 
 
+_EXTRA_MAPPINGS = ("relationTypeMappings", "splits", "listConversions")
+
+
+def _migration_of(
+    session: Session,
+    workspace_key: str,
+    draft: ModelDraft | None,
+    against: ModelRelease,
+    to: ModelRelease | None,
+    requested: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """The migration the task hands over: what the draft states against the workspace's release (the
+    engine's own ``derive``: application moves, relation type mappings, splits and list conversions
+    as well as the types that become others) joined with the session's explicit ``moves``. A session
+    move for a type is that type's mapping, keeping the application the draft sends it to; no type
+    is mapped twice. ``notes`` are the engine's, such as that a step replaced the whole model."""
+    found = (
+        derive(session, draft, workspace_key=workspace_key, against=against, to=to)
+        if draft is not None
+        else {}
+    )
+    merged = {item["fromObjectTypeKey"]: dict(item) for item in found.get("typeMappings") or []}
+    for move in requested:
+        derived = merged.get(move["fromObjectTypeKey"], {})
+        merged[move["fromObjectTypeKey"]] = {
+            **derived,
+            **move,
+            "attributes": move.get("attributes") or derived.get("attributes") or [],
+        }
+    return {
+        "typeMappings": list(merged.values()),
+        **{name: list(found.get(name) or []) for name in _EXTRA_MAPPINGS},
+        "notes": list(found.get("notes") or []),
+    }
+
+
+def _extra_of(migration: dict[str, Any]) -> dict[str, Any]:
+    """The mappings beside the types, as the migration's request and its landing check take them."""
+    return {name: migration[name] for name in _EXTRA_MAPPINGS if migration.get(name)}
+
+
 def _planned_moves(
-    mappings: list[dict[str, Any]],
+    migration: dict[str, Any],
     base: dict[str, Any],
     model: dict[str, Any],
     held: dict[str, int],
     losses: dict[str, dict[str, int]] | None = None,
+    requested: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
-    """What the proposal's moves would do, checked against the draft by the migration's own plan
-    (AP-D47): each with the records the workspace holds of the type. A move the plan refuses raises
-    its ``ApiError``; a model that does not compile, ``ModelValidationError``."""
-    if not mappings:
+    """What the migration would do, checked against the draft by the migration's own plan (AP-D47):
+    each type mapping with the records the workspace holds of the type, and the application its
+    records go to. A mapping the plan refuses raises its ``ApiError``; a model that does not
+    compile, ``ModelValidationError``."""
+    mappings = migration["typeMappings"]
+    if not mappings and not _extra_of(migration):
         return []
-    plan_migration(parse_model(base), parse_model(model), parse_type_mappings(mappings))
+    parsed = Mappings.of({"typeMappings": mappings, **_extra_of(migration)})
+    plan_migration(
+        parse_model(base), parse_model(model), parsed.types, parsed.relations, parsed.spawns
+    )
     old = {found.get("key"): found.get("name") for found in base.get("objectTypes") or []}
     new = {found.get("key"): found.get("name") for found in model.get("objectTypes") or []}
+    apps = {found.get("key"): found.get("name") for found in model.get("applications") or []}
     return [
         {
             "from": move["fromObjectTypeKey"],
@@ -1368,6 +1546,16 @@ def _planned_moves(
             "records": held.get(move["fromObjectTypeKey"], 0),
             "attributes": move["attributes"],
             "lost": (losses or {}).get(move["fromObjectTypeKey"], {}),
+            "fromSession": move["fromObjectTypeKey"] in requested,
+            **(
+                {
+                    "toApplication": move["toApplicationKey"],
+                    "toApplicationName": apps.get(move["toApplicationKey"])
+                    or move["toApplicationKey"],
+                }
+                if move.get("toApplicationKey")
+                else {}
+            ),
         }
         for move in mappings
     ]
@@ -1431,6 +1619,234 @@ def _refusal_prompt(words: str) -> str:
         f"{words}. Change the draft so the records the proposal moves keep the places they have "
         "now: give the type they become the parents and relationships they have, as the types they "
         f"come from do. Check the draft again and write {PROPOSAL} again."
+    )
+
+
+_REMOVAL_KINDS = ("objectType", "application", "attribute", "relationType")
+
+
+def _plain(text: str) -> str:
+    """Text for comparing quotes: case, quote marks, punctuation and whitespace set aside."""
+    return " ".join(re.sub(r"[\"'`“”‘’«».,;:!?()\[\]]+", " ", text.casefold()).split())
+
+
+def _persons_text(task: AiTask) -> str:
+    """Everything the person wrote to the task: the words and every correction and answer."""
+    design = task.design or {}
+    return "\n".join(
+        [
+            task.words or "",
+            *(str(item) for item in design.get("corrections") or []),
+            *(str(item) for item in (design.get("answers") or {}).values()),
+        ]
+    )
+
+
+def _requested_removals(proposal: dict[str, Any], written: str) -> list[dict[str, Any]]:
+    """What the person's words explicitly ask to remove, as the session listed it: each with the
+    words that ask. An entry whose words the person never wrote (any part of a sentence of their
+    own text, whatever the case, spacing or quote marks) is not an ask, so it is not kept."""
+    found = []
+    text = _plain(written)
+    raw = proposal.get("removals")
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        kind, key = item.get("kind"), str(item.get("key") or "").strip()
+        words = str(item.get("words") or "").strip()
+        owner = str(item.get("objectType") or "").strip()
+        if (
+            kind not in _REMOVAL_KINDS
+            or not key
+            or not words
+            or (kind == "attribute" and not owner)
+            or not _plain(words)
+            or _plain(words) not in text
+        ):
+            continue
+        moved = item.get("movedTo")
+        moved_to = (
+            [str(key).strip() for key in moved if str(key).strip()]
+            if kind == "objectType" and isinstance(moved, list)
+            else []
+        )
+        found.append(
+            {
+                "kind": kind,
+                "key": key,
+                "words": words[:500],
+                **({"objectType": owner} if owner else {}),
+                **({"movedTo": moved_to} if moved_to else {}),
+            }
+        )
+    return found
+
+
+def _counted(count: int, word: str) -> str:
+    return f"{count:,} {word}{'' if count == 1 else 's'}"
+
+
+def _removal_account(
+    landing: Any,
+    removals: list[dict[str, Any]],
+    base: dict[str, Any],
+    final: dict[str, Any] | None = None,
+) -> tuple[dict[str, dict[str, int]], list[dict[str, Any]]]:
+    """Split what a migration would lose into what the person asked to remove and the rest. A loss
+    is allowed only when it falls within a removal: the records of a removed type (or of the types
+    of a removed application), the values of a removed field, and the relationships of a removed
+    relation type or of records that are themselves removed. Returns the rest, per type, and one
+    statement per removal with the counts it deletes and a plain sentence."""
+    named = {
+        kind: {
+            item.get("key"): item.get("name") or item.get("key") for item in base.get(group) or []
+        }
+        for kind, group in (
+            ("objectType", "objectTypes"),
+            ("attribute", "attributeTypes"),
+            ("relationType", "relationTypes"),
+            ("application", "applications"),
+        )
+    }
+    held = {
+        item["key"]: set(item.get("objectTypeKeys") or [])
+        for item in base.get("applications") or []
+    }
+    # The types each removal deletes the records of.
+    reach: list[set[str]] = []
+    for item in removals:
+        if item["kind"] == "objectType":
+            reach.append({item["key"]})
+        elif item["kind"] == "application":
+            reach.append(set(held.get(item["key"], ())))
+        else:
+            reach.append(set())
+    counts = [{"records": 0, "values": 0, "relationships": 0} for _ in removals]
+    removed_types = set().union(*reach) if reach else set()
+    claimed: set[str] = set()
+    for index, types in enumerate(reach):
+        for type_key in sorted(types - claimed):
+            counts[index]["records"] += landing.losses.get(type_key, {}).get("records", 0)
+        claimed |= types
+    rest: dict[str, dict[str, int]] = {}
+
+    def left(type_key: str, kind: str, count: int) -> None:
+        if count:
+            slot = rest.setdefault(type_key, {})
+            slot[kind] = slot.get(kind, 0) + count
+
+    for type_key, found in landing.losses.items():
+        if type_key not in removed_types:
+            left(type_key, "records", found.get("records", 0))
+    for (type_key, attribute), count in landing.value_losses.items():
+        owner = next(
+            (
+                i
+                for i, item in enumerate(removals)
+                if item["kind"] == "attribute"
+                and item["key"] == attribute
+                and item.get("objectType") == type_key
+            ),
+            None,
+        )
+        if type_key in removed_types:
+            continue  # it is the removed type's own (counted with its records)
+        if owner is None:
+            left(type_key, "values", count)
+        else:
+            counts[owner]["values"] += count
+    for (relation, source, target), count in landing.relationship_losses.items():
+        owner = next(
+            (
+                i
+                for i, item in enumerate(removals)
+                if (item["kind"] == "relationType" and item["key"] == relation)
+                or source in reach[i]
+                or target in reach[i]
+            ),
+            None,
+        )
+        if owner is None:
+            left(source, "relationships", count)
+        else:
+            counts[owner]["relationships"] += count
+    statements = []
+    for item, found in zip(removals, counts, strict=True):
+        name = named[item["kind"]].get(item["key"]) or item["key"]
+        tail = [
+            _counted(found[kind], word)
+            for kind, word in (
+                ("records", "record"),
+                ("values", "value"),
+                ("relationships", "relationship"),
+            )
+            if found[kind]
+        ]
+        what = {
+            "objectType": f"{name} is deleted",
+            "application": f"the application {name} is removed",
+            "attribute": f"the field {name} of "
+            f"{named['objectType'].get(item.get('objectType'), item.get('objectType'))} is removed",
+            "relationType": f"the relationship type {name} is removed",
+        }[item["kind"]]
+        sentence = f"As you asked, {what}" + (f", deleting {', '.join(tail)}." if tail else ".")
+        if item["kind"] == "objectType" and item.get("movedTo"):
+            # A partial move: the change set restructures the records into other types, so nothing
+            # is deleted and their relationships go along with them.
+            target_names = {
+                found_item.get("key"): found_item.get("name") or found_item.get("key")
+                for found_item in (final or {}).get("objectTypes") or []
+            }
+            targets = [target_names.get(key) or key for key in item["movedTo"]]
+            where = (
+                f"{', '.join(targets[:-1])} and {targets[-1]}" if len(targets) > 1 else targets[0]
+            )
+            records = found["records"]
+            sentence = (
+                f"As you asked, {name} is removed: "
+                + (f"its {_counted(records, 'record')} move" if records else "its records move")
+                + f" to {where}."
+            )
+        statements.append({**item, "name": name, **found, "text": sentence})
+    return rest, statements
+
+
+_LOSS_KINDS = (("records", "record"), ("values", "value"), ("relationships", "relationship"))
+
+
+def _loss_words(losses: dict[str, dict[str, int]], names: dict[str, str]) -> str:
+    """What a migration would lose, per type with counts, in plain words (records, values and
+    relationships, translation links among them)."""
+    parts = []
+    for type_key, counts in sorted(losses.items()):
+        things = [
+            f"{counts[kind]} {word}{'s' if counts[kind] != 1 else ''}"
+            for kind, word in _LOSS_KINDS
+            if counts.get(kind)
+        ]
+        if things:
+            parts.append(f"{names.get(type_key, type_key)}: {', '.join(things)}")
+    return "; ".join(parts)
+
+
+def _type_names(*models: dict[str, Any]) -> dict[str, str]:
+    """Type keys with their names, the first model's name winning."""
+    names: dict[str, str] = {}
+    for model in reversed(models):
+        for item in model.get("objectTypes") or []:
+            names[item["key"]] = item.get("name") or item["key"]
+    return names
+
+
+def _loss_prompt(words: str) -> str:
+    return (
+        "The engine finds that the migration this draft needs would lose the person's data: "
+        f"{words}. Nothing the person did not ask to remove may be lost: every record, value, "
+        "relationship and translation comes through, except what the person's words explicitly ask "
+        "to remove, which you list in removals with their words. Change the draft (and the moves, splits or "
+        "conversions) so that none is lost, or, if that cannot be done, write the proposal with a "
+        "question that says why. "
+        f"Check the draft again and write {PROPOSAL} again."
     )
 
 
@@ -1564,6 +1980,8 @@ def _unchanged_landed(
         "checks": [],
         "origin": _origin(),
         "outcome": {},
+        "load": None,
+        "itemsLoad": False,
     }
     task.check = None
     note(task, "note", _said(progress))
@@ -1623,7 +2041,17 @@ def _proposal_landed(
         if _without_model_change(session, task, proposal):
             _unchanged_landed(session, ctx, task, proposal, progress)
             return
-        note(task, "warning", _said(progress) or "The session ended without a proposal")
+        spoke = str(progress.result.get("result") or "").strip() and not progress.result.get(
+            "is_error"
+        )
+        note(
+            task,
+            "warning",
+            _said(progress)
+            if spoke
+            else "The session ended without a proposal and said nothing about why. Tell it how to "
+            "go on, or try again as it was.",
+        )
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
@@ -1631,10 +2059,21 @@ def _proposal_landed(
     design.pop("progress", None)
     design.pop("modelUnchanged", None)
     questions = _questions(proposal)
-    base = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id).model_json
+    current = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id)
+    base = current.model_json
     errors: list[Any] = []
+    requested = _requested_moves(proposal)
+    try:
+        migration = _migration_of(session, task.workspace_key, draft, current, None, requested)
+    except ApiError as error:
+        note(task, "warning", f"The draft's migration cannot be read: {error.message}")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
+    mappings = migration["typeMappings"]
+    extra = _extra_of(migration)
     # A draft on no release is a new model, compared with the workspace's only if it moves types.
-    compared = bool(proposal.get("moves") or draft.base_model_release_id)
+    compared = bool(mappings or extra or proposal.get("moves") or draft.base_model_release_id)
     if compared:
         try:
             errors = _contract_errors(base, draft.model_json)
@@ -1654,22 +2093,37 @@ def _proposal_landed(
         session.commit()
         return
     held = held_counts(session, task.workspace_key)
-    mappings = _requested_moves(proposal)
+    asked = frozenset(item["fromObjectTypeKey"] for item in requested)
     refusals: tuple[LandingRefusal, ...] = ()
     losses: dict[str, dict[str, int]] = {}
+    unasked: dict[str, dict[str, int]] = {}
+    removals = _requested_removals(proposal, _persons_text(task))
+    stated: list[dict[str, Any]] = []
     try:
-        moves = _planned_moves(mappings, base, draft.model_json, held)
-        if mappings:
-            # The records are the engine's to check, as the migration's preview will (AP-D47).
-            landing = check_landing(
-                session,
-                task.workspace_key,
-                parse_model(base),
-                parse_model(draft.model_json),
-                mappings,
-            )
-            refusals, losses = landing.refusals, landing.losses
-            moves = _planned_moves(mappings, base, draft.model_json, held, losses)
+        moves = _planned_moves(migration, base, draft.model_json, held, requested=asked)
+        if mappings or extra or draft.base_model_release_id:
+            # The records are the engine's to check, as the migration's preview will (AP-D47), for
+            # every kind of change: what the person's data would lose is measured on the migration
+            # the task will hand over, whatever mappings, splits or conversions cause it.
+            try:
+                landing = check_landing(
+                    session,
+                    task.workspace_key,
+                    parse_model(base),
+                    parse_model(draft.model_json),
+                    mappings,
+                    extra,
+                )
+            except ApiError, ModelValidationError:
+                if mappings or extra:
+                    raise
+                landing = (
+                    None  # a draft with no mappings that does not check is not a migration yet
+                )
+            if landing is not None:
+                refusals, losses = landing.refusals, landing.losses
+                unasked, stated = _removal_account(landing, removals, base, draft.model_json)
+                moves = _planned_moves(migration, base, draft.model_json, held, losses, asked)
     except (ApiError, ModelValidationError) as error:
         reason = error.message if isinstance(error, ApiError) else "the draft does not compile"
         note(task, "warning", f"The proposed moves cannot be made: {reason}")
@@ -1693,10 +2147,27 @@ def _proposal_landed(
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
+    lost = _loss_words(unasked, _type_names(draft.model_json, base))
+    if lost:
+        # No migration that loses what the person did not ask to remove is offered (product rule,
+        # 2026-11-09). The proposal records no removal the person asked for, so every loss counts.
+        if round_ < LANDING_ROUNDS:
+            _send_back(session, job, ctx, task_id, folder, check_of, _loss_prompt(lost), round_)
+            return
+        note(
+            task,
+            "warning",
+            f"The proposal would lose data: {lost}. Nothing was changed, and no migration is offered.",
+        )
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     check = check_of(session, draft)
+    # A dry run of items (0.13 AB) is what accepting loads: its summary is the task's, in the design.
+    previewed = check.pop("itemsSummary", None) if check else None
     records = _records_per_type(session, (check or {}).get("dryRunJobId"))
     related = records.pop(None, 0)
-    if check and related:
+    if check and related and previewed is None:
         # The check counts a relationship as an item it creates; the person reads records and links.
         check["summary"]["created"] -= related
         check["summary"]["relationships"] = related
@@ -1706,19 +2177,31 @@ def _proposal_landed(
         "stage": "model",
         "summary": str(proposal.get("summary") or ""),
         "moves": moves,
+        "removals": stated,
         "consumerChanges": _consumer_changes(base, draft.model_json) if compared else [],
         "questions": questions,
         # A draft on no release is a new model: a type sharing a key with the old one is not a change.
         "outline": _shape(draft.model_json, base if draft.base_model_release_id else {}, records),
         "checks": [
             *_left_out(draft.model_json, base, held, frozenset(m["from"] for m in moves)),
-            *_beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held),
+            *(
+                []
+                if previewed is not None
+                else _beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held)
+            ),
             *_cells_left_out(session, task, (check or {}).get("dryRunJobId")),
         ],
         "origin": _origin(),
         "outcome": {},
+        "load": previewed,
+        "itemsLoad": previewed is not None and not moves,
     }
     task.check = check
+    for found in stated:
+        note(task, "note", found["text"])
+    if mappings or extra:
+        for found in migration["notes"]:
+            note(task, "note", found["message"])
     note(task, "note", _said(progress))
     finish(task, "checked", _retention(ctx))
     task.finished_at = None
@@ -1831,20 +2314,28 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
     release = _installed_by(session, task, _last_line(words, RELEASE_LINE))
     if release is None:
         return None
-    mappings = [
+    current = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id)
+    draft = session.get(ModelDraft, task.draft_id) if task.draft_id else None
+    requested = [
         {
             "fromObjectTypeKey": move["from"],
             "toObjectTypeKey": move["to"],
             "attributes": move.get("attributes") or [],
         }
         for move in (task.design or {}).get("moves") or []
+        if move.get("fromSession", True)
     ]
-    current = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id)
     try:
+        migration = _migration_of(session, task.workspace_key, draft, current, release, requested)
+        mappings = migration["typeMappings"]
+        extra = _extra_of(migration)
+        parsed = Mappings.of({"typeMappings": mappings, **extra})
         plan_migration(
             parse_model(current.model_json),
             parse_model(release.model_json),
-            parse_type_mappings(mappings),
+            parsed.types,
+            parsed.relations,
+            parsed.spawns,
         )
         errors = _contract_errors(current.model_json, release.model_json)
         landing = check_landing(
@@ -1853,6 +2344,7 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
             parse_model(current.model_json),
             parse_model(release.model_json),
             mappings,
+            extra,
         )
     except ApiError, ModelValidationError:
         return None
@@ -1863,6 +2355,22 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
             f"The installed release breaks consumers of the model: {_contract_words(errors)}",
         )
         return None
+    unasked, stated = _removal_account(
+        landing, (task.design or {}).get("removals") or [], current.model_json, release.model_json
+    )
+    lost = _loss_words(unasked, _type_names(current.model_json, release.model_json))
+    if lost:
+        # No migration is returned, so the person cannot confirm one: the data is as it was.
+        note(
+            task,
+            "warning",
+            f"The installed release would lose data: {lost}. No data was changed, and no migration "
+            "is offered to confirm.",
+        )
+        task.design = {**(task.design or {}), "withheld": True}
+        return None
+    for found in stated:
+        note(task, "note", found["text"])
     if landing.refusals:
         names = {item.key: item.name for item in parse_model(release.model_json).objectTypes}
         words = _refusal_words(landing.refusals, names)
@@ -1872,7 +2380,7 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
             f"The installed release has records the engine would refuse to move: {words}",
         )
         return None
-    return {"migration": {"releaseId": release.public_id, "typeMappings": mappings}}
+    return {"migration": {"releaseId": release.public_id, "typeMappings": mappings, **extra}}
 
 
 def _change_set_of(session: Session, task: AiTask, change_set_id: str | None) -> ChangeSet | None:
@@ -1919,7 +2427,8 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
         # No change set, and the data is not touched: the person confirms the migration (AP-D49).
         result = _migration_result(session, task, words)
         if result is None:
-            note(task, "warning", "The session installed no release the moves fit")
+            if not (task.design or {}).get("withheld"):
+                note(task, "warning", "The session installed no release the moves fit")
             finish(task, "failed", _retention(ctx))
         else:
             task.result = result
@@ -1941,6 +2450,10 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
     ):
         # The model alone changes: the migration ending with no type mappings (the records stay).
         result = _migration_result(session, task, words)
+        if result is None and (task.design or {}).get("withheld"):
+            finish(task, "failed", _retention(ctx))
+            session.commit()
+            return
         if result is not None:
             task.result = result
             finish(task, "loaded", _retention(ctx))
@@ -1988,7 +2501,7 @@ def _landing(
         # The model does not change: the change set is on the release the workspace runs, or it is not
         # the change the person accepted.
         return None, "The change set is not on the model the workspace runs"
-    then = _then_release(session, task, words)
+    then = _then_release(session, task, words, change_set)
     if then is None:
         return None, None
     return {
@@ -2128,14 +2641,63 @@ def _change_set_release(
     return {"changeSetReleaseId": release.public_id} if release is not None else {}
 
 
-def _then_release(session: Session, task: AiTask, words: str) -> dict[str, str] | None:
+def _final_release_found(
+    session: Session, task: AiTask, change_set: ChangeSet
+) -> ModelRelease | None:
+    """The final release of a part-of-a-type reshaping, read from what the engine recorded rather than
+    from the session's last line: the newest release the task's client installed, other than the
+    change set's own, whose types are exactly the change set's release without the old types
+    beside the new ones. ``None`` when there is no such release (a load that moves nothing)."""
+    if task.client_id is None:
+        return None
+    own = session.get(ModelRelease, change_set.model_release_id)
+    if own is None:
+        return None
+    beside = {item.get("key") for item in own.model_json.get("objectTypes") or []}
+    installed = session.scalars(
+        select(AuditEvent.aggregate_id)
+        .where(
+            AuditEvent.aggregate_type == "model_release",
+            AuditEvent.action == "installed",
+            AuditEvent.actor_client_id == task.client_id,
+        )
+        .order_by(AuditEvent.sequence_id.desc())
+    ).all()
+    for public_id in installed:
+        if public_id == own.public_id:
+            continue
+        found = session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
+        types = (
+            {item.get("key") for item in (found.model_json.get("objectTypes") or [])}
+            if found
+            else set()
+        )
+        if found is not None and types < beside:
+            return found
+    return None
+
+
+def _then_release(
+    session: Session, task: AiTask, words: str, change_set: ChangeSet | None = None
+) -> dict[str, str] | None:
     """The final release of a part-of-a-type reshaping: the third step, the person's, activates it
     once the old types hold no record (AP-D48). ``None`` when the engine would refuse that
     activation for the consumers of the model (C-D17); the warning names them."""
     named = _last_line(words, THEN_LINE)
-    if named is None:
-        return {}
     release = _installed_by(session, task, named)
+    if release is None and change_set is not None:
+        # The session's word is a hint: the engine finds the final release from what it recorded.
+        release = _final_release_found(session, task, change_set)
+    if release is None and named is None:
+        if any(item.get("movedTo") for item in (task.design or {}).get("removals") or []):
+            # A partial move without its final release has no steps to show: say so, not nothing.
+            note(
+                task,
+                "warning",
+                "The session did not name the final release, so the steps to finish the move are not "
+                "shown. Tell the assistant to go on and name it.",
+            )
+        return {}
     if release is None:
         note(task, "warning", "The session named a final release it did not install")
         return {}

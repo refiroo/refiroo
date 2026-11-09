@@ -23,17 +23,31 @@ and retention in full. Check your organisation's policy before sending a file.
    to attach an XLSX or CSV file when it helps explain the change.
 3. Read the disclosure of what is sent. Choose **Ask the assistant**, or **Cancel** to leave
    without starting a task. Wait on the task page; **Stop** pauses the work without discarding
-   the task.
+   the task. Before a proposal exists, the task is named **Change with the assistant**.
+   It becomes **Change this model** when the proposal changes the model, or **Change records**
+   when it leaves the model unchanged.
 4. Read **The assistant’s proposal**. Check every type it adds or changes, **Checks**, questions
    and the records that move. For a whole-type move, check both the destination type and the
-   number of records. Do not accept merely because the summary sounds plausible.
+   number of records. Open **Show the model change**. **No type, attribute or relationship
+   changes** does not mean the draft is unchanged: it can still change views or layout. Use
+   **Open in the model editor** to inspect those changes. A task without a workbook or a
+   model draft instead says **No change to the model.**
+   Do not accept merely because the summary sounds plausible.
 5. Answer questions and use **Tell the assistant what to change** for corrections. Choose
    **Open in the model editor** to inspect or edit the draft directly. Return to the task;
-   the assistant rereads the draft when it continues. If a check predates your edit, ask for a
-   correction and wait for a current check before loading.
-6. Choose **Accept the model** only when the proposed structure and treatment of records are
-   right. **Discard this proposal** removes the proposal and its draft instead. **Close** keeps
-   the proposal for later.
+   the assistant rereads the draft when it continues. For a workbook proposal, inspect
+   **What the load does**, open each type's row for examples with source cells, and read any
+   repeated-name finding. A draft changed after that check is checked again before loading.
+6. For a model-only change or a record move, choose **Accept the model** only when the proposed
+   structure and treatment of records are right. **Accept the model** in the journey bar
+   takes you to the page’s acceptance button; choose that button to confirm.
+   A workbook load showing **What the load does**
+   uses **Accept and load to change set**: the engine installs a changed model and loads exactly the checked
+   records and relationships into a change set as one batch, without another assistant turn.
+   It does not activate or publish. Follow
+   [Review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/)
+   for loading, refusals and publication. **Discard this proposal** removes the proposal and its
+   draft instead. **Close** keeps the proposal for later.
 
 *Example: a model for transport stops might split a general stop type by a field that distinguishes
 bus and rail stops. The instruction should say whether the old type remains and which values
@@ -41,10 +55,24 @@ select each new type. These choices belong to the model, not to a built-in trans
 
 ![Change this model dialog with the workspace, instruction and optional workbook](/docs/screens/model-assistant-change-dialog.png)
 
-## Finish a whole-type move
+## Finish a model-only change or a whole-type move
 
-1. Under **Move the records to the new model**, review the list of what becomes what.
-   Accepting has installed a release; nothing has moved yet.
+When only the model changes, such as adding a view, acceptance installs a release and prepares
+a migration that moves no type. Preview and confirm it as below to put the workspace on the
+new model. No change set is created and every record stays as it is.
+
+Whatever you ask the assistant to reshape, all your data comes through: every record, value,
+relationship and translation. The only exception is what your own words explicitly ask to
+remove. The assistant lists that removal with your words, and the proposal states it in plain
+words with the engine's counts before you accept, for example "As you asked, the Drug list is
+deleted, deleting 16 records." If the change would lose anything else, the assistant does not
+offer it: the task ends with a note naming what would be lost per type, and nothing is changed.
+
+1. For a whole-type move, review the list under **Move the records to the new model** of what
+   becomes what, or which application each type moves to when its key stays. The migration
+   takes what the draft changes against the workspace's model, together with the moves the
+   assistant named. For a model-only change, there are no type moves to review. Accepting has
+   installed a release; nothing has moved yet.
 2. Choose **Preview the migration**. The migration page opens with the assistant's type choices.
    Follow [Migrate a workspace](/docs/guide/model/migrate-a-workspace/) to inspect converted,
    removed and blocked items. **Back to the proposal** returns to the task.
@@ -58,7 +86,15 @@ select each new type. These choices belong to the model, not to a built-in trans
 
 ## Finish a partial move
 
-The task shows **Three steps are yours**, with **Next** beside the available step.
+Before accepting, read how the proposal moves the selected records and what acceptance
+prepares: a release with the old types beside the new ones, a change set that moves the
+records, and the final release that removes the emptied types. The removal note names the
+record moves and their destination types; removing the emptied types does not delete those
+records. You do not need to prepare the releases or move the records by hand.
+
+Choose **Accept the model** when this matches your request. Once preparation finishes, the
+task links the releases and change set under **Three steps are yours**, with **Next** beside
+the available step.
 
 1. Under **1. Add the new types to the workspace**, choose **Open the release**. Activate the
    release holding both the old and new shapes in the intended workspace. No records move.

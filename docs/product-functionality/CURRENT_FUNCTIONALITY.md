@@ -372,8 +372,9 @@ Translations are ordinary records and relationships: a translation is created wi
 and content in one valid operation, and a second active translation for the same target and language
 is refused.
 
-A relation matrix can be added to any application in the model editor, from the application's Views
-section. The types it needs are listed in that application, and their records stay in the application
+A table, a tree, a mapping grid or a relation matrix can be added to any application in the model editor
+(**Add a view…**, in the application's Views section), and a tree or a mapping grid is changed afterwards.
+The types a matrix needs it needs are listed in that application, and their records stay in the application
 they stand in, so the matrix shows them all; a table in a second application lists only records stored
 there. A cell shows the first of the view's cell fields holding text or a number, or the record's name
 when none does. A relation matrix shows records against the values of an ancestor type, for example values by
@@ -709,6 +710,18 @@ differences and whether stored data is affected; a refused activation leaves the
 and says so. On a phone the panes are tabs. The JSON workbench stays one click away (**Open as
 JSON**).
 
+The editor sets everything a model holds that the engine reads, without JSON. A type's **Settings** tab
+chooses the attribute that names its records, its effective period, the attributes of which a record needs
+one filled and the relationships that place it under a parent. An attribute type's Settings give a number
+type a minimum and a maximum, and hide an attribute or give it help text, which a type's attribute table
+does for that type alone. A relation type is oriented or not, and a relationship carries attributes. An
+application has a default view. On a record page, **Header and breadcrumbs…** chooses the title,
+the line under it and the breadcrumbs, a table's **Sort menu and page size…** its sort fields and page
+size, and a panel's **Settings…** the relationships it lists, its direction, relationship column, sort menu,
+parent and ancestors. A consumer API's Settings set its contract version. An application's state is read by
+nothing and is not offered. An import profile, its uploaded file and a mapping are deleted from their pages,
+after a question; a person who may not do it is not shown the button.
+
 **Preview** in a type's header shows the type's record page and its table as they will look once the
 draft is active, drawn from the draft before it is installed, over a real record of a workspace you
 choose (or an empty record for a new type). The page's buttons and fields are shown but disabled:
@@ -730,7 +743,7 @@ and default, edited in place; which operations it offers, its lists, its
 XREF match rules and its custom events; its filters. Two documents an integration takes from it are
 shown with Copy and Download: the **Schema** of the message consumers receive and a **Message
 example**. Every change is a step with undo. A change the consumers of the active release would
-notice is marked "Needs v2" as soon as it is made, with a button that raises the contract version,
+notice is marked "Needs v2" as soon as it is made, with a button that raises the contract version (keeping the previous version served unless told otherwise; the consumer API's Settings list the earlier versions, their sunset day and **Stop serving**),
 and the install dialog lists each consumer API's result; activation waits until each is compatible.
 Renaming a key the draft added renames it in the consumer APIs too.
 
@@ -1204,7 +1217,7 @@ is no longer allowed, when a record its filter names no longer exists, or when c
 before they could be sent; the operator can then resume from now on and re-read the data.
 
 Settings › Integration › **Webhooks** does all of this on a page. A webhook has a name of its
-own. Creating one asks for the name and address, the consumer API and workspace, its events (all,
+own. Creating one asks for the name and address, its source (a consumer API, or the workspace's own events: a change set submitted, approved or sent back) and workspace, its events (all,
 or a few chosen from a searchable list) and any filters (added one at a time, their values typed as
 tags), and how requests are made (one event per request or batched, with the object or the
 notification only, RDM JSON or CloudEvents 1.0), and shows the signing key once. Each webhook's page has two tabs. **Configuration** shows
@@ -1284,7 +1297,7 @@ An integrator finds the consumer APIs in an index, each with its name, contract 
 address of its own OpenAPI document. That document is the API's typed contract at its version: every
 path written out with the API's name and version, every field with its type, the parameters each read
 takes, its limits and its refusals. A client generated from it reads the API's real answers. When a
-release raises the contract version, the index and the document move to the new version.
+release raises the contract version, the index and the document move to the new version. The author can keep the previous version served beside the new one, with the `Deprecation` header and an announced `Sunset` day, until they stop serving it: each kept version is in the index and answers every route from the current data in its own shape, and a webhook set up under it keeps receiving that shape.
 
 Settings › Integration › **Consumer APIs** shows each consumer API of the active release, read
 only: its name in the address, contract version, base URL and OpenAPI document (each with a copy
@@ -1455,7 +1468,7 @@ shown active or deactivated. A new client's ID and secret are shown once. A clie
 created it, renames it, deactivates or restores it, and **rotates its secret**: a new one is shown
 once, and the current one keeps working for an hour, a day or a week so the system switches without
 a gap, or stops at once for a leaked secret; secrets are told apart by their last four characters,
-and the previous one can be ended early. Its **Access** grants it a role or a consumer API through
+and the previous one can be ended early. A deactivated client's secret can be rotated too (a leaked one: deactivate, rotate, then restore, and only the new secret is valid); the new secret takes effect when it is restored. Its **Access** grants it a role or a consumer API through
 the same dialog, which now asks what to grant: a role, or a consumer API of the chosen workspace's
 own model. The page lists the webhooks it created (for someone who administers webhooks), its
 recent activity and, for someone who reads data, its changes. A webhook's page names who created
@@ -1615,7 +1628,19 @@ records."). The person can answer, say in words what to change, open the draft i
 edit it, or discard the proposal with its draft; the same session goes on, and reads the draft again in case
 it was edited. If the engine cannot apply the proposal, the page says why and the person tells the assistant what to change. **Accept the model**
 makes the session install one release (not yet activated) and load into a new change set, reviewed and
-published as usual. A session that stopped can be tried again from where it was. A draft another
+published as usual. When the session loads a file (0.13 AB) it reads the workbook itself, turns it into
+the batch API's records and relationships (each new record with an ID of its own, each existing one named
+by its ID, each item with the cells it comes from) and sends them to its draft's dry run. The engine
+previews every item and the page shows **What the load does**: records new, existing records matched,
+relationships new, items refused and rows read; a table per type (new, matched, changed, refused, the
+types it is linked to) whose rows open to example records with their cells; the engine's finding of a
+name that appears twice in one type once the load is in, with the parents; and, folded, which part of
+the file goes where. **Accept and load to change set** then needs no assistant turn: the engine installs the model
+(when it changes) and loads exactly those records and relationships into a new change set as one atomic
+batch. If the data moved since the check and an item is refused, nothing is written, the task says which
+records and cells, and the person can give the assistant other words. A draft edited after the check is
+checked again first. A load made this way saves no import profile, so the next file of the layout goes to
+the assistant again. A session that stopped can be tried again from where it was. A draft another
 assistant task is using cannot be written by a second task, which makes a draft of its own. When a task ends,
 a release its session installed that nothing uses is retired.
 

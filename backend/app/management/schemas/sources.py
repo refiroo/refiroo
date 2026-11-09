@@ -236,21 +236,160 @@ class DryRunSummary(BaseModel):
     ranAt: datetime
 
 
+class ItemsExampleValue(BaseModel):
+    attributeTypeKey: str | None
+    value: Any
+
+
+class ItemsExampleLink(BaseModel):
+    relationTypeKey: str | None
+    direction: Literal["outgoing", "incoming"]
+    objectTypeKey: str | None
+    name: str | None
+
+
+class ItemsExampleError(BaseModel):
+    code: str | None
+    message: str | None
+
+
+class ItemsExample(BaseModel):
+    """One item of a type, with the cells it comes from."""
+
+    index: int
+    ref: str | None
+    objectTypeKey: str
+    action: Literal["created", "updated", "unchanged", "refused"]
+    name: str | None
+    id: str | None
+    values: list[ItemsExampleValue]
+    links: list[ItemsExampleLink]
+    error: ItemsExampleError | None
+
+
+class ItemsType(BaseModel):
+    """What the items do to the records of one object type: new records, existing records found
+    (``matched``, of which ``changed`` were updated), records removed and items refused, the types
+    its records are linked to by the load, and up to three example items."""
+
+    objectTypeKey: str
+    new: int
+    matched: int
+    changed: int
+    removed: int
+    refused: int
+    linkedTo: list[str]
+    examples: list[ItemsExample]
+
+
+class ItemsRelationship(BaseModel):
+    relationTypeKey: str
+    new: int
+    matched: int
+    refused: int
+
+
+class ItemsSheet(BaseModel):
+    sheet: str
+    rows: int
+
+
+class ItemsPart(BaseModel):
+    """Cells of the file, by sheet and columns, that became one type's records (or one relation
+    type's relationships), from the items' ``ref``."""
+
+    sheet: str
+    firstColumn: str
+    lastColumn: str
+    firstRow: int
+    lastRow: int
+    objectTypeKey: str | None
+    relationTypeKey: str | None
+    items: int
+
+
+class ItemsParent(BaseModel):
+    id: str
+    name: str
+    objectTypeKey: str
+
+
+class ItemsFinding(BaseModel):
+    """The engine's finding: a name that appears more than once in one type once the load is in,
+    with the parent each of its records sits under (``null`` at the root)."""
+
+    kind: Literal["nameTwice"]
+    objectTypeKey: str
+    name: str
+    count: int
+    parents: list[ItemsParent | None]
+
+
+class ItemsRefusal(BaseModel):
+    """A refused item: its place in the items, the cells it came from, and why."""
+
+    index: int
+    ref: str | None
+    key: str | None
+    code: str | None
+    message: str | None
+
+
+class ItemsRefusedCode(BaseModel):
+    code: str
+    items: int
+
+
+class ItemsFigures(BaseModel):
+    recordsNew: int
+    recordsMatched: int
+    recordsChanged: int
+    recordsRemoved: int
+    relationshipsNew: int
+    parentLinksNew: int = 0
+    relationshipsMatched: int
+    refused: int
+    rowsRead: int
+
+
+class ItemsDryRunSummary(BaseModel):
+    """What a dry run of items found (0.13 AB): per type and relation type what the items would do,
+    the engine's findings, the refused items with their refs, and where in the file the items came
+    from. Nothing was written."""
+
+    mode: Literal["items"]
+    jobId: str
+    draftId: str
+    draftVersion: int
+    workspaceKey: str
+    items: int
+    figures: ItemsFigures
+    types: list[ItemsType]
+    relationships: list[ItemsRelationship]
+    sheets: list[ItemsSheet]
+    parts: list[ItemsPart]
+    partsTotal: int
+    findings: list[ItemsFinding]
+    refused: list[ItemsRefusal]
+    refusedByCode: list[ItemsRefusedCode]
+    ranAt: datetime
+
+
 class DryRunResponse(BaseModel):
     """A model draft's dry run (D67): ``checking`` while its job runs, then ``completed`` with its
-    summary of the whole file, ``failed`` with the error, or ``cancelled`` when the draft changed
-    or a newer dry run started."""
+    summary of the whole file (``summary``) or of the whole set of items (``items``), ``failed``
+    with the error, or ``cancelled`` when the draft changed or a newer dry run started."""
 
     jobId: str
     state: Literal["checking", "completed", "failed", "cancelled", "expired"]
     draftId: str
     draftVersion: int
-    sourceFileId: str
+    sourceFileId: str | None
     workspaceKey: str
     summary: DryRunSummary | None
     bindingReport: list[BindingReportSource] | None
     error: ApiErrorBody | None
-
+    items: ItemsDryRunSummary | None = None
 
 
 class InferenceDisagreement(BaseModel):

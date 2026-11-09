@@ -252,7 +252,11 @@ def run_dry_run(
     draft_id: str, payload: DryRunRequest, request: Request, session: DbSession
 ) -> JSONResponse:
     """Run the import of one of the draft's source files against the draft's model, writing
-    nothing (D65–D67).
+    nothing (D65–D67); or, with ``items`` in place of ``sourceFileId`` (0.13 AB), preview those
+    batch items, each with an optional ``ref`` naming its cells, against the draft's model: the
+    answer then carries ``items``, the summary per type, the relationships, the engine's findings
+    and the refused items with their refs. The items are held to the background batch's limits and
+    to the atomic one, since accepting an assistant task loads them as one atomic batch.
 
     Answers 202 with the dry run ``checking``; ``GET /model-drafts/{id}/dry-run`` reads it, with
     its summary of every row once completed. A dry run still running for the draft is cancelled.
@@ -263,7 +267,9 @@ def run_dry_run(
     """
     limits: BatchLimits = request.app.state.batch_limits
     try:
-        job = submit_dry_run(session, draft_id, payload, retention_days=limits.retention_days)
+        job = submit_dry_run(
+            session, draft_id, payload, retention_days=limits.retention_days, limits=limits
+        )
     except InvalidDraft as invalid:
         raise api_error(
             422,

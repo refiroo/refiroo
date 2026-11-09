@@ -89,6 +89,16 @@ export function skippedText(parts: [number, string, string?][]): string {
 }
 
 /** The task's name for a page title and a change set: its file, else its words, else "Instruction". */
+/**
+ * What a task without a workbook is called where it is named (the journey bar, the trail): a words task
+ * whose proposal leaves the model as it is changes records, not the model; one with no proposal yet is neutral.
+ */
+export function wordsTaskName(task: Pick<AiTask, "design" | "draftId">): string {
+  if (task.design?.modelUnchanged) return "Change records";
+  // Until a proposal says what it changes (a task stopped before one has none), the name claims nothing.
+  return task.draftId ? "Change this model" : "Change with the assistant";
+}
+
 export function taskTitle(task: Pick<AiTask, "fileName" | "words">): string {
   if (task.fileName) return task.fileName;
   const words = (task.words ?? "").trim();

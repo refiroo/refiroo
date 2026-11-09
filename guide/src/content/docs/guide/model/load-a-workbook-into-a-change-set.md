@@ -4,6 +4,12 @@ description: Apply the workbook's model and profile, load its rows and review th
 reader: model-admin
 ---
 
+Use this for the manual workbook route in the model editor, which loads through an import
+profile. For an assistant's proposal, use
+[Review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/):
+**Accept and load to change set** loads its checked records and relationships without saving an import
+profile or activating the model. The steps below apply to the manual route.
+
 First [start a draft from a workbook](/docs/guide/model/start-a-draft-from-a-workbook/) and
 check every source's mapping and dry run. See
 [Workbook onboarding](/docs/model/workbook-onboarding/) for the separate model and data stages.

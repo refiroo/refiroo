@@ -43,78 +43,95 @@ language column is accounted for.*
 1. Read **The assistant’s proposal**, including each type's fields, relationships and record
    counts. The assistant can reuse the current model, extend it or propose a new one. Do not
    assume each sheet should become a separate type.
-2. Read **Checks**, especially **Needs attention**. These can identify records already held
-   that should be reused, columns that group rows, translations left out, a relationship not
-   visible from its other end, and filled cells no source reads. A warning about new records
-   beside existing records can mean an intended update failed to find its records.
+2. Read **Checks**, especially **Needs attention**, and **What the load does**. Compare new
+   records with existing records matched: unexpected new records can mean an intended update
+   did not find its records. Inspect **One name twice in one type** if shown; the finding says
+   whether those records sit at the top level or under parents. Decide whether they represent
+   different things or an unwanted duplicate. Checks and examples do not establish that the
+   design means what you intended.
 3. Read **Columns left out** and the questions with their assumed answers. Check every
    intentional omission. Conflicting workbook names or values are not automatically errors
    to normalise: explain whether they are intended.
 4. Open **Show the model change**. Choose **Open in the model editor** to inspect the draft's
-   types and source mappings, or edit them. The draft belongs to this task; a second task
+   types, fields and relationships, or edit them. The draft belongs to this task; a second task
    cannot write it while this task holds it. **Close** in the editor returns to the task.
+   **No type, attribute or relationship changes** means the summary has no structural changes
+   to list; the draft can still change views or layout. Open it in the editor to review those.
+   For a task without a workbook or a model draft, the proposal says **No change to the model.**
+   and has no model editor button.
 5. Answer the questions or use **Tell the assistant what to change** under **Correct the model**.
    The same session revises the design and rereads your editor changes. Check the new proposal
-   and its row counts again.
+   and its record and relationship counts again.
 
-![Workbook proposal with type counts, the row check and an expanded table of model changes](/docs/screens/model-assistant-workbook-proposal.png)
+![Workbook proposal with type counts and an expanded table of model changes](/docs/screens/model-assistant-workbook-proposal.png)
 
 *Above: the reference workbook proposal adds types and relationships, adds Step-free access
 and Remark to Stop, and makes FSO number and System key optional. The expanded table shows
 these changes.*
 
-A wide sheet with repeated groups of columns may need rows arranged differently for loading.
-The assistant can prepare a working copy in the shape its import needs. Review the resulting
-fields and record counts: one source row need not mean one output record. This does not edit
-your original workbook.
+The assistant reads the workbook, the model and workspace records, then turns the file into
+proposed records and relationships. It changes the draft where needed and asks the engine to
+check every proposed record and relationship without saving them. It writes no import profile.
+Review the resulting fields and counts: one source row need not mean one output record.
+This does not edit your original workbook.
 
 ## Check the records and accept
 
-1. Review **The check of every row**. Distinguish new, changed, unchanged, refused and skipped
-   rows. A row skipped for an empty key is not a successfully loaded record. Inspect the sheet,
-   row examples and reasons for refusals; correct a mapping or tell the assistant what is wrong.
-2. If the page says **The check from before the draft's last change**, it does not cover the
-   current draft. Have the assistant continue and check again before loading. The engine
-   refuses a load based on a stale check.
-3. Verify that each source's key finds the same records in next month's file. The assistant can
-   use several columns together when one is insufficient. Check that blank key components,
-   duplicate combinations or an unsuitable name do not turn updates into new records.
-4. Choose **Accept the model** when the design and treatment of the rows are right. Before
-   acceptance, nothing is installed or loaded. For an ordinary workbook design, acceptance
-   lets the session install the release without activating it and prepare a change set.
-   The records are not live until publication. Check which release the workspace runs before
-   publishing; activate the required release through the normal release checks. A whole-type or partial reshape instead follows
-   [the model-move steps](/docs/guide/model/change-a-model-with-the-assistant/).
-5. On the loaded page, read the actual counts and what was not loaded. Choose
-   **Review the change set**, inspect its changes, and submit for approval and publish under
-   the workspace's rules. The assistant does not approve or publish.
+1. Review **What the load does**: new records, existing records matched, new relationships,
+   refused items and rows read. New relationships include the links of new records to their
+   parents; the summary gives their count separately too. In the type table, compare **New**, **Matched**, **Changed**,
+   **Refused** and **Linked to**. Open a type's row with a click, Enter or Space to see example
+   records, their values, links and the cells they come from. These are examples, not every record.
+2. Expand **Where each part of the file goes** to inspect the sheet and cell ranges that supply
+   records or relationships. Compare them with the file and **Columns left out**. Read the
+   reasons and source cells of refused items and tell the assistant what to correct.
+3. Check how the assistant matched existing records. Explain which fields identify the same
+   record when names repeat. Questions ask about choices the file and your instructions leave
+   open; they do not ask you to design a loading mechanism.
+4. If the draft changed after the check, the card warns you. Accepting checks every record and
+   relationship again first. If any is refused, nothing is installed or loaded. Ask for a new
+   proposal before accepting if your edit changes the result you want to review.
+5. Choose **Accept and load to change set** when the design and proposed records are right. The engine installs
+   a release if the model changed and loads exactly the checked records and relationships into
+   a new change set as one batch, without another assistant turn. It activates and publishes
+   nothing. If the batch refuses any item because the data changed, none of the batch is loaded
+   and its change set is discarded. A release already installed can remain installed.
+   Whole-type or partial reshapes follow [the model-move steps](/docs/guide/model/change-a-model-with-the-assistant/).
+6. On the loaded page, compare the actual counts with the checked result. Both include parent
+   links in the relationship total. Choose **Review the change set**, inspect its changes and
+   validate. Follow the workspace’s approval rules. If the workspace runs a different model
+   version, review offers **Move** followed by the workspace name, the proposed version and
+   **and publish…**. Use it to preview the migration, then choose **Migrate and publish** to
+   switch the workspace’s model and publish together. You need model-release and publication
+   permission and any required approval. A separate activation first is not required; follow
+   [Migrate a workspace](/docs/guide/model/migrate-a-workspace/) for the preview and blockers.
+   The assistant does not activate, approve or publish.
 
 If the engine cannot apply the proposal, its reason appears on the page. Tell the assistant
 what to change rather than accepting an unusable design. A failed turn can **Try again as it was**;
 a stopped one can **Go on as it was**. If a required permission is lost, the page names what
 is needed and offers a link to copy for the person who can load.
 
-## Keep the layout, or correct a load
+## Load another file, or correct a load
 
-The loaded page says when a reusable import profile was saved and offers **Open the profile**.
-A suitable profile lets the next file of the same layout load without the assistant or AI cost.
-The engine can also recognise an already saved layout before starting a session. Its load
-confirmation can install and activate a changed model before importing; review that confirmation
-even though this path makes no assistant call. Sheets left
-out by the earlier profile may stay left out; a new sheet needs another assistant reading.
+An assistant load saves no import profile. Send the next file of the same layout to the
+assistant again, explaining how it should match the records already held.
 
-A load made only through record changes, or with a sheet that has no key, may not produce a
-reusable profile. The page says why it was not saved; that does not undo the load. If a saved
-layout no longer fits, **Read it with the assistant** starts its reading. Before loading a
-saved layout, **Back to the proposal** and the words box let you reconsider it.
+A separately saved import profile can still let the engine recognise a layout before starting
+a session. Its load confirmation can install and activate a changed model before importing;
+review that confirmation even though this path makes no assistant call. If the saved layout
+no longer fits, **Read it with the assistant** starts its reading. Before loading a saved
+layout, **Back to the proposal** and the words box let you reconsider it.
 
-![Loaded task with 86 new records, a saved profile, change-set review and correction actions](/docs/screens/model-assistant-workbook-loaded.png)
+![Loaded task with record counts, change-set review and correction actions](/docs/screens/model-assistant-workbook-loaded.png)
 
-*Above: the reference workbook task has prepared 86 new records in a change set and saved a
-profile. Live data is unchanged until publication.*
+*Above: the reference workbook task has prepared records in a change set. Live data is
+unchanged until publication.*
 
 For a wrong load that is not published, enter a correction and choose **Discard and load again**.
 Confirm only after reading that this removes the entire change set, including manual edits
-in it. **Discard the change set** ends the task instead. A stopped load discards the change
+in it. The assistant then revises the proposal and checks the records again. Review it and
+choose **Accept and load to change set** before reviewing the replacement change set. **Discard the change
+set** ends the task instead. A stopped load discards the change
 set it was making and returns to the accepted proposal. Once published, the task offers new
 work; it cannot discard that publication through this correction flow.

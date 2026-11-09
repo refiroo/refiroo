@@ -61,6 +61,8 @@ if "accepted" in prompt or "do the load again" in prompt:
     made = api("POST", "/workspaces/" + config["workspace"] + "/change-sets",
                json={"name": config.get("name", "Its load"), "source": "currentLive"})
     holding()
+    if config.get("die"):
+        sys.exit(1)
     api("POST", "/batches", json={
         "changeSetId": made["id"], "expectedChangeSetVersion": made["version"],
         "policy": "independent", "run": "inline", "items": config["batch"]})
@@ -434,6 +436,31 @@ def test_stopping_a_load_leaves_no_change_set_and_returns_to_the_accepted_propos
     way.set(name="Loaded for good")
     loaded = _accept(world, back)
     assert loaded["state"] == "loaded" and loaded["result"]["counts"]["created"] == 1
+
+
+@pytest.mark.journey("J50.56")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_correction_of_a_loaded_change_set_that_fails_leaves_no_change_set_without_a_task(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a loaded change set, when the person corrects it in words and the session makes the
+    replacement change set and then ends without an answer, then the task is failed with its reason
+    and takes words, and the empty replacement is not left in the workspace, linked to nothing."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    ledgers = Ledgers(world)
+    way = Way(world, tmp_path, monkeypatch, ledgers)
+    way.set(name="First load")
+    task = _loaded(world, way, ledgers)
+
+    way.set(name="Empty replacement", die=True)
+    failed = _words(world, task, "Leave out the newcomers")
+    assert failed["state"] == "failed" and failed["canTell"] is True, failed["notes"]
+    assert failed["result"] is None
+    named = [c["name"] for c in _all(world, f"/workspaces/{ledgers.workspace}/change-sets")]
+    assert "Empty replacement" not in named and "First load" not in named
 
 
 @pytest.mark.journey("J50.56")

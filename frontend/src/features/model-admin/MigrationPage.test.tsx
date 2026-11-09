@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
@@ -76,7 +76,16 @@ const job = (counts: Partial<Record<"conversion" | "reclassified" | "loss" | "re
     ...extra,
   }) as unknown as Job;
 
-function show(loaded: Job, onOpenJob = vi.fn(), more: { onMigrated?: () => void; onOpenChangeSet?: () => void } = {}) {
+function show(
+  loaded: Job,
+  onOpenJob = vi.fn(),
+  more: {
+    onMigrated?: () => void;
+    onOpenChangeSet?: () => void;
+    onBackToChangeSet?: () => void;
+    openApplication?: { applicationKey: string; onOpen: () => void };
+  } = {},
+) {
   vi.mocked(api.job).mockResolvedValue(loaded);
   render(
     <MigrationPage
@@ -87,9 +96,17 @@ function show(loaded: Job, onOpenJob = vi.fn(), more: { onMigrated?: () => void;
       onBack={() => undefined}
       onMigrated={more.onMigrated ?? (() => undefined)}
       onOpenChangeSet={more.onOpenChangeSet}
+      onBackToChangeSet={more.onBackToChangeSet}
+      openApplication={more.openApplication}
     />,
   );
   return onOpenJob;
+}
+
+function render_(loaded: Job) {
+  const onBackToChangeSet = vi.fn();
+  show(loaded, vi.fn(), { onBackToChangeSet });
+  return { onBackToChangeSet };
 }
 
 describe("MigrationPage (0.11 V1)", () => {
@@ -312,7 +329,7 @@ describe("MigrationPage (0.11 V1)", () => {
         },
       ),
     );
-    expect(await screen.findByText(/Published as Publication 14\./)).toBeInTheDocument();
+    expect(await screen.findByText(/was published with the move, as Publication 14\./)).toBeInTheDocument();
     expect(screen.getByText(/and “Spring reshelving” is live/)).toBeInTheDocument();
   });
   describe("a change set's move (0.11 V3)", () => {
@@ -370,6 +387,46 @@ describe("MigrationPage (0.11 V1)", () => {
       fireEvent.click(screen.getByRole("button", { name: "Open the change set" }));
       expect(onOpenChangeSet).toHaveBeenCalledWith("south", "cs-1");
       expect(onMigrated).not.toHaveBeenCalled();
+    });
+
+    it("opened from the change set: leads back while it waits, and offers to publish once done", async () => {
+      vi.mocked(api.changeSet).mockResolvedValue({
+        id: "cs-1",
+        name: "Autumn labels",
+        version: 5,
+        modelReleaseId: "lib-3",
+      } as never);
+      const waiting = render_(moving({ conversion: 2 }));
+      const onBackToChangeSet = waiting.onBackToChangeSet;
+      fireEvent.click(await screen.findByRole("button", { name: "‹ Back to the change set “Autumn labels”" }));
+      expect(onBackToChangeSet).toHaveBeenCalledTimes(1);
+      cleanup();
+      const done = render_(moving({ conversion: 2 }, { state: "completed", confirmedAt: "now" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Open the change set to publish it" }));
+      expect(done.onBackToChangeSet).toHaveBeenCalledTimes(1);
+    });
+
+    it("opened from the banner's move and publish: opens the application once done, the change set while waiting", async () => {
+      vi.mocked(api.changeSet).mockResolvedValue({ id: "cs-1", name: "Autumn labels", version: 5 } as never);
+      const onOpen = vi.fn();
+      const onBackToChangeSet = vi.fn();
+      const publishing = (counts: Record<string, number>, extra = {}) =>
+        job(counts, { parameters: { targetReleaseId: "lib-3", typeMappings: [], changeSetId: "cs-1" }, ...extra });
+      show(publishing({ conversion: 1 }), vi.fn(), {
+        onBackToChangeSet,
+        openApplication: { applicationKey: "shop", onOpen },
+      });
+      fireEvent.click(await screen.findByRole("button", { name: "‹ Back to the change set “Autumn labels”" }));
+      expect(onBackToChangeSet).toHaveBeenCalledTimes(1);
+      cleanup();
+      show(publishing({ conversion: 1 }, { state: "completed", confirmedAt: "now" }), vi.fn(), {
+        onBackToChangeSet,
+        openApplication: { applicationKey: "shop", onOpen },
+      });
+      expect(await screen.findByText(/was published with the move/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /^Open .* in South branch$/ }));
+      expect(onOpen).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("button", { name: "Open the change set to publish it" })).not.toBeInTheDocument();
     });
   });
 });

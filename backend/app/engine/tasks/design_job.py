@@ -40,6 +40,7 @@ from ..jobs.store import start_job
 from ..model.compiler import compile_model
 from ..model.releases import activate_model_release, install_model_release
 from ..model.workspace_models import load_assignment
+from ..sources.dry_run import is_items_run
 from ..sources.profile_check import previous_file
 from ..sources.store import stored_upload
 from . import agent, design_checks, draft_plan, matching, store
@@ -128,6 +129,18 @@ def run_turns(
     # Kept until the turn is recorded: a worker that stops mid-turn finds them again (R-F18).
     words = current.get("pendingWords")
     begin = current.get("startSession", False)
+    if (
+        current.get("agentSession")
+        and not begin
+        and not current.get("origin")
+        and current.get("stage") != "load"
+        and not agent.resumable(ctx.files, task)
+    ):
+        # The session was stopped before it wrote a transcript: there is no conversation to resume,
+        # so the turn starts it again, with the words the person gave (not the default "go on").
+        begin = True
+        if words == "That stopped. Go on from where you were.":
+            words = None
     if current.get("agentSession") and not begin:
         if current.get("stage") == "load":
             # A load turn the earlier worker left running is undone before it loads again.
@@ -543,6 +556,8 @@ def check_of_job(
     session: Session, job: Job, draft: ModelDraft | None, rounds: int
 ) -> dict[str, Any]:
     """A dry run's check per sheet from its outcomes."""
+    if is_items_run(job.parameters):
+        return items_check(job)
     definition = (job.parameters.get("profile") or {}).get("definition")
     if definition is None:
         key = (job.parameters.get("profile") or {}).get("key")
@@ -625,6 +640,50 @@ def check_of_job(
             "skipped": sum(f["skipped"] for f in figures.values()),
         },
         "rounds": rounds,
+    }
+
+
+def items_check(job: Job) -> dict[str, Any]:
+    """The check a dry run of items gives (0.13 AB): the figures of its summary in the check's
+    shape, the refused items by code with three examples each, and the summary itself under
+    ``itemsSummary`` for the task's design. No sheets: the items name their cells."""
+    summary = (job.report or {}).get("itemsDryRun") or {}
+    figures = summary.get("figures") or {}
+    refused = summary.get("refused") or []
+    return {
+        "dryRunJobId": job.id,
+        "ranAt": summary.get("ranAt") or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "mode": "items",
+        "sheets": [],
+        "refused": [
+            {
+                "sheet": None,
+                "objectTypeKey": None,
+                "code": found["code"],
+                "rows": found["items"],
+                "examples": [
+                    {
+                        "row": item["index"] + 1,
+                        "message": f"{item['ref'] + ': ' if item.get('ref') else ''}"
+                        f"{item.get('message') or found['code']}",
+                    }
+                    for item in [
+                        r for r in refused if (r.get("code") or "REFUSED") == found["code"]
+                    ][:3]
+                ],
+            }
+            for found in summary.get("refusedByCode") or []
+        ],
+        "summary": {
+            "created": figures.get("recordsNew", 0),
+            "updated": figures.get("recordsChanged", 0),
+            "unchanged": figures.get("recordsMatched", 0) - figures.get("recordsChanged", 0),
+            "refused": figures.get("refused", 0),
+            "relationships": figures.get("relationshipsNew", 0),
+            "skipped": 0,
+        },
+        "rounds": 0,
+        "itemsSummary": summary,
     }
 
 
@@ -1025,7 +1084,14 @@ def _go_on(
             "AI_NOT_CONFIGURED",
             "The assistant is not set up here, so it cannot take your words",
         )
-    at_load = ran and design.get("stage") == "load" and state in ("failed", "loaded")
+    # A load the engine ran from the check (0.13 AB) has no session turn to repeat: new words go to
+    # the session as a correction of the proposal, which checks the records again.
+    at_load = (
+        ran
+        and design.get("stage") == "load"
+        and state in ("failed", "loaded")
+        and not design.get("itemsLoad")
+    )
     design["stage"] = "load" if at_load else "model"
     if not ran:
         design["startSession"] = True

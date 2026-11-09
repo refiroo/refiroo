@@ -391,4 +391,42 @@ describe("ModelDraftEditor", () => {
     expect(await screen.findByText("Reload failed")).toBeInTheDocument();
     expect(editor).toHaveValue('{\n  "local": true\n}');
   });
+
+  it("leads from a migration opened by a change set back to that change set", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    mockWorkspaces();
+    vi.mocked(api.job).mockResolvedValue({
+      id: "job-1",
+      kind: "migration",
+      workspaceKey: "default",
+      state: "awaiting_confirmation",
+      parameters: { targetReleaseId: "r1", typeMappings: [], changeSetId: "cs-1" },
+    } as never);
+    vi.mocked(api.changeSet).mockResolvedValue({ id: "cs-1", name: "Autumn labels", version: 1 } as never);
+    const onOpenChangeSetReview = vi.fn();
+    render(
+      <ToastProvider>
+        <ModelWorkbench
+          onRouteChange={vi.fn()}
+          onOpenChangeSetReview={onOpenChangeSetReview}
+          route={{
+            kind: "settings",
+            page: "model",
+            migrationJobId: "job-1",
+            journey: { kind: "changeSet", changeSetId: "cs-1", workspaceKey: "default", applicationKey: "test-app" },
+          }}
+        />
+      </ToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "‹ Back to the change set “Autumn labels”" }));
+    expect(onOpenChangeSetReview).toHaveBeenCalledWith({
+      kind: "changeSetChanges",
+      applicationKey: "test-app",
+      workspaceKey: "default",
+      changeSetId: "cs-1",
+      tab: "records",
+      changeKinds: [],
+    });
+  });
 });

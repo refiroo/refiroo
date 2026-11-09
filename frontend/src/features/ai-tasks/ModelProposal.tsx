@@ -12,12 +12,13 @@ import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
 import { CannotLoad } from "./CannotLoad";
+import { DesignLoad } from "./DesignLoad";
 import { DesignModel } from "./DesignModel";
 import { DesignQuestions } from "./DesignQuestions";
 import { ProposalMoves } from "./ProposalMoves";
 import { TaskNotes } from "./TaskNotes";
 import { TellAssistant } from "./TellAssistant";
-import { modelNames, proposalRefusal } from "./aiTaskDesign";
+import { changesModel, modelNames, proposalRefusal } from "./aiTaskDesign";
 import { isDesignCheck, notLoadedEntries } from "./aiTaskText";
 import { count } from "@/features/settings/limits";
 
@@ -61,6 +62,8 @@ export function ModelProposal({
   const leftOut = notLoadedEntries(task, true);
   const refusal = proposalRefusal(task);
   const check = isDesignCheck(task.check) ? task.check : undefined;
+  // The engine checked the assistant's items (0.13 AB): the card says what the load does, and accepting loads exactly that.
+  const load = design.load ?? undefined;
   return (
     <div className="task-check">
       <TaskNotes notes={task.notes} />
@@ -68,13 +71,13 @@ export function ModelProposal({
         title="The assistant’s proposal"
         actions={
           refusal ? undefined : (
-            <span id="journey-accept">
+            <span id={load ? undefined : "journey-accept"}>
               {draftId && onOpenEditor && (
                 <button type="button" className="secondary" disabled={pending} onClick={() => onOpenEditor(draftId)}>
                   Open in the model editor
                 </button>
               )}{" "}
-              {canLoad && (
+              {canLoad && !load && (
                 <button type="button" className="primary" disabled={pending} onClick={onAccept}>
                   {unchanged ? "Accept" : "Accept the model"}
                 </button>
@@ -100,14 +103,25 @@ export function ModelProposal({
           </ul>
         )}
         {unchanged && <p>No change to the model.</p>}
+        {(design.removals?.length ?? 0) > 0 && (
+          <Notice tone="warning" title="Deleted as you asked">
+            <ul>
+              {design.removals?.map((item) => (
+                <li key={`${item.kind}:${item.key}`}>{item.text}</li>
+              ))}
+            </ul>
+          </Notice>
+        )}
         <p className="task-reason">
-          {unchanged
-            ? "Nothing is loaded before you accept. Accepting prepares the change in a change set for your review; nothing is published."
-            : design.moves?.length
-              ? "Nothing is installed before you accept the model, and no record moves before you confirm the migration."
-              : "Nothing is installed or loaded before you accept the model."}
+          {load && !design.moves?.length
+            ? "Nothing is installed or loaded before you accept."
+            : unchanged
+              ? "Nothing is loaded before you accept. Accepting prepares the change in a change set for your review; nothing is published."
+              : design.moves?.length
+                ? "Nothing is installed before you accept the model, and no record moves before you confirm the migration."
+                : "Nothing is installed or loaded before you accept the model."}
         </p>
-        {check && (
+        {check && !load && (
           <Notice
             tone={check.summary.refused > 0 || !!check.summary.skipped || check.draftChanged ? "warning" : "success"}
             title={check.draftChanged ? "The check from before the draft's last change" : "The check of every row"}
@@ -137,10 +151,13 @@ export function ModelProposal({
           <DesignModel
             design={design}
             names={names}
+            workbook={!!task.fileName}
+            draft={!!draftId}
             onOpenEditor={draftId && onOpenEditor ? () => onOpenEditor(draftId) : undefined}
           />
         </Disclosure>
       )}
+      {load && <DesignLoad load={load} names={names} stale={!!check?.draftChanged} />}
       {checks.length > 0 && (
         <Section title="Checks" headingLevel={3}>
           <ul className="task-sheet-list" aria-label="The assistant’s checks">
@@ -176,6 +193,30 @@ export function ModelProposal({
           </ul>
         </Card>
       )}
+      {load && !refusal && canLoad && !design.moves?.length && (
+        <div className="load-accept" id="journey-accept" tabIndex={-1}>
+          <p>
+            <strong>Accept and load to change set.</strong> The engine{" "}
+            {changesModel(design) ? "installs the model and loads" : "loads"} exactly the records above into a new
+            change set. No assistant turn, nothing published: you review and publish the change set.
+          </p>
+          <div className="task-actions">
+            {task.canTell !== false && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={pending}
+                onClick={() => document.getElementById("task-tell")?.querySelector("textarea")?.focus()}
+              >
+                Give the assistant other words
+              </button>
+            )}
+            <button type="button" className="primary" disabled={pending} onClick={onAccept}>
+              Accept and load to change set
+            </button>
+          </div>
+        </div>
+      )}
       {task.canTell !== false && (
         <Section title={unchanged ? "Correct the proposal" : "Correct the model"} headingLevel={3}>
           {corrections.length > 0 && (
@@ -186,6 +227,7 @@ export function ModelProposal({
             </ul>
           )}
           <TellAssistant
+            anchor="task-tell"
             label="Tell the assistant what to change"
             placeholder="e.g. “Sponsors belong to operators, not to locations”"
             pending={pending}

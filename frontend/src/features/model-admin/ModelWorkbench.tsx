@@ -18,6 +18,7 @@ import type {
   ModelRelease,
   ModelReleaseSummary,
   ModelTab,
+  RouteState,
   SettingsRoute,
   Workspace,
   WorkspaceModelActivation,
@@ -32,6 +33,7 @@ import { releasesByModel, type ModelLine } from "@/features/model-admin/modelLin
 import { EntityList, type EntityGroup, type EntityRow } from "@/ui/EntityList";
 import { Icon } from "@/ui/Icon";
 import { StatusPill } from "@/ui/StatusPill";
+import { changeReviewFor } from "@/routing/routes";
 import { TrailBar, TrailLink } from "@/ui/TrailBar";
 import { Card } from "@/ui/Card";
 import { EmptyState } from "@/ui/EmptyState";
@@ -83,6 +85,8 @@ export function ModelWorkbench({
   onReturnToWorkspace,
   onReturnToTask,
   onOpenChangeSet,
+  onOpenApplication,
+  onOpenChangeSetReview,
 }: {
   route: ModelsRoute;
   onRouteChange: (route: ModelsRoute) => void;
@@ -94,6 +98,10 @@ export function ModelWorkbench({
   onReturnToTask?: (taskId: string) => void;
   /** A change set moved onto its workspace's release (0.11 V3): open it. */
   onOpenChangeSet?: (workspaceKey: string, changeSetId: string) => void;
+  /** The way back to a change set from a migration its banner started. */
+  onOpenChangeSetReview?: (route: Extract<RouteState, { kind: "changeSetChanges" }>) => void;
+  /** A migration that published a change set is done: open the application it came from. */
+  onOpenApplication?: (workspaceKey: string, applicationKey: string) => void;
   /** A workspace's model changed: the shell forgets the model it held for it (D49). */
   onActiveModelChange?: (workspaceKey: string) => Promise<unknown>;
 }) {
@@ -337,6 +345,8 @@ export function ModelWorkbench({
       />
     );
   if (route.migrationJobId) {
+    const task = route.journey?.kind === "aiTask" ? route.journey : undefined;
+    const changeSetJourney = route.journey?.kind === "changeSet" ? route.journey : undefined;
     return (
       <MigrationPage
         key={route.migrationJobId}
@@ -346,7 +356,27 @@ export function ModelWorkbench({
         onOpenJob={(jobId) =>
           onRouteChange({ ...MODEL, migrationJobId: jobId, forWorkspace: route.forWorkspace, journey: route.journey })
         }
-        onBackToProposal={route.journey ? () => onReturnToTask?.(route.journey!.taskId) : undefined}
+        onBackToProposal={task ? () => onReturnToTask?.(task.taskId) : undefined}
+        openApplication={
+          changeSetJourney
+            ? {
+                applicationKey: changeSetJourney.applicationKey,
+                onOpen: () => onOpenApplication?.(changeSetJourney.workspaceKey, changeSetJourney.applicationKey),
+              }
+            : undefined
+        }
+        onBackToChangeSet={
+          changeSetJourney
+            ? () =>
+                onOpenChangeSetReview?.(
+                  changeReviewFor(
+                    changeSetJourney.applicationKey,
+                    changeSetJourney.workspaceKey,
+                    changeSetJourney.changeSetId,
+                  ),
+                )
+            : undefined
+        }
         onReturnToWorkspace={route.forWorkspace ? () => onReturnToWorkspace?.(route.forWorkspace!) : undefined}
         onBack={() => onRouteChange(MODEL)}
         onMigrated={(workspaceKey) => Promise.all([load(), onActiveModelChange?.(workspaceKey)])}

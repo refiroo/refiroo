@@ -17,7 +17,7 @@ import pytest
 from scenario import ok, refused
 from test_j24_job_stream import served  # noqa: F401  (the journey application over HTTP)
 from test_j34_onboard import _all
-from test_j37_workspace_migration import _confirm, _previewed
+from test_j37_workspace_migration import _confirm, _previewed, _rows
 from test_j50_ai_workbook_load import _assistant, _run, _session_of, _task
 
 from app.engine.proposals import fake
@@ -218,6 +218,8 @@ if "accepted" not in prompt:
     proposal = {"draftId": config["fixed"] if again else config["draft"], "summary": "A plan.", "questions": []}
     if config.get("moves") is not None:
         proposal["moves"] = config["moves"]
+    if config.get("removals") is not None:
+        proposal["removals"] = config["removals"]
     json.dump(proposal, open("proposal.json", "w"))
     print(json.dumps({"type": "result", "result": "Ready."}))
 elif config["mode"] == "merge":
@@ -246,7 +248,7 @@ else:
         api("POST", "/change-sets/" + made["id"] + "/restructurings", json={**body, "expectedChangeSetVersion": plan["changeSetVersion"], "planDigest": plan["planDigest"]})
     activation = api("POST", "/workspaces/" + workspace + "/model/activation", ok=False, json={"releaseId": both, "expectedVersion": 1, "expectedReleaseId": "x"})
     json.dump({"activation": activation.status_code}, open(config["report"], "w"))
-    print(json.dumps({"type": "result", "result": "Done.\\nCHANGE_SET: " + made["id"] + "\\nTHEN_RELEASE: " + final}))
+    print(json.dumps({"type": "result", "result": "Done.\\nCHANGE_SET: " + made["id"] + ("" if config.get("omit_then") else "\\nTHEN_RELEASE: " + final)}))
 """
 
 
@@ -285,6 +287,10 @@ class Merge:
         consumer=False,
         parented=False,
         additive=False,
+        elsewhere=False,
+        shared=None,
+        lossy=None,
+        drops=None,
     ):
         self.world = world
         k = self.k = _keys(world)
@@ -308,6 +314,70 @@ class Merge:
                     (k.partner, "Partner", [k.label, k.note, k.extra]),
                 ],
             )
+        if elsewhere:
+            # The types keep their keys and stand in another application.
+            self.final = _shaped(
+                world,
+                "merge-2",
+                [
+                    (k.supplier, "Supplier", [k.label, k.note]),
+                    (k.vendor, "Vendor", [k.label, k.extra]),
+                ],
+            )
+            home = next(a for a in self.final["applications"] if a["key"] == world.app("R"))
+            moved = [key for key in (k.supplier, k.vendor)]
+            home["objectTypeKeys"] = [x for x in home["objectTypeKeys"] if x not in moved]
+            self.final["applications"].append(
+                {
+                    "key": f"{k.item}-moved",
+                    "name": "Moved lists",
+                    "objectTypeKeys": moved,
+                    "defaultView": f"{k.supplier}--list",
+                    "views": [
+                        {
+                            "key": f"{k.supplier}--list",
+                            "name": "Suppliers",
+                            "type": "table",
+                            "objectTypeKey": k.supplier,
+                            "config": {
+                                "columns": ["name", k.label],
+                                "filterFields": ["name"],
+                                "sortFields": ["name", k.label],
+                                "defaultSort": "name",
+                                "pageSize": 20,
+                            },
+                        }
+                    ],
+                }
+            )
+        removals = None
+        if drops:
+            # The words ask to delete the vendors; ``drops="more"`` also drops suppliers' note field,
+            # which the words never mention.
+            self.final = _shaped(
+                world,
+                "merge-2",
+                [(k.supplier, "Supplier", [k.label] if drops == "more" else [k.label, k.note])],
+            )
+            removals = [
+                {
+                    "kind": "objectType",
+                    "key": k.vendor,
+                    "words": "Delete the vendors, I do not need them",
+                }
+            ]
+        if shared:
+            # An application beside them lists both types in the current model and the target (a
+            # translations-like one), so the types the target lists in the moved application also
+            # stand in two applications. ``ambiguous`` adds a second new application listing them.
+            for model in (first, self.final):
+                model["applications"].append(self.listing(f"{k.item}-all", (k.supplier, k.vendor)))
+            if shared == "ambiguous":
+                self.final["applications"].append(
+                    self.listing(f"{k.item}-also", (k.supplier, k.vendor))
+                )
+        if lossy == "proposal":
+            self.final = self.without_extra(self.final)
         fixed = None
         group, contains, other = f"{k.item}-group", f"{k.item}-contains", f"{k.item}-other"
         if parented:
@@ -390,12 +460,65 @@ class Merge:
             api=True,
             mode="merge",
             moves=self.moves,
+            removals=removals,
             fixed=(
                 ok(world.api.post("/model-drafts", {"name": "Raised", "model": fixed}), 201)["id"]
                 if fixed
                 else None
             ),
         )
+        if drops:
+            # The session's draft is based on the release the workspace runs, as the prompt tells it.
+            self.settings["draft"] = ok(
+                world.api.post(
+                    "/model-drafts",
+                    {"name": "Drops", "model": self.final, "baseReleaseId": x1["id"]},
+                ),
+                201,
+            )["id"]
+            (tmp_path / "config.json").write_text(json.dumps(self.settings))
+        if lossy == "installed":
+            # The proposal is whole; the release the session installs on accepting is not.
+            drops = self.without_extra(self.final)
+            drops["release"]["version"] += "-drops"
+            self.settings["fixed"] = ok(
+                world.api.post("/model-drafts", {"name": "Drops", "model": drops}), 201
+            )["id"]
+            (tmp_path / "config.json").write_text(json.dumps(self.settings))
+
+    def without_extra(self, model):
+        """The model with the merged type no longer holding the attribute vendors have."""
+        model = copy.deepcopy(model)
+        for item in model["objectTypes"]:
+            if item["key"] == self.k.partner:
+                item["attributes"] = [
+                    b for b in item["attributes"] if b["attributeTypeKey"] != self.k.extra
+                ]
+        return model
+
+    @staticmethod
+    def listing(key, types):
+        return {
+            "key": key,
+            "name": key,
+            "objectTypeKeys": list(types),
+            "defaultView": f"{key}--list",
+            "views": [
+                {
+                    "key": f"{key}--list",
+                    "name": "All",
+                    "type": "table",
+                    "objectTypeKey": types[0],
+                    "config": {
+                        "columns": ["name"],
+                        "filterFields": ["name"],
+                        "sortFields": ["name"],
+                        "defaultSort": "name",
+                        "pageSize": 20,
+                    },
+                }
+            ],
+        }
 
     @staticmethod
     def api(types, version):
@@ -413,8 +536,10 @@ class Merge:
         return _inventory(self.world, self.workspace, (self.k.supplier, self.k.vendor))
 
 
-def _proposed(world, workspace):
-    task = _ask(world, workspace, "Suppliers and vendors are the same thing: make them one type.")
+def _proposed(
+    world, workspace, words="Suppliers and vendors are the same thing: make them one type."
+):
+    task = _ask(world, workspace, words)
     _run(world)
     return _task(world, task)
 
@@ -506,6 +631,192 @@ def test_a_model_only_request_ends_in_a_migration_with_no_type_mappings(
     )
     assert merge.before() == before
     assert _all(world, f"/objects/{k.partner}", workspaceKey=merge.workspace) == []
+
+
+@pytest.mark.journey("J50.66")
+@pytest.mark.structures(*STRUCTURES)
+def test_types_moved_to_another_application_are_handed_to_the_migration_with_it(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a model whose types keep their keys and stand in another application, when the person
+    accepts, then the task is a migration naming the application each type goes to and the proposal
+    says the types move and how many records; the preview loses nothing and confirming moves the
+    records with their IDs."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, moves=None, elsewhere=True)
+    k = merge.k
+    before = merge.before()
+    proposed = _proposed(world, merge.workspace)
+    moves = {m["from"]: m for m in proposed["design"]["moves"]}
+    assert {key: (m["to"], m["toApplication"], m["records"]) for key, m in moves.items()} == {
+        k.supplier: (k.supplier, f"{k.item}-moved", 3),
+        k.vendor: (k.vendor, f"{k.item}-moved", 2),
+    }
+    task = _accept(world, proposed)
+    assert task["state"] == "loaded", task["notes"]
+    migration = task["result"]["migration"]
+    assert {m["fromObjectTypeKey"]: m["toApplicationKey"] for m in migration["typeMappings"]} == {
+        k.supplier: f"{k.item}-moved",
+        k.vendor: f"{k.item}-moved",
+    }
+    job = _previewed(
+        world,
+        merge.workspace,
+        migration["releaseId"],
+        typeMappings=migration["typeMappings"],
+    )
+    assert job["state"] == "awaiting_confirmation", job
+    assert job["migration"]["counts"]["loss"] == 0 and job["migration"]["counts"]["refused"] == 0
+    ok(_confirm(world, job), 202)
+    world.api.client.app.state.job_worker.run_until_idle()
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    assert set(merge.before()) == set(before)
+
+
+def _read_application(world, workspace, record):
+    return ok(
+        world.api.get(f"/objects/{record['objectTypeKey']}/{record['id']}", workspaceKey=workspace)
+    )["applicationKey"]
+
+
+@pytest.mark.journey("J50.66")
+@pytest.mark.structures(*STRUCTURES)
+def test_records_of_a_type_the_target_still_lists_are_moved_never_lost(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given types that move to another application while a third application lists every one of
+    them, when the migration is previewed with no mapping at all, then nothing is lost: the records
+    go to the application that lists the types newly, with their relationships. When two new
+    applications list them and nothing names one, the preview refuses the records, naming the
+    candidates, and loses none."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, moves=None, elsewhere=True, shared="listed")
+    k = merge.k
+    relations_before = _relations(world, merge.workspace)
+    task = _accept(world, _proposed(world, merge.workspace))
+    assert task["state"] == "loaded", task["notes"]
+    release_id = task["result"]["migration"]["releaseId"]
+
+    job = _previewed(world, merge.workspace, release_id, typeMappings=[])
+    assert job["state"] == "awaiting_confirmation", job
+    counts = job["migration"]["counts"]
+    assert counts["loss"] == 0 and counts["refused"] == 0 and counts["reclassified"] == 5
+    ok(_confirm(world, job), 202)
+    world.api.client.app.state.job_worker.run_until_idle()
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    for record in merge.records.values():
+        assert _read_application(world, merge.workspace, record) == f"{k.item}-moved"
+    assert sorted(_relations(world, merge.workspace)) == sorted(relations_before)
+
+    crowded = Merge(world, tmp_path, monkeypatch, moves=None, elsewhere=True, shared="ambiguous")
+    task = _accept(world, _proposed(world, crowded.workspace))
+    assert task["state"] == "loaded", task["notes"]
+    job = _previewed(
+        world, crowded.workspace, task["result"]["migration"]["releaseId"], typeMappings=[]
+    )
+    counts = job["migration"]["counts"]
+    assert counts["loss"] == 0 and counts["refused"] == 5, job["migration"]
+    refusals = _rows(world, job["id"], status="refused")
+    assert {row["code"] for row in refusals} == {"APPLICATION_TARGET_AMBIGUOUS"}
+    assert f"{crowded.k.item}-also" in refusals[0]["message"]
+
+
+@pytest.mark.journey("J50.66")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_merge_that_would_lose_values_is_never_offered(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a merge whose target type has no place for an attribute vendors hold, when the session
+    keeps proposing it, then the engine's finding goes back to the session and the task ends with a
+    warning naming what would be lost per type, offering no migration and changing nothing. The same
+    when the release the session installs on accepting loses what the proposal did not."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, lossy="proposal")
+    before = merge.before()
+    task = _proposed(world, merge.workspace)
+    assert task["state"] == "failed", task
+    warning = " ".join(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "Vendor: 2 values" in warning and "Nothing was changed" in warning, warning
+    assert not task.get("result")
+    prompts = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text().splitlines()]
+    assert any("would lose the person's data" in p.get("prompt", "") for p in prompts)
+    assert merge.before() == before
+
+    later = Merge(world, tmp_path, monkeypatch, lossy="installed")
+    before = later.before()
+    task = _accept(world, _proposed(world, later.workspace))
+    assert task["state"] == "failed", task
+    warning = " ".join(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "Vendor: 2 values" in warning and "No data was changed" in warning, warning
+    assert not (task.get("result") or {}).get("migration")
+    assert later.before() == before
+
+
+ASKED = "Please delete the vendors, I do not need them, and keep the rest."
+
+
+@pytest.mark.journey("J50.66")
+@pytest.mark.structures(*STRUCTURES)
+def test_what_the_words_ask_to_remove_is_offered_as_a_deletion_and_nothing_more(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given words that ask to delete the vendors, a type holding records, when the session lists the
+    removal with the person's words, then the task is offered with the deletion stated in plain words
+    with its counts, and the handover carries it. A draft that also drops a field the words never
+    mention is not offered: the loss beyond the removal is named and nothing is changed."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, moves=None, drops="vendor")
+    before = merge.before()
+    task = _proposed(world, merge.workspace, ASKED)
+    assert task["state"] == "checked", task["notes"]
+    [removal] = task["design"]["removals"]
+    assert removal["text"] == (
+        "As you asked, Vendor is deleted, deleting 2 records, 1 relationship."
+    ), removal
+    assert removal["words"] == "Delete the vendors, I do not need them"
+    assert any(n["text"] == removal["text"] for n in task["notes"])
+    task = _accept(world, task)
+    assert task["state"] == "loaded", task["notes"]
+    assert task["result"]["migration"]["typeMappings"] == []
+    assert any(n["text"] == removal["text"] for n in task["notes"])
+    assert set(merge.before()) == set(
+        before
+    )  # nothing is deleted before the migration is confirmed
+
+    beyond = Merge(world, tmp_path, monkeypatch, moves=None, drops="more")
+    kept = beyond.before()
+    task = _proposed(world, beyond.workspace, ASKED)
+    assert task["state"] == "failed", task
+    warning = " ".join(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "Supplier: 3 values" in warning and "Vendor" not in warning, warning
+    assert beyond.before() == kept
+
+    # Words the person never wrote are no ask: the session's quote is dropped, so deleting the
+    # vendors is a loss nobody asked for and blocks.
+    unwritten = Merge(world, tmp_path, monkeypatch, moves=None, drops="vendor")
+    task = _proposed(world, unwritten.workspace, "Tidy the model up a little.")
+    assert task["state"] == "failed", task
+    warning = " ".join(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "Vendor: 2 records" in warning, warning
+    assert not task["design"].get("removals")
+    # Case, spacing and quote marks do not matter, and a quote may be part of a sentence.
+    loose = Merge(world, tmp_path, monkeypatch, moves=None, drops="vendor")
+    task = _proposed(
+        world, loose.workspace, "Please  “DELETE the vendors”, i do not need them. Thanks!"
+    )
+    assert task["state"] == "checked", task["notes"]
 
 
 @pytest.mark.journey("J50.46")
@@ -889,6 +1200,26 @@ def test_a_person_without_model_release_or_authoring_gets_a_session_with_no_mode
         "FORBIDDEN",
     )
     assert len(_all(world, "/model-releases")) == releases
+
+
+@pytest.mark.journey("J50.48")
+@pytest.mark.structures(*STRUCTURES)
+def test_the_final_release_of_a_part_move_is_found_when_the_session_does_not_name_it(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a session that restructures part of a type and ends its answer without the final
+    release's line (0.13 DOC11 14), then the engine finds the final release it recorded as installed
+    by the task, so the steps are still the person's to take."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    split = Split(world, tmp_path, monkeypatch, omit_then=True)
+    task = _split_loaded(world, split)
+    assert task["state"] == "loaded", task["notes"]
+    result = task["result"]
+    assert result["thenReleaseId"] and result["thenReleaseId"] != result["changeSetReleaseId"]
+    assert not [n for n in task["notes"] if n["kind"] == "warning"]
 
 
 @pytest.mark.journey("J50.52")

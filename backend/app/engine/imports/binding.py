@@ -1698,10 +1698,11 @@ class _ProfileBinding:
         counterparts.flush()
 
     def _duplicates(self) -> None:
-        """D69: rows of one source with one key are one record when their own values agree (an empty
-        cell agrees with any value, and the record takes every value the rows fill); when they
-        differ, every such row is rejected naming the others. Rows keyed by name under a
-        parent are one key with the rows of any source naming that parent (0.10 A8c, D142)."""
+        """D69: upsert rows of one type with one key, from any source of the load, are one record
+        when their own values agree (an empty cell agrees with any value, and the record takes
+        every value the rows fill); when they differ, every such row is rejected naming the others.
+        Rows keyed by name under a parent are one key with the rows of any source naming that
+        parent (0.10 A8c, D142)."""
         self._sql(
             f"""
             WITH keyed AS (
@@ -1716,15 +1717,18 @@ class _ProfileBinding:
                 SELECT grp, min(row_id) AS rep,
                        CASE WHEN count(DISTINCT name) > 1 OR count(DISTINCT parent - 'column') > 1
                             OR grp IN (SELECT grp FROM clashes) THEN 2 ELSE 1 END AS variants,
-                       array_agg(row_number ORDER BY row_number) AS numbers
+                       array_agg(row_number ORDER BY src, row_number) AS numbers,
+                       array_agg(ref ORDER BY src, row_number) AS refs
                 FROM keyed GROUP BY grp HAVING count(*) > 1)
             UPDATE import_rows r SET
                 error = CASE WHEN g.variants > 1 THEN jsonb_build_object(
                     'code', 'DUPLICATE_KEY_IN_FILE',
                     'message', format('Rows %s hold one key with different values; none of them is'
-                        ' loaded', array_to_string(g.numbers, ', ')),
+                        ' loaded', array_to_string(g.refs, ', ')),
                     'details', jsonb_build_object(
-                        'rows', to_jsonb(array_remove(g.numbers, r.row_number)),
+                        'rows', (SELECT coalesce(jsonb_agg(u.n), '[]') FROM unnest(g.numbers, g.refs) AS u(n, f)
+                                 WHERE u.f <> r.ref),
+                        'refs', to_jsonb(array_remove(g.refs, r.ref)),
                         'column', r.key_column)) END,
                 rep_id = CASE WHEN g.variants = 1 AND r.row_id <> g.rep THEN g.rep END
             FROM groups g WHERE {_KEY_GROUP.format(r="r")} = g.grp AND r.error IS NULL
@@ -2424,11 +2428,14 @@ _COMBINATION_TEXT = (
     " FROM jsonb_array_elements_text({r}.key_column::jsonb) WITH ORDINALITY c(col, i)"
     " JOIN jsonb_array_elements_text({r}.key_attr::jsonb) WITH ORDINALITY a(attr, i2) ON a.i2 = c.i)"
 )
-# What makes rows one key (D69): the source and the key, or for rows keyed by name under a parent,
-# the type, the parent the row names and the name, across sources (D142).
+# What makes rows one key (D69): for upsert rows the type and the key, whichever source of the load
+# they come from; for rows keyed by name under a parent, the type, the parent the row names and
+# the name (D142); for rows of existing records, the source and the key.
 _KEY_GROUP = (
     "CASE WHEN {r}.mode = 'upsert' AND {r}.key_kind = 'name' AND {r}.parent IS NOT NULL"
     " THEN jsonb_build_array({r}.object_type_key, {r}.parent - 'column' - 'create', {r}.key_value)"
+    " WHEN {r}.mode = 'upsert'"
+    " THEN jsonb_build_array({r}.object_type_key, {r}.key_kind, {r}.key_attr, {r}.key_value)"
     " ELSE jsonb_build_array({r}.src, {r}.key_value) END"
 )
 

@@ -31,7 +31,7 @@ import { ReshapeSteps } from "./ReshapeSteps";
 import { TaskEnd } from "./TaskEnd";
 import { taskApplicationKey } from "./aiTaskJourney";
 import { rememberModelReviewed } from "./AiTaskJourneyBar";
-import { isDesignCheck, runningText, taskTitle, waitingText } from "./aiTaskText";
+import { isDesignCheck, runningText, taskTitle, waitingText, wordsTaskName } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
 import { useAssistantOffers } from "./useAssistantOffers";
 
@@ -128,7 +128,7 @@ export function AiTaskPage({
               </RouteLink>
             ),
           },
-        { key: "page", content: task && !task.fileName ? "Change this model" : "Load a workbook", current: true },
+        { key: "page", content: task && !task.fileName ? wordsTaskName(task) : "Load a workbook", current: true },
       ]}
     />
   );

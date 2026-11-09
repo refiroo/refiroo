@@ -1,6 +1,6 @@
 ---
 title: Loading with the assistant
-description: Understand assistant proposals, row checks, saved layouts and the steps from acceptance to publication.
+description: Understand assistant proposals, checked records, saved layouts and the steps from acceptance to publication.
 reader: steward
 ---
 
@@ -31,12 +31,12 @@ are limited to 4,000 characters. Without a file, instructions are required. Imag
 are not data files for this task. You cannot attach several files, schedule a task or transfer
 its session to a colleague. Its requester and the workspace's administrators can read it.
 
-When no saved layout fits, one session examines the file and current model, prepares a model
-draft if needed, and checks every row against the proposed model. It chooses a key for each
-source so the next file finds the same records. A key can combine columns when no single column
-identifies a record. An empty key can skip a row; an ambiguous key cannot identify which record
-to update. A combination key belongs to the import layout; it does not make that combination
-unique throughout refiroo.
+When no saved layout fits, one session reads the workbook, the current model and the workspace's
+records. It changes the model draft where needed and turns the file into proposed records and
+relationships. It finds existing records by reading them, so explain which fields identify a
+record when names alone are ambiguous. The engine checks every proposed record and relationship
+against the draft's model and workspace data without saving the changes. The assistant writes
+no import profile. One file row can supply several records or relationships.
 
 The same instructions can produce different proposed structures on separate runs; inspect each
 proposal rather than assuming it repeats a previous design. An update can leave the model unchanged and prepare only record changes. Instructions can also
@@ -51,15 +51,22 @@ loads, with attributes and record counts. For a proposal with a model draft, **S
 change** expands **The model: what changes**, including changes such as a field becoming optional.
 A words-only task that needs no model change says **No change to the model.** It has no model
 draft, model-change detail or model editor button.
-**The check of every row** distinguishes new, changed, unchanged, refused and skipped rows;
-relationships have their own count. Skipped for an empty key differs from refused by a rule.
-An empty cell that loses no value is not itself a skipped record.
+For a workbook, **What the load does** shows new records, existing records matched, new
+relationships, refused items and rows read. The type table separates **New**, **Matched**,
+**Changed**, **Refused** and **Linked to**. A matched record can be changed or unchanged. Open a
+type's row with a click, Enter or Space for example records with their values, links and source
+cells. Examples show only some of the records the engine checked.
 
-Under **Checks**, read every **Needs attention** item. The engine checks for types holding
-records that the proposal leaves out, filled cells no source reads, and new records beside
-records already held. The last can mean an intended update failed to match its records and
-would create duplicates. It is a warning, not an automatic block: resolve it before accepting.
-**Columns left out** tells you what is deliberately omitted.
+**One name twice in one type** identifies a name shared by records touched by the load and says
+whether they sit at the top level or under parents. It is a finding, not proof that the records
+are unwanted duplicates. Check it against the file and your intent. Expand **Where each part of
+the file goes** for sheet and cell ranges and what they become.
+
+Under **Checks**, read every **Needs attention** item. Check types holding records that the
+proposal leaves out, any filled cells left out and **Columns left out**. Compare new records
+with matched ones: an unexpected new record can mean an intended update failed to find its
+record. A successful engine check does not prove the design means what you intended. Empty
+cells hold no value; they do not by themselves mean a row was skipped.
 
 ![Workbook proposal with formatted notes, assumed answers and the start of the type summary](/docs/screens/use-assistant-proposal.png)
 
@@ -70,25 +77,39 @@ editor** lets you edit it directly; the session reads it again before continuing
 held by another assistant task and must use its own. Close in the editor returns to the task. The draft’s history records who asked for the
 assistant’s model steps; it does not mark every model element as Proposed.
 
-If **The check from before the draft's last change** appears, those figures do not cover the
-current draft. Ask the assistant to check the edited model again. Load refuses a stale check;
-do not treat old figures as a successful check of your edit. Concurrent task changes reload the
-latest state and ask you to check before trying again.
+If the draft changed after the check, **What the load does** warns that accepting checks every
+record again first and loads nothing if any is refused. Ask the assistant for a revised proposal
+if the shown records no longer describe your intended result. A saved-layout check that predates
+an edit must be renewed before loading. Concurrent task changes reload the latest state and ask
+you to check before trying again.
 
 ## Accepting, loading and publishing
 
-For a words-only task with no model change, **Accept** prepares a new change set on the
-workspace’s current release. It installs and activates nothing. A proposal with a model draft
-uses **Accept the model**: the session installs the necessary release without activating it
-and prepares the load in a new change set. Neither action publishes records. A task with nothing
-to load reports why and can be corrected; an empty change set is not reported as a successful load.
+For a workbook, **Accept and load to change set** makes the engine install a release if the model changed,
+open a change set and load exactly the checked records and relationships as one batch. No
+assistant turn runs. With no model change, the change set uses the workspace's current release.
+No model is activated and no records are published by this acceptance.
+
+If an edited draft fails its new check, nothing is installed or loaded. If the data changed
+since checking and any item is refused during loading, none of the batch is loaded and its
+change set is discarded. The task names the refused records and their source cells. Tell the
+assistant what to correct, then review and accept its revised proposal. A release already
+installed before a load refusal can remain installed.
+
+For a words-only task with no model change, **Accept** lets the session prepare a new change set
+on the workspace's current release. It installs and activates nothing. Model-only and record-move
+proposals keep **Accept the model** and the migration or staged-move endings described below.
+A task with nothing to load reports why and can be corrected; an empty change set is not reported
+as a successful load.
 
 The result names the change set and its counts. **Review the change set** opens its normal
 review. Check the actual rows and relationships, validate, then submit for approval or publish
-as your access and the workspace's policy allow. If the load uses a release the workspace does
-not yet run, a model administrator must activate the compatible release before publication.
-The assistant does not take that step. A second-person approval rule still applies to the
-person who asked for the work.
+as your access and the workspace’s policy allow. If the load uses a different model version,
+review offers a combined move of the workspace and publication. A model administrator with
+publication permission reviews the migration preview and confirms **Migrate and publish**;
+a separate activation first is not required. See [the workbook load’s publication step](/docs/guide/use/load-a-workbook-with-the-assistant/).
+The assistant does not confirm it. A second-person approval rule still applies to the person
+who asked for the work.
 
 The saved-layout path has its own **What the load would do** check and load button. Read
 **What confirming does, in this order**: when that path changes the model, **Activate the model
@@ -102,11 +123,12 @@ and return through its entry under **Settings › Jobs**; its completion is anno
 
 ## The next file and the saved profile
 
-When the completed imports have usable keys, refiroo saves a profile and offers **Open the
-profile**. The next file with that layout can use it without the assistant or AI cost.
-If no new profile was saved, the page says why: for example, a source has no key, the changes
-were made without a repeatable file import, or a profile already exists. The prepared load
-still stands. Do not assume it is repeatable without that saved profile.
+A workbook loaded from the assistant's checked records and relationships saves no import
+profile. Send the next file of the same layout to the assistant again. Explain how its contents
+correspond to records already held so the proposal can match them correctly.
+
+A separately saved import profile can still load a matching file without an assistant session
+or AI cost.
 
 A fitting saved profile takes the engine's own path: you still review its proposal and row
 check, but no assistant session starts. Sheets also present in the earlier file but deliberately
@@ -156,7 +178,7 @@ buttons. These states need different decisions:
 | A stopped load | The change set being loaded is discarded and its jobs stopped. Return to the accepted proposal and tell the assistant how to continue. |
 | The assistant stopped or You stopped the assistant | Read the task's notes. Use the words box, **Try again as it was** or **Go on as it was**, open the draft, or **Discard this task**. Even a session that never started can be tried again with corrected words. |
 | The engine could not apply this proposal | Read the reason above the correction box, then tell the assistant what to change. |
-| A loaded change set that is wrong | Use **Not what you wanted? Tell the assistant** and **Discard and load again**. Confirmation removes that entire change set, including hand edits, before the same session loads again. |
+| A loaded change set that is wrong | Use **Not what you wanted? Tell the assistant** and **Discard and load again**. Confirmation removes that entire change set, including hand edits. For a workbook load, the same session revises and checks the proposal; review it and choose **Accept and load to change set** before loading again. |
 | A load you want to abandon | **Discard the change set** ends the task and removes that prepared work. Live records are unchanged. |
 | A refused migration or activation | Read the engine's reason on the task and tell the assistant what to change. |
 | Your access no longer permits the next step | The page names the permission needed and lets you copy the task link for a workspace administrator. |
@@ -169,3 +191,8 @@ the proposal and its draft; closing the proposal keeps it for later. Discarding 
 also discards its change set. Unused model releases installed by a session are retired at its
 end; releases still in use are kept. Published changes and their assistant origin remain in
 [history](/docs/use/history/#work-prepared-by-an-assistant) after the task expires.
+
+A refused workbook batch leaves no record or relationship changes and discards its change set.
+Other task paths can leave a prepared change set after failure. If the task says it loaded
+changes before stopping and offers **Review the change set**, open it before retrying: a failed
+turn does not prove that no proposed work remains. Live is unchanged until publication.
