@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { navigationSections } from "@/model/collections";
+import { navigationEntryKey, navigationSections } from "@/model/collections";
 import { objectTypeHue } from "@/model/hues";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel } from "@/types";
@@ -11,9 +11,9 @@ import { PageHeader } from "@/ui/PageHeader";
 import { SearchField } from "@/ui/SearchField";
 
 /**
- * A navigation group's page (0.10 N1, D25): the collections the group names, with a search over
- * their names done here, since they are model data. Each entry opens its collection's default lens;
- * the caller keeps the data context. No record counts (A-D12).
+ * A navigation group's page (0.10 N1, D25): the collections and relation matrices the group names,
+ * with a search over their names done here, since they are model data. A collection opens on the
+ * view it opens on, a matrix on itself; the caller keeps the data context. No record counts (A-D12).
  */
 export function NavigationGroupPage({
   model,
@@ -29,10 +29,35 @@ export function NavigationGroupPage({
   const [search, setSearch] = useState("");
   const section = navigationSections(application).groups.find((item) => item.group.key === groupKey);
   if (!section) return null;
-  const entries = section.collections.map((collection) => {
+  const entries = section.entries.map((entry) => {
+    if (entry.kind === "matrix") {
+      const type = objectTypeFor(model, entry.rowObjectTypeKey);
+      return {
+        key: navigationEntryKey(entry),
+        name: entry.view.name,
+        tile: <HueTile hue={objectTypeHue(model, entry.rowObjectTypeKey)} glyph="matrix" />,
+        description: `Relation matrix of ${type?.pluralName ?? entry.rowObjectTypeKey}`,
+        lenses: undefined,
+        viewKey: entry.view.key,
+      };
+    }
+    const { collection } = entry;
     const type = objectTypeFor(model, collection.objectTypeKey);
-    return { collection, type, name: type?.pluralName ?? collection.objectTypeKey };
+    return {
+      key: navigationEntryKey(entry),
+      name: type?.pluralName ?? collection.objectTypeKey,
+      tile: <HueTile hue={objectTypeHue(model, collection.objectTypeKey)} icon={type?.icon} />,
+      description: type?.description,
+      lenses: collection.views.length > 1 ? collection.views.map((view) => view.name).join(" · ") : undefined,
+      viewKey: collection.defaultView.key,
+    };
   });
+  const matrices = section.entries.filter((entry) => entry.kind === "matrix").length;
+  const collections = entries.length - matrices;
+  const counted = [
+    `${collections} ${collections === 1 ? "collection" : "collections"}`,
+    ...(matrices ? [`${matrices} relation ${matrices === 1 ? "matrix" : "matrices"}`] : []),
+  ].join(" and ");
   const term = search.trim().toLocaleLowerCase();
   const shown = term ? entries.filter((entry) => entry.name.toLocaleLowerCase().includes(term)) : entries;
 
@@ -42,7 +67,7 @@ export function NavigationGroupPage({
         titleId="navigation-group-title"
         eyebrow={application.name}
         title={section.group.label}
-        description={`${entries.length} ${entries.length === 1 ? "collection" : "collections"}`}
+        description={counted}
       />
       <Card flush className="panel">
         {entries.length > 0 && (
@@ -51,30 +76,26 @@ export function NavigationGroupPage({
               value={search}
               onChange={setSearch}
               label={`Search ${section.group.label}`}
-              placeholder="Find a collection"
+              placeholder="Find a collection or matrix"
               clearOnEscape
             />
           </div>
         )}
         {entries.length === 0 ? (
-          <EmptyState>This group has no collections.</EmptyState>
+          <EmptyState>This group has no collections or relation matrices.</EmptyState>
         ) : shown.length === 0 ? (
-          <EmptyState>No collection in this group matches “{search.trim()}”.</EmptyState>
+          <EmptyState>No collection or relation matrix in this group matches “{search.trim()}”.</EmptyState>
         ) : (
           <ul className="group-collections" aria-label={`${section.group.label} collections`}>
-            {shown.map(({ collection, type, name }) => (
-              <li key={collection.objectTypeKey}>
-                <button type="button" onClick={() => onOpenCollection(collection.defaultView.key)}>
-                  <HueTile hue={objectTypeHue(model, collection.objectTypeKey)} icon={type?.icon} />
+            {shown.map((entry) => (
+              <li key={entry.key}>
+                <button type="button" onClick={() => onOpenCollection(entry.viewKey)}>
+                  {entry.tile}
                   <span className="group-collection-text">
-                    <span className="group-collection-name">{name}</span>
-                    {type?.description && <span className="group-collection-description">{type.description}</span>}
+                    <span className="group-collection-name">{entry.name}</span>
+                    {entry.description && <span className="group-collection-description">{entry.description}</span>}
                   </span>
-                  {collection.views.length > 1 && (
-                    <span className="group-collection-lenses">
-                      {collection.views.map((view) => view.name).join(" · ")}
-                    </span>
-                  )}
+                  {entry.lenses && <span className="group-collection-lenses">{entry.lenses}</span>}
                   <span className="group-collection-open" aria-hidden="true">
                     <Icon name="chevron-right" size={16} />
                   </span>

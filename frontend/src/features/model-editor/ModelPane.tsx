@@ -109,17 +109,28 @@ export function paneRows(
         note: "group",
         mark: group.mark,
         proposed: proposed.has(`group:${application.key}/${group.key}`),
-        selection: { show: "application", key: application.key },
+        selection: { show: "group", application: application.key, key: group.key },
       });
-      for (const collection of group.collections)
-        rows.push({
-          id: `collection:${application.key}:${group.key}:${collection}`,
-          level: 3,
-          label: typeName(outline, collection),
-          selection: { show: "type", key: collection },
-          typeKey: collection,
-          applicationKey: application.key,
-        });
+      for (const entry of group.entries) {
+        if (entry.collection)
+          rows.push({
+            id: `collection:${application.key}:${group.key}:${entry.collection}`,
+            level: 3,
+            label: typeName(outline, entry.collection),
+            selection: { show: "type", key: entry.collection },
+            typeKey: entry.collection,
+            applicationKey: application.key,
+          });
+        else if (entry.view)
+          // A matrix has no panel of its own: its row shows the group it stands in.
+          rows.push({
+            id: `matrix:${application.key}:${group.key}:${entry.view}`,
+            level: 3,
+            label: application.views.find((view) => view.key === entry.view)?.name ?? entry.view,
+            icon: "matrix",
+            selection: { show: "group", application: application.key, key: group.key },
+          });
+      }
     }
   }
   rows.push({
@@ -163,6 +174,7 @@ export function paneRows(
 function sameSelection(a: EditorSelection | undefined, b: EditorSelection) {
   if (!a?.show || a.show !== b.show) return false;
   if (a.show === "consumerApi" && b.show === "consumerApi") return a.key === b.key && (!a.tab || a.tab === b.tab);
+  if (a.show === "group" && b.show === "group") return a.key === b.key && a.application === b.application;
   return a.show === "matrix" || ("key" in a && "key" in b && a.key === b.key);
 }
 

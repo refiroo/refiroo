@@ -40,6 +40,37 @@ Released keys are fixed. Renaming a label does not change that identity. Removin
 splitting or merging a type can be refused when stored data uses it; read the impact reported by
 the server. Changing a draft does not move live records.
 
+## Work with a navigation group
+
+Select a group in the model pane, or choose its name in the application's **Navigation groups**
+table. Its panel shows the application it belongs to, whether it starts open or folded, and how
+many entries it holds. **Entries** lists **Entry**, **Kind**, **Opens on** and **State**.
+Collections and relation matrices share this table and its order.
+
+**Add to group…** opens a searchable list where you can tick several collections and matrices.
+Location notes show what is at the top of the sidebar, inside a row collection or in another
+group; choosing an entry in another group moves it. One addition, even with several entries,
+is one saved step and one **Undo**. **Rename…** and **Start folded** / **Start unfolded** adjust
+the group itself.
+
+In an entry's menu, **Move up** and **Move down** change its position. **Move to another group…**
+is offered when another group exists. **Take out of the group** returns a collection to the
+sidebar's top level, or leaves a matrix available through its row collection without a separate
+entry. These actions arrange navigation; they do not move records.
+
+For a collection with several views, edit **Opens on** in place and **Save** the choice.
+It decides which view opens from that collection's sidebar entry or the group page. Without a
+separate choice, the application default is used when it belongs to the collection, then its
+table, then its first view. Other view tabs stay available. A matrix entry shows **Itself**:
+it always opens that matrix, using its view name and a matrix symbol in its row type's colour.
+The row collection stays in navigation and still offers the matrix among its tabs.
+
+The application panel's **Entries** column lists the collections and matrices in each group.
+Its **In no group:** line offers **Add to a group…** with ungrouped collections ticked.
+A relation matrix's menu in **Views** offers **Move to group…** when a group exists.
+Follow [Group collections in navigation](/docs/guide/model/group-collections-in-navigation/)
+for the steps. Navigation changes reach a workspace when the model release is activated.
+
 ## When there is a workbook
 
 A workbook adds a **Source** pane with sheets, columns, mapping states and statistics. Select a
@@ -163,7 +194,7 @@ intended release and review the changes you carry across. A refused grouped oper
 none of that step. Intermediate invalid drafts may be saved; Issues identifies what still needs work.
 
 A navigation group's initial folded state is a model default; each browser can remember a
-different state. A group page gathers its collections with search. During a drag in the model
+different state. A group page gathers its collection and matrix entries with search over their names. During a drag in the model
 pane, moving near its upper or lower edge scrolls the pane. Keyboard and phone users use
 **Move to…** and the ordering menus instead.
 

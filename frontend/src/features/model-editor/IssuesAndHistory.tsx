@@ -34,6 +34,8 @@ export function selectionFor(element: OutlineElement): EditorSelection {
   if (element.relationType && element.from) return { show: "matrix" };
   if (element.relationType) return { show: "relationType", key: element.relationType };
   if (element.attributeType) return { show: "attributeType", key: element.attributeType };
+  if (element.applicationKey && element.group)
+    return { show: "group", application: element.applicationKey, key: element.group };
   if (element.applicationKey) return { show: "application", key: element.applicationKey };
   return {};
 }

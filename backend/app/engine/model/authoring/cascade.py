@@ -275,23 +275,43 @@ def _drop_unreachable_columns(document: Document, panel_path: Path, page: str) -
 
 
 def _drop_orphan_collections(document: Document, app: Path) -> None:
-    """Navigation entries naming a collection no view of the application lists any more."""
+    """Navigation entries naming a collection or matrix no view of the application provides any
+    more, and the views collections open on that are gone or no longer theirs."""
     application = document.at(app)
     collections = set()
+    sources: dict[str, str | None] = {}
+    matrices = set()
     for view in application.get("views") or []:
         config = view.get("config") or {}
+        source = None
         if view.get("type") == "table":
-            collections.add(view.get("objectTypeKey"))
+            source = view.get("objectTypeKey")
         elif view.get("type") == "relationMatrix":
-            collections.add(config.get("rowObjectTypeKey"))
+            source = config.get("rowObjectTypeKey")
+            matrices.add(view.get("key"))
         elif view.get("type") == "tree":
-            collections.update((config.get("rootObjectTypeKeys") or [None])[:1])
+            source = (config.get("rootObjectTypeKeys") or [None])[0]
         elif view.get("type") == "mappingGrid":
-            collections.add(config.get("fromObjectTypeKey" if config.get("direction") == "outgoing" else "toObjectTypeKey"))
-    for group in (application.get("navigation") or {}).get("groups") or []:
+            source = config.get(
+                "fromObjectTypeKey" if config.get("direction") == "outgoing" else "toObjectTypeKey"
+            )
+        collections.add(source)
+        sources[view.get("key")] = source
+    navigation = application.get("navigation") or {}
+    for group in navigation.get("groups") or []:
         for entry in list(group.get("collections") or []):
-            if entry not in collections:
-                document.remove(app + ["navigation", "groups", {"key": group["key"]}, "collections"], entry)
+            gone = (
+                entry not in collections
+                if isinstance(entry, str)
+                else entry.get("view") not in matrices
+            )
+            if gone:
+                document.remove(
+                    app + ["navigation", "groups", {"key": group["key"]}, "collections"], entry
+                )
+    for collection, view_key in list((navigation.get("opens") or {}).items()):
+        if collection not in collections or sources.get(view_key) != collection:
+            _clear_opening(document, app, collection)
 
 
 def _is_gone(gone: Gone, kind: str, key: str, slot: Slot) -> bool:
@@ -394,6 +414,8 @@ def rename(document: Document, kind: str, old: str, new: str, within: Callable[[
     # An identity slot's object is held, not its path: renaming one end of a binding changes the
     # identity the other end's path names (a type related to itself).
     owners = {id(slot): document.find(slot.path) for slot in ordered if _is_definition(slot)}
+    if kind == "view":
+        _rename_view_entries(document, old, new, within)
     for slot in ordered:
         owner = owners.get(id(slot))
         if owner is not None:
@@ -420,6 +442,57 @@ def rename(document: Document, kind: str, old: str, new: str, within: Callable[[
             document.insert(slot.path + [slot.field], replacement, slot.index)
         else:
             document.set(slot.path, slot.field, replacement)
+
+
+def _clear_opening(document: Document, app: Path, collection: str) -> None:
+    """A collection's chosen opening view out of ``opens``, which goes with its last member."""
+    document.set(app + ["navigation", "opens"], collection, None)
+    if not document.at(app + ["navigation", "opens"]):
+        document.set(app + ["navigation"], "opens", None)
+
+
+def drop_view_navigation(document: Document, app: Path, view_key: str) -> bool:
+    """The navigation entries of a view taken out of its application: its place in a group (a
+    relation matrix) and the collection opening on it. True when something went."""
+    navigation = document.at(app).get("navigation")
+    if not isinstance(navigation, dict):
+        return False
+    changed = False
+    for group in navigation.get("groups") or []:
+        for entry in list(group.get("collections") or []):
+            if isinstance(entry, dict) and entry.get("view") == view_key:
+                document.remove(
+                    app + ["navigation", "groups", {"key": group["key"]}, "collections"], entry
+                )
+                changed = True
+    for collection, opened in list((navigation.get("opens") or {}).items()):
+        if opened == view_key:
+            _clear_opening(document, app, collection)
+            changed = True
+    return changed
+
+
+def _rename_view_entries(
+    document: Document, old: str, new: str, within: Callable[[Slot], bool] | None
+) -> None:
+    """A renamed view as a navigation entry (a relation matrix in a group) and as the view a
+    collection opens on."""
+    for application in document.items("applications"):
+        navigation = application.get("navigation")
+        if not isinstance(navigation, dict):
+            continue
+        app = ["applications", {"key": application["key"]}]
+        if within is not None and not within(Slot(app + ["navigation"], "opens", "view")):
+            continue
+        for group in navigation.get("groups") or []:
+            members = app + ["navigation", "groups", {"key": group["key"]}, "collections"]
+            for position, entry in enumerate(list(group.get("collections") or [])):
+                if isinstance(entry, dict) and entry.get("view") == old:
+                    document.remove(members, entry)
+                    document.insert(members, {"view": new}, position)
+        for collection, view_key in (navigation.get("opens") or {}).items():
+            if view_key == old:
+                document.set(app + ["navigation", "opens"], collection, new)
 
 
 def references(data: dict[str, Any], kind: str, key: str) -> list[Slot]:

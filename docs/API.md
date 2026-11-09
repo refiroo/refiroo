@@ -158,7 +158,8 @@ URL paths use stable model keys. Every response body includes the entity `id` (U
 `key`. Internal metadata sequence IDs are never part of the contract.
 
 An application of a schema 0.10 model may carry `navigation` (`groups`, each with `key`, `label`,
-`collections` and `collapsed`), served by `GET /model` and the application routes as written, and
+`collections`, whose entries are a collection's key or `{ "view": key }` for a relation matrix, and
+`collapsed`; and `opens`, the view a collection's entry opens on), served by `GET /model` and the application routes as written, and
 left out when the model declares none (0.10 N1, [APPLICATION_MODEL](APPLICATION_MODEL.md#navigation-groups-navigation-schema-010)).
 It is presentation only: no route reads or filters by it.
 
@@ -4175,7 +4176,8 @@ the layout places the change took.
 | `addNavigationGroup` | `applicationKey`, `key`?, `label`, `collapsed`, `position` | additive | `removeNavigationGroup` |
 | `removeNavigationGroup` | group (its collections return to the top level) | additive | `addNavigationGroup` with its collections |
 | `setNavigationGroup` | group; `label`, `collapsed`, `position` | additive | `setNavigationGroup` back |
-| `placeCollection` | `applicationKey`, `collection`, `group` (`null`: top level), `position` | additive | `placeCollection` back |
+| `placeCollection` | `applicationKey`, `collection` (a collection's type) **or** `view` (a relation matrix view of the application, which then has a sidebar entry of its own), `group` (`null`: out of its group), `position` (in the group's one order of collections and matrices; the entry moves from the group it stood in) | additive | `placeCollection` back. Several entries added to a group are several `placeCollection` operations in one request, so one step and one undo; a matrix view removed, or given a new key, takes its entry and its opening with it or follows it (`removeView`, `setKey`) |
+| `setCollectionOpening` | `applicationKey`, `collection`, `view` (a view of that collection; `null`: the application's default view) | additive | `setCollectionOpening` back |
 | `replaceModel` | the whole model; written by `PATCH /model-drafts/{id}`, refused in a request | — | `replaceModel` with the previous model |
 | `restoreElements` | `undoes` (the operation it takes back), `removes` (the elements that operation created, which putting things back takes away: refused `OPERATION_REQUIRES_MIGRATION` once released) and `changes` (the stored prior state); refused in a request | — | the kind it undid |
 
@@ -4274,8 +4276,9 @@ can be read, beside its diagnostics.
     "tree": [{ "objectType": "category", "children": [{ "objectType": "item", "children": [] }] },
              { "objectType": "unit", "children": [] }],
     "navigation": { "groups": [{ "key": "lists", "label": "Lists", "collapsed": false,
-                                 "collections": ["unit"], "mark": "new" }],
-                    "ungrouped": ["category", "item"] },
+                                 "collections": ["unit"], "entries": [{ "collection": "unit" }],
+                                 "mark": "new" }],
+                    "ungrouped": ["category", "item"], "opens": {} },
     "mark": "changed" }],
   "objectTypes": [{ "key": "item", "name": "Item", "pluralName": "Items", "rootCreatable": false,
     "parents": ["category"], "mark": "changed",
@@ -4304,8 +4307,12 @@ can be read, beside its diagnostics.
   are those the class check reads, so a draft-only operation is refused on exactly the elements marked
   `released` or `changed`.
 - **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
-- **`views`** lists an application's views: `key`, `name`, `type`, the types each `shows`, its `mark`, and
-  for a relation matrix its configuration as `matrix`. **`unlistable`** names the types `unlistObjectType`
+  Each group lists its `collections` (types) and its `entries` in their one order, each `{ "collection": key }`
+  or `{ "view": key }` (a relation matrix); `navigation.opens` maps a collection to the view its
+  entry opens on.
+- **`views`** lists an application's views: `key`, `name`, `type`, the `collection` each belongs to (its source type), the types each `shows`, its `mark`, and
+  for a relation matrix its configuration as `matrix` and for a tree or a mapping grid as `config`.
+  **`unlistable`** names the types `unlistObjectType`
   would accept: nothing in the application needs them, another application lists them, and the base
   release does not list them here.
 - **`uniquePer`** on an allowed relation names the ancestor type under which a source may hold only one

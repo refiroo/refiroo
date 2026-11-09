@@ -181,9 +181,17 @@ def test_the_outline_of_a_draft_built_from_empty_holds_what_the_request_built(wo
     ]
     assert application["navigation"] == {
         "groups": [
-            {"key": "j33-storage", "label": "J33 Storage", "collapsed": False, "collections": ["j33-shelf"], "mark": "new"}
+            {
+                "key": "j33-storage",
+                "label": "J33 Storage",
+                "collapsed": False,
+                "collections": ["j33-shelf"],
+                "entries": [{"collection": "j33-shelf"}],
+                "mark": "new",
+            }
         ],
         "ungrouped": ["j33-item"],
+        "opens": {},
     }
     assert sorted((r["relationType"], r["from"], r["to"], r["containment"]) for r in outline["relations"]) == [
         ("j33-holds", "j33-shelf", "j33-item", True),

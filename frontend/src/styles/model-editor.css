@@ -1951,3 +1951,17 @@ button.model-editor-crumb {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* Where an entry of the Add to group dialog stands now, beside its name. */
+.operation-checkbox-note {
+  margin-left: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+/* A relation matrix named in a table, as a type is but without a link. */
+.matrix-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-weight: 500;
+}

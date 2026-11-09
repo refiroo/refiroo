@@ -150,7 +150,7 @@ try {
     folded.map(typeName).filter((name) => name.toLowerCase().includes(wanted.slice(0, 4).toLowerCase())),
   );
   await search.fill("no such collection");
-  await page.getByText("No collection in this group matches “no such collection”.").waitFor();
+  await page.getByText("No collection or relation matrix in this group matches “no such collection”.").waitFor();
   await page.screenshot({ path: resolve(harness.output, "n1-group-page-no-match-1440.png") });
   await search.press("Escape");
   assert.equal(await entries.locator("li").count(), 2);

@@ -1,5 +1,11 @@
 import { childObjectTypeKeys } from "@/model/placements";
-import type { ApplicationDefinition, EngineModel, NavigationGroupDefinition, ViewDefinition } from "@/types";
+import type {
+  ApplicationDefinition,
+  EngineModel,
+  NavigationGroupDefinition,
+  RelationMatrixViewDefinition,
+  ViewDefinition,
+} from "@/types";
 
 export interface CollectionGroup {
   objectTypeKey: string;
@@ -23,23 +29,36 @@ export function collectionGroups(application: ApplicationDefinition): Collection
   return [...grouped].map(([objectTypeKey, views]) => ({
     objectTypeKey,
     views,
+    // The view the collection's entry opens on: the one the navigation names for it, else the
+    // application's default view, else its table.
     defaultView:
+      views.find((view) => view.key === application.navigation?.opens?.[objectTypeKey]) ??
       views.find((view) => view.key === application.defaultView) ??
       views.find((view) => view.type === "table") ??
       views[0],
   }));
 }
 
-/** A declared navigation group with the collections it names, in its order. */
+/** An entry of a navigation group: a collection, or a relation matrix standing on its own. */
+export type NavigationEntry =
+  | { kind: "collection"; collection: CollectionGroup }
+  | { kind: "matrix"; view: RelationMatrixViewDefinition; rowObjectTypeKey: string };
+
+/** The key an entry is listed under, unique within an application's sidebar. */
+export const navigationEntryKey = (entry: NavigationEntry) =>
+  entry.kind === "collection" ? `collection:${entry.collection.objectTypeKey}` : `view:${entry.view.key}`;
+
+/** A declared navigation group with the entries it names, in its order. */
 export interface NavigationSection {
   group: NavigationGroupDefinition;
-  collections: CollectionGroup[];
+  entries: NavigationEntry[];
 }
 
 /**
  * The sidebar's collections (0.10 N1, D22): those in no group first, in their own order, then each
- * declared group in declared order with its collections in its order. Without groups, every
- * collection is ungrouped, as before schema 0.10.
+ * declared group in declared order with its entries in its order. A relation matrix placed in a group
+ * is an entry of its own there; one placed nowhere stays a lens of its row type's collection. Without
+ * groups, every collection is ungrouped, as before schema 0.10.
  */
 export function navigationSections(application: ApplicationDefinition): {
   ungrouped: CollectionGroup[];
@@ -47,12 +66,35 @@ export function navigationSections(application: ApplicationDefinition): {
 } {
   const collections = collectionGroups(application);
   const byType = new Map(collections.map((collection) => [collection.objectTypeKey, collection]));
+  const matrices = new Map(
+    application.views.flatMap((view) => (view.type === "relationMatrix" ? [[view.key, view] as const] : [])),
+  );
   const groups = (application.navigation?.groups ?? []).map((group) => ({
     group,
-    collections: group.collections.flatMap((key) => byType.get(key) ?? []),
+    entries: group.collections.flatMap((entry): NavigationEntry[] => {
+      if (typeof entry === "string") {
+        const collection = byType.get(entry);
+        return collection ? [{ kind: "collection", collection }] : [];
+      }
+      const view = matrices.get(entry.view);
+      return view ? [{ kind: "matrix", view, rowObjectTypeKey: view.config.rowObjectTypeKey }] : [];
+    }),
   }));
-  const grouped = new Set(groups.flatMap((section) => section.collections.map((item) => item.objectTypeKey)));
+  const grouped = new Set(
+    groups.flatMap((section) =>
+      section.entries.flatMap((entry) => (entry.kind === "collection" ? [entry.collection.objectTypeKey] : [])),
+    ),
+  );
   return { ungrouped: collections.filter((item) => !grouped.has(item.objectTypeKey)), groups };
+}
+
+/** The relation matrices placed in a group of the application, by view key. */
+export function placedMatrixKeys(application: ApplicationDefinition): Set<string> {
+  return new Set(
+    (application.navigation?.groups ?? []).flatMap((group) =>
+      group.collections.flatMap((entry) => (typeof entry === "string" ? [] : [entry.view])),
+    ),
+  );
 }
 
 /** The application's navigation group with this key, if it declares one. */

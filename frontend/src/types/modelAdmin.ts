@@ -351,9 +351,28 @@ export interface OutlineView {
   key: string;
   name: string;
   type?: string | null;
+  /** The collection the view belongs to: its source type. */
+  collection?: string | null;
   shows: string[];
   /** A relation matrix's configuration, as the model declares it. */
   matrix?: Record<string, unknown> | null;
+  mark: OutlineMark;
+}
+
+/** An entry of a navigation group: a collection by its type, or a relation matrix by its view. */
+export interface OutlineNavigationEntry {
+  collection?: string;
+  view?: string;
+}
+
+export interface OutlineNavigationGroup {
+  key: string;
+  label: string;
+  collapsed: boolean;
+  /** The group's collections only (types). */
+  collections: string[];
+  /** Collections and matrices in the group's one order. */
+  entries: OutlineNavigationEntry[];
   mark: OutlineMark;
 }
 
@@ -362,11 +381,14 @@ export interface OutlineApplication {
   name: string;
   icon?: string | null;
   color?: string | null;
+  defaultView?: string | null;
   objectTypeKeys: string[];
   tree: OutlineTypeNode[];
   navigation: {
-    groups: { key: string; label: string; collapsed: boolean; collections: string[]; mark: OutlineMark }[];
+    groups: OutlineNavigationGroup[];
     ungrouped: string[];
+    /** Collection key to the view its sidebar entry opens on. */
+    opens: Record<string, string>;
   };
   views: OutlineView[];
   /** The types it could stop listing: unused here, listed elsewhere, not released here. */

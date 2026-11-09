@@ -168,6 +168,10 @@ describe("routes", () => {
       "/settings/model/drafts/d1/editor?show=consumerApi&key=shop-feed",
       { kind: "settings", page: "model", draftId: "d1", editor: { show: "consumerApi", key: "shop-feed" } },
     ],
+    [
+      "/settings/model/drafts/d1/editor?show=group&application=shop&key=lists",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "group", application: "shop", key: "lists" } },
+    ],
   ])("round-trips the settings page %s (U3, 0.10 A4a, A4c)", (path, route) => {
     expect(at(path)).toEqual(route);
     expect(routePath(route)).toBe(path);

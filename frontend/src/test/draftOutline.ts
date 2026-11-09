@@ -43,8 +43,18 @@ export function outlineFixture(): ModelDraftOutline {
           { objectType: "bin", children: [] },
         ],
         navigation: {
-          groups: [{ key: "lists", label: "Lists", collapsed: false, collections: ["bin"], mark: "new" }],
+          groups: [
+            {
+              key: "lists",
+              label: "Lists",
+              collapsed: false,
+              collections: ["bin"],
+              entries: [{ collection: "bin" }],
+              mark: "new",
+            },
+          ],
           ungrouped: ["area", "shelf"],
+          opens: {},
         },
         views: [{ key: "bins", name: "Bins", type: "table", shows: ["bin"], mark: "new" }],
         unlistable: [],

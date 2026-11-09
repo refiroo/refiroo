@@ -424,9 +424,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # administration is enabled). JG: `GET /jobs` takes `grouped` and `origin` and may answer
     # `JobGroupPage`; `origin` on `JobResponse`; the schemas `JobOrigin`, `JobGroup`,
     # `JobGroupRow` and `JobGroupPage`.
+    # Re-baselined for 0.13 navigation (additive): the draft outline's navigation groups gain `entries`
+    # (`OutlineNavigationEntry`) and `navigation` gains `opens`; `OutlineView` gains `collection`;
+    # `placeCollection` takes `view` in place of `collection` and `setCollectionOpening` is a public kind
+    # (`SetCollectionOpeningOperation`); nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "10808fb1803a2684e1be7513db0895218d6fdde5ddf1db183da6f3919d18a78a"
+        "e3514fe41b0b6586558e452d8513018200972d4667a5204b82d500bad4e2c8ac"
     )
 
 

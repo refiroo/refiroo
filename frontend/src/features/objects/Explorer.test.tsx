@@ -699,6 +699,54 @@ describe("Explorer", () => {
       expect(within(collections()).getByRole("button", { name: "Units" })).toBeVisible();
     });
 
+    it("gives a placed relation matrix its own entry, and opens a collection on the view named for it (0.13)", async () => {
+      serve();
+      const onOpenCollection = vi.fn();
+      const model = groupedModel(false);
+      const application = model.applications[0];
+      application.views.push({
+        key: "domains-by-codelist",
+        name: "Domains by codelist",
+        type: "relationMatrix",
+        config: {
+          relationTypeKey: "domain-contains-codelist",
+          direction: "outgoing",
+          rowObjectTypeKey: "domain",
+          columnObjectTypeKey: "codelist",
+          cellObjectTypeKey: "codelist",
+          rowColumns: ["name"],
+          columnLabelField: "name",
+          cellFields: ["name"],
+          searchFields: ["name"],
+          pageSize: 20,
+        },
+      });
+      application.navigation = {
+        groups: [{ key: "lists", label: "Lists", collections: ["unit", { view: "domains-by-codelist" }, "codelist"] }],
+        opens: { domain: "domains-by-codelist" },
+      };
+      const { rerender } = render(explorer({ model, onOpenCollection, activeViewKey: "domains-by-codelist" }));
+      await screen.findByRole("tree", { name: "Browse records" });
+      const names = () =>
+        within(collections())
+          .getAllByRole("button")
+          .map((button) => button.getAttribute("aria-label") ?? button.textContent);
+      // The row type's entry stays, ungrouped; the matrix stands in the group, in its order.
+      expect(names()).toEqual(["Domains", "Hide Lists", "Lists", "Units", "Domains by codelist", "Codelists"]);
+      const matrix = within(collections()).getByRole("button", { name: "Domains by codelist" });
+      expect(matrix).toHaveAttribute("aria-current", "page");
+      expect(within(collections()).getByRole("button", { name: "Domains" })).not.toHaveAttribute("aria-current");
+      fireEvent.click(matrix);
+      expect(onOpenCollection).toHaveBeenLastCalledWith("domains-by-codelist");
+      // The row type's entry opens on the matrix its collection names; without that it opens on the table.
+      fireEvent.click(within(collections()).getByRole("button", { name: "Domains" }));
+      expect(onOpenCollection).toHaveBeenLastCalledWith("domains-by-codelist");
+      delete application.navigation.opens;
+      rerender(explorer({ model, onOpenCollection }));
+      fireEvent.click(within(collections()).getByRole("button", { name: "Domains" }));
+      expect(onOpenCollection).toHaveBeenLastCalledWith(application.defaultView);
+    });
+
     it("marks a folded group holding the open collection, and the group whose page is open", async () => {
       serve();
       const { rerender } = render(explorer({ model: groupedModel(true), activeViewKey: "units" }));

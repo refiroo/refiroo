@@ -74,21 +74,25 @@ def _check_application(
         _check_navigation(model, application, f"{application_path}/navigation")
 
 
+def view_source(view: ViewDefinition) -> str:
+    """The collection a view belongs to: its source type, as the sidebar groups lenses (ADR-029)."""
+    if isinstance(view, TableViewDefinition):
+        return view.objectTypeKey
+    if isinstance(view, RelationMatrixViewDefinition):
+        return view.config.rowObjectTypeKey
+    if isinstance(view, TreeViewDefinition):
+        return view.config.rootObjectTypeKeys[0]
+    if view.config.direction == "outgoing":
+        return view.config.fromObjectTypeKey
+    return view.config.toObjectTypeKey
+
+
 def collection_keys(application: ApplicationDefinition) -> list[str]:
     """The application's collections, first seen first: each view's source type, as the sidebar
     groups lenses (ADR-029)."""
     result: list[str] = []
     for view in application.views:
-        if isinstance(view, TableViewDefinition):
-            source = view.objectTypeKey
-        elif isinstance(view, RelationMatrixViewDefinition):
-            source = view.config.rowObjectTypeKey
-        elif isinstance(view, TreeViewDefinition):
-            source = view.config.rootObjectTypeKeys[0]
-        elif view.config.direction == "outgoing":
-            source = view.config.fromObjectTypeKey
-        else:
-            source = view.config.toObjectTypeKey
+        source = view_source(view)
         if source not in result:
             result.append(source)
     return result
@@ -98,11 +102,16 @@ def _check_navigation(
     model: EngineModel, application: ApplicationDefinition, navigation_path: str
 ) -> None:
     """Schema 0.10 navigation groups (0.10 N1): unique keys, each entry a collection of the
-    application, a collection in at most one group. An empty group is valid (D27)."""
+    application or a relation matrix view of it (``{"view": key}``), each in at most one group, and
+    the views collections open on (``opens``). An empty group is valid (D27)."""
+    navigation = application.navigation
     collections = set(collection_keys(application))
-    group_of: dict[str, str] = {}
+    matrices = {
+        view.key for view in application.views if isinstance(view, RelationMatrixViewDefinition)
+    }
+    group_of: dict[tuple[str, str], str] = {}
     keys: set[str] = set()
-    for group in application.navigation.groups if application.navigation else ():
+    for group in navigation.groups if navigation else ():
         group_path = f"{navigation_path}/groups/{pointer_segment(group.key)}"
         if group.key in keys:
             raise ModelReferenceError(
@@ -113,21 +122,51 @@ def _check_navigation(
         keys.add(group.key)
         for position, entry in enumerate(group.collections):
             entry_path = f"{group_path}/collections/{position}"
-            if entry not in collections:
-                raise ModelReferenceError(
-                    "INVALID_REFERENCE",
-                    entry_path,
-                    f"Navigation group '{group.key}' names '{entry}', which is no collection of "
-                    f"application '{application.key}'; its collections are {sorted(collections)}",
-                )
-            if entry in group_of:
+            if isinstance(entry, str):
+                name, what = ("collection", entry), "Collection"
+                if entry not in collections:
+                    raise ModelReferenceError(
+                        "INVALID_REFERENCE",
+                        entry_path,
+                        f"Navigation group '{group.key}' names '{entry}', which is no collection "
+                        f"of application '{application.key}'; its collections are "
+                        f"{sorted(collections)}",
+                    )
+            else:
+                name, what = ("view", entry.view), "Relation matrix"
+                if entry.view not in matrices:
+                    raise ModelReferenceError(
+                        "INVALID_REFERENCE",
+                        f"{entry_path}/view",
+                        f"Navigation group '{group.key}' names view '{entry.view}', which is no "
+                        f"relation matrix view of application '{application.key}'; its matrices "
+                        f"are {sorted(matrices)}",
+                    )
+            if name in group_of:
                 raise ModelReferenceError(
                     "INVALID_MODEL",
                     entry_path,
-                    f"Collection '{entry}' is already in navigation group '{group_of[entry]}'; a "
-                    "collection stands in at most one group",
+                    f"{what} '{name[1]}' is already in navigation group "
+                    f"'{group_of[name]}'; it stands in at most one group",
                 )
-            group_of[entry] = group.key
+            group_of[name] = group.key
+    for collection, view_key in (navigation.opens if navigation else {}).items():
+        opens_path = f"{navigation_path}/opens/{pointer_segment(collection)}"
+        if collection not in collections:
+            raise ModelReferenceError(
+                "INVALID_REFERENCE",
+                opens_path,
+                f"Navigation 'opens' names '{collection}', which is no collection of application "
+                f"'{application.key}'; its collections are {sorted(collections)}",
+            )
+        view = next((item for item in application.views if item.key == view_key), None)
+        if view is None or view_source(view) != collection:
+            raise ModelReferenceError(
+                "INVALID_REFERENCE",
+                opens_path,
+                f"Collection '{collection}' opens on '{view_key}', which is no view of that "
+                f"collection in application '{application.key}'",
+            )
 
 
 def _check_object_type_keys(

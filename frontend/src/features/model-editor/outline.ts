@@ -179,3 +179,64 @@ export function suggestedVersion(outline: ModelDraftOutline): string {
   const match = /^(.*?)(\d+)(\D*)$/.exec(base);
   return match ? `${match[1]}${Number(match[2]) + 1}${match[3]}` : own;
 }
+
+/** An entry of a navigation group in the editor: a collection (its type) or a relation matrix (its view). */
+export type NavigationEntryRef = { kind: "collection"; key: string } | { kind: "matrix"; key: string };
+
+export const entryRefId = (entry: NavigationEntryRef) => `${entry.kind}:${entry.key}`;
+
+/** The entries of a group in its one order. */
+export function groupEntries(application: OutlineApplication, groupKey: string): NavigationEntryRef[] {
+  const group = application.navigation.groups.find((item) => item.key === groupKey);
+  return (group?.entries ?? []).flatMap((entry): NavigationEntryRef[] =>
+    entry.view
+      ? [{ kind: "matrix", key: entry.view }]
+      : entry.collection
+        ? [{ kind: "collection", key: entry.collection }]
+        : [],
+  );
+}
+
+/** The group an entry stands in, if any. */
+export function groupOfEntry(application: OutlineApplication, entry: NavigationEntryRef) {
+  return application.navigation.groups.find((group) =>
+    groupEntries(application, group.key).some((item) => entryRefId(item) === entryRefId(entry)),
+  );
+}
+
+/** The relation matrix views of an application. */
+export function matricesOf(application: OutlineApplication) {
+  return application.views.filter((view) => view.type === "relationMatrix");
+}
+
+/** The application's collections: those in no group, then those in its groups. */
+export function collectionsOf(application: OutlineApplication): string[] {
+  return [...application.navigation.ungrouped, ...application.navigation.groups.flatMap((group) => group.collections)];
+}
+
+/** The views a collection offers: those whose source type it is. */
+export function collectionViews(application: OutlineApplication, typeKey: string) {
+  return application.views.filter((view) => view.collection === typeKey);
+}
+
+/**
+ * The view a collection's entry opens on: the one chosen for it, else the application's default view
+ * if it is one of the collection's, else its table, else its first view (as the sidebar resolves it).
+ */
+export function openingView(application: OutlineApplication, typeKey: string) {
+  const views = collectionViews(application, typeKey);
+  const chosen = application.navigation.opens[typeKey];
+  return (
+    views.find((view) => view.key === chosen) ??
+    views.find((view) => view.key === application.defaultView) ??
+    views.find((view) => view.type === "table") ??
+    views[0]
+  );
+}
+
+/** What the application's collection or matrix is called. */
+export function entryName(outline: ModelDraftOutline, application: OutlineApplication, entry: NavigationEntryRef) {
+  return entry.kind === "collection"
+    ? typeName(outline, entry.key)
+    : (application.views.find((view) => view.key === entry.key)?.name ?? entry.key);
+}

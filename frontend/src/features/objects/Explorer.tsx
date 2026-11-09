@@ -6,10 +6,17 @@ import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
-import { navigationSections, rootObjectTypeKeys, type CollectionGroup } from "@/model/collections";
+import {
+  navigationEntryKey,
+  navigationSections,
+  placedMatrixKeys,
+  rootObjectTypeKeys,
+  type CollectionGroup,
+  type NavigationEntry,
+} from "@/model/collections";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import { objectTypeHue } from "@/model/hues";
-import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
+import type { ApplicationDefinition, EngineModel, ObjectItem, RelationMatrixViewDefinition } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { RecordTree, type TreeConfiguration } from "@/features/objects/RecordTree";
@@ -49,6 +56,7 @@ export function Explorer({
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   const sections = navigationSections(application);
+  const placed = useMemo(() => placedMatrixKeys(application), [application]);
   const [folded, toggleFolded] = useFoldedGroups(application);
 
   // The sidebar drags and moves as the lens does (UA9, U-D22, U-D28), by the one move rule; a type
@@ -122,13 +130,14 @@ export function Explorer({
               key={group.objectTypeKey}
               model={model}
               group={group}
+              placed={placed}
               activeViewKey={activeViewKey}
               onOpen={onOpenCollection}
             />
           ))}
-          {sections.groups.map(({ group, collections }) => {
+          {sections.groups.map(({ group, entries }) => {
             const isFolded = folded(group.key, group.collapsed === true);
-            const holdsCurrent = collections.some((item) => item.views.some((view) => view.key === activeViewKey));
+            const holdsCurrent = entries.some((entry) => entryViews(entry).some((view) => view.key === activeViewKey));
             const bodyId = `${application.key}-navigation-group-${group.key}`;
             return (
               <div key={group.key} className="nav-group">
@@ -154,15 +163,26 @@ export function Explorer({
                   </button>
                 </div>
                 <div id={bodyId} className="nav-group-body" hidden={isFolded}>
-                  {collections.map((item) => (
-                    <CollectionEntry
-                      key={item.objectTypeKey}
-                      model={model}
-                      group={item}
-                      activeViewKey={activeViewKey}
-                      onOpen={onOpenCollection}
-                    />
-                  ))}
+                  {entries.map((entry) =>
+                    entry.kind === "collection" ? (
+                      <CollectionEntry
+                        key={navigationEntryKey(entry)}
+                        model={model}
+                        group={entry.collection}
+                        placed={placed}
+                        activeViewKey={activeViewKey}
+                        onOpen={onOpenCollection}
+                      />
+                    ) : (
+                      <MatrixEntry
+                        key={navigationEntryKey(entry)}
+                        model={model}
+                        view={entry.view}
+                        activeViewKey={activeViewKey}
+                        onOpen={onOpenCollection}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
             );
@@ -236,20 +256,29 @@ export function Explorer({
   );
 }
 
-/** A collection in the sidebar: its type's tile and plural name, opening its default lens. */
+/** The views an entry stands for: its lenses, or the matrix alone. */
+const entryViews = (entry: NavigationEntry) => (entry.kind === "collection" ? entry.collection.views : [entry.view]);
+
+/**
+ * A collection in the sidebar: its type's tile and plural name, opening the view it opens on. A
+ * matrix with an entry of its own highlights that entry, not its row type's.
+ */
 function CollectionEntry({
   model,
   group,
+  placed,
   activeViewKey,
   onOpen,
 }: {
   model: EngineModel;
   group: CollectionGroup;
+  /** Matrices that have an entry of their own. */
+  placed: ReadonlySet<string>;
   activeViewKey?: string;
   onOpen?: (viewKey: string) => void;
 }) {
   const type = objectTypeFor(model, group.objectTypeKey);
-  const active = group.views.some((view) => view.key === activeViewKey);
+  const active = group.views.some((view) => view.key === activeViewKey && !placed.has(view.key));
   return (
     <button
       type="button"
@@ -264,6 +293,32 @@ function CollectionEntry({
           <Icon name="mapping" size={13} label="Includes a mapping view" />
         </span>
       )}
+    </button>
+  );
+}
+
+/** A relation matrix placed in a group: its own entry, named after the view, opening the matrix. */
+function MatrixEntry({
+  model,
+  view,
+  activeViewKey,
+  onOpen,
+}: {
+  model: EngineModel;
+  view: RelationMatrixViewDefinition;
+  activeViewKey?: string;
+  onOpen?: (viewKey: string) => void;
+}) {
+  const active = view.key === activeViewKey;
+  return (
+    <button
+      type="button"
+      className={active ? "active" : ""}
+      aria-current={active ? "page" : undefined}
+      onClick={() => onOpen?.(view.key)}
+    >
+      <HueTile hue={objectTypeHue(model, view.config.rowObjectTypeKey)} glyph="matrix" />
+      <span className="collection-name">{view.name}</span>
     </button>
   );
 }

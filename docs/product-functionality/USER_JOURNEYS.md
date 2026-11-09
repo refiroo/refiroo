@@ -861,7 +861,11 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 - **J33.9 Group collections**: groups declared on an application show as sidebar sections and a
   group page with a search; collections in no group keep their place (N1). A group naming no
   collection of its application, a collection in two groups, a group key twice, or `navigation`
-  below schema 0.10 is refused at its pointer; a 0.9 model is unchanged.
+  below schema 0.10 is refused at its pointer; a 0.9 model is unchanged. A relation matrix can stand
+  in a group as an entry of its own (opening the matrix), and a collection can name the view its
+  entry opens on; entries are placed, ordered, moved and taken out in the editor's group panel, several
+  added in one step. A matrix entry naming no matrix of the application, a matrix in two groups, or
+  an opening naming a view of another collection is refused at its pointer.
 - **J33.10 Lay out a type** in the preview: panels ordered, shown or hidden; a table view's columns,
   filters and sort; field order. The record screen shows the same layout after activation (A4b).
 - **J33.11 Keyboard alone and 390px**: every drag has its Move to… path; the panes become tabs.
@@ -902,6 +906,8 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 activation; with administration disabled the routes are absent.
 
 **Evidence today:** J33.9: `test_j33_design` (the `navigation` contract on two configurations),
+`test_j33_operations` (matrix entries and openings: placed, ordered, moved, several added in one step,
+followed on a view's new key, removed with its view, refused),
 `test:browser:authoring-n1` (sidebar groups and the group page), `Explorer.test`, `model.test`,
 `routes.test`. J33.1–J33.8, J33.12 and J08.9 through the API: `test_j33_operations` (on two
 configurations each); J33.15 through the API: `test_j33_operations` (a three-level branch moved to

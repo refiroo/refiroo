@@ -166,6 +166,7 @@ NO_DRY_RUN = frozenset(
         "removeNavigationGroup",
         "setNavigationGroup",
         "placeCollection",
+        "setCollectionOpening",
         "addConsumerApi",
         "removeConsumerApi",
         "setConsumerApiPart",

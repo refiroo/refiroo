@@ -231,14 +231,21 @@ export interface ApplicationDefinition {
   details: DetailViewDefinition[];
   settings: Record<string, unknown>;
   /** Sidebar sections of its collections (schema 0.10, 0.10 N1); presentation only. */
-  navigation?: { groups: NavigationGroupDefinition[] };
+  navigation?: { groups: NavigationGroupDefinition[]; opens?: Record<string, string> };
 }
 
-/** A labelled, foldable sidebar section naming collections (object type keys) of its application. */
+/**
+ * An entry of a navigation group: a collection (its object type key) or a relation matrix view of
+ * the application (`{ view }`), which then has an entry of its own.
+ */
+export type NavigationEntryDefinition = string | { view: string };
+
+/** A labelled, foldable sidebar section naming collections and relation matrices of its application. */
 export interface NavigationGroupDefinition {
   key: string;
   label: string;
-  collections: string[];
+  /** The entries in one shared order. */
+  collections: NavigationEntryDefinition[];
   collapsed?: boolean;
 }
 

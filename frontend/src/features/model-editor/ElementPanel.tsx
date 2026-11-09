@@ -6,7 +6,14 @@
  */
 
 import type { ReactNode } from "react";
-import type { EditorSelection, ModelDraftOutline, OutlineMark, OutlineRelation } from "@/types";
+import type {
+  EditorSelection,
+  ModelDraftOutline,
+  OutlineApplication,
+  OutlineMark,
+  OutlineNavigationGroup,
+  OutlineRelation,
+} from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { Tabs } from "@/ui/Tabs";
@@ -30,19 +37,26 @@ import {
   operationsFor,
   VALUE_TYPES,
   valueTypeLabel,
+  type FieldValues,
   type OperationTarget,
 } from "@/features/model-editor/operations";
 import {
   applicationOf,
   applicationsOf,
   attributeTypeOf,
+  collectionViews,
   draftTypeHue,
+  entryName,
+  entryRefId,
+  groupEntries,
   isReleased,
   objectTypeOf,
+  openingView,
   placeOf,
   relationTypeOf,
   relationsOf,
   typeName,
+  type NavigationEntryRef,
 } from "@/features/model-editor/outline";
 
 export function Header({
@@ -89,18 +103,27 @@ export function OperationButton({
   target,
   outline,
   onOperation,
+  preset,
+  primary = false,
   children,
 }: {
   id: string;
   target: OperationTarget;
   outline: ModelDraftOutline;
   onOperation: OnOperation;
+  /** Values the dialog opens with. */
+  preset?: FieldValues;
+  primary?: boolean;
   children: ReactNode;
 }) {
   const item = operationById(id);
   if (!item || !operationsFor(target, outline).includes(item)) return null;
   return (
-    <button type="button" className="secondary" onClick={() => onOperation(item, target)}>
+    <button
+      type="button"
+      className={primary ? "primary" : "secondary"}
+      onClick={() => onOperation(item, target, preset)}
+    >
       {children}
     </button>
   );
@@ -615,7 +638,15 @@ export function ElementPanel({
             {
               key: "group",
               label: "Group",
-              cell: (group) => group.label,
+              cell: (group) => (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onSelect({ show: "group", application: application.key, key: group.key })}
+                >
+                  {group.label}
+                </button>
+              ),
               edit: (group) => ({
                 label: "Label",
                 value: group.label,
@@ -625,15 +656,11 @@ export function ElementPanel({
               }),
             },
             {
-              key: "collections",
-              label: "Collections",
+              key: "entries",
+              label: "Entries",
               cell: (group) =>
-                group.collections.length ? (
-                  <span className="type-links">
-                    {group.collections.map((key) => (
-                      <TypeLink key={key} outline={outline} typeKey={key} onSelect={onSelect} />
-                    ))}
-                  </span>
+                group.entries.length ? (
+                  <EntryChips outline={outline} application={application} group={group} onSelect={onSelect} />
                 ) : (
                   "None yet"
                 ),
@@ -664,12 +691,150 @@ export function ElementPanel({
         />
         {application.navigation.ungrouped.length > 0 && application.navigation.groups.length > 0 && (
           <p className="muted">
-            In no group: {application.navigation.ungrouped.map((key) => typeName(outline, key)).join(", ")}.
+            In no group: {application.navigation.ungrouped.map((key) => typeName(outline, key)).join(", ")}.{" "}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                const item = operationById("application-group-add");
+                if (item)
+                  onOperation(item, target, {
+                    entries: application.navigation.ungrouped.map((key) => `collection:${key}`),
+                  });
+              }}
+            >
+              Add to a group…
+            </button>
           </p>
         )}
         <div className="element-tab-actions">
           <OperationButton id="application-add-group" target={target} outline={outline} onOperation={onOperation}>
             <Icon name="plus" /> Navigation group
+          </OperationButton>
+        </div>
+      </section>
+    );
+  }
+
+  if (selection.show === "group") {
+    const application = applicationOf(outline, selection.application);
+    const group = application?.navigation.groups.find((item) => item.key === selection.key);
+    if (!application || !group) return <Missing what="navigation group" />;
+    const target: OperationTarget = { on: "group", applicationKey: application.key, group: group.key };
+    const entries = groupEntries(application, group.key);
+    return (
+      <section className="element-panel" aria-labelledby="element-title">
+        <Header
+          title={group.label}
+          outline={outline}
+          rename={(label) =>
+            run([{ kind: "setNavigationGroup", applicationKey: application.key, group: group.key, label }])
+          }
+          mark={group.mark}
+          proposed={Boolean(proposed)}
+          facts={
+            <Facts
+              label="About this group"
+              facts={[
+                {
+                  icon: "list",
+                  label: (
+                    <>
+                      Navigation group of{" "}
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => onSelect({ show: "application", key: application.key })}
+                      >
+                        {application.name}
+                      </button>
+                    </>
+                  ),
+                },
+                { icon: "type", label: <code>{group.key}</code>, title: "Key" },
+                { icon: "toggle", label: group.collapsed ? "Starts folded" : "Starts open" },
+                { icon: "list", label: `${entries.length} ${entries.length === 1 ? "entry" : "entries"}` },
+              ]}
+            />
+          }
+        >
+          {menu(`Operations for the group ${group.label}`, target)}
+        </Header>
+        {proposed}
+        <h3 className="element-subheading">Entries</h3>
+        <EditorTable
+          editing={editing}
+          scope="group-entries"
+          label={`Entries of ${group.label}`}
+          noun={["entry", "entries"]}
+          rows={entries}
+          rowKey={entryRefId}
+          menu={(entry) => (
+            <OperationsMenu
+              label={`Operations for ${entryName(outline, application, entry)}`}
+              target={{
+                on: "groupEntry",
+                applicationKey: application.key,
+                group: group.key,
+                ...(entry.kind === "matrix" ? { view: entry.key } : { collection: entry.key }),
+              }}
+              outline={outline}
+              onOperation={onOperation}
+            />
+          )}
+          emptyMessage="This group has no entries yet. Add collections and relation matrices to it."
+          columns={[
+            {
+              key: "entry",
+              label: "Entry",
+              cell: (entry) => (
+                <EntryTag outline={outline} application={application} entry={entry} onSelect={onSelect} />
+              ),
+            },
+            {
+              key: "kind",
+              label: "Kind",
+              cell: (entry) => (entry.kind === "collection" ? "Collection" : "Relation matrix"),
+            },
+            {
+              key: "opens",
+              label: "Opens on",
+              cell: (entry) => (entry.kind === "matrix" ? "Itself" : openingCell(application, entry.key)),
+              edit: (entry) => {
+                if (entry.kind === "matrix") return undefined;
+                const views = collectionViews(application, entry.key);
+                if (views.length < 2) return undefined;
+                const natural = openingView(
+                  { ...application, navigation: { ...application.navigation, opens: {} } },
+                  entry.key,
+                );
+                return {
+                  label: "Opens on",
+                  value: openingView(application, entry.key)?.key ?? "",
+                  options: views.map((view) => ({ value: view.key, label: viewLabel(view) })),
+                  operations: (view) => [
+                    {
+                      kind: "setCollectionOpening",
+                      applicationKey: application.key,
+                      collection: entry.key,
+                      view: view === natural?.key ? null : view,
+                    },
+                  ],
+                };
+              },
+            },
+            { key: "state", label: "State", cell: () => <MarkPill mark={group.mark} /> },
+          ]}
+        />
+        <div className="element-tab-actions">
+          <OperationButton id="group-add" target={target} outline={outline} onOperation={onOperation} primary>
+            <Icon name="plus" /> Add to group…
+          </OperationButton>
+          <OperationButton id="group-rename" target={target} outline={outline} onOperation={onOperation}>
+            Rename…
+          </OperationButton>
+          <OperationButton id="group-fold" target={target} outline={outline} onOperation={onOperation}>
+            {group.collapsed ? "Start unfolded" : "Start folded"}
           </OperationButton>
         </div>
       </section>
@@ -908,6 +1073,76 @@ export function ElementPanel({
 /** A type's binding of an attribute type. */
 function bindingOf(outline: ModelDraftOutline, typeKey: string, attributeKey: string) {
   return objectTypeOf(outline, typeKey)?.attributes.find((item) => item.attributeType === attributeKey);
+}
+
+/** A view's name with its kind, as a collection's entry may open on it. */
+const viewLabel = (view: { name: string; type?: string | null }) =>
+  `${view.name} (${(VIEW_KINDS[view.type ?? ""] ?? view.type ?? "view").toLowerCase()})`;
+
+/** The view a collection's entry opens on, in words. */
+function openingCell(application: OutlineApplication, typeKey: string) {
+  const view = openingView(application, typeKey);
+  return view ? viewLabel(view) : "—";
+}
+
+/** A relation matrix named in a table: its glyph in its row type's hue, then its name. */
+export function MatrixTag({
+  outline,
+  view,
+}: {
+  outline: ModelDraftOutline;
+  view: { name: string; collection?: string | null };
+}) {
+  return (
+    <span className="type-link matrix-tag">
+      <HueTile hue={view.collection ? draftTypeHue(outline, view.collection) : undefined} glyph="matrix" size={18} />
+      {view.name}
+    </span>
+  );
+}
+
+/** An entry of a navigation group in a table: a collection links to its type; a matrix is named. */
+function EntryTag({
+  outline,
+  application,
+  entry,
+  onSelect,
+}: {
+  outline: ModelDraftOutline;
+  application: OutlineApplication;
+  entry: NavigationEntryRef;
+  onSelect: (selection: EditorSelection) => void;
+}) {
+  if (entry.kind === "collection") return <TypeLink outline={outline} typeKey={entry.key} onSelect={onSelect} />;
+  const view = application.views.find((item) => item.key === entry.key);
+  return view ? <MatrixTag outline={outline} view={view} /> : <>{entry.key}</>;
+}
+
+/** A group's entries as chips: its types, which link to them, and its matrices. */
+function EntryChips({
+  outline,
+  application,
+  group,
+  onSelect,
+}: {
+  outline: ModelDraftOutline;
+  application: OutlineApplication;
+  group: OutlineNavigationGroup;
+  onSelect: (selection: EditorSelection) => void;
+}) {
+  return (
+    <span className="type-links">
+      {groupEntries(application, group.key).map((entry) => (
+        <EntryTag
+          key={entryRefId(entry)}
+          outline={outline}
+          application={application}
+          entry={entry}
+          onSelect={onSelect}
+        />
+      ))}
+    </span>
+  );
 }
 
 /** A type in a table: its tile and name, choosing it shows the type. */

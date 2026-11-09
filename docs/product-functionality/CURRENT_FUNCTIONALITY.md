@@ -61,7 +61,10 @@ collections in no group first, then each group as a section that folds and unfol
 whether a group starts folded, and each reader's own choice is remembered in their browser. A folded
 group holding the open collection is marked. A group's name opens its page, which lists its
 collections with a search by name; each opens in the data the reader is looking at (live, a change
-set or a publication).
+set or a publication). A relation matrix can be placed in a group as an entry of its own, named after
+the view and opening the matrix, while its row type's entry stays; and a collection can open on a view
+the model names for it instead of the application's default. The model editor opens a group as a panel
+with its entries, adds several at once, orders and moves them.
 
 Limits: dedicated form and dashboard views do not exist; structured model design is 0.10; groups
 have one level and their page shows no record counts.

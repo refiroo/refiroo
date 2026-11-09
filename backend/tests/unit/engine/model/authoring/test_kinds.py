@@ -45,6 +45,25 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
                 if len(columns) > 1:
                     yield {"kind": "moveViewItem", "applicationKey": app, "view": view["key"], "list": "columns", "item": columns[-1], "position": 0}
             yield {"kind": "removeView", "applicationKey": app, "view": view["key"], "unlist": True}
+            if view["type"] in ("table", "relationMatrix"):
+                source = (
+                    view["objectTypeKey"]
+                    if view["type"] == "table"
+                    else view["config"]["rowObjectTypeKey"]
+                )
+                yield {
+                    "kind": "setCollectionOpening",
+                    "applicationKey": app,
+                    "collection": source,
+                    "view": view["key"],
+                }
+            if view["type"] == "relationMatrix":
+                yield {
+                    "kind": "addNavigationGroup",
+                    "applicationKey": app,
+                    "label": "Matrices",
+                    "collections": [{"view": view["key"]}],
+                }
         for type_key in application["objectTypeKeys"]:
             yield {"kind": "unlistObjectType", "applicationKey": app, "objectType": type_key}
         for type_key in types:

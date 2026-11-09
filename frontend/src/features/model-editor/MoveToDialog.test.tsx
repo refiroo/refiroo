@@ -15,7 +15,7 @@ function twoApplications(): ModelDraftOutline {
     name: "Depot",
     objectTypeKeys: ["bin"],
     tree: [{ objectType: "bin", children: [] }],
-    navigation: { groups: [], ungrouped: ["bin"] },
+    navigation: { groups: [], ungrouped: ["bin"], opens: {} },
     views: [],
     unlistable: [],
     mark: "new",

@@ -522,23 +522,35 @@ class OutlineTypeNode(BaseModel):
     children: list[OutlineTypeNode]
 
 
+class OutlineNavigationEntry(BaseModel):
+    """An entry of a navigation group: a collection (by its type) or a relation matrix (by its view)."""
+
+    collection: str | None = None
+    view: str | None = None
+
+
 class OutlineNavigationGroup(BaseModel):
     key: str
     label: str
     collapsed: bool
     collections: list[str]
+    entries: list[OutlineNavigationEntry]
     mark: OutlineMark
 
 
 class OutlineNavigation(BaseModel):
     groups: list[OutlineNavigationGroup]
     ungrouped: list[str]
+    # Collection key to the view its sidebar entry opens on.
+    opens: dict[str, str]
 
 
 class OutlineView(BaseModel):
     key: str
     name: str
     type: str | None = None
+    # The collection the view belongs to: its source type.
+    collection: str | None = None
     shows: list[str]
     # A relation matrix's configuration, as the model declares it; absent on other kinds.
     matrix: dict[str, Any] | None = None
@@ -550,6 +562,7 @@ class OutlineApplication(BaseModel):
     name: str
     icon: str | None = None
     color: str | None = None
+    defaultView: str | None = None
     objectTypeKeys: list[str]
     tree: list[OutlineTypeNode]
     navigation: OutlineNavigation

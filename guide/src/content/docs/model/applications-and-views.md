@@ -19,13 +19,17 @@ removing the definition has a different effect; see [Types](/docs/model/types-at
 
 ![Application panel with its object types, views and navigation groups](/docs/screens/model-application-panel.png)
 
-Navigation groups have a **Label**, ordered collections and an **Open** or **Folded** starting
-state. A collection can belong to only one group in an application. Ungrouped collections appear
+Navigation groups have a **Label**, ordered entries (collections and relation matrices) and an **Open**
+or **Folded** starting state. A collection, or a relation matrix, can belong to only one group in an
+application. A relation matrix placed in a group has an entry of its own, named after the view, and its
+row type's entry stays. The matrix symbol uses the row type's colour, and opening the entry
+goes directly to the matrix. The matrix also stays among the row collection's view tabs. Without
+a group placement, it is available through that collection only. Ungrouped collections appear
 at the top. An empty group is valid. Grouping does not change parents, data access or the type's
 identity. Follow [Group collections in navigation](/docs/guide/model/group-collections-in-navigation/).
 
 Navigation groups have one level: a group cannot contain another group. Its collection page
-lets people search collection names; it does not show a record count for every collection.
+lets people search collection and matrix names; it does not show a record count for each entry.
 Only collections with a view in this application can be placed in its groups. Group labels
 and ordering change navigation without requiring a data migration.
 
@@ -33,6 +37,39 @@ A new navigation group starts open unless **Folded when the sidebar opens** is s
 A person's later folding choice is remembered in their browser. Within an application, each
 group has its own key, and a collection cannot be declared in two groups at once. If validation
 names a collection outside the application, add a suitable view there or remove that group entry.
+
+### The group panel
+
+Choose a group in the model pane, or its name in the application's **Navigation groups**
+table, to open its panel. It shows the application, starting state and entry count. **Entries**
+lists collections and matrices together, in their sidebar order, with **Entry**, **Kind**,
+**Opens on** and **State**. The application's group table also lists both kinds in **Entries**.
+
+**Add to group…** lets you search and select several collections and matrices in one dialog.
+Their location notes distinguish ungrouped collections, matrices inside a row collection and
+entries in another group. Selecting an entry from another group moves it rather than copying
+it. Entries already in the destination group are omitted. The whole addition is one history
+step, so one **Undo** reverses it. In the application panel, **In no group:** offers
+**Add to a group…** with the ungrouped collections already selected.
+
+An entry's row menu offers **Move up**, **Move down**, **Move to another group…** and
+**Take out of the group** where applicable. Taking a matrix out removes its separate entry;
+it keeps the view in the row collection. A matrix's menu in the application's **Views** table
+also offers **Move to group…** when a group exists. The group panel has **Rename…** and
+**Start folded** / **Start unfolded**; the group menu orders or removes the group itself.
+
+### A collection's opening view
+
+**Opens on** chooses which of a collection's views opens from its sidebar entry or the group
+page. Edit the cell in the group panel when the collection has more than one view, then
+**Save**. The choice belongs to that collection in this application; it does not change
+another collection's opening view or remove any view tabs. A separate matrix entry always
+opens itself and shows **Itself** in this column.
+
+Without a collection choice, refiroo uses the application's **Default view** if it is one of
+that collection's views, otherwise its table, otherwise its first view. Choosing that same
+fallback in **Opens on** returns the collection to following the default rather than keeping
+a separate choice.
 
 ## Views
 
@@ -79,7 +116,8 @@ that the editor offers a button for it.
 Views of the same source type appear as lenses of one collection. A table's source is the type
 it lists. A mapping grid's source is the end chosen as its direction; a relation matrix's source
 is its row type. A tree belongs to its first declared root type. Adding a second view for one
-source type adds a way to work with that collection, rather than another primary collection.
+source type adds a way to work with that collection. Placing a relation matrix in a navigation
+group adds a direct entry for that view while keeping the shared row collection.
 
 ## Mapping-grid declarations
 

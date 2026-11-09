@@ -6,7 +6,9 @@ import { isManagedRelation, objectTypeFor, relationChoices } from "@/model/looku
 import {
   childCollectionGroups,
   collectionGroups,
+  navigationEntryKey,
   navigationSections,
+  placedMatrixKeys,
   viewSourceObjectTypeKey,
 } from "@/model/collections";
 
@@ -234,7 +236,7 @@ describe("fallbackDetail", () => {
       ungrouped: sections.ungrouped.map((item) => item.objectTypeKey),
       groups: sections.groups.map((section) => [
         section.group.key,
-        section.collections.map((item) => item.objectTypeKey),
+        section.entries.map((entry) => (entry.kind === "collection" ? entry.collection.objectTypeKey : entry.view.key)),
       ]),
     });
     expect(keys(navigationSections(application))).toEqual({ ungrouped: ["domain", "codelist", "unit"], groups: [] });
@@ -252,5 +254,55 @@ describe("fallbackDetail", () => {
         ["empty", []],
       ],
     });
+  });
+
+  it("gives a placed relation matrix an entry of its own and opens a collection on the view named (0.13)", () => {
+    const application = structuredClone(testModel.applications[0]);
+    const domains = application.views[0];
+    if (domains.type !== "table") throw new Error("Expected table fixture");
+    const matrix = {
+      key: "domains-by-codelist",
+      name: "Domains by codelist",
+      type: "relationMatrix" as const,
+      config: {
+        relationTypeKey: "domain-contains-codelist",
+        direction: "outgoing" as const,
+        rowObjectTypeKey: "domain",
+        columnObjectTypeKey: "codelist",
+        cellObjectTypeKey: "codelist",
+        rowColumns: ["name"],
+        columnLabelField: "name",
+        cellFields: ["name"],
+        searchFields: ["name"],
+        pageSize: 20,
+      },
+    };
+    application.views = [domains, { ...domains, key: "units", name: "Units", objectTypeKey: "unit" }, matrix];
+    const keys = (sections: ReturnType<typeof navigationSections>) =>
+      sections.groups.map((section) => section.entries.map((entry) => navigationEntryKey(entry)));
+
+    // Unplaced, the matrix stays a lens of its row type's collection.
+    expect(navigationSections(application).groups).toEqual([]);
+    expect(collectionGroups(application)[0].views.map((view) => view.key)).toContain(matrix.key);
+
+    application.navigation = {
+      groups: [
+        { key: "places", label: "Places", collections: [{ view: matrix.key }, "unit", { view: "missing" }, "domain"] },
+      ],
+    };
+    expect(keys(navigationSections(application))).toEqual([
+      ["view:domains-by-codelist", "collection:unit", "collection:domain"],
+    ]);
+    expect(placedMatrixKeys(application)).toEqual(new Set([matrix.key, "missing"]));
+    // The row type's entry stays and keeps the matrix among its views.
+    expect(navigationSections(application).ungrouped).toEqual([]);
+    expect(collectionGroups(application)[0].views.map((view) => view.key)).toEqual([domains.key, matrix.key]);
+
+    // A collection opens on the view the navigation names, else the application's default view.
+    expect(collectionGroups(application)[0].defaultView.key).toBe(application.defaultView);
+    application.navigation.opens = { domain: matrix.key };
+    expect(collectionGroups(application)[0].defaultView.key).toBe(matrix.key);
+    application.navigation.opens = { domain: "gone" };
+    expect(collectionGroups(application)[0].defaultView.key).toBe(application.defaultView);
   });
 });

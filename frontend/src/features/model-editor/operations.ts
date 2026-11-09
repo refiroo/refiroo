@@ -65,10 +65,16 @@ import {
 import {
   applicationsOf,
   attributeTypeOf,
+  collectionsOf,
+  entryName,
+  entryRefId,
+  groupEntries,
+  groupOfEntry,
   isReleased,
   consumerApiOf,
   keyFromLabel,
   keysOf,
+  matricesOf,
   objectTypeOf,
   relationTypeOf,
   sameName,
@@ -88,6 +94,8 @@ export type OperationTarget =
   | { on: "relationType"; relationType: string }
   | { on: "relation"; relationType: string; from: string; to: string }
   | { on: "group"; applicationKey: string; group: string }
+  /** An entry of a navigation group: a collection (its type) or a relation matrix (its view). */
+  | { on: "groupEntry"; applicationKey: string; group: string; collection?: string; view?: string }
   /** The Consumer APIs tab's ＋ (0.10 A4c). */
   | { on: "consumerApis" }
   /** A consumer API, with its definition as the draft holds it. */
@@ -134,7 +142,13 @@ export type OperationField = {
     }
   /** Output names each reading a source picked from a list, as `output=source` (a related block). */
   | { type: "pairs"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
-  | { type: "checkboxes"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]) }
+  | {
+      type: "checkboxes";
+      options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]);
+      required?: boolean;
+      /** A search box over the options' names, with this placeholder. */
+      search?: string;
+    }
   /** Which records a relationship may choose (0.9 K7), per end; an end without a type offers its name. */
   | { type: "criteria"; ends: Record<End, { typeKey?: string; label: string }> }
 );
@@ -163,6 +177,8 @@ export interface OperationSpec {
   /** What the form will make, shown beside it. */
   preview?: (values: FieldValues, target: never, outline: ModelDraftOutline) => MatrixPreview;
   build: (values: FieldValues, target: never, outline: ModelDraftOutline) => DraftOperation[];
+  /** The words of the dialog's send button for the values chosen so far ("Apply" when absent). */
+  submit?: (values: FieldValues) => string;
 }
 
 export const VALUE_TYPES = [
@@ -741,6 +757,38 @@ export const OPERATIONS: OperationSpec[] = [
     follow: (next, previous, changed, o) => followMatrix(o, next, previous, changed),
     preview: (values, t, o) => matrixPreview(o, t.applicationKey, values),
     build: (values, t, o) => changeMatrix(o, t.applicationKey, t.view, values),
+  }),
+  spec<On<"view">>({
+    id: "view-group",
+    on: "view",
+    label: "Move to group…",
+    title: (t, o) => `Place ${viewOf(t, o)?.name ?? t.view} in a navigation group`,
+    available: (t, o) =>
+      viewOf(t, o)?.type === "relationMatrix" &&
+      (o.applications.find((a) => a.key === t.applicationKey)?.navigation.groups.length ?? 0) > 0,
+    fields: (t, o) => {
+      const application = o.applications.find((a) => a.key === t.applicationKey);
+      const rowType = viewOf(t, o)?.collection;
+      return [
+        {
+          name: "group",
+          label: "Group",
+          type: "select",
+          options: [
+            { value: "", label: `No group: inside ${rowType ? typeName(o, rowType) : "its row type"}` },
+            ...(application?.navigation.groups ?? []).map((g) => ({ value: g.key, label: g.label })),
+          ],
+        },
+      ];
+    },
+    initial: (t, o) => {
+      const application = o.applications.find((a) => a.key === t.applicationKey);
+      const group = application && groupOfEntry(application, { kind: "matrix", key: t.view });
+      return { group: group?.key ?? "" };
+    },
+    build: (values, t) => [
+      { kind: "placeCollection", applicationKey: t.applicationKey, view: t.view, group: text(values, "group") || null },
+    ],
   }),
   spec<On<"view">>({
     id: "view-matrix-remove",
@@ -1473,6 +1521,78 @@ export const OPERATIONS: OperationSpec[] = [
   }),
 
   // --- a navigation group ---
+  // --- an entry of a navigation group ---
+  spec<On<"groupEntry">>({
+    id: "entry-up",
+    on: "groupEntry",
+    label: "Move up",
+    direct: true,
+    available: (t, o) => entryIndex(t, o) > 0,
+    build: (_, t, o) => [placeEntry(t, t.group, entryIndex(t, o) - 1)],
+  }),
+  spec<On<"groupEntry">>({
+    id: "entry-down",
+    on: "groupEntry",
+    label: "Move down",
+    direct: true,
+    available: (t, o) => entryIndex(t, o) < entryCount(t, o) - 1,
+    build: (_, t, o) => [placeEntry(t, t.group, entryIndex(t, o) + 1)],
+  }),
+  spec<On<"groupEntry">>({
+    id: "entry-move",
+    on: "groupEntry",
+    label: "Move to another group…",
+    title: (t, o) => `Move ${entryTitle(t, o)} to another group`,
+    available: (t, o) => otherGroups(t, o).length > 0,
+    fields: (t, o) => [
+      {
+        name: "group",
+        label: "Group",
+        type: "select",
+        options: otherGroups(t, o).map((group) => ({ value: group.key, label: group.label })),
+        required: true,
+      },
+    ],
+    build: (values, t) => [placeEntry(t, text(values, "group"))],
+  }),
+  spec<On<"groupEntry">>({
+    id: "entry-out",
+    on: "groupEntry",
+    label: "Take out of the group",
+    direct: true,
+    build: (_, t) => [placeEntry(t, null)],
+  }),
+  spec<On<"group">>({
+    id: "group-add",
+    on: "group",
+    label: "Add to group…",
+    title: (t, o) => `Add to ${groupOf(t, o)?.label ?? t.group}`,
+    fields: (t, o) => [entriesField(o, t.applicationKey, () => t.group)],
+    submit: (values) => `Add ${chosenEntries(values).length}`,
+    build: (values, t) => placeEntries(t.applicationKey, t.group, values),
+  }),
+  spec<On<"application">>({
+    id: "application-group-add",
+    on: "application",
+    label: "Add to a group…",
+    title: () => "Add to a group",
+    available: (t, o) => (o.applications.find((a) => a.key === t.applicationKey)?.navigation.groups.length ?? 0) > 0,
+    fields: (t, o) => [
+      {
+        name: "group",
+        label: "Group",
+        type: "select",
+        options: (o.applications.find((a) => a.key === t.applicationKey)?.navigation.groups ?? []).map((group) => ({
+          value: group.key,
+          label: group.label,
+        })),
+        required: true,
+      },
+      entriesField(o, t.applicationKey, (values) => text(values, "group")),
+    ],
+    submit: (values) => `Add ${chosenEntries(values).length}`,
+    build: (values, t) => placeEntries(t.applicationKey, text(values, "group"), values),
+  }),
   spec<On<"group">>({
     id: "group-rename",
     on: "group",
@@ -1532,7 +1652,10 @@ export const OPERATIONS: OperationSpec[] = [
     on: "group",
     label: "Remove group",
     confirm: (t, o) =>
-      `Remove the group ${groupOf(t, o)?.label ?? t.group}? Its collections return to the top of the sidebar.`,
+      `Remove the group ${groupOf(t, o)?.label ?? t.group}? Its collections return to the top of the sidebar` +
+      (groupOf(t, o)?.entries.some((entry) => entry.view)
+        ? ", and its relation matrices go back inside their row type's entry."
+        : "."),
     build: (_, t) => [{ kind: "removeNavigationGroup", applicationKey: t.applicationKey, group: t.group }],
   }),
   ...CONSUMER_OPERATIONS(),
@@ -2109,6 +2232,108 @@ function relationOf(t: On<"relation">, o: ModelDraftOutline) {
   return o.relations.find((r) => r.relationType === t.relationType && r.from === t.from && r.to === t.to);
 }
 
+const ENTRY_COLLECTION = "collection:";
+const ENTRY_VIEW = "view:";
+
+/** The entries chosen in the Add to group dialog, as `collection:<type>` and `view:<view>`. */
+const chosenEntries = (values: FieldValues) =>
+  Array.isArray(values.entries) ? values.entries.filter((item): item is string => typeof item === "string") : [];
+
+function placeEntries(applicationKey: string, group: string, values: FieldValues): DraftOperation[] {
+  return chosenEntries(values).map((entry) =>
+    entry.startsWith(ENTRY_VIEW)
+      ? { kind: "placeCollection", applicationKey, view: entry.slice(ENTRY_VIEW.length), group }
+      : { kind: "placeCollection", applicationKey, collection: entry.slice(ENTRY_COLLECTION.length), group },
+  );
+}
+
+/**
+ * The checkbox list of the Add to group dialog: the application's collections and relation matrices
+ * not already in the group, each with where it stands now, and where a chosen one moves from.
+ */
+function entriesField(
+  outline: ModelDraftOutline,
+  applicationKey: string,
+  groupOf: (values: FieldValues) => string,
+): OperationField {
+  const application = outline.applications.find((item) => item.key === applicationKey);
+  return {
+    name: "entries",
+    label: "Collections and relation matrices",
+    type: "checkboxes",
+    required: true,
+    search: "Search collections and matrices",
+    options: (values) => {
+      if (!application) return [];
+      const target = groupOf(values);
+      const chosen = chosenEntries(values);
+      const groupLabel = (key: string) =>
+        application.navigation.groups.find((group) => group.key === key)?.label ?? key;
+      const place = (entry: { kind: "collection" | "matrix"; key: string }, unplaced: string, id: string) => {
+        const current = groupOfEntry(application, entry);
+        if (current?.key === target) return undefined;
+        if (!current) return unplaced;
+        return chosen.includes(id) ? `Moves from ${groupLabel(current.key)}` : `In ${groupLabel(current.key)}`;
+      };
+      const options: ChoiceOption[] = [];
+      for (const key of collectionsOf(application)) {
+        const id = `${ENTRY_COLLECTION}${key}`;
+        const note = place({ kind: "collection", key }, "Top of the sidebar", id);
+        if (note) options.push({ value: id, label: typeName(outline, key), group: "Collections", note });
+      }
+      for (const view of matricesOf(application)) {
+        const id = `${ENTRY_VIEW}${view.key}`;
+        const row = view.collection ? typeName(outline, view.collection) : "its row type";
+        const note = place({ kind: "matrix", key: view.key }, `Inside ${row}`, id);
+        if (note) options.push({ value: id, label: view.name, group: "Relation matrices", note });
+      }
+      return options;
+    },
+  };
+}
+
+function entryApplication(t: On<"groupEntry">, o: ModelDraftOutline) {
+  return o.applications.find((a) => a.key === t.applicationKey);
+}
+
+function entryRef(t: On<"groupEntry">) {
+  return t.view
+    ? ({ kind: "matrix", key: t.view } as const)
+    : ({ kind: "collection", key: t.collection ?? "" } as const);
+}
+
+function entryIndex(t: On<"groupEntry">, o: ModelDraftOutline) {
+  const application = entryApplication(t, o);
+  return application
+    ? groupEntries(application, t.group).findIndex((e) => entryRefId(e) === entryRefId(entryRef(t)))
+    : -1;
+}
+
+function entryCount(t: On<"groupEntry">, o: ModelDraftOutline) {
+  const application = entryApplication(t, o);
+  return application ? groupEntries(application, t.group).length : 0;
+}
+
+function otherGroups(t: On<"groupEntry">, o: ModelDraftOutline) {
+  return entryApplication(t, o)?.navigation.groups.filter((group) => group.key !== t.group) ?? [];
+}
+
+function entryTitle(t: On<"groupEntry">, o: ModelDraftOutline) {
+  const application = entryApplication(t, o);
+  return application ? entryName(o, application, entryRef(t)) : (t.view ?? t.collection ?? "the entry");
+}
+
+/** `placeCollection` for an entry: into `group` (at `position`), or out of its group when null. */
+function placeEntry(t: On<"groupEntry">, group: string | null, position?: number): DraftOperation {
+  return {
+    kind: "placeCollection",
+    applicationKey: t.applicationKey,
+    ...(t.view ? { view: t.view } : { collection: t.collection }),
+    group,
+    ...(position === undefined ? {} : { position }),
+  };
+}
+
 function groupsOf(t: On<"group">, o: ModelDraftOutline) {
   return o.applications.find((a) => a.key === t.applicationKey)?.navigation.groups ?? [];
 }
@@ -2193,7 +2418,12 @@ present("Change", "sliders", ["attribute-type-features", "relation-rule"]);
 present("Change", "toggle", ["relation-required"]);
 present("Change", "filter", ["relation-candidates"]);
 present("Move", "arrow-right", ["type-move", "attribute-move"]);
-present("Move", "list", ["type-group"]);
+present("Move", "list", ["type-group", "view-group"]);
+present("Add", "plus", ["group-add", "application-group-add"]);
+present("Order", "sort-ascending", ["entry-up"]);
+present("Order", "sort-descending", ["entry-down"]);
+present("Place", "list", ["entry-move"]);
+present("Place", "arrow-left", ["entry-out"]);
 present("Move", "sort-ascending", ["attribute-up", "group-up"]);
 present("Move", "sort-descending", ["attribute-down", "group-down"]);
 present("Reshape", "swap", ["type-split"]);

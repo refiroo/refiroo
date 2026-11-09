@@ -45,6 +45,7 @@ const KINDS = new Set([
   "removeNavigationGroup",
   "setNavigationGroup",
   "placeCollection",
+  "setCollectionOpening",
   "addView",
   "removeView",
   "setViewProperty",
@@ -70,6 +71,7 @@ const TARGETS: Record<OperationTarget["on"], OperationTarget> = {
   relation: { on: "relation", relationType: "stores", from: "shelf", to: "bin" },
   view: { on: "view", applicationKey: "shop", view: "bins" },
   group: { on: "group", applicationKey: "shop", group: "lists" },
+  groupEntry: { on: "groupEntry", applicationKey: "shop", group: "lists", collection: "bin" },
   consumerApis: { on: "consumerApis" },
   consumerApi: { on: "consumerApi", consumerApi: "shop-feed", definition: consumerDefinitionFixture() },
   consumerItem: {
@@ -93,7 +95,7 @@ function completed(id: string, target: OperationTarget): FieldValues {
     values[missing.name] =
       missing.type === "select"
         ? (fieldOptions(missing, values)[0]?.value ?? "x")
-        : missing.type === "choices" || missing.type === "pairs"
+        : missing.type === "choices" || missing.type === "pairs" || missing.type === "checkboxes"
           ? [fieldOptions(missing, values)[0]?.value ?? "x"]
           : `Filled ${missing.name}`;
   }
@@ -309,6 +311,15 @@ describe("the editor's operation descriptors (D38)", () => {
       expect.arrayContaining(["relationName", "reverseName"]),
     );
     expect(names({ parent: "area", relationType: "holds" })).not.toContain("relationName");
+  });
+
+  it("says what Remove group does to relation matrices only when the group holds some", () => {
+    const confirm = operationById("group-remove")!.confirm!;
+    const target = { on: "group", applicationKey: "shop", group: "lists" } as never;
+    expect(confirm(target, outline)).toMatch(/top of the sidebar\.$/);
+    const withMatrix = structuredClone(outline);
+    withMatrix.applications[0].navigation.groups[0].entries.push({ view: "bins-by-shelf" });
+    expect(confirm(target, withMatrix)).toContain("relation matrices go back inside their row type's entry");
   });
 
   it("places a collection in a group of its application, or back at the top of the sidebar", () => {

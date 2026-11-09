@@ -385,6 +385,8 @@ function editorSelection(query: URLSearchParams): EditorSelection {
   const block = Number(query.get("block"));
   if (show === "list" && sheet && Number.isInteger(block) && block >= 0 && query.get("block"))
     return { show, sheet, block };
+  const application = query.get("application")?.trim();
+  if (show === "group" && key && application) return { show, application, key };
   if (show === "consumerApi" && key) {
     const tab = CONSUMER_API_TABS.find((item) => item === query.get("tab"));
     return tab ? { show, key, tab } : { show, key };
@@ -406,6 +408,8 @@ function editorPath(draftId: string, editor: EditorSelection): string {
   if (show === "column")
     return `${base}?show=column&sheet=${encodeURIComponent(editor.sheet)}&key=${encodeURIComponent(editor.key)}`;
   if (show === "list") return `${base}?show=list&sheet=${encodeURIComponent(editor.sheet)}&block=${editor.block}`;
+  if (show === "group")
+    return `${base}?show=group&application=${encodeURIComponent(editor.application)}&key=${encodeURIComponent(editor.key)}`;
   const mode =
     editor.show === "type" && editor.mode
       ? `&mode=${editor.mode}`

@@ -362,4 +362,177 @@ describe("ModelEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show issues" }));
     expect(screen.queryByText(/2 more than before/)).toBeNull();
   });
+
+  describe("navigation groups: relation matrices as entries (0.13)", () => {
+    /** Shop with a Lists group holding Bins and a matrix of shelves by bins, an empty More group, Area and Shelf in none. */
+    function matrixOutline() {
+      const outline = outlineFixture();
+      const shop = outline.applications[0];
+      shop.defaultView = "bins";
+      shop.views = [
+        { key: "bins", name: "Bins", type: "table", collection: "bin", shows: ["bin"], mark: "new" },
+        { key: "shelves", name: "Shelves", type: "table", collection: "shelf", shows: ["shelf"], mark: "new" },
+        {
+          key: "shelves-by-bin",
+          name: "Shelves by bin",
+          type: "relationMatrix",
+          collection: "shelf",
+          shows: ["shelf", "bin", "bin"],
+          mark: "new",
+        },
+      ];
+      shop.navigation = {
+        groups: [
+          {
+            key: "lists",
+            label: "Lists",
+            collapsed: false,
+            collections: ["bin", "shelf"],
+            entries: [{ collection: "bin" }, { view: "shelves-by-bin" }, { collection: "shelf" }],
+            mark: "new",
+          },
+          { key: "more", label: "More", collapsed: true, collections: [], entries: [], mark: "new" },
+        ],
+        ungrouped: ["area"],
+        opens: {},
+      };
+      return outline;
+    }
+
+    it("opens a group's panel with its entries, collections and matrices in one order", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      renderEditor({ show: "group", application: "shop", key: "lists" });
+      const table = await screen.findByRole("table", { name: "Entries of Lists" });
+      const rows = within(table).getAllByRole("row").slice(1);
+      expect(
+        rows.map((row) =>
+          within(row)
+            .getAllByRole("cell")
+            .slice(0, 3)
+            .map((cell) => cell.textContent?.trim()),
+        ),
+      ).toEqual([
+        ["Bin", "Collection", expect.stringContaining("Bins (table)")],
+        ["Shelves by bin", "Relation matrix", "Itself"],
+        ["Shelf", "Collection", expect.stringContaining("Shelves (table)")],
+      ]);
+      expect(screen.getByText("Navigation group of")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Add to group…" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Start folded" })).toBeTruthy();
+    });
+
+    it("sets what a collection opens on in place, and puts it back to the default as no choice", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+      renderEditor({ show: "group", application: "shop", key: "lists" });
+      await screen.findByRole("table", { name: "Entries of Lists" });
+      fireEvent.click(screen.getByRole("button", { name: /^Edit Opens on: Shelves \(table\)/ }));
+      const form = await screen.findByRole("form", { name: "Edit Opens on" });
+      fireEvent.change(within(form).getByRole("combobox"), { target: { value: "shelves-by-bin" } });
+      fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+          { kind: "setCollectionOpening", applicationKey: "shop", collection: "shelf", view: "shelves-by-bin" },
+        ]),
+      );
+    });
+
+    it("moves an entry within its group, to another group and out of it, each as one operation", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+      renderEditor({ show: "group", application: "shop", key: "lists" });
+      await screen.findByRole("table", { name: "Entries of Lists" });
+      fireEvent.click(screen.getByRole("button", { name: "Operations for Shelves by bin" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Move up" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenLastCalledWith("d1", 4, [
+          { kind: "placeCollection", applicationKey: "shop", view: "shelves-by-bin", group: "lists", position: 0 },
+        ]),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Operations for Shelves by bin" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Take out of the group" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenLastCalledWith("d1", 4, [
+          { kind: "placeCollection", applicationKey: "shop", view: "shelves-by-bin", group: null },
+        ]),
+      );
+    });
+
+    it("adds several entries in one step from a dialog that searches and says where each stands", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+      renderEditor({ show: "group", application: "shop", key: "more" });
+      fireEvent.click(await screen.findByRole("button", { name: "Add to group…" }));
+      const dialog = await screen.findByRole("dialog", { name: "Add to More" });
+      expect(within(dialog).getByRole("group", { name: "Collections" })).toBeTruthy();
+      expect(within(dialog).getByRole("group", { name: "Relation matrices" })).toBeTruthy();
+      const area = within(dialog).getByRole("checkbox", { name: /Area/ });
+      expect(area.closest("label")?.textContent).toContain("Top of the sidebar");
+      expect(
+        within(dialog)
+          .getByRole("checkbox", { name: /Shelves by bin/ })
+          .closest("label")?.textContent,
+      ).toContain("In Lists");
+      const send = within(dialog).getByRole("button", { name: "Add 0" });
+      expect(send).toBeDisabled();
+      fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and matrices" }), {
+        target: { value: "bin" },
+      });
+      expect(within(dialog).queryByRole("checkbox", { name: /Area/ })).toBeNull();
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: /Shelves by bin/ }));
+      expect(
+        within(dialog)
+          .getByRole("checkbox", { name: /Shelves by bin/ })
+          .closest("label")?.textContent,
+      ).toContain("Moves from Lists");
+      fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and matrices" }), {
+        target: { value: "" },
+      });
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: /Area/ }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 2" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+          { kind: "placeCollection", applicationKey: "shop", view: "shelves-by-bin", group: "more" },
+          { kind: "placeCollection", applicationKey: "shop", collection: "area", group: "more" },
+        ]),
+      );
+    });
+
+    it("lists matrices among a group's entries on the application panel, and adds the ungrouped to a group", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+      renderEditor({ show: "application", key: "shop" });
+      const table = await screen.findByRole("table", { name: "Navigation groups of Shop" });
+      expect(within(table).getByRole("columnheader", { name: "Entries" })).toBeTruthy();
+      expect(within(table).getByText("Shelves by bin")).toBeTruthy();
+      fireEvent.click(within(table).getByRole("button", { name: "Lists" }));
+      fireEvent.click(screen.getByRole("button", { name: "Add to a group…" }));
+      const dialog = await screen.findByRole("dialog", { name: "Add to a group" });
+      expect(within(dialog).getByRole("checkbox", { name: /Area/ })).toBeChecked();
+      fireEvent.change(within(dialog).getByLabelText("Group"), { target: { value: "more" } });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+          { kind: "placeCollection", applicationKey: "shop", collection: "area", group: "more" },
+        ]),
+      );
+    });
+
+    it("moves a relation matrix to a group from its own menu in the Views table", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+      renderEditor({ show: "application", key: "shop" });
+      await screen.findByRole("table", { name: "Views of Shop" });
+      fireEvent.click(screen.getByRole("button", { name: "Operations for the view Shelves by bin" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Move to group…" }));
+      const dialog = await screen.findByRole("dialog", { name: /Place Shelves by bin in a navigation group/ });
+      fireEvent.change(within(dialog).getByLabelText("Group"), { target: { value: "more" } });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+          { kind: "placeCollection", applicationKey: "shop", view: "shelves-by-bin", group: "more" },
+        ]),
+      );
+    });
+  });
 });

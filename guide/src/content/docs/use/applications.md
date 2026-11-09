@@ -16,7 +16,9 @@ declares the structure that view needs.
 
 Choose an application in the top bar, then a collection in the sidebar. A collection can have
 several views, shown as tabs. Changing tabs changes how you inspect the records; it does not
-copy them. **Browse records** offers another route to individual records through their hierarchy.
+copy them. The model can choose which view opens when you select a collection in the
+sidebar or on a group page. That choice may differ from the application's starting view;
+use the tabs to switch to another view when needed. **Browse records** offers another route to individual records through their hierarchy.
 
 ![An application with collections, record browsing and a table of records](/docs/screens/app-network.png)
 
@@ -56,15 +58,26 @@ and [The starter model](/docs/examples/the-starter-model/).
 
 Ungrouped collections appear first. Expand or fold a labelled group with its arrow; your choice
 is remembered in this browser. The model sets whether a group starts folded on your first visit. A folded group is marked when it contains the open collection.
-Choose the group's name to open its page, search collections by name and open one in the same
-Live, change-set or publication context. Groups have one level and show no record counts.
+Choose the group's name to open its page, search entries by name and open one in the same
+Live, change-set or publication context.
+
+A relation matrix the model places in a group has its own entry, named after the matrix's
+view. Its matrix symbol uses the row collection's colour. Choose it to open the matrix
+directly, from either the sidebar or the group page. The row collection stays in the sidebar
+and still offers the matrix among its view tabs. A matrix without its own group entry is
+available through that collection. Groups have one level and show no record counts.
+
+![Application sidebar with a relation matrix listed alongside a collection in a group](/docs/screens/app-navigation-matrix-entry.png)
+
+*Above: the Graubünden example model places Municipalities by system in a navigation group.
+The matrix opens directly; its row collection is still available.*
 
 A record page combines panels for fields, children, relationships, tables, hierarchy and history.
 The model chooses their arrangement. If it declares no detail layout, refiroo provides a default.
 The four collection views above are the supported kinds; dedicated form and dashboard views are
 not available.
 
-The group page's **Find a collection** searches collection names. **This group has no collections.**
+The group page's **Find a collection or matrix** searches collection and matrix names. **This group has no collections or relation matrices.**
 describes an empty group, rather than no records in its collections. For the shared table
 controls, see [Lists, search and filters](/docs/use/lists-and-filters/).
 
@@ -72,3 +85,8 @@ On a wide screen, each application has a coloured tile in the top bar. The open 
 is underlined; hovering over its tab shows the model's description. The product mark returns
 to **Home**, and the gear opens **Settings**. On a phone, choose the application from the band
 beneath the top bar instead. See [Appearance and devices](/docs/use/appearance-and-devices/).
+
+If a group says **No collection or relation matrix in this group matches “…”**, clear **Find a collection or matrix**
+or press Escape in that search field. This search covers collection and matrix names, not records.
+Opening a collection result uses its chosen starting view; opening a matrix result goes straight
+to that matrix. Both keep the current data context.

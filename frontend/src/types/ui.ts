@@ -225,6 +225,8 @@ export type EditorSelection =
   | { show: "type"; key: string; mode?: EditorMode }
   | { show: "application" | "relationType" | "attributeType"; key: string }
   | { show: "consumerApi"; key: string; tab?: ConsumerApiTab }
+  /** A navigation group of an application, by its key (the group panel). */
+  | { show: "group"; application: string; key: string }
   /** A column of the draft's source file, by its sheet and header (0.10 A5b). */
   | { show: "column"; sheet: string; key: string }
   /** A list of a sheet laid out for reading, by its sheet and its block's index (0.10 A8b, D123). */

@@ -9,6 +9,7 @@ export function SearchField({
   placeholder,
   clearOnEscape = false,
   onSubmit,
+  className,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -18,9 +19,11 @@ export function SearchField({
   clearOnEscape?: boolean;
   /** Enter sends the words (a question to ask, 0.16 AG4); nothing is sent as the person types. */
   onSubmit?: (value: string) => void;
+  /** A treatment the surface adds, such as `candidate-search` inside a dialog. */
+  className?: string;
 }) {
   return (
-    <label className="search-box">
+    <label className={className ? `search-box ${className}` : "search-box"}>
       <Icon name="search" />
       <input
         aria-label={label}

@@ -498,8 +498,10 @@ An application may declare navigation groups:
   maintain lists.
 - Groups are presentation only. They change no API, data or record validation and carry no
   permissions, so regrouping never needs a migration; in the editor it is an additive operation.
-- Validation: each entry is a collection of the application (a view source type), a collection is in
-  at most one group, group keys are unique within the application.
+- Validation: each entry is a collection of the application (a view source type) or a relation matrix
+  view of it (`{ "view": key }`, which then has an entry of its own in the sidebar), a collection or a
+  matrix is in at most one group, group keys are unique within the application. `navigation.opens`
+  names, per collection, the view its entry opens on.
 - The field is optional and arrives in 0.10's first schema language version; existing models stay
   valid unchanged.
 - Inference proposes groups from the workbook's structure (sheet names, section headers above blocks,
@@ -569,8 +571,9 @@ to a draft changed by a whole-model patch works on the patched model.
 
 The designer line (N1 to T1) comes before the spreadsheet line (A3 onward), at the user's request
 (plan D11); A3 has no dependency on the editor and may fill a gap. A7 and A8 may move to a 0.10.x
-release if R is not in reach. The migration class of operations is enabled in 1.0, on the 0.11
-migration boundary.
+release if R is not in reach. The migration class of operations was refused in 0.10 and enabled in
+0.13 (package MG), on the 0.11 migration boundary: the editor applies such a step and marks it as
+needing a migration, the draft states the migration it implies, and the workspace migration carries it.
 
 ## Exit gate
 
@@ -629,4 +632,4 @@ The recommendation is the planning default.
 - Canvas-first model authoring and pixel layouts ([TODO.md](TODO.md)).
 - General ETL: formulas, joins other than key lookup, scripting, scheduled pulls from external sources.
 - Live links to online spreadsheets.
-- Migration-class operations before 1.0.
+- Migration-class operations in 0.10 (enabled in 0.13, MG).

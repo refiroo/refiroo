@@ -58,6 +58,14 @@ def slots(data: dict[str, Any]) -> Iterator[Slot]:
             for group in _list(navigation, "groups"):
                 path = app + ["navigation", "groups", identity(group)]
                 yield from _strings(path, group, "collections", "objectType")
+            # The collections whose entry opens on a chosen view (a view named there is read by
+            # cascade._drop_orphan_navigation and by rename, which know the entries of a group too).
+            opens = navigation.get("opens")
+            if isinstance(opens, dict):
+                for type_key in opens:
+                    yield Slot(
+                        app + ["navigation", "opens"], type_key, "objectTypeMapKey", member=type_key
+                    )
 
 
 def _object_types(data: dict[str, Any]) -> Iterator[Slot]:

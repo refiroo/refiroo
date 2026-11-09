@@ -13,6 +13,7 @@ import { FormField } from "@/ui/FormField";
 import { MatrixPreviewPane } from "@/features/model-editor/MatrixPreviewPane";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { SearchField } from "@/ui/SearchField";
 import {
   fieldOptions,
   initialValues,
@@ -174,9 +175,10 @@ export function OperationDialog({
             return (
               <FormField key={field.name} label={field.label} help={field.hint} group>
                 {() => (
-                  <CheckboxList
+                  <SearchableCheckboxes
                     options={fieldOptions(field, values)}
                     chosen={chosen}
+                    search={field.search}
                     onChange={(next) => set(field.name, next)}
                   />
                 )}
@@ -258,11 +260,48 @@ export function OperationDialog({
             Cancel
           </button>
           <button type="submit" className="primary" disabled={pending || Boolean(missing)}>
-            {pending ? "Applying…" : "Apply"}
+            {pending ? "Applying…" : (operation.submit?.(values) ?? "Apply")}
           </button>
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** A checkbox list with a search over the options' names; what is chosen stays chosen while hidden. */
+function SearchableCheckboxes({
+  options,
+  chosen,
+  search,
+  onChange,
+}: {
+  options: ChoiceOption[];
+  chosen: string[];
+  search?: string;
+  onChange: (next: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const term = query.trim().toLocaleLowerCase();
+  const shown = term ? options.filter((option) => option.label.toLocaleLowerCase().includes(term)) : options;
+  return (
+    <>
+      {search && (
+        // Enter in the box searches; it never sends the form.
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          label={search}
+          placeholder={search}
+          onSubmit={() => undefined}
+          className="candidate-search"
+        />
+      )}
+      {term && shown.length === 0 ? (
+        <p className="muted">{`Nothing matches “${query.trim()}”.`}</p>
+      ) : (
+        <CheckboxList options={shown} chosen={chosen} onChange={onChange} />
+      )}
+    </>
   );
 }
 
@@ -301,6 +340,12 @@ function CheckboxList({
                     onChange={(event) => toggle(option.value, event.target.checked)}
                   />
                   {option.label}
+                  {option.note && (
+                    <>
+                      {" "}
+                      <span className="operation-checkbox-note">{option.note}</span>
+                    </>
+                  )}
                 </label>
                 {inside.length > 0 && (
                   <details

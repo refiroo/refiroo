@@ -386,15 +386,24 @@ class DetailViewDefinition(ModelDefinition):
     panels: tuple[PanelDefinition, ...]
 
 
+class NavigationViewEntry(ModelDefinition):
+    """A relation matrix standing in a navigation group as an entry of its own."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    view: str
+
+
 class NavigationGroupDefinition(ModelDefinition):
     """A labelled, collapsible sidebar section of an application's collections (schema 0.10, 0.10
-    N1): presentation only, carrying no data, validation or permission."""
+    N1) and relation matrices (``{"view": key}``), in one shared order: presentation only, carrying
+    no data, validation or permission."""
 
     model_config = ConfigDict(extra="forbid")
 
     key: str
     label: str
-    collections: tuple[str, ...] = ()
+    collections: tuple[str | NavigationViewEntry, ...] = ()
     collapsed: bool = False
 
 
@@ -402,6 +411,8 @@ class NavigationDefinition(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     groups: tuple[NavigationGroupDefinition, ...] = ()
+    # A collection's sidebar entry opens on this view of it, not on the application's default view.
+    opens: Mapping[str, str] = Field(default_factory=dict, exclude_if=lambda value: not value)
 
 
 class ApplicationDefinition(ModelDefinition):

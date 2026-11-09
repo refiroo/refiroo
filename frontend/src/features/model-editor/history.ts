@@ -168,10 +168,18 @@ export function describeOperation(
       return `Removed navigation group ${names("group", str(p.group), str(p.applicationKey))}`;
     case "setNavigationGroup":
       return `Changed navigation group ${names("group", str(p.group), str(p.applicationKey))}`;
-    case "placeCollection":
+    case "placeCollection": {
+      const entry = p.view ? `the matrix ${str(p.view)}` : type(p.collection);
       return p.group
-        ? `Placed ${type(p.collection)} in group ${names("group", str(p.group), str(p.applicationKey))}`
-        : `Placed ${type(p.collection)} at the top of the sidebar`;
+        ? `Placed ${entry} in group ${names("group", str(p.group), str(p.applicationKey))}`
+        : p.view
+          ? `Took ${entry} out of its group`
+          : `Placed ${entry} at the top of the sidebar`;
+    }
+    case "setCollectionOpening":
+      return p.view
+        ? `Made ${type(p.collection)} open on ${str(p.view)}`
+        : `Made ${type(p.collection)} open on the application's default view`;
     case "addView":
       return `Added view ${str((p.view as { name?: string } | undefined)?.name) || str((p.view as { key?: string } | undefined)?.key)}`;
     case "removeView":
@@ -292,6 +300,16 @@ export function followKeyChange(
   selection: EditorSelection,
   entries: ModelDraftOperationEntry[],
 ): EditorSelection | undefined {
+  if (selection.show === "group") {
+    // A group is renamed by a `setKey` naming its application and the group.
+    let key = selection.key;
+    for (const entry of entries) {
+      const element = (entry.parameters.element ?? {}) as Record<string, string>;
+      if (entry.kind === "setKey" && element.applicationKey === selection.application && element.group === key)
+        key = String(entry.parameters.key);
+    }
+    return key === selection.key ? undefined : { ...selection, key };
+  }
   const member = selection.show ? SELECTED_BY[selection.show] : undefined;
   if (!member || !("key" in selection)) return undefined;
   let key = selection.key;

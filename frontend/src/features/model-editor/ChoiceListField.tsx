@@ -13,7 +13,14 @@ import { Icon } from "@/ui/Icon";
  * One option of a picklist. In a checkbox list `group` heads the options that share it, and `under`
  * (the value of another option) unfolds the option beneath that one, grouped in turn.
  */
-export type ChoiceOption = { value: string; label: string; group?: string; under?: string };
+export type ChoiceOption = {
+  value: string;
+  label: string;
+  group?: string;
+  under?: string;
+  /** Secondary words beside a checkbox option: where it stands now. */
+  note?: string;
+};
 
 export function ChoiceListField({
   label,

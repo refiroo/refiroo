@@ -5,12 +5,24 @@
  */
 
 import type { Hue } from "@/model/hues";
-import { ModelIcon } from "@/ui/Icon";
+import { Icon, ModelIcon, type IconName } from "@/ui/Icon";
 
-export function HueTile({ hue, icon, size = 22 }: { hue?: Hue; icon?: string; size?: 18 | 20 | 22 | 40 }) {
+export function HueTile({
+  hue,
+  icon,
+  glyph,
+  size = 22,
+}: {
+  hue?: Hue;
+  icon?: string;
+  /** The interface's own glyph in place of a model icon (a relation matrix's entry). */
+  glyph?: IconName;
+  size?: 18 | 20 | 22 | 40;
+}) {
+  const glyphSize = size === 40 ? 20 : size <= 18 ? 11 : 12;
   return (
     <span className={`hue-tile hue-tile-${size}`} data-hue={hue}>
-      <ModelIcon name={icon} size={size === 40 ? 20 : size <= 18 ? 11 : 12} />
+      {glyph ? <Icon name={glyph} size={glyphSize} /> : <ModelIcon name={icon} size={glyphSize} />}
     </span>
   );
 }

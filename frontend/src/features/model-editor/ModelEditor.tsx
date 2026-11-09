@@ -525,19 +525,22 @@ export function ModelEditor({
       ? (listName ?? "List")
       : selection.show === "type"
         ? typeName(outline, selection.key)
-        : selection.show === "application"
-          ? (applicationOf(outline, selection.key)?.name ?? selection.key)
-          : selection.show === "relationType"
-            ? (relationTypeOf(outline, selection.key)?.name ?? selection.key)
-            : selection.show === "attributeType"
-              ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
-              : selection.show === "consumerApi"
-                ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
-                : selection.show === "column"
-                  ? selection.key
-                  : selection.show === "matrix"
-                    ? "Matrix"
-                    : "Selection";
+        : selection.show === "group"
+          ? (applicationOf(outline, selection.application)?.navigation.groups.find((g) => g.key === selection.key)
+              ?.label ?? selection.key)
+          : selection.show === "application"
+            ? (applicationOf(outline, selection.key)?.name ?? selection.key)
+            : selection.show === "relationType"
+              ? (relationTypeOf(outline, selection.key)?.name ?? selection.key)
+              : selection.show === "attributeType"
+                ? (attributeTypeOf(outline, selection.key)?.name ?? selection.key)
+                : selection.show === "consumerApi"
+                  ? (consumerApiOf(outline, selection.key)?.name ?? selection.key)
+                  : selection.show === "column"
+                    ? selection.key
+                    : selection.show === "matrix"
+                      ? "Matrix"
+                      : "Selection";
 
   const hasSource = Boolean(source.profile?.sourceFile);
   const draftProfile = source.profile?.profile;

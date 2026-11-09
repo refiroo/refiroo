@@ -156,6 +156,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "name": application.get("name") or app_key,
                 "icon": application.get("icon"),
                 "color": application.get("color"),
+                "defaultView": application.get("defaultView"),
                 "objectTypeKeys": types,
                 "tree": _tree(document, types),
                 "navigation": _navigation(application, base, types),
@@ -414,11 +415,15 @@ def _reachable(key: str, roots: list[str], children: dict[str, list[str]]) -> bo
 
 def _navigation(application: dict[str, Any], base: dict[str, Any], types: list[str]) -> dict[str, Any]:
     base_application = _item(base, "applications", application.get("key")) or {}
-    base_groups = {g.get("key"): g for g in _items(base_application.get("navigation") or {}, "groups")}
+    base_groups = {
+        g.get("key"): g for g in _items(base_application.get("navigation") or {}, "groups")
+    }
+    navigation = application.get("navigation") or {}
     groups = []
     grouped: set[str] = set()
-    for group in _items(application.get("navigation") or {}, "groups"):
-        collections = [c for c in group.get("collections") or [] if isinstance(c, str)]
+    for group in _items(navigation, "groups"):
+        members = group.get("collections") or []
+        collections = [c for c in members if isinstance(c, str)]
         grouped.update(collections)
         before = base_groups.get(group.get("key"))
         groups.append(
@@ -427,10 +432,24 @@ def _navigation(application: dict[str, Any], base: dict[str, Any], types: list[s
                 "label": group.get("label") or group.get("key"),
                 "collapsed": bool(group.get("collapsed", False)),
                 "collections": collections,
-                "mark": "new" if before is None else ("released" if _same("groups", before, group) else "changed"),
+                # Types and matrices in the group's one order.
+                "entries": [
+                    {"collection": c} if isinstance(c, str) else {"view": c.get("view")}
+                    for c in members
+                    if isinstance(c, str)
+                    or (isinstance(c, dict) and isinstance(c.get("view"), str))
+                ],
+                "mark": "new"
+                if before is None
+                else ("released" if _same("groups", before, group) else "changed"),
             }
         )
-    return {"groups": groups, "ungrouped": [key for key in _collections(application) if key not in grouped]}
+    opens = navigation.get("opens")
+    return {
+        "groups": groups,
+        "ungrouped": [key for key in _collections(application) if key not in grouped],
+        "opens": dict(opens) if isinstance(opens, dict) else {},
+    }
 
 
 def _collections(application: dict[str, Any]) -> list[str]:
@@ -438,21 +457,25 @@ def _collections(application: dict[str, Any]) -> list[str]:
     ``validation.application_rules.collection_keys`` reads them from a parsed model."""
     result: list[str] = []
     for view in _items(application, "views"):
-        config = view.get("config") or {}
-        kind = view.get("type")
-        if kind == "table":
-            source = view.get("objectTypeKey")
-        elif kind == "relationMatrix":
-            source = config.get("rowObjectTypeKey")
-        elif kind == "tree":
-            source = (config.get("rootObjectTypeKeys") or [None])[0]
-        elif config.get("direction") == "outgoing":
-            source = config.get("fromObjectTypeKey")
-        else:
-            source = config.get("toObjectTypeKey")
+        source = _collection_of(view)
         if isinstance(source, str) and source not in result:
             result.append(source)
     return result
+
+
+def _collection_of(view: dict[str, Any]) -> Any:
+    """The collection a view belongs to: its source type."""
+    config = view.get("config") or {}
+    kind = view.get("type")
+    if kind == "table":
+        return view.get("objectTypeKey")
+    if kind == "relationMatrix":
+        return config.get("rowObjectTypeKey")
+    if kind == "tree":
+        return (config.get("rootObjectTypeKeys") or [None])[0]
+    if config.get("direction") == "outgoing":
+        return config.get("fromObjectTypeKey")
+    return config.get("toObjectTypeKey")
 
 
 def _views(application: dict[str, Any], base: dict[str, Any]) -> list[dict[str, Any]]:
@@ -475,6 +498,10 @@ def _views(application: dict[str, Any], base: dict[str, Any]) -> list[dict[str, 
                 "key": view.get("key"),
                 "name": view.get("name") or view.get("key"),
                 "type": kind,
+                # The collection the view belongs to (its source type), for opening on it.
+                "collection": _collection_of(view)
+                if isinstance(_collection_of(view), str)
+                else None,
                 "shows": [key for key in shows if isinstance(key, str)],
                 # What the editor changes a matrix from; the other kinds change in the preview.
                 **({"matrix": config} if kind == "relationMatrix" else {}),

@@ -22,7 +22,7 @@ from ....models.schema import ObjectTypeDefinition, TreeViewConfig
 from ..compiler import SCHEMA_VERSIONS
 from ..validation.application_rules import tree_action_refusal
 from . import profile_side
-from .cascade import Gone, prune, rename
+from .cascade import Gone, drop_view_navigation, prune, rename
 from .document import (
     MODEL,
     PROFILE,
@@ -1950,8 +1950,13 @@ def remove_view(context: Context, raw: dict[str, Any]) -> Applied:
         remaining = [v.get("key") for v in context.document.at(application_path(app)).get("views") or []]
         context.document.set(application_path(app), "defaultView", remaining[0] if remaining else "")
     named = {atom("view", app, raw["view"])}
-    leaving = needed & set(unlistable_types(context.document, app, context.released)) if raw.get("unlist") is True else set()
-    if leaving:
+    leaving = (
+        needed & set(unlistable_types(context.document, app, context.released))
+        if raw.get("unlist") is True
+        else set()
+    )
+    left_navigation = drop_view_navigation(context.document, application_path(app), raw["view"])
+    if leaving or left_navigation:
         for type_key in sorted(leaving):
             context.document.remove(application_path(app) + ["objectTypeKeys"], type_key)
         return restoring(context, {"kind": "removeView", **raw}, Applied(raw, {}, named=named))
@@ -2092,7 +2097,8 @@ def add_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
         {**raw, "key": key},
         {"kind": "removeNavigationGroup", "applicationKey": app, "group": key},
         created={atom("group", app, key)},
-        named={atom("application", app)} | {atom("objectType", c) for c in collections},
+        named={atom("application", app)}
+        | {atom("objectType", c) for c in collections if isinstance(c, str)},
     )
 
 
@@ -2104,7 +2110,9 @@ def remove_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
     groups = context.document.at(path[:-1])
     position = next(i for i, g in enumerate(groups) if g.get("key") == raw["group"])
     removed = context.document.remove(path[:-1], path[-1])
-    if not context.document.at(path[:-1]):
+    if not context.document.at(path[:-1]) and not (
+        context.document.at(application_path(app) + ["navigation"]).get("opens")
+    ):
         context.document.set(application_path(app), "navigation", None)
     return Applied(
         raw,
@@ -2146,14 +2154,37 @@ def set_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
     return Applied(raw, inverse, named={atom("group", app, raw["group"])})
 
 
-@kind("placeCollection", params=("applicationKey", "collection", "group", "position"))
+@kind("placeCollection", params=("applicationKey", "collection", "view", "group", "position"))
 def place_collection(context: Context, raw: dict[str, Any]) -> Applied:
-    """Place a collection in a navigation group."""
+    """Place an entry in a navigation group, or take it out (``group`` null): a collection (its
+    type, ``collection``) or a relation matrix view (``view``, which then has an entry of its own),
+    at ``position`` of the group's one order, moving it from where it stood."""
     params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)
-    collection = params.text("collection")
-    context.object_type(collection, "collection")
+    if ("collection" in raw) == ("view" in raw):
+        raise Refusal(
+            "collection", "missingParameter", "Name the entry: a collection or a view, not both"
+        )
+    entry: Any
+    if "view" in raw:
+        view_key = params.text("view")
+        view = next((v for v in application.get("views") or [] if v.get("key") == view_key), None)
+        if view is None:
+            raise Refusal("view", "unknownElement", f"No view '{view_key}' in '{app}'")
+        if view.get("type") != "relationMatrix":
+            raise Refusal(
+                "view",
+                "invalidValue",
+                f"View '{view_key}' is not a relation matrix; only a matrix has an entry of its own",
+            )
+        entry, named_entry = {"view": view_key}, atom("view", app, view_key)
+        identifies = {"view": view_key}
+    else:
+        entry = params.text("collection")
+        context.object_type(entry, "collection")
+        identifies = {"collection": entry}
+        named_entry = atom("objectType", entry)
     target = params.optional("group")
     groups = ((application.get("navigation") or {}).get("groups")) or []
     if target is not None and not any(g.get("key") == target for g in groups):
@@ -2161,18 +2192,78 @@ def place_collection(context: Context, raw: dict[str, Any]) -> Applied:
     old_group, old_position = None, None
     for group in groups:
         members = group.get("collections") or []
-        if collection in members:
-            old_group, old_position = group["key"], members.index(collection)
-            context.document.remove(application_path(app) + ["navigation", "groups", {"key": group["key"]}, "collections"], collection)
+        if entry in members:
+            old_group, old_position = group["key"], members.index(entry)
+            context.document.remove(
+                application_path(app)
+                + ["navigation", "groups", {"key": group["key"]}, "collections"],
+                entry,
+            )
     if target is not None:
         members_path = application_path(app) + ["navigation", "groups", {"key": target}, "collections"]
         members = context.document.find(members_path) or []
-        context.document.insert(members_path, collection, _position(params, members))
-    inverse: dict[str, Any] = {"kind": "placeCollection", "applicationKey": app, "collection": collection, "group": old_group}
+        context.document.insert(members_path, entry, _position(params, members))
+    inverse: dict[str, Any] = {
+        "kind": "placeCollection",
+        "applicationKey": app,
+        **identifies,
+        "group": old_group,
+    }
     if old_position is not None:
         inverse["position"] = old_position
-    named = {atom("application", app), atom("objectType", collection)} | ({atom("group", app, target)} if target else set())
+    named = {atom("application", app), named_entry} | (
+        {atom("group", app, target)} if target else set()
+    )
     return Applied(raw, inverse, named=named)
+
+
+@kind("setCollectionOpening", params=("applicationKey", "collection", "view"))
+def set_collection_opening(context: Context, raw: dict[str, Any]) -> Applied:
+    """The view a collection's sidebar entry opens on (``view`` null: the application's default
+    view), by a view over the collection's type."""
+    params = Params(raw)
+    app = params.text("applicationKey")
+    application = context.application(app)
+    collection = params.text("collection")
+    context.object_type(collection, "collection")
+    views = application.get("views") or []
+    if collection not in {_listed_type(v) for v in views}:
+        raise Refusal("collection", "unknownElement", f"'{collection}' is no collection of '{app}'")
+    view_key = params.optional("view")
+    if view_key is not None and not any(
+        v.get("key") == view_key and _listed_type(v) == collection for v in views
+    ):
+        raise Refusal(
+            "view", "unknownElement", f"No view '{view_key}' of '{collection}' in '{app}'"
+        )
+    path = application_path(app)
+    navigation = application.get("navigation")
+    previous = (
+        (navigation.get("opens") or {}).get(collection) if isinstance(navigation, dict) else None
+    )
+    if view_key is not None:
+        if not isinstance(navigation, dict):
+            context.document.set(path, "navigation", {"groups": []})
+        context.document.set(
+            path + ["navigation"],
+            "opens",
+            {
+                **(context.document.at(path + ["navigation"]).get("opens") or {}),
+                collection: view_key,
+            },
+        )
+    elif previous is not None:
+        remaining = {k: v for k, v in navigation["opens"].items() if k != collection}
+        context.document.set(path + ["navigation"], "opens", remaining or None)
+        if not remaining and not navigation.get("groups"):
+            context.document.set(path, "navigation", None)
+    inverse = {
+        "kind": "setCollectionOpening",
+        "applicationKey": app,
+        "collection": collection,
+        "view": previous,
+    }
+    return Applied(raw, inverse, named={atom("application", app), atom("objectType", collection)})
 
 
 # --- written by the server ---

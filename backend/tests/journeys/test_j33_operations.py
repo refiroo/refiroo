@@ -871,3 +871,329 @@ def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand
     error = refused(_apply(world, draft, current["version"], {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key}), 409, "OPERATION_REQUIRES_MIGRATION")
     assert error["details"]["element"] == {"applicationKey": r_app, "objectType": r_key}
     assert error["details"]["impact"]["records"] >= 1
+
+
+def _matrix_application(world) -> tuple[dict[str, Any], dict[str, Any]]:
+    """An empty draft built, in one request, into an application with a row type, a column type and a
+    cell type, a relation matrix over them and two navigation groups; returns the draft and the answer."""
+    draft = _empty_draft(world)
+    parent = {"relationType": {"key": "j33-holds", "name": "Holds", "reverseName": "Held by"}}
+    matrix = {
+        "key": "j33-rows-by-tongue",
+        "name": "Rows by tongue",
+        "type": "relationMatrix",
+        "config": {
+            "relationTypeKey": "j33-worded",
+            "direction": "outgoing",
+            "rowObjectTypeKey": "j33-row",
+            "columnObjectTypeKey": "j33-tongue",
+            "cellObjectTypeKey": "j33-word",
+            "rowColumns": ["name"],
+            "columnLabelField": "name",
+            "cellFields": ["j33-text"],
+            "searchFields": ["name"],
+            "cellActions": ["create", "edit"],
+            "pageSize": 20,
+        },
+    }
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {"kind": "addApplication", "key": "j33-nav", "name": "J33 Navigation"},
+            {
+                "kind": "addObjectType",
+                "applicationKey": "j33-nav",
+                "key": "j33-row",
+                "name": "Row",
+                "pluralName": "Rows",
+                "parent": None,
+            },
+            {
+                "kind": "addObjectType",
+                "applicationKey": "j33-nav",
+                "key": "j33-tongue",
+                "name": "Tongue",
+                "pluralName": "Tongues",
+                "parent": None,
+            },
+            {
+                "kind": "addObjectType",
+                "applicationKey": "j33-nav",
+                "key": "j33-word",
+                "name": "Word",
+                "pluralName": "Words",
+                "parent": {**parent, "objectTypes": ["j33-tongue"]},
+            },
+            _attribute("j33-text", "Text"),
+            {"kind": "attachAttribute", "objectType": "j33-word", "attributeType": "j33-text"},
+            {
+                "kind": "addRelationType",
+                "key": "j33-worded",
+                "name": "Worded",
+                "reverseName": "Words of",
+            },
+            {
+                "kind": "allowRelation",
+                "relationType": "j33-worded",
+                "from": "j33-row",
+                "to": "j33-word",
+                "cardinality": "one-to-many",
+            },
+            {"kind": "addView", "applicationKey": "j33-nav", "view": matrix},
+            {"kind": "addNavigationGroup", "applicationKey": "j33-nav", "label": "First"},
+            {"kind": "addNavigationGroup", "applicationKey": "j33-nav", "label": "Second"},
+        )
+    )
+    assert answer["valid"] is True, answer["diagnostics"]
+    return draft, answer
+
+
+def _navigation(world, draft: dict[str, Any]) -> dict[str, Any]:
+    return _application(_model(world, draft), "j33-nav")["navigation"]
+
+
+@pytest.mark.journey("J33.9", "J33.2")
+@pytest.mark.structures("A1")
+def test_a_relation_matrix_is_placed_in_a_group_ordered_moved_and_opened_on(world):
+    """Given an application with a matrix and two groups. When the matrix and its row type are placed
+    in the first group, reordered, the matrix moved to the second group and the row type set to open
+    on it. Then each step shows in the model and the outline in the group's one order, the matrix
+    stands in one group only, and the draft installs. Taking an entry out and clearing the opening
+    leave the application without navigation members it no longer needs."""
+    draft, built = _matrix_application(world)
+    view = "j33-rows-by-tongue"
+    place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
+
+    step = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            {**place, "collection": "j33-row", "group": "first"},
+            {**place, "view": view, "group": "first", "position": 0},
+        )
+    )
+    assert _navigation(world, draft)["groups"][0]["collections"] == [{"view": view}, "j33-row"]
+    outline = _by_key(_outline(world, draft)["applications"], "j33-nav")["navigation"]
+    assert outline["groups"][0]["entries"] == [{"view": view}, {"collection": "j33-row"}]
+    assert outline["ungrouped"] == ["j33-tongue", "j33-word"]
+
+    step = ok(
+        _apply(
+            world,
+            draft,
+            step["version"],
+            {**place, "collection": "j33-row", "group": "first", "position": 0},
+        )
+    )
+    assert _navigation(world, draft)["groups"][0]["collections"] == ["j33-row", {"view": view}]
+
+    step = ok(_apply(world, draft, step["version"], {**place, "view": view, "group": "second"}))
+    groups = _navigation(world, draft)["groups"]
+    assert [g["collections"] for g in groups] == [["j33-row"], [{"view": view}]]
+
+    step = ok(
+        _apply(
+            world,
+            draft,
+            step["version"],
+            {
+                "kind": "setCollectionOpening",
+                "applicationKey": "j33-nav",
+                "collection": "j33-row",
+                "view": view,
+            },
+        )
+    )
+    assert _navigation(world, draft)["opens"] == {"j33-row": view}
+    assert _by_key(_outline(world, draft)["applications"], "j33-nav")["navigation"]["opens"] == {
+        "j33-row": view
+    }
+
+    # The step's inverse puts the opening back to the default view.
+    undone = ok(_undo(world, draft, step["version"]))
+    assert "opens" not in _navigation(world, draft)
+    redone = ok(_redo(world, draft, undone["version"]))
+    assert _navigation(world, draft)["opens"] == {"j33-row": view}
+
+    step = ok(_apply(world, draft, redone["version"], {**place, "view": view, "group": None}))
+    assert _navigation(world, draft)["groups"][1]["collections"] == []
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": step["version"]}
+        ),
+        201,
+    )
+    assert release["id"]
+
+
+@pytest.mark.journey("J33.9", "J33.2")
+@pytest.mark.structures("A1")
+def test_adding_several_entries_is_one_step_and_one_undo(world):
+    """Given two groups and a matrix. When one request places the row type, the tongue type and the
+    matrix in the first group, moving the tongue from the second. Then it is one step of the history,
+    and one undo restores both groups as they were."""
+    draft, built = _matrix_application(world)
+    view = "j33-rows-by-tongue"
+    place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
+    first = ok(
+        _apply(
+            world, draft, built["version"], {**place, "collection": "j33-tongue", "group": "second"}
+        )
+    )
+    before = _navigation(world, draft)
+    several = ok(
+        _apply(
+            world,
+            draft,
+            first["version"],
+            {**place, "collection": "j33-row", "group": "first"},
+            {**place, "collection": "j33-tongue", "group": "first"},
+            {**place, "view": view, "group": "first"},
+        )
+    )
+    assert [g["collections"] for g in _navigation(world, draft)["groups"]] == [
+        ["j33-row", "j33-tongue", {"view": view}],
+        [],
+    ]
+    latest = _history(world, draft)["items"][-3:]
+    assert len({entry["step"] for entry in latest}) == 1
+    ok(_undo(world, draft, several["version"]))
+    assert _navigation(world, draft) == before
+
+
+@pytest.mark.journey("J33.9", "J33.2")
+@pytest.mark.structures("A1")
+def test_a_matrix_entry_follows_its_view_key_and_goes_with_its_view(world):
+    """Given a matrix in a group that its row type opens on. When the view is given a new key, then
+    the group's entry and the opening follow it. When the view is removed, the entry and the opening
+    go with it, and one undo returns both."""
+    draft, built = _matrix_application(world)
+    view = "j33-rows-by-tongue"
+    place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
+    step = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            {**place, "view": view, "group": "first"},
+            {
+                "kind": "setCollectionOpening",
+                "applicationKey": "j33-nav",
+                "collection": "j33-row",
+                "view": view,
+            },
+        )
+    )
+    renamed = ok(
+        _apply(
+            world,
+            draft,
+            step["version"],
+            {
+                "kind": "setKey",
+                "element": {"applicationKey": "j33-nav", "view": view},
+                "key": "j33-matrix",
+            },
+        )
+    )
+    assert _navigation(world, draft)["groups"][0]["collections"] == [{"view": "j33-matrix"}]
+    assert _navigation(world, draft)["opens"] == {"j33-row": "j33-matrix"}
+    ok(_undo(world, draft, renamed["version"]))
+    assert _navigation(world, draft)["groups"][0]["collections"] == [{"view": view}]
+
+    removed = ok(
+        _apply(
+            world,
+            draft,
+            _draft(world, draft)["version"],
+            {"kind": "removeView", "applicationKey": "j33-nav", "view": view},
+        )
+    )
+    assert removed["valid"] is True, removed["diagnostics"]
+    assert _navigation(world, draft)["groups"][0]["collections"] == []
+    assert "opens" not in _navigation(world, draft)
+    ok(_undo(world, draft, removed["version"]))
+    assert _navigation(world, draft)["groups"][0]["collections"] == [{"view": view}]
+    assert _navigation(world, draft)["opens"] == {"j33-row": view}
+
+
+@pytest.mark.journey("J33.9")
+@pytest.mark.structures("A1")
+def test_navigation_entries_that_name_nothing_valid_are_refused(world):
+    """Given an application with a matrix. When an operation places a table view or an unknown view,
+    or sets an opening on a view of another collection, it is refused INVALID_OPERATION at its
+    parameter. When a document names a table as a matrix entry, a matrix in two groups, or an opening
+    for a view of another collection, validation refuses each at its pointer."""
+    draft, built = _matrix_application(world)
+    place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
+    tongue_view = next(
+        v["key"]
+        for v in _application(_model(world, draft), "j33-nav")["views"]
+        if v.get("objectTypeKey") == "j33-tongue"
+    )
+    for operation, parameter in (
+        ({**place, "view": tongue_view, "group": "first"}, "view"),
+        ({**place, "view": "j33-nowhere", "group": "first"}, "view"),
+        (
+            {**place, "view": "j33-rows-by-tongue", "collection": "j33-row", "group": "first"},
+            "collection",
+        ),
+        (
+            {
+                "kind": "setCollectionOpening",
+                "applicationKey": "j33-nav",
+                "collection": "j33-row",
+                "view": tongue_view,
+            },
+            "view",
+        ),
+        (
+            {
+                "kind": "setCollectionOpening",
+                "applicationKey": "j33-nav",
+                "collection": "j33-nowhere",
+                "view": tongue_view,
+            },
+            "collection",
+        ),
+    ):
+        assert parameter in str(
+            refused(_apply(world, draft, built["version"], operation), 422, "INVALID_OPERATION")
+        )
+
+    model = _model(world, draft)
+    navigation = _application(model, "j33-nav")["navigation"] = {
+        "groups": [
+            {
+                "key": "first",
+                "label": "First",
+                "collections": [{"view": tongue_view}, {"view": "j33-rows-by-tongue"}],
+            },
+            {"key": "second", "label": "Second", "collections": [{"view": "j33-rows-by-tongue"}]},
+        ],
+        "opens": {"j33-tongue": "j33-rows-by-tongue"},
+    }
+    found = {
+        (d["code"], d["path"])
+        for d in ok(world.api.post("/model-validations", {"model": model}))["diagnostics"]
+        if d["severity"] == "error"
+    }
+    pointer = "/applications/j33-nav/navigation"
+    assert ("INVALID_REFERENCE", f"{pointer}/groups/first/collections/0/view") in found, found
+    navigation["groups"][0]["collections"].pop(0)
+    found = {
+        (d["code"], d["path"])
+        for d in ok(world.api.post("/model-validations", {"model": model}))["diagnostics"]
+        if d["severity"] == "error"
+    }
+    assert ("INVALID_MODEL", f"{pointer}/groups/second/collections/0") in found, found
+    navigation["groups"][1]["collections"].clear()
+    found = {
+        (d["code"], d["path"])
+        for d in ok(world.api.post("/model-validations", {"model": model}))["diagnostics"]
+        if d["severity"] == "error"
+    }
+    assert found == {("INVALID_REFERENCE", f"{pointer}/opens/j33-tongue")}, found
