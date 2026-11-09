@@ -17,6 +17,7 @@ export function Modal({
   onClose,
   busy = false,
   size,
+  width,
   role = "dialog",
   showClose = true,
   initialFocusRef,
@@ -35,6 +36,8 @@ export function Modal({
   /** While true the dialog refuses to close, so an in-flight write is not abandoned half way. */
   busy?: boolean;
   size?: "compact" | "confirm" | "navigation" | "wide";
+  /** A CSS length for a dialog whose content sets its own width (a table's columns); never wider than the window. */
+  width?: string;
   role?: "dialog" | "alertdialog";
   showClose?: boolean;
   /**
@@ -64,7 +67,10 @@ export function Modal({
       isKeyboardDismissDisabled={busy}
       onOpenChange={(open) => !open && requestClose()}
     >
-      <AriaModal className={`dialog${size ? ` ${size}-dialog` : ""}`}>
+      <AriaModal
+        className={`dialog${size ? ` ${size}-dialog` : ""}`}
+        style={width ? { width: `min(${width}, 100%)` } : undefined}
+      >
         <Dialog role={role}>
           <div className="dialog-header">
             {icon && (

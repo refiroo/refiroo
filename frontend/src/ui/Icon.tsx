@@ -12,6 +12,7 @@ import {
   ArrowDown,
   ArrowDownToLine,
   ArrowLeft,
+  ArrowUpRight,
   ArrowLeftRight,
   ArrowRight,
   ArrowUp,
@@ -71,6 +72,7 @@ import {
   X,
   Pencil,
   Trash2,
+  Unlink,
   Webhook,
   Download,
 } from "lucide-react";
@@ -78,6 +80,7 @@ import {
 const icons = {
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
+  "arrow-up-right": ArrowUpRight,
   "to-start": ArrowUpToLine,
   "to-end": ArrowDownToLine,
   calendar: Calendar,
@@ -125,6 +128,7 @@ const icons = {
   sun: Sun,
   table: Table2,
   trash: Trash2,
+  unlink: Unlink,
   undo: Undo2,
   redo: Redo2,
   grip: GripVertical,

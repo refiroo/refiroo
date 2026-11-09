@@ -4,7 +4,7 @@
  * (`GET /workspaces/{key}/relations` through the view); the rows scroll in a `ScrollWindow` over a
  * cursor window. A grouped table heads its rows by their `from` or `to` record with the group's
  * count. An attribute cell edits where it stands and saves as it is left, through the same
- * `RelationAttributes` and save the Edit values dialog uses; ticked rows get one attribute set to
+ * `RelationAttributes` and save the Edit values dialog uses (`RelationValueCell`); ticked rows get one attribute set to
  * one value in one request (`POST /relations/batch`), all or none. Where the data cannot be written
  * (a publication, a read-only view, no permission) no control is offered.
  */
@@ -12,13 +12,8 @@
 import { useState, type FormEvent } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import {
-  RELATION_ATTRIBUTES_LABEL,
-  RelationAttributes,
-  RelationConflictNotice,
-  relationAttributeTypes,
-} from "@/features/objects/relations/RelationAttributes";
-import { useRelationValueSave } from "@/features/objects/relations/RelationValueField";
+import { RELATION_ATTRIBUTES_LABEL, relationAttributeTypes } from "@/features/objects/relations/RelationAttributes";
+import { RelationValueCell } from "@/features/objects/relations/RelationValueCell";
 import { relationAttributeColumn } from "@/features/objects/relations/relationAttributeColumns";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
@@ -34,7 +29,6 @@ import type {
 import { Card } from "@/ui/Card";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { Icon } from "@/ui/Icon";
-import { EditInPlaceCell } from "@/ui/EditInPlace";
 import { HueTile } from "@/ui/HueTile";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
@@ -189,10 +183,10 @@ export function RelationTableView({
       key: relationAttributeColumn(attribute.key),
       label: attribute.name,
       cell: (row) => (
-        <AttributeCell
+        <RelationValueCell
           key={`${row.relationId}:${row.relationVersion}`}
           attribute={attribute}
-          row={row}
+          relation={{ id: row.relationId, version: row.relationVersion, attributes: row.attributes }}
           label={`${row.source.name} · ${row.target.name}`}
           editable={editable}
           workspaceKey={workspaceKey}
@@ -438,7 +432,7 @@ export function RelationTableView({
 }
 
 /** A value as a form yields it, or `undefined` when it is not one of the attribute's type. */
-function safeValue(attribute: AttributeTypeDefinition, raw: string) {
+export function safeValue(attribute: AttributeTypeDefinition, raw: string) {
   try {
     const value = parseAttributeValue(attribute, raw);
     return typeof value === "number" && Number.isNaN(value) ? undefined : value;
@@ -447,7 +441,7 @@ function safeValue(attribute: AttributeTypeDefinition, raw: string) {
   }
 }
 
-function BulkValue({
+export function BulkValue({
   attribute,
   raw,
   onChange,
@@ -607,86 +601,5 @@ function GroupBand({
         <span className="relation-group-count">{count === 1 ? "1 relationship" : `${count} relationships`}</span>
       )}
     </div>
-  );
-}
-
-/**
- * One attribute of one relationship in a row: its value, and where it can be written an edit that
- * opens the field in the cell and saves when the cell is left or Enter is pressed (a flag as it is
- * toggled). A conflict stays on the row with the relationship as it is saved now.
- */
-function AttributeCell({
-  attribute,
-  row,
-  label,
-  editable,
-  workspaceKey,
-  onSaved,
-}: {
-  attribute: AttributeTypeDefinition;
-  row: RelationTableRow;
-  label: string;
-  editable: boolean;
-  workspaceKey: string;
-  onSaved: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const edit = useRelationValueSave(
-    attribute,
-    { id: row.relationId, version: row.relationVersion, attributes: row.attributes },
-    workspaceKey,
-  );
-  async function save(form: HTMLFormElement) {
-    const result = await edit.saveValue(form);
-    if (result) {
-      setEditing(false);
-      if (result === "saved") onSaved();
-    }
-  }
-  if (!editing)
-    return editable ? (
-      <EditInPlaceCell
-        name={attribute.name}
-        record={label}
-        onEdit={() => {
-          edit.reset();
-          setEditing(true);
-        }}
-      >
-        {formatValue(row.attributes[attribute.key])}
-      </EditInPlaceCell>
-    ) : (
-      <span className="relation-attribute-cell">{formatValue(row.attributes[attribute.key])}</span>
-    );
-  return (
-    <form
-      className="relation-attribute-cell is-editing"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save(event.currentTarget);
-      }}
-      onChange={(event) => {
-        // A flag has no moment of leaving to wait for.
-        if (attribute.valueType === "boolean") void save(event.currentTarget);
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !edit.saving)
-          void save(event.currentTarget);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          setEditing(false);
-        }
-      }}
-    >
-      <RelationAttributes attributes={[attribute]} relation={row} mode="edit" legend={false} />
-      {edit.error && (
-        <span role="alert" className="field-error">
-          {edit.error}
-        </span>
-      )}
-      {edit.current && <RelationConflictNotice attributes={[attribute]} current={edit.current} />}
-    </form>
   );
 }

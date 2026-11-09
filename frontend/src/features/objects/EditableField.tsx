@@ -22,6 +22,10 @@ import { attributeName, fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";
 import { EditInPlaceCell, EditInPlaceValue } from "@/ui/EditInPlace";
+import { FlagCell } from "@/ui/FlagCell";
+import { FloatingCellEditor } from "@/ui/FloatingCellEditor";
+import { errorMessage, isApiError } from "@/api/errors";
+import { Notice } from "@/ui/Notice";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -106,6 +110,9 @@ export function EditableField({
   onConflict,
   display,
   onRemove,
+  describeError,
+  floating = false,
+  onOutside,
 }: {
   model: EngineModel;
   object: ObjectItem;
@@ -126,6 +133,12 @@ export function EditableField({
   display?: ReactNode;
   /** In a cell: removes the value (the caller confirms); offered where one is set and not required. */
   onRemove?: () => void;
+  /** Words a refused save in the caller's terms (see `InlineAttributeEditor`). */
+  describeError?: (cause: unknown) => { message: string; action?: ReactNode } | undefined;
+  /** In a cell: the editor floats over the cell, which keeps its value, so nothing in the table moves. */
+  floating?: boolean;
+  /** A floating editor: a press outside it (the caller closes it where nothing is unsaved). */
+  onOutside?: () => void;
 }) {
   const api = useDataApi();
   const { changeSet, warning } = useWorkspaceData();
@@ -150,8 +163,8 @@ export function EditableField({
     wasEditing.current = editing;
   }, [editing, layout]);
 
-  if (editing && editable)
-    return (
+  if (editing && editable) {
+    const editor = (
       <div className={`field-editor field-editor-${layout}${layout === "cell" ? " cell-editor" : ""}`}>
         <InlineAttributeEditor
           object={object}
@@ -173,9 +186,18 @@ export function EditableField({
             onSaved(next);
           }}
           onConflict={onConflict}
+          describeError={describeError}
         />
       </div>
     );
+    return floating && layout === "cell" ? (
+      <FloatingCellEditor value={display} onOutside={onOutside}>
+        {editor}
+      </FloatingCellEditor>
+    ) : (
+      editor
+    );
+  }
 
   const status = saved && (
     <span role="status" className={layout === "row" ? "inline-save-status" : "visually-hidden"}>
@@ -191,6 +213,19 @@ export function EditableField({
     );
 
   const name = editable.isName ? "Name" : attributeName(model, field);
+  if (floating && layout === "cell" && !editable.isName && editable.attribute.valueType === "boolean")
+    return (
+      <RecordFlagCell
+        object={object}
+        attribute={editable.attribute}
+        label={`${name} of ${object.name}`}
+        stored={editable.stored?.value === true}
+        exists={Boolean(editable.stored)}
+        onSaved={onSaved}
+        onConflict={onConflict}
+        describeError={describeError}
+      />
+    );
   const empty = !editable.isName && !editable.stored;
   if (layout === "cell")
     return (
@@ -222,5 +257,73 @@ export function EditableField({
       </EditInPlaceValue>
       {status}
     </>
+  );
+}
+
+/** A yes/no attribute of a record in a floating cell: one click saves it against the record's version. */
+function RecordFlagCell({
+  object,
+  attribute,
+  label,
+  stored,
+  exists,
+  onSaved,
+  onConflict,
+  describeError,
+}: {
+  object: ObjectItem;
+  attribute: AttributeTypeDefinition;
+  label: string;
+  stored: boolean;
+  exists: boolean;
+  onSaved: (object: ObjectItem) => void;
+  onConflict: () => Promise<void>;
+  describeError?: (cause: unknown) => { message: string; action?: ReactNode } | undefined;
+}) {
+  const api = useDataApi();
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [failure, setFailure] = useState<{ message: string; action?: ReactNode }>();
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(false), 2500);
+    return () => clearTimeout(timer);
+  }, [saved]);
+  async function toggle(next: boolean) {
+    setSaving(true);
+    setFailure(undefined);
+    setSaved(false);
+    try {
+      const result = exists
+        ? await api.updateAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version)
+        : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version);
+      setSaved(true);
+      onSaved(result);
+    } catch (cause) {
+      const described = describeError?.(cause);
+      setFailure({ message: described?.message ?? errorMessage(cause), action: described?.action });
+      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))
+        await onConflict().catch(() => undefined);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <FlagCell
+      label={label}
+      checked={stored}
+      saving={saving}
+      saved={saved}
+      notice={
+        failure && (
+          <Notice tone="error" title="The value was not saved">
+            {failure.message}
+            {failure.action}
+          </Notice>
+        )
+      }
+      onDismiss={() => setFailure(undefined)}
+      onToggle={(next) => void toggle(next)}
+    />
   );
 }

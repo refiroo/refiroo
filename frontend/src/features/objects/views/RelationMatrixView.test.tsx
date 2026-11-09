@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { domainObject, testModel } from "@/test/fixtures";
@@ -22,6 +22,7 @@ vi.mock("@/api/client", () => ({
     relationMatrixLinkCandidates: vi.fn(),
     createObject: vi.fn(),
     updateObject: vi.fn(),
+    updateAttribute: vi.fn(),
     createRelation: vi.fn(),
     updateRelation: vi.fn(),
     relation: vi.fn(),
@@ -71,6 +72,14 @@ model.relationTypes.push(
   { key: "has-note", reverseKey: "note-of", name: "Has note", reverseName: "Note of", isOriented: true, features: {} },
   { key: "tags", reverseKey: "tagged-by", name: "Tags", reverseName: "Tagged by", isOriented: true, features: {} },
 );
+model.attributeTypes.push({
+  key: "approved",
+  name: "Approved",
+  valueType: "boolean",
+  features: {},
+  validation: {},
+  ui: {},
+});
 model.attributeTypes.push({
   key: "weight",
   name: "Weight",
@@ -300,15 +309,17 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     },
   );
 
-  it("shows each record of a cell with its type's tile in the cell dialog (UA6)", async () => {
+  it("shows each record of a cell as a table row with its type's tile, the relationship's values in their own group (UA6)", async () => {
     renderMatrix(notesView);
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Finance", 1));
-    const records = within(await screen.findByRole("dialog")).getByRole("list", { name: "Notes in this cell" });
+    const table = within(await screen.findByRole("region", { name: "Notes in this cell" }));
     for (const name of ["Finance A", "Finance B"])
       expect(
-        within(records).getByText(name, { selector: ".matrix-record-name" }).querySelector(".hue-tile"),
+        table.getByRole("button", { name }).closest(".matrix-record-name")?.querySelector(".hue-tile"),
       ).toHaveAttribute("data-hue", String(objectTypeHue(model, "note")));
+    expect(table.getByRole("columnheader", { name: "Note" })).toBeInTheDocument();
+    expect(table.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
   });
 
   it("has no inactive or conflict state for an incoming binding", async () => {
@@ -537,43 +548,59 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(gridCell("Connections", 2)).not.toHaveTextContent("CL-WE");
   });
 
-  it("keeps the entered value and links to the conflicting record when an edit breaks uniqueness", async () => {
-    // Without the scope, the API's message; with it, the row, column and condition in the view's terms.
-    vi.mocked(api.updateObject)
-      .mockRejectedValueOnce(
-        new ApiError(409, "DUPLICATE_RELATION_SCOPE", "A related object already exists for this ancestor scope", {
-          conflictingObjectId: "n7",
-        }),
-      )
-      .mockRejectedValueOnce(
-        new ApiError(409, "DUPLICATE_RELATION_SCOPE", "A related object already exists for this ancestor scope", {
-          conflictingObjectId: "n7",
-          ancestorObjectTypeKey: "region",
-          ancestorObjectId: "c-east",
-        }),
-      );
+  it("edits a record's field where it stands against the record's version and keeps the dialog open", async () => {
+    vi.mocked(api.updateAttribute).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
+    const form = within(dialog).getByRole("form", { name: "Edit Code" });
+    // The editor floats over its cell, which keeps its value, so the table does not move.
+    expect(form.closest(".floating-cell-editor")).not.toBeNull();
+    fireEvent.change(within(form).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
+    vi.mocked(api.relationMatrix).mockClear();
+    vi.mocked(api.relationMatrix).mockResolvedValueOnce({
+      ...notesPage,
+      items: [
+        row("d1", "domain", "Connections", [
+          cell("c-east", "one", {
+            recordCount: 1,
+            matchingCount: 1,
+            records: [{ ...noteRecord("n1", "Connections EA", "CL-EA-2"), version: 3 }],
+          }),
+        ]),
+      ],
+      columns: [columns[0]],
+    });
+    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
+    expect(api.updateAttribute).toHaveBeenCalledWith("note", "n1", "code", "CL-EA-2", 2);
+    await waitFor(() => expect(api.relationMatrix).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("dialog", { name: "Connections · EA" })).toBeInTheDocument();
+    expect(await within(dialog).findByText("CL-EA-2")).toBeInTheDocument();
+  });
+
+  it("words a uniqueness refusal of an in-place record edit in the view's terms and links to the record already there", async () => {
+    vi.mocked(api.updateAttribute).mockRejectedValue(
+      new ApiError(409, "DUPLICATE_RELATION_SCOPE", "A related object already exists for this ancestor scope", {
+        conflictingObjectId: "n7",
+        ancestorObjectTypeKey: "region",
+        ancestorObjectId: "c-east",
+      }),
+    );
     const { onOpen } = renderMatrix(notesView);
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Connections", 1));
     const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
-    const code = within(dialog).getByRole("textbox", { name: "Code" });
-    expect(code).toHaveValue("CL-EA");
-    fireEvent.change(code, { target: { value: "CL-EA-2" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(
-      await within(dialog).findByText("A related object already exists for this ancestor scope"),
-    ).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
+    const form = within(dialog).getByRole("form", { name: "Edit Code" });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
+    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
     expect(
       await within(dialog).findByText(
         "Connections already has a note in EA where Active is Yes, and only one may count there.",
       ),
     ).toBeInTheDocument();
-    expect(api.updateObject).toHaveBeenCalledWith("note", "n1", {
-      expectedVersion: 2,
-      attributes: [{ attributeTypeKey: "code", value: "CL-EA-2" }],
-    });
-    expect(within(dialog).getByRole("textbox", { name: "Code" })).toHaveValue("CL-EA-2");
     fireEvent.click(within(dialog).getByRole("button", { name: "Open the note already here" }));
     expect(onOpen).toHaveBeenCalledWith({
       id: "n7",
@@ -581,6 +608,73 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       applicationKey: "test-app",
       workspaceKey: "west",
     });
+  });
+
+  it("flips a yes/no relationship value with one click against the relationship's version, and says Saved", async () => {
+    vi.mocked(api.updateRelation).mockResolvedValue({ id: "rel-n5", version: 2, attributes: {} } as never);
+    // This binding also carries a yes/no value here; the other cases keep their one number.
+    const binding = model.objectTypeRelations.find((item) => item.relationTypeKey === "tags")!;
+    binding.attributeTypeKeys = ["weight", "approved"];
+    onTestFinished(() => {
+      binding.attributeTypeKeys = ["weight"];
+    });
+    renderMatrix(tagsView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    const box = within(dialog).getByRole("checkbox", { name: "Approved of Size tag" });
+    expect(box).not.toBeChecked();
+    expect(box.closest(".flag-cell")).toHaveTextContent("No");
+    await act(async () => fireEvent.click(box));
+    expect(api.updateRelation).toHaveBeenCalledWith("rel-n5", {
+      attributes: { weight: 2, approved: true },
+      expectedVersion: 1,
+    });
+    expect(await within(dialog).findByRole("status")).toHaveTextContent("Saved");
+    expect(screen.getByRole("dialog", { name: "Sizes · EA" })).toBeInTheDocument();
+  });
+
+  it("flips a yes/no record field with one click against the record's version", async () => {
+    vi.mocked(api.updateAttribute).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    const box = within(dialog).getByRole("checkbox", { name: "Active of Connections EA" });
+    expect(box).toBeChecked();
+    await act(async () => fireEvent.click(box));
+    expect(api.updateAttribute).toHaveBeenCalledWith("note", "n1", "active", false, 2);
+    expect(await within(dialog).findByRole("status")).toHaveTextContent("Saved");
+  });
+
+  it("closes an unchanged editor on a press outside it", async () => {
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
+    expect(within(dialog).getByRole("form", { name: "Edit Code" })).toBeInTheDocument();
+    fireEvent.pointerDown(within(dialog).getByRole("heading", { name: "Connections · EA" }));
+    expect(within(dialog).queryByRole("form", { name: "Edit Code" })).toBeNull();
+    expect(api.updateAttribute).not.toHaveBeenCalled();
+  });
+
+  it("says a record field was saved by someone else and re-reads the cell", async () => {
+    vi.mocked(api.updateAttribute).mockRejectedValue(
+      new ApiError(409, "VERSION_CONFLICT", "Object version has changed"),
+    );
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
+    const form = within(dialog).getByRole("form", { name: "Edit Code" });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
+    vi.mocked(api.relationMatrix).mockClear();
+    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
+    expect(await within(dialog).findByText("Object version has changed")).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Code" })).toHaveValue("CL-EA-2");
+    await waitFor(() => expect(api.relationMatrix).toHaveBeenCalled());
   });
 
   it("links a candidate with the row's set claim and lists ineligible ones with their reason", async () => {
@@ -669,7 +763,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     );
   });
 
-  it("shows a linked record's relationship values and edits them against the relationship's version (0.13 RV)", async () => {
+  it("shows a linked record's relationship values in their group and edits one in place against the relationship's version (0.13 RV)", async () => {
     vi.mocked(api.updateRelation).mockRejectedValueOnce(
       new ApiError(409, "VERSION_CONFLICT", "Relation version has changed", { currentVersion: 3 }),
     );
@@ -678,15 +772,17 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
-    // The cell's one record opens in Edit; the relationship's values follow the record's own fields.
-    const group = within(dialog).getByRole("group", { name: "Attributes of the relationship" });
-    expect(within(group).getByText("2")).toBeInTheDocument();
-    fireEvent.click(within(group).getByRole("button", { name: /Edit Weight/ }));
-    const form = within(group).getByRole("form", { name: "Edit Weight" });
-    fireEvent.change(within(form).getByLabelText("Weight"), { target: { value: "6" } });
-    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
+    const table = within(dialog).getByRole("table");
+    expect(table.querySelector("th.matrix-cell-relation-group")).toHaveTextContent("Attributes of the relationship");
+    expect(within(table).getByRole("columnheader", { name: "Weight" })).toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Edit Weight of Size tag" }));
+    const input = within(table).getByLabelText("Weight");
+    expect(input.closest(".floating-cell-editor")).not.toBeNull();
+    fireEvent.change(input, { target: { value: "6" } });
+    await act(async () => fireEvent.submit(input.closest("form")!));
     expect(api.updateRelation).toHaveBeenCalledWith("rel-n5", { attributes: { weight: 6 }, expectedVersion: 1 });
     expect(await within(dialog).findByText("Current saved relationship (v3)")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Sizes · EA" })).toBeInTheDocument();
   });
 
   it("asks before dropping a changed relationship value when the dialog is closed (0.13 RV)", async () => {
@@ -695,24 +791,27 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
-    fireEvent.click(within(dialog).getByRole("button", { name: /Edit Weight/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Edit Weight of Size tag" }));
     fireEvent.change(within(dialog).getByLabelText("Weight"), { target: { value: "6" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" })[0]);
     expect(confirm).toHaveBeenCalledWith("Discard your unsaved changes?");
     expect(screen.getByRole("dialog", { name: "Sizes · EA" })).toBeInTheDocument();
     confirm.mockRestore();
   });
 
-  it("offers no relationship values to edit in a read-only matrix, and shows them (0.13 RV)", async () => {
+  it("offers no editing in a read-only matrix, and shows the values (0.13 RV)", async () => {
     renderMatrix(tagsView, { readOnly: true });
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
-    expect(within(dialog).queryByRole("button", { name: /Edit Weight/ })).toBeNull();
-    expect(within(dialog).getByRole("group", { name: "Attributes of the relationship" })).toHaveTextContent("2");
+    expect(within(dialog).queryByRole("button", { name: /^Edit / })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /^Unlink/ })).toBeNull();
+    expect(within(dialog).getByText("Read-only here")).toBeInTheDocument();
+    expect(within(dialog).getByRole("table")).toHaveTextContent("SZ");
+    expect(within(dialog).getByRole("table")).toHaveTextContent("2");
   });
 
-  it("unlinks a record with its relation version and the row's set claim, and shows a stale claim", async () => {
+  it("unlinks a record after asking in its row, with its relation version and the row's set claim, and shows a stale claim", async () => {
     vi.mocked(api.deleteRelation).mockRejectedValue(
       new ApiError(409, "RELATION_SET_VERSION_CONFLICT", "The row's relations changed.", {}),
     );
@@ -720,7 +819,8 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Unlink Size tag" }));
+    expect(within(dialog).getByText(/Sizes will no longer be linked to it in EA/)).toBeInTheDocument();
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" })));
     expect(api.deleteRelation).toHaveBeenCalledWith(
       "rel-n5",
@@ -731,24 +831,34 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(await within(dialog).findByText(/This cell now shows the current state/)).toBeInTheDocument();
   });
 
-  it("shows the cell again when a stale edit's record was removed elsewhere", async () => {
-    vi.mocked(api.updateObject).mockRejectedValue(new ApiError(409, "VERSION_CONFLICT", "Object version has changed"));
+  it("keeps a record when its Unlink is declined", async () => {
+    renderMatrix(tagsView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Unlink Size tag" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep" }));
+    expect(api.deleteRelation).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: "Unlink Size tag" })).toBeInTheDocument();
+  });
+
+  it("filters a cell's records by name and shown values, and tells an empty cell what is missing", async () => {
     renderMatrix(notesView);
     await screen.findByRole("grid");
-    fireEvent.click(gridCell("Connections", 1));
-    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
-    // The re-read finds the note gone from the cell.
-    vi.mocked(api.relationMatrix).mockResolvedValueOnce({
-      ...notesPage,
-      items: [row("d1", "domain", "Connections", [cell("c-east", "none")], 5)],
-      columns: [columns[0]],
-    });
-    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Save" })));
-    expect(await within(dialog).findByText(/no longer in it/)).toBeInTheDocument();
-    expect(within(dialog).queryByRole("textbox", { name: "Code" })).toBeNull();
+    fireEvent.click(gridCell("Finance", 1));
+    let dialog = await screen.findByRole("dialog", { name: "Finance · EA" });
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Filter notes" }), { target: { value: "FB" } });
+    expect(within(dialog).queryByRole("button", { name: "Finance A" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Finance B" })).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByRole("searchbox", { name: "Filter notes" }), { target: { value: "zzz" } });
+    expect(within(dialog).getByText(/No note matches/)).toBeInTheDocument();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(gridCell("Connections", 2));
+    dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    expect(within(dialog).getByText(/has no note in WE yet/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("table")).toBeNull();
     expect(within(dialog).getByRole("button", { name: /Create note/ })).toBeInTheDocument();
-    expect(within(dialog).getByText("Close", { selector: "button.secondary" })).toBeInTheDocument();
   });
 
   it("keeps the page when the matrix read fails and retries the same request", async () => {

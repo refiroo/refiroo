@@ -8,7 +8,7 @@ import { useNavigationGuard } from "@/routing/navigationGuard";
  */
 
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { AttributeTypeDefinition, ObjectAttributeValue, ObjectItem, ObjectTypeAttributeDefinition } from "@/types";
@@ -27,6 +27,7 @@ export function InlineAttributeEditor({
   onClose,
   onSaved,
   onConflict,
+  describeError,
 }: {
   object: ObjectItem;
   binding: ObjectTypeAttributeDefinition;
@@ -37,10 +38,13 @@ export function InlineAttributeEditor({
   onClose: () => void;
   onSaved: (object: ObjectItem) => void;
   onConflict: () => Promise<void>;
+  /** Words a refusal in the caller's terms, with an action beside it; none leaves the API's message. */
+  describeError?: (cause: unknown) => { message: string; action?: ReactNode } | undefined;
 }) {
   const api = useDataApi();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [errorAction, setErrorAction] = useState<ReactNode>();
   const [dirty, setDirty] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [nullValue, setNullValue] = useState(stored?.value === null);
@@ -60,6 +64,7 @@ export function InlineAttributeEditor({
     event.preventDefault();
     setSaving(true);
     setError("");
+    setErrorAction(undefined);
     try {
       const raw = new FormData(event.currentTarget).get(attribute.key);
       const value = nullValue
@@ -76,7 +81,9 @@ export function InlineAttributeEditor({
       finishNavigation();
       onSaved(saved);
     } catch (cause) {
-      setError(errorMessage(cause));
+      const described = describeError?.(cause);
+      setError(described?.message ?? errorMessage(cause));
+      setErrorAction(described?.action);
       if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
         await reload();
       }
@@ -114,6 +121,7 @@ export function InlineAttributeEditor({
           {error && (
             <Notice tone="error" title="The value was not saved" focusOnMount>
               {error}
+              {errorAction}
             </Notice>
           )}
         </>

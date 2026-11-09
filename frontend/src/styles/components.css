@@ -3663,19 +3663,257 @@ form .admin-hint {
   gap: 6px;
   margin: 0;
 }
-.matrix-cell-records {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.matrix-cell-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
 }
-.matrix-cell-records li {
+.matrix-cell-bar .matrix-cell-dialog-state {
+  min-width: 0;
+}
+.matrix-cell-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-raised);
+  color: var(--text-tertiary);
+}
+.matrix-cell-filter input {
+  width: 150px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  box-shadow: none;
+}
+.matrix-cell-filter:focus-within {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+.matrix-cell-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.matrix-cell-hint {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+.matrix-cell-hint kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-raised);
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.matrix-cell-empty {
   display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 30px 0;
+  border-block: 1px solid var(--border-subtle);
+  text-align: center;
+}
+.matrix-cell-empty p {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--text-secondary);
+}
+.matrix-cell-empty-ring {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px dashed var(--border-control, var(--border-strong));
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+.matrix-cell-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
+}
+/* The records as a table: it scrolls sideways inside its own container; the name stays at the left
+   and the actions at the right. The dialog is as wide as the columns need (ui/Modal `width`). */
+.matrix-cell-table-wrap {
+  margin-inline: -22px;
+  overflow-x: auto;
+  border-block: 1px solid var(--border-subtle);
+}
+.matrix-cell-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.matrix-cell-table th,
+.matrix-cell-table td {
+  max-width: 280px;
+  padding: 0 12px;
+  height: 44px;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--surface-raised);
+  text-align: left;
+}
+.matrix-cell-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.matrix-cell-table thead th {
+  height: auto;
+  padding-block: 7px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  white-space: normal;
+  vertical-align: bottom;
+}
+.matrix-cell-table thead tr.matrix-cell-groups th {
+  padding-block: 6px 2px;
+  border-bottom: 0;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.matrix-cell-table th.is-flag,
+.matrix-cell-table td.is-flag {
+  max-width: 120px;
+}
+.matrix-cell-table th.matrix-cell-relation-group {
+  background: color-mix(in srgb, var(--state-selected) 70%, var(--surface-sunken));
+}
+.matrix-cell-table thead tr.matrix-cell-groups th.matrix-cell-relation-group {
+  color: var(--state-selected-text);
+}
+.matrix-cell-table td.matrix-cell-relation-group {
+  background: color-mix(in srgb, var(--state-selected) 22%, var(--surface-raised));
+}
+.matrix-cell-table .first-rel {
+  border-left: 1px solid var(--state-selected-line);
+}
+.matrix-cell-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.matrix-cell-sticky-start,
+.matrix-cell-sticky-end {
+  position: sticky;
+  z-index: 2;
+}
+.matrix-cell-sticky-start {
+  left: 0;
+  min-width: 170px;
+  border-right: 1px solid var(--border-faint);
+}
+.matrix-cell-sticky-end {
+  right: 0;
+  width: 1%;
+  border-left: 1px solid var(--border-faint);
+}
+.matrix-cell-table tbody tr:hover td {
+  background: var(--state-hover);
+}
+.matrix-cell-table tbody tr:hover td.matrix-cell-relation-group {
+  background: color-mix(in srgb, var(--state-selected) 38%, var(--state-hover));
+}
+/* The columns keep the widths of the first layout; a cell's editor floats over it
+   (ui/FloatingCellEditor), so the cell keeps its one line and nothing moves. */
+.matrix-cell-table.is-frozen {
+  table-layout: fixed;
+  min-width: 100%;
+}
+.matrix-cell-table.is-frozen td,
+.matrix-cell-table.is-frozen th {
+  max-width: none;
+}
+.matrix-cell-table td:has(.cell-editor),
+.matrix-cell-table td:has(.is-editing) {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.floating-cell-editor {
+  position: fixed;
+  z-index: 60;
+  width: max-content;
+  max-width: min(360px, 94vw);
+  padding: 6px;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  white-space: normal;
+  text-overflow: clip;
+}
+/* Block-level flex, centred: an inline box would sit on the checkbox's baseline, which moves when the
+   tick appears (the tick is the box's content), so Yes and No stood a few pixels apart. */
+.flag-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.flag-cell .checkbox {
+  align-items: center;
+  margin: 0;
+  line-height: 20px;
+}
+.flag-cell .checkbox input {
+  margin: 0;
+}
+.flag-cell-saved {
+  color: var(--status-success-text);
+  font-size: 12px;
+}
+.floating-cell-editor .cell-editor .inline-attribute-editor {
+  min-width: 0;
+  box-shadow: none;
+}
+.matrix-cell-inactive .cell-link,
+.matrix-cell-inactive td {
+  color: var(--text-tertiary);
+}
+.matrix-cell-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+.matrix-cell-confirm td,
+.matrix-cell-confirm:hover td {
+  max-width: none;
+  background: var(--status-error-surface);
+  color: var(--status-error-text);
+}
+.matrix-cell-confirm-line {
+  position: sticky;
+  left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  max-width: 760px;
+  padding-block: 8px;
+  white-space: normal;
+}
+.matrix-cell-spacer {
+  flex: 1;
+}
+.matrix-cell-no-match {
+  color: var(--text-tertiary);
 }
 .matrix-record-name {
   display: flex;
@@ -3685,33 +3923,11 @@ form .admin-hint {
   color: var(--text-primary);
   font-weight: 600;
 }
-.matrix-record-summary dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 2px 12px;
-  margin: 6px 0 0;
-  font-size: 13px;
-}
-.matrix-record-summary dl > div {
-  display: contents;
-}
-.matrix-record-summary dt {
-  color: var(--text-tertiary);
-}
-.matrix-record-summary dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.matrix-cell-record-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
 .matrix-cell-form {
   display: grid;
   gap: 12px;
 }
-/* The attributes of a relationship (0.13 RV): a group in a dialog, formatted in a cell record. */
+/* The attributes of a relationship (0.13 RV): a group in a dialog form. */
 .relation-attributes {
   display: grid;
   gap: 8px;
@@ -3743,10 +3959,6 @@ form .admin-hint {
 .relation-attributes dd {
   margin: 0;
   overflow-wrap: anywhere;
-}
-.relation-values-form {
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
 }
 /* A relationships table (0.13 RV). */
 .relation-table-filters {
@@ -5482,9 +5694,4 @@ form.install-dialog .dialog-actions {
 }
 .info-hint-value {
   font-weight: 700;
-}
-/* A relationship's values in a matrix cell dialog: the record page's field rows, one column. */
-.relation-attributes .attribute-grid {
-  grid-template-columns: minmax(0, 1fr);
-  padding: 0;
 }

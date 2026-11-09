@@ -1,6 +1,7 @@
 /**
- * What a relation matrix cell offers (Base 0.8 A4), limited to the view's `cellActions`: its records,
- * editing their `cellFields`, creating a record under the column (row and column fixed, the
+ * What a relation matrix cell offers (Base 0.8 A4), limited to the view's `cellActions`: its records
+ * as a table (`RelationMatrixCellTable`) whose `cellFields` and relationship values edit in place,
+ * creating a record under the column (row and column fixed, the
  * container preselected when the column has only one), linking an existing one (candidates listed
  * with the reason any cannot be linked) and unlinking. Every write goes through the generic object
  * and relation APIs (A3); the lens re-reads only this cell afterwards. A failure keeps what the user
@@ -15,16 +16,13 @@ import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
-import { formatValue } from "@/ui/formatValue";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { Candidate } from "@/ui/Candidate";
-import { HueTile } from "@/ui/HueTile";
 import { objectTypeTile } from "@/model/hues";
-import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { columnLabel, StateMark, stateLabel, type MatrixBinding } from "@/features/objects/relationMatrixStates";
 import {
@@ -32,7 +30,7 @@ import {
   relationAttributeTypes,
   relationValuesFromForm,
 } from "@/features/objects/relations/RelationAttributes";
-import { RelationValueFields } from "@/features/objects/relations/RelationValueField";
+import { RelationMatrixCellTable } from "@/features/objects/RelationMatrixCellTable";
 import type {
   ApplicationDefinition,
   AttributeTypeDefinition,
@@ -41,7 +39,6 @@ import type {
   ObjectTypeDefinition,
   RelationMatrixCell,
   RelationMatrixCellAction,
-  RelationMatrixCellRecord,
   RelationMatrixColumn,
   RelationMatrixContainer,
   RelationMatrixLinkCandidate,
@@ -53,12 +50,7 @@ import type {
 const setValues = (values: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null));
 
-type Mode =
-  | { kind: "view" }
-  | { kind: "edit"; recordId: string }
-  | { kind: "create"; prefill?: Record<string, unknown> }
-  | { kind: "link" }
-  | { kind: "unlink"; recordId: string };
+type Mode = { kind: "view" } | { kind: "create"; prefill?: Record<string, unknown> } | { kind: "link" };
 
 export function RelationMatrixCellDialog({
   model,
@@ -110,13 +102,13 @@ export function RelationMatrixCellDialog({
   );
   const writable = actions.length > 0;
   const history = cell.state === "historyOnly";
-  const single = (cell.state === "one" || cell.state === "inactive") && cell.records.length === 1;
-  const [mode, setMode] = useState<Mode>(() =>
-    single && can("edit") ? { kind: "edit", recordId: cell.records[0].id } : { kind: "view" },
-  );
+  const [mode, setMode] = useState<Mode>({ kind: "view" });
+  const [filter, setFilter] = useState("");
   const [saving, setSaving] = useState(false);
+  // The create and link forms, the table's open record field and its open relationship values each
+  // keep their own flag, so none clears another's.
   const [dirty, setDirty] = useState(false);
-  // An open in-place relationship value, apart from the record form so neither clears the other.
+  const [recordDirty, setRecordDirty] = useState(false);
   const [valuesDirty, setValuesDirty] = useState(false);
   const [error, setError] = useState<{ message: string; conflictingObjectId?: string; stale?: boolean }>();
   const heading = `${row.row.name} · ${columnLabel(column)}`;
@@ -163,12 +155,7 @@ export function RelationMatrixCellDialog({
     }
   }
 
-  const editing = mode.kind === "edit" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
-  const unlinking = mode.kind === "unlink" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
-  // A re-read after a stale write can drop the record being edited or unlinked; the cell is shown
-  // again rather than an empty dialog, and the notice says why.
-  const orphaned = (mode.kind === "edit" && !editing) || (mode.kind === "unlink" && !unlinking);
-  const showing = orphaned ? "view" : mode.kind;
+  const showing = mode.kind;
   /** Starts another action from the cell; a notice about an earlier one no longer applies. */
   const choose = (next: Mode) => {
     setMode(next);
@@ -180,85 +167,145 @@ export function RelationMatrixCellDialog({
     setError(undefined);
     setDirty(false);
   };
+  const typeName = cellType.name.toLowerCase();
+  const canLink = can("link");
+  const canCreate = can("create");
+  const empty = cell.records.length === 0;
+  // The dialog grows with the table's columns, up to most of the window.
+  const columnCount = 1 + config.cellFields.filter((field) => field !== "name").length + relationAttributes.length;
+  const width = showing === "view" && !empty ? `${Math.max(640, 330 + columnCount * 150)}px` : undefined;
+  const linkButton = canLink && (
+    <button type="button" className="secondary" onClick={() => choose({ kind: "link" })}>
+      <Icon name="link" size={15} /> Link existing {typeName}
+    </button>
+  );
+  const createButton = canCreate && (empty || cell.state === "inactive" || history) && (
+    <button type="button" className="primary" onClick={() => choose({ kind: "create" })}>
+      <Icon name="plus" size={15} /> Create {typeName}
+    </button>
+  );
 
   return (
     <Modal
       title={heading}
       eyebrow={view.name}
       busy={saving}
-      dirty={(dirty || valuesDirty) && !orphaned}
+      dirty={dirty || recordDirty || valuesDirty}
+      width={width}
       onClose={onClose}
     >
       <div className="matrix-cell-dialog">
-        <p className="matrix-cell-dialog-state">
-          <StateMark state={cell.state} conflict={cell.conflict} />
-          <strong>{stateLabel(cell.state, cell.conflict, cell.recordCount)}</strong>
-          <span className="muted">
-            {cell.conflict
-              ? ` · only one ${cellType.name.toLowerCase()} may count here${binding.conditionText ? ` (${binding.conditionText})` : ""}`
-              : history && cell.publication
-                ? ` · held in publication ${cell.publication.number}, read-only`
-                : cell.state === "none"
-                  ? ` · no ${cellType.name.toLowerCase()} yet`
-                  : ""}
-          </span>
-        </p>
+        <div className="matrix-cell-bar">
+          <p className="matrix-cell-dialog-state">
+            <StateMark state={cell.state} conflict={cell.conflict} />
+            <strong>{stateLabel(cell.state, cell.conflict, cell.recordCount)}</strong>
+            <span className="muted">
+              {cell.conflict
+                ? ` · only one ${typeName} may count here${binding.conditionText ? ` (${binding.conditionText})` : ""}`
+                : history && cell.publication
+                  ? ` · held in publication ${cell.publication.number}, read-only`
+                  : cell.state === "none"
+                    ? ` · no ${typeName} yet`
+                    : ""}
+            </span>
+          </p>
+          {showing === "view" && (
+            <>
+              <span className="dialog-actions-spacer" />
+              {!empty && (
+                <label className="matrix-cell-filter">
+                  <Icon name="search" size={14} />
+                  <input
+                    type="search"
+                    aria-label={`Filter ${cellType.pluralName.toLowerCase()}`}
+                    placeholder={`Filter ${cellType.pluralName.toLowerCase()}`}
+                    value={filter}
+                    onChange={(event) => setFilter(event.target.value)}
+                  />
+                </label>
+              )}
+              {!actions.length
+                ? !empty && <span className="muted">Read-only here</span>
+                : !empty && (
+                    <>
+                      {linkButton}
+                      {createButton}
+                    </>
+                  )}
+            </>
+          )}
+        </div>
 
         {showing === "view" && (
           <>
-            {cell.records.length > 0 && (
-              <ul className="matrix-cell-records" aria-label={`${cellType.pluralName} in this cell`}>
-                {cell.records.map((record) => (
-                  <li key={record.id}>
-                    <RecordSummary
-                      model={model}
-                      objectTypeKey={cellType.key}
-                      record={record}
-                      fields={config.cellFields}
-                      binding={binding}
-                      relationAttributes={relationAttributes}
-                      workspaceKey={workspaceKey}
-                      editable={writable && !history}
-                      onSaved={onRefresh}
-                      onDirty={setValuesDirty}
-                    />
-                    <div className="matrix-cell-record-actions">
-                      {!history && (
-                        <button type="button" className="ghost" onClick={() => onOpenRecord(record.id, cellType.key)}>
-                          Open<span className="visually-hidden"> {record.name}</span>
-                        </button>
-                      )}
-                      {!history && can("edit") && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => choose({ kind: "edit", recordId: record.id })}
-                        >
-                          Edit<span className="visually-hidden"> {record.name}</span>
-                        </button>
-                      )}
-                      {!history && can("unlink") && (
-                        <button
-                          type="button"
-                          className="danger-ghost"
-                          onClick={() => choose({ kind: "unlink", recordId: record.id })}
-                        >
-                          Unlink<span className="visually-hidden"> {record.name}</span>
-                        </button>
-                      )}
-                      {history && can("create") && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => choose({ kind: "create", prefill: { name: record.name, ...record.fields } })}
-                        >
-                          Create from this
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            {empty ? (
+              <div className="matrix-cell-empty">
+                <span className="matrix-cell-empty-ring" aria-hidden="true">
+                  <Icon name="plus" size={18} />
+                </span>
+                <p>
+                  <strong>{row.row.name}</strong> has no {typeName} in {columnLabel(column)} yet.
+                </p>
+                {(linkButton || createButton) && (
+                  <div className="matrix-cell-empty-actions">
+                    {linkButton}
+                    {createButton}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <RelationMatrixCellTable
+                model={model}
+                cellType={cellType}
+                applicationKey={application.key}
+                records={cell.records}
+                fields={config.cellFields}
+                relationAttributes={relationAttributes}
+                binding={binding}
+                workspaceKey={workspaceKey}
+                rowName={row.row.name}
+                columnName={columnLabel(column)}
+                filter={filter}
+                history={history}
+                editRecords={!history && can("edit")}
+                editValues={writable && !history}
+                canUnlink={!history && can("unlink")}
+                canCreateFrom={history && can("create")}
+                saving={saving}
+                onRefresh={onRefresh}
+                onOpenRecord={(record) => onOpenRecord(record.id, cellType.key)}
+                onUnlink={(record) =>
+                  void run(() =>
+                    api.deleteRelation(
+                      record.relationId,
+                      record.relationVersion,
+                      {},
+                      { expectedRelationSetVersion: row.relationSetVersion, relationSetDirection: config.direction },
+                    ),
+                  )
+                }
+                onCreateFrom={(record) => choose({ kind: "create", prefill: { name: record.name, ...record.fields } })}
+                describeError={(cause) => {
+                  if (!isApiError(cause, "DUPLICATE_RELATION_SCOPE")) return undefined;
+                  const details = cause.details as
+                    | { conflictingObjectId?: string; ancestorObjectId?: string; ancestorObjectTypeKey?: string }
+                    | undefined;
+                  return {
+                    message: duplicateMessage(details) ?? errorMessage(cause),
+                    action: details?.conflictingObjectId && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => onOpenRecord(details.conflictingObjectId!, cellType.key)}
+                      >
+                        Open the {typeName} already here
+                      </button>
+                    ),
+                  };
+                }}
+                onRecordDirty={setRecordDirty}
+                onValuesDirty={setValuesDirty}
+              />
             )}
             {cell.recordCount > cell.records.length && (
               <p className="muted-text">
@@ -266,94 +313,10 @@ export function RelationMatrixCellDialog({
                 <button type="button" className="ghost" onClick={() => onOpenRecord(row.row.id, row.row.objectTypeKey)}>
                   Open {row.row.name}
                 </button>{" "}
-                to see every related {cellType.name.toLowerCase()}.
+                to see every related {typeName}.
               </p>
             )}
             {!actions.length && <p className="muted-text">This cell is read-only here.</p>}
-            <div className="dialog-actions">
-              {can("create") && (cell.state === "none" || cell.state === "inactive" || history) && (
-                <button type="button" className="primary" onClick={() => choose({ kind: "create" })}>
-                  <Icon name="plus" size={15} /> Create {cellType.name.toLowerCase()}
-                </button>
-              )}
-              {can("link") && (
-                <button type="button" className="secondary" onClick={() => choose({ kind: "link" })}>
-                  Link existing {cellType.name.toLowerCase()}
-                </button>
-              )}
-              <span className="dialog-actions-spacer" />
-              <button type="button" className="secondary" onClick={onClose}>
-                Close
-              </button>
-            </div>
-          </>
-        )}
-
-        {editing && (
-          <>
-            <CellRecordForm
-              key={editing.id}
-              model={model}
-              cellType={cellType}
-              fields={config.cellFields}
-              values={{ name: editing.name, ...editing.fields }}
-              submitLabel="Save"
-              saving={saving}
-              onDirty={() => setDirty(true)}
-              onCancel={single ? onClose : back}
-              cancelLabel={single ? "Cancel" : "Back"}
-              extra={
-                <>
-                  {can("unlink") && single && (
-                    <button
-                      type="button"
-                      className="danger-ghost"
-                      disabled={saving}
-                      onClick={() => setMode({ kind: "unlink", recordId: editing.id })}
-                    >
-                      Unlink
-                    </button>
-                  )}
-                  <button type="button" className="ghost" onClick={() => onOpenRecord(editing.id, cellType.key)}>
-                    Open {editing.name}
-                  </button>
-                </>
-              }
-              onSubmit={(values) => {
-                const attributes = values.attributes.filter(
-                  ({ attributeTypeKey, value }) =>
-                    JSON.stringify(value ?? null) !== JSON.stringify(editing.fields[attributeTypeKey] ?? null),
-                );
-                const name = values.name !== undefined && values.name !== editing.name ? values.name : undefined;
-                if (!attributes.length && name === undefined) {
-                  onClose();
-                  return;
-                }
-                void run(() =>
-                  api.updateObject(cellType.key, editing.id, {
-                    expectedVersion: editing.version,
-                    ...(name !== undefined ? { name } : {}),
-                    ...(attributes.length ? { attributes } : {}),
-                  }),
-                );
-              }}
-            />
-            {!orphaned && writable && relationAttributes.length > 0 && (
-              <div className="relation-values-form">
-                <RelationValueFields
-                  attributes={relationAttributes}
-                  relation={{
-                    id: editing.relationId,
-                    version: editing.relationVersion,
-                    attributes: editing.relationAttributes ?? {},
-                  }}
-                  workspaceKey={workspaceKey}
-                  editable
-                  onSaved={onRefresh}
-                  onDirty={setValuesDirty}
-                />
-              </div>
-            )}
           </>
         )}
 
@@ -405,39 +368,6 @@ export function RelationMatrixCellDialog({
           />
         )}
 
-        {unlinking && (
-          <div className="matrix-unlink">
-            <p>
-              Unlink <strong>{unlinking.name}</strong> from <strong>{row.row.name}</strong>? The{" "}
-              {cellType.name.toLowerCase()} itself is kept.
-            </p>
-            <div className="dialog-actions">
-              <span className="dialog-actions-spacer" />
-              <button type="button" className="secondary" disabled={saving} onClick={back}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="danger"
-                autoFocus
-                disabled={saving}
-                onClick={() =>
-                  void run(() =>
-                    api.deleteRelation(
-                      unlinking.relationId,
-                      unlinking.relationVersion,
-                      {},
-                      { expectedRelationSetVersion: row.relationSetVersion, relationSetDirection: config.direction },
-                    ),
-                  )
-                }
-              >
-                {saving ? "Unlinking…" : "Unlink"}
-              </button>
-            </div>
-          </div>
-        )}
-
         {error && (
           <Notice
             tone={error.stale ? "warning" : "error"}
@@ -445,86 +375,34 @@ export function RelationMatrixCellDialog({
             focusOnMount
           >
             <p>{error.message}</p>
-            {error.stale &&
-              (orphaned ? (
-                <p>This cell now shows the current state; the record you were changing is no longer in it.</p>
-              ) : (
-                <p>This cell now shows the current state. Your input is kept; review it and try again.</p>
-              ))}
+            {error.stale && <p>This cell now shows the current state. Your input is kept; review it and try again.</p>}
             {error.conflictingObjectId && (
               <button
                 type="button"
                 className="secondary"
                 onClick={() => onOpenRecord(error.conflictingObjectId!, cellType.key)}
               >
-                Open the {cellType.name.toLowerCase()} already here
+                Open the {typeName} already here
               </button>
             )}
           </Notice>
         )}
+
+        {showing === "view" && (
+          <div className="matrix-cell-footer">
+            {!actions.length || history ? null : (
+              <span className="matrix-cell-hint">
+                Each change saves on its own · <kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels
+              </span>
+            )}
+            <span className="dialog-actions-spacer" />
+            <button type="button" className="secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </Modal>
-  );
-}
-
-function RecordSummary({
-  model,
-  objectTypeKey,
-  record,
-  fields,
-  binding,
-  relationAttributes,
-  workspaceKey,
-  editable,
-  onSaved,
-  onDirty,
-}: {
-  model: EngineModel;
-  objectTypeKey: string;
-  record: RelationMatrixCellRecord;
-  fields: string[];
-  binding: MatrixBinding;
-  relationAttributes: AttributeTypeDefinition[];
-  workspaceKey: string;
-  /** The relationship's values edit in place where the cell can be written. */
-  editable: boolean;
-  onSaved: () => Promise<void>;
-  onDirty: (dirty: boolean) => void;
-}) {
-  return (
-    <div className="matrix-record-summary">
-      <span className="matrix-record-name">
-        <HueTile {...objectTypeTile(model, objectTypeKey)} size={18} />
-        {record.name}
-        {binding.conditional && !record.meetsCondition && (
-          <StatusPill tone="neutral" marker={false}>
-            Does not count
-          </StatusPill>
-        )}
-      </span>
-      <dl>
-        {fields
-          .filter((field) => field !== "name")
-          .map((field) => (
-            <div key={field}>
-              <dt>{attributeName(model, field)}</dt>
-              <dd>{formatValue(record.fields[field])}</dd>
-            </div>
-          ))}
-      </dl>
-      <RelationValueFields
-        attributes={relationAttributes}
-        relation={{
-          id: record.relationId,
-          version: record.relationVersion,
-          attributes: record.relationAttributes ?? {},
-        }}
-        workspaceKey={workspaceKey}
-        editable={editable}
-        onSaved={onSaved}
-        onDirty={onDirty}
-      />
-    </div>
   );
 }
 
