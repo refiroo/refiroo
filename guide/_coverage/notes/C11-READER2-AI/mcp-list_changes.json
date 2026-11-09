@@ -1,0 +1,183 @@
+{
+  "status": 200,
+  "jsonrpc": "2.0",
+  "id": 1794221169485,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"items\": [\n    {\n      \"id\": \"3e167321-b978-4720-8cb5-cba4d29ec2b0\",\n      \"occurredAt\": \"2026-11-09T10:42:13.592915Z\",\n      \"kind\": \"change-set\",\n      \"action\": \"discarded\",\n      \"workspace\": {\n        \"key\": \"reader-ai\",\n        \"label\": \"reader-ai\"\n      },\n      \"changeSet\": {\n        \"id\": \"e069ad2d-0931-47e8-9a4e-94ef20cca9af\",\n        \"name\": \"reader-ai mapping proposals\",\n        \"open\": false\n      },\n      \"subject\": {\n        \"id\": \"e069ad2d-0931-47e8-9a4e-94ef20cca9af\",\n        \"name\": \"reader-ai mapping proposals\"\n      },\n      \"changedFields\": [],\n      \"attributes\": [],\n      \"cause\": {\n        \"kind\": \"user\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      }\n    },\n    {\n      \"id\": \"8db08ca0-1a7c-467d-9b56-910db6094b4a\",\n      \"occurredAt\": \"2026-11-09T10:41:45.096587Z\",\n      \"kind\": \"relationship\",\n      \"action\": \"created\",\n      \"workspace\": {\n        \"key\": \"reader-ai\",\n        \"label\": \"reader-ai\"\n      },\n      \"changeSet\": null,\n      \"subject\": {\n        \"id\": \"0373239c-ad2b-4ef3-a134-fe7987840547\",\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"relationTypeName\": \"Maps to\",\n        \"fromObject\": {\n          \"id\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n          \"name\": \"BN-103\"\n        },\n        \"toObject\": {\n          \"id\": \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\",\n          \"name\": \"Chur, Alexanderplatz\"\n        },\n        \"removed\": false\n      },\n      \"changedFields\": [\n        \"attributes\",\n        \"fromObjectId\",\n        \"relationTypeKey\",\n        \"toObjectId\"\n      ],\n      \"attributes\": [],\n      \"cause\": {\n        \"kind\": \"user\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      }\n    },\n    {\n      \"id\": \"7a85b92b-f0e3-4473-a24e-ee83fcef3494\",\n      \"occurredAt\": \"2026-11-09T10:40:52.046180Z\",\n      \"kind\": \"change-set\",\n      \"action\": \"created\",\n      \"workspace\": {\n        \"key\": \"reader-ai\",\n        \"label\": \"reader-ai\"\n      },\n      \"changeSet\": {\n        \"id\": \"e069ad2d-0931-47e8-9a4e-94ef20cca9af\",\n        \"name\": \"reader-ai mapping proposals\",\n        \"open\": false\n      },\n      \"subject\": {\n        \"id\": \"e069ad2d-0931-47e8-9a4e-94ef20cca9af\",\n        \"name\": \"reader-ai mapping proposals\"\n      },\n      \"changedFields\": [],\n      \"attributes\": [],\n      \"cause\": {\n        \"kind\": \"user\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      }\n    },\n    {\n      \"id\": \"52255f21-eddd-4c05-a3d9-29f04f2a740a\",\n      \"occurredAt\": \"2026-11-09T10:40:38.530972Z\",\n      \"kind\": \"relationship\",\n      \"action\": \"deleted\",\n      \"workspace\": {\n        \"key\": \"reader-ai\",\n        \"label\": \"reader-ai\"\n      },\n      \"changeSet\": null,\n      \"subject\": {\n        \"id\": \"d63aee03-4481-48e2-817d-23274855714b\",\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"relationTypeName\": \"Maps to\",\n        \"fromObject\": {\n          \"id\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n          \"name\": \"BN-103\"\n        },\n        \"toObject\": {\n          \"id\": \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\",\n          \"name\": \"Chur, Alexanderplatz\"\n        },\n        \"removed\": true\n      },\n      \"changedFields\": [\n        \"fromObjectId\",\n        \"relationTypeKey\",\n        \"toObjectId\"\n      ],\n      \"attributes\": [],\n      \"cause\": {\n        \"kind\": \"user\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      }\n    },\n    {\n      \"id\": \"ce8d053e-8dd6-4e7f-a414-44b084c679fe\",\n      \"occurredAt\": \"2026-11-09T10:28:58.726524Z\",\n      \"kind\": \"model\",\n      \"action\": \"activated\",\n      \"workspace\": {\n        \"key\": \"reader-ai\",\n        \"label\": \"reader-ai\"\n      },\n      \"changeSet\": null,\n      \"subject\": {\n        \"id\": \"e09b7a53-b6a5-4bab-aee7-4286d1b0a5b2\",\n        \"name\": \"Public transport stops of Graub\\u00fcnden 1.5.0\"\n      },\n      \"changedFields\": [],\n      \"attributes\": [],\n      \"cause\": {\n        \"kind\": \"user\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      }\n    }\n  ],\n  \"nextCursor\": \"eyJmaWx0ZXJzIjoiNDA0Y2I3ZWIzYTlmMGE3Mzg4N2M5Y2ZjOGM1NjRmYzQ0MjFlOTIwOWE2MzAzZTZkNWMwYTJmNTJiMzdjNjJjOCIsInBvc2l0aW9uIjpbIjIwMjYtMTEtMDlUMTA6Mjg6NTguNzI2NTI0KzAwOjAwIiwiMjkwODkiXSwic2NvcGUiOiJjaGFuZ2VzIiwic29ydCI6WyItb2NjdXJyZWRBdCIsIi1zZXF1ZW5jZUlkIl0sInZlcnNpb24iOjF9.qR2qgi2O8BzLkD23EfuTT3BSrLN12louWSAlJAraDds\",\n  \"prevCursor\": null,\n  \"anchor\": \"eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjQwNGNiN2ViM2E5ZjBhNzM4ODdjOWNmYzhjNTY0ZmM0NDIxZTkyMDlhNjMwM2U2ZDVjMGEyZjUyYjM3YzYyYzgiLCJwb3NpdGlvbiI6WyIyMDI2LTExLTA5VDEwOjQyOjEzLjU5MjkxNSswMDowMCIsIjI5MTUwIl0sInNjb3BlIjoiY2hhbmdlcyIsInNvcnQiOlsiLW9jY3VycmVkQXQiLCItc2VxdWVuY2VJZCJdLCJ2ZXJzaW9uIjoxfQ.kBp0nD3wxUJEDu1LiKVVJtA9zENVu2OCp-qnXdgYK4E\"\n}"
+      }
+    ],
+    "structuredContent": {
+      "items": [
+        {
+          "id": "3e167321-b978-4720-8cb5-cba4d29ec2b0",
+          "occurredAt": "2026-11-09T10:42:13.592915Z",
+          "kind": "change-set",
+          "action": "discarded",
+          "workspace": {
+            "key": "reader-ai",
+            "label": "reader-ai"
+          },
+          "changeSet": {
+            "id": "e069ad2d-0931-47e8-9a4e-94ef20cca9af",
+            "name": "reader-ai mapping proposals",
+            "open": false
+          },
+          "subject": {
+            "id": "e069ad2d-0931-47e8-9a4e-94ef20cca9af",
+            "name": "reader-ai mapping proposals"
+          },
+          "changedFields": [],
+          "attributes": [],
+          "cause": {
+            "kind": "user"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "8db08ca0-1a7c-467d-9b56-910db6094b4a",
+          "occurredAt": "2026-11-09T10:41:45.096587Z",
+          "kind": "relationship",
+          "action": "created",
+          "workspace": {
+            "key": "reader-ai",
+            "label": "reader-ai"
+          },
+          "changeSet": null,
+          "subject": {
+            "id": "0373239c-ad2b-4ef3-a134-fe7987840547",
+            "relationTypeKey": "system-code-maps-to",
+            "relationTypeName": "Maps to",
+            "fromObject": {
+              "id": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+              "name": "BN-103"
+            },
+            "toObject": {
+              "id": "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617",
+              "name": "Chur, Alexanderplatz"
+            },
+            "removed": false
+          },
+          "changedFields": [
+            "attributes",
+            "fromObjectId",
+            "relationTypeKey",
+            "toObjectId"
+          ],
+          "attributes": [],
+          "cause": {
+            "kind": "user"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "7a85b92b-f0e3-4473-a24e-ee83fcef3494",
+          "occurredAt": "2026-11-09T10:40:52.046180Z",
+          "kind": "change-set",
+          "action": "created",
+          "workspace": {
+            "key": "reader-ai",
+            "label": "reader-ai"
+          },
+          "changeSet": {
+            "id": "e069ad2d-0931-47e8-9a4e-94ef20cca9af",
+            "name": "reader-ai mapping proposals",
+            "open": false
+          },
+          "subject": {
+            "id": "e069ad2d-0931-47e8-9a4e-94ef20cca9af",
+            "name": "reader-ai mapping proposals"
+          },
+          "changedFields": [],
+          "attributes": [],
+          "cause": {
+            "kind": "user"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "52255f21-eddd-4c05-a3d9-29f04f2a740a",
+          "occurredAt": "2026-11-09T10:40:38.530972Z",
+          "kind": "relationship",
+          "action": "deleted",
+          "workspace": {
+            "key": "reader-ai",
+            "label": "reader-ai"
+          },
+          "changeSet": null,
+          "subject": {
+            "id": "d63aee03-4481-48e2-817d-23274855714b",
+            "relationTypeKey": "system-code-maps-to",
+            "relationTypeName": "Maps to",
+            "fromObject": {
+              "id": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+              "name": "BN-103"
+            },
+            "toObject": {
+              "id": "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617",
+              "name": "Chur, Alexanderplatz"
+            },
+            "removed": true
+          },
+          "changedFields": [
+            "fromObjectId",
+            "relationTypeKey",
+            "toObjectId"
+          ],
+          "attributes": [],
+          "cause": {
+            "kind": "user"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        },
+        {
+          "id": "ce8d053e-8dd6-4e7f-a414-44b084c679fe",
+          "occurredAt": "2026-11-09T10:28:58.726524Z",
+          "kind": "model",
+          "action": "activated",
+          "workspace": {
+            "key": "reader-ai",
+            "label": "reader-ai"
+          },
+          "changeSet": null,
+          "subject": {
+            "id": "e09b7a53-b6a5-4bab-aee7-4286d1b0a5b2",
+            "name": "Public transport stops of Graubünden 1.5.0"
+          },
+          "changedFields": [],
+          "attributes": [],
+          "cause": {
+            "kind": "user"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          }
+        }
+      ],
+      "nextCursor": "eyJmaWx0ZXJzIjoiNDA0Y2I3ZWIzYTlmMGE3Mzg4N2M5Y2ZjOGM1NjRmYzQ0MjFlOTIwOWE2MzAzZTZkNWMwYTJmNTJiMzdjNjJjOCIsInBvc2l0aW9uIjpbIjIwMjYtMTEtMDlUMTA6Mjg6NTguNzI2NTI0KzAwOjAwIiwiMjkwODkiXSwic2NvcGUiOiJjaGFuZ2VzIiwic29ydCI6WyItb2NjdXJyZWRBdCIsIi1zZXF1ZW5jZUlkIl0sInZlcnNpb24iOjF9.qR2qgi2O8BzLkD23EfuTT3BSrLN12louWSAlJAraDds",
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjQwNGNiN2ViM2E5ZjBhNzM4ODdjOWNmYzhjNTY0ZmM0NDIxZTkyMDlhNjMwM2U2ZDVjMGEyZjUyYjM3YzYyYzgiLCJwb3NpdGlvbiI6WyIyMDI2LTExLTA5VDEwOjQyOjEzLjU5MjkxNSswMDowMCIsIjI5MTUwIl0sInNjb3BlIjoiY2hhbmdlcyIsInNvcnQiOlsiLW9jY3VycmVkQXQiLCItc2VxdWVuY2VJZCJdLCJ2ZXJzaW9uIjoxfQ.kBp0nD3wxUJEDu1LiKVVJtA9zENVu2OCp-qnXdgYK4E"
+    },
+    "isError": false
+  }
+}

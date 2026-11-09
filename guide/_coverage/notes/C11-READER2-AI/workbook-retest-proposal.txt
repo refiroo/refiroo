@@ -1,0 +1,60 @@
+reader-ai
+Load a workbook
+Haltestellen_Busbetrieb_Nord.xlsx
+
+“This workbook was already loaded in reader-ai. Match existing records by their identifiers; do not duplicate them or change the model. Prepare only Abbreviation ALXP-WB-REVIEW for stop Chur, Alexanderplatz (UIC 8595591). Keep every other record, value and relationship. I will review this unpublished load and may correct it. Never publish.”
+
+The load is prepared as a change to one existing record. The stop Chur, Alexanderplatz (UIC 8595591) gets the abbreviation ALXP-WB-REVIEW in place of its current ALXP-MCP-REVISED. The dry run on my own draft matched that one stop and changed only its abbreviation. Nothing was refused and there were no findings.
+
+Where the value comes from:
+The workbook has no abbreviation column, so ALXP-WB-REVIEW comes from your request.
+Name spellings:
+The workbook spells the municipality as Chur, Coira and Cuira for different stops, and some stop names appear with and without a comma. I kept them as they are.
+Nothing else changes:
+No new records and no model change. The other 212 records of the workspace are not touched.
+Nothing published:
+I didn't install, activate, load or publish anything.
+Questions:
+None are open, and there are no type moves. (48 s, $0.22)
+The assistant’s proposal
+Open in the model editor
+
+The existing stop Chur, Alexanderplatz (UIC 8595591) gets the abbreviation ALXP-WB-REVIEW in place of its current ALXP-MCP-REVISED, and nothing else changes: no new records, no model change, and the other records of the workspace are not touched. The workbook has no abbreviation column, so the value comes from your request, and its Chur, Alexanderplatz rows carry the municipality as Coira in one sheet while other rows spell Chur or Cuira, which I kept as they are.
+
+Stop 11 attributes, 1 record
+
+Nothing is installed or loaded before you accept.
+
+Hide the model change
+The model: what changes
+
+No type, attribute or relationship changes. The draft may change how the model is shown, such as its views and layout: open it in the model editor to read them.
+
+Open in the model editor
+What the load does
+
+The engine checked every record and relationship below against the model and your data, writing nothing. Accepting loads exactly this.
+
+0
+records new
+1
+existing records matched
+0
+relationships new
+0
+refused
+1
+rows read from 1 sheet
+Type	New	Matched	Changed	Refused	Linked to
+›Stop	0	1	1	0	—
+Where each part of the file goes
+
+Accept and load to change set. The engine loads exactly the records above into a new change set. No assistant turn, nothing published: you review and publish the change set.
+
+Give the assistant other words
+Accept and load to change set
+Correct the model
+Tell the assistant what to change
+Send to the assistant
+Discard this proposal
+Close

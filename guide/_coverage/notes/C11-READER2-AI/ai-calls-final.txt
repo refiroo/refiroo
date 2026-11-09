@@ -1,0 +1,171 @@
+Administration
+
+AI
+
+The assistant and the AI provider the application asks for proposals that people then review, keep, edit or remove. They are set in the server's environment (the AI_ settings) and read when the server starts; nothing here changes them. The key is never shown.
+
+What is switched on
+Assistant
+On (AI_AGENT_COMMAND)
+Reads workbooks and words, up to a change set. It sends what the send level below allows and needs no provider.
+Provider
+On: claude-code (AI_PROVIDER)
+Asked for mapping targets, search and summaries.
+Settings
+Model
+sonnet
+Endpoint
+The provider's own
+Key
+Not set
+What may be sent
+Also the record values a feature needs, with no limit per column
+Confidence floor
+50%
+Content kept
+No
+Timeout
+60 seconds
+What the AI provider is asked
+
+Each feature needs a level of what may be sent. One that needs more than is allowed is not offered.
+
+Targets for the unmapped values of a mapping view
+Available
+A question in words becomes the filters of a list
+Available
+An account of what a model change does, beside its check
+Available
+An account of what changed in a workspace or a record over a period
+Available
+Test request
+
+A small request that sends none of your data. It shows whether the AI provider answers, and it is listed below.
+
+Send a test request
+Calls
+
+Every request made to the AI provider and every assistant session's turn, newest first.
+
+Last 30 days: 66 calls, 10 failed; 60,138,833 tokens in, 355,339 out; $13.35.
+
+When	What for	Asked by	Model	Outcome	Tokens in / out	Cost	Duration
+today, 03:39 PM	Targets for unmapped values	Guide Admin	sonnet	
+Answered	3778 / 118	—	3,843 ms
+today, 03:35 PM	Targets for unmapped values	Guide Admin	sonnet	
+Answered	3783 / 125	—	4,510 ms
+today, 03:31 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	391800 / 5647	$0.15	52,450 ms
+today, 03:29 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	232469 / 3895	$0.16	40,354 ms
+today, 03:28 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	168510 / 1076	$0.04	16,371 ms
+today, 03:26 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	377704 / 4545	$0.22	51,295 ms
+today, 03:25 PM	Test request	Guide Admin	sonnet	
+Answered	898 / 52	—	5,280 ms
+today, 03:23 PM	Assistant session	Guide Admin	unknown	
+Failed
+The session ended without an answer.
+	—	$0.00	4,194 ms
+today, 03:23 PM	Assistant session	Guide Admin	unknown	
+Failed
+Cancelled by a person.
+	—	—	2,989 ms
+today, 02:07 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	56805 / 742	$0.03	10,096 ms
+today, 02:05 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Failed
+The worker stopped while the session ran.
+	128068 / 161	—	119,913 ms
+today, 02:05 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	104757 / 884	$0.03	10,115 ms
+today, 02:04 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	247364 / 1974	$0.07	22,228 ms
+today, 02:04 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	138996 / 1530	$0.12	18,140 ms
+today, 02:04 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Failed
+Cancelled by a person.
+	40140 / 76	—	8,718 ms
+today, 11:40 AM	Targets for unmapped values	Guide Admin	sonnet	
+Answered	3740 / 120	—	3,305 ms
+today, 11:36 AM	An account of what changed	Guide Admin	sonnet	
+Answered	4116 / 720	—	5,962 ms
+today, 11:35 AM	A question in words	Guide Admin	sonnet	
+Answered	3781 / 171	—	5,216 ms
+today, 11:27 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	205207 / 1340	$0.05	16,264 ms
+today, 11:25 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	458267 / 8270	$0.26	68,902 ms
+today, 11:24 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	139537 / 1456	$0.04	18,213 ms
+today, 11:23 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	130432 / 2504	$0.10	26,397 ms
+today, 11:18 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	95385 / 1240	$0.04	14,212 ms
+today, 11:17 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	45131 / 1017	$0.08	12,308 ms
+today, 11:15 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Failed
+The session ended without an answer.
+	26019 / 56	—	6,089 ms
+today, 11:10 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	1144568 / 17628	$0.55	151,239 ms
+today, 11:08 AM	Test request	Guide Admin	sonnet	
+Answered	898 / 52	—	4,354 ms
+Nov 6, 01:04 AM	Test request	Guide Admin	sonnet	
+Answered	896 / 52	—	5,565 ms
+Nov 6, 01:03 AM	An account of a model change	Guide Admin	sonnet	
+Failed
+The provider could not be reached (AI_BASE_URL)
+	—	—	30 ms
+Nov 6, 01:02 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	133751 / 2218	$0.10	28,332 ms
+Nov 6, 12:45 AM	Test request	Guide Admin	sonnet	
+Answered	896 / 52	—	6,145 ms
+Nov 6, 12:10 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	289859 / 2122	$0.07	24,163 ms
+Nov 6, 12:09 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	482380 / 6991	$0.28	72,535 ms
+Nov 6, 12:05 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	693906 / 8868	$0.37	88,665 ms
+Nov 6, 12:02 AM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	131690 / 2576	$0.11	30,259 ms
+Nov 5, 11:53 PM	Test request	Guide Admin	sonnet	
+Answered	897 / 52	—	4,410 ms
+Nov 5, 11:52 PM	An account of a model change	Guide Admin	guide-unreachable	
+Failed
+The provider could not be reached (AI_BASE_URL)
+	—	—	3 ms
+Nov 5, 11:52 PM	Test request	Guide Admin	guide-unreachable	
+Failed
+The provider could not be reached (AI_BASE_URL)
+	—	—	1 ms
+Nov 5, 11:40 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	608725 / 5435	$0.15	78,451 ms
+Nov 5, 11:39 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	689914 / 9612	$0.37	96,693 ms
+Nov 5, 11:37 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	582783 / 8646	$0.30	90,607 ms
+Nov 5, 11:36 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	186973 / 3504	$0.13	42,409 ms
+Nov 5, 11:25 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	3589375 / 48785	$1.32	501,068 ms
+Nov 5, 10:32 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Failed
+The session ended without an answer.
+	10115089 / 1570	—	1,084,765 ms
+Nov 5, 10:26 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	573797 / 5698	$0.25	78,506 ms
+Nov 5, 10:16 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	2810950 / 2603	$0.33	88,596 ms
+Nov 5, 09:36 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	20448725 / 76223	$3.50	1,980,143 ms
+Nov 5, 09:23 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	553362 / 286	$0.23	757,054 ms
+Nov 5, 09:19 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	486200 / 5641	$0.23	80,528 ms
+Nov 5, 09:12 PM	Assistant session	Guide Admin	claude-sonnet-5-5	
+Answered	581183 / 8039	$0.26	231,134 ms
+Load more calls

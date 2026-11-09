@@ -1,0 +1,47 @@
+{
+  "set": {
+    "changeSetId": "eeb9021f-4521-4017-8975-1a005a5a0f5f",
+    "workspace": "reader-ai",
+    "name": "reader-ai external assistant review",
+    "version": 1,
+    "modelReleaseId": "e09b7a53-b6a5-4bab-aee7-4286d1b0a5b2"
+  },
+  "write": {
+    "status": 200,
+    "jsonrpc": "2.0",
+    "id": 1794221181787,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"id\": \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\",\n  \"version\": 2,\n  \"changeSetVersion\": 2\n}"
+        }
+      ],
+      "structuredContent": {
+        "id": "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617",
+        "version": 2,
+        "changeSetVersion": 2
+      },
+      "isError": false
+    }
+  },
+  "submission": {
+    "status": 200,
+    "jsonrpc": "2.0",
+    "id": 1794221189117,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"submissionId\": \"46556b56-157d-4f1b-90c7-1fa252c2daa1\",\n  \"state\": \"submitted\",\n  \"changeSetVersion\": 2\n}"
+        }
+      ],
+      "structuredContent": {
+        "submissionId": "46556b56-157d-4f1b-90c7-1fa252c2daa1",
+        "state": "submitted",
+        "changeSetVersion": 2
+      },
+      "isError": false
+    }
+  }
+}

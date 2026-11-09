@@ -1,0 +1,88 @@
+reader-ai
+/
+Systems
+Live
+Edits apply immediately in this workspace.
+Live
+Change sets
+Publications
+Back to list
+Systems
+busbetrieb-nord
+System code
+
+System code
+
+Edit Name:
+Chur Albula
+Edit External code:
+READER-AI-8571924
+v1
+
+ID
+b00327c7-76a7-4182-9882-ebdb630f02eb
+
+Code details
+External code
+Edit External code:
+READER-AI-8571924
+Description
+Edit Description:
+Reader assistant journey: keep AI proposal for Chur Albula, UIC 8571924.
+Hierarchy
+Parent
+busbetrieb-nord
+busbetrieb-nord
+›
+Chur Albula
+Maps to
+Display
+Add relationship
+Maps to
+Name
+	Type
+	Stop number (UIC)
+	FSO number
+	Actions
+
+Chur Albula	Stop	8571924	—	
+
+
+End · 1 relationship
+1–1 of 1 relationship
+History
+By
+Anyone
+Guide Admin
+What changed
+Period
+Last 7 days
+Last 30 days
+Choose dates
+Explain this period
+
+Sends claude-code the counts of what changed, by type, field and source, with the names of records, people and change sets. Nothing is sent until you press the button.
+
+All
+Values
+Relationships
+Moves
+TODAY
+Maps to Chur Albula added · Guide Admin · proposed by the AI
+03:40 PM
+▾
+Proposed by the AI assistant (sonnet), 97% confident
+The name "Chur Albula" is identical, and the external id's number 8571924 matches the stop number 8571924. Asked for by Guide Admin.
+
+by Guide Admin · version 1
+
+Maps to changed · Guide Admin
+03:39 PM
+▸
+Maps to Chur Albula added · Guide Admin
+03:39 PM
+▸
+Record created · Guide Admin
+03:39 PM
+▸
+Showing 4 changes

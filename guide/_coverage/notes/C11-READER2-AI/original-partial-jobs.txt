@@ -1,0 +1,34 @@
+‹ Jobs
+Jobs
+Assistant task: Split the four Route records between two new types: Local route for Line number…
+
+Assistant task · reader-ai
+
+Split the four Route records between two new types: Local route for Line number…
+
+2 jobs, the latest at 11/9/2026, 11:33:42 AM.
+
+Open the task
+All
+2
+Failed
+2
+Jobs
+Refresh
+Job	State	Items	Requested by	Created	Finished	Actions
+
+Assistant: reading a workbook
+72ac65f6-7581-475a-937c-c9907320e04b
+	
+Failed
+Every item applied
+The job stopped because of an internal error. Items it applied before stay applied; the rest are unprocessed and may be sent again. If it recurs, report the correlation ID
+	0 of 0 processed: 0 applied, 0 rejected, 0 unprocessed	Guide Admin	11/9/2026, 11:33:42 AM	11/9/2026, 11:33:43 AM	
+
+Assistant: reading a workbook
+c3017381-68d8-4ba9-bcf5-f2b2fa74255a
+	
+Failed
+Every item applied
+The job stopped because of an internal error. Items it applied before stay applied; the rest are unprocessed and may be sent again. If it recurs, report the correlation ID
+	0 of 0 processed: 0 applied, 0 rejected, 0 unprocessed	Guide Admin	11/9/2026, 11:29:25 AM	11/9/2026, 11:31:26 AM	

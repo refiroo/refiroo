@@ -1,0 +1,396 @@
+{
+  "status": 200,
+  "jsonrpc": "2.0",
+  "id": 1794221169356,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"items\": [\n    {\n      \"id\": \"93f87adf-115d-4181-90fa-a11b1d355161\",\n      \"aggregateType\": \"mapping\",\n      \"aggregateId\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n      \"action\": \"transition\",\n      \"version\": 3,\n      \"changedFields\": [\n        \"changeSetId\",\n        \"direction\",\n        \"fromObjectTypeKey\",\n        \"newTargets\",\n        \"previousTargets\",\n        \"relationTypeKey\",\n        \"toObjectTypeKey\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:41:45.096591Z\",\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [\n        {\n          \"field\": \"system-code-maps-to\",\n          \"kind\": \"relation\",\n          \"from\": [],\n          \"to\": [\n            \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\"\n          ],\n          \"fromKnown\": true\n        }\n      ],\n      \"related\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"direction\": \"outgoing\"\n      }\n    },\n    {\n      \"id\": \"8db08ca0-1a7c-467d-9b56-910db6094b4a\",\n      \"aggregateType\": \"relation\",\n      \"aggregateId\": \"0373239c-ad2b-4ef3-a134-fe7987840547\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"attributes\",\n        \"fromObjectId\",\n        \"relationTypeKey\",\n        \"toObjectId\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:41:45.096587Z\",\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [],\n      \"related\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"direction\": \"incoming\",\n        \"objectId\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n        \"name\": \"BN-103\",\n        \"objectTypeKey\": \"system-code\"\n      }\n    },\n    {\n      \"id\": \"daa21f1f-7fb0-4aca-9ced-4e4faf5ef3ce\",\n      \"aggregateType\": \"mapping\",\n      \"aggregateId\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n      \"action\": \"transition\",\n      \"version\": 2,\n      \"changedFields\": [\n        \"changeSetId\",\n        \"direction\",\n        \"fromObjectTypeKey\",\n        \"newTargets\",\n        \"previousTargets\",\n        \"relationTypeKey\",\n        \"toObjectTypeKey\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:40:38.530983Z\",\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [\n        {\n          \"field\": \"system-code-maps-to\",\n          \"kind\": \"relation\",\n          \"from\": [\n            \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\"\n          ],\n          \"to\": [],\n          \"fromKnown\": true\n        }\n      ],\n      \"related\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"direction\": \"outgoing\"\n      }\n    },\n    {\n      \"id\": \"52255f21-eddd-4c05-a3d9-29f04f2a740a\",\n      \"aggregateType\": \"relation\",\n      \"aggregateId\": \"d63aee03-4481-48e2-817d-23274855714b\",\n      \"action\": \"deleted\",\n      \"version\": 2,\n      \"changedFields\": [\n        \"fromObjectId\",\n        \"relationTypeKey\",\n        \"toObjectId\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:40:38.530972Z\",\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [],\n      \"related\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"direction\": \"incoming\",\n        \"objectId\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n        \"name\": \"BN-103\",\n        \"objectTypeKey\": \"system-code\"\n      }\n    },\n    {\n      \"id\": \"07edfc2d-f604-4b6a-98c3-968c18c00ac4\",\n      \"aggregateType\": \"change-set-object\",\n      \"aggregateId\": \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\",\n      \"action\": \"updated\",\n      \"version\": 2,\n      \"changedFields\": [\n        \"attributes\",\n        \"changeSetId\"\n      ],\n      \"attributeTypeKeys\": [\n        \"abbreviation\"\n      ],\n      \"occurredAt\": \"2026-11-09T10:18:52.207623Z\",\n      \"actor\": {\n        \"kind\": \"client\",\n        \"id\": \"8724c646-5120-4049-a603-633540b1603c\",\n        \"name\": \"AI assistant\"\n      },\n      \"kind\": \"values\",\n      \"values\": [\n        {\n          \"field\": \"abbreviation\",\n          \"kind\": \"attribute\",\n          \"from\": null,\n          \"to\": \"ALXP-REVIEW\",\n          \"fromKnown\": true\n        }\n      ]\n    },\n    {\n      \"id\": \"97f908fb-c339-4eb9-9629-084a76a53224\",\n      \"aggregateType\": \"relation\",\n      \"aggregateId\": \"d63aee03-4481-48e2-817d-23274855714b\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"attributes\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:15:37.812585Z\",\n      \"cause\": {\n        \"kind\": \"publication\",\n        \"id\": \"da6ae356-32c7-42f0-b645-307003ca6dc3\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [],\n      \"related\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"direction\": \"incoming\",\n        \"objectId\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n        \"name\": \"BN-103\",\n        \"objectTypeKey\": \"system-code\"\n      }\n    },\n    {\n      \"id\": \"4e4164dd-130f-457c-81eb-470d674ca8ab\",\n      \"aggregateType\": \"relation\",\n      \"aggregateId\": \"cf0922ed-ab5c-4c6f-bdd8-99a28e431681\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"attributes\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:15:37.812576Z\",\n      \"cause\": {\n        \"kind\": \"publication\",\n        \"id\": \"da6ae356-32c7-42f0-b645-307003ca6dc3\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [],\n      \"related\": {\n        \"relationTypeKey\": \"stop-in-fare-zone\",\n        \"direction\": \"outgoing\",\n        \"objectId\": \"1e418cef-fa42-4e95-a28a-52413dd4e964\",\n        \"name\": \"Z1\",\n        \"objectTypeKey\": \"fare-zone\"\n      }\n    },\n    {\n      \"id\": \"75b8b069-2ab3-46c6-af32-ac29c5847fee\",\n      \"aggregateType\": \"object\",\n      \"aggregateId\": \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"name\",\n        \"parentObjectId\",\n        \"attributes\"\n      ],\n      \"attributeTypeKeys\": [\n        \"designation\",\n        \"remark\",\n        \"stop-number\",\n        \"valid-from\"\n      ],\n      \"occurredAt\": \"2026-11-09T10:15:37.812120Z\",\n      \"cause\": {\n        \"kind\": \"publication\",\n        \"id\": \"da6ae356-32c7-42f0-b645-307003ca6dc3\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"structure\",\n      \"values\": []\n    },\n    {\n      \"id\": \"2c92768f-be29-47b1-baad-e01c7770cce2\",\n      \"aggregateType\": \"relation\",\n      \"aggregateId\": \"cf0922ed-ab5c-4c6f-bdd8-99a28e431681\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"attributes\",\n        \"changeSetId\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:14:15.903865Z\",\n      \"cause\": {\n        \"kind\": \"job\",\n        \"id\": \"c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [],\n      \"related\": {\n        \"relationTypeKey\": \"stop-in-fare-zone\",\n        \"direction\": \"outgoing\",\n        \"objectId\": \"1e418cef-fa42-4e95-a28a-52413dd4e964\",\n        \"name\": \"Z1\",\n        \"objectTypeKey\": \"fare-zone\"\n      }\n    },\n    {\n      \"id\": \"5f8b9e31-61b1-4980-a43e-15c5307082e9\",\n      \"aggregateType\": \"relation\",\n      \"aggregateId\": \"d63aee03-4481-48e2-817d-23274855714b\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"attributes\",\n        \"changeSetId\"\n      ],\n      \"attributeTypeKeys\": [],\n      \"occurredAt\": \"2026-11-09T10:14:15.903863Z\",\n      \"cause\": {\n        \"kind\": \"job\",\n        \"id\": \"c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"relationships\",\n      \"values\": [],\n      \"related\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"direction\": \"incoming\",\n        \"objectId\": \"d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199\",\n        \"name\": \"BN-103\",\n        \"objectTypeKey\": \"system-code\"\n      }\n    },\n    {\n      \"id\": \"867691cb-b299-4403-8de6-99c23e6c899a\",\n      \"aggregateType\": \"change-set-object\",\n      \"aggregateId\": \"7e80a7a2-f0c0-42f5-a5d7-ed36adeca617\",\n      \"action\": \"created\",\n      \"version\": 1,\n      \"changedFields\": [\n        \"attributes\",\n        \"changeSetId\"\n      ],\n      \"attributeTypeKeys\": [\n        \"designation\",\n        \"remark\",\n        \"stop-number\",\n        \"valid-from\"\n      ],\n      \"occurredAt\": \"2026-11-09T10:14:15.903488Z\",\n      \"cause\": {\n        \"kind\": \"job\",\n        \"id\": \"c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc\"\n      },\n      \"actor\": {\n        \"kind\": \"user\",\n        \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n        \"name\": \"Guide Admin\"\n      },\n      \"kind\": \"values\",\n      \"values\": [\n        {\n          \"field\": \"designation\",\n          \"kind\": \"attribute\",\n          \"from\": null,\n          \"to\": \"Chur, Alexanderplatz\",\n          \"fromKnown\": true\n        },\n        {\n          \"field\": \"stop-number\",\n          \"kind\": \"attribute\",\n          \"from\": null,\n          \"to\": 8595591,\n          \"fromKnown\": true\n        },\n        {\n          \"field\": \"valid-from\",\n          \"kind\": \"attribute\",\n          \"from\": null,\n          \"to\": \"2024-12-15\",\n          \"fromKnown\": true\n        },\n        {\n          \"field\": \"remark\",\n          \"kind\": \"attribute\",\n          \"from\": null,\n          \"to\": \"Warteh\\u00e4uschen\",\n          \"fromKnown\": true\n        }\n      ]\n    }\n  ],\n  \"nextCursor\": null,\n  \"prevCursor\": null,\n  \"anchor\": \"eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImFkYzRiOTAwM2U3ZDZiMWEzNjU3NTJiZWVmODJmZGYzZTI3ODhlY2ZiNmQxNjI0ZjMxYzE0N2QxOTQyOGNlYmUiLCJwb3NpdGlvbiI6WyIyMDI2LTExLTA5VDEwOjQxOjQ1LjA5NjU5MSswMDowMCIsIjI5MTQ5Il0sInNjb3BlIjoib2JqZWN0LWhpc3RvcnkiLCJzb3J0IjpbIi1vY2N1cnJlZEF0IiwiLXNlcXVlbmNlSWQiXSwidmVyc2lvbiI6MX0.flTFlMphhbGgiJlypZxV7bUirLt9Lisee7Bv7VUKV0o\"\n}"
+      }
+    ],
+    "structuredContent": {
+      "items": [
+        {
+          "id": "93f87adf-115d-4181-90fa-a11b1d355161",
+          "aggregateType": "mapping",
+          "aggregateId": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+          "action": "transition",
+          "version": 3,
+          "changedFields": [
+            "changeSetId",
+            "direction",
+            "fromObjectTypeKey",
+            "newTargets",
+            "previousTargets",
+            "relationTypeKey",
+            "toObjectTypeKey"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:41:45.096591Z",
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [
+            {
+              "field": "system-code-maps-to",
+              "kind": "relation",
+              "from": [],
+              "to": [
+                "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617"
+              ],
+              "fromKnown": true
+            }
+          ],
+          "related": {
+            "relationTypeKey": "system-code-maps-to",
+            "direction": "outgoing"
+          }
+        },
+        {
+          "id": "8db08ca0-1a7c-467d-9b56-910db6094b4a",
+          "aggregateType": "relation",
+          "aggregateId": "0373239c-ad2b-4ef3-a134-fe7987840547",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "attributes",
+            "fromObjectId",
+            "relationTypeKey",
+            "toObjectId"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:41:45.096587Z",
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [],
+          "related": {
+            "relationTypeKey": "system-code-maps-to",
+            "direction": "incoming",
+            "objectId": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+            "name": "BN-103",
+            "objectTypeKey": "system-code"
+          }
+        },
+        {
+          "id": "daa21f1f-7fb0-4aca-9ced-4e4faf5ef3ce",
+          "aggregateType": "mapping",
+          "aggregateId": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+          "action": "transition",
+          "version": 2,
+          "changedFields": [
+            "changeSetId",
+            "direction",
+            "fromObjectTypeKey",
+            "newTargets",
+            "previousTargets",
+            "relationTypeKey",
+            "toObjectTypeKey"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:40:38.530983Z",
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [
+            {
+              "field": "system-code-maps-to",
+              "kind": "relation",
+              "from": [
+                "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617"
+              ],
+              "to": [],
+              "fromKnown": true
+            }
+          ],
+          "related": {
+            "relationTypeKey": "system-code-maps-to",
+            "direction": "outgoing"
+          }
+        },
+        {
+          "id": "52255f21-eddd-4c05-a3d9-29f04f2a740a",
+          "aggregateType": "relation",
+          "aggregateId": "d63aee03-4481-48e2-817d-23274855714b",
+          "action": "deleted",
+          "version": 2,
+          "changedFields": [
+            "fromObjectId",
+            "relationTypeKey",
+            "toObjectId"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:40:38.530972Z",
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [],
+          "related": {
+            "relationTypeKey": "system-code-maps-to",
+            "direction": "incoming",
+            "objectId": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+            "name": "BN-103",
+            "objectTypeKey": "system-code"
+          }
+        },
+        {
+          "id": "07edfc2d-f604-4b6a-98c3-968c18c00ac4",
+          "aggregateType": "change-set-object",
+          "aggregateId": "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617",
+          "action": "updated",
+          "version": 2,
+          "changedFields": [
+            "attributes",
+            "changeSetId"
+          ],
+          "attributeTypeKeys": [
+            "abbreviation"
+          ],
+          "occurredAt": "2026-11-09T10:18:52.207623Z",
+          "actor": {
+            "kind": "client",
+            "id": "8724c646-5120-4049-a603-633540b1603c",
+            "name": "AI assistant"
+          },
+          "kind": "values",
+          "values": [
+            {
+              "field": "abbreviation",
+              "kind": "attribute",
+              "from": null,
+              "to": "ALXP-REVIEW",
+              "fromKnown": true
+            }
+          ]
+        },
+        {
+          "id": "97f908fb-c339-4eb9-9629-084a76a53224",
+          "aggregateType": "relation",
+          "aggregateId": "d63aee03-4481-48e2-817d-23274855714b",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "attributes"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:15:37.812585Z",
+          "cause": {
+            "kind": "publication",
+            "id": "da6ae356-32c7-42f0-b645-307003ca6dc3"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [],
+          "related": {
+            "relationTypeKey": "system-code-maps-to",
+            "direction": "incoming",
+            "objectId": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+            "name": "BN-103",
+            "objectTypeKey": "system-code"
+          }
+        },
+        {
+          "id": "4e4164dd-130f-457c-81eb-470d674ca8ab",
+          "aggregateType": "relation",
+          "aggregateId": "cf0922ed-ab5c-4c6f-bdd8-99a28e431681",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "attributes"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:15:37.812576Z",
+          "cause": {
+            "kind": "publication",
+            "id": "da6ae356-32c7-42f0-b645-307003ca6dc3"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [],
+          "related": {
+            "relationTypeKey": "stop-in-fare-zone",
+            "direction": "outgoing",
+            "objectId": "1e418cef-fa42-4e95-a28a-52413dd4e964",
+            "name": "Z1",
+            "objectTypeKey": "fare-zone"
+          }
+        },
+        {
+          "id": "75b8b069-2ab3-46c6-af32-ac29c5847fee",
+          "aggregateType": "object",
+          "aggregateId": "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "name",
+            "parentObjectId",
+            "attributes"
+          ],
+          "attributeTypeKeys": [
+            "designation",
+            "remark",
+            "stop-number",
+            "valid-from"
+          ],
+          "occurredAt": "2026-11-09T10:15:37.812120Z",
+          "cause": {
+            "kind": "publication",
+            "id": "da6ae356-32c7-42f0-b645-307003ca6dc3"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "structure",
+          "values": []
+        },
+        {
+          "id": "2c92768f-be29-47b1-baad-e01c7770cce2",
+          "aggregateType": "relation",
+          "aggregateId": "cf0922ed-ab5c-4c6f-bdd8-99a28e431681",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "attributes",
+            "changeSetId"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:14:15.903865Z",
+          "cause": {
+            "kind": "job",
+            "id": "c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [],
+          "related": {
+            "relationTypeKey": "stop-in-fare-zone",
+            "direction": "outgoing",
+            "objectId": "1e418cef-fa42-4e95-a28a-52413dd4e964",
+            "name": "Z1",
+            "objectTypeKey": "fare-zone"
+          }
+        },
+        {
+          "id": "5f8b9e31-61b1-4980-a43e-15c5307082e9",
+          "aggregateType": "relation",
+          "aggregateId": "d63aee03-4481-48e2-817d-23274855714b",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "attributes",
+            "changeSetId"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-09T10:14:15.903863Z",
+          "cause": {
+            "kind": "job",
+            "id": "c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "relationships",
+          "values": [],
+          "related": {
+            "relationTypeKey": "system-code-maps-to",
+            "direction": "incoming",
+            "objectId": "d6ea29b2-39c8-4b7b-a3ad-09b7c74bc199",
+            "name": "BN-103",
+            "objectTypeKey": "system-code"
+          }
+        },
+        {
+          "id": "867691cb-b299-4403-8de6-99c23e6c899a",
+          "aggregateType": "change-set-object",
+          "aggregateId": "7e80a7a2-f0c0-42f5-a5d7-ed36adeca617",
+          "action": "created",
+          "version": 1,
+          "changedFields": [
+            "attributes",
+            "changeSetId"
+          ],
+          "attributeTypeKeys": [
+            "designation",
+            "remark",
+            "stop-number",
+            "valid-from"
+          ],
+          "occurredAt": "2026-11-09T10:14:15.903488Z",
+          "cause": {
+            "kind": "job",
+            "id": "c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+            "name": "Guide Admin"
+          },
+          "kind": "values",
+          "values": [
+            {
+              "field": "designation",
+              "kind": "attribute",
+              "from": null,
+              "to": "Chur, Alexanderplatz",
+              "fromKnown": true
+            },
+            {
+              "field": "stop-number",
+              "kind": "attribute",
+              "from": null,
+              "to": 8595591,
+              "fromKnown": true
+            },
+            {
+              "field": "valid-from",
+              "kind": "attribute",
+              "from": null,
+              "to": "2024-12-15",
+              "fromKnown": true
+            },
+            {
+              "field": "remark",
+              "kind": "attribute",
+              "from": null,
+              "to": "Wartehäuschen",
+              "fromKnown": true
+            }
+          ]
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImFkYzRiOTAwM2U3ZDZiMWEzNjU3NTJiZWVmODJmZGYzZTI3ODhlY2ZiNmQxNjI0ZjMxYzE0N2QxOTQyOGNlYmUiLCJwb3NpdGlvbiI6WyIyMDI2LTExLTA5VDEwOjQxOjQ1LjA5NjU5MSswMDowMCIsIjI5MTQ5Il0sInNjb3BlIjoib2JqZWN0LWhpc3RvcnkiLCJzb3J0IjpbIi1vY2N1cnJlZEF0IiwiLXNlcXVlbmNlSWQiXSwidmVyc2lvbiI6MX0.flTFlMphhbGgiJlypZxV7bUirLt9Lisee7Bv7VUKV0o"
+    },
+    "isError": false
+  }
+}

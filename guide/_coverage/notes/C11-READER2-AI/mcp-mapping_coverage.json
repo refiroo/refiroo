@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "jsonrpc": "2.0",
+  "id": 1794221169208,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"items\": [],\n  \"nextCursor\": null,\n  \"prevCursor\": null,\n  \"anchor\": null\n}"
+      }
+    ],
+    "structuredContent": {
+      "items": [],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": null
+    },
+    "isError": false
+  }
+}

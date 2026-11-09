@@ -41,12 +41,30 @@ The suggested name starts with **Load**, the file name and a date. If loading fa
 change set was opened, inspect that change set and the load's job before starting again;
 do not assume the first proposal disappeared.
 
-## A profile saved by the assistant
+## Use a saved profile through the assistant dialog
 
-An [assistant load](/docs/use/loading-with-the-assistant/#the-next-file-and-the-saved-profile)
-can leave a saved profile. Follow the steps above to reuse it. If you start through **Import…**,
-a fitting saved layout also lets refiroo prepare the file without an assistant session or AI
-cost. You still review the proposal and row check. **The saved layout does not fit this file**
+A workbook loaded from the assistant’s checked records and relationships saves no import
+profile. For that route, send the next file to the assistant again and explain how to match
+existing records; see [Loading with the assistant](/docs/use/loading-with-the-assistant/#the-next-file-and-the-saved-profile).
+
+If you already have a separately saved import profile, follow the steps above to reuse it.
+Starting through **Import…** can also recognise that saved layout and prepare the file without
+an assistant session or AI cost. You still review the proposal and row check. **The saved layout does not fit this file**
 offers **Read it with the assistant**. That sends the file and instructions to Claude Code,
 can incur costs and keeps task files; see [AI and your data](/docs/use/ai-and-your-data/).
 A new sheet or changed layout needs review, not an assumption that the previous mapping fits.
+
+## Remove a file you no longer need
+
+1. On the profile page, choose **Delete the file…** beside the upload and load actions.
+2. Read **Delete <file name>?**. It removes the upload and its stored analysis, stops a check
+   still reading it, and keeps the profile and already loaded records.
+3. Choose **Delete the file** to continue or **Cancel** to keep it. After deletion, upload a
+   file again to check it. A failed deletion leaves its reason in the dialog; resolve that
+   cause before retrying.
+
+To stop reusing the profile itself, choose **Delete the profile…** and confirm **Delete the
+profile**. Read [what each deletion keeps](/docs/use/importing-and-exporting/#remove-an-uploaded-file-or-an-import-profile)
+before confirming; deleting a profile does not reverse its earlier loads.
+
+![Delete an uploaded workbook while keeping its import profile and loaded records](/docs/screens/use-import-file-delete-confirm.png)

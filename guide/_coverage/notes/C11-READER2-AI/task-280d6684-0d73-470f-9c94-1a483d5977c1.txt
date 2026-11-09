@@ -1,0 +1,56 @@
+reader-ai
+Change this model
+In reader-ai only, split Route into Local route and Other route. Move the exist…
+Discarded
+
+I made a model draft and wrote the proposal. Nothing is activated, installed, staged or published. The draft adds Local route and Other route, each with the same Line number attribute as Route. The stop relationship, "Served by line", now also points to both new types, and both are listed in the Network application. The draft keeps the old Route type for now, because its 4 records still sit there.
+
+The proposal has no whole-type moves, because Route splits into two types rather than becoming one. The records move through a change set's restructurings instead.
+
+Steps for a person to take, in order:
+
+Activate:
+activate the draft's model on reader-ai.
+Move Line 1:
+in a change set, restructure the Route record Line 1 (ad1fba23-2a2b-48b1-9827-41a089eeebfd) to Local route.
+Move Lines 2, 4 and 6:
+restructure these 3 records to Other route:
+Line 2: eadbe07a-4a23-4cfa-86bd-a50d8c8c7e57
+Line 4: e11e5885-5fd3-4a80-bf1d-034ba24f1f9f
+Line 6: bb80aa0e-9fa5-42b1-b215-133b207a4ace
+
+Restructurings keep each record's ID, name, Line number and stop relationships.
+
+Publish:
+review and publish the change set.
+Final removal:
+once Route holds no records, remove the Route type in a further release.
+Counts:
+the change touches the 4 Route records of the type that splits. The other 209 records of the workspace's 213 are not touched, and neither are the other model elements.
+Consumer API:
+the one consumer API doesn't expose Route, so its contract version stays as it is.
+Duplicate names:
+I found no cases where the data gives one thing two names or values. (38 s, $0.16)
+
+I updated the draft to the final model, but I did not stage the move of the four records. That move can't be built until the transition release is active.
+
+What I changed:
+the draft's model had not been edited by anyone, so I read it and changed it. It now removes Route and keeps Local route and Other route. Each new type keeps the Line number attribute and the "Served by line" relationship from stops, and both are listed in the Network application. Everything else in the model is unchanged, and the Stops API does not expose Route, so its contract version stays.
+
+Why the move isn't staged:
+a change set can only restructure records into types the workspace's running model already has. Local route and Other route don't exist there yet. So I couldn't create the change set or run its dry run, and I created and staged nothing. I also did not try the dry run against a change set.
+
+Transition release:
+the draft now holds only the final model, so I have not prepared the transition release (old and new types together). Say so if you want it as a second draft.
+
+Your steps, in order:
+
+Activate a transition release that holds Route, Local route and Other route.
+Stage the move as a change set: Line 1 (ad1fba23-2a2b-48b1-9827-41a089eeebfd) to Local route, and Lines 2, 4 and 6 (eadbe07a-4a23-4cfa-86bd-a50d8c8c7e57, e11e5885-5fd3-4a80-bf1d-034ba24f1f9f, bb80aa0e-9fa5-42b1-b215-133b207a4ace) to Other route. Restructurings keep each record's ID, name, Line number and stop relationships. Review the dry run, then publish.
+Activate the final release from this draft, which removes the emptied Route.
+
+I did not activate or publish anything. The move touches only the 4 Route records; the other 209 records of the workspace's 213 are untouched.
+
+Its list of whole-type moves is empty, because Route splits into two types rather than becoming one. I found no cases where the data gives one thing two names or values. (50 s, $0.31)
+
+Back to the workspace

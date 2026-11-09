@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\n  \\\"kind\\\": \\\"user\\\",\\n  \\\"id\\\": \\\"d16ced0b-c50c-46f1-ae94-06f41b68fdca\\\",\\n  \\\"name\\\": \\\"Guide Admin\\\",\\n  \\\"through\\\": \\\"reader-ai personal assistant listener\\\",\\n  \\\"grants\\\": [\\n    {\\n      \\\"role\\\": \\\"Data owner\\\",\\n      \\\"workspace\\\": null,\\n      \\\"actionGroups\\\": [\\n        \\\"Browse\\\",\\n        \\\"Work in change sets\\\"\\n      ]\\n    }\\n  ],\\n  \\\"consumerApis\\\": []\\n}\"}],\"structuredContent\":{\"kind\":\"user\",\"id\":\"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\"name\":\"Guide Admin\",\"through\":\"reader-ai personal assistant listener\",\"grants\":[{\"role\":\"Data owner\",\"workspace\":null,\"actionGroups\":[\"Browse\",\"Work in change sets\"]}],\"consumerApis\":[]},\"isError\":false}}"
+}

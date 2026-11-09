@@ -1,0 +1,48 @@
+reader-ai
+Change this model
+In reader-ai only, split Route into Local route and Other route. Move the exist…
+
+I made a model draft and wrote the proposal. Nothing is activated, installed, staged or published. The draft adds Local route and Other route, each with the same Line number attribute as Route. The stop relationship, "Served by line", now also points to both new types, and both are listed in the Network application. The draft keeps the old Route type for now, because its 4 records still sit there.
+
+The proposal has no whole-type moves, because Route splits into two types rather than becoming one. The records move through a change set's restructurings instead.
+
+Steps for a person to take, in order:
+
+Activate:
+activate the draft's model on reader-ai.
+Move Line 1:
+in a change set, restructure the Route record Line 1 (ad1fba23-2a2b-48b1-9827-41a089eeebfd) to Local route.
+Move Lines 2, 4 and 6:
+restructure these 3 records to Other route:
+Line 2: eadbe07a-4a23-4cfa-86bd-a50d8c8c7e57
+Line 4: e11e5885-5fd3-4a80-bf1d-034ba24f1f9f
+Line 6: bb80aa0e-9fa5-42b1-b215-133b207a4ace
+
+Restructurings keep each record's ID, name, Line number and stop relationships.
+
+Publish:
+review and publish the change set.
+Final removal:
+once Route holds no records, remove the Route type in a further release.
+Counts:
+the change touches the 4 Route records of the type that splits. The other 209 records of the workspace's 213 are not touched, and neither are the other model elements.
+Consumer API:
+the one consumer API doesn't expose Route, so its contract version stays as it is.
+Duplicate names:
+I found no cases where the data gives one thing two names or values. (38 s, $0.16)
+The assistant’s proposal
+Open in the model editor Accept the model
+
+The model draft adds the types Local route and Other route (same Line number attribute, same stop relationship, same application) next to the old Route type. Once the draft is activated, move the 1 record of Line 1 (ad1fba23-2a2b-48b1-9827-41a089eeebfd) to Local route and the 3 records of Lines 2, 4 and 6 (eadbe07a-4a23-4cfa-86bd-a50d8c8c7e57, e11e5885-5fd3-4a80-bf1d-034ba24f1f9f, bb80aa0e-9fa5-42b1-b215-133b207a4ace) to Other route through a change set's restructurings, which keep IDs, names, Line numbers and stop relationships; then publish, and as the final step a person removes the emptied Route type in a further release (the draft keeps it until then, since its 4 records still sit there). The other records of the workspace and the other model elements are not touched; no consumer API exposes Route, so no contract version changes.
+
+Local route New type, 1 attribute
+Other route New type, 1 attribute
+
+Nothing is installed or loaded before you accept the model.
+
+Show the model change
+Correct the model
+Tell the assistant what to change
+Send to the assistant
+Discard this proposal
+Close

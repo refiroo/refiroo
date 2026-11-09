@@ -1,0 +1,9 @@
+reader-ai
+Change this model
+Replace the Line type with a new type Route, moving all four existing Line reco…
+The new model is ready
+The assistant installed the model you accepted. Nothing has moved yet: live data is as it was.
+Close
+Move the records to the new model
+reader-ai runs the new model, and its records are under their new types.
+Line becomes Route (4 records)

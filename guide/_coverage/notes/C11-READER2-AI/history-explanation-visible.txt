@@ -1,0 +1,109 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+GENERAL
+About
+Appearance
+Account
+Notification email
+ADMINISTRATION
+Workspaces
+Model
+Deployment
+Operations
+AI
+DATA OPERATIONS
+Import profiles
+Copy and move
+Jobs
+SECURITY
+People
+Groups
+Roles
+Clients
+Agent access
+Sign-in
+Signing keys
+INTEGRATION
+Consumer APIs
+Webhooks
+Mail
+API reference
+
+Administration
+
+Workspaces
+Create, rename, retire and delete workspaces and choose the default. Each workspace keeps its own live data, change sets and publications. 
+Default · Graubünden
+New workspace
+← All workspaces
+Workspaces
+reader-ai
+
+Workspace
+
+reader-ai
+
+reader-ai
+
+Active
+Open workspace
+Edit model
+Copy or move data…
+Rename…
+Set as default
+Retire…
+Overview
+Access
+Approval
+Activity
+What changed
+Period
+Last 7 days
+Last 30 days
+Choose dates
+Explain again
+Records created this period include 69 Platform, 51 Stop, 42 Name translation, 25 System code, 13 Municipality, 4 Language, 4 line, 3 Fare zone, 1 Fare network and 1 System record. In addition, 4 records were changed to the Route type (Line 1, 2, 4 and 6). 1234567910118
+Relationships added: 72 Served by line, 42 Has name translation, 25 In fare zone and 25 Maps to. 12131415
+On Monday 9 Nov, Publication 1 (Load of Haltestellen_Busbetrieb_Nord.xlsx) brought 377 changes, prepared by 1 job and 1 person. A migration job made 4 changes the same day. 161719
+1 person, Guide Admin, made 339 changes. 18
+Two change sets named "Set abbreviation of Chur, Alexanderplatz" were created on Monday 9 Nov. One was discarded the same day. 2021
+On Monday 9 Nov, Guide Admin changed the model from Public transport stops of Graubünden 1.0.0 to 1.4.1, then to 1.4.2, then to 1.5.0. 222324
+
+Written by AI from the facts below, by claude-code. It can be wrong: each number leads to the fact it rests on.
+
+The facts (24, all of them), Nov 2 to Nov 9, live data
+Platform: 69 records created (Chur Arlibonstrasse – Perron A, Chur Berggasse – Perron A, Chur Calunastrasse – Perron B, Chur Erlöserkirche – Perron A, Chur Fontanaplatz – Perron B, Chur Fürstenwaldstrasse – Perron A, Chur Fürstenwaldstrasse – Perron B, Chur Grischunaweg FHGR – Perron A, Chur Grischunaweg FHGR – Perron B, Chur West, Bahnhof – Perron B and 59 more) Show them
+Stop: 51 records created (Chur Albula, Chur Arlibonstrasse, Chur Berggasse, Chur Brambrüeschb./Stadthalle, Chur Calunastrasse, Chur Erlöserkirche, Chur Fontanaplatz, Chur Fürstenwaldstrasse, Chur Grischunaweg FHGR, Chur West, Bahnhof and 41 more) Show them
+Name translation: 42 records created (Arosa, Arosa, Arosa, Arosa, Bonaduz, Bonaduz, Bonaduz, Chur, Churwalden, Churwalden and 32 more) Show them
+System code: 25 records created (BN-100, BN-103, BN-106, BN-109, BN-112, BN-115, BN-118, BN-121, BN-124, BN-127 and 15 more) Show them
+Municipality: 13 records created (Arosa, Bonaduz, Chur, Churwalden, Domat/Ems, Felsberg, Landquart, Maienfeld, Rhäzüns, Tamins and 3 more) Show them
+Language: 4 records created (DE, FR, IT, RM) Show them
+line: 4 records created (Line 1, Line 2, Line 4, Line 6) Show them
+Route: 4 records changed to this type (Line 1, Line 2, Line 4, Line 6) Show them
+Fare zone: 3 records created (Z1, Z2, Z3) Show them
+Fare network: 1 record created (Tarifverbund Nord (fiktiv)) Show it
+System: 1 record created (busbetrieb-nord) Show it
+Served by line: 72 relationships added Show them
+Has name translation: 42 relationships added Show them
+In fare zone: 25 relationships added Show them
+Maps to: 25 relationships added Show them
+Publication 1, change set “Load of Haltestellen_Busbetrieb_Nord.xlsx”, Monday 9 Nov, by Guide Admin: 377 changes. Prepared by Batch job and by Guide Admin Show them
+Migration job, Monday 9 Nov: 4 changes Open the job
+People (changes): Guide Admin 339
+Change set “Load of Haltestellen_Busbetrieb_Nord.xlsx”: created Monday 9 Nov by Guide Admin
+Change set “Set abbreviation of Chur, Alexanderplatz”: created Monday 9 Nov by AI assistant; discarded Monday 9 Nov by Guide Admin
+Change set “Set abbreviation of Chur, Alexanderplatz”: created Monday 9 Nov by AI assistant Open the change set
+The workspace's model changed from Public transport stops of Graubünden 1.0.0 to Public transport stops of Graubünden 1.4.1, Monday 9 Nov, by Guide Admin
+The workspace's model changed from Public transport stops of Graubünden 1.4.1 to Public transport stops of Graubünden 1.4.2, Monday 9 Nov, by Guide Admin
+The workspace's model changed from Public transport stops of Graubünden 1.4.2 to Public transport stops of Graubünden 1.5.0, Monday 9 Nov, by Guide Admin
+What
+Everything
+Records
+Relationships
+Change sets
+Publications

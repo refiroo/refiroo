@@ -1,0 +1,553 @@
+{
+  "status": 200,
+  "jsonrpc": "2.0",
+  "id": 1794221169426,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"scope\": \"workspace\",\n  \"since\": \"2026-11-09T00:00:00Z\",\n  \"until\": \"2026-11-10T00:00:00Z\",\n  \"timeZone\": \"Europe/Prague\",\n  \"facts\": [\n    {\n      \"id\": \"rc-f4109835\",\n      \"kind\": \"records\",\n      \"text\": \"Platform: 69 records created (Chur Arlibonstrasse \\u2013 Perron A, Chur Berggasse \\u2013 Perron A, Chur Calunastrasse \\u2013 Perron B, Chur Erl\\u00f6serkirche \\u2013 Perron A, Chur Fontanaplatz \\u2013 Perron B, Chur F\\u00fcrstenwaldstrasse \\u2013 Perron A, Chur F\\u00fcrstenwaldstrasse \\u2013 Perron B, Chur Grischunaweg FHGR \\u2013 Perron A, Chur Grischunaweg FHGR \\u2013 Perron B, Chur West, Bahnhof \\u2013 Perron B and 59 more)\",\n      \"count\": 69,\n      \"keys\": {\n        \"objectTypeKey\": \"platform\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"platform\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-eb3482bb\",\n      \"kind\": \"records\",\n      \"text\": \"Stop: 51 records created (Chur Albula, Chur Arlibonstrasse, Chur Berggasse, Chur Brambr\\u00fceschb./Stadthalle, Chur Calunastrasse, Chur Erl\\u00f6serkirche, Chur Fontanaplatz, Chur F\\u00fcrstenwaldstrasse, Chur Grischunaweg FHGR, Chur West, Bahnhof and 41 more)\",\n      \"count\": 51,\n      \"keys\": {\n        \"objectTypeKey\": \"stop\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"stop\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-561f5831\",\n      \"kind\": \"records\",\n      \"text\": \"Name translation: 42 records created (Arosa, Arosa, Arosa, Arosa, Bonaduz, Bonaduz, Bonaduz, Chur, Churwalden, Churwalden and 32 more)\",\n      \"count\": 42,\n      \"keys\": {\n        \"objectTypeKey\": \"name-translation\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"name-translation\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-9dee8211\",\n      \"kind\": \"records\",\n      \"text\": \"System code: 25 records created (BN-100, BN-103, BN-106, BN-109, BN-112, BN-115, BN-118, BN-121, BN-124, BN-127 and 15 more)\",\n      \"count\": 25,\n      \"keys\": {\n        \"objectTypeKey\": \"system-code\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"system-code\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-0194f99f\",\n      \"kind\": \"records\",\n      \"text\": \"Municipality: 13 records created (Arosa, Bonaduz, Chur, Churwalden, Domat/Ems, Felsberg, Landquart, Maienfeld, Rh\\u00e4z\\u00fcns, Tamins and 3 more)\",\n      \"count\": 13,\n      \"keys\": {\n        \"objectTypeKey\": \"municipality\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"municipality\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-95d0285d\",\n      \"kind\": \"records\",\n      \"text\": \"Language: 4 records created (DE, FR, IT, RM)\",\n      \"count\": 4,\n      \"keys\": {\n        \"objectTypeKey\": \"language\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"language\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-d37f3b6f\",\n      \"kind\": \"records\",\n      \"text\": \"line: 4 records created (Line 1, Line 2, Line 4, Line 6)\",\n      \"count\": 4,\n      \"keys\": {\n        \"objectTypeKey\": \"line\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"line\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-80bab4cb\",\n      \"kind\": \"records\",\n      \"text\": \"Route: 4 records changed to this type (Line 1, Line 2, Line 4, Line 6)\",\n      \"count\": 4,\n      \"keys\": {\n        \"objectTypeKey\": \"route\",\n        \"action\": \"reclassified\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"route\",\n          \"action\": \"reclassified\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-ff1ed85c\",\n      \"kind\": \"records\",\n      \"text\": \"Fare zone: 3 records created (Z1, Z2, Z3)\",\n      \"count\": 3,\n      \"keys\": {\n        \"objectTypeKey\": \"fare-zone\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"fare-zone\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-99387958\",\n      \"kind\": \"records\",\n      \"text\": \"Fare network: 1 record created (Tarifverbund Nord (fiktiv))\",\n      \"count\": 1,\n      \"keys\": {\n        \"objectTypeKey\": \"fare-network\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"fare-network\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rc-dc923c59\",\n      \"kind\": \"records\",\n      \"text\": \"System: 1 record created (busbetrieb-nord)\",\n      \"count\": 1,\n      \"keys\": {\n        \"objectTypeKey\": \"system\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"record\"\n          ],\n          \"objectTypeKey\": \"system\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rl-565457b4\",\n      \"kind\": \"relationships\",\n      \"text\": \"Served by line: 72 relationships added\",\n      \"count\": 72,\n      \"keys\": {\n        \"relationTypeKey\": \"stop-served-by-line\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"relationship\"\n          ],\n          \"relationTypeKey\": \"stop-served-by-line\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rl-7a5dd6a1\",\n      \"kind\": \"relationships\",\n      \"text\": \"Has name translation: 42 relationships added\",\n      \"count\": 42,\n      \"keys\": {\n        \"relationTypeKey\": \"object-has-translation\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"relationship\"\n          ],\n          \"relationTypeKey\": \"object-has-translation\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rl-79a8d415\",\n      \"kind\": \"relationships\",\n      \"text\": \"Maps to: 26 relationships added\",\n      \"count\": 26,\n      \"keys\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"relationship\"\n          ],\n          \"relationTypeKey\": \"system-code-maps-to\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rl-c6de28ed\",\n      \"kind\": \"relationships\",\n      \"text\": \"In fare zone: 25 relationships added\",\n      \"count\": 25,\n      \"keys\": {\n        \"relationTypeKey\": \"stop-in-fare-zone\",\n        \"action\": \"created\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"relationship\"\n          ],\n          \"relationTypeKey\": \"stop-in-fare-zone\",\n          \"action\": \"created\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"rl-dc0f3eac\",\n      \"kind\": \"relationships\",\n      \"text\": \"Maps to: 1 relationship removed\",\n      \"count\": 1,\n      \"keys\": {\n        \"relationTypeKey\": \"system-code-maps-to\",\n        \"action\": \"deleted\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"kind\": [\n            \"relationship\"\n          ],\n          \"relationTypeKey\": \"system-code-maps-to\",\n          \"action\": \"deleted\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"so-5fc1ae2f\",\n      \"kind\": \"source\",\n      \"text\": \"Publication 1, change set \\u201cLoad of Haltestellen_Busbetrieb_Nord.xlsx\\u201d, Monday 9 Nov, by Guide Admin: 377 changes. Prepared by Batch job and by Guide Admin\",\n      \"count\": 377,\n      \"keys\": {\n        \"causeKind\": \"publication\",\n        \"causeId\": \"da6ae356-32c7-42f0-b645-307003ca6dc3\",\n        \"publicationNumber\": 1,\n        \"changeSetId\": \"e745fd00-f71d-4892-baf0-da1beb8252fb\",\n        \"jobIds\": [\n          \"c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc\"\n        ],\n        \"preparedBy\": [\n          \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\"\n        ],\n        \"publishedBy\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\"\n      },\n      \"link\": {\n        \"kind\": \"changes\",\n        \"id\": null,\n        \"query\": {\n          \"causeId\": \"da6ae356-32c7-42f0-b645-307003ca6dc3\",\n          \"live\": true\n        }\n      }\n    },\n    {\n      \"id\": \"so-6f6c62f4\",\n      \"kind\": \"source\",\n      \"text\": \"Migration job, Monday 9 Nov: 4 changes\",\n      \"count\": 4,\n      \"keys\": {\n        \"causeKind\": \"job\",\n        \"causeId\": \"cb7c4338-6788-44a5-bb2f-b7073f054f3a\"\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"so-01832f33\",\n      \"kind\": \"source\",\n      \"text\": \"Made directly: 2 changes\",\n      \"count\": 2,\n      \"keys\": {\n        \"causeKind\": \"direct\"\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"pe-d71032fe\",\n      \"kind\": \"people\",\n      \"text\": \"People (changes): Guide Admin 341\",\n      \"count\": 1,\n      \"keys\": {\n        \"people\": [\n          {\n            \"id\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\",\n            \"kind\": \"user\",\n            \"changes\": 341\n          }\n        ]\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"cs-7786d9cb\",\n      \"kind\": \"changeSet\",\n      \"text\": \"Change set \\u201cLoad of Haltestellen_Busbetrieb_Nord.xlsx\\u201d: created Monday 9 Nov by Guide Admin\",\n      \"count\": 1,\n      \"keys\": {\n        \"changeSetId\": \"e745fd00-f71d-4892-baf0-da1beb8252fb\",\n        \"events\": [\n          {\n            \"action\": \"created\",\n            \"occurredAt\": \"2026-11-09T10:14:15.076950+00:00\",\n            \"actorId\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\"\n          }\n        ]\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"cs-0ae2831b\",\n      \"kind\": \"changeSet\",\n      \"text\": \"Change set \\u201cSet abbreviation of Chur, Alexanderplatz\\u201d: created Monday 9 Nov by AI assistant; discarded Monday 9 Nov by Guide Admin\",\n      \"count\": 2,\n      \"keys\": {\n        \"changeSetId\": \"dcd34a72-63aa-4c80-bdbb-08957d28f993\",\n        \"events\": [\n          {\n            \"action\": \"created\",\n            \"occurredAt\": \"2026-11-09T10:18:49.327008+00:00\",\n            \"actorId\": \"8724c646-5120-4049-a603-633540b1603c\"\n          },\n          {\n            \"action\": \"discarded\",\n            \"occurredAt\": \"2026-11-09T10:20:11.559360+00:00\",\n            \"actorId\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\"\n          }\n        ]\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"cs-5faeac8b\",\n      \"kind\": \"changeSet\",\n      \"text\": \"Change set \\u201cSet abbreviation of Chur, Alexanderplatz\\u201d: created Monday 9 Nov by AI assistant\",\n      \"count\": 1,\n      \"keys\": {\n        \"changeSetId\": \"c247eb0f-7a23-4d5d-8dc2-ae07e2938028\",\n        \"events\": [\n          {\n            \"action\": \"created\",\n            \"occurredAt\": \"2026-11-09T10:20:18.152310+00:00\",\n            \"actorId\": \"8724c646-5120-4049-a603-633540b1603c\"\n          }\n        ]\n      },\n      \"link\": {\n        \"kind\": \"changeSet\",\n        \"id\": \"c247eb0f-7a23-4d5d-8dc2-ae07e2938028\",\n        \"query\": null\n      }\n    },\n    {\n      \"id\": \"cs-db94f7d7\",\n      \"kind\": \"changeSet\",\n      \"text\": \"Change set \\u201creader-ai mapping proposals\\u201d: created Monday 9 Nov by Guide Admin; discarded Monday 9 Nov by Guide Admin\",\n      \"count\": 2,\n      \"keys\": {\n        \"changeSetId\": \"e069ad2d-0931-47e8-9a4e-94ef20cca9af\",\n        \"events\": [\n          {\n            \"action\": \"created\",\n            \"occurredAt\": \"2026-11-09T10:40:52.046180+00:00\",\n            \"actorId\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\"\n          },\n          {\n            \"action\": \"discarded\",\n            \"occurredAt\": \"2026-11-09T10:42:13.592915+00:00\",\n            \"actorId\": \"d16ced0b-c50c-46f1-ae94-06f41b68fdca\"\n          }\n        ]\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"md-4877794f\",\n      \"kind\": \"model\",\n      \"text\": \"The workspace's model changed from Public transport stops of Graub\\u00fcnden 1.0.0 to Public transport stops of Graub\\u00fcnden 1.4.1, Monday 9 Nov, by Guide Admin\",\n      \"count\": 1,\n      \"keys\": {\n        \"oldReleaseId\": \"c40b2de4-81cb-430d-ac0c-acad65315fbf\",\n        \"newReleaseId\": \"1652676d-5752-4706-874f-e4bdb182049e\"\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"md-6677a54b\",\n      \"kind\": \"model\",\n      \"text\": \"The workspace's model changed from Public transport stops of Graub\\u00fcnden 1.4.1 to Public transport stops of Graub\\u00fcnden 1.4.2, Monday 9 Nov, by Guide Admin\",\n      \"count\": 1,\n      \"keys\": {\n        \"oldReleaseId\": \"1652676d-5752-4706-874f-e4bdb182049e\",\n        \"newReleaseId\": \"35936ef6-1ee3-43de-9141-8c2d57baff14\"\n      },\n      \"link\": null\n    },\n    {\n      \"id\": \"md-abf6218a\",\n      \"kind\": \"model\",\n      \"text\": \"The workspace's model changed from Public transport stops of Graub\\u00fcnden 1.4.2 to Public transport stops of Graub\\u00fcnden 1.5.0, Monday 9 Nov, by Guide Admin\",\n      \"count\": 1,\n      \"keys\": {\n        \"oldReleaseId\": \"35936ef6-1ee3-43de-9141-8c2d57baff14\",\n        \"newReleaseId\": \"e09b7a53-b6a5-4bab-aee7-4286d1b0a5b2\"\n      },\n      \"link\": null\n    }\n  ]\n}"
+      }
+    ],
+    "structuredContent": {
+      "scope": "workspace",
+      "since": "2026-11-09T00:00:00Z",
+      "until": "2026-11-10T00:00:00Z",
+      "timeZone": "Europe/Prague",
+      "facts": [
+        {
+          "id": "rc-f4109835",
+          "kind": "records",
+          "text": "Platform: 69 records created (Chur Arlibonstrasse – Perron A, Chur Berggasse – Perron A, Chur Calunastrasse – Perron B, Chur Erlöserkirche – Perron A, Chur Fontanaplatz – Perron B, Chur Fürstenwaldstrasse – Perron A, Chur Fürstenwaldstrasse – Perron B, Chur Grischunaweg FHGR – Perron A, Chur Grischunaweg FHGR – Perron B, Chur West, Bahnhof – Perron B and 59 more)",
+          "count": 69,
+          "keys": {
+            "objectTypeKey": "platform",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "platform",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-eb3482bb",
+          "kind": "records",
+          "text": "Stop: 51 records created (Chur Albula, Chur Arlibonstrasse, Chur Berggasse, Chur Brambrüeschb./Stadthalle, Chur Calunastrasse, Chur Erlöserkirche, Chur Fontanaplatz, Chur Fürstenwaldstrasse, Chur Grischunaweg FHGR, Chur West, Bahnhof and 41 more)",
+          "count": 51,
+          "keys": {
+            "objectTypeKey": "stop",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "stop",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-561f5831",
+          "kind": "records",
+          "text": "Name translation: 42 records created (Arosa, Arosa, Arosa, Arosa, Bonaduz, Bonaduz, Bonaduz, Chur, Churwalden, Churwalden and 32 more)",
+          "count": 42,
+          "keys": {
+            "objectTypeKey": "name-translation",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "name-translation",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-9dee8211",
+          "kind": "records",
+          "text": "System code: 25 records created (BN-100, BN-103, BN-106, BN-109, BN-112, BN-115, BN-118, BN-121, BN-124, BN-127 and 15 more)",
+          "count": 25,
+          "keys": {
+            "objectTypeKey": "system-code",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "system-code",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-0194f99f",
+          "kind": "records",
+          "text": "Municipality: 13 records created (Arosa, Bonaduz, Chur, Churwalden, Domat/Ems, Felsberg, Landquart, Maienfeld, Rhäzüns, Tamins and 3 more)",
+          "count": 13,
+          "keys": {
+            "objectTypeKey": "municipality",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "municipality",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-95d0285d",
+          "kind": "records",
+          "text": "Language: 4 records created (DE, FR, IT, RM)",
+          "count": 4,
+          "keys": {
+            "objectTypeKey": "language",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "language",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-d37f3b6f",
+          "kind": "records",
+          "text": "line: 4 records created (Line 1, Line 2, Line 4, Line 6)",
+          "count": 4,
+          "keys": {
+            "objectTypeKey": "line",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "line",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-80bab4cb",
+          "kind": "records",
+          "text": "Route: 4 records changed to this type (Line 1, Line 2, Line 4, Line 6)",
+          "count": 4,
+          "keys": {
+            "objectTypeKey": "route",
+            "action": "reclassified"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "route",
+              "action": "reclassified",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-ff1ed85c",
+          "kind": "records",
+          "text": "Fare zone: 3 records created (Z1, Z2, Z3)",
+          "count": 3,
+          "keys": {
+            "objectTypeKey": "fare-zone",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "fare-zone",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-99387958",
+          "kind": "records",
+          "text": "Fare network: 1 record created (Tarifverbund Nord (fiktiv))",
+          "count": 1,
+          "keys": {
+            "objectTypeKey": "fare-network",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "fare-network",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-dc923c59",
+          "kind": "records",
+          "text": "System: 1 record created (busbetrieb-nord)",
+          "count": 1,
+          "keys": {
+            "objectTypeKey": "system",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "system",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rl-565457b4",
+          "kind": "relationships",
+          "text": "Served by line: 72 relationships added",
+          "count": 72,
+          "keys": {
+            "relationTypeKey": "stop-served-by-line",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "relationship"
+              ],
+              "relationTypeKey": "stop-served-by-line",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rl-7a5dd6a1",
+          "kind": "relationships",
+          "text": "Has name translation: 42 relationships added",
+          "count": 42,
+          "keys": {
+            "relationTypeKey": "object-has-translation",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "relationship"
+              ],
+              "relationTypeKey": "object-has-translation",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rl-79a8d415",
+          "kind": "relationships",
+          "text": "Maps to: 26 relationships added",
+          "count": 26,
+          "keys": {
+            "relationTypeKey": "system-code-maps-to",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "relationship"
+              ],
+              "relationTypeKey": "system-code-maps-to",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rl-c6de28ed",
+          "kind": "relationships",
+          "text": "In fare zone: 25 relationships added",
+          "count": 25,
+          "keys": {
+            "relationTypeKey": "stop-in-fare-zone",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "relationship"
+              ],
+              "relationTypeKey": "stop-in-fare-zone",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rl-dc0f3eac",
+          "kind": "relationships",
+          "text": "Maps to: 1 relationship removed",
+          "count": 1,
+          "keys": {
+            "relationTypeKey": "system-code-maps-to",
+            "action": "deleted"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "relationship"
+              ],
+              "relationTypeKey": "system-code-maps-to",
+              "action": "deleted",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "so-5fc1ae2f",
+          "kind": "source",
+          "text": "Publication 1, change set “Load of Haltestellen_Busbetrieb_Nord.xlsx”, Monday 9 Nov, by Guide Admin: 377 changes. Prepared by Batch job and by Guide Admin",
+          "count": 377,
+          "keys": {
+            "causeKind": "publication",
+            "causeId": "da6ae356-32c7-42f0-b645-307003ca6dc3",
+            "publicationNumber": 1,
+            "changeSetId": "e745fd00-f71d-4892-baf0-da1beb8252fb",
+            "jobIds": [
+              "c6f5006e-0d21-4d61-9c3b-b1c0e8d8d9fc"
+            ],
+            "preparedBy": [
+              "d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+            ],
+            "publishedBy": "d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "causeId": "da6ae356-32c7-42f0-b645-307003ca6dc3",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "so-6f6c62f4",
+          "kind": "source",
+          "text": "Migration job, Monday 9 Nov: 4 changes",
+          "count": 4,
+          "keys": {
+            "causeKind": "job",
+            "causeId": "cb7c4338-6788-44a5-bb2f-b7073f054f3a"
+          },
+          "link": null
+        },
+        {
+          "id": "so-01832f33",
+          "kind": "source",
+          "text": "Made directly: 2 changes",
+          "count": 2,
+          "keys": {
+            "causeKind": "direct"
+          },
+          "link": null
+        },
+        {
+          "id": "pe-d71032fe",
+          "kind": "people",
+          "text": "People (changes): Guide Admin 341",
+          "count": 1,
+          "keys": {
+            "people": [
+              {
+                "id": "d16ced0b-c50c-46f1-ae94-06f41b68fdca",
+                "kind": "user",
+                "changes": 341
+              }
+            ]
+          },
+          "link": null
+        },
+        {
+          "id": "cs-7786d9cb",
+          "kind": "changeSet",
+          "text": "Change set “Load of Haltestellen_Busbetrieb_Nord.xlsx”: created Monday 9 Nov by Guide Admin",
+          "count": 1,
+          "keys": {
+            "changeSetId": "e745fd00-f71d-4892-baf0-da1beb8252fb",
+            "events": [
+              {
+                "action": "created",
+                "occurredAt": "2026-11-09T10:14:15.076950+00:00",
+                "actorId": "d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+              }
+            ]
+          },
+          "link": null
+        },
+        {
+          "id": "cs-0ae2831b",
+          "kind": "changeSet",
+          "text": "Change set “Set abbreviation of Chur, Alexanderplatz”: created Monday 9 Nov by AI assistant; discarded Monday 9 Nov by Guide Admin",
+          "count": 2,
+          "keys": {
+            "changeSetId": "dcd34a72-63aa-4c80-bdbb-08957d28f993",
+            "events": [
+              {
+                "action": "created",
+                "occurredAt": "2026-11-09T10:18:49.327008+00:00",
+                "actorId": "8724c646-5120-4049-a603-633540b1603c"
+              },
+              {
+                "action": "discarded",
+                "occurredAt": "2026-11-09T10:20:11.559360+00:00",
+                "actorId": "d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+              }
+            ]
+          },
+          "link": null
+        },
+        {
+          "id": "cs-5faeac8b",
+          "kind": "changeSet",
+          "text": "Change set “Set abbreviation of Chur, Alexanderplatz”: created Monday 9 Nov by AI assistant",
+          "count": 1,
+          "keys": {
+            "changeSetId": "c247eb0f-7a23-4d5d-8dc2-ae07e2938028",
+            "events": [
+              {
+                "action": "created",
+                "occurredAt": "2026-11-09T10:20:18.152310+00:00",
+                "actorId": "8724c646-5120-4049-a603-633540b1603c"
+              }
+            ]
+          },
+          "link": {
+            "kind": "changeSet",
+            "id": "c247eb0f-7a23-4d5d-8dc2-ae07e2938028",
+            "query": null
+          }
+        },
+        {
+          "id": "cs-db94f7d7",
+          "kind": "changeSet",
+          "text": "Change set “reader-ai mapping proposals”: created Monday 9 Nov by Guide Admin; discarded Monday 9 Nov by Guide Admin",
+          "count": 2,
+          "keys": {
+            "changeSetId": "e069ad2d-0931-47e8-9a4e-94ef20cca9af",
+            "events": [
+              {
+                "action": "created",
+                "occurredAt": "2026-11-09T10:40:52.046180+00:00",
+                "actorId": "d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+              },
+              {
+                "action": "discarded",
+                "occurredAt": "2026-11-09T10:42:13.592915+00:00",
+                "actorId": "d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+              }
+            ]
+          },
+          "link": null
+        },
+        {
+          "id": "md-4877794f",
+          "kind": "model",
+          "text": "The workspace's model changed from Public transport stops of Graubünden 1.0.0 to Public transport stops of Graubünden 1.4.1, Monday 9 Nov, by Guide Admin",
+          "count": 1,
+          "keys": {
+            "oldReleaseId": "c40b2de4-81cb-430d-ac0c-acad65315fbf",
+            "newReleaseId": "1652676d-5752-4706-874f-e4bdb182049e"
+          },
+          "link": null
+        },
+        {
+          "id": "md-6677a54b",
+          "kind": "model",
+          "text": "The workspace's model changed from Public transport stops of Graubünden 1.4.1 to Public transport stops of Graubünden 1.4.2, Monday 9 Nov, by Guide Admin",
+          "count": 1,
+          "keys": {
+            "oldReleaseId": "1652676d-5752-4706-874f-e4bdb182049e",
+            "newReleaseId": "35936ef6-1ee3-43de-9141-8c2d57baff14"
+          },
+          "link": null
+        },
+        {
+          "id": "md-abf6218a",
+          "kind": "model",
+          "text": "The workspace's model changed from Public transport stops of Graubünden 1.4.2 to Public transport stops of Graubünden 1.5.0, Monday 9 Nov, by Guide Admin",
+          "count": 1,
+          "keys": {
+            "oldReleaseId": "35936ef6-1ee3-43de-9141-8c2d57baff14",
+            "newReleaseId": "e09b7a53-b6a5-4bab-aee7-4286d1b0a5b2"
+          },
+          "link": null
+        }
+      ]
+    },
+    "isError": false
+  }
+}

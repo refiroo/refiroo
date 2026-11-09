@@ -1,0 +1,23 @@
+reader-ai
+Change records
+Set the Abbreviation of the stop Chur, Alexanderplatz (UIC 8595591) to ALXP-REV…
+Discarded
+
+I've written proposal.json. The proposal is to set the Abbreviation of the stop Chur, Alexanderplatz (UIC 8595591, in the municipality Chur) to ALXP-REVIEW. Nothing is staged or changed yet.
+
+Record found:
+it is the only stop with that UIC number, and it has no Abbreviation today, so the value is added rather than replaced. No other stop uses ALXP.
+No model change:
+there is no model draft, so the draft ID is null. There are also no questions and no type moves.
+Dry run:
+I didn't send the item to a dry run, because that needs a change set and you asked me not to stage one. I only read the record to check it.
+Duplicate names or values:
+the data shows none for this stop. (9 s, $0.08)
+
+I made a new change set on the live release (1.4.1) that sets the Abbreviation of the stop Chur, Alexanderplatz (UIC 8595591) to ALXP-REVIEW. It's the only change in the set, and it has not been published.
+
+I checked the change set's list of changes: it shows that one stop changed, with the Abbreviation added and every other field as before. I installed and activated no release, and the model is unchanged. The data gave this stop no duplicate names or values. (12 s, $0.12)
+
+The task stopped: The job stopped because of an internal error. Items it applied before stay applied; the rest are unprocessed and may be sent again. If it recurs, report the correlation ID
+
+Back to the workspace

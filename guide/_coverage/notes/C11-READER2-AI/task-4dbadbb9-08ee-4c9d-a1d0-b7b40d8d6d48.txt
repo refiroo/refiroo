@@ -1,0 +1,21 @@
+reader-ai
+Load a workbook
+Haltestellen_Busbetrieb_Nord.xlsx
+
+“Load this example public transport workbook into this empty workspace. Interpret stops, names and local codes and preserve UIC stop numbers as identifiers. Explain assumptions and omitted cells. Do not publish or activate anything.”
+
+Published: “Load of Haltestellen_Busbetrieb_Nord.xlsx”
+Published.
+213 records new and 354 relationships new. It is live in reader-ai. Open the publications
+Something not right?
+The model
+
+Say what to change in the types, fields or relations. The assistant starts from this workspace's model.
+
+Change this model…
+The records
+
+Say what to change in the data, such as values to fix or records to move. It comes back as a change set to review.
+
+Ask about these records…
+Back to the workspace

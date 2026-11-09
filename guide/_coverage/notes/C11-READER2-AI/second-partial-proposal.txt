@@ -1,0 +1,95 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+File and words
+(done)
+The assistant designs
+(done)
+Model proposal
+(now)
+Model change
+(to do)
+Check
+(to do)
+Load
+(to do)
+Review and publish
+(to do)
+
+Read the proposed model. Correct it in words, or accept it; nothing is loaded before.
+
+Accept the model
+GENERAL
+About
+Appearance
+Account
+Notification email
+ADMINISTRATION
+Workspaces
+Model
+Deployment
+Operations
+AI
+DATA OPERATIONS
+Import profiles
+Copy and move
+Jobs
+SECURITY
+People
+Groups
+Roles
+Clients
+Agent access
+Sign-in
+Signing keys
+INTEGRATION
+Consumer APIs
+Webhooks
+Mail
+API reference
+reader-ai
+Change this model
+Split Route in reader-ai: records with Line number 1 become Local route; those …
+
+As you asked, Route is removed: its 4 records move to Local route and Other route.
+
+I made a model draft for the Route split. It compiles as valid. Nothing is staged, installed, activated or published.
+
+This is a partial move: the draft holds the final model, with Route replaced by Local route and Other route. Both new types keep the Line number field, and the "Served by line" relationship from stops is bound to each of them. The Network application lists both new types where it listed Route. No consumer API exposes Route, so none needs a contract version change.
+
+Route holds 4 records, and all of them move, so Route ends up empty. The rest of the workspace is not touched.
+
+What you do after accepting:
+
+Take the transition release. It holds the final model with Route still beside the new types.
+Review the change set that restructures the Route records. Line 1 becomes a Local route. Line 2, Line 4 and Line 6 become Other routes. Each keeps its ID, values, relationships and history.
+Take the final release, which removes the emptied Route type.
+
+The data has no duplicate or conflicting names or values to report.
+
+Its draftId is the draft's ID and its moves list is empty, because Route splits into two types. Its removals list has one entry, Route, with movedTo set to the two new types. (43 s, $0.16)
+
+The assistant’s proposal
+Open in the model editor Accept the model
+
+This is a partial move: the draft holds the final model, where Route is replaced by Local route and Other route, both keeping Line number and the Served by line relationship from stops. To do after accepting: take the transition release (final model with Route beside the new types), then a change set that restructures the 1 record with Line number 1 (Line 1) into Local route and the 3 records with Line number 2, 4 and 6 into Other route, keeping their IDs, values, relationships and history, then the final release that removes the emptied Route type; the data holds no duplicate or conflicting names, and the other records of the workspace are not touched.
+
+Local route New type, 1 attribute
+Other route New type, 1 attribute
+Deleted as you asked
+As you asked, Route is removed: its 4 records move to Local route and Other route.
+
+Nothing is installed or loaded before you accept the model.
+
+Show the model change
+Checks
+Needs attention This model leaves out types the workspace holds records of: Route (4)
+Correct the model
+Tell the assistant what to change
+Send to the assistant
+Discard this proposal
+Close

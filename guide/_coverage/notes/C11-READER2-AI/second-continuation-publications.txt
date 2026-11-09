@@ -1,0 +1,91 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+Workspace
+Public transport stops of Graubünden 1.5.2
+
+COLLECTIONS
+
+Stops
+Cantons
+Modes
+Municipalities
+Districts
+Operators
+
+BROWSE RECORDS
+
+Municipalities
+Fare networks
+Local routes
+Other routes
+reader-ai
+/
+Network
+Live
+Change sets
+Publications
+Publications
+
+Newest first. Opening a publication or starting a change set from it does not change live data.
+
+Publication 5
+Current
+
+Model 1.5.1 · Published 11/9/2026, 4:47:51 PM by Guide Admin
+
+Publication ID
+a357bdbb-0a89-4976-ab9f-8f112489a51b
+Started from
+Current live data
+Replaced as current
+Publication 4
+Open publication
+Publication 4
+
+Model 1.5.0 · Published 11/9/2026, 3:40:02 PM by Guide Admin · Withdrawn by Guide Admin · Withdrawn
+
+Publication ID
+6a3a273a-ccbf-47a0-8c05-fa99d464d7ab
+Started from
+Current live data
+Replaced as current
+Publication 3
+Open publication
+Publication 3
+
+Model 1.5.0 · Published 11/9/2026, 3:38:02 PM by Guide Admin · Withdrawn by Guide Admin · Withdrawn
+
+Publication ID
+122c6a11-455f-4658-8ad3-5a6cf5049db0
+Started from
+Current live data
+Replaced as current
+Publication 2
+Open publication
+Publication 2
+
+Model 1.5.0 · Published 11/9/2026, 11:48:16 AM by Guide Admin · Withdrawn by Guide Admin · Withdrawn
+
+Publication ID
+a510759c-6905-473a-b09a-4c350a40fd28
+Started from
+Current live data
+Replaced as current
+Publication 1
+Open publication
+Publication 1
+
+Model 1.4.1 · Published 11/9/2026, 11:15:37 AM by Guide Admin · Withdrawn by Guide Admin · Withdrawn
+
+Publication ID
+da6ae356-32c7-42f0-b645-307003ca6dc3
+Started from
+Current live data
+Replaced as current
+No earlier publication
+Open publication

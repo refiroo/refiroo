@@ -1,0 +1,107 @@
+reader-ai
+/
+Systems
+Live
+Edits apply immediately in this workspace.
+Live
+Change sets
+Publications
+Back to list
+Systems
+busbetrieb-nord
+System code
+
+System code
+
+Edit Name:
+Chur, Alexanderplatz
+Edit External code:
+READER-AI-8595591
+v1
+
+ID
+b6528e7d-3a12-4dbe-a9f9-bd94022874e4
+
+Code details
+External code
+Edit External code:
+READER-AI-8595591
+Description
+Edit Description:
+Reader assistant journey: code for Chur, Alexanderplatz stop, UIC 8595591.
+Hierarchy
+Parent
+busbetrieb-nord
+busbetrieb-nord
+›
+Chur, Alexanderplatz
+Maps to
+Display
+Add relationship
+Maps to
+Name
+	Type
+	Stop number (UIC)
+	FSO number
+	Actions
+
+Chur, Alexanderplatz	Stop	8595591	—	
+
+
+End · 1 relationship
+1–1 of 1 relationship
+History
+By
+Anyone
+Guide Admin
+What changed
+Period
+Last 7 days
+Last 30 days
+Choose dates
+Explain this period
+
+Sends claude-code the counts of what changed, by type, field and source, with the names of records, people and change sets. Nothing is sent until you press the button.
+
+All
+Values
+Relationships
+Moves
+TODAY
+Maps to Chur, Alexanderplatz added · Guide Admin
+03:38 PM
+▾
+
+by Guide Admin · version 1
+
+Maps to changed · Guide Admin
+03:37 PM
+▸
+Maps to Chur, Alexanderplatz added · Guide Admin
+03:37 PM
+▸
+Maps to Chur Albula removed · Guide Admin
+03:37 PM
+▸
+Maps to changed · Guide Admin
+03:37 PM
+▸
+Maps to Chur Albula added · Guide Admin
+03:37 PM
+▸
+Maps to Chur, Alexanderplatz removed · Guide Admin
+03:37 PM
+▸
+Maps to changed · Guide Admin
+03:36 PM
+▸
+Maps to Chur, Alexanderplatz added · Guide Admin
+03:36 PM
+▾
+
+by Guide Admin · version 1
+
+Record created · Guide Admin
+03:35 PM
+▸
+Showing 10 changes

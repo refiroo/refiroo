@@ -1,0 +1,11 @@
+reader-ai
+Change this model
+Add a second table view of Stop in Network called Stops review, showing Name, S…
+The new model is ready
+The assistant installed the model you accepted. Nothing has moved yet: live data is as it was.
+Close
+Move the workspace to the new model
+
+Nothing has changed yet. The migration puts reader-ai on the new model; no record moves and every record keeps its ID, values, relationships and history. It goes live when you confirm, with no change set to review.
+
+Preview the migration

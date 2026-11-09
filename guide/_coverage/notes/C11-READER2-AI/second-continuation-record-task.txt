@@ -1,0 +1,75 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+File and words
+(done)
+The assistant designs
+(done)
+Model proposal
+(now)
+Check
+(to do)
+Load
+(to do)
+Review and publish
+(to do)
+
+Read the proposed change. Correct it in words, or accept it; nothing is loaded before.
+
+Accept
+GENERAL
+About
+Appearance
+Account
+Notification email
+ADMINISTRATION
+Workspaces
+Model
+Deployment
+Operations
+AI
+DATA OPERATIONS
+Import profiles
+Copy and move
+Jobs
+SECURITY
+People
+Groups
+Roles
+Clients
+Agent access
+Sign-in
+Signing keys
+INTEGRATION
+Consumer APIs
+Webhooks
+Mail
+API reference
+reader-ai
+Change records
+In reader-ai, prepare only a record change: set the Abbreviation of Chur, Alexa…
+
+I've written the proposal: change the Abbreviation of the stop Chur, Alexanderplatz (Stop number 8595591, in the municipality Chur) from ALXP-MCP-REVISED to ALXP-STOP-CHECK. It touches only that one stop record.
+
+The model doesn't change, so I made no model draft. I staged no change set and published or activated nothing. The proposal has no questions, moves or removals.
+
+I didn't send the item to a dry run. That needs a change set, and you asked me to stage none. I did read the record again, and it is a single stop with that number. (8 s, $0.06)
+
+The assistant’s proposal
+Accept
+
+Set the Abbreviation of the stop Chur, Alexanderplatz (Stop number 8595591, in the municipality Chur) from ALXP-MCP-REVISED to ALXP-STOP-CHECK; this is the only record the change touches, and the model, its other values and relationships stay as they are. Nothing is published or activated.
+
+No change to the model.
+
+Nothing is loaded before you accept. Accepting prepares the change in a change set for your review; nothing is published.
+
+Correct the proposal
+Tell the assistant what to change
+Send to the assistant
+Discard this proposal
+Close

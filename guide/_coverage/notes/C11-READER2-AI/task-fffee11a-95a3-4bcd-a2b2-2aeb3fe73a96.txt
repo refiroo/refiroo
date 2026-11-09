@@ -1,0 +1,8 @@
+reader-ai
+Change this model
+Split the four Route records between two new types: Local route for Line number…
+Discarded
+
+The task stopped: The job stopped because of an internal error. Items it applied before stay applied; the rest are unprocessed and may be sent again. If it recurs, report the correlation ID
+
+Back to the workspace

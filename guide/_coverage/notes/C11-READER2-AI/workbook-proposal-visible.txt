@@ -1,0 +1,262 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+File and words
+(done)
+The assistant designs
+(done)
+Model proposal
+(now)
+Model change
+(to do)
+Check
+(to do)
+Load
+(to do)
+Review and publish
+(to do)
+
+Read the proposed model. Correct it in words, or accept it; nothing is loaded before.
+
+Accept and load to change set
+GENERAL
+About
+Appearance
+Account
+Notification email
+ADMINISTRATION
+Workspaces
+Model
+Deployment
+Operations
+AI
+DATA OPERATIONS
+Import profiles
+Copy and move
+Jobs
+SECURITY
+People
+Groups
+Roles
+Clients
+Agent access
+Sign-in
+Signing keys
+INTEGRATION
+Consumer APIs
+Webhooks
+Mail
+API reference
+reader-ai
+Load a workbook
+Haltestellen_Busbetrieb_Nord.xlsx
+
+“Load this example public transport workbook into this empty workspace. Interpret stops, names and local codes and preserve UIC stop numbers as identifiers. Explain assumptions and omitted cells. Do not publish or activate anything.”
+
+The workbook is ready to load, and the dry run refused nothing. I haven't loaded, installed, activated or published anything, and I touched no draft that isn't mine.
+
+What gets loaded
+
+Stops:
+51 stops with their UIC number as the stop number. They sit under 13 municipalities taken from the names sheet. The workbook's Chur, Coira and Cuira all resolve to the one municipality Chur.
+Names:
+each municipality has a name per language (German, French, Italian, Romansh). Empty cells in that sheet simply have no name for that language.
+Local codes:
+the 25 Busbetrieb Nord codes are a new system with its codes under it, each linked to its stop. I added that system to the filter that decides which systems may map to stops.
+Repeated columns as types of their own:
+lines (1, 2, 4, 6) linked to stops, and platforms A, B and C as records under the stop they belong to. The tariff network, Tarifverbund Nord, holds zones Z1 to Z3, and each stop is linked to its zone.
+Model changes in my draft:
+Municipality no longer requires an FSO number and can stand without a district, because the workbook has neither.
+Stops no longer require a translated name, because the workbook has none.
+New fields on stop: accessible and remark.
+
+Assumptions
+
+I read J as accessible and N as not accessible.
+The ?, n/a and - cells in lines, valid-from and barrier-free are treated as no value.
+Platforms belong to a single stop, not shared across stops.
+Dates are day.month.year.
+
+Names kept as they are
+
+Seven stops are spelled "Chur Albula" in the stop list and "Chur, Albula" in the code sheet. I kept the stop list spelling as the stop's name and stored the code sheet's spelling on the code. Two more stops lack the comma but have no code-sheet entry.
+The remarks stay flat text rather than becoming a type.
+
+Dry run:
+213 new records and 164 new relationships. The only findings were 12 municipality names that are identical in several languages, which is expected.
+
+I raised no questions, and no whole type moves, so the list of moves is empty.
+
+The proposal is in proposal.json in this folder. (147 s, $0.55)
+
+The assistant’s proposal
+Open in the model editor
+
+Loads the 51 stops (UIC numbers kept as the stop number) under their 13 municipalities with names in German, French, Italian and Romansh, the 25 Busbetrieb Nord local codes as a new system with its codes linked to the stops, and the lines, platforms and tariff zones as types of their own related to the stops; the workspace had no municipality numbers, districts or fare data beyond the file, so municipalities stand without a district and without an FSO number, and stops have no translated names. Kept as written: Chur is also Coira and Cuira in the stop list, 7 stops are spelled "Chur Albula" in one sheet and "Chur, Albula" in the code sheet (the code sheet's spelling is stored on the code), and the remarks stay flat text; cells holding ?, n/a or - (lines, valid-from, barrier-free) are no value, empty name cells in the names sheet have no translation, and the dry run refused nothing, its only findings being a municipality name that is the same in several languages.
+
+Municipality Changed type (adds Designation; changes how FSO number is filled in), 2 attributes, 13 records
+Stop Changed type (adds Accessible (barrier-free), Remark), 11 attributes, 51 records
+System 2 attributes, 1 record
+System code 2 attributes, 25 records
+Language 3 attributes, 4 records
+Name translation 2 attributes, 42 records
+Platform New type, 1 attribute, 69 records
+Line New type, 1 attribute, 4 records
+Fare network New type, 1 attribute, 1 record
+Fare zone New type, 1 attribute, 3 records
+
+Nothing is installed or loaded before you accept.
+
+Hide the model change
+The model: what changes 
+Proposed
+Change	Name	What it is
+New type	Platform	In network, inside Stop, with Designation (required).
+New type	Line	In network, with Line number (required).
+New type	Fare network	In network, with Designation (required).
+New type	Fare zone	In network, inside Fare network, with Designation (required).
+Other change	Municipality	Gets the attributes Designation (required).
+Other change	Stop	Gets the attributes Accessible (barrier-free), Remark.
+New relationship	Contains platform	Stop → Platform (one to many). Read the other way: Belongs to stop.
+New relationship	Served by line	Stop → Line (many to many). Read the other way: Serves stop.
+New relationship	Contains zone	Fare network → Fare zone (one to many). Read the other way: Belongs to fare network.
+New relationship	In fare zone	Stop → Fare zone (many to one). Read the other way: Includes stop.
+Other change	Municipality	Changes displayAttributeTypeKey.
+Other change	Municipality	FSO number becomes optional.
+Open in the model editor
+What the load does
+
+The engine checked every record and relationship below against the model and your data, writing nothing. Accepting loads exactly this.
+
+213
+records new
+0
+existing records matched
+164
+relationships new
+0
+refused
+91
+rows read from 3 sheets
+Type	New	Matched	Changed	Refused	Linked to
+⌄Platform	69	0	0	0	—
+
+Chur, Alexanderplatz – Perron A — new Designation: A Haltestellen!G5
+Chur, Altes Gaswerk – Perron A — new Designation: A Haltestellen!G6
+Chur, Altes Gaswerk – Perron B — new Designation: B Haltestellen!H6
+
+⌄Stop	51	0	0	0	Fare zone, Line, System code
+
+Chur Albula — new Designation: Chur Albula · Stop number (UIC): 8571924 → Served by line Line 2 ← Is represented by system code BN-100 → In fare zone Z1 Haltestellen!A4:J4
+Chur, Alexanderplatz — new Designation: Chur, Alexanderplatz · Stop number (UIC): 8595591 · Valid from: 2024-12-15 · Remark: Wartehäuschen ← Is represented by system code BN-103 → In fare zone Z1 Haltestellen!A5:J5
+Chur, Altes Gaswerk — new Designation: Chur, Altes Gaswerk · Stop number (UIC): 8571710 · Valid from: 2021-04-01 · Accessible (barrier-free): No → Served by line Line 2 → Served by line Line 4 → Served by line Line 6 ← Is represented by system code BN-106 Haltestellen!A6:J6
+
+⌄Name translation	42	0	0	0	Municipality
+
+Arosa — new Translated name: Arosa · Active: Yes ← Translates Arosa Namen!A4
+Arosa — new Translated name: Arosa · Active: Yes ← Translates Arosa Namen!B4
+Arosa — new Translated name: Arosa · Active: Yes ← Translates Arosa Namen!C4
+
+⌄System code	25	0	0	0	Stop
+
+BN-100 — new External code: BN-100 · Description: Haltestelle: Chur, Albula → Maps to Chur Albula Lokale Codes!A4:C4
+BN-103 — new External code: BN-103 · Description: Haltestelle: Chur, Alexanderplatz → Maps to Chur, Alexanderplatz Lokale Codes!A5:C5
+BN-106 — new External code: BN-106 · Description: Haltestelle: Chur, Altes Gaswerk → Maps to Chur, Altes Gaswerk Lokale Codes!A6:C6
+
+⌄Municipality	13	0	0	0	Name translation
+
+Arosa — new Designation: Arosa Namen!A4
+Bonaduz — new Designation: Bonaduz Namen!A5
+Chur — new Designation: Chur Namen!A6
+
+⌄Language	4	0	0	0	—
+
+DE — new Language code: DE · Description: German · Active: Yes Namen!A3
+FR — new Language code: FR · Description: French · Active: Yes Namen!B3
+IT — new Language code: IT · Description: Italian · Active: Yes Namen!C3
+
+⌄Line	4	0	0	0	Stop
+
+Line 2 — new Line number: 2 ← Serves stop Chur Albula ← Serves stop Chur, Altes Gaswerk ← Serves stop Chur, Amselweg ← Serves stop Chur, Austrasse Haltestellen!C4
+Line 4 — new Line number: 4 ← Serves stop Chur, Altes Gaswerk ← Serves stop Chur, Amselweg ← Serves stop Chur Berggasse ← Serves stop Chur, Bodmer Haltestellen!C6
+Line 6 — new Line number: 6 ← Serves stop Chur, Altes Gaswerk ← Serves stop Chur, Amselweg ← Serves stop Chur Berggasse ← Serves stop Chur, Bodmer Haltestellen!C6
+
+⌄Fare zone	3	0	0	0	Stop
+
+Z1 — new Designation: Z1 ← Includes stop Chur Albula ← Includes stop Chur, Alexanderplatz ← Includes stop Chur, Altes Gaswerk ← Includes stop Chur, Amselweg Lokale Codes!F4
+Z2 — new Designation: Z2 ← Includes stop Chur, Bodmer ← Includes stop Chur, Boletta ← Includes stop Chur, Bondastrasse ← Includes stop Chur Brambrüeschb./Stadthalle Lokale Codes!F13
+Z3 — new Designation: Z3 ← Includes stop Chur, Daleustrasse ← Includes stop Chur, Depot Raschärenstrasse ← Includes stop Chur Erlöserkirche ← Includes stop Chur, Eulengut Lokale Codes!F22
+
+⌄Fare network	1	0	0	0	—
+
+Tarifverbund Nord (fiktiv) — new Designation: Tarifverbund Nord (fiktiv) Lokale Codes!H4
+
+⌄System	1	0	0	0	—
+
+busbetrieb-nord — new System key: busbetrieb-nord · Description: Eigene Haltestellencodes (FIKTIV) Lokale Codes!A1
+
+Relationships: Served by line 72 new; Has name translation 42 new; In fare zone 25 new; Maps to 25 new.
+
+One name twice in one type
+“Arosa” is 4 Name translations: one under DE, one under FR, one under IT, one under RM.
+One name twice in one type
+“Trimmis” is 4 Name translations: one under DE, one under FR, one under IT, one under RM.
+One name twice in one type
+“Zizers” is 4 Name translations: one under DE, one under FR, one under IT, one under RM.
+One name twice in one type
+“Bonaduz” is 3 Name translations: one under DE, one under FR, one under IT.
+One name twice in one type
+“Churwalden” is 3 Name translations: one under DE, one under FR, one under IT.
+One name twice in one type
+“Domat/Ems” is 3 Name translations: one under DE, one under FR, one under IT.
+One name twice in one type
+“Landquart” is 3 Name translations: one under DE, one under FR, one under IT.
+One name twice in one type
+“Maienfeld” is 3 Name translations: one under DE, one under FR, one under IT.
+One name twice in one type
+“Tamins” is 3 Name translations: one under DE, one under FR, one under IT.
+One name twice in one type
+“Felsberg” is 2 Name translations: one under DE, one under IT.
+One name twice in one type
+“Rhäzüns” is 2 Name translations: one under DE, one under IT.
+One name twice in one type
+“Untervaz” is 2 Name translations: one under DE, one under IT.
+Hide where each part of the file goes
+Sheet “Haltestellen”
+Haltestellen!A4:J54 Stops (51 items)
+Haltestellen!C4:C10 Lines (4 items)
+Haltestellen!C4:C54 Served by line relationships (72 items)
+Haltestellen!G5:G54 Platforms (31 items)
+Haltestellen!H6:H53 Platforms (29 items)
+Haltestellen!I10:I51 Platforms (9 items)
+Sheet “Lokale Codes”
+Lokale Codes!A1 Systems (1 item)
+Lokale Codes!A4:C28 System codes (25 items)
+Lokale Codes!A4:C28 Maps to relationships (25 items)
+Lokale Codes!F4:F22 Fare zones (3 items)
+Lokale Codes!F4:G28 In fare zone relationships (25 items)
+Lokale Codes!H4 Fare networks (1 item)
+Sheet “Namen”
+Namen!A3 Languages (1 item)
+Namen!A4:A16 Municipalities (13 items)
+Namen!A4:A16 Name translations (13 items)
+Namen!B3 Languages (1 item)
+Namen!B4:B16 Name translations (9 items)
+Namen!C3 Languages (1 item)
+Namen!C4:C16 Name translations (13 items)
+Namen!D3 Languages (1 item)
+Namen!D4:D16 Name translations (7 items)
+
+Accept and load to change set. The engine installs the model and loads exactly the records above into a new change set. No assistant turn, nothing published: you review and publish the change set.
+
+Give the assistant other words
+Accept and load to change set
+Correct the model
+Tell the assistant what to change
+Send to the assistant
+Discard this proposal
+Close

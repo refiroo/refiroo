@@ -1,0 +1,3 @@
+# Reader-check evidence: pictures and workbooks stay local, the text notes are committed
+*.png
+*.xlsx

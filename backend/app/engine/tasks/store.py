@@ -270,7 +270,10 @@ def sync(session: Session, task: AiTask, retention_days: int) -> None:
         stopped(session, task, retention_days)
     elif job.state in ("failed", "expired"):
         message = (job.error or {}).get("message") or "The job stopped"
-        note(task, "warning", f"The task stopped: {message}")
+        correlation = ((job.error or {}).get("details") or {}).get("correlationId")
+        # A message that asks for the correlation ID shows it, so the person can report it.
+        shown = f"{message}: {correlation}" if correlation else message
+        note(task, "warning", f"The task stopped: {shown}")
         finish(task, "failed", retention_days)
     elif task.state == "loading" and job.state == "completed":
         if (task.result or {}).get("linksPending"):

@@ -20,7 +20,7 @@ For a person's assistant, add the address in that assistant. For Claude Code, th
 claude mcp add --transport http refiroo https://your-instance.example/mcp
 ```
 
-The assistant discovers refiroo's sign-in page. Check who is asking and where the sign-in returns before signing in. Sign-in is consent; the resulting session appears among your account's sessions. If registration is refused, ask the administrator to register the assistant rather than changing the return address blindly. Self-registration permits loopback addresses and configured HTTPS hosts only. A blocked assistant cannot sign anyone in.
+The assistant discovers refiroo's sign-in page. The assistant must listen on its registered return address while you sign in, so it can receive the authorization code; a loopback address needs a listener on your computer. Check who is asking and where the sign-in returns before signing in. Sign-in is consent; the resulting session appears among your account's sessions. If registration is refused, ask the administrator to register the assistant rather than changing the return address blindly. Self-registration permits loopback addresses and configured HTTPS hosts only. A blocked assistant cannot sign anyone in.
 
 For an unattended system, the administrator selects **New agent client** under **Agent clients**, creates it and grants it the intended workspace access or consumer API access. Store its secret as a credential. Obtain a token with `scope=agent`, following the [OAuth operations](/docs/api/?api=management#tag/oauth). A regular API client cannot obtain that audience. Use the agent token only on `/mcp`.
 

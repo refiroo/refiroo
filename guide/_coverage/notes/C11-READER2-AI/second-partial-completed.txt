@@ -1,0 +1,86 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+File and words
+(done)
+The assistant designs
+(done)
+Model proposal
+(done)
+Check
+(done)
+Load
+(done)
+Review and publish
+(done)
+
+Published. Something not right? Change the model, or ask about the records, from the task.
+
+GENERAL
+About
+Appearance
+Account
+Notification email
+ADMINISTRATION
+Workspaces
+Model
+Deployment
+Operations
+AI
+DATA OPERATIONS
+Import profiles
+Copy and move
+Jobs
+SECURITY
+People
+Groups
+Roles
+Clients
+Agent access
+Sign-in
+Signing keys
+INTEGRATION
+Consumer APIs
+Webhooks
+Mail
+API reference
+reader-ai
+Change this model
+Split Route in reader-ai: records with Line number 1 become Local route; those …
+Published: “Split Route into Local route and Other route”
+Published.
+4 records changed. It is live in reader-ai. Open the publications
+Something not right?
+The model
+
+Say what to change in the types, fields or relations. The assistant starts from this workspace's model.
+
+Change this model…
+The records
+
+Say what to change in the data, such as values to fix or records to move. It comes back as a change set to review.
+
+Ask about these records…
+Back to the workspace
+Three steps are yours
+
+The assistant prepared the move in a change set. Each step is shown when it can be done.
+
+1. Add the new types to the workspace 
+Done
+
+reader-ai runs a release that has the new types beside the old.
+
+2. Review and publish the change set 
+Done
+
+4 records change type and keep their IDs. Live data is unchanged until it is published, with the workspace's approval rules as usual.
+
+3. Remove the emptied types 
+Done
+
+reader-ai runs the release you accepted.

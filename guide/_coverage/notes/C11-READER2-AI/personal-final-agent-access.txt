@@ -1,0 +1,101 @@
+Skip to main content
+refiroo guide reference: stops of Graubünden
+Network
+Systems
+Names
+9+
+GA
+GENERAL
+About
+Appearance
+Account
+Notification email
+ADMINISTRATION
+Workspaces
+Model
+Deployment
+Operations
+AI
+DATA OPERATIONS
+Import profiles
+Copy and move
+Jobs
+SECURITY
+People
+Groups
+Roles
+Clients
+Agent access
+Sign-in
+Signing keys
+INTEGRATION
+Consumer APIs
+Webhooks
+Mail
+API reference
+
+Security
+
+Agent access
+
+Assistants that speak MCP can reach this instance. They read and prepare changes within what their person or client may do. They never approve or publish.
+
+How to connect
+Address
+http://localhost:8480/mcp
+A person's assistant
+Add the address in the assistant. It opens this instance's sign-in page; the assistant then works as that person.
+A system's assistant
+Create an agent client below and give it access. It asks for a token with scope=agent.
+Limit
+120 calls a minute for each person or client
+claude mcp add --transport http refiroo http://localhost:8480/mcp
+Agent clients
+New agent client
+Name	Access	Last used	Calls, 30 days
+Stops checker (guide)	Data steward · C10 history pictures, Graubünden	Nov 5, 08:49 PM	16
+reader-ai outside assistant Deactivated	Agent · reader-ai	today, 11:48 AM	32
+Assistants people sign in with
+Register an assistant
+Assistant	Returns to	Signed in now	Last used	
+Actions
+
+Guide example assistant Blocked	this computer (localhost)	0 people	Never	Restore
+reader-ai personal assistant Blocked	this computer (localhost)	0 people	today, 11:52 AM	Restore
+reader-ai personal assistant resumed Blocked	this computer (localhost)	0 people	Never	Restore
+reader-ai personal assistant listener Blocked	this computer (localhost)	0 people	today, 04:50 PM	Restore
+
+The name is what the assistant says about itself. Blocking ends its sessions on their next call.
+
+Calls
+
+Every tool call an assistant made, newest first. Argument names are kept, never their values.
+
+When	Who	Through	Tool	Arguments	Outcome
+today, 04:50 PM	Guide Admin	reader-ai personal assistant listener	describe_access	None	Answered
+today, 11:52 AM	Guide Admin	reader-ai personal assistant	describe_access	None	Answered
+today, 11:52 AM	Guide Admin	reader-ai personal assistant	describe_access	None	Answered
+today, 11:48 AM	reader-ai outside assistant	Its own client	record_history	id, objectType, workspace	Answered
+today, 11:48 AM	reader-ai outside assistant	Its own client	record_history	id, objectType, workspace	Answered
+today, 11:48 AM	reader-ai outside assistant	Its own client	read_record	id, objectType, workspace	Answered
+today, 11:48 AM	reader-ai outside assistant	Its own client	submit_change_set	changeSetId, comment, expectedChangeSetVersion	Answered
+today, 11:48 AM	reader-ai outside assistant	Its own client	set_field	attributeTypeKey, changeSetId, expectedChangeSetVersion, expectedVersion, id, value	Answered
+today, 11:47 AM	reader-ai outside assistant	Its own client	read_change_set	changeSetId	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	set_field	attributeTypeKey, changeSetId, expectedChangeSetVersion, expectedVersion, id, value	Refused
+today, 11:46 AM	reader-ai outside assistant	Its own client	read_record	id, objectType, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	submit_change_set	changeSetId, comment, expectedChangeSetVersion	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	validate_change_set	changeSetId	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	read_record	changeSetId, id, objectType, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	set_field	attributeTypeKey, changeSetId, expectedChangeSetVersion, expectedVersion, id, value	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	create_change_set	name, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	list_changes	pageSize, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	history_facts	since, timeZone, until, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	record_history	id, objectType, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	mapping_coverage	application, state, view, workspace	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	read_resource	uri	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	resources/list	None	Answered
+today, 11:46 AM	reader-ai outside assistant	Its own client	read_record	cursor, id, objectType, pageSize, workspace	Answered
+today, 11:45 AM	reader-ai outside assistant	Its own client	read_record	id, objectType, pageSize, workspace	Answered
+today, 11:45 AM	reader-ai outside assistant	Its own client	resources/list	None	Answered
+Load more
+reader-ai personal assistant listener was blocked. Its sessions end on their next call.
