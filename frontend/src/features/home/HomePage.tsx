@@ -16,7 +16,7 @@ import { changeWhere } from "@/features/changes/changeText";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { formatServerAgo } from "@/lib/dates";
 import { emptyModel } from "@/model/emptyModel";
-import { changeReviewFor, missingElement, parseRoute, routePath } from "@/routing/routes";
+import { changeReviewFor, missingElement, parseRoute, relocatedPath, routePath } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
 import type {
   ChangeEntry,
@@ -37,7 +37,13 @@ import { RouteLink } from "@/ui/RouteLink";
 import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
 import { appPath, openApplication, openIn, openWorkspace, workspacePathOf, type Navigate } from "./openWorkspace";
-import { continueLines, forgetContinueAddress, readContinueAddress, type ContinueAddress } from "./continueAddress";
+import {
+  continueLines,
+  forgetContinueAddress,
+  readContinueAddress,
+  rememberContinueAddress,
+  type ContinueAddress,
+} from "./continueAddress";
 import { greeting, openLabel, ownLabel, quietNote, roleLine, rolePills, summary } from "./homeText";
 
 export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate: Navigate }) {
@@ -145,7 +151,15 @@ function Continue({
       .then((runtime) => api.modelRelease(runtime.releaseId, true))
       .then((release) => {
         const path = new URL(address.path, window.location.origin);
-        if (active && release.model && missingElement(release.model as unknown as EngineModel, path)) {
+        if (!active || !release.model) return;
+        const model = release.model as unknown as EngineModel;
+        // A collection a migration moved to another application is offered at its new address.
+        const moved = relocatedPath(model, path);
+        if (moved) {
+          const relocated = { ...address, path: `${moved}${path.search}` };
+          rememberContinueAddress(personId, relocated);
+          setAddress(relocated);
+        } else if (missingElement(model, path)) {
           forgetContinueAddress(personId);
           setAddress(undefined);
         }

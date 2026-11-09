@@ -1242,6 +1242,19 @@ migration page opened with the proposed rows: https://claude.ai/artifact/Jt2yhJa
 | MG-D2 | Key changes of released elements | **Allowed, with the migration.** The invariant "public IDs and model keys are stable" exists because an integration names an element by its key where no guard sees it. The change therefore shows, before install, every consumer API and contract that names the old key (the existing check, D54), and the install dialog says that integrations naming the key must change with it. 1.0's scope already listed key renames. Alternative: keep keys fixed and allow the rest |
 | MG-D3 | Where the derived migration lives | **Computed from the draft's history when read.** It then always matches the steps, including after an undo. Cost: one derivation per read of the draft's migration |
 
+**Follow-up (2026-11-10): an old address of a moved collection.** Reported by the user after an AI task's migration
+moved the Person group's types from Person and passenger lists to Reference lists in workspace stops (release 0.3.10), and
+added to the 0.13 build by the user. The old address `/apps/person-lists/views/person-type-tree` showed "person-type-tree
+is not in this workspace's model" although the model has it, under the other application, with all 46 records. Cause:
+`missingElement` (`routing/routes.ts`) looked only at the application the path names. `relocatedPath` now finds the one
+other application of the same model holding the view, kind of record or navigation group key and rewrites only the
+`/apps/<key>` segment, keeping the rest of the path and the query. The router replaces the history entry, so Back does
+not loop. Home's remembered "continue" address moves the same way. A key held by none or by several applications still
+shows the page. Frontend only. Checks: Vitest for `relocatedPath` and one router case; `npm run build`; the helper run
+against stops's 0.3.10 model gives `/apps/reference-lists/views/person-type-tree`. The guide page
+`use/open-a-retired-or-unavailable-workspace.md` stays correct for a missing element; a sentence on the relocation is
+left for Codex.
+
 ## RA: Attributes of the relationship in consumer API related fields
 
 **Status:** Raised on 2026-11-09 by an integration that needs, for each pair of related records, a value stored on the

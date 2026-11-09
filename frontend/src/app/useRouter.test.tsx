@@ -278,7 +278,7 @@ describe("a workspace's own model (0.11 M5, D48, D49)", () => {
     const router = renderHook(useRouter);
     await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));
     act(() => {
-      router.result.current.navigate({ ...collection, workspaceKey: "east" });
+      router.result.current.navigate({ ...collection, viewKey: "only-here", workspaceKey: "east" });
     });
     await waitFor(() =>
       expect(router.result.current.problem).toEqual({
@@ -290,12 +290,40 @@ describe("a workspace's own model (0.11 M5, D48, D49)", () => {
     // The page shown is the workspace's own start under its own model; the address stays as asked.
     expect(router.result.current.model).toBe(otherModel);
     expect(router.result.current.route).toMatchObject({ applicationKey: "other-app", workspaceKey: "east" });
-    expect(window.location.pathname).toBe("/apps/test-app/views/domains");
+    expect(window.location.pathname).toBe("/apps/test-app/views/only-here");
     expect(window.location.search).toContain("workspaceKey=east");
     act(() => {
       router.result.current.navigate(collection);
     });
     await waitFor(() => expect(router.result.current.problem).toBeUndefined());
     expect(router.result.current.model).toBe(testModel);
+  });
+});
+
+describe("a collection moved to another application", () => {
+  it("opens the old address in its new application, in place of the entry, with no problem", async () => {
+    forgetWorkspaceModel();
+    const moved = {
+      ...testModel,
+      applications: [
+        { ...testModel.applications[0], key: "old-app", objectTypeKeys: [], views: [] },
+        { ...testModel.applications[0], key: "test-app" },
+      ],
+    };
+    vi.mocked(api.model).mockResolvedValue(moved);
+    vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
+      defaultWorkspaceKey: "default",
+      version: 1,
+      updatedAt: "",
+    });
+    window.history.replaceState({}, "", "/apps/old-app/views/domains?workspaceKey=west&search=client");
+    const length = window.history.length;
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));
+    expect(router.result.current.problem).toBeUndefined();
+    expect(router.result.current.route).toMatchObject({ applicationKey: "test-app", search: "client" });
+    expect(window.location.pathname).toBe("/apps/test-app/views/domains");
+    expect(window.location.search).toContain("search=client");
+    expect(window.history.length).toBe(length);
   });
 });

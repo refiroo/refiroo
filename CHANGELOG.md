@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (a moved collection opens in its new application)
+
+- **An old address of a collection a model migration moved to another application opens it there, instead of the "not in this workspace's model" page.** Cause: `missingElement` looked only at the application named in the path, so a view, kind of record or navigation group that now lives in another application of the same model was reported as missing. `relocatedPath` (`routing/routes.ts`) now finds the one other application that holds the key and rewrites only the `/apps/<key>` segment, keeping the rest of the path and the whole query; the router replaces the history entry (Back does not loop), and Home's remembered "continue where you left off" address is moved the same way. A key held by none or by several applications still shows the page as before. Frontend only.
+
 ### Fixed (a type's preview follows its application, 0.13 DF5)
 
 - **A type listed in several applications opens its preview, record page and table views in the application whose row was selected.** Cause: the editor's selection kept only the type, so the preview took the first application that listed it (a country listed in System codes, Reference lists and Translations always showed System codes and "The draft declares no table view for Countries"). The type selection and the editor address now carry `application`; tree rows and collection rows pass their own, and only the selected row is highlighted. A link naming no application, or one that does not hold the type, falls back to the first application with a detail page or table view for the type, else the first that lists it. Frontend only.

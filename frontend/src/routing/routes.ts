@@ -674,6 +674,38 @@ export function missingElement(
   return undefined;
 }
 
+/**
+ * The address a moved element now lives at. A model migration may move a collection, a kind of
+ * record or a navigation group to another application of the same model, keeping its key; an old
+ * address then names an application that lacks it (or no longer exists). When exactly one other
+ * application holds the key, the corrected pathname is returned (only the `/apps/<key>` segment
+ * changes); undefined when nothing is missing, or when none or several applications hold it.
+ */
+export function relocatedPath(model: EngineModel, location: Pick<Location, "pathname">): string | undefined {
+  const missing = missingElement(model, location);
+  const key = elementKey(location);
+  if (!missing || !key) return undefined;
+  const holders = model.applications.filter((application) => {
+    if (application.key === missing.applicationKey) return false;
+    if (key.section === "views") return application.views.some((view) => view.key === key.value);
+    if (key.section === "objects") return application.objectTypeKeys.includes(key.value);
+    return Boolean(navigationGroupFor(application, key.value));
+  });
+  if (holders.length !== 1) return undefined;
+  const segments = location.pathname.split("/");
+  const at = segments.findIndex((part) => part !== "");
+  segments[at + 1] = encodeURIComponent(holders[0].key);
+  return segments.join("/");
+}
+
+function elementKey(location: Pick<Location, "pathname">) {
+  const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const section = parts[2];
+  if (parts[0] !== "apps" || !parts[3] || (section !== "views" && section !== "objects" && section !== "groups"))
+    return undefined;
+  return { section, value: parts[3] };
+}
+
 /** The workspace an address names, or `fallback` when it names none. */
 export function addressWorkspaceKey(fallback: string, location: Pick<Location, "search"> = window.location) {
   return new URLSearchParams(location.search).get("workspaceKey")?.trim() || fallback;

@@ -9,6 +9,7 @@ import {
   defaultRoute,
   isApplicationRoute,
   missingElement,
+  relocatedPath,
   parseRoute,
   routePath,
   type MissingElement,
@@ -174,6 +175,12 @@ export function useRouter(): Router {
         : addressWorkspaceKey(fallback, location);
       try {
         const loaded = await workspaceModel(workspaceKey);
+        // A collection a migration moved to another application opens there, in place of this entry.
+        const moved = outside ? undefined : relocatedPath(loaded, location);
+        if (moved) {
+          location = { pathname: moved, search: location.search };
+          window.history.replaceState(window.history.state, "", `${moved}${location.search}${window.location.hash}`);
+        }
         const missing = outside ? undefined : missingElement(loaded, location);
         const parsed = restoreOrigin(parseRoute(loaded, workspaceKey, location), entry, loaded);
         return {
@@ -306,7 +313,15 @@ export function useRouter(): Router {
       /** A page carried over by a switch of workspace: not asked for, so its absence is no problem. */
       carried = false,
     ) => {
-      const path = routePath(destination);
+      const asked = routePath(destination);
+      const moved = isApplicationRoute(destination)
+        ? relocatedPath(loaded, new URL(asked, window.location.origin))
+        : undefined;
+      if (moved) {
+        const url = new URL(asked, window.location.origin);
+        destination = parseRoute(loaded, workspaceKey, { pathname: moved, search: url.search });
+      }
+      const path = moved ? routePath(destination) : asked;
       const missing = isApplicationRoute(destination)
         ? missingElement(loaded, new URL(path, window.location.origin))
         : undefined;

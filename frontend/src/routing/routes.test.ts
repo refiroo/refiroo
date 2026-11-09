@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { domainObject, testModel } from "@/test/fixtures";
 import type { RouteState } from "@/types";
-import { changeReviewFor, defaultRoute, parseRoute, routePath } from "@/routing/routes";
+import { changeReviewFor, defaultRoute, parseRoute, relocatedPath, routePath } from "@/routing/routes";
+import type { EngineModel } from "@/types";
 
 describe("Import profiles (0.10 A5c)", () => {
   it("opens from its address and from the old Imports address, and writes the new one", () => {
@@ -536,5 +537,54 @@ describe("A user journey in the address", () => {
       expect(parseRoute(testModel, "default", { pathname, search: `?${search}` })).toEqual(route);
     }
     expect(routePath({ ...editor, journey: undefined })).not.toContain("journey");
+  });
+});
+
+describe("A collection moved to another application (relocatedPath)", () => {
+  const base = testModel.applications[0];
+  const app = (key: string, over: Partial<typeof base>) => ({
+    ...base,
+    key,
+    objectTypeKeys: [],
+    views: [],
+    navigation: undefined,
+    ...over,
+  });
+  const group = { key: "lists", name: "Lists", items: [] } as never;
+  const moved: EngineModel = {
+    ...testModel,
+    applications: [
+      app("person-lists", {}),
+      app("reference-lists", {
+        objectTypeKeys: ["person-type"],
+        views: [{ ...base.views[0], key: "person-type-tree" }],
+        navigation: { groups: [group] } as never,
+      }),
+    ],
+  };
+  const at = (pathname: string, model = moved) => relocatedPath(model, { pathname });
+
+  it("opens a moved view in the application that holds it, keeping the rest of the path", () => {
+    expect(at("/apps/person-lists/views/person-type-tree")).toBe("/apps/reference-lists/views/person-type-tree");
+  });
+
+  it("opens a moved kind of record, with its list or record segment, in the new application", () => {
+    expect(at("/apps/person-lists/objects/person-type/-")).toBe("/apps/reference-lists/objects/person-type/-");
+    expect(at("/apps/person-lists/objects/person-type/abc")).toBe("/apps/reference-lists/objects/person-type/abc");
+  });
+
+  it("opens a moved navigation group, and an application the model no longer has", () => {
+    expect(at("/apps/person-lists/groups/lists")).toBe("/apps/reference-lists/groups/lists");
+    expect(at("/apps/gone/views/person-type-tree")).toBe("/apps/reference-lists/views/person-type-tree");
+  });
+
+  it("does not relocate a key two applications hold, a key none holds, or an address that is not missing", () => {
+    const twice: EngineModel = {
+      ...moved,
+      applications: [...moved.applications, app("third", { views: [{ ...base.views[0], key: "person-type-tree" }] })],
+    };
+    expect(at("/apps/person-lists/views/person-type-tree", twice)).toBeUndefined();
+    expect(at("/apps/person-lists/views/nothing")).toBeUndefined();
+    expect(at("/apps/reference-lists/views/person-type-tree")).toBeUndefined();
   });
 });
