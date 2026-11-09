@@ -4,8 +4,8 @@
 
 **Base 0.16 is complete**, build acceptance R included
 ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#r-record-2026-11-02)), version 0.16.0; the commit and the tag `v0.16.0`
-follow the user's instruction. 0.16 was released before 0.13–0.15, which are not built (0.13, the guide, is in progress
-in another session); the version after 0.12 is 0.16.0 for that reason. The AI integration: the proposal provider and its
+follow the user's instruction. 0.16 was released before 0.13–0.15. 0.14 and 0.15 are not built; 0.13 (the guide) is built and not released: what is left is
+the "Open for 0.13" list in [its plan](BASE_0_13_IMPLEMENTATION_PLAN.md#open-for-013) and the release step R. The version after 0.12 is 0.16.0 for that reason. The AI integration: the proposal provider and its
 settings (AP1), targets for unmapped values (AP2), the assistant as a Claude Code session that designs, checks and loads
 a workbook (AP8–AP10), the model shape (AP11), changing a workspace's model with its records moved (AP12), always a way
 out (AP13), agent access over `/mcp` with read tools, prepared changes and natural-language search (AG1–AG4), an account

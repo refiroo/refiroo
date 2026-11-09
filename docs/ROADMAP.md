@@ -16,8 +16,10 @@ Base 0.16 is complete (2026-11-02; build acceptance R in
 [its plan](BASE_0_16_IMPLEMENTATION_PLAN.md#r-record-2026-11-02)): the AI proposal provider, the assistant that designs and
 loads from a few words and a workbook, changing a workspace's model, agent access over `/mcp`, the accounts of a model
 change and of a period, and notification digests ([product release 0.16](#product-release-016--ai-integration)).
-**0.13, 0.14 and 0.15 are not built: 0.16 was released before them.** The next release is 0.13, documentation (in
-progress), then 0.14 and 0.15.
+**0.13, 0.14 and 0.15 are not released: 0.16 was released before them** (0.13 is built, 0.14 and 0.15 are not). The next release is 0.13, documentation (in
+progress: the guide is written, and the editor, migration, assistant and relationship packages built with it are
+recorded in [its plan](BASE_0_13_IMPLEMENTATION_PLAN.md); what is left is its "Open for 0.13" list and the release step R), then 0.14
+and 0.15.
 
 ## Base 0.12 complete
 
@@ -619,7 +621,7 @@ reads data, and a steward and a model administrator do their daily work.
 
 ### Delivery scope
 
-- The foundation: the guide's sources in `guide/`, served offline by the engine at `/guide`, a `docs`
+- The foundation: the guide's sources in `guide/`, served offline by the engine at `/docs`, a `docs`
   test group that runs every example, the writing rules and the AGENTS.md step "a user-visible change
   updates its guide pages"
 - Generated references: settings, capabilities and limits, error codes, the model language, the command
@@ -631,7 +633,8 @@ reads data, and a steward and a model administrator do their daily work.
   monitoring, upgrades, backup and restore, troubleshooting, a production checklist
 - Administering access and security: people, groups, roles, grants, clients, keys, approvals, audit
 - Screenshots from the browser runners; a fresh-reader check; a public static site per release
-- The management API reference is not written here: 0.14 writes it on `/docs` and the guide links to it
+- The management API reference is generated from the code at `/docs/api` and the guide links to it; 0.14
+  writes its per-operation descriptions
 - 0.16's AI integration is documented too, in a wave after 0.16's release step (decided by the user
   2026-11-02)
 - Changes to released structure that data holds, made in the model editor (application moves, new
@@ -641,11 +644,13 @@ reads data, and a steward and a model administrator do their daily work.
 
 ### Exit gate
 
-- Every item in the coverage inventory is covered by a written page or a reasoned exclusion.
+- Every capability in the inventory made from the code is documented to working depth, or excluded with a
+  reason; the guide's `npm run verify` checks it.
 - Every example runs in the `docs` group, or is marked as not run and rehearsed on a clean host.
-- Every tutorial was completed by a reader from outside the project, and their findings were closed.
-- The guide is served offline by the engine and published as a static site, with search, in light and
-  dark, and passes the accessibility gate.
+- Every tutorial was completed by a reader from outside the project (the fresh-reader check), and their
+  findings were closed.
+- The guide is served offline by the engine at `/docs`, beside the API reference generated at `/docs/api`,
+  and published as a static site, with search, in light and dark, and passes the accessibility gate.
 
 ## Product release 0.14 — Management API reference and UI refinements
 
@@ -762,7 +767,7 @@ a workspace in one go, and a person shapes its model by dragging on one screen b
 - The workbook canvas: sheets and columns dragged into lists, fields, relationships, hierarchies, filters
   and navigation groups, each drop applied at once with undo (PL3b)
 - New workspace from a workbook, plain words, collection import and export (PL4–PL6)
-- A navigation group places a view of its own, such as a relation matrix, not only a whole collection (NG1, added 2026-11-05)
+- A navigation group places a view of its own, not only a whole collection (NG1, added 2026-11-05): relation matrices were built in 0.13 (NG), the other view kinds are left
 - Mail when a person's sign-in changes: password, second factor, passkey (SM1, added 2026-11-03)
 
 ### Exit gate

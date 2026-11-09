@@ -379,16 +379,48 @@ when both are empty but for reasoned exclusions.
 | [DOC9](#doc4doc9-the-writing-waves) | DOC4–DOC8 | Wave F: start here, about this release, the questions page | Codex |
 | [DOC9A](#doc9a-wave-g-ai-integration) | DOC9, 0.16 R | Wave G: 0.16's AI integration, its briefs first, its pages in the sections they belong to | Primary agent (briefs); Codex (pages) |
 | [DOC10](#doc10-screenshots) | DOC7, DOC8, DOC9A | Screenshots from the browser runners, light and dark | Primary agent |
-| [DOC11](#doc11-fresh-reader-check) | DOC9, DOC9A | Each tutorial completed by a reader from outside; the unrun commands rehearsed on a clean host | The user finds the reader; primary agent records |
-| [DOC12](#doc12-publish) | DOC11 | The public site, versioned; the README points to it | Primary agent |
+| [DOC11](#doc11-fresh-reader-check) | DOC9, DOC9A | Each tutorial completed by a reader from outside; the unrun commands rehearsed on a clean host | The user finds the reader; primary agent records. **The weaker check (a fresh agent, no outside person) is done 2026-11-08 and 2026-11-09, assistant journey included; the outside reader is still open** ([Open for 0.13](#open-for-013)) |
+| [DOC12](#doc12-publish) | DOC11 | The public site, versioned; the README points to it | Primary agent. **Delivered 2026-11-08** (README, `docs/PRODUCT.md`, `CODE_OF_CONDUCT.md`, CONTRIBUTING; the versioned site build runs in R) |
 | [HD](#hd-one-header-for-the-app-the-documentation-and-the-api-reference) | DOC1 | One header style for the app, the guide and the API reference; logo to the app; Documentation \| API reference switch; "?" help; one theme choice | Primary agent. **Approved 2026-11-03; delivered 2026-11-03** |
-| [TH](#th-a-theme-choice-normal-or-website-purple) | HD | A theme choice, Normal or Website purple, beside the light and dark choice, in the app, the guide and the API reference | Primary agent. **Approved 2026-11-05** |
-| [RL](#rl-record-pages-and-related-columns-in-the-model-editor) | DOC1 | Record pages with one panel per relationship by default; Add panel… on a record page; columns showing a field of the related records or where they sit, chosen in the editor | Primary agent. **Approved 2026-11-05** |
+| [TH](#th-a-theme-choice-normal-or-website-purple) | HD | A theme choice, Normal or Website purple, beside the light and dark choice, in the app, the guide and the API reference | Primary agent. **Delivered 2026-11-05** |
+| [RL](#rl-record-pages-and-related-columns-in-the-model-editor) | DOC1 | Record pages with one panel per relationship by default; Add panel… on a record page; columns showing a field of the related records or where they sit, chosen in the editor | Primary agent. **Delivered 2026-11-05**, guide pages with the wave `guide/_waves/RL.md`. One page rule on the server (`layout.detail_page`, `place_relation`, `place_child`) and in the frontend (`model/defaults.ts`, checked against `stop-page.fixture.json`); `addPanel`; Add panel… and the unfolding Columns dialogs. A panel's Columns… offers `ancestor:<type>` and `objectType`; `ancestor:<type>.<field>` stays a related-column field, since a panel does not accept it |
+| [ED](#ed-the-model-editor-sets-everything-a-model-holds) | CP 2a | Every model setting the engine reads gets a control in the model editor; three deletions get their screens | Primary agent. **Delivered 2026-11-07** |
 | [MG](#mg-changes-that-need-a-migration-made-in-the-editor) | - | A change to released structure that data holds (an application move, a new parent, a key, a split, a merge, a conversion, a removal) is made in the editor; installing the draft runs the migration the draft itself states, previewed and confirmed. Moved from 1.0 | Primary agent (plan); implementer. **Delivered 2026-11-09** |
+| [CP](#cp-completeness-from-the-code) | all waves | Every capability in the code listed mechanically and held against the pages; each one documented to working depth | Primary agent (inventory, check); Codex (pages). **Delivered 2026-11-10** (steps 1, 2, 2a and the depth waves 2026-11-06 to 2026-11-08; the coverage check passes: 911 entries, 902 covered, 9 excluded, 0 uncovered; the waves' notes are classified under CP) |
 | [AD](#ad-an-assistant-task-makes-its-own-model-draft) | - | A workbook task's session makes its own model draft; a proposal on a draft it did not make goes back to the session instead of failing the task | Primary agent. **Delivered 2026-11-06** |
 | [AT](#at-the-assistant-starts-from-the-engines-reading) | AD | A workbook task's session starts from a draft the engine has already read the workbook into (its inference and one dry run), not from nothing; a draft's dry run reads the draft's own profile | Primary agent (plan); implementer. **Planned and ordered by the user 2026-11-08. Built; tries slower than AP11; the user removed the start, kept the dry-run fix and accepted the timings (2026-11-08)** |
+| [DF](#df-findings-of-the-depth-waves) | CP | Workspace-event webhooks from the browser; a deactivated client's secret rotated; an old consumer API contract version served beside the new one; the exit gate matched to how 0.13 was built | Primary agent; Codex (guide pages). **Approved 2026-11-07; delivered 2026-11-08**, guide pages with the wave `guide/_waves/D-DF.md` |
 | [RA](#ra-attributes-of-the-relationship-in-consumer-api-related-fields) | - | A consumer API related block's fields can read an attribute of the relationship itself (`relation:<attribute>`), typed, validated and offered in the editor's field picker | Primary agent (plan); implementer. **Ordered by the user 2026-11-09; RA-D1 to RA-D3 decided 2026-11-09; built 2026-11-09** |
+| [AW](#aw-an-ai-tasks-progress-line-in-words-not-the-command) | - | An AI task's "Working on it" line says what the session does in words; the session's shell command never reaches the page | Primary agent. **Added to the 0.13 build by the user 2026-11-09; delivered 2026-11-09** |
+| [AQ](#aq-the-assistant-loads-a-laid-out-workbook-and-asks-only-what-a-person-decides) | - | A laid-out workbook loads through the assistant without guessed operation names, replayed profiles or questions the engine could answer; the session limit is a handled ending | Primary agent (plan); implementer. **Found 2026-11-08; delivered 2026-11-08** (`f34d2c24`, `dbcc8f28`; the try, task 97, run the same day) |
+| [JG](#jg-related-jobs-grouped-on-the-jobs-page) | - | The Jobs page groups the jobs an assistant task or a model draft requested, with a trail back and the group in the address | Primary agent (plan); implementer. **Approved 2026-11-08; delivered 2026-11-08** (`0059d6a4`) |
+| [AB](#ab-the-assistant-loads-a-file-as-one-checked-batch) | AQ | The assistant loads a file as one batch the engine has previewed in full; accepting runs exactly those items with no assistant turn | Primary agent (plan); implementer. **Approved 2026-11-09; built 2026-11-09, not committed; the real acceptance runs are open** ([Open for 0.13](#open-for-013)) |
+| [NG](#ng-relation-matrices-in-navigation-groups) | - | A relation matrix is an entry of a navigation group of its own, a collection has an opening view, and a group has a panel in the editor | Built by the 0.13 build, not planned beforehand; recorded 2026-11-10. **Delivered 2026-11-09** (`30d29a8d`, guide wave `NAV-GROUPS`). Narrows [0.17 NG1](BASE_0_17_IMPLEMENTATION_PLAN.md#ng1-views-in-navigation-groups) |
+| [RV](#rv-attributes-of-the-relationship-in-views) | RA | A relationship's own attributes in a matrix cell, a relationships panel, a relationships table and a relationships grid with a bulk change | Primary agent (plan); implementer. **Approved 2026-11-09; delivered 2026-11-09** (`075675bb`, `a2a672dc`, `f9e82a2f`, `538c4b97`, `d69cb0bd`, `e696076c`); guide pages with the waves `RV-GUIDE` and `RV-GUIDE-FIX` (`0dcb0f0b`, `9a341f83`) |
+| [CL](#cl-images-built-in-ci-and-ci-as-a-quick-gate) | - | The engine and web images built once in CI and tagged only after they start; CI on GitHub a quick gate | Primary agent. **Delivered 2026-11-07 to 2026-11-08** (twelve commits, listed under CL) |
+| [FX](#fx-fixes-found-during-the-013-build) | - | Fixes found while building 0.13 that no package names: one row each with where it was found | Primary agent. **Recorded 2026-11-10** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
+
+## Open for 0.13
+
+Written 2026-11-10 after every uncommitted change and every commit since `v0.16.1-alpha.1` was assigned to a package
+above. This is the one list of what is still pending; statements elsewhere in this plan that read "open" or "not yet"
+either point here or are closed. Nothing else is open.
+
+| # | Item | Evidence | Who acts |
+| --- | --- | --- | --- |
+| 2 | **Six assistant pictures of the guide are out of date** (`use-assistant-proposal`, `model-assistant-workbook-proposal`, `use-assistant-loaded`, `model-assistant-workbook-loaded`, `use-assistant-words`, `use-assistant-reload`): they show the saved-profile load, "Accept the model" and proposal-file wording | `guide/_coverage/notes/C11-FIX3/report.md`, "Existing pictures that no longer illustrate this flow correctly"; none was retaken (last change `f173c53a`, 2026-11-06) | Primary agent retakes them from a real task, in the same announced runs as item 1 |
+| 3 | **The outside reader of DOC11.** The exit gate asks for every tutorial completed by a reader from outside the project; the checks done are the weaker one (a fresh agent with a browser, no person) | DOC11 status; `guide/_coverage/notes/C11-READER2/report.md`, `C11-READER2-AI/report.md`, `C11-HOST/findings.md` | The user accepts the weaker check as the gate or arranges a reader |
+| 4 | **Live tries the depth waves could not run.** Statements written from the code and never run on a live system: phone trust of the developer instance, provider sign-in and mail receipt, collector setup, a backup and restore onto a public replacement host, an interrupted upgrade, webhook receiver deliveries, a physical passkey ceremony | the `Open:` lines of `guide/_coverage/notes/D-RUN/depth.md`; the clean-host rehearsal (DOC11, 139 commands) covered install, backup, restore and upgrade on one host only | R's rehearsal, or the outside reader (item 3) |
+| 5 | **`test_model_independence` fails** on `frontend/src/features/ai-tasks/designFixture.ts` (the starter model's keys `domain` and `codelist` as literals in a fixture). Run once on 2026-11-10: 1 failed; the file is committed (`a1fbbac9`), so the failure predates this record | `backend/tests/test_model_independence.py::test_runtime_sources_contain_no_starter_model_key_literal` | Primary agent decides the fix (the fixture keys come from the model, or the fixture is outside the test's reach) |
+| 6 | **The guide home's title repeats**: "refiroo documentation \| refiroo documentation" (Starlight joins the page and site titles) | `guide/src/content/docs/index.md` (`title`) and `guide/astro.config.mjs` (`title`) are equal; the built `index.html` carries both; website W8, 2026-11-06 | Primary agent (a home title that does not repeat the site title) |
+| 7 | **DOC-D26 is undecided**: AI in the reference instance (recommendation 2026-11-02: not now; at DOC9A an optional, off-by-default setup) | [Decisions](#decisions), DOC-D26 | The user |
+| 8 | **RV's browser look.** The grid's sticky columns, group tints and floating editors in a wide table at 390 px are not inspected, and no browser runner exists for the relationships table, the grid or the cell dialog | RV, "Still manual / not built" | The user decides whether a runner is wanted; primary agent otherwise looks once in a browser |
+| 9 | **Release step R**: the full review of every change since 0.12, the exit gate, the versioned site build (`website/tools/engine.mjs <tag>`) and the release | R row; Exit gate; DOC12 | Primary agent, each heavy run announced one at a time |
+
+Closed by this record, with evidence: `WEB_MAX_BODY` is passed to the web container (`compose.yml`, `web.environment`);
+the CP notes (classified under [CP](#cp-completeness-from-the-code)); the DOC11 assistant journey (recorded under
+[DOC11](#doc11-fresh-reader-check)).
 
 The waves are ordered by dependence, not by importance: concepts first (the how-tos and tutorials link
 to them), the operator and access pages next (they stand alone), then the integrator, steward and model
@@ -451,8 +483,9 @@ running in the `docs` group, the checks green, and `guide/AGENTS.md` in place.
   holds it to the same licence gate (BlueOak-1.0.0, CC0-1.0 and Python-2.0 added to the allowed set);
   `THIRD_PARTY_NOTICES.md` is regenerated and `--check` passes. The sitemap is disabled until the public host is
   decided (DOC12).
-- Still open with the user: the engine image build was not run (no Docker daemon on the machine), and the list of
-  private-model names for the banned-terms check is empty until the user supplies the names.
+- The engine image build was not run in DOC1 (no Docker daemon on the machine); since 2026-11-07 CI builds and starts the
+  images ([CL](#cl-images-built-in-ci-and-ci-as-a-quick-gate)). The list of private-model names for the banned-terms
+  check stays empty by decision (DOC-D25).
 
 ### DOC2: Generated reference
 
@@ -559,7 +592,8 @@ the user's spot read of the ones they name; every example named in a brief runs.
   settings (`/system/configuration` does); the retired webhook key setting is still named in OPERATIONS; the
   action groups are 14 (plus 2 of 0.16), not 13; the jobs switch also gates imports, source files and model
   mappings; multi-process operation is built, while OPERATIONS says "0.11 work"; `README` and OPERATIONS still
-  say the API is unauthenticated. Open: `compose.yml` does not pass `WEB_MAX_BODY` to the web container.
+  say the API is unauthenticated. `compose.yml` did not pass `WEB_MAX_BODY` to the web container; it does now
+  (`web.environment`, default `256m`), checked 2026-11-10.
 
 ### DOC4–DOC9: The writing waves
 
@@ -613,9 +647,6 @@ checklist; where they get stuck is recorded and fixed ([DOC-D8](DOCUMENTATION_PL
 available, a fresh agent session given only the built guide (no repository) does it, and that is
 recorded as the weaker check.
 
-### DOC12: Publish
-
-A public static build of the same sources, versioned per release ([DOC-D7](DOCUMENTATION_PLAN.md#decisions)),
 **Status:** The first weaker run (waves C11-READER and C11-FIX, 2026-11-06) read every journey but could do
 none of it: Codex's sandbox had no network to the reference instance and no browser, and no command was
 rehearsed. Pages changed since (CP, ED, RL, DF, AT). **Planned again and approved by the user 2026-11-08**:
@@ -656,8 +687,32 @@ Conflict state of a matrix (needs already-inconsistent data) and raising an olde
 release stored before an upgrade). The fix wave (`guide/_coverage/notes/C11-FIX2/report.md`) brought the pages in line
 with all 23 findings; the model editor's "migration (planned for 1.0)" sentence was corrected to name the JSON view and
 the install review; the three tree pictures were taken again. `reference.sh update` now rebuilds the web image too.
-**Open: the assistant journey (`C11-READER2-AI`), read once AT is delivered.**
+**The assistant journey done 2026-11-09** (wave `C11-READER2-AI`, then the fix wave `C11-FIX3`). AT and AB were
+delivered, so the reader ran the journey in a browser on the reference instance (`reader-ai`, an isolated workspace)
+with a real provider: the provider check and data disclosure, a workbook load to publication with its design review,
+correction, review and discard, a words task with Stop and Go on as it was, a model-only change, a whole-type move, a
+partial type move through its three steps, asking a list and explaining a period, proposed mapping targets, an outside
+system assistant (read, prepare, review, publish, deactivate) and a personal assistant (discovery, registration,
+consent, exchange, refresh, sign-out, block), and stopping AI as a person. Fifteen findings
+(`guide/_coverage/notes/C11-READER2-AI/findings.md`, `report.md`). Product defects fixed by the implementer, with tests and
+their CHANGELOG entries (0.13 DOC11, assistant journey): the person's Stop in a container, a message that asks for a
+correlation ID, a failed assistant job reaching its task, a failed correction leaving a change set behind, the checked
+relationship count that left out parent links, a records-only words task named for what it is, a no-change proposal
+claiming a workbook fits, internal words in the model summary and the closing note, Go on as it was after an early
+Stop, a partial move described as manual work, its final release found without the session's last line, and the top
+Accept button. Findings 7, 12, 13 and 14 were retested and cleared (12 was the reader's own setup: no listener at the
+return address). The fix wave `C11-FIX3` brought twelve guide pages in line with the findings, source-checked, and
+named six pictures that no longer illustrate the flow (open item 2). Left, as recorded: the saved-layout path could not
+be exercised (the profile available needed seven binding fixes, no assistant-created profile existed), contingent states
+(questions, refusals, mappings changed meanwhile, permission loss, expiry) were not manufactured, host switches were not
+run, and no independent recount of the partial move was made. The reader's calls cost about $2.07 reported. This is still
+the weaker check: there was no outside person, and the exit gate's outside reader is [open item 3](#open-for-013).
 
+### DOC12: Publish
+
+**Status:** Delivered 2026-11-08: `CODE_OF_CONDUCT.md`, the README's Status brought up to Base 0.16, and refiroo.org/docs linked from the README and `docs/PRODUCT.md`; the versioned site build is run by the release step R.
+
+A public static build of the same sources, versioned per release ([DOC-D7](DOCUMENTATION_PLAN.md#decisions)),
 with search and the light and dark themes; the README and the repository's `docs/PRODUCT.md` point to it.
 Where the site is hosted is the user's decision when this package is reached; the build produces plain
 static files that any host serves.
@@ -687,7 +742,7 @@ change), made in W4:
 
 The release step R runs the website's script at the release tag; the tag is the guide's version.
 
-Open (website W8, 2026-11-06): the guide home's title reads "refiroo documentation | refiroo documentation" (Starlight joins the page title and the site title); the home page's title in `guide/` should be set so it does not repeat.
+Pending (website W8, 2026-11-06): the guide home's title reads "refiroo documentation | refiroo documentation" (Starlight joins the page title and the site title); the home page's title in `guide/` should be set so it does not repeat. Still true 2026-11-10 ([open item 6](#open-for-013)).
 
 Also in DOC12, for the website's Community page (website W3-D7, approved 2026-11-04): `CODE_OF_CONDUCT.md` at the
 repository root, the Contributor Covenant 2.1 (CC BY 4.0) with krisztian.toth@refiroo.org as its reporting contact, and CONTRIBUTING.md's last sentence ("A separate code of conduct
@@ -1015,6 +1070,7 @@ that is a model-language change outside RL.
 9. **Model-only requests end in a migration with no type mappings (`agent/12`).** Found in task 99 (`stops`, "add relation matrixes for languages in the lead application…"): nine valid `relationMatrix` views, no questions, no moves; the session installed release 0.2.9 and made an empty change set, and `accepted()` failed the task as "nothing was loaded". The accepted prompt now tells the session that when the words ask nothing of the stored records it installs one release, activates none, makes no change set and ends with `RELEASE: <id>`; `accepted()` lands such a task as `loaded` with `{"migration": {"releaseId", "typeMappings": []}}` after the same contract and landing checks, and discards an empty change set the session made. The task page offers the migration as "Move the workspace to the new model" (no record moves). J50.66.
 10. **A question reaches the person whole (`agent/13`).** Found in task 98: the engine kept a question's first 500 characters, and the session had written its reason first and its ask last, so the page showed the reason ending mid-word ("…Run load-profile") with the ask gone. The engine keeps the session's text whole (a runaway one over 2,000 characters is shortened at a word, with an ellipsis), and the prompt asks for the question itself first, in at most three short sentences. J50.30 proposes a 700-character question and finds it whole.
 11. **The session's scratch folder is inside its own folder (`agent/14`).** Found in task 95: the session kept its helper files in the machine's scratch folder (`$TMPDIR`), and on the accept turn it wrote that path out in a command; Claude Code's read block refuses reading outside the working folder, in don't-ask mode nobody is asked, the session gave up and the task failed, a paid turn with nothing done. The engine now sets `TMPDIR` to `<folder>/tmp`, and the prompt says to keep every file in the folder by a relative path and to run a refused command again that way rather than end the turn. A resumed session keeps its earlier turns' habits (task 95's next turn named the old path again, $6.97 for 14 s with nothing done), so every later turn's prompt ends with the folder rule and the folder's and `$TMPDIR`'s paths. Unit tests in `test_agent.py`.
+12. **One key is one record across the load's sources (D69).** Found in task 95: two sources of `iso-country`, both `upsert` keyed by name, gave 487 records for 200 codes, each code two half-records (one with the name and numbers, one with the relation). `binding._KEY_GROUP` grouped upsert rows by source and key, so only a name under a parent (D142) was one key across sources; it now groups upsert rows by type, key kind, key attribute and key value whichever source they come from, so `_duplicates` merges the rows of two sheets with the same rule (equal values and relations add up, an empty cell agrees, a field filled differently refuses every such row), the preview and the draft dry run included (one binding). `DUPLICATE_KEY_IN_FILE` names the rows with their sheet (`details.refs`, `Sheet!2`) beside `details.rows`. Two sheets that listed one new number with different values no longer load the later sheet's value over the first (0.16 AP6): they are refused, as one sheet's rows are.
 - **The answers card (same day).** Answers that are all the assumed ones start no design round (AQ-D4); the card now says the draft is already built on them and shows "Answer and design again" only once a choice differs.
 
 **Not in AQ.** More than one assistant worker per process (`WEB_CONCURRENCY` gives one per process today); a source with `record: existing` not finding records made earlier in the same load (task 94 kept a second result list for it); the session's model and effort.
@@ -1096,6 +1152,195 @@ that is a model-language change outside RL.
 - **Addresses.** `/settings/jobs/groups/{aiTask|modelDraft}/{id}?state=…`; a job opened from a group is `/settings/jobs/{id}?group=aiTask:{id}&state=…`, which keeps the trail. Esc goes job to group to list and does nothing while a dialog is open or a field has focus.
 - **Switch** is stored in the browser as `refiroo.jobs.view` (default Grouped). The grouped table has an Actions column for the cancel of a job without an origin; a group row has none. A group's jobs table drops the Workspace column.
 - **The browser look did not use the dev data.** Signing in to the developer instance needs a person's password and creating one for the look was refused by the permission system, so the look ran on the repo's isolated browser harness (real engine and sign-in; the grouped and group reads answered with fixtures shaped like the engine's). The grouped query itself was run on the dev database.
+
+## AB: The assistant loads a file as one checked batch
+
+**Status:** Asked by the user on 2026-11-09 ("I expect the llm to understand: file, model, capabilities and propose a solution … whatever you propose, this has to work"); placed in 0.13 by the user ("yes its part of 0.13"). The plan and its HTML mock-up **approved by the user on 2026-11-09** ("mock accepted, the ab can be delivered too"), with AB-D1 to AB-D6 as recommended.
+
+
+**What changes.**
+
+1. **The draft dry run takes items** (engine). `POST /model-drafts/{id}/dry-run` accepts `workspaceKey` and `items` (the batch item format, with `ref` naming the cells each item comes from, e.g. `Person!Q31:S31`) in place of a source file and a profile; or `itemsFileId`, a file of items uploaded to the draft, for large sets. The worker previews every item against the draft's compiled model, as today's dry run previews the items a profile binds, and stores the items with the job. The summary gives, per type: new, matched, changed, refused, the relationships per type, a few example items per type with their refs, and the finding the engine works out in the database: a name that appears more than once in one type once the load is in (with the parents it sits under). What the assistant noticed in the data (two existing records that look like one thing, rows that disagree) is in its summary.
+2. **Accept runs no assistant turn** (engine). Accepting installs the draft as one release, makes the change set on it and runs the dry run's stored items into it as one atomic background batch: the engine does what the load turn did, with no AI cost and no session to fail. The task ends `loaded` with the batch's counts, or `failed` naming the refused items (data changed since the preview), with **Give the assistant other words** to go on. Model-only tasks keep their migration ending (AQ item 9); tasks that move whole types keep theirs.
+3. **The assistant works as in an ordinary session** (prompt, `agent/15`). It reads the workbook in Python (layout, hidden columns, shifted blocks), reads the model and the workspace's records through the API, changes the draft model where the file needs it, writes a script that turns the file into items (new records get IDs it generates so later items can point to them; existing records are found by reading them and named by ID), sends one items dry run and reads its summary. It fixes its own items until the dry run refuses nothing and the findings are explained, then writes the proposal. It writes no load profile. It asks the person only what the file and the words leave open, in the person's terms; never about the engine.
+4. **The task page shows what the load does** (frontend). "Where each sheet goes" is replaced by **What the load does**: the figures (records new, existing matched, relationships, refused, rows read), a table per type (new, matched, changed, refused, linked to) whose rows open to example records with their cells, the engine's findings, and a folded **Where each part of the file goes** (cell ranges and what they become, from the items' refs). The summary, the model change, the questions and the notes stay as they are. The accept text says the engine loads exactly these records. Mock-up: see the link under Decisions.
+5. **Saved layouts are untouched.** A file whose layout a saved import profile already holds still loads through it (0.10–0.12), with AQ item 12's merge.
+
+**Decisions (my recommendations).**
+
+- **AB-D1: The batch is the load.** The assistant no longer writes load profiles; whatever the file holds, it expresses as records and relationships the engine checks. The import language stays for saved layouts only.
+- **AB-D2: Accept is the engine's.** The previewed items are what is loaded, so accepting needs no assistant turn: it cannot fail on the session, costs nothing and is exactly what the person saw.
+- **AB-D3: Records are named by ID.** The assistant reads existing records and refers to them by ID, and gives new ones IDs of its own, so matching is the assistant's reading of the data (as a person's would be), checked by the engine, not a key rule the file must fit.
+- **AB-D4: All or nothing.** The accepted batch is atomic: a refusal at accept writes nothing and says which items and why.
+- **AB-D5: Findings are shown, not asked.** A name twice in one type (the engine's) and what the assistant noticed in the data are listed on the proposal with what the load does about them. The person acts on them if they want to; they are not questions.
+- **AB-D6: Done means the acceptance files load.** See below.
+
+
+**Mock-up:** https://claude.ai/artifact/P8QgsMLZ29C7xGdGB7JQ6f (task 95's workbook with the numbers a correct load gives).
+
+**Built (2026-11-09), AB.** All five items; the acceptance files are not yet run (below).
+
+- **Items dry run (item 1).** `POST /model-drafts/{id}/dry-run` takes `workspaceKey` and `items` in place of `sourceFileId` and `profile` (`DryRunRequest`, exactly one form, `422 REQUEST_VALIDATION_ERROR` otherwise). `itemsFileId` is dropped: the body is inline, held to `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES` and also `ATOMIC_JOB_MAX_ITEMS`, since accepting loads the set as one atomic batch (`413 BATCH_TOO_LARGE` names the setting). The job is a `dryRun` with `parameters.mode: "items"` and the items as its inputs; the worker previews every one in the existing preview path (`preview_items`, a batch's preview rules: not the import's file-row rules). Refusals are item outcomes with their `ref`.
+- **Where the items are kept.** In the job's inputs (`job_inputs`), not a job file: a completed items dry run keeps them (`jobs/store._finish`), retention removes them as any job's, and a newer items dry run of the draft deletes the older ones' in the same transaction. Accepting then copies them to the load's batch with one `INSERT … SELECT`, never through Python.
+- **Summary (item 2).** `sources/items_summary.py`: SQL over the job's inputs and outcomes (per type new, matched, changed, removed, refused; relationships per relation type, including a created record's `initialRelations`; the types each type is linked to; three examples per type, a refused one first, with values, links and ref; the refs grouped into the parts of the file; rows read from the distinct sheet and row of the refs; the refused items and their counts by code). The finding "a name twice in one type" is read inside the preview's transaction before the rollback (`name_twice`), among the records the accepted items touch, with the parent each sits under. `GET …/dry-run` answers it as `items` (`ItemsDryRunSummary`, `sourceFileId` null, `summary` null). The task's design stores it as `design.load` and `design.itemsLoad`; the task's `check` is the same run in the old check's shape (`mode: items`, no sheets). The "new records beside the records held" check is not made for an items run (the type table says new and matched).
+- **Accept (item 3).** `tasks/items_load.py`, dispatched by `tasks/job.run_design` (not `agent.accepted`, to keep the tiers acyclic): installs the draft through `draft_profile.install_draft` (extracted from `POST …/installation`, which now calls it; a taken release version gets the next one by `setRelease`; a retry for the same draft version reuses the release), makes the change set on it with the current-live source (on the current release, no install, when the draft does not change the model), copies the items to an atomic `batch` job of the task (`parameters.taskId`) and runs it inline in the task's own job with the batch executor (`run_items`), a stop by the person ending that batch `cancelled`. `loaded`: `result` has the change set, `counts` (the change set's own), `importJobId` and `releaseId`. A draft changed since the dry run (`superseded`: a step that can change what the load writes) has every item previewed again first; a refusal fails the task before anything is installed. A refusal in the batch (data moved) discards the change set and fails the task naming up to five records with their cells, and withdraws the release this accept installed (the draft goes back to the release it was based on, the refused batch job is removed, then the engine's `delete_release`; a release already installed before, or one the engine refuses to delete, stays and the note says so). A retry installs again. An items load saves no import profile. A failed or loaded items task given words goes to the session as a correction of the proposal (stage `model`), which sends a new items dry run, as there is no session turn to repeat. Moves and model-only tasks keep their endings.
+- **Prompt (item 4).** `agent/15`: `_KEYS` and the profile guidance of `_QUESTIONS` are gone, `_ITEMS` and a shorter `_QUESTIONS` replace them; `_SHAPE` stays (it is model design, not a profile instruction); the correction prompt says to send the items to the dry run again.
+- **Page (item 6).** `DesignLoad` (Card, SettingsTable, Disclosure, Notice) in `ModelProposal` after the model change, and in `DesignView` in place of `DesignSheets`, which stays for designs that hold a profile. Rows with examples open with Enter, Space and click. The proposal's accept is the bottom bar of the mock-up ("Accept and load to change set", "Give the assistant other words", which focuses the words box); the header's model accept is not offered for an items proposal. A check from before the draft's last change is said inside the card.
+- **Tests.** J50.67 to J50.70 in `tests/journeys/test_j50_ai_items_load.py` (`test_a_session_sends_items_to_its_drafts_dry_run_and_the_proposal_shows_what_they_do`, `test_accepting_runs_the_previewed_items_with_no_assistant_turn`, `test_an_item_the_data_has_moved_away_from_fails_the_accept_and_writes_nothing`, `test_a_draft_changed_after_the_check_is_checked_again_before_anything_is_installed`, `test_an_items_dry_run_refuses_an_item_with_its_cells_and_takes_exactly_one_form`), a unit test of `items_check`, `DesignLoad.test.tsx`. The OpenAPI lock is re-baselined to `2a7b406009eb3574b6489924f11179c51b0377d7a423f97a1c2aa397e4b87442` for the working tree (it includes other sessions' uncommitted schema changes).
+- **Guide pages (updated 2026-11-10).** The pages that described the check of every row, the saved profile after a session load and "Where each sheet goes" were rewritten by the wave `AB-GUIDE` (2026-11-09: ten pages, among them `use/load-a-workbook-with-the-assistant`, `model/review-an-assistants-workbook-design`, `integrate/assistant-tasks`, `use/loading-with-the-assistant`, `model/ai-model-changes`, `journeys/work-with-an-assistant`; notes in `guide/_coverage/notes/AB-GUIDE`, progress in `guide/_waves/progress/AB-GUIDE.md`) and corrected a second time by the fix wave `C11-FIX3` (twelve pages, `guide/_coverage/notes/C11-FIX3/report.md`: the publication handoff, the relationship counts, the "Accept and load to change set" label, the saved-profile statement). What `AB-GUIDE` reported as contradictions is closed: `docs/API.md` states that an items load saves no profile (the accept entry, `profileKey` absent) and the task bar's "Accept the model" matches the page (checked by `C11-FIX3`). Six pictures still show the earlier flow ([open item 2](#open-for-013)).
+
+## CP: Completeness from the code
+
+**Status:** Planned 2026-11-06. The requirement is the user's: a full documentation of refiroo. Each time the user read a
+section, most of what a reader needs to do the work was missing (how to configure HTTPS and renew its certificates, how
+to add a navigation bar), and the user had to ask for it piece by piece. Cause: the waves' topics came from the
+repository's documents (the reconciliation ledgers in `guide/_waves/reconcile/` go heading by heading through
+OPERATIONS, the model documents, the consumer API document and CURRENT_FUNCTIONALITY). Where those are thin, the guide is
+thin, and nothing asked what a reader needs to finish a task. CP takes the list from the code and the depth from fixed
+questions. DOC11 (a reader with network access and a browser, planned 2026-11-08) checks whether written steps can be
+followed, not whether anything is missing.
+
+**1. The inventory (primary agent).** `guide/tools/inventory.py` writes `guide/_coverage/inventory/<kind>.json`, one
+entry per item, from the code:
+
+| Kind | Source |
+| --- | --- |
+| Settings | `SETTINGS_CATALOGUE` (`backend/app/config.py`, 63 entries) |
+| Management API operations, MCP tools | `app.main.app.openapi()`; `management/mcp_tools.py` |
+| Consumer API | the generic router (`consumer/router.py`) and `consumer_openapi` over the guide's reference model |
+| Commands | the modules of `backend/app/cli/` (9) and their argparse options |
+| Permissions | `engine/authorization/catalogue.py`: `GROUPS`, `ACTIONS`, `PREDEFINED_ROLES`, `AGENT_CEILING` |
+| Screens and actions | `RouteState` kinds (`frontend/src/routing/routes.ts`, about 56), model editor `OPERATIONS` (`features/model-editor/operations.ts`), the action menus and confirmation dialogs |
+| Model features | every field of `ModelDefinition.model_json_schema()` (`backend/app/models/schema.py`): types, attributes, pages and panels, tables, navigation, applications, relations, matrices, mappings, consumer APIs |
+| Deployment | the services, volumes and profiles of `compose.yml` and `compose.acme.yml`, `caddy/Caddyfile`, and each setting the Compose files pass |
+
+Error codes are not in CP's inventory: the restart left the error catalogue with 0.14 (above, "Restarted 2026-11-02").
+
+**2. The coverage check (primary agent).** `node tools/check.mjs coverage`: every inventory entry is named on a page
+(its key, its label on the screen or its operation), or it has a line in `guide/_coverage/exclusions.md` with a reason.
+It runs in `npm run verify`, so a capability added later fails the build until it is documented.
+
+**2a. What the screens cannot do (primary agent, before any wave).** The inventory also holds the lists against each
+other. Each model feature in `ModelDefinition` is matched to the model editor operation that sets it, and each
+management API operation a browser user needs is matched to its screen. A feature with no screen is a product gap, not a
+page to write: RL found record pages could be built only in JSON, and a model administrator cannot be asked to open
+JSON. Finding such a gap while writing or taking pictures on the reference instance is too late. All gaps are found
+first, in one list (`guide/_coverage/inventory/gaps.md`) with the code that shows each, and reported to the user
+together with a recommended package for each. The depth waves document the features as they are after those packages.
+
+**3. The depth waves (Codex, one per section).** For every entry the section owns, the page answers the questions that
+apply. How is it set up? How is it changed? Does it expire or renew, and what happens then? How does it fail, and how
+is it recovered? How is it moved to another server or restored from a backup? How is it turned off? What are its
+limits? Which permission does it need? Codex answers from the code and writes the answers on the page; anything the
+code cannot answer is listed in the wave's notes. Order: Run, Administer, Model, Use, Integrate, About. Each wave's
+fact-check is the same as before.
+
+**Progress (2026-11-07).** Steps 1, 2 and 2a delivered (`guide/tools/inventory.py`, `node tools/check.mjs coverage`,
+`gaps-verified.md`; the gaps became package ED). A management operation counts as covered by the generated API
+reference at `/docs/api`; 153 of 911 entries were uncovered before the waves. The depth waves are
+`guide/_waves/D-RUN.md`, `D-ADMIN`, `D-MODEL`, `D-USE`, `D-INTEGRATE` and `D-ABOUT` (the last also brings About and the
+journeys up to the other sections), with their shared rules in `guide/_waves/DEPTH-COMMON.md`, run in that order by
+`guide/tools/codex-chain.sh`. After them, the screenshots they ask for are taken from the reference instance, rebuilt
+with ED.
+
+**Done when** the coverage check passes with an empty uncovered list, each depth wave is finished with no open notes,
+and the build, terms, operator and link checks pass.
+
+**Delivered 2026-11-10.** The record of the closing check, with the notes of every depth wave
+(`guide/_coverage/notes/D-RUN`, `D-ADMIN`, `D-MODEL`, `D-USE`, `D-INTEGRATE`, `D-ABOUT`, `D-DF`) read and classified:
+
+- **Coverage.** `node guide/tools/check.mjs coverage` passes: 911 entries, 902 covered by a page or the generated
+  reference, 9 excluded with a reason in `guide/_coverage/exclusions.md`, 0 uncovered. The waves' `uncovered.md` files
+  (144 and 113 uncovered entries in the first waves) are the checker's output at the time, not open notes.
+- **Closed since the notes were written.** The writers' product findings: Settings › AI said "up to N per column" for the
+  Values level (fixed, CHANGELOG "findings of the documentation waves"); `EVENTS_EXPIRED` on resume sent the caller to
+  an older publication (fixed, same entry); Workspace events could not be created in the browser and a deactivated
+  client's secret could not be rotated there (DF1, DF2); an earlier contract version was not served (DF3); the install
+  and activate summaries hid the warning that stopping an earlier version raises (`KEPT_VERSION_STOPPED`,
+  `InstallDialog.tsx:84`, `ActivateDialog.tsx:318`); a tree's Change… dropped declared actions and "Oriented" promised
+  more than it did (both fixed, same entry). The screenshots the waves asked for (`D-ABOUT` 8, `D-USE` 8, `D-MODEL` 9,
+  `D-DF` 3, the guide's links to them) exist in `guide/public/screens/` and no page keeps a pending-picture comment;
+  `npm run verify` (below) checks every link.
+- **Not open: the writers' "not exercised" lines.** Each `Open:` line of `D-RUN/depth.md` and the closing paragraphs of the
+  other waves say the writer read the code and ran nothing live. They are limits of method, not a missing capability or
+  a page that is not written; the commands were rehearsed by DOC11's clean-host run. What no run reached is listed once,
+  as [open item 4](#open-for-013).
+- **No note is a gap in a page.** Step 3's rule lists in the wave's notes what the code cannot answer; the waves report
+  none left ("No known factual depth question remains unanswered", D-ADMIN; "No additional unanswered
+  source question", D-INTEGRATE; "No applicable question was left unanswered by guessing", D-DF).
+- **Guide pages of the package.** The depth waves above, with the pictures requested in `guide/_waves/D-SCREENS.screens.json`
+  and `ADMIN.screens.json`. ED's pages were written in these waves (a model-editor control is documented where the depth
+  wave of its section ran); the pages of NG, RV, AB, DF and the assistant's fixes have waves of their own (see those
+  packages).
+
+## ED: The model editor sets everything a model holds
+
+**Status:** Found by CP's step 2a on 2026-11-06 (`guide/_coverage/inventory/gaps-verified.md`). The user placed it in 0.13
+on 2026-11-07 ("move it to a package and deliver it"). No separate mock-up round: the controls follow the editor's
+existing side panel and dialogs. **Delivered 2026-11-07.**
+
+**Why.** The model can hold settings that take effect, but no screen sets them. Today they are set only in the JSON
+view, by the assistant, or by the defaults a new type gets. A model administrator cannot be asked to open JSON (RL).
+Checked in the code: the engine reads every setting below (`records/values.py` minimum and maximum,
+`records/attributes.py` `atLeastOneOf`, `ui.hidden` and `ui.helpText` in the record screens, `behavior.parentRelationTypeKeys`
+in the matrix and mapping projections, `isOriented` in `records/deletion.py`, `displayAttributeTypeKey`,
+`effectivePeriod`, a page's header and breadcrumbs, the tree and mapping grid view settings).
+
+**What the editor gains.** Each control writes through the model edit operations, so undo, redo, history, the dry run,
+release checks and the API are the same as for every other edit.
+
+| Element (side panel) | New controls | Server |
+| --- | --- | --- |
+| Type | Display attribute (which attribute names a record); Effective period (start and end date attributes, or none); At least one of (attributes of which one must be filled); Parent relationships (`behavior.parentRelationTypeKeys`) | a new kind `setObjectTypeProperty` |
+| Attribute type | Minimum and maximum (number and date types); Hidden; Help text | `setAttributeTypeFeatures` stays for features; a new kind `setAttributeTypeProperty` for `validation` and `ui` |
+| Attribute on a type | Hidden on this type; Help text on this type | `setAttributeBinding` takes `ui` |
+| Relation type | Oriented (deleting a record removes the relationships it points to; on or off) | `setLabel`'s neighbour: `setRelationTypeProperty` |
+| Allowed relationship | Attributes carried by the relationship | `setRelationRule` takes `attributeTypeKeys` |
+| Application | Colour; Default view; State (draft, active, retired) where the engine reads it, otherwise left out with its reason recorded | `setLabel` (colour exists); `setApplicationProperty` |
+| Record page | Title field, subtitle field, show the type in the header; breadcrumbs: application, type, ancestors | `setViewProperty` (`header.*`, `breadcrumbs.*`) exists |
+| Table view and panels | Sort menu (`sortFields`), page size; a relations panel's relationships (`relationTypeKeys`), relationship column, parent, ancestors, filter by parent | `setViewProperty` (`config.*`) exists |
+| Views | **Add view…** offers a tree view (root types, label, secondary field, child order, availability field) and a mapping grid (from and to types, source columns, target columns, search fields) besides the table and the matrix; each view's settings in its side panel | `addView`, `setViewProperty` exist |
+| Consumer API | Public names, per-type settings, preferred types and contract version as form fields | `setConsumerApiPart` exists |
+
+Outside the editor, three deletions that the API has and no screen offers: an import profile (Import profiles page), a
+source file (its list) and a model mapping (the mappings list), each with a confirmation in its own words.
+
+`applications[].settings` is a free map the engine does not read, and `schemaVersion` is not an administrator's choice:
+both go to CP's exclusions with that reason.
+
+**Checks.** Server kinds: refusals (unknown attribute, wrong value type for minimum and maximum, effective period on
+non-date attributes, a display attribute not on the type), undo, and the release compatibility rules the engine already
+has for validation changes. The frontend: each control writes its operation and shows the value back; the production
+build. One browser try on the reference instance: set each control in a draft, see it in the preview, undo it.
+Targeted test groups only. The guide pages follow in CP's Model wave.
+
+**Delivered 2026-11-07.** What was decided and built:
+
+- **Server.** New kinds `setObjectTypeProperty` (display attribute, effective period, at least one of, parent
+  relationships), `setAttributeTypeProperty` (minimum, maximum, hidden, help text), `setRelationTypeProperty`
+  (oriented) and `setApplicationProperty` (default view); `setAttributeBinding` takes `ui`, `setRelationRule` takes
+  `attributeTypeKeys`. The draft's outline carries every setting the editor shows. Class and inverse per kind are in
+  [API.md § Kinds](API.md#kinds); the three that edit `validation`, `behavior` or `ui` undo with `restoreElements`, so a
+  container they emptied comes back exactly.
+- **Application `state` is left out.** Nothing reads it: no engine rule, projection or consumer call, and no browser
+  code. An editor control would change nothing, so the editor does not offer it and CP's exclusions record the reason
+  (as for `settings` and `schemaVersion`). Application `color` is left out too: `setLabel` can write it, but no
+  screen draws it, so a control would change nothing; it is in the exclusions with that reason.
+- **Minimum and maximum are for number types only** (whole and decimal). The engine checks bounds on numbers alone
+  (`records/values.py`) and the model validation refuses them on any other type, so a date bound would only be refused.
+- **Where the controls are.** A type's **Settings** tab; an attribute type's, a relation type's, an application's and a
+  consumer API's **Settings** table; **Hidden** and **Help text** columns in a type's attribute table; **Carries** in the
+  relations tables; **Header and breadcrumbs…**, **Sort menu and page size…** and a panel's **Settings…** in the layout
+  editor; **Add a view…** (table, tree, mapping grid, relation matrix) replaces the matrix-only entry, and a tree's or a
+  mapping grid's **Change…**. The consumer API's public names and per-type events were forms already; the contract version
+  and a match's preferred types are now too.
+- **Deletions.** An import profile and its file on the profile's page (people who may import), a mapping in the Mappings
+  list of Copy and move (people who may copy and move); each asks in its own words and is hidden otherwise. There is no
+  source-file list page; the file is deleted where it is shown, on its profile.
+- **Tests.** Unit: the new kinds generated over both configurations with their inverses, refusals by field, a bound
+  above the other. Journey: `test_j33_operations` (settings set, undone in one step, refused at their pointers, a
+  tightened bound meeting a stored value). Frontend: descriptors, the Settings controls writing their operations, the
+  layout settings, the history words, the three deletions.
 
 ## MG: Changes that need a migration, made in the editor
 
@@ -1242,7 +1487,76 @@ migration page opened with the proposed rows: https://claude.ai/artifact/Jt2yhJa
 | MG-D2 | Key changes of released elements | **Allowed, with the migration.** The invariant "public IDs and model keys are stable" exists because an integration names an element by its key where no guard sees it. The change therefore shows, before install, every consumer API and contract that names the old key (the existing check, D54), and the install dialog says that integrations naming the key must change with it. 1.0's scope already listed key renames. Alternative: keep keys fixed and allow the rest |
 | MG-D3 | Where the derived migration lives | **Computed from the draft's history when read.** It then always matches the steps, including after an undo. Cost: one derivation per read of the draft's migration |
 
-**Follow-up (2026-11-10): an old address of a moved collection.** Reported by the user after an AI task's migration
+**Product rule, stated by the user on 2026-11-09 (the assistant's reshape and every migration).** "Whatever a person
+asks the assistant to reshape, all their data comes through: every record, value, relationship and translation. The
+only exception is what they explicitly asked to remove. If the assistant cannot achieve that, it says so plainly and
+offers nothing to confirm."
+
+- **The guard measures the outcome, not the kind of change.** Before the assistant task offers a migration it runs the
+  engine's landing check (`check_landing`) on exactly the migration it would hand over, against today's data, whatever
+  moves, merges, splits, reparentings, list conversions, renames or regroupings caused a difference. A record, value or
+  relationship (translation links among them) it would lose is sent back to the session as an engine finding; at the
+  handover, `_migration_result` returns no migration and the task carries a warning naming the loss per type with counts
+  and saying no data was changed. The exception is what the person's words explicitly ask to
+  remove: the session lists it in the proposal's `removals` (type, application, field or relation type, each with the
+  quoted words; `agent/16` tells it to list only what the words ask, never what it decided to drop). The guard allows a loss
+  only when it falls entirely within them (records of a removed type or application, values of a removed field,
+  relationships of a removed relation type or of removed records); any other loss blocks. The removals are stored in
+  `design.removals` with the engine's counts and a plain sentence ("As you asked, the Drug list is deleted, deleting 16
+  records."), shown on the task page and in the notes before acceptance, and the handover check in `_migration_result`
+  uses the same list.
+- **One consequence amends 0.11 D68 (2026-11-09).** Records of a type the target release still has are moved, never
+  lost: to their own application when the target lists the type there, to the mapping's `toApplicationKey`, to the one
+  application that lists the type, or to the one that lists it newly. When none of these is unique the records are
+  **refused** with `APPLICATION_TARGET_AMBIGUOUS`, naming the candidates, until a mapping's `toApplicationKey` chooses.
+  Losses remain only for what the target truly lacks. `GET /model-drafts/{id}/migration` with a `workspaceKey` and no
+  `againstReleaseId` starts from the release that workspace runs, so after an install it still states the move.
+
+**Guide pages.** The wave `MG` (`guide/_waves/MG.md`, 2026-11-09) rewrote eleven pages that said these changes are refused
+(`model/types-attributes-relations`, `model/migrations`, `guide/model/rename-or-re-key-an-element`,
+`guide/model/reuse-and-change-attributes` and the others in `guide/_coverage/notes/MG/report.md`); the pictures it asked for
+are in `guide/_waves/progress/MG.md` and its report.
+
+**Follow-up (2026-11-09): the migration that loses nothing, and the assistant's use of it.** Recorded 2026-11-10 from the
+working tree, the CHANGELOG and the tests; the product rule and its two consequences are stated above (the guard, the
+`removals`, the amendment of 0.11 D68). Four things were built after the package's first delivery, all found by trying it
+on the user's own model, none a package of its own:
+
+1. **A migration never loses the records of a type the target still has** (`engine/model/migrations.py`).
+   `plan_migration` sends a record to its own application, to the mapping's `toApplicationKey`, to the one application
+   that lists the type or to the one that lists it newly (`arrived_applications`, shared with the draft's
+   `application_target`); when none is unique the record is refused with `APPLICATION_TARGET_AMBIGUOUS`, naming the
+   candidates (`_ambiguous`), and is counted neither as a loss nor as a lost end of a relationship. The reading that
+   showed it: 20 types moved between applications while a third application listed every type previewed 459 losses and
+   now moves 179 records and loses none. `GET /model-drafts/{id}/migration` with a `workspaceKey` and no
+   `againstReleaseId` starts from the release that workspace runs (`authoring/draft_migration.py`), so after an install the
+   dialogs still state the move. `check_landing` also answers the losses by what they hang on (values by type and
+   attribute, relationships by relation type and ends: `LandingCheck.value_losses`, `relationship_losses`), which the
+   assistant's guard words per type. Tests: `test_records_of_a_type_the_target_still_lists_are_moved_never_lost`,
+   `test_a_merge_that_would_lose_values_is_never_offered` and
+   `test_what_the_words_ask_to_remove_is_offered_as_a_deletion_and_nothing_more` (`test_j50_ai_reshape.py`).
+2. **The before-and-after on a real model** (recorded under Delivered, above): a type listed in several applications that
+   was moved out of one would have lost its records; the draft's migration names the application it gained. The unit
+   test of `application_target` stays.
+3. **A task that moves types to another application hands the migration the move** (`engine/tasks/agent.py`,
+   `_migration_of`, `_extra_of`). The task's migration was built from the assistant's `moves` alone, so types that keep
+   their key and change application were handed over with no mapping and the preview listed every record and relationship
+   of them as lost. It now starts from the engine's own migration of the draft against the workspace's release
+   (`authoring/draft_migration.derive`: application moves with `toApplicationKey`, relation type mappings, splits and list
+   conversions), joined with the assistant's moves, one mapping per type; the landing check, the proposal and the task's
+   `result.migration` (`TaskMigration`, now with `relationTypeMappings`, `splits` and `listConversions`) use that set. The
+   task page words such a move ("moves to Reference lists", `ProposalMoves.tsx`, `moveWords`). Test:
+   `test_types_moved_to_another_application_are_handed_to_the_migration_with_it`.
+4. **The assistant's counts say what they count** (`agent.py`, the prompt's voice rules and the workspace sentence;
+   `ProposalMoves.tsx`). A summary counts the records of the types or lists the change touches, named, and states the rest
+   of the workspace apart; the prompt no longer lets the workspace's total stand as the number of records a change keeps
+   (a move of 179 records read as "all 4657 records keep their IDs"). The task page says "20 types move to Reference
+   lists, 179 records" before the line about IDs and history.
+
+These four are the part of the CHANGELOG's 0.13 MG section that was written under AB by the same build; the entries moved
+there on 2026-11-10. Open: none.
+
+**Follow-up (2026-11-10): an old address of a moved collection** (committed as `5e10ac49`). Reported by the user after an AI task's migration
 moved the Person group's types from Person and passenger lists to Reference lists in workspace stops (release 0.3.10), and
 added to the 0.13 build by the user. The old address `/apps/person-lists/views/person-type-tree` showed "person-type-tree
 is not in this workspace's model" although the model has it, under the other application, with all 46 records. Cause:
@@ -1254,6 +1568,94 @@ shows the page. Frontend only. Checks: Vitest for `relocatedPath` and one router
 against stops's 0.3.10 model gives `/apps/reference-lists/views/person-type-tree`. The guide page
 `use/open-a-retired-or-unavailable-workspace.md` stays correct for a missing element; a sentence on the relocation is
 left for Codex.
+
+## RV: Attributes of the relationship in views
+
+**Status:** Approved by the user on 2026-11-09 (the design, delivered whole; small choices by recommendation).
+Delivered 2026-11-09 (see the record below). Group label "Attributes of the relationship", as 0.13 RA words it.
+
+**What changes.** A relationship's own attributes (the binding's `attributeTypeKeys`) were written only in the
+Edit values dialog. Now:
+
+1. **One shared component**, `RelationAttributes` (`features/objects/relations/`): the fields, the typed values,
+   the save against the relationship's version and the conflict notice, used by the Edit values dialog, a matrix
+   cell and a relationships table.
+2. **Matrix cell.** `relationAttributes` on every cell record (live, change set, publication, history cells, in the
+   same statement); the dialog shows them, edits them (own save, conflict notice), and a link or a create-in-cell
+   sends the values entered.
+3. **Relationships panel.** The attributes of the relation types the panel lists, for the anchor's type and
+   direction, become columns after the related record's, visible by default and listed in the Display menu under
+   "Attributes of the relationship"; empty on a row whose type does not declare them; no sorting by them.
+4. **New view type `relationTable`** ("Relationships table", schema 0.10): configuration, validation with pointers
+   (`application_rules._check_relation_table_view`), the workspace edge list read through the view (`fromObjectId`,
+   `toObjectId`, `filter.<ref>.eq`, `sort`, cursors, positions and seek, `groupCounts`, `relationVersion`, all in SQL,
+   live, in a change set and in a publication), `POST /relations/batch`, the `RelationTableView`, and the editor's
+   **Add a view…** (kind Relationships table). No migration, no new table.
+
+**Journey cases (from the specification, before the code).** J13.12 (a matrix cell: link with values and read them
+back; a stale edit is refused with `VERSION_CONFLICT`; a change set shows its staged values, live the old),
+J13.13 (a table's filter, sort, groups, paging by cursor and position, in live, a change set and a publication; a
+foreign field refused), J13.14 (a batch sets values on three relationships, values kept, in a change set too; one
+stale or invalid item refuses all, naming each), J33.20 (the table added to a draft, a bad column refused at its
+pointer). Unit: the validation rules, each at its pointer. Frontend: `RelationAttributes`, the panel's columns, the
+cell dialog's link payload and edit, `RelationTableView`, the editor's builders.
+
+**Decisions taken by recommendation.**
+
+| # | Choice | Why |
+| --- | --- | --- |
+| RV-D1 | A batch item's `attributes` are set over the stored values (`null` clears), where `PATCH` replaces | A bulk "set X to v" must not erase the other values |
+| RV-D2 | Matrix values are edited in their own form with their own save and version, not inside the record's form | The record and the relationship have separate versions and one attribute type may serve both |
+| RV-D3 | Filters on a table are equality only, on `filterable` attributes and names; `search` matches either end's name | The brief; the typed operators stay on collections |
+| RV-D4 | A table's end types need not be listed in its application; its source collection is the `from` type | As a mapping grid |
+| RV-D5 | With `groupBy` the group heading stands in the group's first row and the group end's columns leave the rows | A window measures rows by number; a separate heading row would break it |
+| RV-D6 | A refused batch is `409` when a version was stale, else `422` | The caller refreshes on `409` |
+| RV-D7 | The example model's table is over the mapping relationship, which declares no attributes | The starter has no relationship with attributes; adding one is a model decision |
+| RV-D8 | The grid is a layout (`layout: "rows" \| "grid"`, default `rows`) of the existing view type; no new view type and no schema bump (0.10 is unreleased in 0.13) | The brief; one more setting of the same view, so validation, references, cascade and the outline need no change |
+| RV-D9 | Both grid routes work on any `relationTable` view, whatever its `layout`; the layout only tells a client which to draw | API-first: the API reads the binding either way |
+| RV-D10 | The grid read is `GET /workspaces/{key}/relation-grid` through the view (`applicationKey`, `viewKey`), as the rows layout is; rows are every `from` record matching the `from:` filters and `search`, sorted by a `from:` sort (any other sort field falls back to the name), columns at most 50 `to` records with the total, `relation:` filters keep the rows with a matching relationship at a shown column record | The brief; validation keeps `sortFields` as it was |
+| RV-D11 | Without `attribute` the grid returns every stored value of a relationship, not only the view's `attributeColumns`; with it, only those | A cell's edit saves the stored values merged with the one changed (`PATCH` replaces); returning fewer would erase the rest. The UI picks which attributes are shown client-side and asks for all |
+| RV-D12 | `POST /relations/grid-change` selects, counts and lists in PostgreSQL (rows crossed with the columns, left-joined to the relationships, one counting statement, one listing statement); the write is decided over the batch lookup and written through the write unit as one batch, as `POST /relations/batch` does | AGENTS.md: relationships are written only through the write unit; the set-based part is the selection and counting. A change over `ATOMIC_JOB_MAX_ITEMS` is `413` before anything is read into Python |
+| RV-D13 | A dry run also decides every item (without writing) and answers what the apply would be refused for in `refused`, `200`; an apply with any refusal is `RELATION_BATCH_REFUSED` and writes nothing. The dry run is `413` too when the apply would be | The user sees refusals (cardinality, uniqueness scope, a minimum) before applying; "all pairs checked, no sampling" |
+| RV-D14 | The record picker of the related-records menu is the matrix's `ColumnChooser`, exported and given a `max`; the picks are `gridColumn` address parameters; the attributes shown are the Display menu's (as the relationships table has it), not an address parameter | One component, no copies; the matrix keeps its limit of 20 |
+| RV-D15 | The editor offers Layout in Add a view… (kind Relationships table) and as a **Layout…** action on a relationships table (`setViewProperty` `layout`); the default layout is not written out | The brief; `operations.ts` changed only by those two additions |
+| RV-D16 | A yes/no value flips with one click through `RelationValueCell`'s `floating` mode (`FlagCell`); other values open the floating editor | The brief's addition; those components are not changed |
+| RV-D17 | A grid's filters are its own `filterFields` plus, as `from:`/`to:` references, the filter fields of the table view each end type's collection opens with (the navigation's `opens` view, else the application's default view, else its table; the grid's application first; only `name` or `filterable` non-JSON attributes bound to the type). The engine resolves it from the model (`main_view_filter_fields`), so any client has the rule; values chosen are the grid's own, in its URL (the user, 2026-11-09). The rows and the column records are selected with the object list's filter and search code (`record_ids_selector`: typed operators, `related:`, search, the same errors), live, in a change set and in a publication, and joined to the relationships in SQL; a relationship's value takes the operators its type takes. The client uses the collection's `ObjectToolbar` and `FilterBar` for both ends, with `relation:` attributes as extra fields of the rows' bar | The user's requirement (2026-11-09): the same filter UI and behaviour as the main view; no grid-specific filter controls |
+| RV-D18 | The grid uses the collection's selection (`useRecordSelection`, `SelectionBar`) and a dialog of its own built from the shared shell parts (`Modal`, `AttributeField`, `Choice`, `Section`, `DescriptionList`), not `BulkJobDialog`; "all matching" carries `exceptObjectIds`; the preview is the engine's dry run, read when the dialog's choices change; apply is worded "Apply" as the collection's | `BulkJobDialog` is a background-job flow (a preview job, then confirm); the grid's change is one synchronous all-or-none request with its own dry run. Making the job dialog generic would change every collection's bulk dialogs |
+| RV-D19 | A cell saved reads its relationship again and patches its row; rows are memoised and the Display menu keeps which attributes are shown (no `gridAttribute` address parameter) | Measured lag: ticking one row drew all rows (110 ms of render for 250 rows); a cell save refetched the whole list |
+
+**Checks.** `tests/journeys/test_j13_relation_attributes.py`, J33.20 in `test_j33_operations`,
+`tests/unit/engine/model/validation/test_application_rules.py`; Vitest for the files above; the production build.
+Groups: model, authoring, records, mapping, matrix, contract (the OpenAPI lock, `test_api_journeys`).
+
+**Composable domains (ADR-032).** Generic and opens a door: any binding's attributes show and change in any view of
+any model (a catalogue's price per channel, a rate per listing). No identity, attribute storage, history or
+consumer `match` change; relation set versions and matrix states follow as for any relationship write.
+
+**The grid (RG).** Added to RV by the user on 2026-11-09 from an approved mock-up, with the viewer picking which
+related records and which attributes are shown: `layout: "grid"`, `GET /workspaces/{key}/relation-grid`,
+`POST /relations/grid-change` (J13.15, J13.16), `RelationGridView` with its filter bar and bulk bar, the editor's
+Layout, and RV-D8 to RV-D19 above. Composable domains (ADR-032): generic, and no identity, attribute storage,
+history or `match` change; the bulk change writes as any relationship write.
+
+**Commits (checked 2026-11-10).** `075675bb` (attributes of the relationship in views: the shared component, the matrix cell,
+the panel's columns, the `relationTable` view, `POST /relations/batch`), `a2a672dc` (a matrix cell's relationship values
+edited in place, `RelationValueField`; the cell is the matrix of RA-D3, covered by this package), `f9e82a2f` (the cell
+dialog as a table), `538c4b97` (the relationships grid layout with filters and bulk change), `d69cb0bd` (Layout… opens on
+the view's current layout) and `e696076c` (JSON columns and Yes/no grid filters fixed). The three fixes are under "Fixed
+(Layout… of a relationships table, 0.13 RV)" in the CHANGELOG, where the Layout… bullet that sat under AW was moved.
+
+**Guide pages.** Delivered by the waves `RV-GUIDE` (the pages for relationship values, the table, the grid, the cell
+and the consumer API's `relation:` source, with their pictures) and `RV-GUIDE-FIX` (fifteen pages brought to the reference
+model's own relationship values, with live examples under `guide/_coverage/live/rv-guide-fix--*`). The commits `0dcb0f0b` and
+`9a341f83` hold the committed part of both; the rest of their notes and live examples are in the working tree. Notes in `guide/_coverage/notes/RV-GUIDE` and `RV-GUIDE-FIX`. RV-GUIDE found one product defect (a JSON attribute
+offered as a table sort made the generated view invalid); it is fixed (CHANGELOG, 0.13 RV).
+
+**Still manual / not built.** No sorting of a panel by a relationship attribute; no typed operators in a table's
+filters; the browser acceptance runner (`test:browser`) for the table, the grid and the cell dialog is not written; the
+grid's appearance at 390px, its sticky columns and group tints are not inspected in a browser
+([open item 8](#open-for-013)).
+
 
 ## RA: Attributes of the relationship in consumer API related fields
 
@@ -1350,84 +1752,125 @@ has at a site) publish facts about a pairing the same way.
   relationship), on both generated configurations; contract unit cases in `test_consumer_contract.py`; an event
   plan case; frontend picker cases. Runs: the four consumer files 115 passed, `-m consumer` and `-m contract`
   green apart from j23/j30 cases that passed when rerun alone (load, cause not established),
-  `test_model_independence` fails on `ai-tasks/designFixture.ts`, which already fails before RA.
+  `test_model_independence` fails on `ai-tasks/designFixture.ts`, which already fails before RA (still failing
+  2026-11-10; [open item 5](#open-for-013)).
 - **Docs.** [CONSUMER_API](CONSUMER_API.md) (sources, related fields, rules, events), two sentences in the guide's
   consumer API pages (the guide build and check pass), CHANGELOG.
+## AW: An AI task's progress line in words, not the command
 
-## RV: Attributes of the relationship in views
+**Status:** Reported by the user on 2026-11-09 from a running workbook task and added to the 0.13 build by the
+user ("add this to the 0.13 build"). **Delivered 2026-11-09.**
 
-**Status:** Approved by the user on 2026-11-09 (the design, delivered whole; small choices by recommendation).
-Delivered 2026-11-09 (see the record below). Group label "Attributes of the relationship", as 0.13 RA words it.
+**What is wrong.** The task page's "Working on it" section showed the session's last shell command, lowercased and
+without punctuation: the task folder, the `curl` call with its `Authorization` header and the token variable's
+name, and an inline Python script. A command should never be shown. Cause: `engine/tasks/agent.py` defined
+`_plain` twice. The first puts a call into words; the second, added later for comparing quotes with the person's
+words, only lowercases and strips punctuation. The later definition replaced the first, so the progress line
+received the command itself.
 
-**What changes.** A relationship's own attributes (the binding's `attributeTypeKeys`) were written only in the
-Edit values dialog. Now:
+**What changes.** The progress helper is `_call_in_words`, and the stream reader uses it: a call to the API reads
+"Reading stored … records", "Reading …" or "Writing …"; anything else reads "Working" (or "Working through the
+workbook"). The quote comparison keeps `_plain`. No API, model or frontend change. A task already running keeps
+the old code until the engine restarts.
 
-1. **One shared component**, `RelationAttributes` (`features/objects/relations/`): the fields, the typed values,
-   the save against the relationship's version and the conflict notice, used by the Edit values dialog, a matrix
-   cell and a relationships table.
-2. **Matrix cell.** `relationAttributes` on every cell record (live, change set, publication, history cells, in the
-   same statement); the dialog shows them, edits them (own save, conflict notice), and a link or a create-in-cell
-   sends the values entered.
-3. **Relationships panel.** The attributes of the relation types the panel lists, for the anchor's type and
-   direction, become columns after the related record's, visible by default and listed in the Display menu under
-   "Attributes of the relationship"; empty on a row whose type does not declare them; no sorting by them.
-4. **New view type `relationTable`** ("Relationships table", schema 0.10): configuration, validation with pointers
-   (`application_rules._check_relation_table_view`), the workspace edge list read through the view (`fromObjectId`,
-   `toObjectId`, `filter.<ref>.eq`, `sort`, cursors, positions and seek, `groupCounts`, `relationVersion`, all in SQL,
-   live, in a change set and in a publication), `POST /relations/batch`, the `RelationTableView`, and the editor's
-   **Add a relationships table…**. No migration, no new table.
+## NG: Relation matrices in navigation groups
 
-**Journey cases (from the specification, before the code).** J13.12 (a matrix cell: link with values and read them
-back; a stale edit is refused with `VERSION_CONFLICT`; a change set shows its staged values, live the old),
-J13.13 (a table's filter, sort, groups, paging by cursor and position, in live, a change set and a publication; a
-foreign field refused), J13.14 (a batch sets values on three relationships, values kept, in a change set too; one
-stale or invalid item refuses all, naming each), J33.20 (the table added to a draft, a bad column refused at its
-pointer). Unit: the validation rules, each at its pointer. Frontend: `RelationAttributes`, the panel's columns, the
-cell dialog's link payload and edit, `RelationTableView`, the editor's builders.
+**Status:** Built by the 0.13 build on 2026-11-09 (commit `30d29a8d`) without a package of its own, after the user's request of
+2026-11-05 that is planned as [0.17 NG1](BASE_0_17_IMPLEMENTATION_PLAN.md#ng1-views-in-navigation-groups) ("a navigation
+group places a view of its own, such as a relation matrix"). Recorded here 2026-11-10 so that the work belongs to a plan; 0.17's NG1 is
+narrowed to what 0.13 left.
 
-**Decisions taken by recommendation.**
+**What 0.13 delivered** (read from the commit, 2026-11-10).
 
-| # | Choice | Why |
+1. **A relation matrix is an entry of a group of its own.** A group's `collections` holds collection keys and
+   `{ "view": "<relation matrix view key>" }` in one shared order (schema 0.10, optional; a model without it keeps its content hash,
+   so the change is compatible). The sidebar and the group page show the matrix by its view's name with a matrix glyph in its row
+   type's hue, and it opens the matrix directly. The row type's entry stays and its view switch is unchanged; a matrix in no
+   group stays inside its row type's entry.
+2. **A collection has an opening view.** `navigation.opens` maps a collection to the view its entry opens on, in place of the
+   application's `defaultView` for that collection.
+3. **Validation** (`validation/application_rules.py`), each refusal at its pointer under `/applications/{app}/navigation`: a
+   `view` entry that is no relation matrix of the application (`INVALID_REFERENCE`), a matrix in two groups (`INVALID_MODEL`),
+   an `opens` key that is no collection or a view that is not one of that collection's.
+4. **Operations.** `placeCollection` takes `view` in place of `collection` to place, move (at a `position` of the group's one
+   order) or take out a matrix; the new `setCollectionOpening` sets or clears an opening view; several entries added in one
+   request are one step and one undo; removing a matrix view takes its entry and its opening, and a key change keeps both
+   (`authoring/cascade.py`, `references.py`); the draft outline lists each group's `entries`, `navigation.opens` and each view's
+   `collection`.
+5. **The editor opens a group.** A group's panel lists its entries with kind, opening view (changed in place) and state, a menu
+   to move an entry up or down, to another group or out of its group, and **Add to group…** (a dialog with a search that adds
+   several collections and matrices at once). The application panel's group table lists matrices and links each group's name
+   to its panel; "In no group" offers **Add to a group…**; a relation matrix's menu in the Views table gains **Move to
+   group…**; **Remove group** says its matrices go back inside their row type's entry (`ElementPanel.tsx`, `operations.ts`).
+6. **Journeys and docs.** `test_j33_operations.py`, `test_j33_outline.py`, `test_kinds.py`, `ModelEditor.test.tsx`,
+   `NavigationGroupPage.test.tsx`, `Explorer.test.tsx`; `docs/APPLICATION_MODEL.md`, `MODEL_AUTHORING.md`, `API.md`,
+   `CURRENT_FUNCTIONALITY.md`, `USER_JOURNEYS.md`, the OpenAPI lock. **Guide pages:** the wave `NAV-GROUPS`
+   (`guide/_waves/NAV-GROUPS.md`; four pages and four pictures; notes `guide/_coverage/notes/NAV-GROUPS`).
+
+**Decisions the build took for matrices that 0.17's plan lists as open (PP-D11 to PP-D13).** One ordered member list per
+group mixing collections and views (PP-D12's recommendation); schema 0.10, additive (PP-D13's recommendation); a matrix in a group
+stays also among its row type's views, where PP-D11 recommended it leave. None was put to the user; they stay open there until
+the user confirms them for the other view kinds.
+
+**Composable domains (ADR-032).** Presentation only; no identity, attribute storage, history, bulk API, consumer `match` or mapping
+coverage change.
+
+**Not delivered here (stays in 0.17 NG1).** A group member that is a view of another kind (a table, a tree, a mapping grid, a
+relationships table, a record page's view); **Move to group…** on those views' rows; a sidebar that leaves a grouped view out of its
+collection's views (PP-D11); the group drop of the workbook canvas (PL3b) placing a view.
+
+## CL: Images built in CI and CI as a quick gate
+
+**Status:** Built 2026-11-07 and 2026-11-08 by the primary agent without a plan section; recorded 2026-11-10. The CHANGELOG
+entry is "Added (images built in CI and CI as a quick gate, 0.13 CL)".
+
+**What was delivered.**
+
+- **Images (CL1, `530e4da3`).** `.github/workflows/images.yml` builds the engine and web images once for `linux/amd64` and
+  `linux/arm64` on native runners, starts them with `compose.yml` (`.github/images/compose.smoke.yml`), checks `/health` and the
+  application, and only then writes the tags in `ghcr.io/refiroo/refiroo-engine` and `-web`: `v<X.Y.Z>` (stable tag, only from a
+  commit with a green CI run and only if it equals the version in `backend/pyproject.toml`), `main-<12 characters>` and `main`
+  after a green CI run on `main`, `test-<label>` for a manual run; pre-release tags are not built.
+  `.github/workflows/images-cleanup.yml` deletes untagged versions and old `main-*` and `test-*` versions each week
+  (`aef8ae65`: the untagged age on a manual run).
+- **CI is a quick gate.** The linter, the backend unit tests and the frontend tests and build on Ubuntu 24.04; the full suite runs
+  on a developer's machine before a release (on GitHub it took a whole runner hour per push and ran out of memory). Steps on
+  the way: parallel backend tests and a 40-minute limit (`87428ca4`), Ubuntu 24.04 and failure and slow-test listings
+  (`d94c1373`), resource log and junit (`97d46cfd`), four runners (`e0e29066`, undone by `809a92eb`, which settled on the quick
+  gate).
+- **Test and setting fixes CI found**, each in its commit: frontend tests wait 5 s and the inbox test waits for its stream
+  (`4eb12288`), the Jobs page tests mock the workspace list (`0d761cf2`), the ImportDialog test waits longer (`718a3bc1`),
+  the API page build puts its settings back and stale template checks (`ea26ac8e`), the boundary allowlist for the API page build
+  and a J31.2 that keeps a real database password (`4d1701f2`), the statement budgets count 0.16's client lookups
+  (`e0e29066`, `test_batch_statements.py`, `volume_fixture.py`).
+- **One product fix, 0.13 RL.** A relations panel that comes to list several record types drops its ancestor sort, which
+  needs one type (`809a92eb`, `model/authoring/layout.py`); its CHANGELOG bullet moved to the RL entry.
+
+**Commits:** `530e4da3`, `87428ca4`, `d94c1373`, `4eb12288`, `97d46cfd`, `e0e29066`, `809a92eb`, `aef8ae65`, `0d761cf2`,
+`718a3bc1`, `ea26ac8e`, `4d1701f2`. **Open:** none. The release step R still checks the tag builds (DOC11's clean-host rehearsal found
+that `v0.16.0` cannot be built; the images workflow now builds every `v*` tag).
+
+## FX: Fixes found during the 0.13 build
+
+**Status:** Recorded 2026-11-10. One row per fix that no package names, with where it was found and where it is. A fix that
+a package owns is named there, not here; the CHANGELOG headings carry "0.13 FX". Every other commit since `v0.16.1-alpha.1` is
+named by a package in the table above (checked with `git log --oneline v0.16.1-alpha.1..HEAD`).
+
+| Fix | Where found | Where it is |
 | --- | --- | --- |
-| RV-D1 | A batch item's `attributes` are set over the stored values (`null` clears), where `PATCH` replaces | A bulk "set X to v" must not erase the other values |
-| RV-D2 | Matrix values are edited in their own form with their own save and version, not inside the record's form | The record and the relationship have separate versions and one attribute type may serve both |
-| RV-D3 | Filters on a table are equality only, on `filterable` attributes and names; `search` matches either end's name | The brief; the typed operators stay on collections |
-| RV-D4 | A table's end types need not be listed in its application; its source collection is the `from` type | As a mapping grid |
-| RV-D5 | With `groupBy` the group heading stands in the group's first row and the group end's columns leave the rows | A window measures rows by number; a separate heading row would break it |
-| RV-D6 | A refused batch is `409` when a version was stale, else `422` | The caller refreshes on `409` |
-| RV-D7 | The example model's table is over the mapping relationship, which declares no attributes | The starter has no relationship with attributes; adding one is a model decision |
-| RV-D8 | The grid is a layout (`layout: "rows" \| "grid"`, default `rows`) of the existing view type; no new view type and no schema bump (0.10 is unreleased in 0.13) | The brief; one more setting of the same view, so validation, references, cascade and the outline need no change |
-| RV-D9 | Both grid routes work on any `relationTable` view, whatever its `layout`; the layout only tells a client which to draw | API-first: the API reads the binding either way |
-| RV-D10 | The grid read is `GET /workspaces/{key}/relation-grid` through the view (`applicationKey`, `viewKey`), as the rows layout is; rows are every `from` record matching the `from:` filters and `search`, sorted by a `from:` sort (any other sort field falls back to the name), columns at most 50 `to` records with the total, `relation:` filters keep the rows with a matching relationship at a shown column record | The brief; validation keeps `sortFields` as it was |
-| RV-D11 | Without `attribute` the grid returns every stored value of a relationship, not only the view's `attributeColumns`; with it, only those | A cell's edit saves the stored values merged with the one changed (`PATCH` replaces); returning fewer would erase the rest. The UI picks which attributes are shown client-side and asks for all |
-| RV-D12 | `POST /relations/grid-change` selects, counts and lists in PostgreSQL (rows crossed with the columns, left-joined to the relationships, one counting statement, one listing statement); the write is decided over the batch lookup and written through the write unit as one batch, as `POST /relations/batch` does | AGENTS.md: relationships are written only through the write unit; the set-based part is the selection and counting. A change over `ATOMIC_JOB_MAX_ITEMS` is `413` before anything is read into Python |
-| RV-D13 | A dry run also decides every item (without writing) and answers what the apply would be refused for in `refused`, `200`; an apply with any refusal is `RELATION_BATCH_REFUSED` and writes nothing. The dry run is `413` too when the apply would be | The user sees refusals (cardinality, uniqueness scope, a minimum) before applying; "all pairs checked, no sampling" |
-| RV-D14 | The record picker of the related-records menu is the matrix's `ColumnChooser`, exported and given a `max`; the picks are `gridColumn` address parameters; the attributes shown are the Display menu's (as the relationships table has it), not an address parameter | One component, no copies; the matrix keeps its limit of 20 |
-| RV-D15 | The editor offers Layout in Add a relationships table… and as a **Layout…** action on a relationships table (`setViewProperty` `layout`); the default layout is not written out | The brief; `operations.ts` changed only by those two additions |
-| RV-D16 | A yes/no value flips with one click through `RelationValueCell`'s `floating` mode (`FlagCell`); other values open the floating editor | The brief's addition; those components are not changed |
-| RV-D17 | A grid's filters are its own `filterFields` plus, as `from:`/`to:` references, the filter fields of the table view each end type's collection opens with (the navigation's `opens` view, else the application's default view, else its table; the grid's application first; only `name` or `filterable` non-JSON attributes bound to the type). The engine resolves it from the model (`main_view_filter_fields`), so any client has the rule; values chosen are the grid's own, in its URL (the user, 2026-11-09). The rows and the column records are selected with the object list's filter and search code (`record_ids_selector`: typed operators, `related:`, search, the same errors), live, in a change set and in a publication, and joined to the relationships in SQL; a relationship's value takes the operators its type takes. The client uses the collection's `ObjectToolbar` and `FilterBar` for both ends, with `relation:` attributes as extra fields of the rows' bar | The user's requirement (2026-11-09): the same filter UI and behaviour as the main view; no grid-specific filter controls |
-| RV-D18 | The grid uses the collection's selection (`useRecordSelection`, `SelectionBar`) and a dialog of its own built from the shared shell parts (`Modal`, `AttributeField`, `Choice`, `Section`, `DescriptionList`), not `BulkJobDialog`; "all matching" carries `exceptObjectIds`; the preview is the engine's dry run, read when the dialog's choices change; apply is worded "Apply" as the collection's | `BulkJobDialog` is a background-job flow (a preview job, then confirm); the grid's change is one synchronous all-or-none request with its own dry run. Making the job dialog generic would change every collection's bulk dialogs |
-| RV-D19 | A cell saved reads its relationship again and patches its row; rows are memoised and the Display menu keeps which attributes are shown (no `gridAttribute` address parameter) | Measured lag: ticking one row drew all rows (110 ms of render for 250 rows); a cell save refetched the whole list |
+| An AI task's progress line showed the session's shell command (`_plain` defined twice in `tasks/agent.py`) | reported by the user from a running task, 2026-11-09 | package [AW](#aw-an-ai-tasks-progress-line-in-words-not-the-command), uncommitted; not repeated here |
+| A tall Display popover of a relationship or collection panel looked cut off, and no popover opened with no height on a scrolled page | not recorded in the CHANGELOG | `frontend/src/ui/ControlPopover.tsx`, `styles/layout.css`; uncommitted; CHANGELOG "a tall Display popover looks cut off, 0.13 FX" |
+| A words task had no neutral name before its proposal said what it changes | the fresh reader (DOC11 assistant journey, finding 7, 2026-11-09) | package DOC11 (`aiTaskText.wordsTaskName`), not FX: its CHANGELOG bullet stays in the DOC11 assistant entry |
+| Jobs named the workspace by its key; the client's webhook panel showed "Not Found" with webhooks off; a cancel confirmation repeated its button; the assistant's closing note named commands and ids | not recorded; commit of 2026-11-06 | `c4ba7d8d` (`JobPage.tsx`, `JobsPage.tsx`, `ClientsPage.tsx`, `tasks/agent.py`); CHANGELOG "jobs, client webhooks, the assistant's note, 0.13 FX" |
+| A mapping row with several targets was called ambiguous where the relation lets a source hold many | not recorded; commit of 2026-11-05 | `92202c27` (`reads/mapping_scope.py`, `projections/mapping.py`, `MappingGridView.tsx`); CHANGELOG "mapping coverage, 0.13 FX" |
+| The Webhooks screen named a setting startup refuses (`CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` for `SECRETS_ENCRYPTION_KEY`); `restore_check` printed a refused URL's password | not recorded; commit of 2026-11-08 | `46b6ed95` (`WebhooksPage.tsx`, `cli/restore_check.py`); CHANGELOG "setting name on the Webhooks screen, 0.13 FX". The same commit's draft dry run that reads its own profile is [AT](#at-the-assistant-starts-from-the-engines-reading) |
+| Choosing a relation matrix's columns was explained only as a step of the coverage check | the guide's own pages, 2026-11-05 (the wave's brief) | the wave `MX-COLUMNS` (`use/relation-matrices`, `guide/use/fill-in-a-relation-matrix`; notes `guide/_coverage/notes/MX-COLUMNS`); CHANGELOG "relation matrix columns, 0.13 FX". No product change |
+| Three lines the formatter wrapped | the formatter | `engine/records/relations.py`, `management/routers/mapping.py`, one message in `models/commands.py`; uncommitted, no behaviour |
 
-**Checks.** `tests/journeys/test_j13_relation_attributes.py`, J33.20 in `test_j33_operations`,
-`tests/unit/engine/model/validation/test_application_rules.py`; Vitest for the files above; the production build.
-Groups: model, authoring, records, mapping, matrix, contract (the OpenAPI lock, `test_api_journeys`).
-
-**Composable domains (ADR-032).** Generic and opens a door: any binding's attributes show and change in any view of
-any model (a catalogue's price per channel, a rate per listing). No identity, attribute storage, history or
-consumer `match` change; relation set versions and matrix states follow as for any relationship write.
-
-**The grid (RG).** Added to RV by the user on 2026-11-09 from an approved mock-up, with the viewer picking which
-related records and which attributes are shown: `layout: "grid"`, `GET /workspaces/{key}/relation-grid`,
-`POST /relations/grid-change` (J13.15, J13.16), `RelationGridView` with its filter bar and bulk bar, the editor's
-Layout, and RV-D8 to RV-D19 above. Composable domains (ADR-032): generic, and no identity, attribute storage,
-history or `match` change; the bulk change writes as any relationship write.
-
-**Still manual / not built.** No sorting of a panel by a relationship attribute; no typed operators in a table's
-filters; the guide has no new prose for the table (guide text comes from Codex); the browser acceptance runner
-(`test:browser`) for the table, the grid and the cell dialog is not written; the grid's appearance (sticky columns, group tints, the
-floating editors in a wide table, 390px) is not inspected in a browser; no guide prose for the grid.
-
+Not FX, and where they are: `f173c53a` is DOC10 (the guide's pictures and captions) and DOC11 (its first weaker run and the
+container fixes it found, CHANGELOG "the assistant in a container, 0.13 DOC11"); `ba8f78c5` is DOC12 (W4) and TH; `2f9a0791` is
+DOC10; `9a341f83` and `0dcb0f0b` are the RV and RA guide pages; `224de55d` and `ab47574c` are plan text (the guide home's
+title, 0.17 NG1).
 
 ## The writing rules
 
@@ -1501,20 +1944,139 @@ approving the recommendations, and DOC-D13 by choosing the recommended option.
 | DOC-D25 | The private-model names for the banned-terms check | **Decided by the user 2026-11-02: the recommendation.** The list stays empty: Codex works only from the reference domain and never sees a private model. Names can be added at any time with `node tools/check.mjs hash-term` |
 | DOC-D26 | AI in the reference instance | **Recommendation (2026-11-02), not yet decided by the user.** Not now. At DOC9A the reference instance gets an optional, off-by-default AI setup (`AI_PROVIDER=claude` and the assistant's command, key in the git-ignored `guide/reference/.env`), each try reported with tokens and cost; the `docs` group uses the engine's offline provider. Which key, and who pays, is decided then |
 
+## DF: Findings of the depth waves
+
+**Status:** Approved by the user 2026-11-07 ("okay" to the plan and the recommendations DF-D1, DF-D2). **Delivered 2026-11-08.** Beyond the plan: a kept version derives its own events (`consumer_api = "<key>@v<n>"`), raising keeps the version as the active release serves it, and the install and activate dialogs warn when a version stops being served. Not shown in a screenshot: the Webhooks screen with no consumer API that has events (the reference instance has one). The user asked on 2026-11-07 to fix the open findings of
+CP's depth waves in a package of their own. The four plain defects (AI Values text, tree edit, Oriented help,
+`EVENTS_EXPIRED` message) were already fixed on 2026-11-07 (CHANGELOG "Fixed (findings of the documentation waves)").
+
+**Why.** The waves documented what refiroo does and listed where it falls short of what a reader expects. Three of
+those are missing capabilities, and the exit gate no longer describes how 0.13 was built.
+
+### DF1: Workspace events from the Webhooks screen
+
+The engine accepts a subscription to a workspace's own events (`source: "workspace"`, `events/subscriptions.py`);
+the Webhooks dialog creates consumer API subscriptions only (`WebhookDialog.tsx`, Source section) and only shows an
+existing workspace subscription. The dialog's Source section gets a first choice, **Consumer API** or **Workspace
+events**. Workspace events show the workspace select and the workspace event types; consumer API stays as today.
+
+```
+Source
+  ( ) Consumer API     (•) Workspace events
+  Workspace  [ Default (default) v ]   Changes to its live data are delivered.
+Events
+  [x] All workspace events   or pick: [ ] Change set published  [ ] ...
+```
+
+### DF2: Rotate a deactivated client's secret
+
+`ClientsPage.tsx` hides **Rotate secret** while a client is inactive; the engine allows it (`clients.py`
+`add_secret`). After a leak the administrator deactivates the client, rotates, then reactivates it with only the new
+secret valid. The button is shown for inactive clients too, with the same dialog; the inactive client's note says a
+new secret takes effect when it is reactivated.
+
+### DF3: An earlier contract version served beside the new one
+
+`docs/COMPATIBILITY.md` promises a consumer API's old contract version is still served after a breaking change;
+`reads/consumer_objects.py` serves only the version in the active model. Design (DF-D1, approved 2026-11-07: kept in the model by the administrator, not taken automatically from the previous release):
+
+- A consumer API definition may keep **earlier versions**: frozen copies of its definition at an older
+  `contractVersion`, each with an optional **sunset date**. When a model administrator raises the contract version
+  in the editor, the editor keeps the previous one by default ("Keep serving version 1").
+- Every route `/api/consumer/{consumerApi}/v{n}/…` and its OpenAPI document answers for each kept version from the
+  current data, through that version's definition, with the `Deprecation` and, when set, `Sunset` headers.
+  Subscriptions on a kept version keep receiving events in its shape.
+- Model validation checks a kept version against the current model like the current one, and refuses the release
+  with the version and the missing type or attribute named when it reads something the model no longer has.
+- A kept version stops when the administrator removes it from the model; the sunset date is announced, not enforced.
+- The editor's consumer API panel lists the kept versions, with their sunset date and **Stop serving**.
+
+The notice period (DF-D2, approved 2026-11-07: the administrator's, not enforced by the engine): 12 months and two minor releases is refiroo's own promise for its contracts. A consumer
+API contract is written by the instance's model administrator, so COMPATIBILITY.md says the engine serves the
+earlier version beside the new one until the administrator removes it, and the administrator chooses the notice.
+
+### DF4: The exit gate matches how 0.13 was built
+
+**Delivered 2026-11-07** (exit gate below and ROADMAP's 0.13 section).
+
+The gate and the roadmap's 0.13 wording are corrected: the guide is served at `/docs`; the management API reference
+is generated at `/docs/api` from the code (not left to 0.14); the coverage inventory is the one made from the code
+(`guide/tools/inventory.py`), checked by `npm run verify`; the fresh-reader check (DOC11) stays required.
+
+### DF5: A type's preview follows the application it was opened from
+
+**Status:** Reported by the user on 2026-11-09 and added to the 0.13 build by the user ("add this to the build
+0.13"); delivered as package PV and folded into DF on 2026-11-10 at the user's request. Committed as `af19c422`. Confirmed working by the
+user on 2026-11-10 ("looks fine now").
+
+**What is wrong.** The model editor's tree lists a type under every application that holds it, and each row knows
+its application, but the selection keeps only the type (`{ show: "type", key }`), so the URL carries no
+application. `TypePreview` then takes the first application that lists the type. In the user's draft Countries
+sits in System codes, Reference lists and Translations; its two table views are in Reference lists, the preview
+opened System codes and said "The draft declares no table view for Countries", and Edit layout could not reach them.
+Every type in more than one application is affected.
+
+**What changes.** The type selection carries the application (`application`, in the selection and the URL); each
+tree row (a type in the tree, a collection in a group) passes its own; the preview, the record page layout and the
+table views are those of that application. A link that names no application (Issues, a type link in a panel)
+falls back to the first application with a detail page or a table view for the type, else the first that lists it.
+An application named that does not hold the type falls back the same way. Frontend only; no API or model change.
+
+**Delivered (2026-11-09).** `application?` on the type selection (`types/ui.ts`), read and written as
+`application=<key>` in the editor address (`routing/routes.ts`) and carried through mode changes and the layout
+exit in `ModelEditor.tsx`. `ModelPane.tsx` type and collection rows pass their own application and the row
+highlight matches type plus application. One helper, `applicationForType` (`features/model-editor/typeApplication.ts`),
+resolves the application (named, else first with a detail page or table view, else first listing it); `TypePreview`
+takes `applicationKey` and uses it, and the record page, layout editor and table views follow from its place.
+Issues links pass the detail element's application. Guide: one sentence in `guide/model/preview-a-type.md`. Checks:
+Vitest for the helper (the user's draft shape: Countries in Reference lists gives both table views), the URL round
+trip, the ModelPane selection and ModelEditor/routes; `npm run build`; guide build. 
+
+**Follow-up (2026-11-09).** The user's draft showed the first resolution was not enough: with no `application` in
+the address the preview picked System codes (first of three applications with a country page) while every country
+record of workspace stops belongs to Reference lists, so the Record page tab refused the record ("belongs to another
+application") and layout edits went to a page no record uses. Resolution is now: named, else the application owning
+the workspace's records of the type (read from the first record's `applicationKey`), else first with a table view or
+detail page, else first listing it, all in `applicationForType` (fourth argument). `TypePreview` reads records with
+`applicationKey` of the resolved application; with none there it shows the empty record and one line naming the
+application that holds them, with a link that switches the selection (`onApplication` in `ModelEditor.tsx`); a type
+in several applications shows an Application choice in the band (`applicationsHolding`). Tests:
+`typeApplication.test.ts` (records' application beats the designed fallback, named beats records),
+`TypePreview.test.tsx` (records query carries `applicationKey`; the line naming the holder). The user checked it in the
+running editor on 2026-11-10.
+
+### Delivery and checks
+
+Implementer: DF1 to DF3 code, `docs/` (API.md, CONSUMER_API.md, COMPATIBILITY.md, APPLICATION_MODEL.md), CHANGELOG,
+targeted tests (webhook and client vitest files; consumer API read and validation journeys; one journey: raise a
+version, read v1 and v2, a v1 webhook keeps its shape, remove v1 and get `CONTRACT_VERSION_NOT_FOUND`), frontend
+build; a browser try of each screen. Primary agent: DF4. Codex: the guide pages for DF1 to DF3 in one wave, then the
+coverage check and `npm run verify`.
+
+**Done when** every point above works in the browser and the API, the guide describes it, and verify passes.
+
 ## Exit gate (0.13)
 
-- Every item in the coverage inventory is covered by a written page or is a reasoned exclusion; both lists
-  are otherwise empty.
+- Every item of the inventory made from the code (`guide/tools/inventory.py`, CP) is covered by a page or is a
+  reasoned exclusion in `guide/_coverage/exclusions.md`, and each capability is documented to working depth
+  (CP's depth questions); `npm run verify` in `guide/` runs the coverage check and passes.
 - Every page is `status: written`; every example runs in the `docs` group, or is marked `unrun` and was
   rehearsed on a clean host.
-- Every generated reference has no undescribed entry.
+- Every generated reference has no undescribed entry; the management API reference is the one generated from the code at
+  `/docs/api`, which the guide links to (0.14 deepens its descriptions).
 - Each of the ten points is stated where the table above places it.
-- Every tutorial was completed by a reader from outside, and their findings were closed.
+- Every tutorial was completed by a reader from outside (DOC11, the fresh-reader check, run after the full
+  documentation), and their findings were closed.
 - The fact-check of each wave is recorded with its removals.
-- The guide is served offline by the engine at `/guide`, published as a static site with search, in light
+- The guide is served offline by the engine at `/docs` (DF4: was `/guide`), published as a static site with search, in light
   and dark, and passes the accessibility gate.
 - AGENTS.md's guide step is in force and the `docs` and coverage checks run for a change to `guide/`.
 - The full review of every change since 0.12 (release step R) is done.
+
+**Against this gate, 2026-11-10.** The first bullet is met by the check run that day (911 entries, 0 uncovered; `npm run verify`
+passes, 257 pages, 75,775 links). The open items against the gate are the outside reader (bullet "Every tutorial was
+completed by a reader from outside", [open item 3](#open-for-013)) and release step R (last bullet, [open item 9](#open-for-013));
+the other items of [Open for 0.13](#open-for-013) are not gate bullets. No other open item against the gate is known.
 
 ## Composable domains (ADR-032)
 

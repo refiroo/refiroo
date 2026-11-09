@@ -1,8 +1,10 @@
 # Base 0.17 implementation plan
 
 **Status:** Planned 2026-10-31 at the user's request. The plan and the canvas mock-up were approved by the user
-on 2026-10-31; PP-D1 was decided on 2026-11-03. Nothing is built yet. NG1 was added by the user on 2026-11-05;
-its decisions PP-D11–PP-D13 are open.
+on 2026-10-31; PP-D1 was decided on 2026-11-03. Nothing of PL0 to PL6 and SM1 is built yet. NG1 was added by the user
+on 2026-11-05; its relation-matrix part was built in 0.13 on 2026-11-09
+([0.13 NG](BASE_0_13_IMPLEMENTATION_PLAN.md#ng-relation-matrices-in-navigation-groups)), and what is left of it is the
+other view kinds; its decisions PP-D11–PP-D13 are open for them.
 
 **Target:** Product 0.17.0, [the plain path](ROADMAP.md#product-release-017--the-plain-path).
 
@@ -42,7 +44,7 @@ corrects that result, and the way to import when no provider is configured.
 | [PL4](PLAIN_PATH_PLAN.md#pl4-new-workspace-from-a-workbook) | PL3, PL3b | The file and a name, what refiroo found, Create workspace |
 | [PL5](PLAIN_PATH_PLAN.md#pl5-plain-words-and-identifiers) | PL0 | One list of replacements; Settings index; Back to the workspace |
 | [PL6](PLAIN_PATH_PLAN.md#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first; Export for people; draft steps grouped |
-| [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, such as a relation matrix, not only a whole collection |
+| [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, not only a whole collection. Relation matrices are built (0.13 NG); left: the other view kinds, Move to group… on their rows and the canvas's group drop |
 | [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
@@ -65,9 +67,9 @@ plan for one approval and is then delivered whole.
 | PP-D8 | **The join is found over every row.** A list dropped on a field compares the two columns in PostgreSQL over the whole set. The stored overlaps of the profile (first 1,000 distinct values, best five) stay a hint only. When two candidates tie, the panel asks; nothing is guessed silently. | Rule: checks cover the whole set |
 | PP-D9 | **The canvas never waits for a check.** The existing dry-run job runs after each step and a newer run cancels the older; the count reads "Checking…" until it answers, and the person may keep dropping. | Planning default |
 | PP-D10 | **Phone:** the canvas works by the ⋯ menu at 390px; dragging is a desktop and tablet fast path. | Planning default |
-| PP-D11 | **A view placed in a group leaves its collection** (recommended: it shows once, in the group; otherwise the sidebar shows it twice) or also stays as one of its collection's views. | Open |
-| PP-D12 | **One ordered member list per group,** each member a collection or a view (recommended: the sidebar order is the declared order, mixing both), or `views` beside `collections` with collections first. The first changes the shape of `collections`; pre-1.0 allows it. | Open |
-| PP-D13 | **Schema version:** the new member in schema 0.10 (recommended: additive, refused nowhere today) or a new schema version. | Open |
+| PP-D11 | **A view placed in a group leaves its collection** (recommended: it shows once, in the group; otherwise the sidebar shows it twice) or also stays as one of its collection's views. | Open. 0.13 NG built the second for relation matrices (the matrix stays among its row type's views); not put to the user |
+| PP-D12 | **One ordered member list per group,** each member a collection or a view (recommended: the sidebar order is the declared order, mixing both), or `views` beside `collections` with collections first. The first changes the shape of `collections`; pre-1.0 allows it. | Open. 0.13 NG built the first (`{ "view": "<key>" }` beside collection keys in `collections`); not put to the user |
+| PP-D13 | **Schema version:** the new member in schema 0.10 (recommended: additive, refused nowhere today) or a new schema version. | Open. 0.13 NG built schema 0.10, additive; not put to the user |
 
 ## PL3b: The workbook canvas
 
@@ -154,7 +156,16 @@ workspace stays with restructuring and WM1. Consumer APIs and security stay in t
 
 ## NG1: Views in navigation groups
 
-_Added by the user on 2026-11-05._ Today a navigation group names only collections
+_Added by the user on 2026-11-05._ **Part built in 0.13 (2026-11-09, [0.13 NG](BASE_0_13_IMPLEMENTATION_PLAN.md#ng-relation-matrices-in-navigation-groups)).**
+A group's `collections` takes `{ "view": "<relation matrix view key>" }` beside collection keys, in one order; validation, the
+`placeCollection` operation with `view` (place, move, take out), the cascade on a view's removal or new key, the outline, the
+sidebar and group page entries, the group's panel in the editor with **Add to group…** and **Move to group…** on a relation
+matrix's row in **Views**, and a collection's opening view (`navigation.opens`, `setCollectionOpening`) exist. **What is left**
+for 0.17 is the rest of the section below for every other view kind (a table, a tree, a mapping grid, a relationships table, a
+record page's view): their members in the model, the operation, the sidebar and the group page, **Move to group…** on their rows,
+the decision PP-D11 for them, and PL3b's group drop placing a view. The text below is the original plan, read against that.
+
+Today (before 0.13 NG) a navigation group names only collections
 (`NavigationGroupDefinition.collections`, `models/schema.py`): a view appears in the sidebar under its source
 collection, a relation matrix under its row type (`viewSourceObjectTypeKey`, `frontend/src/model/collections.ts`).
 A matrix therefore enters a group only with every other view of its row type. NG1 lets a group place a view itself,
