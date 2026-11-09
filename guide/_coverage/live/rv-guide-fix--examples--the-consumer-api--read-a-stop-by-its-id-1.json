@@ -1,0 +1,59 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"aa0a706f7657c2adb5a7:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "bc691c3b3a2644f898c40980773ca38b"
+  },
+  "body": {
+    "objectType": "Stop",
+    "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+    "code": "ch:1:sloid:5173",
+    "name": "Tschamut-Selva",
+    "validFrom": "2021-04-01",
+    "validTo": null,
+    "stopNumber": 8505173,
+    "abbreviation": "TSSE",
+    "fsoNumber": null,
+    "latitude": "46.65674442039232",
+    "longitude": "8.709084193690385",
+    "height": "1701.3",
+    "sboid": null,
+    "parent": {
+      "objectType": "Municipality",
+      "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
+      "code": null,
+      "name": "Tujetsch"
+    },
+    "path": "Graubünden/Surselva/Tujetsch",
+    "operator": {
+      "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
+      "code": "MGB-fo",
+      "name": "Matterhorn Gotthard Bahn (fo)",
+      "localName": null,
+      "isPrimary": null
+    },
+    "modes": [
+      {
+        "id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9",
+        "code": "TRAIN",
+        "name": "Train"
+      }
+    ],
+    "systemCodes": [
+      {
+        "system": "Wikidata: stations",
+        "systemKey": "wikidata-stations",
+        "code": "Q33467326",
+        "name": "Q33467326 Tschamut-Selva"
+      }
+    ],
+    "translations": []
+  }
+}

@@ -1,0 +1,408 @@
+{
+  "wave": "RV-GUIDE",
+  "note": "Screens of the new relationship-value pages on the reference instance (the example model's stop-operated-by-operator binding carries Local name, Primary contact and Inspected on; system-code-maps-to municipality carries Confirmed and Note; release 1.8.1, relation-values.json). Nothing changes state: dialogs are cancelled or left unapplied. A native select cannot be photographed open, so the two model-editor screens show its choices as a list (screens.mjs 'expand'). Taken by guide/tools/screens.mjs --file RV-GUIDE.screens.json into guide/public/screens/.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "record-relationship-attribute-columns",
+      "width": 1800,
+      "shows": "The Rhätische Bahn operator record: the Stops operated panel, filtered to Chur W, with Name, Local name and Primary contact visible left of the open Display popover; Display lists Name, Stop number and Abbreviation under Columns (the last two cleared) and Local name, Primary contact and Inspected on under Attributes of the relationship. Column width Narrow.",
+      "actions": [
+        {
+          "goto": "/apps/network/objects/operator/a678d368-1422-4534-bb30-060b163ad717?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Stops operated"
+          }
+        },
+        {
+          "fill": {
+            "placeholder": "Search related records"
+          },
+          "value": "Chur W"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Display",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "text": "Stop number (UIC)",
+            "exact": true,
+            "nth": -1
+          }
+        },
+        {
+          "click": {
+            "text": "Abbreviation",
+            "exact": true,
+            "nth": -1
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Narrow",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Attributes of the relationship",
+        "Chur West",
+        "Customer counter"
+      ]
+    },
+    {
+      "name": "matrix-cell-relationship-table-editor",
+      "shows": "Municipalities by system, the cell of Schmitten (GR) under wikidata-municipalities opened as a table: System code record fields, the tinted Attributes of the relationship columns (Confirmed ticked, Note), Filter system codes, Link existing system code, Open and Unlink on the row, and the Note editor open over its cell.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/municipalities-by-system?workspaceKey=graubuenden&search=Schmitten"
+        },
+        {
+          "waitFor": {
+            "text": "Q65399",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "text": "Q65399",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Attributes of the relationship"
+          }
+        },
+        {
+          "hover": {
+            "text": "Merged municipality, old code kept",
+            "exact": true
+          }
+        },
+        {
+          "wait": 400
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit Note of Q65399 Schmitten (GR)"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Confirmed",
+        "Link existing system code"
+      ]
+    },
+    {
+      "name": "relationships-table-rows",
+      "shows": "Stops and operators in rows layout, filtered to relationships with the local name Station office and grouped by operator with a count per group: Stop and Stop number, Local name, Primary contact and Inspected on columns, search, the relationship filters, sort and Display, and a tickbox on every row.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stop-operators-rows?workspaceKey=graubuenden&filter.relation%3Alocal-name.eq=Station%20office&sort=from%3Aname&pageSize=20"
+        },
+        {
+          "waitFor": {
+            "text": "relationships",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Stops and operators",
+        "Rhätische Bahn",
+        "5 relationships",
+        "Primary contact"
+      ]
+    },
+    {
+      "name": "relationships-grid-two-headers",
+      "shows": "Stops by operator in grid layout for Bus und Service AG (Chur) and Rhätische Bahn, filtered to the local name Station office: both header rows with 5 of 10 linked, carried values with Yes or No checkboxes, hatched Not linked cells with one + Link showing, two rows ticked with the selection toolbar, the Operators column-record menu button and Display.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stop-operators?workspaceKey=graubuenden&filter.relation%3Alocal-name.eq=Station%20office&sort=from%3Aname&pageSize=20&gridColumn=a678d368-1422-4534-bb30-060b163ad717&gridColumn=b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e"
+        },
+        {
+          "waitFor": {
+            "text": "of 10 linked",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "css": "tbody tr:nth-child(3) input[type=checkbox]"
+          }
+        },
+        {
+          "click": {
+            "css": "tbody tr:nth-child(2) input[type=checkbox]"
+          }
+        },
+        {
+          "press": "Tab"
+        },
+        {
+          "press": "Tab"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Change relationship values",
+        "Not linked",
+        "+ Link",
+        "2 selected"
+      ]
+    },
+    {
+      "name": "relationships-grid-change-preview",
+      "shows": "The Change relationship values dialog over the grid with 10 stops selected: Attribute of the relationship Primary contact, At All 2 shown operators, Set to with Primary contact ticked, and the preview (Would change 6, Already Yes 4, Not linked to the operator 10), the Also link them checkbox, Applying changes 6 relationships and Apply.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stop-operators?workspaceKey=graubuenden&filter.relation%3Alocal-name.eq=Station%20office&sort=from%3Aname&pageSize=20&gridColumn=a678d368-1422-4534-bb30-060b163ad717&gridColumn=b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e"
+        },
+        {
+          "waitFor": {
+            "text": "of 10 linked",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "css": "thead input[type=checkbox]"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Change relationship values"
+          }
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select",
+            "nth": 0
+          },
+          "value": "Primary contact"
+        },
+        {
+          "check": {
+            "css": "[role=dialog] input[type=checkbox]"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Would change"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Would change",
+        "Already",
+        "Not linked to the operator",
+        "Also link them"
+      ]
+    },
+    {
+      "name": "model-add-relationships-table-layout",
+      "height": 1100,
+      "shows": "The model editor's Add a view to Network dialog (a disposable look at a draft; nothing applied): kind Relationships table, the directed pair Stop to Operator through Operated by, columns of each end, the three relationship attributes, Layout set to Grid with both Layout choices listed, Head the rows by, and Name.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/3c20ac54-48eb-4e71-9533-b42492b78b74/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Views",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "button:text-is('View')"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Add a view to Network"
+          }
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select",
+            "nth": 0
+          },
+          "value": "Relationships table: each relationship in a row, with its own attributes"
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select",
+            "nth": 1
+          },
+          "value": "Stop → Operator, through Operated by"
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select",
+            "nth": 3
+          },
+          "value": "Grid: each record once, a column group per related record"
+        },
+        {
+          "fill": {
+            "css": "[role=dialog] input:not([type=checkbox])",
+            "nth": -1
+          },
+          "value": "Stops of each operator"
+        },
+        {
+          "expand": {
+            "css": "[role=dialog] select",
+            "nth": 3
+          },
+          "rows": 2
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ],
+      "expect": [
+        "Attributes of the relationship",
+        "Layout",
+        "Grid: each record once"
+      ]
+    },
+    {
+      "name": "model-consumer-relationship-field-picker",
+      "height": 1000,
+      "shows": "The Stops API's Add related dialog in the model editor (nothing applied): output name operatorLinks, Via Operated by (forward), Stop to Operator, fields name, localName and isPrimary, and the source list of isPrimary showing the groups Built in, Attributes of the exposed types and Attributes of the relationship with Local name (text), Primary contact (boolean) and Inspected on (date); Primary contact chosen.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/3c20ac54-48eb-4e71-9533-b42492b78b74/editor?show=consumerApi&key=stops&tab=types"
+        },
+        {
+          "waitFor": {
+            "text": "Add related",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "button:text-is('Add related')"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Via",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select",
+            "nth": 0
+          },
+          "value": "Operated by (forward) · Stop → Operator"
+        },
+        {
+          "fill": {
+            "css": "[role=dialog] input",
+            "nth": 0
+          },
+          "value": "operatorLinks"
+        },
+        {
+          "click": {
+            "css": "[role=dialog] button:has-text('Add a field')"
+          }
+        },
+        {
+          "fill": {
+            "css": "[role=dialog] input[aria-label='Output name 2']"
+          },
+          "value": "localName"
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select[aria-label='Source of localName']"
+          },
+          "value": "Local name · text"
+        },
+        {
+          "click": {
+            "css": "[role=dialog] button:has-text('Add a field')"
+          }
+        },
+        {
+          "fill": {
+            "css": "[role=dialog] input[aria-label='Output name 3']"
+          },
+          "value": "isPrimary"
+        },
+        {
+          "select": {
+            "css": "[role=dialog] select[aria-label='Source of isPrimary']"
+          },
+          "value": "Primary contact · boolean"
+        },
+        {
+          "expand": {
+            "css": "[role=dialog] select[aria-label='Source of isPrimary']"
+          },
+          "rows": 14
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ],
+      "expect": [
+        "Add related",
+        "localName",
+        "isPrimary"
+      ]
+    }
+  ]
+}

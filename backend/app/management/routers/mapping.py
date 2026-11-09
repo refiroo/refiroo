@@ -296,9 +296,7 @@ def get_relation_grid(
         ),
     ] = None,
     search: str | None = Query(
-        default=None,
-        max_length=500,
-        description="Search the row records, as the object list of their type searches",
+        default=None, max_length=500, description="Search the row records, as the object list of their type searches"
     ),
     to_search: str | None = Query(
         default=None,

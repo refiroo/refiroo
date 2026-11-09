@@ -1,0 +1,46 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/objects/f30fda47-f1a1-4e76-a87d-67f2156ba1f6?workspace=graubuenden",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"aa0a706f7657c2adb5a7:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "08814fe0198c4feab455377a5c91c0b6"
+  },
+  "body": {
+    "objectType": "Stop",
+    "id": "f30fda47-f1a1-4e76-a87d-67f2156ba1f6",
+    "code": "ch:1:sloid:5331",
+    "name": "Palüds (B)",
+    "validFrom": "2025-10-14",
+    "validTo": null,
+    "stopNumber": 8505331,
+    "abbreviation": "PALU",
+    "fsoNumber": null,
+    "latitude": "46.55352096785679",
+    "longitude": "9.868828554080435",
+    "height": "1755.847",
+    "sboid": null,
+    "parent": {
+      "objectType": "Municipality",
+      "id": "8ec1aea0-c18a-4802-ba4f-ac14fc5a00e6",
+      "code": null,
+      "name": "Bever"
+    },
+    "path": "Graubünden/Maloja/Bever",
+    "operator": {
+      "id": "a678d368-1422-4534-bb30-060b163ad717",
+      "code": "RhB",
+      "name": "Rhätische Bahn",
+      "localName": "Station office",
+      "isPrimary": true
+    },
+    "modes": [],
+    "systemCodes": [],
+    "translations": []
+  }
+}

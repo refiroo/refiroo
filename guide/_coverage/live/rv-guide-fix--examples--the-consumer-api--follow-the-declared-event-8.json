@@ -1,0 +1,41 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/events?workspace=graubuenden&after=63&event=stops-changed&pageSize=1&payload=identity",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"9bae81e053ca8828f55c:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "59f37b49a9134ecfb67e7f517d550bb2"
+  },
+  "body": {
+    "items": [
+      {
+        "eventId": "a141f374-b312-9649-bd6f-b878fd2aacf5",
+        "position": 207,
+        "occurredAt": "2026-11-03T21:29:54.748509+00:00",
+        "event": "stops-changed",
+        "change": "created",
+        "contractVersion": 1,
+        "objectType": "Stop",
+        "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+        "code": "ch:1:sloid:4",
+        "name": "Selva, via Alpsu spv.",
+        "changed": [],
+        "cause": {
+          "kind": "job",
+          "id": "b2984b17-a315-4fba-a2d5-e08432e86cfd"
+        }
+      }
+    ],
+    "workspace": "graubuenden",
+    "pageSize": 1,
+    "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
+    "caughtUp": false,
+    "headPosition": 8986,
+    "earliestPosition": 1
+  }
+}

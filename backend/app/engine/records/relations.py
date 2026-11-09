@@ -209,7 +209,9 @@ def update_live_relations(
     rows = {
         row.id: row
         for row in session.scalars(
-            select(ObjectRelation).where(ObjectRelation.id.in_([item.relation_id for item in items]))
+            select(ObjectRelation).where(
+                ObjectRelation.id.in_([item.relation_id for item in items])
+            )
         )
     }
     return [rows[item.relation_id] for item in items]

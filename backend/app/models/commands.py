@@ -217,9 +217,7 @@ class RelationGridChange(BaseModel):
         if (self.fromObjectIds is None) == (not self.allMatching):
             raise ValueError("give either fromObjectIds or allMatching: true, not both or neither")
         if self.fromObjectIds is not None and (self.search or self.filters or self.exceptObjectIds):
-            raise ValueError(
-                "search, filters and exceptObjectIds select rows only with allMatching: true"
-            )
+            raise ValueError("search, filters and exceptObjectIds select rows only with allMatching: true")
         return self
 
 
@@ -629,6 +627,9 @@ class ConsumerSubscriptionCreate(BaseModel):
     # ``workspace`` delivers the workspace's change-set events (A2) and names no consumer API.
     source: Literal["consumerApi", "workspace"] = "consumerApi"
     consumerApi: str | None = Field(default=None, min_length=1, max_length=160)
+    # The contract version to receive events in: the current one, or an earlier one the model keeps
+    # (0.13 DF3). Without it, the version served now.
+    contractVersion: int | None = Field(default=None, ge=1)
     workspaceKey: str | None = Field(default=None, min_length=1, max_length=160)
     events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
         min_length=1, max_length=100
@@ -650,6 +651,8 @@ class ConsumerSubscriptionCreate(BaseModel):
                 raise ValueError("'consumerApi' does not apply to the source 'workspace'")
             if self.filters or "payload" in self.model_fields_set:
                 raise ValueError("'filters' and 'payload' do not apply to the source 'workspace'")
+            if self.contractVersion is not None:
+                raise ValueError("'contractVersion' does not apply to the source 'workspace'")
         return self
 
 

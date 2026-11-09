@@ -1,0 +1,22 @@
+{
+  "method": "POST",
+  "url": "http://localhost:8480/api/v1/relations/grid-change",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "1333f6adf3e14d7985820a67b38cb7da"
+  },
+  "body": {
+    "dryRun": true,
+    "change": 1,
+    "same": 0,
+    "missing": 0,
+    "linked": 0,
+    "refused": [],
+    "changeSetVersion": null
+  },
+  "note": "Read-only dryRun=true; runner requires write=true for this route. No apply request."
+}

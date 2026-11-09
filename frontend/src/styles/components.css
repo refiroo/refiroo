@@ -2349,6 +2349,25 @@ button.history-line:hover {
   background: var(--surface-raised);
   box-shadow: var(--shadow-md);
 }
+/* Always-visible scrollbar: overlay scrollbars hide, and a popover that is cut off must say so. The
+   ::-webkit-scrollbar rules force a classic one; the standard properties (which would switch those
+   off) are given only to browsers without them. */
+.control-popover::-webkit-scrollbar {
+  width: 10px;
+}
+.control-popover::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+.control-popover::-webkit-scrollbar-track {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .control-popover {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
 .control-popover [role="dialog"] {
   display: grid;
   gap: 14px;

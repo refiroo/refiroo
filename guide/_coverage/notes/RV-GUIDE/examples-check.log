@@ -1,0 +1,3 @@
+Illustrative stops v2 extension: model shape and references valid.
+11 JSON fences parse; grid request and all-matching selection pass API input validation.
+JSON attribute editor configuration refusal: [('INVALID_MODEL', '/applications/network/views/relationship-json-example/config/sortFields/2', "Relationships table 'network.relationship-json-example' sort field 'relation:relationship-detail' holds JSON and cannot be used")]

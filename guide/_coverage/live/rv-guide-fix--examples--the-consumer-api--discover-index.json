@@ -1,0 +1,32 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer?workspace=graubuenden",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"0fab4c7702d433409a69:index\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-model-release-id": "c452de16-c120-42c3-8723-cf39b7c78505",
+    "x-request-id": "70257089c7c542fbaef605ee0d9f5697"
+  },
+  "body": {
+    "items": [
+      {
+        "consumerApi": "stops",
+        "name": "Stops API",
+        "description": "Stops of Graubünden with their municipality, operator, modes, system codes and names in five languages. XREF finds a stop by UIC number, abbreviation, name, a Wikidata item or another system's code, or by a translated name.",
+        "contractVersion": 1,
+        "openapi": "/api/consumer/stops/v1/openapi.json?workspace=graubuenden"
+      }
+    ],
+    "pageSize": 20,
+    "nextCursor": null,
+    "prevCursor": null,
+    "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjQ0MTM2ZmEzNTViMzY3OGExMTQ2YWQxNmY3ZTg2NDllOTRmYjRmYzIxZmU3N2U4MzEwYzA2MGY2MWNhYWZmOGEiLCJwb3NpdGlvbiI6WyJzdG9wcyIsIjA5OTk5OTkiXSwic2NvcGUiOiJjb25zdW1lci1pbmRleCIsInNvcnQiOlsia2V5Il0sInZlcnNpb24iOjF9.tkUdl0505HxZLqT7mj5tWLRCpB_WrJ5b02lQIO4bdRg",
+    "totalCount": null,
+    "startIndex": null
+  }
+}

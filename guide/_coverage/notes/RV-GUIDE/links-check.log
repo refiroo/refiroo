@@ -1,0 +1,16 @@
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 75775 local links and sources in 257 built pages
+links: guide/model/add-a-relationships-table/index.html: src "/docs/screens/model-add-relationships-table-layout.png" points to nothing
+links: guide/model/define-a-consumer-api/index.html: src "/docs/screens/model-consumer-relationship-field-picker.png" points to nothing
+links: guide/use/change-relationship-values-in-bulk/index.html: src "/docs/screens/relationships-grid-change-preview.png" points to nothing
+links: guide/use/fill-in-a-relation-matrix/index.html: src "/docs/screens/matrix-cell-relationship-table-editor.png" points to nothing
+links: model/consumer-apis/index.html: src "/docs/screens/model-consumer-relationship-field-picker.png" points to nothing
+links: use/relation-matrices/index.html: src "/docs/screens/matrix-cell-relationship-table-editor.png" points to nothing
+links: use/relationship-tables/index.html: src "/docs/screens/relationships-table-rows.png" points to nothing
+links: use/relationship-tables/index.html: src "/docs/screens/relationships-grid-two-headers.png" points to nothing
+links: use/relationships/index.html: src "/docs/screens/record-relationship-attribute-columns.png" points to nothing
+
+9 problem(s) in links.

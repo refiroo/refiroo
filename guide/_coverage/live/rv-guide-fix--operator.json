@@ -1,0 +1,46 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/objects/f94ef862-2a95-4675-9e31-6b1d0a03317f?workspace=graubuenden",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"aa0a706f7657c2adb5a7:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "86e613ffd8784eb5a78ed2933ac5a8ec"
+  },
+  "body": {
+    "objectType": "Operator",
+    "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
+    "code": "MGB-fo",
+    "name": "Matterhorn Gotthard Bahn (fo)",
+    "validFrom": null,
+    "validTo": null,
+    "stopNumber": null,
+    "abbreviation": null,
+    "fsoNumber": null,
+    "latitude": null,
+    "longitude": null,
+    "height": null,
+    "sboid": "ch:1:sboid:100029",
+    "parent": null,
+    "path": "",
+    "operator": null,
+    "modes": [],
+    "systemCodes": [],
+    "translations": [
+      {
+        "languageCode": "de",
+        "translatedName": "Matterhorn Gotthard Bahn (fo)",
+        "isActive": true
+      },
+      {
+        "languageCode": "fr",
+        "translatedName": "Matterhorn Gotthard Bahn (fo)",
+        "isActive": true
+      }
+    ]
+  }
+}

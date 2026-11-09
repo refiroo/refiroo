@@ -418,28 +418,36 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `PUT` and `DELETE /me/followed-workspaces/{workspace_key}` (`FollowedWorkspacePage`,
     # `FollowedWorkspaceResponse`), `GET /me/notifications/{notification_id}`, and `following` on
     # `OwnWorkspaceResponse`; nothing else changed. Re-baselined for 0.16.0: info.version 0.16.0; with
-    # 0.12.0 the document hashes to the previous lock exactly. Re-baselined for 0.13 AQ and JG
-    # (additive): AQ: `letter` on `ColumnBinding`, `ahead` on an assistant task, and the draft
-    # operations body described by one schema per public kind (`<Kind>Operation`, only where model
-    # administration is enabled). JG: `GET /jobs` takes `grouped` and `origin` and may answer
-    # `JobGroupPage`; `origin` on `JobResponse`; the schemas `JobOrigin`, `JobGroup`,
-    # `JobGroupRow` and `JobGroupPage`.
-    # Re-baselined for 0.13 navigation (additive): the draft outline's navigation groups gain `entries`
-    # (`OutlineNavigationEntry`) and `navigation` gains `opens`; `OutlineView` gains `collection`;
-    # `placeCollection` takes `view` in place of `collection` and `setCollectionOpening` is a public kind
-    # (`SetCollectionOpeningOperation`); nothing else changed. Re-baselined for 0.13 RA (additive): the
-    # draft outline's `OutlineRelation` gains an optional `attributeTypeKeys`; nothing else changed.
+    # 0.12.0 the document hashes to the previous lock exactly. Re-baselined for 0.13 DF3 (additive, diffed
+    # against HEAD in a worktree): `earlierVersions` on a consumer API definition and its schema
+    # `ConsumerApiEarlierVersion`; nothing else changed. Re-baselined for 0.13 AQ (additive): `letter` on
+    # `ColumnBinding`, `ahead` on an assistant task, and the draft operations body described by one
+    # schema per public kind (`<Kind>Operation`, only where model administration is enabled).
+    # Re-baselined for 0.13 JG (additive): `GET /jobs` takes `grouped` and `origin` and may answer
+    # `JobGroupPage`; `origin` on `JobResponse`; the schemas `JobOrigin`, `JobGroup`, `JobGroupRow`
+    # and `JobGroupPage`. Re-baselined for 0.13 AB (additive): `POST /model-drafts/{id}/dry-run` takes
+    # `items` in place of `sourceFileId`; `DryRunResponse` has `items` (`ItemsDryRunSummary` and its
+    # parts) and a nullable `sourceFileId`; `TaskDesign` has `load` and `itemsLoad`; `DesignCheck`
+    # has `mode`. Re-baselined for 0.13 navigation (additive): the draft outline's navigation groups
+    # gain `entries` (`OutlineNavigationEntry`) and `navigation` gains `opens`; `OutlineView` gains
+    # `collection`; `placeCollection` takes `view` in place of `collection` and `setCollectionOpening`
+    # is a public kind (`SetCollectionOpeningOperation`); nothing else changed. Re-baselined for 0.13
+    # MG (additive): `GET /model-drafts/{id}/migration` (`ModelDraftMigrationResponse` and its parts);
+    # a draft history entry has `migration` (`ModelDraftOperationMigration`); a workspace migration's
+    # request takes `relationTypeMappings`, `splits`, `listConversions` and `draftId` and a type
+    # mapping `toApplicationKey`; a migration's rows and counts have the outcome `created`.
     # Re-baselined for 0.13 RV (additive): `relationAttributes` on a matrix cell record; `POST
     # /relations/batch` (`RelationBatchUpdate`, `RelationBatchItem`, `RelationBatchResponse`); the
     # workspace edge list takes `fromObjectId`, `toObjectId`, `sort`, `filter.<field>.<operator>`
-    # and the seek parameters, and its rows carry `relationVersion` and its page `groupCounts`.
+    # and the seek parameters, and its rows carry `relationVersion` and its page `groupCounts`; the
+    # draft outline's `OutlineRelation` gains an optional `attributeTypeKeys` (also 0.13 RA's).
     # Re-baselined for 0.13 RG (additive): `GET /workspaces/{key}/relation-grid` (`RelationGridPage`,
     # `RelationGridRow`, `RelationGridColumn`, `RelationGridRelation`); `POST /relations/grid-change`
     # (`RelationGridChange`, `RelationGridFilter`, `RelationGridChangeResponse`,
     # `RelationGridChangeItem`); the relationships table's `layout` in the model schema.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "dc398254cca4a6e616bfd01a7d0b71e6837b895f578efe12fdb9e65273bd3afe"
+        "42b382d50a486e69412f0fe50bf00c62cae6b0ba3eff4305141f216fedf36ddd"
     )
 
 

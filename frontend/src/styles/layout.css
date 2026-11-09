@@ -1,8 +1,11 @@
 /* The application frame: global header with application tabs, the workspace sidebar with its
    collection list and record tree, and the main content column with its context bar. */
 
+/* Not positioned, on purpose: popovers (ControlPopover, InfoHint) are placed by React Aria inside
+   the main landmark and measure their room from the nearest positioned ancestor. With the shell
+   positioned, that was the page-sized shell, which scrolls with the window, and a popover opened
+   below its button on a scrolled page got no height at all. */
 .app-shell {
-  position: relative;
   min-height: 100vh;
   display: grid;
   grid-template: var(--topbar-height) 1fr / var(--sidebar) minmax(0, 1fr);

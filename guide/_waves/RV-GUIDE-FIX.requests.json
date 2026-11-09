@@ -1,0 +1,386 @@
+{
+  "requests": [
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--read-a-stop-by-its-id-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 263,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--read-a-list-then-narrow-it-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 331,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--read-a-list-then-narrow-it-3",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "operator": "MGB-fo",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 401,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--look-up-a-stop-number-4",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/xref",
+      "query": {
+        "workspace": "graubuenden",
+        "query": "8505173",
+        "expect": "one"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 480,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--resolve-several-inputs-5",
+      "auth": "consumer",
+      "method": "POST",
+      "path": "/api/consumer/stops/v1/resolve",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "defaults": {
+          "mode": "TRAIN"
+        },
+        "items": [
+          {
+            "ref": "row-1",
+            "query": "8505173"
+          },
+          {
+            "ref": "row-2",
+            "query": "T-9999"
+          }
+        ]
+      },
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 549,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--follow-the-declared-event-8",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/events",
+      "query": {
+        "workspace": "graubuenden",
+        "after": "63",
+        "event": "stops-changed",
+        "pageSize": "1",
+        "payload": "identity"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 712,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--consumer-events-and-webhooks--a-declaration-and-the-event-it-exposes-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/events",
+      "query": {
+        "workspace": "graubuenden",
+        "after": "63",
+        "event": "stops-changed",
+        "pageSize": "1",
+        "payload": "full"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/consumer-events-and-webhooks.md",
+      "line": 81,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--looking-up-and-resolving--a-lookup-with-a-score-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/xref",
+      "query": {
+        "workspace": "graubuenden",
+        "query": "8505173",
+        "pageSize": "20"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/looking-up-and-resolving.md",
+      "line": 62,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--looking-up-and-resolving--a-crosswalk-from-a-stop-number-to-another-system-s-code-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/xref",
+      "query": {
+        "workspace": "graubuenden",
+        "query": "8505173",
+        "expect": "one",
+        "to.system": "wikidata-stations"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/looking-up-and-resolving.md",
+      "line": 159,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--looking-up-and-resolving--resolve-a-small-file-in-one-request-3",
+      "auth": "consumer",
+      "method": "POST",
+      "path": "/api/consumer/stops/v1/resolve",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "defaults": {
+          "mode": "TRAIN"
+        },
+        "items": [
+          {
+            "ref": "row-1",
+            "query": "8505173"
+          },
+          {
+            "ref": "row-2",
+            "query": "T-9999"
+          }
+        ]
+      },
+      "write": false,
+      "page": "integrate/looking-up-and-resolving.md",
+      "line": 231,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--reading-business-objects--a-complete-object-read-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 36,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--reading-business-objects--a-list-page-with-navigation-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 102,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--integrate--reading-business-objects--the-same-list-narrowed-by-a-declared-parameter-3",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "operator": "MGB-fo",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 174,
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--discover-index",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 789
+    },
+    {
+      "name": "rv-guide-fix--examples--the-consumer-api--discover-openapi",
+      "auth": "none",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/openapi.json",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 790
+    },
+    {
+      "name": "rv-guide-fix--operator",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/f94ef862-2a95-4675-9e31-6b1d0a03317f",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--relationship-values",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/f30fda47-f1a1-4e76-a87d-67f2156ba1f6",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--grid-preview",
+      "auth": "admin",
+      "method": "POST",
+      "path": "/api/v1/relations/grid-change",
+      "write": true,
+      "note": "Read-only dryRun=true; runner requires write=true for this route. No apply request.",
+      "body": {
+        "workspaceKey": "graubuenden",
+        "applicationKey": "network",
+        "viewKey": "stop-operators",
+        "fromObjectIds": [
+          "8d90eede-23cf-47c1-8dac-cb37956f5fd5"
+        ],
+        "toObjectIds": [
+          "f94ef862-2a95-4675-9e31-6b1d0a03317f"
+        ],
+        "attributeTypeKey": "is-primary",
+        "value": true,
+        "linkMissing": false,
+        "dryRun": true
+      },
+      "expectStatus": 200
+    },
+    {
+      "name": "rv-guide-fix--conditional-integrate",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "If-None-Match": "W/\"aa0a706f7657c2adb5a7:1\""
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 36,
+      "expectStatus": 304
+    },
+    {
+      "name": "rv-guide-fix--conditional-examples",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "If-None-Match": "W/\"aa0a706f7657c2adb5a7:1\""
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 263,
+      "expectStatus": 304
+    }
+  ]
+}

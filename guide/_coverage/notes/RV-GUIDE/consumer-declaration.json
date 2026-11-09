@@ -1,0 +1,96 @@
+{
+  "key": "stops",
+  "name": "Stops API",
+  "contractVersion": 2,
+  "exposes": [
+    "stop"
+  ],
+  "publicNames": {
+    "stop": "Stop"
+  },
+  "object": {
+    "fields": {
+      "id": {
+        "role": "id"
+      },
+      "name": {
+        "role": "name",
+        "from": "name"
+      }
+    },
+    "related": {
+      "operator": {
+        "via": "stop-operated-by-operator",
+        "fields": {
+          "id": "id",
+          "name": "name",
+          "localName": "relation:local-name",
+          "isPrimary": "relation:is-primary"
+        }
+      }
+    }
+  },
+  "operations": {
+    "objects": {},
+    "lists": {
+      "all-stops": {
+        "of": "stop",
+        "sortBy": "stop-number"
+      }
+    },
+    "xref": {
+      "matchOn": [
+        {
+          "field": "name",
+          "exact": 10
+        }
+      ],
+      "alsoMatchThrough": [
+        {
+          "related": "operator",
+          "firstOf": [
+            {
+              "field": "relation:local-name",
+              "exact": 90
+            }
+          ]
+        }
+      ]
+    },
+    "resolve": {},
+    "events": {
+      "custom": [
+        {
+          "key": "stops-changed",
+          "objectTypes": [
+            "stop"
+          ],
+          "changes": [
+            "updated"
+          ],
+          "watch": {
+            "related": [
+              "operator"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "filters": {
+    "contact": {
+      "onRelated": "operator",
+      "matchOn": [
+        "relation:local-name"
+      ],
+      "keepOnlyMatching": true
+    },
+    "primary": {
+      "onRelated": "operator",
+      "matchOn": [
+        "relation:is-primary"
+      ],
+      "keepOnlyMatching": true
+    }
+  }
+}

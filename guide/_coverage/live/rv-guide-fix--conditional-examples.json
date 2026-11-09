@@ -1,0 +1,14 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden",
+  "status": 304,
+  "headers": {
+    "etag": "\"aa0a706f7657c2adb5a7:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "12d0f301759f4f63b864d0039e29150d"
+  },
+  "body": ""
+}

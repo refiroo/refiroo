@@ -1,0 +1,21 @@
+kind             section    total   covered  excluded  uncovered 
+command          run        24      24       0         0         
+consumer-api     integrate  18      18       0         0         
+deployment       run        47      47       0         0         
+management-api   run        9       9        0         0         
+management-api   administer 99      99       0         0         
+management-api   model      33      33       0         0         
+management-api   use        100     100      0         0         
+management-api   integrate  7       7        0         0         
+mcp-tool         integrate  22      22       0         0         
+model-feature    model      208     205      3         0         
+permission       administer 62      62       0         0         
+screen           run        4       4        0         0         
+screen           administer 11      11       0         0         
+screen           model      140     140      0         0         
+screen           use        59      53       6         0         
+screen           integrate  5       5        0         0         
+settings         run        62      62       0         0         
+settings         integrate  1       1        0         0         
+all                         911     902      9         0         
+ok: coverage (257 page(s))
