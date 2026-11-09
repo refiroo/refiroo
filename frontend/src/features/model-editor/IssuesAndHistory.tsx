@@ -30,7 +30,8 @@ import { PROFILE_KEY_MISMATCH, PROFILE_KEY_POINTER, UseFreeKey } from "@/feature
 export function selectionFor(element: OutlineElement): EditorSelection {
   if (element.consumerApi) return { show: "consumerApi", key: element.consumerApi };
   if (element.objectType) return { show: "type", key: element.objectType };
-  if (element.applicationKey && element.detail) return { show: "type", key: element.detail };
+  if (element.applicationKey && element.detail)
+    return { show: "type", key: element.detail, application: element.applicationKey };
   if (element.relationType && element.from) return { show: "matrix" };
   if (element.relationType) return { show: "relationType", key: element.relationType };
   if (element.attributeType) return { show: "attributeType", key: element.attributeType };

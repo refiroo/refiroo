@@ -7,7 +7,10 @@ reader: model-admin
 Use preview to check a draft's appearance before applying it. You need **Model authoring**.
 See [Record pages and tables](/docs/model/record-pages-and-tables/) for what preview reads.
 
-1. Select the type in the model pane and choose **Preview**. If **The draft has … issues, so
+1. Select the type in the model pane and choose **Preview**. A type listed in several applications
+   is previewed in the application whose row you selected; when none is selected, in the one
+   that holds the workspace's records of the type. Choose the application in the band to switch.
+   If **The draft has … issues, so
    it cannot be previewed** appears, choose **Show issues**, fix the errors and return.
 2. Choose **Workspace** and **Record**. The record's live values are drawn using the draft's
    definition. Check that the workspace is the one whose records you intend to inspect.

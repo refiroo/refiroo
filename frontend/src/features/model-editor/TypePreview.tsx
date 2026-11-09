@@ -47,6 +47,7 @@ import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import type { OperationSpec } from "@/features/model-editor/operations";
+import { applicationForType, applicationsHolding } from "@/features/model-editor/typeApplication";
 import {
   addFieldSpec,
   fieldToPanel,
@@ -87,6 +88,8 @@ export function TypePreview({
   draftId,
   version,
   objectTypeKey,
+  applicationKey,
+  onApplication,
   activeModel,
   workspaceKey: initialWorkspace,
   send,
@@ -100,6 +103,10 @@ export function TypePreview({
   /** The draft's version: the preview reads the draft again whenever it changes. */
   version: number;
   objectTypeKey: string;
+  /** The application the type was opened from; another that lists it stands in when this one does not. */
+  applicationKey?: string;
+  /** Switches the selection to another application that holds the type. */
+  onApplication?: (applicationKey: string) => void;
   activeModel: EngineModel;
   workspaceKey: string;
   send: SendLayout;
@@ -150,26 +157,47 @@ export function TypePreview({
   const shownModel = useWorkspaceModel(workspaceKey, activeModel);
   const otherModel = Boolean(read?.model && shownModel.release.key !== read.model.release.key);
   const live = !otherModel && shownModel.objectTypes.some((item) => item.key === objectTypeKey);
-  const readKey = `${objectTypeKey}|${workspaceKey}`;
+  // The application that owns this workspace's records of the type: a record is shown in its own
+  // application's page, so it decides the application when the selection names none.
+  const holderKey = `${objectTypeKey}|${workspaceKey}`;
+  const [holderRead, setHolderRead] = useState<{ key: string; application?: string }>();
   useEffect(() => {
     if (!live) return;
     let cancelled = false;
     api
       .objects(objectTypeKey, { workspaceKey, pageSize: 1, sort: "name" })
-      .then((page) => !cancelled && setLoaded({ key: readKey, items: page.items }))
-      .catch(() => !cancelled && setLoaded({ key: readKey, items: [] }));
+      .then((page) => !cancelled && setHolderRead({ key: holderKey, application: page.items[0]?.applicationKey }))
+      .catch(() => !cancelled && setHolderRead({ key: holderKey }));
     return () => {
       cancelled = true;
     };
-  }, [objectTypeKey, live, workspaceKey, readKey]);
-  const records = !live ? [] : loaded?.key === readKey ? loaded.items : undefined;
+  }, [objectTypeKey, live, workspaceKey, holderKey]);
+  const holderPending = live && holderRead?.key !== holderKey;
+  const holderApplication = live && holderRead?.key === holderKey ? holderRead.application : undefined;
 
   const model = useMemo<EngineModel | undefined>(
     () => (read?.model ? { ...read.model, placements: read.placements } : undefined),
     [read],
   );
-  const application = model?.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey));
+  const application = model && applicationForType(model.applications, objectTypeKey, applicationKey, holderApplication);
   const objectType = model?.objectTypes.find((item) => item.key === objectTypeKey);
+
+  // The records shown are read for that application only, so a record of another one is never put into its page.
+  const readKey = `${objectTypeKey}|${workspaceKey}|${application?.key ?? ""}`;
+  const applicationOfPage = application?.key;
+  useEffect(() => {
+    if (!live || !applicationOfPage || holderPending) return;
+    let cancelled = false;
+    api
+      .objects(objectTypeKey, { workspaceKey, applicationKey: applicationOfPage, pageSize: 1, sort: "name" })
+      .then((page) => !cancelled && setLoaded({ key: readKey, items: page.items }))
+      .catch(() => !cancelled && setLoaded({ key: readKey, items: [] }));
+    return () => {
+      cancelled = true;
+    };
+  }, [objectTypeKey, live, workspaceKey, applicationOfPage, holderPending, readKey]);
+  const records = !live ? [] : loaded?.key === readKey ? loaded.items : undefined;
+
   // The record the reader chose, else the first by name; a new type, or a type without records, shows
   // the empty record.
   const [chosen, setChosen] = useState<{ key: string; record?: ObjectItem }>();
@@ -198,7 +226,7 @@ export function TypePreview({
   );
 
   if (readError) return frame(<InlineError message={readError} onRetry={() => setAttempt((value) => value + 1)} />);
-  if (!read) return frame(<Skeleton lines={5} label="Loading the preview" />);
+  if (!read || holderPending) return frame(<Skeleton lines={5} label="Loading the preview" />);
   if (!read.valid || !model || !client)
     return frame(
       <div className="preview-invalid">
@@ -227,8 +255,47 @@ export function TypePreview({
   const recordLabel = shownRecord?.name || "Empty record";
   const chevron = <Icon name="chevron-down" size={13} />;
   // What the page shows, as the data-context band's choices are drawn: each a word that opens its list.
+  const holding = applicationsHolding(model.applications, objectTypeKey);
   const choices = (
     <div role="group" className="band-context band-compact editor-mode-choices" aria-label="What the page shows">
+      {holding.length > 1 && (
+        <>
+          <ControlPopover
+            label={`Application: ${application.name}`}
+            trigger={
+              <>
+                <span className="band-choice-text">{application.name}</span>
+                {chevron}
+              </>
+            }
+            triggerClassName="band-choice"
+            placement="bottom start"
+            className="band-popover"
+          >
+            {(close) => (
+              <div className="preview-record-choice">
+                {holding.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={item.key === application.key ? "secondary active" : "secondary"}
+                    aria-pressed={item.key === application.key}
+                    onClick={() => {
+                      close();
+                      onApplication?.(item.key);
+                    }}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </ControlPopover>
+          <span aria-hidden="true" className="band-separator">
+            /
+          </span>
+        </>
+      )}
       <ControlPopover
         label={`Workspace: ${workspaceLabel}`}
         trigger={
@@ -367,8 +434,22 @@ export function TypePreview({
     <EmptyState>The draft declares no table view for {objectType.pluralName}.</EmptyState>
   );
 
+  const holderName = holderApplication
+    ? (model.applications.find((item) => item.key === holderApplication)?.name ?? holderApplication)
+    : undefined;
+  const elsewhere =
+    live && records?.length === 0 && holderApplication && holderApplication !== application.key && holderName;
+
   return frame(
     <>
+      {elsewhere && (
+        <p className="muted preview-holder">
+          This workspace's {objectType.pluralName} are in {holderName}.{" "}
+          <button type="button" className="link-button" onClick={() => onApplication?.(holderApplication)}>
+            Show {holderName}
+          </button>
+        </p>
+      )}
       <Tabs
         label={editing ? "Layout of" : "Preview of"}
         selected={tab}

@@ -226,7 +226,7 @@ export type JourneyRef = { kind: "aiTask"; taskId: string };
 export type EditorSelection =
   | { show?: undefined }
   | { show: "matrix" }
-  | { show: "type"; key: string; mode?: EditorMode }
+  | { show: "type"; key: string; mode?: EditorMode; application?: string }
   | { show: "application" | "relationType" | "attributeType"; key: string }
   | { show: "consumerApi"; key: string; tab?: ConsumerApiTab }
   /** A navigation group of an application, by its key (the group panel). */

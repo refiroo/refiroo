@@ -236,7 +236,12 @@ export function ModelEditor({
 
   /** Opens the Issues tab, leaving the layout editor (which has no pane) first. */
   const showIssues = () => {
-    if (selection.show === "type" && selection.mode === "layout") onSelect({ show: "type", key: selection.key });
+    if (selection.show === "type" && selection.mode === "layout")
+      onSelect({
+        show: "type",
+        key: selection.key,
+        ...(selection.application ? { application: selection.application } : {}),
+      });
     setBottomTab("issues");
     // Opened for now; only the pane's own toggle is the reader's choice.
     if (phone) setPhoneTab("issues");
@@ -694,8 +699,15 @@ export function ModelEditor({
   /** The selected type's preview or its layout editor (0.10 A4b), marked by a band of their own. */
   const typeKey = selection.show === "type" ? selection.key : undefined;
   const mode = selection.show === "type" ? selection.mode : undefined;
+  const typeApplication = selection.show === "type" ? selection.application : undefined;
   const showType = (next?: EditorMode) =>
-    typeKey && onSelect({ show: "type", key: typeKey, ...(next ? { mode: next } : {}) });
+    typeKey &&
+    onSelect({
+      show: "type",
+      key: typeKey,
+      ...(typeApplication ? { application: typeApplication } : {}),
+      ...(next ? { mode: next } : {}),
+    });
   const typePreview = (shown: EditorMode, actions: ReactNode) =>
     typeKey && (
       <TypePreview
@@ -703,6 +715,10 @@ export function ModelEditor({
         draftId={draftId}
         version={outline.version}
         objectTypeKey={typeKey}
+        applicationKey={typeApplication}
+        onApplication={(next) =>
+          typeKey && onSelect({ show: "type", key: typeKey, application: next, ...(shown ? { mode: shown } : {}) })
+        }
         activeModel={activeModel}
         workspaceKey={editorWorkspace}
         send={(operations) => guarded(() => run(operations))}

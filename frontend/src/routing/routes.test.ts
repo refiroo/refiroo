@@ -156,6 +156,24 @@ describe("routes", () => {
       { kind: "settings", page: "model", draftId: "d1", editor: { show: "type", key: "shelf", mode: "layout" } },
     ],
     [
+      "/settings/model/drafts/d1/editor?show=type&key=country&application=reference-lists&mode=layout",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "type", key: "country", application: "reference-lists", mode: "layout" },
+      },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=type&key=country&application=reference-lists",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "type", key: "country", application: "reference-lists" },
+      },
+    ],
+    [
       "/settings/model/drafts/d1/editor?show=consumerApi&key=shop-feed&tab=schema",
       {
         kind: "settings",

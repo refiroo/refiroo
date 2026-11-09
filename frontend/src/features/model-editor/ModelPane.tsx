@@ -93,7 +93,7 @@ export function paneRows(
         level,
         label: type?.name ?? node.objectType,
         mark: type?.mark,
-        selection: { show: "type", key: node.objectType },
+        selection: { show: "type", key: node.objectType, application: application.key },
         typeKey: node.objectType,
         applicationKey: application.key,
         proposed: proposed.has(`objectType:${node.objectType}`),
@@ -117,7 +117,7 @@ export function paneRows(
             id: `collection:${application.key}:${group.key}:${entry.collection}`,
             level: 3,
             label: typeName(outline, entry.collection),
-            selection: { show: "type", key: entry.collection },
+            selection: { show: "type", key: entry.collection, application: application.key },
             typeKey: entry.collection,
             applicationKey: application.key,
           });
@@ -174,6 +174,8 @@ export function paneRows(
 function sameSelection(a: EditorSelection | undefined, b: EditorSelection) {
   if (!a?.show || a.show !== b.show) return false;
   if (a.show === "consumerApi" && b.show === "consumerApi") return a.key === b.key && (!a.tab || a.tab === b.tab);
+  if (a.show === "type" && b.show === "type")
+    return a.key === b.key && (!a.application || !b.application || a.application === b.application);
   if (a.show === "group" && b.show === "group") return a.key === b.key && a.application === b.application;
   return a.show === "matrix" || ("key" in a && "key" in b && a.key === b.key);
 }

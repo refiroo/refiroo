@@ -407,7 +407,8 @@ function editorSelection(query: URLSearchParams): EditorSelection {
   const element = EDITOR_ELEMENTS.find((item) => item === show);
   if (!element || !key) return {};
   const mode = EDITOR_MODES.find((item) => item === query.get("mode"));
-  return element === "type" && mode ? { show: element, key, mode } : { show: element, key };
+  if (element !== "type") return { show: element, key };
+  return { show: element, key, ...(mode ? { mode } : {}), ...(application ? { application } : {}) };
 }
 
 const EDITOR_MODES = ["preview", "layout"] as const;
@@ -424,8 +425,8 @@ function editorPath(draftId: string, editor: EditorSelection): string {
   if (show === "group")
     return `${base}?show=group&application=${encodeURIComponent(editor.application)}&key=${encodeURIComponent(editor.key)}`;
   const mode =
-    editor.show === "type" && editor.mode
-      ? `&mode=${editor.mode}`
+    editor.show === "type"
+      ? `${editor.application ? `&application=${encodeURIComponent(editor.application)}` : ""}${editor.mode ? `&mode=${editor.mode}` : ""}`
       : editor.show === "consumerApi" && editor.tab
         ? `&tab=${editor.tab}`
         : "";

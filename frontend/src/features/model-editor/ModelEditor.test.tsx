@@ -187,7 +187,7 @@ describe("ModelEditor", () => {
       .getAllByRole("treeitem")
       .find((item) => item.textContent?.startsWith("Shelf"))!;
     fireEvent.keyDown(row, { key: "F10", shiftKey: true });
-    expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "shelf" });
+    expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "shelf", application: "shop" });
     expect(await screen.findByRole("menuitem", { name: /^Rename/ })).toBeTruthy();
   });
 
@@ -303,7 +303,7 @@ describe("ModelEditor", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^Issues and history/ }));
     expect(await screen.findByText(/The Stock panel on the Bin page/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Go to / }));
-    expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "bin" });
+    expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "bin", application: "shop" });
     fireEvent.click(screen.getByRole("button", { name: "Remove from page" }));
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
