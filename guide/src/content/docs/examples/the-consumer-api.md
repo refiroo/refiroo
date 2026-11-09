@@ -665,7 +665,7 @@ and rejected. For a file, follow [Resolve a file of codes](/docs/guide/integrate
 ### Reuse an unchanged answer
 
 Read the `ETag` header from the earlier object GET and save it with that body. The captured header is
-`"aa0a706f7657c2adb5a7:1"`. Repeat the identical request with the complete value, including `W/`
+`W/"aa0a706f7657c2adb5a7:1"`. Repeat the identical request with the complete value, including `W/`
 and both quotes. Use your own response header rather than a literal placeholder:
 
 ```http
@@ -673,7 +673,7 @@ GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspac
 Host: <instance>
 Authorization: Bearer <consumer-token>
 Accept: application/json
-If-None-Match: "aa0a706f7657c2adb5a7:1"
+If-None-Match: W/"aa0a706f7657c2adb5a7:1"
 ```
 
 If the saved tag still matches, the conditional response is:

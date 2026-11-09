@@ -257,14 +257,14 @@ The reference snapshot has 13 stops for this operator. Reusing the unfiltered cu
 
 ## Reuse an unchanged answer
 
-Save the body from the earlier object GET and read its `ETag` response header. In the captured response it is `"aa0a706f7657c2adb5a7:1"`. Copy the whole header value into `If-None-Match`, including `W/` and both quotes; use the value from your own response rather than a placeholder:
+Save the body from the earlier object GET and read its `ETag` response header. In the captured response it is `W/"aa0a706f7657c2adb5a7:1"`. Copy the whole header value into `If-None-Match`, including `W/` and both quotes; use the value from your own response rather than a placeholder:
 
 ```http
 GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden HTTP/1.1
 Host: <instance>
 Authorization: Bearer <consumer-token>
 Accept: application/json
-If-None-Match: "aa0a706f7657c2adb5a7:1"
+If-None-Match: W/"aa0a706f7657c2adb5a7:1"
 ```
 
 If the saved tag still matches, the conditional response is:
