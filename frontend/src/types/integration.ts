@@ -643,10 +643,11 @@ export interface SubscriptionSettings {
   format: Subscription["format"];
 }
 
-export interface SubscriptionCreate extends SubscriptionSettings {
-  consumerApi: string;
-  workspaceKey: string;
-}
+/** A consumer API subscription, or (`source: "workspace"`) one to the workspace's change-set events,
+ * which takes no consumer API, filters or payload. */
+export type SubscriptionCreate =
+  | (SubscriptionSettings & { consumerApi: string; workspaceKey: string })
+  | (Omit<SubscriptionSettings, "filters" | "payload"> & { source: "workspace"; workspaceKey: string });
 
 export type SubscriptionUpdate = Partial<SubscriptionSettings> & { expectedVersion: number };
 

@@ -7,7 +7,7 @@ reader: integrator
 Use this sequence when a downstream system needs a stable business representation. Read [Consumer APIs](/docs/integrate/consumer-apis/) for the contract and permission model.
 
 1. Have an administrator [grant the client](/docs/administer/clients/) the intended consumer API in the workspace. [Get a consumer token](/docs/guide/integrate/get-a-token/); a management role alone does not open these reads.
-2. Read the [consumer API index](/docs/api/?api=management#tag/consumer). For the reference example, request `GET /api/consumer?workspace=graubuenden` and select `stops`, version 1. Its document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Read [how the declaration becomes routes and outputs](/docs/integrate/consumer-apis/#from-a-declaration-to-a-running-api), then use the instance's document to confirm its current shape.
+2. Read the [consumer API index](/docs/api/?api=management#tag/consumer). For the reference example, request `GET /api/consumer?workspace=graubuenden` and select `stops`, version 1. Its document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Read [how the declaration becomes routes and outputs](/docs/integrate/consumer-apis/#from-a-declaration-to-a-running-api), then use the instance's document to confirm its shape. An earlier served version has its own entry marked `deprecated: true`, with `sunset` when announced. Select the version your client implements; deprecated does not mean unavailable.
 3. Choose live data for current answers, or a publication for a fixed extract. Use the contract's Publications operation to select an available snapshot. Keep its identity; a business date, if supported, filters that snapshot rather than choosing another one.
 4. Read a known object ID, or start a declared list. Check that the answer identifies the intended workspace and publication. Apply only documented narrowing parameters.
 5. Process each page and follow its next cursor with the same request scope. Persist completed work before the cursor. A cursor started on the current publication continues on that snapshot if a new one is published.
@@ -16,6 +16,19 @@ Use this sequence when a downstream system needs a stable business representatio
 **Example:** the reference `stops` API offers [List all-stops](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/lists/all-stops) and [Get by ID](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/objects/{id}). Choose the workspace that declares that contract; other models need not offer it.
 
 If an object is not found, check whether its parameters filtered it out or it exists only in unpublished work. If a publication's contract does not match the requested version, choose a compatible snapshot explicitly. Do not substitute live data without changing the integration's stated guarantees.
+
+## When the version is being retired
+
+Watch `Deprecation` and `Sunset` on the version you use. The model administrator chooses
+its notice period; a sunset day does not itself stop service. Arrange migration to a tested
+replacement before the administrator removes the version. Each retained version continues
+reading current data through its own definition.
+
+`404 CONTRACT_VERSION_NOT_FOUND` means the workspace no longer serves the requested number.
+Read `details.servedContractVersions`, rediscover the index and inspect the replacement’s
+document. Do not automatically retry another version with the same parser. An older
+publication cannot restore a version that the workspace no longer serves. See
+[Earlier contract versions](/docs/integrate/consumer-apis/#earlier-contract-versions).
 
 ## Work through the reference contract
 

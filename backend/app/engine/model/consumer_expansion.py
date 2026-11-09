@@ -73,17 +73,20 @@ class PointerMap:
 IDENTITY = PointerMap()
 
 
-def expand(model: EngineModel, document: ConsumerApiDocument) -> tuple[ConsumerApiDefinition, PointerMap]:
+def expand(
+    model: EngineModel, document: ConsumerApiDocument, base: str | None = None
+) -> tuple[ConsumerApiDefinition, PointerMap]:
     """The internal form of ``document`` and the map of its pointers, or a refusal at the authored
-    pointer of a part the syntax does not allow."""
-    return _Expansion(model, document).run()
+    pointer of a part the syntax does not allow. ``base`` is where the document stands when it is an
+    earlier version's copy (DF3), ``/consumerApis/<key>`` otherwise."""
+    return _Expansion(model, document, base).run()
 
 
 class _Expansion:
-    def __init__(self, model: EngineModel, document: ConsumerApiDocument) -> None:
+    def __init__(self, model: EngineModel, document: ConsumerApiDocument, base: str | None = None) -> None:
         self.model = model
         self.document = document
-        self.base = f"/consumerApis/{seg(document.key)}"
+        self.base = base or f"/consumerApis/{seg(document.key)}"
         self.pointers = PointerMap()
         self.descriptions: dict[str, str] = {}
         # Each role's output name, and the sources of the ``code`` role.

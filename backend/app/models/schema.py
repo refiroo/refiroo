@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    field_validator,
+    model_validator,
+)
 
 ValueType = Literal[
     "text",
@@ -856,6 +865,42 @@ class FilterSpec(_Described):
     crosswalk: bool = _omitted_false()
 
 
+def _model_date(value: str | None) -> str | None:
+    """A date as the model writes it, ``YYYY-MM-DD``; anything else is refused."""
+    if value is None:
+        return None
+    try:
+        if len(value) == 10 and date.fromisoformat(value).isoformat() == value:
+            return value
+    except ValueError:
+        pass
+    raise ValueError("must be a date written YYYY-MM-DD")
+
+
+class ConsumerApiEarlierVersion(_Described):
+    """An earlier contract version of a consumer API that is still served (0.13 DF3): a frozen copy
+    of the definition as it was at ``contractVersion`` (everything but its key and name, which the
+    API keeps). ``deprecated`` is the day it was superseded (the ``Deprecation`` header), ``sunset``
+    the day its administrator announces it stops (the ``Sunset`` header); the engine serves it
+    until the administrator removes it, whatever the date."""
+
+    contractVersion: int = Field(ge=1)
+    deprecated: str | None = _omitted()
+    sunset: str | None = _omitted()
+    exposes: tuple[str, ...] = Field(min_length=1)
+    publicNames: Mapping[str, str] = Field(default_factory=dict, exclude_if=lambda value: not value)
+    object: ObjectSpec
+    operations: Operations
+    filters: Mapping[str, FilterSpec] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
+
+    @field_validator("deprecated", "sunset")
+    @classmethod
+    def _dates(cls, value: str | None) -> str | None:
+        return _model_date(value)
+
+
 class ConsumerApiDocument(_Strict):
     """One consumer API definition in schema 0.9."""
 
@@ -867,7 +912,11 @@ class ConsumerApiDocument(_Strict):
     publicNames: Mapping[str, str] = Field(default_factory=dict, exclude_if=lambda value: not value)
     object: ObjectSpec
     operations: Operations
-    filters: Mapping[str, FilterSpec] = Field(default_factory=dict, exclude_if=lambda value: not value)
+    filters: Mapping[str, FilterSpec] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
+    # Earlier versions still served beside this one, newest first (0.13 DF3).
+    earlierVersions: tuple[ConsumerApiEarlierVersion, ...] = _omitted_empty()
 
 
 class ProductDefinition(ModelDefinition):

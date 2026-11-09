@@ -48,6 +48,34 @@ A successful installation fixes the release's content; the draft continues as th
 version. If the result says **Installed, not active**, keep the installed release and resolve the
 reported activation problem. Do not assume installation was undone.
 
+
+## Review earlier consumer contracts before activation
+
+In **Consumer APIs**, check both the current version and every **Earlier versions** row in
+the draft. Raising a contract normally keeps the base release’s previous definition. That
+version continues reading current data in its original shape after activation. Installing
+an older release alone does not keep any contract served; the workspace’s active release
+must retain it.
+
+A finding ending **a kept version is served as it was: restore it, or stop serving it**
+means the retained contract would change. Restore that definition and its model sources,
+or agree to stop serving it. Raising the current version again does not fix the finding.
+The install review shows this explanation instead of a raise action for that retained version.
+
+In the install review, and in the activation dialog of each workspace, a warning that
+an API **stops serving version …** means that earlier version disappears
+on activation. The review names the version and says its consumers get
+`CONTRACT_VERSION_NOT_FOUND`; it does not say **Compatible** for that API. Confirm the removal with consuming teams, including webhook owners. Its
+reads stop and affected webhooks need review before resuming on the current contract. A
+**Sunset day** alone never stops a version. See
+[Stop serving an earlier contract version](/docs/guide/model/stop-serving-an-earlier-contract-version/).
+
+Read the removal warning in the install review before opening the confirmation. The API’s
+**Schema › Against what consumers read now** lists the same finding.
+
+Review the destination workspace’s contract check even when the draft’s base comparison
+passes: another workspace may serve a different release or retain different versions.
+
 ## Apply from a workspace
 
 1. On **Settings**, **Workspaces**, open the intended workspace and choose **Edit model**.

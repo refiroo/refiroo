@@ -4,31 +4,48 @@ description: Manage webhook delivery, keys, suspended subscriptions and delivery
 reader: access-admin
 ---
 
-Use **Settings › Integration › Webhooks** to send a consumer API’s declared events to another system. You need **Integration administration** in the source workspace. Security administration alone does not grant it. The operator must also enable webhooks in the deployment.
+Use **Settings › Integration › Webhooks** to send a consumer API’s declared record events or the workspace’s change-set events to another system. You need **Integration administration** in the source workspace. Security administration alone does not grant it. The operator must also enable webhooks in the deployment.
 
 Work with the receiving system’s owner before creating or changing delivery. [Webhooks](/docs/integrate/consumer-events-and-webhooks/) explains the receiving system’s responsibilities. Here you manage the subscription in the browser.
 
 ## Sources and configuration
 
-A webhook belongs to one **Consumer API** and one **Workspace**, fixed at creation. It delivers changes to live data from that workspace. Consumer APIs and their events are declared by the model; every application can use this capability when its model declares it.
+Choose **Events from** in **New webhook**:
 
-**New webhook** is unavailable if the active model declares no consumer API with events. Ask the model administrator to declare the required events. When **Webhooks are off in this deployment** appears, there is no **New webhook** button. **Open Deployment** leads to the deployment information; ask the operator to enable them and restart the service.
+- **Consumer API** delivers the selected API’s declared record events from live data in the chosen **Workspace**.
+- **Workspace events** delivers the workspace’s change-set steps, independently of a consumer API declaration.
+
+The source and workspace are fixed at creation. Delete the subscription and create another to change them. Consumer APIs and their events are declared by the model; every application can use this capability when its model declares it.
+
+For **Workspace events**, **All events (3)** selects all three choices. **Chosen events** lets you select:
+
+| Event shown | When it is sent |
+| --- | --- |
+| change-set.submitted | A change set was submitted for approval. |
+| change-set.approved | A change set was approved and published. |
+| change-set.sent-back | A change set was sent back to its author. |
+
+The **Consumer API** selector, **Filters** and **Content** choices are hidden for workspace events. These notifications describe change-set steps rather than consumer records. **Requests** and **Format** remain available for both sources.
+
+![New webhook with Workspace events selected and all three change-set events](/docs/screens/admin-webhook-workspace-events.png)
+
+**New webhook** is available even when no consumer API declares events. In that case, **Events from** offers **Workspace events** alone. When **Webhooks are off in this deployment** appears, there is no **New webhook** button. **Open Deployment** leads to the deployment information; ask the operator to enable them and restart the service.
 
 The **New webhook** and **Edit webhook** dialogs contain:
 
 | Section | Choices |
 | --- | --- |
 | Webhook | **Name** identifies the receiver for people. **URL** is its receiving address. HTTPS is accepted on any host; plain HTTP is limited to localhost. |
-| Source | **Consumer API** and **Workspace**. To change these later, create another webhook. |
+| Source | **Events from**, then **Consumer API** when applicable, and **Workspace**. To change these later, create another webhook. |
 | Events | **All events** or **Chosen events**, selected with **Choose events**. The choices describe the record types and changes they watch. |
 | Filters | **Add filter** offers the API’s declared filters. Enter a value and press Enter; several values of one filter are alternatives. With no filters, every event of the chosen kinds is delivered. |
 | Delivery | **Requests**, **Content** and **Format**, agreed with the receiver’s owner. |
 
 **One event per request** is the default. **Batched** sends waiting events up to **Up to (events)** and the request-size limit, without waiting to fill a batch. The normal maximum is 1,000 events and 1 MiB; an unusually large single record can exceed that size. The form shows the deployment’s event limit.
 
-**With the object** carries the record as it is when sent. **Notification only** tells the receiver which change happened so it can read what it needs. **Format** selects the receiver’s agreed format. These choices are independent.
+For consumer API events, **With the object** carries the record as it is when sent. **Notification only** tells the receiver which change happened so it can read what it needs. **Format** selects **RDM JSON** or **CloudEvents 1.0**, as agreed with the receiver. These choices are independent.
 
-A filter is evaluated when sending, against the record’s current state. A record leaving the filter’s scope is not sent just to tell the receiver it left; deletions are sent. Agree how the receiving system reconciles its copies with its integration owner.
+For consumer API events, a filter is evaluated when sending, against the record’s current state. A record leaving the filter’s scope is not sent just to tell the receiver it left; deletions are sent. Agree how the receiving system reconciles its copies with its integration owner.
 
 ![The New webhook dialog with its source, event and delivery choices](/docs/screens/admin-webhook-new.png)
 
@@ -48,11 +65,13 @@ A failed request blocks later delivery for that subscription. Retries start afte
 | --- | --- |
 | Suspended by a user | Resume when the receiver is ready. |
 | The model changed | Edit the subscription to fix the listed missing events, filters or other findings, then resume. |
-| The contract version changed | Have the receiver owner confirm compatibility, then resume to accept the served version. |
+| The contract version changed | The accepted version stopped being served. Read **Accepted** and **Served now**, have the receiver owner confirm compatibility, then resume to accept the current version. |
 | The workspace was retired | Ask a workspace administrator to reactivate it, then resume; otherwise delete the webhook. |
 | Delivery failed | Repair the receiver, then resume to retry the unacknowledged request. |
 | A filter matches nothing | Correct the filter value, then resume. |
 | Events expired | Reset and resume, then have the receiver synchronise again from the named publication. |
+
+A consumer webhook stays on its accepted version while that version remains served by the active model. Its events keep that version’s shape. Stopping that version can suspend it; resuming accepts the current version after its events and filters pass the checks. Workspace events do not depend on consumer contract versions.
 
 Follow [Find out why a webhook paused](/docs/guide/administer/find-out-why-a-webhook-paused/) for diagnosis.
 
@@ -81,3 +100,30 @@ Edits and actions check that the webhook has not changed meanwhile. If **Not sav
 Webhook subscriptions are installation settings, separate from a model release. Installing or
 copying a model does not copy its webhook destinations, keys or delivery positions. Review these
 separately when moving an integration to another installation.
+
+## Change a receiver or stop it permanently
+
+Use **Edit…** on the selected webhook to change **Name**, **URL**, chosen events, filters
+or delivery choices, then **Save changes**. A rename preserves a request being retried.
+Other configuration edits clear that saved retry and build the next request from the
+first event not acknowledged, using the new configuration. The receiver may already have
+seen an earlier attempt, so agree the change with its owner. Editing a suspended webhook
+does not resume it; use **Resume…** after correcting its findings.
+
+A destination must be an absolute address of at most 2,048 characters, with no user name,
+password or fragment. If the form says **The webhook URL must not hold user information:
+the request is signed instead**, use the receiver's address without credentials and
+configure it to check the webhook signing key. Redirects are not followed; enter the
+final destination. The receiving system's owner handles its HTTPS certificate renewal.
+
+A webhook's signing key has no scheduled automatic replacement. Rotating again during an
+overlap immediately ends the key retained from the earlier rotation: only the current
+replacement and the key it just replaced can sign. Arrange each handover before starting
+another. Rotation is also possible while suspended; it does not resume delivery.
+
+
+For temporarily stopping delivery use **Suspend**; for removing the destination use
+**Delete…**. Deletion has no undo and a new subscription does not restore the old delivery
+position. An installation restore needs its database and secret storage, through the
+operator's [backup and restore procedure](/docs/run/backup-and-restore/). Coordinate a
+restore with receivers: returning to an older acknowledged position can repeat deliveries.

@@ -809,6 +809,10 @@ button.model-editor-crumb {
 .layout-record-head strong {
   font-size: var(--text-xl);
 }
+.layout-record-head-action {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+}
 .layout-regions {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);

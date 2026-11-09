@@ -18,6 +18,13 @@ export function subscriptionState(subscription: Subscription): { label: string; 
 export const requestsLabel = (maxEventsPerBatch: number) =>
   maxEventsPerBatch === 1 ? "One event per request" : `Batched, up to ${maxEventsPerBatch.toLocaleString()} events`;
 
+/** The events a workspace delivers itself, whatever its model (API.md, `source: "workspace"`; A2). */
+export const WORKSPACE_EVENTS: readonly { key: string; description: string }[] = [
+  { key: "change-set.submitted", description: "A change set was submitted for approval." },
+  { key: "change-set.approved", description: "A change set was approved and published." },
+  { key: "change-set.sent-back", description: "A change set was sent back to its author." },
+];
+
 export const CONTENT: Record<Subscription["payload"], string> = {
   full: "With the object",
   identity: "Notification only",

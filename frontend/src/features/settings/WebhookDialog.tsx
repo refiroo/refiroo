@@ -31,7 +31,7 @@ import { Notice } from "@/ui/Notice";
 import { SearchMenu } from "@/ui/SearchMenu";
 import { TokenField } from "@/ui/TokenField";
 import { sourceName, subscribable } from "./consumerDefinitions";
-import { CONTENT, FORMAT, eventDeclaration } from "./webhookText";
+import { CONTENT, FORMAT, WORKSPACE_EVENTS, eventDeclaration } from "./webhookText";
 
 /** The batch size offered when an operator first chooses to batch. */
 const DEFAULT_BATCH = 100;
@@ -40,6 +40,8 @@ const BATCH_LIMIT = 1000;
 
 interface Draft {
   name: string;
+  /** Record events of a consumer API, or the workspace's own change-set events. */
+  source: Subscription["source"];
   consumerApi: string;
   workspaceKey: string;
   /** Every declared event, or the chosen ones. */
@@ -55,13 +57,18 @@ interface Draft {
   format: Subscription["format"];
 }
 
+const WORKSPACE_EVENT_KEYS = WORKSPACE_EVENTS.map((event) => event.key);
 const eventsOf = (definition?: ConsumerApiDefinition) => definition?.operations.events?.custom ?? [];
 const declaredEvents = (definition?: ConsumerApiDefinition) => eventsOf(definition).map((event) => event.key);
 
 function settingsOf(draft: Draft, definition?: ConsumerApiDefinition): SubscriptionSettings {
   return {
     name: draft.name.trim(),
-    events: draft.allEvents ? declaredEvents(definition) : draft.events,
+    events: draft.allEvents
+      ? draft.source === "workspace"
+        ? WORKSPACE_EVENT_KEYS
+        : declaredEvents(definition)
+      : draft.events,
     filters: Object.fromEntries(draft.filters.filter(([, list]) => list.length)),
     url: draft.url.trim(),
     maxEventsPerBatch: draft.batched ? Number(draft.batchSize) : 1,
@@ -88,9 +95,10 @@ function changes(subscription: Subscription, next: SubscriptionSettings): Omit<S
 }
 
 function draftOf(subscription: Subscription, definition?: ConsumerApiDefinition): Draft {
-  const declared = declaredEvents(definition);
+  const declared = subscription.source === "workspace" ? WORKSPACE_EVENT_KEYS : declaredEvents(definition);
   return {
     name: subscription.name,
+    source: subscription.source,
     consumerApi: subscription.consumerApi ?? "",
     workspaceKey: subscription.workspaceKey,
     allEvents: declared.length > 0 && sameList([...declared].sort(), [...subscription.events].sort()),
@@ -143,6 +151,7 @@ export function WebhookDialog({
         )
       : {
           name: "",
+          source: definitions.length ? "consumerApi" : "workspace",
           consumerApi: definitions[0]?.key ?? "",
           workspaceKey: "",
           allEvents: true,
@@ -164,11 +173,14 @@ export function WebhookDialog({
   const next = settingsOf(draft, definition);
   const update = subscription ? changes(subscription, next) : undefined;
   const dirty = editing ? Object.keys(update ?? {}).length > 0 : !!(draft.url || draft.name);
-  const eventOptions: PickOption[] = eventsOf(definition).map((event) => ({
-    id: event.key,
-    label: event.key,
-    description: eventDeclaration(model, event),
-  }));
+  const workspaceSource = draft.source === "workspace";
+  const eventOptions: PickOption[] = workspaceSource
+    ? WORKSPACE_EVENTS.map((event) => ({ id: event.key, label: event.key, description: event.description }))
+    : eventsOf(definition).map((event) => ({
+        id: event.key,
+        label: event.key,
+        description: eventDeclaration(model, event),
+      }));
   const unusedParameters: PickOption[] = Object.entries(parameters)
     .filter(([name]) => !draft.filters.some(([added]) => added === name))
     .map(([name, parameter]) => ({
@@ -213,7 +225,19 @@ export function WebhookDialog({
       onSaved(
         subscription
           ? await api.updateSubscription(subscription.id, { expectedVersion: subscription.version, ...update })
-          : await api.createSubscription({ ...next, consumerApi: draft.consumerApi, workspaceKey: draft.workspaceKey }),
+          : await api.createSubscription(
+              workspaceSource
+                ? {
+                    name: next.name,
+                    source: "workspace",
+                    workspaceKey: draft.workspaceKey,
+                    events: next.events,
+                    url: next.url,
+                    maxEventsPerBatch: next.maxEventsPerBatch,
+                    format: next.format,
+                  }
+                : { ...next, consumerApi: draft.consumerApi, workspaceKey: draft.workspaceKey },
+            ),
       );
     } catch (cause) {
       if (subscription && onConflict && isApiError(cause, "VERSION_CONFLICT")) {
@@ -289,51 +313,78 @@ export function WebhookDialog({
           <h3 id="dialog-form-source">Source</h3>
           {editing ? (
             <p className="admin-hint">
-              {definition ? `${definition.name} · v${subscription.contractVersion}` : sourceName(subscription)},
-              workspace <code>{subscription.workspaceKey}</code>. The consumer API and the workspace are not edited:
+              {definition && !workspaceSource
+                ? `${definition.name} · v${subscription.contractVersion}`
+                : sourceName(subscription)}
+              , workspace <code>{subscription.workspaceKey}</code>. The consumer API and the workspace are not edited:
               delete the subscription and create another to change them.
             </p>
           ) : (
-            <div className="dialog-form-grid">
-              <FormField label="Consumer API" error={fieldError("consumerApi")}>
-                {(control) => (
-                  <select
-                    {...control}
-                    value={draft.consumerApi}
-                    onChange={(event) =>
-                      set({ consumerApi: event.target.value, allEvents: true, events: [], filters: [] })
+            <>
+              <FormField label="Events from" group>
+                {() => (
+                  <Choice
+                    name="webhook-source"
+                    value={draft.source}
+                    options={
+                      definitions.length
+                        ? [
+                            ["consumerApi", "Consumer API"],
+                            ["workspace", "Workspace events"],
+                          ]
+                        : [["workspace", "Workspace events"]]
                     }
-                  >
-                    {definitions.map((item) => (
-                      <option key={item.key} value={item.key}>
-                        {item.name} · v{item.contractVersion}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(source) => set({ source, allEvents: true, events: [], filters: [] })}
+                  />
                 )}
               </FormField>
-              <FormField
-                label="Workspace"
-                help="Changes to its live data are delivered."
-                error={fieldError("workspaceKey")}
-              >
-                {(control) => (
-                  <select
-                    {...control}
-                    value={draft.workspaceKey}
-                    disabled={!workspaces}
-                    onChange={(event) => set({ workspaceKey: event.target.value })}
-                  >
-                    {!workspaces && <option value="">Loading workspaces…</option>}
-                    {workspaces?.map((workspace) => (
-                      <option key={workspace.key} value={workspace.key}>
-                        {workspace.label} ({workspace.key})
-                      </option>
-                    ))}
-                  </select>
+              <div className="dialog-form-grid">
+                {!workspaceSource && (
+                  <FormField label="Consumer API" error={fieldError("consumerApi")}>
+                    {(control) => (
+                      <select
+                        {...control}
+                        value={draft.consumerApi}
+                        onChange={(event) =>
+                          set({ consumerApi: event.target.value, allEvents: true, events: [], filters: [] })
+                        }
+                      >
+                        {definitions.map((item) => (
+                          <option key={item.key} value={item.key}>
+                            {item.name} · v{item.contractVersion}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </FormField>
                 )}
-              </FormField>
-            </div>
+                <FormField
+                  label="Workspace"
+                  help={
+                    workspaceSource
+                      ? "Its change-set steps (submitted, approved, sent back) are delivered."
+                      : "Changes to its live data are delivered."
+                  }
+                  error={fieldError("workspaceKey")}
+                >
+                  {(control) => (
+                    <select
+                      {...control}
+                      value={draft.workspaceKey}
+                      disabled={!workspaces}
+                      onChange={(event) => set({ workspaceKey: event.target.value })}
+                    >
+                      {!workspaces && <option value="">Loading workspaces…</option>}
+                      {workspaces?.map((workspace) => (
+                        <option key={workspace.key} value={workspace.key}>
+                          {workspace.label} ({workspace.key})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </FormField>
+              </div>
+            </>
           )}
         </section>
 
@@ -367,57 +418,59 @@ export function WebhookDialog({
           {fieldError("events") && <small className="field-error">{fieldError("events")}</small>}
         </section>
 
-        <section className="dialog-form-section" aria-labelledby="dialog-form-filters">
-          <div className="dialog-form-heading">
-            <h3 id="dialog-form-filters">Filters</h3>
-            <SearchMenu
-              label="Add filter"
-              items={unusedParameters}
-              onSelect={(name) => set({ filters: [...draft.filters, [name, []]] })}
-            />
-          </div>
-          {draft.filters.length === 0 ? (
-            <p className="admin-hint">
-              {Object.keys(parameters).length
-                ? "None: every event of the chosen kinds is delivered. Add a filter to deliver only those of matching records."
-                : "This consumer API declares no parameter to filter by."}
-            </p>
-          ) : (
-            <ul className="webhook-filters">
-              {draft.filters.map(([name, list]) => (
-                <li key={name}>
-                  <FormField
-                    label={name}
-                    help={
-                      parameters[name]?.matchOn
-                        ? `Each value matches a record's ${parameters[name].matchOn.join(", ")}; several are alternatives.`
-                        : "Several values are alternatives."
-                    }
-                    error={fieldError(`filter:${name}`)}
-                  >
-                    {(control) => (
-                      <TokenField
-                        control={control}
-                        label={name}
-                        values={list}
-                        onChange={(values) => setFilter(name, values)}
-                        placeholder="Type a value, then Enter"
-                      />
-                    )}
-                  </FormField>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={`Remove filter ${name}`}
-                    onClick={() => set({ filters: draft.filters.filter(([added]) => added !== name) })}
-                  >
-                    <Icon name="trash" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {!workspaceSource && (
+          <section className="dialog-form-section" aria-labelledby="dialog-form-filters">
+            <div className="dialog-form-heading">
+              <h3 id="dialog-form-filters">Filters</h3>
+              <SearchMenu
+                label="Add filter"
+                items={unusedParameters}
+                onSelect={(name) => set({ filters: [...draft.filters, [name, []]] })}
+              />
+            </div>
+            {draft.filters.length === 0 ? (
+              <p className="admin-hint">
+                {Object.keys(parameters).length
+                  ? "None: every event of the chosen kinds is delivered. Add a filter to deliver only those of matching records."
+                  : "This consumer API declares no parameter to filter by."}
+              </p>
+            ) : (
+              <ul className="webhook-filters">
+                {draft.filters.map(([name, list]) => (
+                  <li key={name}>
+                    <FormField
+                      label={name}
+                      help={
+                        parameters[name]?.matchOn
+                          ? `Each value matches a record's ${parameters[name].matchOn.join(", ")}; several are alternatives.`
+                          : "Several values are alternatives."
+                      }
+                      error={fieldError(`filter:${name}`)}
+                    >
+                      {(control) => (
+                        <TokenField
+                          control={control}
+                          label={name}
+                          values={list}
+                          onChange={(values) => setFilter(name, values)}
+                          placeholder="Type a value, then Enter"
+                        />
+                      )}
+                    </FormField>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Remove filter ${name}`}
+                      onClick={() => set({ filters: draft.filters.filter(([added]) => added !== name) })}
+                    >
+                      <Icon name="trash" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section className="dialog-form-section" aria-labelledby="dialog-form-delivery">
           <h3 id="dialog-form-delivery">Delivery</h3>
@@ -463,27 +516,29 @@ export function WebhookDialog({
             </FormField>
           )}
           <div className="dialog-form-grid">
-            <FormField
-              label="Content"
-              group
-              help={
-                draft.payload === "full"
-                  ? "Each event carries the object as it is when sent."
-                  : "Each event names the change and the object; the receiver reads what it needs."
-              }
-            >
-              {() => (
-                <Choice
-                  name="webhook-payload"
-                  value={draft.payload}
-                  options={[
-                    ["full", CONTENT.full],
-                    ["identity", CONTENT.identity],
-                  ]}
-                  onChange={(payload) => set({ payload })}
-                />
-              )}
-            </FormField>
+            {!workspaceSource && (
+              <FormField
+                label="Content"
+                group
+                help={
+                  draft.payload === "full"
+                    ? "Each event carries the object as it is when sent."
+                    : "Each event names the change and the object; the receiver reads what it needs."
+                }
+              >
+                {() => (
+                  <Choice
+                    name="webhook-payload"
+                    value={draft.payload}
+                    options={[
+                      ["full", CONTENT.full],
+                      ["identity", CONTENT.identity],
+                    ]}
+                    onChange={(payload) => set({ payload })}
+                  />
+                )}
+              </FormField>
+            )}
             <FormField
               label="Format"
               group

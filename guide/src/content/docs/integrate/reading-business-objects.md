@@ -320,3 +320,48 @@ ETags have an opaque digest and contract version. Keep the whole value, includin
 A parent UUID that is missing or has the wrong parent type gives `404 PARENT_NOT_FOUND`. An unknown public type filter gives `400 UNKNOWN_OBJECT_TYPE`. A value that cannot parse as a typed match field simply does not match that field. A shared-related route does not by itself include the matching record: that needs `itself` in the declaration.
 
 Conditional reads accept `If-None-Match: *`, a list of tags and weak comparison. A 304 has no body and retains the ETag and read-context headers. A live cursor combined with publication selection, a pinned cursor without publication selection, or a different explicit publication ID gives `INVALID_CURSOR`. Keep `publication=latest` on continuation requests to follow the publication first resolved by that cursor.
+
+## Select a publication before a baseline
+
+**Reference-data example:** ask for the workspace's publications through the [Publications operation](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/publications):
+
+```http
+GET /api/consumer/stops/v1/publications?workspace=graubuenden&pageSize=20&includeTotal=true HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+Before that workspace has any publications, the complete successful body has this shape. This is an illustration of the empty state, not a captured answer from the reference instance:
+
+```json
+{
+  "items": [],
+  "workspace": "graubuenden",
+  "pageSize": 20,
+  "nextCursor": null,
+  "prevCursor": null,
+  "anchor": null,
+  "totalCount": 0,
+  "startIndex": 0
+}
+```
+
+A nonempty answer includes each publication's `id`, `publishedAt`, `eventSequence` and `status`. `active` identifies the snapshot selected by `publication=latest`; `withdrawn` includes superseded or withdrawn snapshots, still readable by explicit ID. The collection has no `publication` field of its own. Without `includeTotal=true`, its total fields are omitted; this operation uses the ordinary collection envelope rather than a data list's nullable totals.
+
+For a baseline, select an ID with a usable sequence, then add `publication=<id>` to the declared list or object request. A publication can still fail the contract-compatibility check on that read; its presence in the catalogue does not establish compatibility. If the catalogue is empty, use live reads for current answers or arrange a publication for a fixed extract. Do not invent a publication ID or treat null `eventSequence` as zero. Follow [Load, then follow changes](/docs/guide/integrate/load-then-follow-changes/#use-a-consumer-contract-instead) when continuing from its sequence.
+
+## Reading through an earlier contract
+
+A retained earlier contract reads current data using that version’s fields, names and
+related blocks. Keep its version in object, list and lookup addresses, and keep checkpoints
+with that version and workspace. It is not a snapshot of the data from when the contract
+was superseded. Use a compatible publication for fixed values.
+
+The workspace must currently serve the requested version, even for a publication read.
+The publication must also contain that version’s definition; keeping v1 live does not
+make a publication containing only v2 compatible with v1. If the administrator stops v1,
+its reads return `404 CONTRACT_VERSION_NOT_FOUND`; `details.servedContractVersions` lists
+available numbers. Rediscover and inspect the intended replacement rather than changing
+the URL and reusing an unreviewed parser. See [Earlier contract versions](/docs/integrate/consumer-apis/#earlier-contract-versions)
+for deprecation headers, discovery and an example response.

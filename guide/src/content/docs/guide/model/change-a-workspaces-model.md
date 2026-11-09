@@ -32,3 +32,30 @@ be usable on this instance. See [Releases](/docs/model/releases/) and [Migration
 
 **Not activated** means the switch failed. Read why, refresh the workspace and check again.
 Choosing an older version runs the same checks; it does not restore older record values.
+
+
+## Check which consumer versions stay available
+
+Compare the target release with the workspace’s current contract, including any earlier
+versions it serves. A higher current number does not itself prove every existing consumer
+can continue: the target release must retain the earlier definitions. An older installed
+release or publication does not keep their live routes available.
+
+A finding ending **a kept version is served as it was: restore it, or stop serving it**
+means an earlier contract would read differently. Prepare a corrected draft that restores
+that definition and its sources, or coordinate stopping it, then install a new release.
+Raising the current contract again does not repair the retained version.
+
+The activation dialog shows blocking consumer differences, and a warning when an earlier
+version **stops serving**, naming the version and that its consumers get
+`CONTRACT_VERSION_NOT_FOUND`. Agree that removal with all consuming teams
+before activating. That version’s reads and feed stop. Webhooks bound to
+it can suspend; the integration administrator must check the receiver before resuming on
+the current contract. If the version remains retained, its consumers and webhooks continue
+in its own shape. A **Sunset day** announces an end but never stops service automatically.
+
+To change which versions the target release retains, use
+[Raise a contract version](/docs/guide/model/raise-a-contract-version/) or
+[Stop serving an earlier contract version](/docs/guide/model/stop-serving-an-earlier-contract-version/)
+in a draft. Releases themselves are immutable. **Cancel** leaves the workspace on its
+current release; a draft undo does not reverse an activation already completed.

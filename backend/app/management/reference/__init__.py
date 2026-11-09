@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from ...config import ApiReferenceScript
-from ...engine.model.consumer_definitions import consumer_apis
+from ...engine.model.consumer_definitions import consumer_apis, served_versions
 from ...engine.model.consumer_openapi import consumer_openapi_path
 from ...engine.model.registry import resolve_model_snapshot
 from ...errors import ApiError
@@ -267,11 +267,15 @@ def consumer_sources(session: Session, root_path: str, workspace: str | None = N
     suffix = f"?{urlencode({'workspace': workspace})}" if workspace else ""
     return [
         {
-            "title": f"{definition.name} · v{definition.contractVersion}",
+            "title": f"{definition.name} · v{definition.contractVersion}"
+            + ("" if served.is_current else " (deprecated)"),
             "slug": f"consumer-{definition.key}-v{definition.contractVersion}",
             "url": f"{root_path}{consumer_openapi_path(definition)}{suffix}",
         }
-        for definition in sorted(consumer_apis(model), key=lambda item: item.key)
+        for current in sorted(consumer_apis(model), key=lambda item: item.key)
+        # The versions the API keeps beside the current one are documented too (0.13 DF3).
+        for served in served_versions(model, current.key)
+        for definition in (served.definition,)
     ]
 
 

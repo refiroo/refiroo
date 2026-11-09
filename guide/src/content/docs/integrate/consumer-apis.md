@@ -64,13 +64,40 @@ Each consumer contract has its own version, separate from the model release and 
 
 ## Discover and obtain access
 
-Read the [consumer API index](/docs/api/?api=management#tag/consumer) for the workspace. It identifies contracts and their own OpenAPI documents. Each contract's routes and typed answers are described separately from the management API. The workspace's model determines the available version; using another version can produce `CONTRACT_VERSION_NOT_FOUND`. The workspace serves its currently declared version for live reads. Raising the version does not leave a parallel old live endpoint; coordinate activation with consuming systems. Historical publication reads resolve the publication's own definition as described below.
+Read the [consumer API index](/docs/api/?api=management#tag/consumer) for the workspace. It identifies contracts and their own OpenAPI documents. Each contract's routes and typed answers are described separately from the management API. The workspace’s model determines the available versions: the current version and any retained earlier versions. The editor retains the draft’s base release definition by default when raising its version, even after breaking edits. A version that base release never served leaves nothing to retain. All served versions read current live data through their own definitions. Coordinate activation with consuming systems; versions explicitly stopped are no longer available. Historical publication reads resolve the publication's own definition as described below.
 
 A client needs a consumer-audience token and a consumer API grant in that workspace. A management role does not grant consumer data. An administrator [grants the client access](/docs/administer/clients/). Public OpenAPI documents describe contracts without exposing records; the index and data reads require authentication. A consumer token sees only granted APIs in the index, possibly none. A management token with Browse in the workspace sees all its APIs in the index. The per-definition OpenAPI document is public. Its OAuth 2.0 client-credentials scheme points to the instance’s token endpoint and requests the consumer scope.
 
 Data requests check the token, workspace, consumer grant, then API name and version, in that order. A missing grant can therefore return `403 FORBIDDEN` even for an undeclared API name. This also applies to publication reads. Missing credentials return `401 AUTHENTICATION_REQUIRED`; invalid credentials return `401 TOKEN_INVALID`, with `details.reason` such as `expired`, `revoked`, `audience`, `unknownKey`, `malformed` or `signature`. Both 401 responses carry `WWW-Authenticate: Bearer`. A forbidden consumer read names `consumerApi` and `workspaceKey` in its details. Obtain a valid token for a 401; ask the administrator to review the workspace grant for a 403.
 
 **Example:** the guide's reference model declares the `stops` contract. Its [Get by ID operation](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/objects/{id}) presents stops with their municipality, operator, modes, system codes and names. Those names and projections are model configuration; other models can expose different business objects.
+
+## Choose an operation
+
+The paths below are the shared route patterns. Replace `{consumer_api}` with the declared key and `{contract_version}` with its integer version. Replace `{object_id}` with a public record UUID and `{list_key}` with a declared list name. Send the workspace on every request so a default-workspace change cannot redirect an integration.
+
+| Operation | Purpose and next step |
+| --- | --- |
+| `GET /api/consumer` | Discover the APIs your token may read, their versions and document addresses. |
+| `GET /api/consumer/{consumer_api}/v{contract_version}/openapi.json` | Read that workspace's generated OpenAPI contract. This document is public; it grants no data access. |
+| `GET /api/consumer/{consumer_api}/v{contract_version}/objects/{object_id}` | Read one exposed record in its declared business shape. See [Reading business objects](/docs/integrate/reading-business-objects/). |
+| `GET /api/consumer/{consumer_api}/v{contract_version}/lists/{list_key}` | Traverse a named list, optionally narrowed by its declared filters or parent scope. See [the collection guide](/docs/guide/integrate/read-through-a-consumer-api/). |
+| `GET /api/consumer/{consumer_api}/v{contract_version}/xref` | Match terms to scored objects, or require one untied best answer. See [Looking up and resolving](/docs/integrate/looking-up-and-resolving/). |
+| `POST /api/consumer/{consumer_api}/v{contract_version}/resolve` | Resolve many queries or known IDs while preserving input order and reporting each outcome. See [Resolve a file of codes](/docs/guide/integrate/resolve-a-file-of-codes/). |
+| `GET /api/consumer/{consumer_api}/v{contract_version}/publications` | Find snapshots and their event positions before a fixed extract. See [Load, then follow changes](/docs/guide/integrate/load-then-follow-changes/). |
+| `GET /api/consumer/{consumer_api}/v{contract_version}/events` | Follow the contract's business events from a saved position. See [Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/). |
+
+**Reference-data example:** the `stops` contract declares these five lists. They all return the shared object in a paged `items` envelope. Supply `workspace=graubuenden` and a consumer token. Full request and response bodies are in [Reading business objects](/docs/integrate/reading-business-objects/); the instance's [generated list operations](/docs/api/?api=consumer-stops-v1) describe the concrete schemas.
+
+| Request | Records and scope |
+| --- | --- |
+| `GET /api/consumer/stops/v1/lists/municipalities` | Municipalities; optional `district` parent UUIDs scope them below districts. |
+| `GET /api/consumer/stops/v1/lists/stops` | Stops ordered by stop number; optional `municipality` parent UUIDs scope them below municipalities. |
+| `GET /api/consumer/stops/v1/lists/all-stops` | Stops ordered by stop number, without a special parent parameter; declared filters still apply. |
+| `GET /api/consumer/stops/v1/lists/operators` | Operators, using the default list order. |
+| `GET /api/consumer/stops/v1/lists/modes` | Modes, using the default list order. |
+
+`GET /api/consumer/stops/v1/publications` lists this workspace's snapshots; it does not list only changes to stops. Use each snapshot's ID to pin compatible reads and its `eventSequence` as the starting position for following events. No publication needs to exist for live reads to work.
 
 ## Understand the shared object
 
@@ -365,4 +392,86 @@ for complete bodies, signing, retries, CloudEvents and recovery.
 
 Activation compares with what consumers read in the workspace’s current release and refuses unversioned breaks. Draft contract review compares with its base release, or the latest installed release of the same model when there is no base. Review the target workspace’s activation compatibility as well. Installing a release alone does not change the API consumers read. Removing a whole definition produces a warning and ends its address on activation; it does not preserve the old API.
 
-Removing or retyping a field, changing related cardinality, removing an exposed type, operation, list or filter, changing a filter’s verb, changing a list’s type, parent scope or ordering, changing matching weights or score restrictions, or disabling crosswalks can require a higher `contractVersion`. Event coverage is checked too. Adding fields or operations is normally compatible. Coordinate any version increase before activation: the current server serves one live version per definition. See [Compatibility](/docs/integrate/compatibility/) for the published commitment and this implementation limit.
+Removing or retyping a field, changing related cardinality, removing an exposed type, operation, list or filter, changing a filter’s verb, changing a list’s type, parent scope or ordering, changing matching weights or score restrictions, or disabling crosswalks can require a higher `contractVersion`. Event coverage is checked too. Adding fields or operations is normally compatible. Coordinate any version increase before activation: the server serves the current definition and any retained earlier definitions. See [Compatibility](/docs/integrate/compatibility/) for notice ownership and [earlier versions](#earlier-contract-versions) for discovery and recovery.
+
+## Earlier contract versions
+
+A definition can retain frozen contracts in `earlierVersions`. Each contains its own
+`contractVersion`, `exposes`, `publicNames`, `object`, `operations` and `filters`, with optional
+`description`, `deprecated` and `sunset` dates. Numbers must be positive, unique and lower than
+the current version. Dates use `YYYY-MM-DD`. Every reference is validated against the current
+model; keeping a contract does not preserve deleted types or attributes. A missing source
+is refused with the API, earlier version and failing path named. Restore that source or
+stop the version deliberately. Model administrators
+use [Earlier versions](/docs/model/consumer-apis/#keep-an-earlier-version-available).
+
+The authenticated index returns an entry for each served version, current first followed by
+retained versions for that API. A retained entry has `deprecated: true` and, when set, `sunset`.
+Its `openapi` points to that version’s document. Each operation in the earlier document is
+marked `deprecated: true`, and its introduction identifies the current version and announced
+sunset day. Read that document when preparing a client migration; an unchanged API key does
+not mean that v1 and v2 return the same shape.
+
+The `deprecated` day records when the earlier contract was superseded. The editor defaults
+it to the day of the raise. If an authored earlier version omits it, responses use the active
+release’s installation time. The optional `sunset` date is the administrator’s announced
+end day, and can be cleared without removing the version.
+
+For a retained version, responses carry `Deprecation` as an RFC 9745 structured date
+(`@` followed by Unix seconds). They also carry `Sunset` as an RFC 8594 HTTP date when a
+sunset day is set, at midnight UTC. These headers announce the retained version even on
+errors after the version has been selected. The sunset date does not turn a route off.
+The model administrator chooses the notice period and explicitly removes the version.
+
+For integrations that author models, use the [model-authoring operations](/docs/api/?api=management#tag/model%20administration)
+to raise the current version and retain the base release’s definition, set or withdraw its
+sunset, or remove an earlier version. Review the resulting authored definition and compile
+findings before installation and workspace activation. Directly supplying `earlierVersions`
+must preserve the original definition too; copying the new edited definition under the old
+number does not preserve its contract. The same checks apply to browser and API authoring.
+
+**Illustrative migration example using the reference stops API:** after its administrator
+raises to v2 while keeping v1, the existing request still works:
+
+```http
+GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden
+Authorization: Bearer <consumer-token>
+```
+
+The object remains in the v1 shape shown in [Reading business objects](/docs/integrate/reading-business-objects/),
+with current values. Its headers might include:
+
+```http
+Deprecation: @1794009600
+Sunset: Sun, 07 Nov 2027 00:00:00 GMT
+```
+
+These dates illustrate an administrator’s announcement, not a captured reference-instance
+upgrade. Once v1 is explicitly removed and that release is activated, the same request
+returns HTTP 404, with this body if v2 is the only remaining version:
+
+```json
+{
+  "error": {
+    "code": "CONTRACT_VERSION_NOT_FOUND",
+    "message": "Consumer API 'stops' has no contract version '1'; it serves version 2",
+    "details": {"contractVersion": 2, "servedContractVersions": [2]}
+  }
+}
+```
+
+Rediscover the contract, read its generated document and change the client deliberately.
+Do not automatically retry against the first number in `servedContractVersions`: its output
+may require a different parser. An older publication cannot make a stopped route available.
+
+Release checks refuse changes that break a retained contract with
+`CONSUMER_KEPT_VERSION_CHANGED`. Its message identifies the API, version and change, ending
+**a kept version is served as it was: restore it, or stop serving it**. Restore that version’s
+contract and the model sources it depends on, or coordinate its removal. Raising the current
+number again does not fix the retained contract. Deliberately removing a retained version
+produces `CONSUMER_VERSION_STOPPED`, for example:
+
+> Consumer API 'stops' stops serving version 1; its consumers will receive 404 CONTRACT_VERSION_NOT_FOUND from /api/consumer/stops/v1
+
+Review the warning with the affected client owners before activation. Stopping one version
+preserves the records and other served versions; removing the whole API ends every version.

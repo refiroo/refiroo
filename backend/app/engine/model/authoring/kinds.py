@@ -13,6 +13,7 @@ A compound kind (a removal, a split, a merge, a move, a containment change) has 
 
 import copy
 import json
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -120,8 +121,11 @@ class Context:
         sheets: dict[str, Sheet] | None = None,
         file_name: str | None = None,
         in_use: Callable[[str], bool] | None = None,
+        base: dict[str, Any] | None = None,
     ) -> None:
         self.document = document
+        # The document of the draft's base release, which a consumer API version is frozen from (DF3).
+        self.base = base
         # What the operation being applied changes that needs a migration: ``(atom, key change)``.
         self.marks: list[tuple[str, bool]] = []
         self.released = released
@@ -1074,14 +1078,23 @@ def move_attribute(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("setAttributeBinding", params=("objectType", "attributeType", "required", "readOnly", "position"))
+@kind(
+    "setAttributeBinding",
+    params=("objectType", "attributeType", "required", "readOnly", "position", "ui"),
+)
 def set_attribute_binding(context: Context, raw: dict[str, Any]) -> Applied:
     """Change the settings of an attribute binding on an object type."""
     params = Params(raw)
     type_key, attribute_key = params.text("objectType"), params.text("attributeType")
     binding = context.binding(type_key, attribute_key)
     path = type_path(type_key) + ["attributes"]
-    inverse: dict[str, Any] = {"kind": "setAttributeBinding", "objectType": type_key, "attributeType": attribute_key}
+    inverse: dict[str, Any] = {
+        "kind": "setAttributeBinding",
+        "objectType": type_key,
+        "attributeType": attribute_key,
+    }
+    if "ui" in raw:
+        _set_ui(context, path + [{"attributeTypeKey": attribute_key}], params.required("ui", dict))
     for name in ("required", "readOnly"):
         if name in raw:
             value = _flag(raw, name)
@@ -1095,11 +1108,265 @@ def set_attribute_binding(context: Context, raw: dict[str, Any]) -> Applied:
             raise Refusal("position", "outOfRange", f"Position {index} is outside the list")
         inverse["position"] = context.document.move(path, {"attributeTypeKey": attribute_key}, index)
         if keep_order(context.document, path, {"attributeTypeKey": attribute_key}):
-            named = {atom("attributeBinding", type_key, attribute_key), atom("objectType", type_key)}
-            return restoring(context, {"kind": "setAttributeBinding", **raw}, Applied(raw, {}, named=named))
-    if len(inverse) == 3:
-        raise Refusal("required", "missingParameter", "Name required, readOnly or position")
-    return Applied(raw, inverse, named={atom("attributeBinding", type_key, attribute_key), atom("objectType", type_key)})
+            named = {
+                atom("attributeBinding", type_key, attribute_key),
+                atom("objectType", type_key),
+            }
+            return restoring(
+                context, {"kind": "setAttributeBinding", **raw}, Applied(raw, {}, named=named)
+            )
+    if len(inverse) == 3 and "ui" not in raw:
+        raise Refusal("required", "missingParameter", "Name required, readOnly, position or ui")
+    if "ui" in raw:
+        named = {atom("attributeBinding", type_key, attribute_key), atom("objectType", type_key)}
+        return restoring(
+            context, {"kind": "setAttributeBinding", **raw}, Applied(raw, {}, named=named)
+        )
+    return Applied(
+        raw,
+        inverse,
+        named={atom("attributeBinding", type_key, attribute_key), atom("objectType", type_key)},
+    )
+
+
+# --- properties the editor sets (0.13 ED) ---
+
+_UI_HINTS = ("hidden", "helpText")
+
+
+def _set_ui(context: Context, path: Path, changes: dict[str, Any]) -> None:
+    """Sets the display hints (``hidden``, ``helpText``) in the ``ui`` of the node at ``path``; a
+    ``null`` hint, ``false`` for ``hidden`` or empty help text takes it away."""
+    unknown = [name for name in changes if name not in _UI_HINTS]
+    if unknown:
+        raise Refusal(
+            f"ui/{unknown[0]}",
+            "unknownParameter",
+            f"Unknown display hint '{unknown[0]}'; use hidden or helpText",
+        )
+    ui = dict(context.document.at(path).get("ui") or {})
+    for name, value in changes.items():
+        if name == "hidden" and value is not None and not isinstance(value, bool):
+            raise Refusal("ui/hidden", "invalidValue", "'hidden' is true or false")
+        if name == "helpText" and value is not None and not isinstance(value, str):
+            raise Refusal("ui/helpText", "invalidValue", "'helpText' is text")
+        if value in (None, False, ""):
+            ui.pop(name, None)
+        else:
+            ui[name] = value
+    context.document.set(path, "ui", ui or None)
+
+
+def _set_member(context: Context, path: Path, container: str, member: str, value: Any) -> None:
+    """Sets ``member`` of the object ``container`` of the node at ``path``; an emptied container goes."""
+    current = dict(context.document.at(path).get(container) or {})
+    if value is None:
+        current.pop(member, None)
+    else:
+        current[member] = value
+    context.document.set(path, container, current or None)
+
+
+def _bound_attribute_keys(context: Context, type_key: str, raw: Any, name: str) -> list[str]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(key, str) for key in raw):
+        raise Refusal(name, "invalidValue", f"'{name}' is a list of attribute type keys")
+    if len(raw) != len(set(raw)):
+        raise Refusal(name, "invalidValue", f"'{name}' names an attribute type twice")
+    for key in raw:
+        context.binding(type_key, key, name)
+    return list(raw)
+
+
+_OBJECT_TYPE_PROPERTIES = (
+    "displayAttributeTypeKey",
+    "effectivePeriod",
+    "atLeastOneOf",
+    "parentRelationTypeKeys",
+)
+
+
+@kind("setObjectTypeProperty", params=("objectType", "property", "value"))
+def set_object_type_property(context: Context, raw: dict[str, Any]) -> Applied:
+    """A type's display attribute, effective period, the attributes of which one must be filled
+    (``validation.atLeastOneOf``) and its parent relationships (``behavior.parentRelationTypeKeys``).
+    ``null`` takes the setting away. Stored data meeting a tighter ``atLeastOneOf`` is checked when
+    the release is installed (compatibility)."""
+    params = Params(raw)
+    type_key, name = params.text("objectType"), params.text("property")
+    object_type = context.object_type(type_key)
+    if name not in _OBJECT_TYPE_PROPERTIES:
+        raise Refusal(
+            "property",
+            "unknownElement",
+            f"No type property '{name}'; use one of {list(_OBJECT_TYPE_PROPERTIES)}",
+        )
+    value = raw.get("value")
+    path = type_path(type_key)
+    if name == "displayAttributeTypeKey":
+        if value is not None:
+            if not isinstance(value, str):
+                raise Refusal("value", "invalidValue", "'value' is an attribute type key")
+            context.binding(type_key, value, "value")
+        context.document.set(path, name, value)
+    elif name == "effectivePeriod":
+        if value is not None:
+            if not isinstance(value, dict) or set(value) != {
+                "startAttributeTypeKey",
+                "endAttributeTypeKey",
+            }:
+                raise Refusal(
+                    "value",
+                    "invalidValue",
+                    "An effective period names startAttributeTypeKey and endAttributeTypeKey",
+                )
+            for role in ("startAttributeTypeKey", "endAttributeTypeKey"):
+                key = value[role]
+                context.binding(type_key, key, f"value/{role}")
+                if context.attribute_type(key, f"value/{role}").get("valueType") != "date":
+                    raise Refusal(
+                        f"value/{role}", "invalidValue", f"'{key}' is not a date attribute"
+                    )
+            if value["startAttributeTypeKey"] == value["endAttributeTypeKey"]:
+                raise Refusal(
+                    "value/endAttributeTypeKey",
+                    "invalidValue",
+                    "The start and the end are two different attributes",
+                )
+            value = dict(value)
+        context.document.set(path, name, value)
+    elif name == "atLeastOneOf":
+        keys = _bound_attribute_keys(context, type_key, value, "value")
+        value = keys or None
+        _set_member(context, path, "validation", name, value)
+    else:
+        if value is None:
+            keys = []
+        elif (
+            isinstance(value, list)
+            and all(isinstance(key, str) for key in value)
+            and len(value) == len(set(value))
+        ):
+            keys = list(value)
+        else:
+            raise Refusal("value", "invalidValue", "'value' is a list of relation type keys")
+        for key in keys:
+            if key not in context.relation_keys():
+                raise Refusal("value", "unknownElement", f"No relation type '{key}'")
+            if not any(
+                (b.get("relationTypeKey"), b.get("toObjectTypeKey")) == (key, type_key)
+                for b in context.document.items("objectTypeRelations")
+            ):
+                raise Refusal(
+                    "value", "invalidValue", f"No relationship '{key}' is allowed to '{type_key}'"
+                )
+        if keys != list((object_type.get("behavior") or {}).get(name) or []):
+            context.unreleased(atom("objectType", type_key))
+        value = keys or None
+        _set_member(context, path, "behavior", name, value)
+    # The stored prior state is the inverse: a container (``validation``, ``behavior``) emptied or
+    # created by the change comes back as it was.
+    return restoring(
+        context,
+        {"kind": "setObjectTypeProperty", **raw},
+        Applied({**raw, "value": value}, {}, named={atom("objectType", type_key)}),
+    )
+
+
+_ATTRIBUTE_TYPE_PROPERTIES = ("minimum", "maximum", "hidden", "helpText")
+
+
+@kind("setAttributeTypeProperty", params=("attributeType", "property", "value"))
+def set_attribute_type_property(context: Context, raw: dict[str, Any]) -> Applied:
+    """An attribute type's ``validation`` bounds (``minimum``, ``maximum``: numbers, on an integer or
+    decimal type) and display hints (``hidden``, ``helpText``). ``null`` takes the setting away.
+    Stored values outside a new bound are found when the release is installed (compatibility)."""
+    params = Params(raw)
+    key, name = params.text("attributeType"), params.text("property")
+    attribute = context.attribute_type(key)
+    if name not in _ATTRIBUTE_TYPE_PROPERTIES:
+        raise Refusal(
+            "property",
+            "unknownElement",
+            f"No attribute property '{name}'; use one of {list(_ATTRIBUTE_TYPE_PROPERTIES)}",
+        )
+    value = raw.get("value")
+    path = ["attributeTypes", {"key": key}]
+    if name in ("minimum", "maximum"):
+        if attribute.get("valueType") not in ("integer", "decimal"):
+            raise Refusal(
+                "property",
+                "invalidValue",
+                f"'{key}' is not a number type; a minimum and maximum apply to integer and decimal types",
+            )
+        if value is not None:
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+            ):
+                raise Refusal("value", "invalidValue", f"'{name}' is a number")
+            other = (attribute.get("validation") or {}).get(
+                "maximum" if name == "minimum" else "minimum"
+            )
+            if other is not None and (value > other if name == "minimum" else value < other):
+                raise Refusal("value", "invalidValue", "The minimum must not exceed the maximum")
+        _set_member(context, path, "validation", name, value)
+    else:
+        _set_ui(context, path, {name: value})
+    return restoring(
+        context,
+        {"kind": "setAttributeTypeProperty", **raw},
+        Applied(raw, {}, named={atom("attributeType", key)}),
+    )
+
+
+@kind("setRelationTypeProperty", params=("relationType", "property", "value"))
+def set_relation_type_property(context: Context, raw: dict[str, Any]) -> Applied:
+    """Whether a relation type is oriented: deleting a record then removes the relationships it points
+    to. It changes what a later deletion does, not what is stored."""
+    params = Params(raw)
+    key, name = params.text("relationType"), params.text("property")
+    relation = context.relation_type(key)
+    if name != "isOriented":
+        raise Refusal(
+            "property", "unknownElement", f"No relation type property '{name}'; use isOriented"
+        )
+    # ``null`` is the default (oriented), left unwritten, as an inverse writes it back.
+    if "value" not in raw:
+        raise Refusal("value", "missingParameter", "'value' is required")
+    value = params.optional("value", bool)
+    old = relation.get("isOriented")
+    context.document.set(["relationTypes", {"key": key}], "isOriented", value)
+    return Applied(
+        raw,
+        {"kind": "setRelationTypeProperty", "relationType": key, "property": name, "value": old},
+        named={atom("relationType", key)},
+    )
+
+
+@kind("setApplicationProperty", params=("applicationKey", "property", "value"))
+def set_application_property(context: Context, raw: dict[str, Any]) -> Applied:
+    """An application's default view. Its colour is set with ``setLabel``; its ``state`` is read by
+    nothing and is not offered."""
+    params = Params(raw)
+    app, name = params.text("applicationKey"), params.text("property")
+    application = context.application(app)
+    if name != "defaultView":
+        raise Refusal(
+            "property", "unknownElement", f"No application property '{name}'; use defaultView"
+        )
+    value = params.text("value")
+    if value not in {v.get("key") for v in application.get("views") or []}:
+        raise Refusal("value", "unknownElement", f"Application '{app}' has no view '{value}'")
+    old = application.get("defaultView")
+    context.document.set(application_path(app), "defaultView", value)
+    return Applied(
+        raw,
+        {"kind": "setApplicationProperty", "applicationKey": app, "property": name, "value": old},
+        named={atom("application", app)},
+    )
 
 
 # --- structure ---
@@ -1636,7 +1903,19 @@ def disallow_relation(context: Context, raw: dict[str, Any]) -> Applied:
     )
 
 
-@kind("setRelationRule", params=("relationType", "from", "to", "cardinality", "required", "candidates", "uniqueToAncestorTypeKey"))
+@kind(
+    "setRelationRule",
+    params=(
+        "relationType",
+        "from",
+        "to",
+        "cardinality",
+        "required",
+        "candidates",
+        "uniqueToAncestorTypeKey",
+        "attributeTypeKeys",
+    ),
+)
 def set_relation_rule(context: Context, raw: dict[str, Any]) -> Applied:
     """Change the rule of an allowed relationship."""
     params = Params(raw)
@@ -1660,6 +1939,18 @@ def set_relation_rule(context: Context, raw: dict[str, Any]) -> Applied:
     if "candidates" in raw:
         inverse["candidates"] = copy.deepcopy(binding.get("candidates"))
         context.document.set(path, "candidates", params.optional("candidates", dict))
+    if "attributeTypeKeys" in raw:
+        keys = params.optional("attributeTypeKeys", list) or []
+        if not all(isinstance(key, str) for key in keys) or len(keys) != len(set(keys)):
+            raise Refusal(
+                "attributeTypeKeys",
+                "invalidValue",
+                "'attributeTypeKeys' is a list of attribute type keys",
+            )
+        for key in keys:
+            context.attribute_type(key, "attributeTypeKeys")
+        inverse["attributeTypeKeys"] = list(binding.get("attributeTypeKeys") or [])
+        context.document.set(path, "attributeTypeKeys", keys or None)
     if "uniqueToAncestorTypeKey" in raw:
         features = dict(binding.get("features") or {})
         inverse["uniqueToAncestorTypeKey"] = features.get("uniqueToAncestorTypeKey")

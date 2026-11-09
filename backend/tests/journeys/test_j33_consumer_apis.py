@@ -10,6 +10,7 @@ definitions that name a new element (D54). The tests name structures of the conf
 ``D``, ``Bown``, ``G``, ``Capi``) and elements they create under ``j33-`` keys.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -280,6 +281,82 @@ def test_a_removed_consumer_api_is_a_warning_and_undo_puts_it_back(world):
         "INVALID_OPERATION",
     )
     assert error["details"]["reason"] == "keyTaken"
+
+
+@pytest.mark.journey("J33.13", "J25.9")
+@pytest.mark.structures("Capi")
+def test_raising_a_version_keeps_the_previous_one_and_it_is_announced_then_stopped(world):
+    """Given a draft of the active release. When the editor raises Capi's version, then version 1 is
+    kept frozen with today's day as deprecated and the draft stays valid; a sunset day is set (a bad
+    one is refused), the version stopped, and each step undone exactly. A raise that does not keep
+    leaves no earlier version, and a version not above the current one is refused."""
+    draft = _draft_of_active(world)
+    api = world.key("Capi")
+    before = _by_key(_model(world, draft)["consumerApis"], api)
+
+    raised = ok(_apply(world, draft, draft["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}))
+    assert raised["valid"] is True, raised["diagnostics"]
+    after = _by_key(_model(world, draft)["consumerApis"], api)
+    (kept,) = after["earlierVersions"]
+    assert after["contractVersion"] == 2 and kept["contractVersion"] == 1
+    assert kept["object"] == before["object"] and kept["operations"] == before["operations"]
+    assert kept["deprecated"] == datetime.now(UTC).date().isoformat() and "sunset" not in kept
+
+    dated = ok(_apply(world, draft, raised["version"], {"kind": "setConsumerApiSunset", "consumerApi": api, "version": 1, "sunset": "2027-06-30"}))
+    assert _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"][0]["sunset"] == "2027-06-30"
+    error = refused(
+        _apply(world, draft, dated["version"], {"kind": "setConsumerApiSunset", "consumerApi": api, "version": 1, "sunset": "next spring"}),
+        422,
+        "INVALID_OPERATION",
+    )
+    assert error["details"]["reason"] == "invalidValue"
+    refused(
+        _apply(world, draft, dated["version"], {"kind": "removeConsumerApiVersion", "consumerApi": api, "version": 7}),
+        422,
+        "INVALID_OPERATION",
+    )
+
+    stopped = ok(_apply(world, draft, dated["version"], {"kind": "removeConsumerApiVersion", "consumerApi": api, "version": 1}))
+    assert not _by_key(_model(world, draft)["consumerApis"], api).get("earlierVersions")
+    assert stopped["valid"] is True
+    undone = ok(_undo(world, draft, stopped["version"]))
+    assert _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"][0]["sunset"] == "2027-06-30"
+    undone = ok(_undo(world, draft, undone["version"]))
+    undone = ok(_undo(world, draft, undone["version"]))
+    assert _by_key(_model(world, draft)["consumerApis"], api) == before
+
+    alone = ok(_apply(world, draft, undone["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api, "version": 5, "keep": False}))
+    assert alone["valid"] is True
+    again = _by_key(_model(world, draft)["consumerApis"], api)
+    assert again["contractVersion"] == 5 and not again.get("earlierVersions")
+    refused(
+        _apply(world, draft, alone["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api, "version": 5}),
+        422,
+        "INVALID_OPERATION",
+    )
+
+
+@pytest.mark.journey("J33.13", "J25.9")
+@pytest.mark.structures("Capi")
+def test_the_kept_version_is_what_the_base_release_served_and_a_new_api_keeps_none(world):
+    """Given a draft whose Capi already lost a field (a breaking edit). When the editor raises the
+    version, then the kept version 1 holds the field as the base release served it and compiling
+    reports no change to a kept version; a consumer API added in the draft keeps nothing when raised."""
+    draft = _draft_of_active(world)
+    api = world.key("Capi")
+    before = _by_key(_model(world, draft)["consumerApis"], api)
+    score = world.key("Capi.n")
+    edited = ok(_apply(world, draft, draft["version"], {"kind": "removeConsumerApiPart", "consumerApi": api, "pointer": f"/object/fields/{score}"}))
+    raised = ok(_apply(world, draft, edited["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}))
+    after = _by_key(_model(world, draft)["consumerApis"], api)
+    assert score not in after["object"]["fields"]
+    assert after["earlierVersions"][0]["object"] == before["object"]
+    compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": raised["version"]}))
+    assert "CONSUMER_KEPT_VERSION_CHANGED" not in {d["code"] for d in compiled["consumerContracts"]["diagnostics"]}
+
+    added = ok(_apply(world, draft, raised["version"], {"kind": "addConsumerApi", "name": "J33 New", "key": "j33-new", "exposes": [world.key("R")]}))
+    ok(_apply(world, draft, added["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": "j33-new"}))
+    assert not _by_key(_model(world, draft)["consumerApis"], "j33-new").get("earlierVersions")
 
 
 @pytest.mark.journey("J33.13")

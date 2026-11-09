@@ -78,6 +78,11 @@ export function summarizeChanges(
   return [...lines].map(([label, names]) => ({ label, names: [...names] }));
 }
 
+/** The diagnostic of a kept earlier version that would read differently (0.13 DF3). */
+const KEPT_VERSION_CHANGED = "CONSUMER_KEPT_VERSION_CHANGED";
+/** The warning for an earlier version the release stops serving (0.13 DF3). */
+export const KEPT_VERSION_STOPPED = "CONSUMER_VERSION_STOPPED";
+
 /** The consumer contract diagnostics by the consumer API their pointer names. */
 export function contractsByApi(diagnostics: ModelDiagnostic[]): Map<string, ModelDiagnostic[]> {
   const found = new Map<string, ModelDiagnostic[]>();
@@ -551,7 +556,12 @@ export function ConsumerContracts({
       </h3>
       <ul className="install-contracts">
         {outline.consumerApis.map((item) => {
-          const breaking = (byApi.get(item.key) ?? []).filter((d) => d.severity === "error");
+          const errors = (byApi.get(item.key) ?? []).filter((d) => d.severity === "error");
+          // A kept earlier version that would read differently is not cured by a higher version.
+          const kept = errors.filter((d) => d.code === KEPT_VERSION_CHANGED);
+          const breaking = errors.filter((d) => d.code !== KEPT_VERSION_CHANGED);
+          // A version the release stops serving, on purpose: a warning, but never "Compatible".
+          const stopped = (byApi.get(item.key) ?? []).filter((d) => d.code === KEPT_VERSION_STOPPED);
           const next = (item.contractVersion ?? 1) + 1;
           return (
             <li key={item.key}>
@@ -569,15 +579,15 @@ export function ConsumerContracts({
                     type="button"
                     className="primary"
                     disabled={pending}
-                    onClick={() =>
-                      void run([
-                        { kind: "setConsumerApiPart", consumerApi: item.key, pointer: "/contractVersion", value: next },
-                      ])
-                    }
+                    onClick={() => void run([{ kind: "raiseConsumerApiVersion", consumerApi: item.key }])}
                   >
                     Raise to v{next}
                   </button>
                 </>
+              ) : kept.length ? (
+                <span className="install-contract-break">{kept.map((d) => d.message).join("; ")}</span>
+              ) : stopped.length ? (
+                <span className="install-contract-warn">{stopped.map((d) => d.message).join(" ")}</span>
               ) : (
                 <span className="install-contract-ok">Compatible</span>
               )}

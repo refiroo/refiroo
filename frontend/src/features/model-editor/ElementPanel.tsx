@@ -28,6 +28,13 @@ import type { RunStep, StepOutcome } from "@/features/model-editor/OperationDial
 import { Facts, type Fact } from "@/features/model-editor/Facts";
 import { EmptyState } from "@/ui/EmptyState";
 import { OperationsMenu, type OnOperation } from "@/features/model-editor/OperationsMenu";
+import { SettingsTable } from "@/features/model-editor/SettingsTable";
+import {
+  applicationSettings,
+  attributeTypeSettings,
+  relationTypeSettings,
+  typeSettings,
+} from "@/features/model-editor/elementSettings";
 export type { OnOperation };
 import { DRAG_ATTRIBUTE } from "@/features/model-editor/ModelPane";
 import {
@@ -232,6 +239,33 @@ export function ElementPanel({
             },
     },
     {
+      key: "carries",
+      label: "Carries",
+      cell: (relation) => {
+        const target: OperationTarget = {
+          on: "relation",
+          relationType: relation.relationType,
+          from: relation.from,
+          to: relation.to,
+        };
+        const choose = operationById("relation-attributes");
+        const summary = relation.attributeTypeKeys?.length
+          ? relation.attributeTypeKeys.map((key) => attributeTypeOf(outline, key)?.name ?? key).join(", ")
+          : "Nothing";
+        return choose && operationsFor(target, outline).includes(choose) ? (
+          <EditInPlaceValue
+            layout="row"
+            name="Attributes of the relationship"
+            onEdit={() => onOperation(choose, target)}
+          >
+            <span className="attribute-value">{summary}</span>
+          </EditInPlaceValue>
+        ) : (
+          summary
+        );
+      },
+    },
+    {
       key: "candidates",
       label: "Which records",
       cell: (relation) => {
@@ -417,6 +451,42 @@ export function ElementPanel({
                         }),
                       },
                       {
+                        key: "hidden",
+                        label: "Hidden",
+                        cell: (attribute) => (attribute.hidden ? "Yes" : "No"),
+                        edit: (attribute) => ({
+                          label: "Hidden on this type",
+                          value: String(Boolean(attribute.hidden)),
+                          options: YES_NO,
+                          operations: (value) => [
+                            {
+                              kind: "setAttributeBinding",
+                              objectType: type.key,
+                              attributeType: attribute.attributeType,
+                              ui: { hidden: value === "true" ? true : null },
+                            },
+                          ],
+                        }),
+                      },
+                      {
+                        key: "helpText",
+                        label: "Help text",
+                        cell: (attribute) => attribute.helpText || "None",
+                        edit: (attribute) => ({
+                          label: "Help text on this type",
+                          value: attribute.helpText ?? "",
+                          optional: true,
+                          operations: (value) => [
+                            {
+                              kind: "setAttributeBinding",
+                              objectType: type.key,
+                              attributeType: attribute.attributeType,
+                              ui: { helpText: value || null },
+                            },
+                          ],
+                        }),
+                      },
+                      {
                         key: "sharedWith",
                         label: "Shared with",
                         cell: (attribute) =>
@@ -505,6 +575,22 @@ export function ElementPanel({
                 </div>
               ),
             },
+            {
+              id: "settings",
+              label: "Settings",
+              content: (
+                <div className="element-tab">
+                  <SettingsTable
+                    scope="type-settings"
+                    label={`Settings of ${type.name}`}
+                    settings={typeSettings(outline, type)}
+                    outline={outline}
+                    run={run}
+                    onOperation={onOperation}
+                  />
+                </div>
+              ),
+            },
           ]}
         />
       </section>
@@ -529,6 +615,15 @@ export function ElementPanel({
         >
           {menu(`Operations for ${application.name}`, target)}
         </Header>
+        <h3 className="element-subheading">Settings</h3>
+        <SettingsTable
+          scope="application-settings"
+          label={`Settings of ${application.name}`}
+          settings={applicationSettings(application)}
+          outline={outline}
+          run={run}
+          onOperation={onOperation}
+        />
         <h3 className="element-subheading">Object types</h3>
         <EditorTable
           editing={editing}
@@ -619,8 +714,8 @@ export function ElementPanel({
           ]}
         />
         <div className="element-tab-actions">
-          <OperationButton id="application-add-matrix" target={target} outline={outline} onOperation={onOperation}>
-            <Icon name="plus" /> Relation matrix
+          <OperationButton id="application-add-view" target={target} outline={outline} onOperation={onOperation}>
+            <Icon name="plus" /> View
           </OperationButton>
         </div>
         <h3 className="element-subheading">Navigation groups</h3>
@@ -872,6 +967,15 @@ export function ElementPanel({
           {menu(`Operations for ${relationType.name}`, target)}
         </Header>
         {proposed}
+        <h3 className="element-subheading">Settings</h3>
+        <SettingsTable
+          scope="relation-type-settings"
+          label={`Settings of ${relationType.name}`}
+          settings={relationTypeSettings(relationType)}
+          outline={outline}
+          run={run}
+          onOperation={onOperation}
+        />
         <h3 className="element-subheading">Names</h3>
         <dl className="element-names">
           <div>
@@ -969,6 +1073,15 @@ export function ElementPanel({
           {menu(`Operations for ${attributeType.name}`, target)}
         </Header>
         {proposed}
+        <h3 className="element-subheading">Settings</h3>
+        <SettingsTable
+          scope="attribute-type-settings"
+          label={`Settings of ${attributeType.name}`}
+          settings={attributeTypeSettings(attributeType)}
+          outline={outline}
+          run={run}
+          onOperation={onOperation}
+        />
         <h3 className="element-subheading">Attached to</h3>
         <EditorTable
           editing={editing}

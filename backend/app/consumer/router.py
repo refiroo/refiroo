@@ -14,6 +14,8 @@ serves its own at ``…/openapi.json``, and ``GET /api/consumer`` lists them (C6
 import json
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
+from datetime import UTC, date, datetime
+from email.utils import format_datetime
 from typing import Annotated, Any
 from urllib.parse import unquote_plus, urlencode
 
@@ -28,7 +30,7 @@ from ..db import SessionLocal
 from ..engine.authorization.permissions import permissions_of
 from ..engine.identity.authentication import authenticate, require_started
 from ..engine.model.consumer_definitions import consumer_api as declared_api
-from ..engine.model.consumer_definitions import consumer_apis
+from ..engine.model.consumer_definitions import consumer_apis, served_version, served_versions
 from ..engine.model.consumer_openapi import consumer_openapi, consumer_openapi_path
 from ..engine.model.registry import (
     ModelSnapshot,
@@ -47,7 +49,7 @@ from ..engine.reads.consumer_events import (
     read_consumer_events,
 )
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
-from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
+from ..engine.reads.consumer_objects import read_consumer_object, served_consumer_version
 from ..engine.reads.consumer_parameters import consumer_filter, target_names
 from ..engine.reads.consumer_publications import read_publications
 from ..engine.reads.consumer_request import (
@@ -70,7 +72,7 @@ from ..engine.reads.consumer_source import PUBLICATION_SCOPE, ConsumerSource
 from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
-from ..models.database import Publication, Workspace
+from ..models.database import ModelRelease, Publication, Workspace
 from ..models.schema import ConsumerApiDefinition, EngineModel
 from .etag import entity_tag, none_match
 
@@ -105,6 +107,39 @@ async def _body(request: Request) -> bytes:
 
 DbSession = Annotated[Session, Depends(_session, scope="function")]
 Body = Annotated[bytes, Depends(_body)]
+
+
+def _served(
+    request: Request,
+    session: Session,
+    active: ModelSnapshot,
+    consumer_api: str,
+    contract_version: str,
+) -> ConsumerApiDefinition:
+    """The definition the route serves, current or an earlier version the model keeps; an earlier
+    one is announced in every answer, errors included (0.13 DF3): ``Deprecation`` (RFC 9745) from the
+    day it was superseded, and ``Sunset`` (RFC 8594) when its administrator set a date."""
+    served = served_consumer_version(active.model, consumer_api, contract_version)
+    if not served.is_current:
+        since = (
+            datetime.fromisoformat(served.deprecated).replace(tzinfo=UTC)
+            if served.deprecated
+            else session.scalar(
+                select(ModelRelease.installed_at).where(ModelRelease.id == active.release_db_id)
+            )
+        )
+        headers = {"Deprecation": f"@{int(since.timestamp())}"} if since is not None else {}
+        if served.sunset:
+            headers["Sunset"] = format_datetime(
+                datetime.combine(date.fromisoformat(served.sunset), datetime.min.time(), UTC),
+                usegmt=True,
+            )
+        request.state.version_headers = headers
+    return served.definition
+
+
+def _announced(request: Request) -> dict[str, str]:
+    return getattr(request.state, "version_headers", {})
 
 
 def _started(request: Request) -> None:
@@ -217,16 +252,18 @@ def _reading(
             return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
         publication = _publication(session, workspace, value, parameters.single("cursor"))
         pinned = resolve_pinned_release(session, publication.model_release_id)
-        declared = declared_api(pinned.model, definition.key)
-        if declared is None or declared.contractVersion != definition.contractVersion:
-            declared_version = declared.contractVersion if declared is not None else None
+        kept = served_version(pinned.model, definition.key, definition.contractVersion)
+        declared = kept.definition if kept is not None else None
+        if declared is None:
+            current = declared_api(pinned.model, definition.key)
+            declared_version = current.contractVersion if current is not None else None
             raise api_error(
                 409,
                 "PUBLICATION_CONTRACT_MISMATCH",
                 f"Publication '{publication.id}' was published under a model release that "
                 + (
                     f"declares contract version {declared_version} of this API"
-                    if declared is not None
+                    if declared_version is not None
                     else "does not declare this API"
                 )
                 + f", not version {definition.contractVersion}; read a publication made under this version",
@@ -291,7 +328,7 @@ def get_object(
     """Get by ID: the definition's shared object for the record with this object ID, narrowed by the
     definition's parameters (C-D31)."""
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
     _offered(definition, "objects")
 
     def check(declared: ConsumerApiDefinition) -> ReadParameters:
@@ -324,7 +361,7 @@ def get_list(
     """A page of the definition's list ``list_key``: the records of its type, below the parent
     values when given, narrowed by the definition's parameters (C-D27–C-D31)."""
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
 
     def check(declared: ConsumerApiDefinition) -> ReadParameters:
         listed = consumer_list(declared, list_key)
@@ -370,7 +407,7 @@ def get_xref(
     """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
     _offered(definition, "xref")
     expect = request.query_params.getlist("expect")
     expect_one = _expect_one(expect[-1] if expect else None)
@@ -418,7 +455,7 @@ def post_resolve(
     (C-D47–C-D50). A read: the body only carries the items. It answers no ETag: HTTP answers ``304``
     to ``GET`` only (C-D65)."""
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
     _offered(definition, "resolve")
 
     def check(declared: ConsumerApiDefinition) -> ReadParameters:
@@ -455,7 +492,7 @@ def get_publications(
     """The workspace's publications, newest first, each with the ``eventSequence`` to follow changes
     from after reading it (C-D66)."""
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
     parameters = _checked(request, definition, serves=PUBLICATIONS_NAMES, applies_definition=False)
     page_size, page = read_page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
@@ -491,7 +528,7 @@ def get_events(
     position its objects show."""
     session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
     if not definition.events:
         raise api_error(
             404,
@@ -500,7 +537,14 @@ def get_events(
         )
     parameters = _checked(request, definition, serves=EVENTS_NAMES, crosswalk=False)
     workspace = _workspace(session, parameters.single("workspace"))
-    asked = _events_request(parameters, definition, workspace.key)
+    # An earlier version reads the events its own declaration names, whatever else the current one adds.
+    current = declared_api(active.model, definition.key)
+    asked = _events_request(
+        parameters,
+        definition,
+        workspace.key,
+        restrict=current is not None and current.contractVersion != definition.contractVersion,
+    )
     derived, _start = derived_head(session, workspace.key)
 
     def live() -> _Read:
@@ -547,7 +591,11 @@ def _offered(definition: ConsumerApiDefinition, operation: str) -> None:
 
 
 def _events_request(
-    parameters: ReadParameters, definition: ConsumerApiDefinition, workspace_key: str
+    parameters: ReadParameters,
+    definition: ConsumerApiDefinition,
+    workspace_key: str,
+    *,
+    restrict: bool = False,
 ) -> EventsRequest:
     """The pull feed's request, checked: its events, payload and page size, and where it starts,
     from ``after`` or a cursor issued for the same API, workspace, events and parameters."""
@@ -558,6 +606,8 @@ def _events_request(
         else ()
     )
     unknown = [key for key in event_keys if key not in declared]
+    if restrict and not event_keys:
+        event_keys = tuple(event.key for event in definition.events)
     if unknown:
         raise api_error(
             400,
@@ -656,15 +706,22 @@ def get_index(
             **({"description": item.description} if item.description else {}),
             "contractVersion": item.contractVersion,
             "openapi": f"{root_path}{consumer_openapi_path(item)}{suffix}",
+            **({"deprecated": True} if not served.is_current else {}),
+            **({"sunset": served.sunset} if served.sunset else {}),
         }
-        for item in consumer_apis(active.model)
-        if listed is None or item.key in listed
+        for api in consumer_apis(active.model)
+        if listed is None or api.key in listed
+        for served in served_versions(active.model, api.key)
+        for item in (served.definition,)
     ]
 
     def read() -> dict[str, Any]:
         found = paginate_sequence(
             entries,
-            lambda entry: (entry["consumerApi"],),
+            lambda entry: (
+                entry["consumerApi"],
+                f"{10**6 - entry['contractVersion']:07d}",
+            ),  # newest version first
             scope="consumer-index",
             page=page,
             page_size=page_size,
@@ -700,7 +757,7 @@ def get_openapi(
     ``404 CONTRACT_VERSION_NOT_FOUND`` naming the one served."""
     _plain(request, frozenset({"workspace"}))
     workspace, active = _described(response, session, request.query_params.get("workspace"))
-    definition = consumer_definition(active.model, consumer_api, contract_version)
+    definition = _served(request, session, active, consumer_api, contract_version)
     root_path = _root_path(request)
     return _document(
         request,
@@ -767,15 +824,17 @@ def _document(
     request: Request, response: Response, tag: str, read: Callable[[], dict[str, Any]]
 ) -> dict[str, Any] | Response:
     """A read that depends on the active release only: its answer with ``tag``, or ``304``."""
+    announced = _announced(request)
     try:
         body = read()
     except ApiError as exc:
         if exc.status == 422 and exc.code in _PAGING_CODES:
             exc.status = 400
+        exc.headers = {**(exc.headers or {}), **announced}
         raise
     if none_match(request.headers.get("if-none-match"), tag):
-        return Response(status_code=304, headers={"ETag": tag})
-    response.headers["ETag"] = tag
+        return Response(status_code=304, headers={"ETag": tag, **announced})
+    response.headers.update({"ETag": tag, **announced})
     return body
 
 
@@ -965,7 +1024,7 @@ def _answer(
     ``If-None-Match`` names it (C-D65). A read dated by ``asOf`` names the dated types in
     ``RDM-As-Of-Applied``: ``dated`` reads them from the read and its body, by default the body's
     ``asOfApplied`` (C-D78)."""
-    headers = {WORKSPACE_HEADER: workspace.key}
+    headers = {WORKSPACE_HEADER: workspace.key, **_announced(request)}
     try:
         current = reading()
         if current.source.publication_id is not None:

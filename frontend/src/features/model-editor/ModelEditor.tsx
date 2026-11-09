@@ -579,7 +579,8 @@ export function ModelEditor({
     ) : undefined;
   const toModels: RouteState = { kind: "settings", page: "model" };
   // Close returns to where the editor was opened from: the journey's page, else the models.
-  const toClose: RouteState = journey ? { kind: "settings", page: "ai-tasks", taskId: journey.taskId } : toModels;
+  const toClose: RouteState =
+    journey?.kind === "aiTask" ? { kind: "settings", page: "ai-tasks", taskId: journey.taskId } : toModels;
   const close = () => (forWorkspace ? onOpenWorkspace?.(forWorkspace) : onNavigate(toClose));
   const deleteItem = {
     id: "deleteDraft",

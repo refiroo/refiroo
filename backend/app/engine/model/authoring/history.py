@@ -396,7 +396,7 @@ class _Drafts:
         def in_use(element: str) -> bool:
             return element in released and any(counted(element).values())
 
-        context = Context(document, released.__contains__, profile, sheets, file_name, in_use)
+        context = Context(document, released.__contains__, profile, sheets, file_name, in_use, base.model_json if base else None)
         applied: list[Applied] = []
         for index, operation in enumerate(operations):
             if not isinstance(operation, dict):

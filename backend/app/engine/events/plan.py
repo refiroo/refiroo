@@ -147,8 +147,12 @@ class _Projection:
 class EventPlan:
     """A definition's events and what each kind of raw change reaches, for one release."""
 
-    def __init__(self, model: EngineModel, definition: ConsumerApiDefinition) -> None:
+    def __init__(self, model: EngineModel, definition: ConsumerApiDefinition, store_key: str | None = None) -> None:
         self.definition = definition
+        # The ``consumer_api`` its events are stored under: the API's key, or for an earlier version the
+        # model keeps (0.13 DF3) ``<key>@v<n>``, so each version has the events its own declaration names
+        # and its own output names in ``changed``.
+        self.store_key = store_key or definition.key
         self.events: tuple[ConsumerEvent, ...] = tuple(definition.events)
         self.types = frozenset(definition.objectTypes)
         self.public_names = {key: item.publicName for key, item in definition.objectTypes.items()}

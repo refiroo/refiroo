@@ -55,7 +55,10 @@ The example uses placeholder values based on field types. They do not prove that
 4. If a change needs a higher contract version, follow
    [Raise a contract version](/docs/guide/model/raise-a-contract-version/), then download
    the documents again. Agree the new address and changeover with consuming teams before
-   activation. A version increase does not keep the previous live endpoint alongside it.
+   activation. Raising retains the base release’s previous definition by default. Check
+   **Earlier versions** on **Types and related**; a new, unserved API has no previous
+   version to retain. The draft tabs describe the current definition. Give the integrator
+   each served version’s own document for the earlier contract review.
 
 **Reference-data example:** an integrator checks that Stops API can read a known stop, list stops, look up its identifiers, resolve several inputs and follow the declared changes. The selected fields, related blocks, filters and notifications should match the agreement. Use [Consumer APIs for integrators](/docs/integrate/consumer-apis/) for worked requests and answers. Every organisation’s declaration is its own contract; hand over your generated documents.
 
@@ -73,6 +76,12 @@ The example uses placeholder values based on field types. They do not prove that
    create grants, and a role alone does not open consumer data.
 
 ![Active consumer API with release, version, base address, operation document and routes](/docs/screens/model-consumer-active-documents.png)
+
+Earlier contracts are marked deprecated in their generated operation documents, with the
+announced sunset day when one is set. Deprecated means still served: the administrator must
+explicitly stop the version through a model release. Ask the integrator to check the
+[version index and generated documents](/docs/integrate/consumer-apis/#earlier-contract-versions)
+for each required version. Do not assume an installed older release alone serves that version.
 
 Opening the operation document does not require signing in. Reading data still requires the consuming client’s grant in the intended workspace. Share the addresses using the page’s copy controls; see [Consumer APIs for integrators](/docs/integrate/consumer-apis/) for discovery and authentication.
 

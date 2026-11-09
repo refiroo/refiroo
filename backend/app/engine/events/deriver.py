@@ -125,12 +125,12 @@ def _insert_events(
     entry = AuditEvent
     definition = plan.definition
     digest = func.md5(
-        func.concat(entry.event_id, ":", definition.key, ":", decided.c.event_key, ":", decided.c.object_id)
+        func.concat(entry.event_id, ":", plan.store_key, ":", decided.c.event_key, ":", decided.c.object_id)
     )
     rows = select(
         cast(cast(digest, UUID), String(36)),
         literal(workspace_key, String),
-        literal(definition.key, String),
+        literal(plan.store_key, String),
         literal(definition.contractVersion, Integer),
         decided.c.event_key,
         decided.c.position,

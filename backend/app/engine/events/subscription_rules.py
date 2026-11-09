@@ -26,6 +26,7 @@ from ...errors import ApiError, api_error
 from ...models.database import ConsumerSubscription
 from ...models.schema import ConsumerApiDefinition, EngineModel, ProjectionParameter
 from ..model.consumer_definitions import consumer_api as declared_api
+from ..model.consumer_definitions import served_version, served_versions
 from ..model.validation.consumer_api_rules import RESERVED_PARAMETERS
 from . import workspace_events
 
@@ -49,16 +50,46 @@ class Asked:
     consumer_api: str
     event_keys: Sequence[str]
     filters: Mapping[str, Sequence[str]]
+    # The contract version it is read at; without one, the version served now.
+    contract_version: int | None = None
 
 
-def definition_of(model: EngineModel, consumer_api: str) -> ConsumerApiDefinition | None:
-    return declared_api(model, consumer_api)
+def definition_of(model: EngineModel, consumer_api: str, contract_version: int | None = None) -> ConsumerApiDefinition | None:
+    """The definition of ``consumer_api`` at ``contract_version``: the current one, or an earlier one
+    the model keeps (0.13 DF3); without a version, the current one."""
+    if contract_version is None:
+        return declared_api(model, consumer_api)
+    served = served_version(model, consumer_api, contract_version)
+    return served.definition if served is not None else None
+
+
+def asked_version(model: EngineModel, consumer_api: str, contract_version: int) -> int | None:
+    """``contract_version`` while the model still serves it; otherwise ``None``, the version served now,
+    which a resume accepts (C-D99)."""
+    return contract_version if definition_of(model, consumer_api, contract_version) is not None else None
 
 
 def definition_findings(model: EngineModel, asked: Asked) -> list[ApiError]:
     """Each way ``model`` cannot serve what ``asked`` names, at its body pointer: the consumer API,
     its events, each named event, each filter's name. An empty list when it can."""
-    definition = definition_of(model, asked.consumer_api)
+    definition = definition_of(model, asked.consumer_api, asked.contract_version)
+    if definition is None and asked.contract_version is not None and declared_api(model, asked.consumer_api) is not None:
+        served = declared_api(model, asked.consumer_api)
+        assert served is not None
+        versions = [item.definition.contractVersion for item in served_versions(model, asked.consumer_api)]
+        return [
+            api_error(
+                400,
+                "CONTRACT_VERSION_NOT_FOUND",
+                f"Consumer API '{asked.consumer_api}' has no contract version {asked.contract_version}; it"
+                f" serves {', '.join(str(n) for n in versions)}",
+                {
+                    "contractVersion": served.contractVersion,
+                    "servedContractVersions": versions,
+                    "pointer": "/contractVersion",
+                },
+            )
+        ]
     if definition is None:
         return [
             api_error(
@@ -157,7 +188,10 @@ def suspend_left_behind(session: Session, model: EngineModel, workspace_key: str
         )
         .with_for_update()
     ):
-        asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters)
+        # The version it was accepted under while that is still served (DF3); otherwise the one
+        # served now, which suspends it below.
+        version = asked_version(model, subscription.consumer_api, subscription.contract_version)
+        asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters, version)
         findings = definition_findings(model, asked)
         if findings:
             rows.append(
@@ -172,7 +206,7 @@ def suspend_left_behind(session: Session, model: EngineModel, workspace_key: str
             continue
         definition = definition_of(model, subscription.consumer_api)
         assert definition is not None
-        if definition.contractVersion != subscription.contract_version:
+        if version is None:
             rows.append(
                 {
                     "row": subscription.sequence_id,

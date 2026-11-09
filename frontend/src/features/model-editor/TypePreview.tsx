@@ -58,6 +58,8 @@ import {
   newFieldGroupSpec,
   panelColumns,
   panelColumnsSpec,
+  pageHeaderSpec,
+  panelSettingsSpec,
   panelSortSpec,
   panelToRegion,
   regionPanels,
@@ -68,6 +70,7 @@ import {
   setPanelVisible,
   tableColumnsSpec,
   tableFiltersSpec,
+  tableMenuSpec,
   tableSortSpec,
   type LayoutPlace,
   type Region,
@@ -654,6 +657,7 @@ function LayoutCanvas({
     const other: Region = region === "main" ? "side" : "main";
     const columns = panelColumns(panel);
     const sort = panelSortSpec(model, place, panel);
+    const settings = panelSettingsSpec(model, place, panel);
     return [
       {
         id: "up",
@@ -706,6 +710,17 @@ function LayoutCanvas({
         : []),
       ...(sort
         ? [{ id: "sort", label: "Sort…", icon: "sort" as const, section: "Change", onAction: () => onDialog(sort) }]
+        : []),
+      ...(settings
+        ? [
+            {
+              id: "settings",
+              label: "Settings…",
+              icon: "sliders" as const,
+              section: "Change",
+              onAction: () => onDialog(settings),
+            },
+          ]
         : []),
       ...(panel.type === "attributes"
         ? [
@@ -830,6 +845,13 @@ function LayoutCanvas({
               ? `New ${model.objectTypes.find((t) => t.key === place.objectTypeKey)?.name ?? ""}`
               : "")}
         </strong>
+        <button
+          type="button"
+          className="secondary layout-record-head-action"
+          onClick={() => onDialog(pageHeaderSpec(model, place, detail))}
+        >
+          Header and breadcrumbs…
+        </button>
       </header>
       <div className="layout-regions">
         {REGIONS.map((region) => {
@@ -958,6 +980,9 @@ function TablePreview({
             </button>
             <button type="button" className="secondary" onClick={() => onDialog(tableFiltersSpec(model, place, view))}>
               Filters…
+            </button>
+            <button type="button" className="secondary" onClick={() => onDialog(tableMenuSpec(model, place, view))}>
+              Sort menu and page size…
             </button>
             <button type="button" className="secondary" onClick={() => onDialog(tableSortSpec(model, place, view))}>
               Default sort: {attributeName(model, view.config.defaultSort.replace(/^-/, ""))}

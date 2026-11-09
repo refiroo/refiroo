@@ -1,0 +1,107 @@
+[
+  {
+    "page": "administer/webhooks.md",
+    "before": 1493,
+    "after": 1660
+  },
+  {
+    "page": "administer/clients.md",
+    "before": 1230,
+    "after": 1312
+  },
+  {
+    "page": "guide/administer/create-a-webhook.md",
+    "before": 511,
+    "after": 607
+  },
+  {
+    "page": "guide/administer/find-out-why-a-webhook-paused.md",
+    "before": 563,
+    "after": 651
+  },
+  {
+    "page": "guide/administer/rotate-a-client-secret.md",
+    "before": 491,
+    "after": 692
+  },
+  {
+    "page": "model/consumer-apis.md",
+    "before": 2629,
+    "after": 3286
+  },
+  {
+    "page": "guide/model/raise-a-contract-version.md",
+    "before": 266,
+    "after": 681
+  },
+  {
+    "page": "guide/model/stop-serving-an-earlier-contract-version.md",
+    "before": 0,
+    "after": 600
+  },
+  {
+    "page": "guide/model/define-a-consumer-api.md",
+    "before": 1577,
+    "after": 1733
+  },
+  {
+    "page": "guide/model/see-a-consumer-apis-documents.md",
+    "before": 1020,
+    "after": 1114
+  },
+  {
+    "page": "guide/model/install-and-activate-a-release.md",
+    "before": 861,
+    "after": 1108
+  },
+  {
+    "page": "guide/model/change-a-workspaces-model.md",
+    "before": 337,
+    "after": 598
+  },
+  {
+    "page": "integrate/consumer-apis.md",
+    "before": 4086,
+    "after": 4760
+  },
+  {
+    "page": "integrate/consumer-events-and-webhooks.md",
+    "before": 3486,
+    "after": 3999
+  },
+  {
+    "page": "integrate/reading-business-objects.md",
+    "before": 1960,
+    "after": 2096
+  },
+  {
+    "page": "integrate/compatibility.md",
+    "before": 766,
+    "after": 813
+  },
+  {
+    "page": "integrate/api-reference.md",
+    "before": 475,
+    "after": 541
+  },
+  {
+    "page": "integrate/model-and-release-operations.md",
+    "before": 2225,
+    "after": 2286
+  },
+  {
+    "page": "guide/integrate/read-through-a-consumer-api.md",
+    "before": 576,
+    "after": 703
+  },
+  {
+    "page": "guide/integrate/subscribe-a-webhook-and-verify-it.md",
+    "before": 1078,
+    "after": 1149
+  },
+  {
+    "page": "about/compatibility-and-licence.md",
+    "before": 558,
+    "after": 624
+  }
+]

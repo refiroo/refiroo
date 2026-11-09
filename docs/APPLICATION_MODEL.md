@@ -800,6 +800,19 @@ Their shape, defaults, validation and contract rules are specified in
   `hierarchy`, `related` blocks reached by a relation's `key` or `reverseKey`), how XREF matches
   (`operations.xref.matchOn`, `alsoMatchThrough`) and its `filters` (`byType`, `under`, `linkedTo`,
   `onRelated`).
+- A definition may keep **earlier versions** (`earlierVersions`, 0.13 DF3): a list, newest first, of
+  frozen copies of the definition at an older `contractVersion`. Each holds that version's `contractVersion`
+  (below the definition's own, once each), everything the definition itself holds except its `key` and `name`
+  (`description`, `exposes`, `publicNames`, `object`, `operations`, `filters`), the `deprecated` day it was
+  superseded and an optional `sunset` day, both written `YYYY-MM-DD`. The engine serves the version beside
+  the current one until it is removed from the model; the sunset day is announced in the `Sunset` header,
+  not enforced. A kept version is validated like the current one, against the same release, at its own
+  pointer (`/consumerApis/<key>/earlierVersions/<index>/…`) with the version named in the message, so a type
+  or attribute the model no longer has refuses the release naming it; and it is compared with the same
+  version in the active release (C-D2), so a kept version that would read differently is refused too
+  (`CONSUMER_KEPT_VERSION_CHANGED`). Stopping to serve a version is a warning, as removing a definition is.
+  The model editor raises the version with `raiseConsumerApiVersion`, which keeps the previous one by
+  default ([API.md § Kinds](API.md#kinds)).
 - An `onRelated` filter may declare `crosswalk: true`, which enables crosswalk reads (`to.{filter}`).
   It is part of the contract: turning it off is `version_required` at
   `/consumerApis/<key>/filters/<name>/crosswalk`, turning it on is compatible (C-D58).

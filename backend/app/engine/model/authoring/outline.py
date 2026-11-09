@@ -35,7 +35,7 @@ from ....models.schema import (
     RelationTypeDefinition,
 )
 from ..compiler import compile_model
-from ..consumer_contract import contract_diagnostics
+from ..consumer_contract import KEPT_VERSION_CHANGED, contract_diagnostics
 from ..consumer_expansion import public_name
 from ..diagnostics import ModelDiagnostic
 from ..placements import model_placements
@@ -59,7 +59,9 @@ def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | Non
             prefix = f"/consumerApis/{_escape(entry['key'])}"
             mine = [item for item in found if item.path == prefix or item.path.startswith(f"{prefix}/")]
             entry["contract"] = {
-                "classification": "version_required" if any(i.severity == "error" for i in mine) else "compatible",
+                "classification": "version_required"
+                if any(i.severity == "error" and i.code != KEPT_VERSION_CHANGED for i in mine)
+                else "compatible",
                 "diagnostics": [diagnostic_with_element(data, item) for item in mine],
             }
     return {
@@ -119,7 +121,11 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                     "required": bool(binding.get("required", False)),
                     "readOnly": bool(binding.get("readOnly", False)),
                     "unique": bool((definition.get("features") or {}).get("unique", False)),
-                    "sharedWith": [other for other in sharing.get(attribute_key, []) if other != key],
+                    "sharedWith": [
+                        other for other in sharing.get(attribute_key, []) if other != key
+                    ],
+                    "hidden": bool((binding.get("ui") or {}).get("hidden", False)),
+                    "helpText": (binding.get("ui") or {}).get("helpText"),
                     "mark": mark.binding(key, attribute_key, binding),
                 }
             )
@@ -141,6 +147,14 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                     if b.get("toObjectTypeKey") == key
                     and b.get("relationTypeKey") in ((object_type.get("behavior") or {}).get("parentRelationTypeKeys") or [])
                 ],
+                "displayAttribute": object_type.get("displayAttributeTypeKey"),
+                "effectivePeriod": object_type.get("effectivePeriod"),
+                "atLeastOneOf": list(
+                    (object_type.get("validation") or {}).get("atLeastOneOf") or []
+                ),
+                "parentRelationTypeKeys": list(
+                    (object_type.get("behavior") or {}).get("parentRelationTypeKeys") or []
+                ),
                 "attributes": attributes,
                 "mark": type_mark,
             }
@@ -190,6 +204,10 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "name": item.get("name") or key,
                 "valueType": item.get("valueType"),
                 "features": item.get("features") or {},
+                "minimum": (item.get("validation") or {}).get("minimum"),
+                "maximum": (item.get("validation") or {}).get("maximum"),
+                "hidden": bool((item.get("ui") or {}).get("hidden", False)),
+                "helpText": (item.get("ui") or {}).get("helpText"),
                 "boundBy": sharing.get(key, []),
                 "mark": mark.of(atom("attributeType", key), item, ("attributeTypes", key)),
             }
@@ -202,6 +220,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "name": item.get("name") or key,
                 "reverseName": item.get("reverseName"),
                 "containment": key in containment,
+                "isOriented": bool(item.get("isOriented", True)),
                 "mark": mark.of(atom("relationType", key), item, ("relationTypes", key)),
             }
             for key, item in relation_types.items()
@@ -218,8 +237,12 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "cardinality": b.get("cardinality"),
                 "required": bool(b.get("required", False)),
                 "containment": b.get("relationTypeKey") in containment,
+                **(
+                    {"attributeTypeKeys": list(b["attributeTypeKeys"])}
+                    if b.get("attributeTypeKeys")
+                    else {}
+                ),
                 **({"uniquePer": _unique_per(b)} if _unique_per(b) else {}),
-                **({"attributeTypeKeys": list(b["attributeTypeKeys"])} if b.get("attributeTypeKeys") else {}),
                 **({"candidates": b["candidates"]} if isinstance(b.get("candidates"), dict) else {}),
                 "mark": mark.relation(b),
             }
@@ -508,8 +531,7 @@ def _views(application: dict[str, Any], base: dict[str, Any]) -> list[dict[str, 
                 "shows": [key for key in shows if isinstance(key, str)],
                 # What the editor changes a matrix from; the other kinds change in the preview.
                 **({"matrix": config} if kind == "relationMatrix" else {}),
-                # A relationships table's configuration, which its setting dialogs start from (0.13 RV).
-                **({"config": config} if kind == "relationTable" else {}),
+                **({"config": config} if kind in ("tree", "mappingGrid", "relationTable") else {}),
                 "mark": "new" if old is None else "released" if old == view else "changed",
             }
         )

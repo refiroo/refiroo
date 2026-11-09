@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { outlineFixture } from "@/test/draftOutline";
-import { matchOptions, relatedFieldOptions } from "@/features/model-editor/consumer";
+import { earlierVersionsOf, matchOptions, relatedFieldOptions } from "@/features/model-editor/consumer";
 
 describe("an XREF rule's fields (found 2026-10-19)", () => {
   it("lists a field several exposed types share once, under no one type's name", () => {
     const options = matchOptions(outlineFixture(), {}, { verb: "under", types: ["area", "shelf"] });
     expect(options.filter((option) => option.value === "code")).toEqual([
       { value: "code", label: "Code", group: "Attributes of the exposed types" },
+    ]);
+  });
+});
+
+describe("the earlier versions a definition keeps (0.13 DF3)", () => {
+  it("lists them as written with their days, and none for a definition that keeps none", () => {
+    expect(earlierVersionsOf({ contractVersion: 2 })).toEqual([]);
+    const kept = { contractVersion: 1, deprecated: "2026-11-01", sunset: "2027-06-30", exposes: ["shelf"] };
+    expect(earlierVersionsOf({ contractVersion: 2, earlierVersions: [kept, { contractVersion: "x" }] })).toEqual([
+      { index: 0, version: 1, deprecated: "2026-11-01", sunset: "2027-06-30", value: kept },
     ]);
   });
 });

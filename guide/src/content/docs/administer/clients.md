@@ -82,3 +82,37 @@ Rotation and ending an old secret stop that secret being used for a new sign-in.
 Create an external assistant's client with **New agent client** under **Settings › Security › Agent access**. Its grants are restricted to reading and preparing changes through that connection; it cannot approve, publish or write live data. It is distinct from an ordinary integration client. Follow [Manage an assistant's access](/docs/guide/administer/manage-agent-access/).
 
 The built-in assistant instead has a dedicated client for each task, managed by refiroo and omitted from the normal client list. You do not create a secret for that session client. See [AI settings and access](/docs/administer/ai/) for its permissions, costs and retention.
+
+## Plan the next replacement
+
+A newly created secret has **No end** until a later rotation gives it an overlap deadline
+or someone ends it. There is no automatic client-secret rotation. Agree who owns the
+integration and its next handover. Each rotation shortens all older still-valid secrets
+to at most the chosen overlap; it never extends an earlier deadline. Check every running
+copy of the receiving integration before ending an older secret.
+
+If a client changed while the page was open, reload its details before repeating a rename,
+rotation or deactivation. A successful rotation followed by a lost one-time dialog needs
+another rotation, rather than another client identity. Deactivation does not replace a
+secret. **Rotate secret…** is available for both Active and Deactivated clients.
+
+For a leaked secret, choose **Deactivate** first and confirm. Select the client in
+**Deactivated**, choose **Rotate secret…**, then **Stop it now** and **Make a new secret**.
+Save the replacement from its one-time dialog and have the integration owner configure it.
+Review retained grants before choosing **Restore**. Rotation does not restore a client:
+the new secret takes effect when the client is restored.
+
+The overlap is counted from making the replacement, including time spent deactivated.
+It does not start again on **Restore**. With **Stop it now**, older secrets expire immediately;
+with a nonzero overlap, an older secret may still work after restoration until its deadline.
+
+![Rotate secret for a deactivated client, with the recovery note and Stop it now selected](/docs/screens/admin-client-inactive-rotate.png)
+
+Moving or restoring these identities is part of the operator's
+[instance backup and restore](/docs/run/backup-and-restore/). A client recreated with the
+same name has a different ID and secret, and does not inherit the old grants or history.
+
+Deactivation blocks access while the client is inactive. Restoring it can allow previously
+issued access again if that access has not expired; deactivation is not permanent
+revocation of every earlier sign-in. Coordinate secret replacement and the lifetime of
+previously issued access with the integration owner before restoring a compromised client.

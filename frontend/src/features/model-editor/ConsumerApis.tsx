@@ -33,6 +33,7 @@ import { useToast } from "@/ui/Toast";
 import {
   alsoMatchThroughOf,
   customEventsOf,
+  earlierVersionsOf,
   exposesOf,
   FILTER_OPTION_LABELS,
   FILTER_VERBS,
@@ -58,6 +59,7 @@ import {
   xrefRuleCount,
 } from "@/features/model-editor/consumer";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { SettingsTable } from "@/features/model-editor/SettingsTable";
 import { EditorTable } from "@/features/model-editor/EditorTable";
 import { Header, Missing, OperationButton } from "@/features/model-editor/ElementPanel";
 import { Facts } from "@/features/model-editor/Facts";
@@ -266,17 +268,23 @@ export function ConsumerApiPanel({
   const properties = (read.schema?.properties ?? {}) as Record<string, Record<string, unknown>>;
   const defs = (read.schema?.$defs ?? {}) as Record<string, Record<string, unknown>>;
   const contract = item.contract;
-  const raise = () =>
-    void run([{ kind: "setConsumerApiPart", consumerApi: key, pointer: "/contractVersion", value: version + 1 }]);
+  // The previous version stays served beside the new one unless the author says otherwise (DF3).
+  const raise = (keep = true) =>
+    void run([{ kind: "raiseConsumerApiVersion", consumerApi: key, ...(keep ? {} : { keep: false }) }]);
   const contractNotice =
     contract?.classification === "version_required" ? (
       <Notice
         tone="warning"
         title={`Needs contract version ${version + 1}`}
         actions={
-          <button type="button" className="primary" onClick={raise}>
-            Raise to version {version + 1}
-          </button>
+          <>
+            <button type="button" className="primary" onClick={() => raise()}>
+              Raise to version {version + 1}
+            </button>
+            <button type="button" className="secondary" onClick={() => raise(false)}>
+              Raise and stop serving version {version}
+            </button>
+          </>
         }
       >
         Consumers of version {version} would notice:{" "}
@@ -284,16 +292,101 @@ export function ConsumerApiPanel({
           .filter((d) => d.severity === "error")
           .map((d) => d.message.replace(/; raise contractVersion.*$/, ""))
           .join("; ")}
-        . Raise the version to release the change, or undo it. Activation is refused until then.
+        . Raise the version to release the change, or undo it. Version {version} stays served beside the new one until
+        you stop it, as the active release serves it today; an API the active release does not have keeps no earlier
+        version. Activation is refused until then.
       </Notice>
     ) : null;
 
   const typesTab = () => {
+    const earlier = earlierVersionsOf(definition);
     const names = publicNamesOf(definition);
     const related = relatedOf(definition);
     return (
       <div className="element-tab">
         {contractNotice}
+        <h3 className="element-subheading">Settings</h3>
+        <SettingsTable
+          scope="consumer-settings"
+          label={`Settings of ${item.name}`}
+          settings={[
+            {
+              key: "contractVersion",
+              label: "Contract version",
+              hint: "raise it when a change would break what consumers read",
+              value: `v${version}`,
+              edit: {
+                label: "Contract version",
+                value: String(version),
+                operations: (value) =>
+                  Number.isInteger(Number(value)) && Number(value) > version
+                    ? [{ kind: "raiseConsumerApiVersion", consumerApi: key, version: Number(value) }]
+                    : [
+                        {
+                          kind: "setConsumerApiPart",
+                          consumerApi: key,
+                          pointer: "/contractVersion",
+                          value: Number.isInteger(Number(value)) ? Number(value) : value,
+                        },
+                      ],
+              },
+            },
+          ]}
+          outline={outline}
+          run={run}
+          onOperation={onOperation}
+        />
+        <h3 className="element-subheading">Earlier versions</h3>
+        <p className="muted">
+          Consumers of an earlier version go on reading the current data in that version&apos;s shape until you stop
+          serving it. The sunset day is announced in the <code>Sunset</code> header; it is not enforced.
+        </p>
+        <EditorTable
+          editing={editing}
+          scope="consumer-earlier"
+          label={`Earlier versions of ${item.name}`}
+          noun={["earlier version", "earlier versions"]}
+          rows={earlier}
+          rowKey={(row) => String(row.version)}
+          emptyMessage="None: raising the contract version keeps the previous one here."
+          columns={[
+            { key: "version", label: "Version", cell: (row) => <strong>v{row.version}</strong> },
+            { key: "deprecated", label: "Superseded", cell: (row) => row.deprecated ?? "—" },
+            {
+              key: "sunset",
+              label: "Sunset day",
+              cell: (row) => row.sunset ?? "—",
+              edit: (row) => ({
+                label: "Sunset day (YYYY-MM-DD)",
+                value: row.sunset ?? "",
+                optional: true,
+                operations: (value) => [
+                  { kind: "setConsumerApiSunset", consumerApi: key, version: row.version, sunset: value || null },
+                ],
+              }),
+            },
+            {
+              key: "stop",
+              label: "Serving",
+              cell: (row) => (
+                <OperationButton
+                  id="consumer-version-stop"
+                  target={itemTarget(
+                    pointer("earlierVersions", row.index),
+                    `version ${row.version}`,
+                    row.index,
+                    earlier.length,
+                    row.value,
+                  )}
+                  outline={outline}
+                  onOperation={onOperation}
+                >
+                  Stop serving
+                </OperationButton>
+              ),
+            },
+          ]}
+        />
         <h3 className="element-subheading">Exposed types</h3>
         <EditorTable
           editing={editing}
@@ -744,7 +837,18 @@ export function ConsumerApiPanel({
                     key: "prefer",
                     label: "Prefers",
                     cell: (row) =>
-                      row.preferTypes.length ? row.preferTypes.map((t) => typeName(outline, t)).join(", ") : "—",
+                      chooserCell(
+                        "consumer-through-prefer",
+                        "Preferred types",
+                        itemTarget(
+                          pointer("operations", "xref", "alsoMatchThrough", row.index),
+                          `the match through ${row.related}`,
+                          row.index,
+                          through.length,
+                          row.value,
+                        ),
+                        row.preferTypes.length ? row.preferTypes.map((t) => typeName(outline, t)).join(", ") : "—",
+                      ),
                   },
                 ]}
               />

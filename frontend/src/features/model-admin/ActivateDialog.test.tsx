@@ -122,4 +122,34 @@ describe("ActivateDialog", () => {
     expect(await screen.findByText(/which this deployment does not run/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview the migration…" })).not.toBeInTheDocument();
   });
+
+  it("shows an earlier version that stops being served as a warning (0.13 DF3)", async () => {
+    vi.mocked(api.changeSets).mockResolvedValue({ items: [], nextCursor: null } as never);
+    vi.mocked(api.modelReleaseDiff).mockResolvedValue({
+      compatibility: { classification: "compatible", diagnostics: [] },
+      consumerContracts: {
+        classification: "compatible",
+        diagnostics: [
+          {
+            severity: "warning",
+            code: "CONSUMER_VERSION_STOPPED",
+            path: "/consumerApis/shop",
+            message:
+              "Consumer API 'shop' stops serving version 1; its consumers will receive 404 CONTRACT_VERSION_NOT_FOUND",
+          },
+        ],
+      },
+    } as never);
+    render(
+      <ActivateDialog
+        workspaces={[workspace]}
+        releases={[release("own", "Own", "1.0", 6), release("own", "Own", "2.0", 7)]}
+        workspaceKey="north"
+        onClose={() => undefined}
+        onActivated={() => undefined}
+      />,
+    );
+    expect(await screen.findByText("An earlier contract version stops being served")).toBeInTheDocument();
+    expect(screen.getByText(/stops serving version 1; its consumers will receive 404/)).toBeInTheDocument();
+  });
 });

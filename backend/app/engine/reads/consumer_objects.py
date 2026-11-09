@@ -35,7 +35,7 @@ from ..model.consumer_contract import (
     source_type,
     split_ancestor_reference,
 )
-from ..model.consumer_definitions import consumer_api as declared_api
+from ..model.consumer_definitions import ServedVersion, served_versions
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
 from .consumer_parameters import (
     NO_FILTER,
@@ -50,20 +50,30 @@ from .consumer_source import ConsumerSource
 AMBIGUOUS_TARGETS = 10
 
 
-def consumer_definition(model: EngineModel, consumer_api: str, contract_version: str) -> ConsumerApiDefinition:
-    """The active release's definition ``consumer_api`` at ``contract_version``, the one it declares (C-D3)."""
-    definition = declared_api(model, consumer_api)
-    if definition is None:
+def served_consumer_version(model: EngineModel, consumer_api: str, contract_version: str) -> ServedVersion:
+    """The version ``contract_version`` of ``consumer_api`` the model serves (C-D3): the current one,
+    or an earlier one it keeps (0.13 DF3)."""
+    versions = served_versions(model, consumer_api)
+    if not versions:
         raise api_error(404, "CONSUMER_API_NOT_FOUND", f"Consumer API '{consumer_api}' not found")
-    if contract_version != str(definition.contractVersion):
+    found = next((item for item in versions if str(item.definition.contractVersion) == contract_version), None)
+    if found is None:
+        served = [item.definition.contractVersion for item in versions]
+        noun = "version" if len(served) == 1 else "versions"
         raise api_error(
             404,
             "CONTRACT_VERSION_NOT_FOUND",
             f"Consumer API '{consumer_api}' has no contract version '{contract_version}'; it serves"
-            f" version {definition.contractVersion}",
-            {"contractVersion": definition.contractVersion},
+            f" {noun} {', '.join(str(number) for number in served)}",
+            {"contractVersion": served[0], "servedContractVersions": served},
         )
-    return definition
+    return found
+
+
+def consumer_definition(model: EngineModel, consumer_api: str, contract_version: str) -> ConsumerApiDefinition:
+    """The definition ``consumer_api`` serves at ``contract_version``: the active release's current
+    one, or an earlier one it keeps (C-D3, 0.13 DF3)."""
+    return served_consumer_version(model, consumer_api, contract_version).definition
 
 
 @dataclass(frozen=True)

@@ -223,6 +223,46 @@ release that changes a published definition's output must raise that definition'
 Model validation compares definitions with the previously installed release and rejects an unmarked
 breaking change (C-D2).
 
+#### Earlier versions served beside the new one (0.13 DF3)
+
+A definition keeps the versions its consumers still read in `earlierVersions` ([APPLICATION_MODEL.md](APPLICATION_MODEL.md#consumer-api-definitions-in-schema-09)):
+frozen copies of the definition at an older `contractVersion`, each with the `deprecated` day it was superseded
+and an optional `sunset` day.
+
+```json
+{
+  "key": "rdm", "name": "RDM", "contractVersion": 2,
+  "exposes": ["…"], "object": {"fields": {"…": "…"}}, "operations": {"objects": {}},
+  "earlierVersions": [
+    {"contractVersion": 1, "deprecated": "2026-11-07", "sunset": "2027-11-07",
+     "exposes": ["…"], "object": {"fields": {"…": "…"}}, "operations": {"objects": {}}}
+  ]
+}
+```
+
+- **Serving.** Every route `/api/consumer/{consumerApi}/v{n}/…` and the OpenAPI document of each kept
+  version answer from the current data through that version's definition, with its own `ETag`. Every
+  answer of a kept version, errors included, carries `Deprecation: @<seconds>` (RFC 9745; the `deprecated`
+  day at 00:00 UTC, or the activation of the release that declares it when none is given) and, when a
+  `sunset` day is set, `Sunset: <HTTP date>` (RFC 8594; that day at 00:00 UTC). Its OpenAPI document marks
+  every operation `deprecated`. The index lists one entry per served version, newest first, a kept one
+  with `deprecated: true` and its `sunset`. A version the model does not serve is `404
+  CONTRACT_VERSION_NOT_FOUND`, `details.contractVersion` the current one and `details.servedContractVersions`
+  every version served.
+- **A version stops** when the administrator removes it from the model (**Stop serving** in the editor); the
+  engine does not stop it at the sunset day. The notice period is the administrator's choice ([COMPATIBILITY.md](COMPATIBILITY.md#how-a-breaking-change-is-made)).
+- **Subscriptions.** A subscription is accepted under a version and keeps it while the model serves it:
+  one accepted under version 1 stays active when the model raises to version 2 keeping version 1, and its
+  events and requests are in version 1's shape (its `contractVersion` in the envelope and the source of
+  its CloudEvents). `POST /api/v1/consumer-subscriptions` takes `contractVersion` to subscribe to a kept
+  version (default: the current one; `400 CONTRACT_VERSION_NOT_FOUND` for one not served). When the model
+  stops serving the version the subscription is suspended `CONTRACT_VERSION_CHANGED`; resuming accepts the
+  version served. Without a kept version, raising the version suspends its subscriptions as before.
+- **Events.** Each earlier version the model keeps derives its own events from the activation of the release that keeps it, stored beside the API's under `<key>@v<n>`: the events its own declaration names, even ones the current version dropped, and `changed` in its own output names. Its pull feed and its subscriptions read those, and the events derived while it was the current version. A version's events begin where the release that keeps it was activated.
+- **Publications.** A publication made under a release is readable through a version that release served.
+- **Validation.** A kept version is checked like the current one, and against the active release's same
+  version (C-D2); see [APPLICATION_MODEL.md](APPLICATION_MODEL.md#consumer-api-definitions-in-schema-09).
+
 ### The consumer API name (`consumerApi`)
 
 `consumerApi` is the `key` of one consumer API definition: the public, stable name of that API. It selects
@@ -537,7 +577,7 @@ GET /api/consumer?workspace=…
   every definition parameter applying to lists and to get by ID (C-D31).
 - **Unknown parameters** are rejected with `400 UNKNOWN_PARAMETER` naming them. Unknown `consumerApi`,
   `listKey` or `contractVersion` return `404` (`CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`
-  naming the installed version). A name the API knows that a route does not apply
+  naming the versions served: the installed one and the earlier ones it keeps, 0.13 DF3). A name the API knows that a route does not apply
   (a paging name on get by ID, a list's parent parameter on get by ID or another list) is refused with
   `400 PARAMETER_NOT_SUPPORTED` (C3).
 - **Generated OpenAPI:** each definition generates its own OpenAPI document, so integrators get a
@@ -654,7 +694,8 @@ _Delivered in C6a (2026-10-05):_ each item also has `status` (`active`, the one 
 #### API index
 
 `GET /api/consumer` lists the installed definitions, paged: `consumerApi`, `name`, `contractVersion` and the
-URL of each OpenAPI document. Clients discover the APIs from it, and the API reference page (Base 0.9
+URL of each OpenAPI document; one entry per version served, newest first, an earlier one with `deprecated: true`
+and its `sunset` day when set (0.13 DF3). Clients discover the APIs from it, and the API reference page (Base 0.9
 Track D) builds its list of sources from it. _Delivered in C6b (2026-10-05):_ ordered by
 `consumerApi`, `description` when declared, paged without `seek` (C-D69); each
 document is OpenAPI 3.1 with its paths written out with the name and version, `info.version` the

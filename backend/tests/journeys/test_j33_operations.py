@@ -870,6 +870,208 @@ def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand
     refused(_apply(world, draft, current["version"], {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key}), 422, "INVALID_OPERATION")
 
 
+@pytest.mark.journey("J33.1", "J33.5")
+@pytest.mark.structures("R")
+def test_the_settings_a_model_holds_are_set_by_operations_undone_and_met_by_stored_data(world):
+    """Given a released number attribute on R holding a record at 7. When a draft sets a type's
+    display attribute and at-least-one rule, the attribute's help text and bounds, a binding's
+    hint, a relation type's orientation and the application's default view, then one step holds
+    them all and one undo takes them all back. A text attribute's bound, a bound above the other
+    and an unknown display attribute are each refused at their pointer, applying nothing. A
+    minimum above the stored 7 applies in the draft and compiling names the record it meets."""
+    model = _model(world, _draft_of_active(world))
+    r_app = _application_of_r(world)
+    first = _draft_of_active(world, "Number")
+    bump = {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"]}
+    added = ok(
+        _apply(
+            world,
+            first,
+            first["version"],
+            {
+                "kind": "addAttributeType",
+                "key": "j33-count",
+                "name": "Count",
+                "valueType": "integer",
+            },
+            {"kind": "attachAttribute", "objectType": world.key("R"), "attributeType": "j33-count"},
+            {**bump, "version": model["release"]["version"] + "-count"},
+        )
+    )
+    ok(
+        world.activate(
+            ok(
+                world.api.post(
+                    f"/model-drafts/{first['id']}/installation",
+                    {"expectedVersion": added["version"]},
+                ),
+                201,
+            )["id"]
+        )
+    )
+    world.made("R", "Holds seven", values={"j33-count": 7})
+
+    draft = _draft_of_active(world, "Settings")
+    start = _model(world, draft)
+    relation = start["relationTypes"][0]["key"]
+    view = _application(start, r_app)["views"][-1]["key"]
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "setObjectTypeProperty",
+                "objectType": world.key("R"),
+                "property": "displayAttributeTypeKey",
+                "value": "j33-count",
+            },
+            {
+                "kind": "setObjectTypeProperty",
+                "objectType": world.key("R"),
+                "property": "atLeastOneOf",
+                "value": ["j33-count"],
+            },
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "j33-count",
+                "property": "minimum",
+                "value": 1,
+            },
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "j33-count",
+                "property": "maximum",
+                "value": 99,
+            },
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "j33-count",
+                "property": "helpText",
+                "value": "How many",
+            },
+            {
+                "kind": "setAttributeBinding",
+                "objectType": world.key("R"),
+                "attributeType": "j33-count",
+                "ui": {"hidden": True, "helpText": "Here"},
+            },
+            {
+                "kind": "setRelationTypeProperty",
+                "relationType": relation,
+                "property": "isOriented",
+                "value": False,
+            },
+            {
+                "kind": "setApplicationProperty",
+                "applicationKey": r_app,
+                "property": "defaultView",
+                "value": view,
+            },
+        )
+    )
+    assert answer["valid"] is True, answer["diagnostics"]
+    held = _model(world, draft)
+    r_type = _by_key(held["objectTypes"], world.key("R"))
+    assert r_type["displayAttributeTypeKey"] == "j33-count"
+    assert r_type["validation"]["atLeastOneOf"] == ["j33-count"]
+    assert _by_key(r_type["attributes"], "j33-count", "attributeTypeKey")["ui"] == {
+        "hidden": True,
+        "helpText": "Here",
+    }
+    count = _by_key(held["attributeTypes"], "j33-count")
+    assert count["validation"] == {"minimum": 1, "maximum": 99} and count["ui"] == {
+        "helpText": "How many"
+    }
+    assert _by_key(held["relationTypes"], relation)["isOriented"] is False
+    assert _application(held, r_app)["defaultView"] == view
+    outline = ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))
+    assert _by_key(outline["attributeTypes"], "j33-count")["minimum"] == 1
+    assert _by_key(outline["objectTypes"], world.key("R"))["displayAttribute"] == "j33-count"
+
+    ok(_undo(world, draft, answer["version"]))
+    assert _model(world, draft) == start
+
+    text_attribute = _by_key(
+        start["attributeTypes"],
+        next(a["key"] for a in start["attributeTypes"] if a.get("valueType", "text") == "text"),
+    )
+    version = _draft(world, draft)["version"]
+    for operation, pointer in (
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": text_attribute["key"],
+                "property": "minimum",
+                "value": 1,
+            },
+            "/operations/0/property",
+        ),
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "j33-count",
+                "property": "maximum",
+                "value": 0,
+            },
+            "/operations/0/value",
+        ),
+        (
+            {
+                "kind": "setObjectTypeProperty",
+                "objectType": world.key("R"),
+                "property": "displayAttributeTypeKey",
+                "value": "j33-unbound",
+            },
+            "/operations/0/value",
+        ),
+    ):
+        if operation["property"] == "maximum":
+            ok(
+                _apply(
+                    world,
+                    draft,
+                    version,
+                    {
+                        "kind": "setAttributeTypeProperty",
+                        "attributeType": "j33-count",
+                        "property": "minimum",
+                        "value": 5,
+                    },
+                )
+            )
+            version = _draft(world, draft)["version"]
+        error = refused(_apply(world, draft, version, operation), 422, "INVALID_OPERATION")
+        assert error["details"]["pointer"] == pointer
+
+    tightened = ok(
+        _apply(
+            world,
+            draft,
+            version,
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "j33-count",
+                "property": "minimum",
+                "value": 10,
+            },
+        )
+    )
+    current = _draft(world, draft)
+    compiled = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": current["version"]}
+        )
+    )
+    assert compiled["valid"] is True and tightened["valid"] is True
+    (diagnostic,) = [
+        d
+        for d in compiled["compatibility"]["diagnostics"]
+        if d["path"] == "/attributeTypes/j33-count/validation/minimum"
+    ]
+    assert diagnostic["code"] == "ATTRIBUTE_VALIDATION_VIOLATED" and diagnostic["count"] == 1
+
+
 def _matrix_application(world) -> tuple[dict[str, Any], dict[str, Any]]:
     """An empty draft built, in one request, into an application with a row type, a column type and a
     cell type, a relation matrix over them and two navigation groups; returns the draft and the answer."""

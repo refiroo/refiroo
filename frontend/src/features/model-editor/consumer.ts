@@ -700,6 +700,34 @@ function partWords(path: string): string {
 
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 
+/** An earlier contract version a definition keeps (DF3), newest first as written. */
+export interface EarlierVersionRow {
+  index: number;
+  version: number;
+  deprecated?: string;
+  sunset?: string;
+  value: Record<string, unknown>;
+}
+
+export function earlierVersionsOf(definition: ConsumerDefinition): EarlierVersionRow[] {
+  const kept = Array.isArray(definition.earlierVersions) ? definition.earlierVersions : [];
+  return kept.flatMap((item, index) => {
+    const value = record(item);
+    const version = Number(value.contractVersion);
+    return Number.isInteger(version)
+      ? [
+          {
+            index,
+            version,
+            deprecated: str(value.deprecated) || undefined,
+            sunset: str(value.sunset) || undefined,
+            value,
+          },
+        ]
+      : [];
+  });
+}
+
 /** A consumer API operation in words, or `undefined` for any other kind. */
 export function describeConsumerOperation(
   kind: string,
@@ -715,6 +743,16 @@ export function describeConsumerOperation(
     }
     case "removeConsumerApi":
       return `Removed consumer API ${api}`;
+    case "raiseConsumerApiVersion": {
+      const to = p.version === undefined ? "the next contract version" : `contract version ${String(p.version)}`;
+      return `Raised ${api} to ${to}, ${p.keep === false ? "stopping" : "keeping"} the earlier one`;
+    }
+    case "removeConsumerApiVersion":
+      return `Stopped serving version ${String(p.version)} of ${api}`;
+    case "setConsumerApiSunset":
+      return p.sunset
+        ? `Set the sunset of version ${String(p.version)} of ${api} to ${str(p.sunset)}`
+        : `Took back the sunset of version ${String(p.version)} of ${api}`;
     case "setConsumerApiPart":
       if (!path) return `Edited ${api} as JSON`;
       if (path === "/contractVersion") return `Set ${api} to contract version ${String(p.value)}`;

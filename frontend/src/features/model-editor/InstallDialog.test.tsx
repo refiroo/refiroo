@@ -186,4 +186,28 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
       (screen.getByRole("button", { name: "Install 1.2.1 and activate in Default" }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  it("says plainly that a version stops being served, never Compatible (0.13 DF3)", async () => {
+    vi.mocked(api.compileModelDraft).mockResolvedValue({
+      ...compiled(true),
+      consumerContracts: {
+        classification: "compatible",
+        activeReleaseId: "r1",
+        diagnostics: [
+          {
+            severity: "warning",
+            code: "CONSUMER_VERSION_STOPPED",
+            path: "/consumerApis/shop-feed",
+            message:
+              "Consumer API 'shop-feed' stops serving version 1; its consumers will receive 404 CONTRACT_VERSION_NOT_FOUND from /api/consumer/shop-feed/v1",
+          },
+        ],
+      },
+    });
+    renderDialog();
+    expect(
+      await screen.findByText(/stops serving version 1; its consumers will receive 404 CONTRACT_VERSION_NOT_FOUND/),
+    ).toBeTruthy();
+    expect(screen.queryByText("Compatible")).toBeNull();
+  });
 });

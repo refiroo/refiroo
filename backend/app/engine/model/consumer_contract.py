@@ -24,7 +24,7 @@ from ...models.schema import (
     ObjectTypeDefinition,
     ProjectionParameter,
 )
-from .consumer_definitions import authored_pointer, consumer_apis
+from .consumer_definitions import authored_pointer, consumer_apis, served_versions
 from .diagnostics import ModelDiagnostic
 from .traversal import ancestor_type_keys, related_object_types
 
@@ -39,6 +39,9 @@ RELATION_REFERENCE_PREFIX = "relation:"
 _TEXT_TYPES = {"text", "longText"}
 
 BREAKING = "CONSUMER_CONTRACT_VERSION_REQUIRED"
+# A kept earlier version would read differently from the one served now (0.13 DF3).
+KEPT_VERSION_CHANGED = "CONSUMER_KEPT_VERSION_CHANGED"
+KEPT_VERSION_STOPPED = "CONSUMER_VERSION_STOPPED"
 # A filter's internal kind as the author's verb names it (C18).
 FILTER_VERB = {"objectType": "byType", "ancestor": "under", "related": "linkedTo", "projection": "onRelated"}
 
@@ -339,6 +342,7 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
                 ),
             )
         )
+    diagnostics += _kept_version_diagnostics(active, candidate)
     for key in sorted(set(before) & set(after)):
         old, new = before[key], after[key]
         base = f"/consumerApis/{pointer_segment(key)}"
@@ -370,6 +374,51 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
             )
             for path, change in changes
         )
+    return diagnostics
+
+
+def _kept_version_diagnostics(active: EngineModel, candidate: EngineModel) -> list[ModelDiagnostic]:
+    """The versions ``candidate`` serves beside the current one (DF3), against the same version in
+    ``active``: a version is a contract, so it must read as it did (C-D2) while it is served. An
+    error for each change its consumers would notice; a warning for a kept version that stops."""
+    diagnostics: list[ModelDiagnostic] = []
+    keys = {item.key for item in consumer_apis(active)} & {item.key for item in consumer_apis(candidate)}
+    for key in sorted(keys):
+        before = {item.definition.contractVersion: item for item in served_versions(active, key)}
+        after = {item.definition.contractVersion: item for item in served_versions(candidate, key)}
+        for version in sorted(set(before) - set(after)):
+            if before[version].is_current:
+                continue
+            diagnostics.append(
+                ModelDiagnostic(
+                    severity="warning",
+                    code=KEPT_VERSION_STOPPED,
+                    path=f"/consumerApis/{pointer_segment(key)}",
+                    message=(
+                        f"Consumer API '{key}' stops serving version {version}; its consumers will receive"
+                        f" 404 CONTRACT_VERSION_NOT_FOUND from /api/consumer/{key}/v{version}"
+                    ),
+                )
+            )
+        for version in sorted(set(before) & set(after)):
+            old, new = before[version], after[version]
+            if new.is_current:
+                continue
+            changes = _breaking_changes(
+                output_contract(active, old.definition), output_contract(candidate, new.definition)
+            )
+            diagnostics.extend(
+                ModelDiagnostic(
+                    severity="error",
+                    code=KEPT_VERSION_CHANGED,
+                    path=authored_pointer(candidate, key, f"{new.base}{path}", new.index),
+                    message=(
+                        f"Consumer API '{key}' version {version} is kept and {change}; a kept version is"
+                        " served as it was: restore it, or stop serving it"
+                    ),
+                )
+                for path, change in changes
+            )
     return diagnostics
 
 

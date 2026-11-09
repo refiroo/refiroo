@@ -75,7 +75,8 @@ export function WebhooksPage({
   const subscriptions = capabilities?.consumerSubscriptions;
   const [creating, setCreating] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
-  const canCreate = subscribable(consumer.definitions ?? []).length > 0;
+  // A workspace's own events can always be subscribed to, so New webhook needs no consumer API with events.
+  const consumerEvents = subscribable(consumer.definitions ?? []).length > 0;
   const error = capabilitiesError || consumer.error;
   const retry = capabilitiesError ? retryCapabilities : consumer.retry;
 
@@ -86,7 +87,7 @@ export function WebhooksPage({
       description="Subscriptions that send a consumer API's events to a receiver's URL as they happen, signed with a key shown once when the subscription is created."
       actions={
         subscriptions?.manageSubscriptions && (
-          <button ref={newButtonRef} className="primary" disabled={!canCreate} onClick={() => setCreating(true)}>
+          <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> New webhook
           </button>
         )
@@ -118,7 +119,7 @@ export function WebhooksPage({
           definitions={consumer.definitions}
           retentionDays={subscriptions.logRetentionDays}
           batchLimit={subscriptions.delivery.maxEventsPerBatch}
-          canCreate={canCreate}
+          consumerEvents={consumerEvents}
           creating={creating}
           onCreateClosed={() => {
             setCreating(false);
@@ -137,7 +138,7 @@ function Subscriptions({
   definitions,
   retentionDays,
   batchLimit,
-  canCreate,
+  consumerEvents,
   creating,
   onCreateClosed,
   onNavigate,
@@ -148,7 +149,7 @@ function Subscriptions({
   retentionDays: number;
   /** The most events a subscription may batch (capabilities). */
   batchLimit: number;
-  canCreate: boolean;
+  consumerEvents: boolean;
   creating: boolean;
   onCreateClosed: () => void;
   onNavigate: (route: RouteState) => void;
@@ -197,10 +198,10 @@ function Subscriptions({
 
   return (
     <>
-      {!canCreate && (
+      {!consumerEvents && (
         <Notice>
-          The active model release declares no consumer API with events, so there is nothing to subscribe to. Events are
-          declared in the model, on a consumer API.
+          The active model release declares no consumer API with events, so only a workspace's own events can be
+          subscribed to. A consumer API's events are declared in the model.
         </Notice>
       )}
       {empty && !route.subscriptionId ? (

@@ -41,7 +41,7 @@ from ..consumer_contract import (
     split_ancestor_reference,
     split_relation_reference,
 )
-from ..consumer_definitions import authored_pointer, consumer_apis
+from ..consumer_definitions import authored_pointer, compiled_consumer_apis, consumer_apis
 from ..consumer_expansion import authored_through
 from ..diagnostics import ModelReferenceError
 from ..traversal import ancestor_type_keys
@@ -98,15 +98,49 @@ def check(model: EngineModel, _index: ModelIndex) -> None:
             raise ModelReferenceError(
                 exc.code, authored_pointer(model, definition.key, exc.path), exc.message
             ) from None
+        _check_earlier_versions(model, definition, base)
+
+
+def _check_earlier_versions(model: EngineModel, definition: ConsumerApiDefinition, base: str) -> None:
+    """The versions the definition keeps (0.13 DF3): each is lower than the current one and appears
+    once, and is checked against the model as the current one is, so a type or attribute the model no
+    longer has refuses the release naming the version."""
+    kept = compiled_consumer_apis(model).earlier.get(definition.key, ())
+    seen: set[int] = set()
+    for served in kept:
+        version = served.definition.contractVersion
+        at = f"{base}/earlierVersions/{served.index}"
+        if version >= definition.contractVersion:
+            raise ModelReferenceError(
+                "INVALID_MODEL",
+                f"{at}/contractVersion",
+                f"Consumer API '{definition.key}' keeps version {version}, which is not below the version"
+                f" it serves, {definition.contractVersion}",
+            )
+        if version in seen:
+            raise ModelReferenceError(
+                "DUPLICATE_KEY", f"{at}/contractVersion", f"Consumer API '{definition.key}' keeps version {version} twice"
+            )
+        seen.add(version)
+        try:
+            _Definition(model, served.definition, at, f"version {version}").check()
+        except ModelReferenceError as exc:
+            raise ModelReferenceError(
+                exc.code, authored_pointer(model, definition.key, exc.path, served.index), exc.message
+            ) from None
 
 
 class _Definition:
     """One definition's checks, sharing its model, its exposed types and its pointer."""
 
-    def __init__(self, model: EngineModel, definition: ConsumerApiDefinition, base: str) -> None:
+    def __init__(
+        self, model: EngineModel, definition: ConsumerApiDefinition, base: str, version: str | None = None
+    ) -> None:
         self.model = model
         self.definition = definition
         self.base = base
+        # Named in a refusal about a kept earlier version (DF3): "Consumer API 'x' version 1: …".
+        self.label = f"Consumer API '{definition.key}'" + (f" {version}" if version else "")
         self.types: list[ObjectTypeDefinition] = []
 
     def check(self) -> None:
@@ -120,7 +154,7 @@ class _Definition:
         self._check_events(outputs)
 
     def _fail(self, code: str, path: str, message: str) -> NoReturn:
-        raise ModelReferenceError(code, f"{self.base}{path}", f"Consumer API '{self.definition.key}': {message}")
+        raise ModelReferenceError(code, f"{self.base}{path}", f"{self.label}: {message}")
 
     def _check_types(self) -> None:
         public_names: dict[str, str] = {}

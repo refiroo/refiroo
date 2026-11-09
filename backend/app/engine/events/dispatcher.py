@@ -249,9 +249,10 @@ class EventDispatcher:
     ) -> _Prepared | bool:
         """The step of a consumer API's subscription up to a stored batch."""
         model = resolve_model_snapshot(session, subscription.workspace_key).model
-        definition = definition_of(model, subscription.consumer_api)
-        # A release that no longer serves it suspended it when it was activated (C-D99).
-        if definition is None or definition.contractVersion != subscription.contract_version:
+        # The version it was accepted under: the current one, or an earlier one the model keeps
+        # (DF3). A release that no longer serves it suspended it when it was activated (C-D99).
+        definition = definition_of(model, subscription.consumer_api, subscription.contract_version)
+        if definition is None:
             return False
         workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
         if workspace is None or workspace.status != "active":

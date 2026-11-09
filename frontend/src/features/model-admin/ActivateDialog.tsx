@@ -315,6 +315,14 @@ export function ActivateDialog({
                 {current.diff.consumerContracts?.diagnostics.map((item) => item.message).join(" ")}
               </Notice>
             )}
+            {current.diff.consumerContracts?.diagnostics.some((item) => item.code === "CONSUMER_VERSION_STOPPED") && (
+              <Notice tone="warning" title="An earlier contract version stops being served">
+                {current.diff.consumerContracts.diagnostics
+                  .filter((item) => item.code === "CONSUMER_VERSION_STOPPED")
+                  .map((item) => item.message)
+                  .join(" ")}
+              </Notice>
+            )}
             <ImpactSummary
               key={checkKey}
               workspaceKey={workspace.key}

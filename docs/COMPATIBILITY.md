@@ -20,7 +20,7 @@ are a separate promise, in [SECURITY.md](../SECURITY.md): before 1.0 only the la
 | Contract | Where it is described | Versioned by |
 | --- | --- | --- |
 | The management API, `/api/v1`: its operations, request and response shapes, status codes and error codes, as its OpenAPI document (`/openapi.json`) states them | [API.md](API.md) | the path (`/api/v1`, a later `/api/v2`) |
-| Each consumer API contract | [CONSUMER_API.md](CONSUMER_API.md), and each contract's own OpenAPI document (`/api/consumer/{consumerApi}/v{contractVersion}/openapi.json`) | the contract version in the path (`v{contractVersion}`); a breaking change raises it and the old one is still served |
+| Each consumer API contract | [CONSUMER_API.md](CONSUMER_API.md), and each contract's own OpenAPI document (`/api/consumer/{consumerApi}/v{contractVersion}/openapi.json`) | the contract version in the path (`v{contractVersion}`); a breaking change raises it, and the engine serves the earlier version beside the new one until the model administrator removes it ([below](#how-a-breaking-change-is-made)) |
 | Webhooks and change events: the CloudEvents attributes, the event types (`rdm.<event>`, the event names a consumer API declares and the workspace events), the payloads, the `RDM-*` headers (`RDM-Signature`, `RDM-Timestamp`, `RDM-Delivery-Id`, `RDM-Redelivery`, `RDM-Workspace`, `RDM-Publication`, `RDM-As-Of-Applied`) and how a signature is computed and checked | [CONSUMER_API.md § Change events and webhooks](CONSUMER_API.md#change-events-and-webhooks), [API.md § Webhook delivery](API.md#webhook-delivery-base-09-c12) | the event type; a breaking change is a new type beside the old |
 | Sign-in and tokens: the OAuth 2.0 and OpenID Connect endpoints and metadata, the access token's claims, the scope names, and the application's JSON sign-in routes (D416) | [API.md § Security](API.md#security-product-012-designed) | additions only; a breaking change is a new endpoint beside the old |
 | The model schema language | [APPLICATION_MODEL.md § Schema versions and the window](APPLICATION_MODEL.md#schema-versions-and-the-window) | `schemaVersion`; see [below](#the-schema-language-of-models) |
@@ -84,10 +84,17 @@ be documented when it is built.
 1. **Beside the old one**: the next path (`/api/v2`), the next consumer API contract version, a new event type, a
    new endpoint, or a second name for a setting. The old one keeps answering as before.
 2. **Announced** in the [CHANGELOG](../CHANGELOG.md) under "Deprecated", in this document, and on every answer of
-   the old version with the `Deprecation` and `Sunset` headers (RFC 9745, RFC 8594). The headers are built when the
-   first version is deprecated.
+   the old version with the `Deprecation` and `Sunset` headers (RFC 9745, RFC 8594). A consumer API's earlier
+   version carries them since 0.13; the management API's are built when its first version is deprecated.
 3. **Kept for the notice period (D438)**: at least **12 months and two minor releases** from the announcement to
    the first release that removes it.
+
+**A consumer API's earlier version is the model administrator's (DF-D2).** Twelve months and two minor releases is
+refiroo's own promise for the contracts it publishes. A consumer API contract is written by the instance's model
+administrator, not by refiroo, so the engine does not apply that period to it: it serves the earlier contract
+version beside the new one, with the `Deprecation` header and, when the administrator sets a day, the `Sunset`
+header, until the administrator removes the version from the model. The administrator chooses the notice, and the
+sunset day is announced, never enforced. See [CONSUMER_API.md](CONSUMER_API.md#earlier-versions-served-beside-the-new-one-013-df3).
 
 ## The schema language of models
 

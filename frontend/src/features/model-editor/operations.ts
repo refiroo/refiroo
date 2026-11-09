@@ -71,6 +71,25 @@ import {
   writeField,
 } from "@/features/model-editor/consumer";
 import {
+  addView,
+  changeView,
+  followGrid,
+  GRID_ROWS,
+  gridBindingOptions,
+  gridSearchOptions,
+  gridSourceOptions,
+  gridTargetOptions,
+  gridValues,
+  newGridValues,
+  newTreeValues,
+  tableTypeOptions,
+  treeAvailabilityOptions,
+  treeFieldOptions,
+  treeRootOptions,
+  treeValues,
+  VIEW_KIND_OPTIONS,
+} from "@/features/model-editor/viewKinds";
+import {
   applicationsOf,
   attributeTypeOf,
   collectionsOf,
@@ -183,7 +202,7 @@ export interface OperationSpec {
   /** The values after `changed` moved, for what depends on it beyond a select's own options. */
   follow?: (next: FieldValues, previous: FieldValues, changed: string, outline: ModelDraftOutline) => FieldValues;
   /** What the form will make, shown beside it. */
-  preview?: (values: FieldValues, target: never, outline: ModelDraftOutline) => MatrixPreview;
+  preview?: (values: FieldValues, target: never, outline: ModelDraftOutline) => MatrixPreview | undefined;
   build: (values: FieldValues, target: never, outline: ModelDraftOutline) => DraftOperation[];
   /** The words of the dialog's send button for the values chosen so far ("Apply" when absent). */
   submit?: (values: FieldValues) => string;
@@ -240,7 +259,7 @@ function spec<T extends OperationTarget>(
     confirm?: (target: T, outline: ModelDraftOutline) => string;
     fields?: (target: T, outline: ModelDraftOutline) => OperationField[];
     initial?: (target: T, outline: ModelDraftOutline) => FieldValues;
-    preview?: (values: FieldValues, target: T, outline: ModelDraftOutline) => MatrixPreview;
+    preview?: (values: FieldValues, target: T, outline: ModelDraftOutline) => MatrixPreview | undefined;
     build: (values: FieldValues, target: T, outline: ModelDraftOutline) => DraftOperation[];
   },
 ): OperationSpec {
@@ -580,6 +599,142 @@ const matrixFields = (outline: ModelDraftOutline): OperationField[] => [
   { name: "name", label: "Name", type: "text", required: true },
 ];
 
+const boundAttributes = (outline: ModelDraftOutline, typeKey: string) =>
+  objectTypeOf(outline, typeKey)?.attributes ?? [];
+
+const dateAttributes = (outline: ModelDraftOutline, typeKey: string) =>
+  boundAttributes(outline, typeKey).filter((item) => item.valueType === "date");
+
+/** The relationships allowed to a type that can place its records under a parent. */
+function parentRelationOptions(outline: ModelDraftOutline, typeKey: string): ChoiceOption[] {
+  const seen = new Set<string>();
+  return outline.relations
+    .filter((item) => item.to === typeKey && !seen.has(item.relationType) && seen.add(item.relationType))
+    .map((item) => ({
+      value: item.relationType,
+      label: `${relationTypeOf(outline, item.relationType)?.name ?? item.relationType}, from ${typeName(outline, item.from)}`,
+    }));
+}
+
+/** Several fields shown for one kind of view only. */
+const onlyFor = (kind: string, fields: OperationField[]): OperationField[] =>
+  fields.map((field) => ({ ...field, when: (values) => values.kind === kind && (field.when?.(values) ?? true) }));
+
+const nameField: OperationField = { name: "name", label: "Name", type: "text", required: true };
+
+const treeFields = (outline: ModelDraftOutline, applicationKey: string): OperationField[] => [
+  nameField,
+  {
+    name: "roots",
+    label: "Top of the tree",
+    type: "checkboxes",
+    options: treeRootOptions(outline, applicationKey),
+    // A tree with no top would not be a valid model.
+    required: true,
+    hint: "Types a record can have without a parent. The tree shows the types under them that the application lists.",
+  },
+  {
+    name: "label",
+    label: "Each record reads",
+    type: "select",
+    options: (v) => treeFieldOptions(outline, applicationKey, v),
+    required: true,
+    hint: "A field every type in the tree has.",
+  },
+  {
+    name: "secondary",
+    label: "Second line",
+    type: "select",
+    options: (v) => [{ value: "", label: "None" }, ...treeFieldOptions(outline, applicationKey, v)],
+  },
+  {
+    name: "order",
+    label: "Records under a record are ordered by",
+    type: "select",
+    options: (v) => treeFieldOptions(outline, applicationKey, v),
+    required: true,
+  },
+  {
+    name: "availability",
+    label: "Switch a record on and off with",
+    type: "select",
+    options: (v) => treeAvailabilityOptions(outline, applicationKey, v),
+    hint: "A yes-or-no field every type in the tree has; people then switch records on and off in the tree.",
+  },
+];
+
+const gridFields = (outline: ModelDraftOutline): OperationField[] => [
+  nameField,
+  {
+    name: "binding",
+    label: "Matches records through",
+    type: "select",
+    options: gridBindingOptions(outline),
+    required: true,
+    hint: "A relationship between two types, other than a containment.",
+  },
+  { name: "rows", label: "Rows are", type: "select", options: GRID_ROWS, required: true },
+  {
+    name: "sourceColumns",
+    label: "Columns of a row",
+    type: "choices",
+    ordered: true,
+    options: (v) => gridSourceOptions(outline, v),
+    required: true,
+  },
+  {
+    name: "targetColumns",
+    label: "Columns of the matched record",
+    type: "choices",
+    ordered: true,
+    options: (v) => gridTargetOptions(outline, v),
+    required: true,
+  },
+  {
+    name: "search",
+    label: "Find a record to match by",
+    type: "choices",
+    ordered: false,
+    options: (v) => gridSearchOptions(outline, v),
+    required: true,
+  },
+];
+
+/** The kinds of view that can be added now: each needs something of the model to stand on. */
+const addViewKinds = (outline: ModelDraftOutline, applicationKey: string): ChoiceOption[] =>
+  VIEW_KIND_OPTIONS.filter((option) =>
+    option.value === "relationMatrix"
+      ? rowOptions(outline).length > 0
+      : option.value === "tree"
+        ? treeRootOptions(outline, applicationKey).length > 0
+        : option.value === "mappingGrid"
+          ? gridBindingOptions(outline).length > 0
+          : option.value === "relationTable"
+            ? bindingOptions(outline).length > 0
+            : outline.objectTypes.length > 0,
+  );
+
+const addViewFields = (outline: ModelDraftOutline, applicationKey: string): OperationField[] => [
+  {
+    name: "kind",
+    label: "Kind of view",
+    type: "select",
+    options: addViewKinds(outline, applicationKey),
+    required: true,
+  },
+  ...onlyFor("relationMatrix", matrixFields(outline)),
+  ...onlyFor("table", [
+    { name: "type", label: "Type", type: "select", options: tableTypeOptions(outline), required: true },
+    {
+      ...nameField,
+      hint: "Columns, filters and sorting start from the type's attributes; change them in its preview.",
+    },
+  ]),
+  ...onlyFor("tree", treeFields(outline, applicationKey)),
+  ...onlyFor("mappingGrid", gridFields(outline)),
+  ...onlyFor("relationTable", tableFields(outline)),
+];
+
 const LAYOUT_OPTIONS = [
   { value: "rows", label: "One row per relationship" },
   { value: "grid", label: "Grid: each record once, a column group per related record" },
@@ -737,29 +892,37 @@ export const OPERATIONS: OperationSpec[] = [
     build: (values, t) => addType(values, t.applicationKey),
   }),
   spec<On<"application">>({
-    id: "application-add-matrix",
+    id: "application-add-view",
     on: "application",
-    label: "Add a relation matrix…",
+    label: "Add a view…",
     title: (t, o) =>
-      `Add a relation matrix to ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? t.applicationKey}`,
-    available: (_, o) => rowOptions(o).length > 0,
-    fields: (_, o) => matrixFields(o),
-    initial: (_, o) => newMatrixValues<FieldValues>(o),
-    follow: (next, previous, changed, o) => followMatrix(o, next, previous, changed),
-    preview: (values, t, o) => matrixPreview(o, t.applicationKey, values),
-    build: (values, t, o) => addMatrix(o, t.applicationKey, values),
-  }),
-  spec<On<"application">>({
-    id: "application-add-relation-table",
-    on: "application",
-    label: "Add a relationships table…",
-    title: (t, o) =>
-      `Add a relationships table to ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? t.applicationKey}`,
-    available: (_, o) => bindingOptions(o).length > 0,
-    fields: (_, o) => tableFields(o),
-    initial: (_, o) => newTableValues<FieldValues>(o),
-    follow: (next, previous, changed, o) => followTable(o, next, previous, changed),
-    build: (values, t, o) => addTable(o, t.applicationKey, values),
+      `Add a view to ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? t.applicationKey}`,
+    fields: (t, o) => addViewFields(o, t.applicationKey),
+    initial: (t, o) => ({
+      kind: addViewKinds(o, t.applicationKey)[0]?.value ?? "table",
+      ...newTableValues<FieldValues>(o),
+      ...newMatrixValues<FieldValues>(o),
+      ...(newTreeValues(o, t.applicationKey) as FieldValues),
+      ...(newGridValues(o) as FieldValues),
+      type: o.objectTypes[0]?.key ?? "",
+      name: "",
+    }),
+    follow: (next, previous, changed, o) =>
+      next.kind === "relationMatrix"
+        ? followMatrix(o, next, previous, changed)
+        : next.kind === "mappingGrid"
+          ? (followGrid(next, changed) as FieldValues)
+          : next.kind === "relationTable"
+            ? followTable(o, next, previous, changed === "kind" ? "binding" : changed)
+            : next,
+    preview: (values, t, o) =>
+      values.kind === "relationMatrix" ? matrixPreview(o, t.applicationKey, values) : undefined,
+    build: (values, t, o) =>
+      values.kind === "relationMatrix"
+        ? addMatrix(o, t.applicationKey, values)
+        : values.kind === "relationTable"
+          ? addTable(o, t.applicationKey, values)
+          : addView(o, t.applicationKey, String(values.kind), values),
   }),
   spec<On<"application">>({
     id: "application-list-type",
@@ -835,6 +998,33 @@ export const OPERATIONS: OperationSpec[] = [
     build: (values, t, o) => changeMatrix(o, t.applicationKey, t.view, values),
   }),
   spec<On<"view">>({
+    id: "view-tree-change",
+    on: "view",
+    label: "Change…",
+    title: (t, o) => `Change ${viewOf(t, o)?.name ?? t.view}`,
+    available: (t, o) => viewOf(t, o)?.type === "tree",
+    fields: (t, o) => treeFields(o, t.applicationKey),
+    initial: (t, o) => treeValues(viewOf(t, o) ?? { name: t.view }) as FieldValues,
+    build: (values, t, o) => {
+      const view = viewOf(t, o);
+      return view ? changeView(o, t.applicationKey, view, values) : [];
+    },
+  }),
+  spec<On<"view">>({
+    id: "view-grid-change",
+    on: "view",
+    label: "Change…",
+    title: (t, o) => `Change ${viewOf(t, o)?.name ?? t.view}`,
+    available: (t, o) => viewOf(t, o)?.type === "mappingGrid",
+    fields: (_, o) => gridFields(o),
+    initial: (t, o) => gridValues(viewOf(t, o) ?? { name: t.view }) as FieldValues,
+    follow: (next, _previous, changed) => followGrid(next, changed) as FieldValues,
+    build: (values, t, o) => {
+      const view = viewOf(t, o);
+      return view ? changeView(o, t.applicationKey, view, values) : [];
+    },
+  }),
+  spec<On<"view">>({
     id: "view-group",
     on: "view",
     label: "Move to group…",
@@ -867,6 +1057,14 @@ export const OPERATIONS: OperationSpec[] = [
     ],
   }),
   spec<On<"view">>({
+    id: "view-remove",
+    on: "view",
+    label: "Remove view",
+    available: (t, o) => viewOf(t, o)?.type !== "relationMatrix",
+    confirm: (t, o) => `Remove ${viewOf(t, o)?.name ?? t.view}? Types only it needed stop being listed here.`,
+    build: (_, t) => [{ kind: "removeView", applicationKey: t.applicationKey, view: t.view, unlist: true }],
+  }),
+  spec<On<"view">>({
     id: "view-table-layout",
     on: "view",
     label: "Layout…",
@@ -874,8 +1072,7 @@ export const OPERATIONS: OperationSpec[] = [
     available: (t, o) => viewOf(t, o)?.type === "relationTable",
     fields: () => [{ name: "layout", label: "Layout", type: "select", options: LAYOUT_OPTIONS, required: true }],
     initial: (t, o) => ({
-      layout:
-        (viewOf(t, o) as { config?: { layout?: string } } | undefined)?.config?.layout === "grid" ? "grid" : "rows",
+      layout: (viewOf(t, o)?.config as { layout?: string } | undefined)?.layout === "grid" ? "grid" : "rows",
     }),
     build: (values, t) => [
       {
@@ -1531,6 +1728,190 @@ export const OPERATIONS: OperationSpec[] = [
     ],
   }),
 
+  // --- what a type, an attribute type and a relationship hold beyond their names (0.13 ED) ---
+  spec<On<"objectType">>({
+    id: "type-display-attribute",
+    on: "objectType",
+    label: "Display attribute…",
+    title: (t, o) => `Which attribute names a ${typeName(o, t.objectType)} record`,
+    available: (t, o) => (objectTypeOf(o, t.objectType)?.attributes.length ?? 0) > 0,
+    fields: (t, o) => [
+      {
+        name: "attribute",
+        label: "Attribute",
+        type: "select",
+        options: [
+          { value: "", label: "None: records are named by their name" },
+          ...boundAttributes(o, t.objectType).map((item) => ({ value: item.attributeType, label: item.name })),
+        ],
+        hint: "Shown wherever a record of this type is named: lists, links and the record's title.",
+      },
+    ],
+    initial: (t, o) => ({ attribute: objectTypeOf(o, t.objectType)?.displayAttribute ?? "" }),
+    build: (values, t) => [
+      {
+        kind: "setObjectTypeProperty",
+        objectType: t.objectType,
+        property: "displayAttributeTypeKey",
+        value: optional(text(values, "attribute")) ?? null,
+      },
+    ],
+  }),
+  spec<On<"objectType">>({
+    id: "type-effective-period",
+    on: "objectType",
+    label: "Effective period…",
+    title: (t, o) => `When a ${typeName(o, t.objectType)} record is in force`,
+    available: (t, o) =>
+      Boolean(objectTypeOf(o, t.objectType)?.effectivePeriod) || dateAttributes(o, t.objectType).length >= 2,
+    fields: (t, o) => {
+      const dates = dateAttributes(o, t.objectType).map((item) => ({ value: item.attributeType, label: item.name }));
+      return [
+        {
+          name: "start",
+          label: "Starts on",
+          type: "select",
+          options: [{ value: "", label: "None: records have no effective period" }, ...dates],
+          hint: "A date attribute. A record is in force from this date (inclusive) up to the end date (exclusive); an empty date is open.",
+        },
+        {
+          name: "end",
+          label: "Ends on",
+          type: "select",
+          options: dates,
+          required: true,
+          when: (v) => Boolean(v.start),
+        },
+      ];
+    },
+    initial: (t, o) => ({
+      start: objectTypeOf(o, t.objectType)?.effectivePeriod?.startAttributeTypeKey ?? "",
+      end:
+        objectTypeOf(o, t.objectType)?.effectivePeriod?.endAttributeTypeKey ??
+        dateAttributes(o, t.objectType)[1]?.attributeType ??
+        "",
+    }),
+    build: (values, t) => [
+      {
+        kind: "setObjectTypeProperty",
+        objectType: t.objectType,
+        property: "effectivePeriod",
+        value: text(values, "start")
+          ? { startAttributeTypeKey: text(values, "start"), endAttributeTypeKey: text(values, "end") }
+          : null,
+      },
+    ],
+  }),
+  spec<On<"objectType">>({
+    id: "type-at-least-one",
+    on: "objectType",
+    label: "At least one of…",
+    title: (t, o) => `Attributes of ${typeName(o, t.objectType)} of which one must be filled`,
+    available: (t, o) => (objectTypeOf(o, t.objectType)?.attributes.length ?? 0) > 0,
+    fields: (t, o) => [
+      {
+        name: "attributes",
+        label: "Attributes",
+        type: "checkboxes",
+        options: boundAttributes(o, t.objectType).map((item) => ({ value: item.attributeType, label: item.name })),
+        hint: "A record needs a value in at least one of them. Records that have none now are listed when the release is installed.",
+      },
+    ],
+    initial: (t, o) => ({ attributes: objectTypeOf(o, t.objectType)?.atLeastOneOf ?? [] }),
+    build: (values, t) => [
+      {
+        kind: "setObjectTypeProperty",
+        objectType: t.objectType,
+        property: "atLeastOneOf",
+        value: Array.isArray(values.attributes) && values.attributes.length ? values.attributes : null,
+      },
+    ],
+  }),
+  spec<On<"objectType">>({
+    id: "type-parent-relations",
+    on: "objectType",
+    label: "Parent relationships…",
+    title: (t, o) => `Relationships that place a ${typeName(o, t.objectType)} record under a parent`,
+    draftOnly: true,
+    available: (t, o) => parentRelationOptions(o, t.objectType).length > 0,
+    fields: (t, o) => [
+      {
+        name: "relations",
+        label: "Relationships",
+        type: "checkboxes",
+        options: parentRelationOptions(o, t.objectType),
+        hint: "A relationship chosen here makes the records it points from the parents of this type's records, in trees and relation matrices.",
+      },
+    ],
+    initial: (t, o) => ({ relations: objectTypeOf(o, t.objectType)?.parentRelationTypeKeys ?? [] }),
+    build: (values, t) => [
+      {
+        kind: "setObjectTypeProperty",
+        objectType: t.objectType,
+        property: "parentRelationTypeKeys",
+        value: Array.isArray(values.relations) && values.relations.length ? values.relations : null,
+      },
+    ],
+  }),
+  spec<On<"attributeType">>({
+    id: "attribute-type-limits",
+    on: "attributeType",
+    label: "Minimum and maximum…",
+    title: (t, o) => `Smallest and largest ${attributeTypeOf(o, t.attributeType)?.name ?? t.attributeType} accepted`,
+    available: (t, o) => ["integer", "decimal"].includes(attributeTypeOf(o, t.attributeType)?.valueType ?? ""),
+    fields: () => [
+      { name: "minimum", label: "Minimum", type: "text", hint: "Leave empty for no minimum." },
+      { name: "maximum", label: "Maximum", type: "text", hint: "Leave empty for no maximum." },
+    ],
+    initial: (t, o) => ({
+      minimum: String(attributeTypeOf(o, t.attributeType)?.minimum ?? ""),
+      maximum: String(attributeTypeOf(o, t.attributeType)?.maximum ?? ""),
+    }),
+    build: (values, t, o) => {
+      const current = attributeTypeOf(o, t.attributeType);
+      const set = (property: "minimum" | "maximum"): DraftOperation[] => {
+        const entered = text(values, property);
+        const value = entered === "" ? null : Number.isFinite(Number(entered)) ? Number(entered) : entered;
+        return value === (current?.[property] ?? null)
+          ? []
+          : [{ kind: "setAttributeTypeProperty", attributeType: t.attributeType, property, value }];
+      };
+      // Loosening goes first so a new minimum above the old maximum is not refused on the way.
+      const [minimum, maximum] = [set("minimum"), set("maximum")];
+      return Number(text(values, "minimum")) > Number(current?.maximum ?? Infinity)
+        ? [...maximum, ...minimum]
+        : [...minimum, ...maximum];
+    },
+  }),
+  spec<On<"relation">>({
+    id: "relation-attributes",
+    on: "relation",
+    label: "Attributes of the relationship…",
+    title: (t, o) =>
+      `Attributes carried by ${relationTypeOf(o, t.relationType)?.name ?? t.relationType}: ${typeName(o, t.from)} → ${typeName(o, t.to)}`,
+    draftOnly: (t, o) => isReleased(relationOf(t, o)?.mark),
+    available: (t, o) => !relationOf(t, o)?.containment && o.attributeTypes.length > 0,
+    fields: (_, o) => [
+      {
+        name: "attributes",
+        label: "Attributes",
+        type: "checkboxes",
+        options: o.attributeTypes.map((item) => ({ value: item.key, label: item.name })),
+        hint: "A value each relationship of this kind holds, such as a date or a remark.",
+      },
+    ],
+    initial: (t, o) => ({ attributes: relationOf(t, o)?.attributeTypeKeys ?? [] }),
+    build: (values, t) => [
+      {
+        kind: "setRelationRule",
+        relationType: t.relationType,
+        from: t.from,
+        to: t.to,
+        attributeTypeKeys: Array.isArray(values.attributes) ? values.attributes : [],
+      },
+    ],
+  }),
+
   // --- a relation allowed between two types ---
   spec<On<"relation">>({
     id: "relation-rule",
@@ -1801,6 +2182,9 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
     exposesOf(t.definition).map((key) => ({ value: key, label: typeName(o, key) }));
   const objectOf = (t: Api) => (t.definition.object ?? {}) as Record<string, unknown>;
   const version = (t: Api) => Number(t.definition.contractVersion ?? 1);
+  /** An earlier contract version the definition keeps (DF3): the item at `/earlierVersions/<n>`. */
+  const isEarlierVersion = (t: Item) => /^\/earlierVersions\/\d+$/.test(t.pointer);
+  const earlierVersion = (t: Item) => Number((t.value as Record<string, unknown>).contractVersion);
   return [
     spec<On<"consumerApis">>({
       id: "consumer-add",
@@ -2009,10 +2393,18 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
         },
         { name: "exact", label: "Exact weight", type: "text" },
         { name: "contains", label: "Contains weight", type: "text" },
+        {
+          name: "preferTypes",
+          label: "Prefer records of these types",
+          type: "checkboxes",
+          options: exposed(t, o),
+          hint: "When several records match, one of these types is chosen first. None chosen: no preference.",
+        },
       ],
       build: (values, t) => [
         insert(t, pointer("operations", "xref", "alsoMatchThrough"), {
           related: text(values, "related"),
+          ...(chosen(values, "preferTypes").length ? { preferTypes: chosen(values, "preferTypes") } : {}),
           firstOf: [
             {
               field: text(values, "field"),
@@ -2136,7 +2528,16 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
       on: "consumerApi",
       label: (t) => `Raise contract version to ${version(t) + 1}`,
       direct: true,
-      build: (_, t) => [set(t, "/contractVersion", version(t) + 1)],
+      // The previous version stays served beside the new one (DF-D1).
+      build: (_, t) => [{ kind: "raiseConsumerApiVersion", consumerApi: t.consumerApi }],
+    }),
+    spec<Api>({
+      id: "consumer-raise-drop",
+      on: "consumerApi",
+      label: (t) => `Raise to ${version(t) + 1} and stop serving ${version(t)}`,
+      confirm: (t) =>
+        `Stop serving version ${version(t)} of ${String(t.definition.name ?? t.consumerApi)}? Once the draft is active, its consumers of version ${version(t)} get 404.`,
+      build: (_, t) => [{ kind: "raiseConsumerApiVersion", consumerApi: t.consumerApi, keep: false }],
     }),
     spec<Api>({
       id: "consumer-key",
@@ -2203,6 +2604,31 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
       build: (values, t) => setField(t.consumerApi, fieldOf(t), { sources: chosen(values, "sources") }),
     }),
     spec<Item>({
+      id: "consumer-through-prefer",
+      on: "consumerItem",
+      label: "Preferred types…",
+      title: (t) => `Types preferred by ${t.label}`,
+      available: (t) => /^\/operations\/xref\/alsoMatchThrough\/\d+$/.test(t.pointer),
+      fields: (t, o) => [
+        {
+          name: "preferTypes",
+          label: "Prefer records of these types",
+          type: "checkboxes",
+          options: exposesOf(t.definition ?? {}).map((key) => ({ value: key, label: typeName(o, key) })),
+          hint: "When several records match, one of these types is chosen first. None chosen: no preference.",
+        },
+      ],
+      initial: (t) => ({ preferTypes: listOf(t.value, "preferTypes") }),
+      build: (values, t) => [
+        {
+          kind: "setConsumerApiPart",
+          consumerApi: t.consumerApi,
+          pointer: `${t.pointer}/preferTypes`,
+          value: chosen(values, "preferTypes").length ? chosen(values, "preferTypes") : null,
+        },
+      ],
+    }),
+    spec<Item>({
       id: "consumer-filter-match",
       on: "consumerItem",
       label: "Matches on…",
@@ -2258,6 +2684,39 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
       fields: () => [{ name: "json", label: "Value", type: "json", required: true }],
       initial: (t) => ({ json: JSON.stringify(t.value, null, 2) }),
       build: (values, t) => [set(t, t.pointer, json(values, "json"))],
+    }),
+    spec<Item>({
+      id: "consumer-version-sunset",
+      on: "consumerItem",
+      label: "Set sunset day…",
+      title: (t) => `Sunset of version ${earlierVersion(t)}`,
+      available: (t) => isEarlierVersion(t),
+      fields: () => [
+        {
+          name: "sunset",
+          label: "Sunset day",
+          type: "text",
+          hint: "Written YYYY-MM-DD, announced in the Sunset header. The engine serves the version until you stop it, whatever the day. Empty takes the announcement back.",
+        },
+      ],
+      initial: (t) => ({ sunset: String((t.value as Record<string, unknown>).sunset ?? "") }),
+      build: (values, t) => [
+        {
+          kind: "setConsumerApiSunset",
+          consumerApi: t.consumerApi,
+          version: earlierVersion(t),
+          sunset: text(values, "sunset") || null,
+        },
+      ],
+    }),
+    spec<Item>({
+      id: "consumer-version-stop",
+      on: "consumerItem",
+      label: "Stop serving",
+      available: (t) => isEarlierVersion(t),
+      confirm: (t) =>
+        `Stop serving version ${earlierVersion(t)}? Once the draft is active, its consumers get 404 from /api/consumer/${t.consumerApi}/v${earlierVersion(t)}.`,
+      build: (_, t) => [{ kind: "removeConsumerApiVersion", consumerApi: t.consumerApi, version: earlierVersion(t) }],
     }),
     spec<Item>({
       id: "consumer-item-remove",
@@ -2528,6 +2987,19 @@ present("Change", "toggle", ["attribute-required", "attribute-read-only", "attri
 present("Change", "type", ["attribute-value-type", "attribute-type-value-type"]);
 present("Change", "sliders", ["attribute-type-features", "relation-rule"]);
 present("Change", "toggle", ["relation-required"]);
+present("Add", "plus", ["application-add-view"]);
+present("Change", "sliders", [
+  "type-display-attribute",
+  "type-effective-period",
+  "type-at-least-one",
+  "type-parent-relations",
+  "attribute-type-limits",
+  "relation-attributes",
+  "view-matrix-change",
+  "view-tree-change",
+  "view-grid-change",
+]);
+present("Remove", "trash", ["view-matrix-remove", "view-remove"]);
 present("Change", "filter", ["relation-candidates"]);
 present("Move", "arrow-right", ["type-move", "attribute-move"]);
 present("Move", "list", ["type-group", "view-group"]);
@@ -2560,12 +3032,14 @@ present("Change", "pencil", [
   "consumer-filter-match",
   "consumer-related-fields",
 ]);
-present("Change", "number", ["consumer-raise"]);
+present("Change", "number", ["consumer-raise", "consumer-raise-drop"]);
+present("Change", "pencil", ["consumer-version-sunset"]);
+present("Change", "pencil", ["consumer-through-prefer"]);
 present("Change", "lock", ["consumer-key"]);
 present("Change", "pencil", ["consumer-json", "consumer-item-json"]);
 present("Move", "sort-ascending", ["consumer-item-up"]);
 present("Move", "sort-descending", ["consumer-item-down"]);
-present("Remove", "trash", ["consumer-remove", "consumer-item-remove"]);
+present("Remove", "trash", ["consumer-remove", "consumer-item-remove", "consumer-version-stop"]);
 present("Remove", "trash", [
   "application-remove",
   "type-remove",

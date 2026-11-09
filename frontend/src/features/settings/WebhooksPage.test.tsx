@@ -267,6 +267,80 @@ describe("Webhooks", () => {
     expect(screen.queryByText("rdmwh_secret")).not.toBeInTheDocument();
   });
 
+  it("creates a webhook for the workspace's own events: its three events, no filters or content", async () => {
+    vi.mocked(api.createSubscription).mockResolvedValue(
+      subscription("ws", {
+        signingSecret: "rdmwh_ws",
+        name: "Approvals",
+        source: "workspace",
+        consumerApi: null,
+        contractVersion: 1,
+        events: ["change-set.approved"],
+      }),
+    );
+    vi.mocked(api.subscription).mockResolvedValue(
+      subscription("ws", {
+        name: "Approvals",
+        source: "workspace",
+        consumerApi: null,
+        contractVersion: 1,
+        events: ["change-set.approved"],
+      }),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "New webhook" }));
+    const dialog = await screen.findByRole("dialog", { name: "New webhook" });
+    expect(within(dialog).getByRole("radio", { name: "Consumer API" })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Workspace events" }));
+    // The consumer API choice, the filters and the content go; the workspace stays.
+    expect(within(dialog).queryByRole("combobox", { name: "Consumer API" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Add filter" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("radio", { name: "Notification only" })).not.toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: "Workspace" })).toHaveValue("default"));
+    expect(within(dialog).getByRole("radio", { name: "All events (3)" })).toBeChecked();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Approvals" } });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "URL" }), {
+      target: { value: "https://receiver.example.com/approvals" },
+    });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Chosen events" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Choose events" }));
+    const picker = await screen.findByRole("dialog", { name: "Events" });
+    expect(within(picker).getByRole("option", { name: /change-set\.submitted/ })).toBeInTheDocument();
+    expect(within(picker).getByRole("option", { name: /change-set\.sent-back/ })).toBeInTheDocument();
+    fireEvent.click(within(picker).getByRole("option", { name: /change-set\.approved/ }));
+    fireEvent.click(within(picker).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Events" })).not.toBeInTheDocument());
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create webhook" }));
+    await screen.findByRole("dialog", { name: "Keep the signing key" });
+    expect(api.createSubscription).toHaveBeenCalledWith({
+      name: "Approvals",
+      source: "workspace",
+      workspaceKey: "default",
+      events: ["change-set.approved"],
+      url: "https://receiver.example.com/approvals",
+      maxEventsPerBatch: 1,
+      format: "rdm",
+    });
+  });
+
+  it("offers New webhook when no consumer API declares events, for the workspace's own events", async () => {
+    vi.mocked(api.consumerApiDefinition).mockImplementation(async (key) => ({ ...definitions.plain, key }));
+    // A release of its own, since the page keeps each release's definitions once read.
+    const bare = { ...model, release: { ...model.release, version: "no-events" } };
+    render(
+      <ToastProvider>
+        <WebhooksPage route={{ kind: "settings", page: "webhooks" }} model={bare} onNavigate={navigatedAway} />
+      </ToastProvider>,
+    );
+    const button = await screen.findByRole("button", { name: "New webhook" });
+    expect(button).toBeEnabled();
+    expect(await screen.findByText(/declares no consumer API with events/)).toBeInTheDocument();
+    fireEvent.click(button);
+    const dialog = await screen.findByRole("dialog", { name: "New webhook" });
+    expect(within(dialog).getByRole("radio", { name: "Workspace events" })).toBeChecked();
+    expect(within(dialog).queryByRole("radio", { name: "Consumer API" })).not.toBeInTheDocument();
+  });
+
   it("offers every active workspace, read to the last page (0.9 R-F19)", async () => {
     const workspace = (key: string) => ({
       key,

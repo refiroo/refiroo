@@ -4,7 +4,9 @@ description: Understand the compatibility commitment, model language window and 
 reader: evaluator
 ---
 
-The software version, a model release and a publication number describe different things. **Settings → About** shows the running engine version, management API version, supported schema languages, licence, source address and active model release. A workspace's own model release determines the definition its data uses.
+The software version, a model release and a publication number describe different things. **Settings → About** shows the running engine version, management API version, supported schema languages, licence, source address and active model release. A workspace's own model release determines the definition its data uses. About is available to
+signed-in people; the additional Deployment and Operations pages need Operations permission. See
+[About, Deployment and Operations](/docs/administer/deployment-pages/) for reading these details.
 
 ## What stays compatible
 
@@ -12,7 +14,13 @@ From 0.12.0, refiroo commits to additive evolution of its documented management 
 
 An addition preserves existing behaviour: for example, a new optional choice or an extra field in an answer. Integrations must tolerate additions they do not recognise. Removing a choice, changing a field's meaning or type, making an optional input required or refusing a previously accepted request is a breaking change.
 
-A breaking replacement must be offered alongside the old contract. The old version stays available for **at least twelve months and two minor releases after the deprecation announcement**. This protects existing callers while their owners arrange an update.
+For contracts published by refiroo, a breaking replacement must be offered alongside the old contract. The old version stays available for **at least twelve months and two minor releases after the deprecation announcement**. This protects existing callers while their owners arrange an update.
+
+Your organisation’s consumer APIs are defined by its model administrator, who chooses the
+notice period with the consuming teams. Earlier contract versions can remain available
+beside the new one, reading current data in their original shape. An announced sunset day
+does not stop service automatically: the administrator explicitly stops the version through
+a model release. See [Consumer APIs in the model](/docs/model/consumer-apis/#keep-an-earlier-version-available).
 
 The commitment does not freeze screen layouts and addresses, internal code or database tables. Integrations use the public contracts rather than the database. See [Compatibility for integrators](/docs/integrate/compatibility/) for caller responsibilities and [Upgrades](/docs/run/upgrades/) for operational planning.
 

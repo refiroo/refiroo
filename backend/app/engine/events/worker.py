@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from ...common.outage import OutageLog
 from ...models.database import ConsumerEvent, ConsumerEventCheckpoint, Workspace
-from ..model.consumer_definitions import consumer_apis
+from ..model.consumer_definitions import consumer_apis, kept_store_key, served_versions
 from ..model.registry import model_registry
 from ..reads.feed import retention_floor
 from .deriver import PAGE_ENTRIES, derive_page
@@ -141,9 +141,13 @@ class EventDeriver:
         """The plans of the release's definitions that declare events, built once per release."""
         if release_id not in self._plans:
             model = model_registry.resolve_release(session, release_id, require_ready=False).model
-            self._plans[release_id] = tuple(
-                EventPlan(model, definition) for definition in consumer_apis(model) if definition.events
-            )
+            plans = [EventPlan(model, definition) for definition in consumer_apis(model) if definition.events]
+            # Each earlier version the model keeps derives its own events (DF3).
+            for definition in consumer_apis(model):
+                for kept in served_versions(model, definition.key)[1:]:
+                    if kept.definition.events:
+                        plans.append(EventPlan(model, kept.definition, kept_store_key(kept.definition)))
+            self._plans[release_id] = tuple(plans)
         return self._plans[release_id]
 
     # --- the thread -------------------------------------------------------------------------------

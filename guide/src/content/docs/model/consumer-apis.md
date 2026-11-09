@@ -125,6 +125,10 @@ first; it is not a percentage or a guarantee that the record is the intended one
 
 **Reference-data example:** the stop number rule has an Exact weight of 900. Looking up 8509000 identifies Chur with that score. Looking up its Wikidata code Q663869 instead reaches Chur through a related system-code record, with the configured weight of 90. These weights rank candidates; they are not confidence percentages.
 
+Use **Preferred types…** on an **Also match through** row to select **Prefer records of
+these types**. The choices are exposed types; clear them for no preference. Review its effect
+with the consuming team, especially when the same related value reaches several types.
+
 A request for one answer succeeds only with an untied best candidate. No match and a tied best score are distinct outcomes. **Also match through** lets related records identify their owners. **First of** uses the first matching related rule; **Prefers** can choose which exposed owner types receive its score.
 
 **Resolve** applies Get by ID or lookup rules to many inputs. Each gets its own found, missing, ambiguous or refused outcome, in input order. Shared request filters can be overridden for an individual item; those defaults narrow the question, whereas a field’s Default fills a missing output value. **Crosswalk** enables asking for a selected related representation, such as a system code. It does not resolve a tied source match by guessing which source has a target.
@@ -190,8 +194,7 @@ A contract version is separate from the model release version, draft version and
 version. Removing or changing something consumers read can require a higher contract version.
 Renaming a public field or changing relationship cardinality can affect the output too. Review
 the differences with the consuming teams, then
-[raise the contract version](/docs/guide/model/raise-a-contract-version/). Merely raising it
-neither fixes an invalid model nor gives old consumers a parallel old endpoint after activation.
+[raise the contract version](/docs/guide/model/raise-a-contract-version/). Raising it keeps the previous definition served beside the new version by default. The editor preserves the definition from the draft’s base release, including when the draft already contains breaking edits. An API or version not served by that base release has no previous definition to retain. An invalid model still needs repair.
 
 A consuming system needs a client granted this particular API in each workspace it reads.
 Defining the API, granting a role or giving a person Model authoring does not grant consumer
@@ -233,3 +236,181 @@ removing a field does. Adding more output is usually compatible; lowering a cont
 is refused.
 
 *Source for the reference examples: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0.*
+
+## Keep an earlier version available
+
+Use this when consuming systems need time to move to a changed contract. In the model
+editor, select the consumer API and open **Types and related**. You need **Model authoring** to edit;
+the release must then be installed and activated in each workspace that serves it.
+
+1. Raise **Contract version** when changing what existing consumers read. **Raise contract
+   version to …** advances it by one. The editor keeps the definition from the draft’s base
+   release, rather than copying any breaking edits already made in the draft. An API or
+   version not served by that base release leaves no earlier version to keep.
+2. Make the breaking edits to the new current version. In **Earlier versions**, check the
+   retained **Version**, **Superseded** day and **Sunset day**. Earlier versions keep their
+   output shape but read current data; they are not historical copies of records.
+3. To announce an end date, edit **Sunset day**, enter a calendar date in year-month-day
+   form and save. Clear it to withdraw the announced date. The date is an announcement:
+   refiroo continues serving the version until you explicitly stop it.
+4. Review Issues and the generated documents, then install and activate the release. Installing
+   alone does not change a workspace. Existing consumers and webhooks on a retained version
+   continue using that version's shape.
+
+The model administrator chooses the notice period with the consuming teams. The software's
+own compatibility period does not impose a deadline on your organisation's consumer APIs.
+
+If you already made breaking edits, **Needs contract version …** offers **Raise to version …**
+and **Raise and stop serving version …**. **Raise to version …** keeps the base release’s
+definition while your edited definition becomes the new version. Choosing
+**Raise and stop serving version …** instead leaves no copy of the
+version being replaced. Use that choice only when its consumers are ready to lose access.
+
+![Earlier versions table with a retained version, superseded day, sunset day and Stop serving](/docs/screens/model-consumer-earlier-versions.png)
+
+### Stop serving and undo
+
+In **Earlier versions**, choose **Stop serving** for the intended version. Read the confirmation:
+consumers lose access once the draft is active. Cancel to keep serving it, or confirm the removal.
+**Undo** restores that draft step before activation. Review compatibility, install and activate
+the release only after the receiving teams have moved. Stopping an earlier version preserves
+records and other versions. It stops that version's reads and suspends subscriptions bound to it;
+ask the integration administrator to check the receiver before resuming on the current version.
+
+Follow [Stop serving an earlier contract version](/docs/guide/model/stop-serving-an-earlier-contract-version/) for the sunset announcement, removal and undo steps.
+
+After activation, restoring service needs a release that retains the original definition again;
+an old installed release does not keep a route running by itself. Do not recreate an earlier
+version with a changed shape under the same number.
+
+### When the retained version prevents activation
+
+Every retained version must still refer to types, fields and relationships present in the new
+model. Keep those sources while consumers need them. An issue names the version and the missing
+source; restore the source or coordinate stopping that version.
+
+A retained number must be lower than the current version and appear only once. Invalid dates,
+duplicate numbers and invalid references must be corrected before release. If a kept contract
+would change, the finding says **a kept version is served as it was: restore it, or stop serving
+it**. Raising the current version again does not repair the retained copy. The install review
+shows this finding rather than offering a version-raise fix for it. A warning that a version
+stops serving is expected only when removal is deliberate; inspect it before activation.
+
+## Edit version and remove a contract
+
+The API’s **Settings** table has an editable **Contract version**. Enter a positive whole
+number and Save, or Cancel to leave it unchanged. The menu’s **Raise contract version to …**
+advances it by one without typing. Lowering a version is refused; increasing it does not
+repair an invalid definition. When the draft’s base release served the version being raised, its definition appears in **Earlier versions** and remains available after activation.
+
+Use **Remove consumer API** only after coordinating with its consumers. The confirmation
+warns that they receive 404 once this draft is active. Cancel keeps it; Undo restores a saved
+removal in the draft. Existing releases remain immutable, but do not keep the old contract
+running in a workspace that activates the new model.
+
+**Edit as JSON…** on the API edits its complete definition as one step; on a row, it edits
+that item. These are specialist controls, not a prerequisite for the named forms. Ask a
+specialist to handle combinations the forms do not expose, then review Issues, compatibility
+and the generated documents again.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+consumerApis
+consumerApis[].contractVersion
+consumerApis[].description
+consumerApis[].exposes
+consumerApis[].filters
+consumerApis[].filters.{}.byType
+consumerApis[].filters.{}.crosswalk
+consumerApis[].filters.{}.description
+consumerApis[].filters.{}.keepOnlyMatching
+consumerApis[].filters.{}.linkedTo
+consumerApis[].filters.{}.matchOn
+consumerApis[].filters.{}.onRelated
+consumerApis[].filters.{}.scoreOnlyMatching
+consumerApis[].filters.{}.through
+consumerApis[].filters.{}.under
+consumerApis[].key
+consumerApis[].name
+consumerApis[].object
+consumerApis[].object.fields
+consumerApis[].object.fields.{}.default
+consumerApis[].object.fields.{}.description
+consumerApis[].object.fields.{}.from
+consumerApis[].object.fields.{}.role
+consumerApis[].object.hierarchy
+consumerApis[].object.parent
+consumerApis[].object.parent.fields
+consumerApis[].object.parent.output
+consumerApis[].object.path
+consumerApis[].object.related
+consumerApis[].object.related.{}.description
+consumerApis[].object.related.{}.fields
+consumerApis[].object.related.{}.via
+consumerApis[].operations
+consumerApis[].operations.events
+consumerApis[].operations.events.custom
+consumerApis[].operations.events.custom[].changes
+consumerApis[].operations.events.custom[].key
+consumerApis[].operations.events.custom[].objectTypes
+consumerApis[].operations.events.custom[].watch
+consumerApis[].operations.events.custom[].watch.fields
+consumerApis[].operations.events.custom[].watch.related
+consumerApis[].operations.events.description
+consumerApis[].operations.events.perType
+consumerApis[].operations.lists
+consumerApis[].operations.lists.{}.description
+consumerApis[].operations.lists.{}.of
+consumerApis[].operations.lists.{}.sortBy
+consumerApis[].operations.lists.{}.within
+consumerApis[].operations.lists.{}.within.filter
+consumerApis[].operations.lists.{}.within.types
+consumerApis[].operations.objects
+consumerApis[].operations.objects.description
+consumerApis[].operations.resolve
+consumerApis[].operations.resolve.description
+consumerApis[].operations.xref
+consumerApis[].operations.xref.alsoMatchThrough
+consumerApis[].operations.xref.alsoMatchThrough[].firstOf
+consumerApis[].operations.xref.alsoMatchThrough[].firstOf[].contains
+consumerApis[].operations.xref.alsoMatchThrough[].firstOf[].exact
+consumerApis[].operations.xref.alsoMatchThrough[].firstOf[].field
+consumerApis[].operations.xref.alsoMatchThrough[].preferTypes
+consumerApis[].operations.xref.alsoMatchThrough[].related
+consumerApis[].operations.xref.description
+consumerApis[].operations.xref.matchOn
+consumerApis[].operations.xref.matchOn[].contains
+consumerApis[].operations.xref.matchOn[].exact
+consumerApis[].operations.xref.matchOn[].field
+consumerApis[].publicNames
+tab:ConsumerApiTab:types
+tab:ConsumerApiTab:fields
+tab:ConsumerApiTab:operations
+tab:ConsumerApiTab:filters
+tab:ConsumerApiTab:schema
+tab:ConsumerApiTab:example
+operation:consumer-add
+operation:consumer-expose
+operation:consumer-add-field
+operation:consumer-object-extras
+operation:consumer-add-related
+operation:consumer-add-list
+operation:consumer-add-rule
+operation:consumer-add-through
+operation:consumer-add-event
+operation:consumer-add-filter
+operation:consumer-rename
+operation:consumer-describe
+operation:consumer-raise
+operation:consumer-key
+operation:consumer-json
+operation:consumer-remove
+operation:consumer-item-up
+operation:consumer-item-down
+operation:consumer-field-sources
+operation:consumer-through-prefer
+operation:consumer-filter-match
+operation:consumer-related-fields
+operation:consumer-item-json
+operation:consumer-item-remove
+confirm:ConsumerApis.tsx:Stop offering XREF
+-->

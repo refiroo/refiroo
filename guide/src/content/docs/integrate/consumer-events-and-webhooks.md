@@ -50,11 +50,11 @@ The delivery log distinguishes queued, sending, retrying, succeeded, failed and 
 
 Pause reasons include user suspension, changed or removed model declarations, contract-version changes, retired workspace, failed delivery, filters matching nothing and expired events. Read the reason, fix the receiver or declaration and resume. Resume normally starts at the first unacknowledged event. `SUBSCRIPTION_NEEDS_EDIT` names remaining problems. `SUBSCRIPTION_ALREADY_SUSPENDED` and `SUBSCRIPTION_NOT_SUSPENDED` require refreshing its state; `SUBSCRIPTION_NOT_FOUND` requires the correct ID.
 
-If events expired, resetting starts after the current head and requires a fresh baseline. Reset **before** rereading the baseline so intervening changes can be processed twice instead of missed. `FILTER_MATCHES_NOTHING` requires correcting the stale reference filter. A workspace with subscriptions cannot be deleted (`WORKSPACE_HAS_SUBSCRIPTIONS`); review them first.
+If events expired, resetting starts after the current committed head and skips the earlier undelivered range. Reset **before** taking a fresh baseline at or after that head. An older publication alone cannot fill the gap between its position and the reset; use the [recovery sequence](/docs/guide/integrate/subscribe-a-webhook-and-verify-it/#recover-an-expired-subscription). `FILTER_MATCHES_NOTHING` requires correcting the stale reference filter. A workspace with subscriptions cannot be deleted (`WORKSPACE_HAS_SUBSCRIPTIONS`); review them first.
 
 ## Workspace approval events
 
-Workspace subscriptions deliver `change-set.submitted`, `change-set.approved` and `change-set.sent-back`. They have a workspace source without a consumer API. They use the same signing, ordering, retry, logging, resend and rotation rules, but do not accept consumer filters or payload selection (`NOT_SUPPORTED_BY_SOURCE`). They identify submitter and decider without email addresses. Their positions are a separate per-workspace sequence. A model release change does not pause these subscriptions. See [Changes, approvals and publication](/docs/integrate/changes-approvals-and-publication/).
+Workspace subscriptions deliver `change-set.submitted`, `change-set.approved` and `change-set.sent-back`. They have a workspace source without a consumer API. Administrators can select **Events from › Workspace events** in **New webhook**, then the workspace and event kinds; the form hides consumer filters and content choices. Workspace events can also be created when no consumer API declares events; in that case the browser offers only the workspace source. They use the same signing, ordering, retry, logging, resend and rotation rules, but do not accept consumer filters or payload selection (`NOT_SUPPORTED_BY_SOURCE`). They identify submitter and decider without email addresses. Their positions are a separate per-workspace sequence. A model release change does not pause these subscriptions. See [Changes, approvals and publication](/docs/integrate/changes-approvals-and-publication/).
 
 ## A declaration and the event it exposes
 
@@ -277,7 +277,7 @@ The defaults are `maxEventsPerBatch: 1`, `payload: "full"` and `format: "rdm"`. 
 
 Subscriptions have active or suspended status and use optimistic concurrency for edits. The creator appears as `owner` (kind, ID and name); older entries can have a null owner. The list can filter by owner. Ownership itself grants no permission: Integration administration in that workspace is required. The [subscription reference](/docs/api/?api=management#tag/consumer%20subscriptions) describes creation, reads, edits, suspend, resume, rotation and deletion.
 
-On activation, a removed API, event or filter suspends delivery with `MODEL_CHANGED` and findings; a raised contract version suspends it with `CONTRACT_VERSION_CHANGED`. It does not silently rewrite the subscription. Retirement produces `WORKSPACE_RETIRED`. A stale filter is checked before sending, including before its deletions; fix the filter and resume to receive unacknowledged events. Resume validates the declaration and accepts the currently served version. Treat that as a contract changeover with the receiver.
+On activation, the subscription is checked against its accepted version while that version remains served, including a retained earlier version. A missing API, event or filter produces `MODEL_CHANGED` and findings. When the accepted version stops being served and the current declaration still supports the subscription, it suspends with `CONTRACT_VERSION_CHANGED`. It does not silently rewrite the subscription. Retirement produces `WORKSPACE_RETIRED`. A stale filter is checked before sending, including before its deletions; fix the filter and resume to receive unacknowledged events. Resume preserves the accepted version while it remains served; otherwise it validates and accepts the current one. Treat that changeover as a receiver contract change.
 
 A signing secret is generated from 32 random bytes, shown once as `signingSecret`, and stored sealed with AES-256-GCM under the deployment’s `SECRETS_ENCRYPTION_KEY`. Obtain a new secret through rotation if it is lost. Operators manage the sealing key; it is separate from the receiver’s HMAC secret.
 
@@ -295,8 +295,86 @@ CloudEvents uses structured JSON only, with no binary mode, `dataschema`, OPTION
 
 Full event pages default to 100 objects, with a maximum of 100. Identity pages default to 500 events, with a maximum of 1,000. Use `after` or `cursor`, never both. Filtering scans at most ten pages of underlying events per response, which explains a short page that is not caught up.
 
-Derivation happens after commit and can lag writes. `headPosition` and `caughtUp` describe derived events, not every committed write. Each entry is evaluated under the model release used for the original write. A feed at the currently served contract version includes older events too: each event retains the `contractVersion` that derived it, while a full object is composed under the version served now. Do not treat that full object as a historical copy.
+Derivation happens after commit and can lag writes. `headPosition` and `caughtUp` describe derived events, not every committed write. Each entry is evaluated under the model release used for the original write. A feed at the current contract version includes older events too: each event retains the `contractVersion` that derived it, while a full object is composed under the requested version. A retained earlier version reads events derived for that version, including those from when it was current, and composes full objects with its own definition. It continues receiving new changes in its shape while retained. Do not treat that full object as a historical copy.
 
 Retention is controlled by `FEED_RETENTION_DAYS` (default 30), bounded by the active publication’s position so its baseline remains usable. With no active baseline publication, events do not expire. Save the lasting cursor after durable processing, including on empty filtered pages, and reconcile from the indicated baseline after `410 EVENTS_EXPIRED`.
 
 Delivery progress changes neither the subscription’s `version` nor `updatedAt`; suspension does. Do not poll the edit version as a delivery checkpoint. The delivery list has one row per event of a request, sharing the request outcome. Request details show the latest sent body, byte count and attempts with timing, status and at most 4 KiB of the receiver’s response. Before the first attempt there is no sent body to resend. Use the [delivery operations](/docs/api/?api=management#tag/consumer%20subscriptions) to diagnose these states.
+
+## Move or remove a receiver
+
+For a new receiver address, read the subscription and edit its URL using the current version through the [subscription operations](/docs/api/?api=management#tag/consumer%20subscriptions). Preserve the signing secret in protected receiver configuration, or rotate it if the new receiver cannot use it. Editing clears a pending batch and starts again from the unacknowledged position under the new configuration. The old receiver may already have accepted events; transfer its deduplication records and durable queue, or deliberately reconcile duplicates. A delivery already in flight can finish during a changeover.
+
+Suspend when stopping temporarily; resume continues from the unacknowledged position while retained events are available. Delete when retiring the integration, using the current subscription version. Deletion removes its delivery log and signing-key configuration; it does not undo effects at the receiver or remove business records. Save the required diagnostics first. A newly created subscription starts after its chosen position, not the deleted subscription's checkpoint.
+
+The instance's database and encrypted subscription secrets belong to [operator backup and restore](/docs/run/backup-and-restore/); the receiver's queue, accepted secrets and deduplication records need its own backup. After restoring either side, inspect positions and local processing before resuming. Expect replay where the receiver's state is older. Rebuild a baseline when the server no longer retains the receiver's missing range. Losing the sealing key requires operator recovery; rotating a receiver secret is not a replacement for restoring that deployment key.
+
+## Keep a receiver on an earlier contract
+
+Raising a consumer API’s current version does not pause a subscription if its accepted
+version remains in `earlierVersions`. It keeps its position and receives that earlier
+version’s events and full-object shape. The pull feed remains available at the earlier
+version’s `/events` path, subject to the normal retention window. Neither method returns
+historical object values: full objects are composed from live data in the requested shape.
+
+When creating through the [subscription operation](/docs/api/?api=management#tag/consumer%20subscriptions),
+set `contractVersion` to the served earlier version you want. If omitted, creation accepts
+the current version. The browser’s **Consumer API** selector creates subscriptions at the
+current version; use the operation to bind a new subscription to an earlier one. The
+following illustrative request binds a receiver to v1 while the active release serves v2
+and retains v1:
+
+```http
+POST /api/v1/consumer-subscriptions HTTP/1.1
+Host: <instance>
+Authorization: Bearer <management-token>
+Content-Type: application/json
+
+{
+  "name": "Stop mirror v1",
+  "consumerApi": "stops",
+  "contractVersion": 1,
+  "workspaceKey": "graubuenden",
+  "events": ["stops-changed"],
+  "url": "https://receiver.example/refiroo-events",
+  "payload": "full",
+  "format": "rdm",
+  "maxEventsPerBatch": 1
+}
+```
+
+Replace the reserved example receiver with your endpoint. The successful creation returns
+201 and records `contractVersion: 1`; store the one-time signing secret
+as usual. An unserved requested version is refused with HTTP 400 `CONTRACT_VERSION_NOT_FOUND`;
+its details name the current `contractVersion`, all `servedContractVersions` and the
+`/contractVersion` pointer. For example, after stopping v1 with only v2 remaining:
+
+```json
+{
+  "error": {
+    "code": "CONTRACT_VERSION_NOT_FOUND",
+    "message": "Consumer API 'stops' has no contract version 1; it serves 2",
+    "details": {
+      "contractVersion": 2,
+      "servedContractVersions": [2],
+      "pointer": "/contractVersion"
+    }
+  }
+}
+```
+
+This refusal is illustrative. Rediscover the available versions rather than silently choosing a different one.
+
+When an activated release stops that version, the subscription is suspended with
+`CONTRACT_VERSION_CHANGED` if its events and filters remain valid against the current
+contract. The diagnostic says, for example, **Consumer API 'stops' is served at contract
+version 2 now; resuming accepts it**. If its declarations no longer resolve, it instead
+reports `MODEL_CHANGED` and lists what must be edited. The pull route for the stopped
+version returns `404 CONTRACT_VERSION_NOT_FOUND`.
+
+Read the new document and update the receiver before resuming. Editing or resuming while
+the accepted version is still served preserves it; once that version stops, resume accepts
+the current version. Check the resulting `contractVersion` and first deliveries. Normal
+resume continues from the unacknowledged position; reset skips waiting events and needs
+reconciliation. See [earlier-version discovery and headers](/docs/integrate/consumer-apis/#earlier-contract-versions)
+and [diagnose a paused webhook](/docs/guide/administer/find-out-why-a-webhook-paused/).

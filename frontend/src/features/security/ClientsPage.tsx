@@ -426,11 +426,9 @@ function ClientDetail({
         <button ref={renameRef} className="secondary" disabled={pending} onClick={() => setDialog("rename")}>
           Rename…
         </button>
-        {client.active && (
-          <button ref={rotateRef} className="secondary" disabled={pending} onClick={() => setDialog("rotate")}>
-            Rotate secret…
-          </button>
-        )}
+        <button ref={rotateRef} className="secondary" disabled={pending} onClick={() => setDialog("rotate")}>
+          Rotate secret…
+        </button>
         {client.active ? (
           <button className="danger-ghost" disabled={pending} onClick={() => setDialog("deactivate")}>
             Deactivate
@@ -504,7 +502,17 @@ function ClientDetail({
         <RotateOverlapDialog
           title={`Rotate the secret of ${client.name}`}
           eyebrow="Security"
-          lead="A new secret is made and shown once. Until the system using this client switches to it, the current secret keeps working for:"
+          lead={
+            client.active ? (
+              "A new secret is made and shown once. Until the system using this client switches to it, the current secret keeps working for:"
+            ) : (
+              <>
+                A new secret is made and shown once. {client.name} is deactivated, so the new secret takes effect when
+                you restore it. The current secret keeps working after that only for the time chosen here, counted from
+                now:
+              </>
+            )
+          }
           stopNowHint="For a secret that leaked: the system using it is refused until it has the new one."
           submitLabel="Make a new secret"
           pendingLabel="Making…"

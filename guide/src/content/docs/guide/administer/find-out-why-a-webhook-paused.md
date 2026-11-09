@@ -12,7 +12,11 @@ You need **Integration administration** in the source workspace. Work with the r
 2. Read **Configuration**, especially the suspension heading, listed findings, last error, attempt count and next attempt. A failed request prevents later changes passing it. After 24 hours of unsuccessful delivery it is suspended.
 3. Open **Deliveries**, filter **Status** if needed and choose **Refresh**. Open the affected event. Inspect **Attempts** and the selected attempt’s answer. An unreachable host, TLS failure, timeout, redirect and receiver error need different repairs. Give the relevant reason to the operator or receiver owner; do not share record content unnecessarily.
 4. For **Delivery failed**, fix the receiver or use **Edit…** to correct its URL. Changing a failed destination retries at once. For **The model changed** or **A filter matches nothing**, edit the fields identified in the findings and choose **Save changes**. If another person changed the webhook, review the reloaded configuration before saving again.
-5. For **The contract version changed**, ask the receiver owner to check compatibility with the served version. For **The workspace was retired**, ask a workspace administrator to reactivate it if delivery should continue. Otherwise delete the subscription after agreeing this with its owner.
+5. For **The contract version changed**, read **Accepted** and **Served now**. The version the receiver accepted is no longer served. Ask its owner to check the current version before resuming: resume accepts that version. A version retained by the active model keeps delivering in its own shape; simply raising the current version does not suspend it. If events or filters no longer exist, fix the findings under **The model changed** first. For **The workspace was retired**, ask a workspace administrator to reactivate it if delivery should continue. Otherwise delete the subscription after agreeing this with its owner.
+
+A workspace-events webhook does not depend on a consumer contract version. For that source,
+check the workspace, receiver and selected change-set steps instead. A record edit alone does
+not produce a workspace change-set notification.
 
 ## Resume without skipping changes
 
@@ -24,9 +28,9 @@ You need **Integration administration** in the source workspace. Work with the r
 
 ## Recover after events expired
 
-1. If **Events expired** is shown, record the publication named in the details and arrange a fresh synchronisation with the receiver owner. Continuing from the old position is no longer possible.
+1. If **Events expired** is shown, record the range lost and the publication named in the details, and arrange a fresh synchronisation with the receiver owner. The publication may be older than the current feed head, so it is not enough on its own. Continuing from the old position is no longer possible.
 2. Choose **Resume…**, select **Now, with reset** and read the warning that waiting changes are skipped. A refusal for expired events also selects reset for you; review it before proceeding.
-3. Choose **Reset and resume**. Then have the receiver synchronise from the named publication’s lists. Reset comes first so later changes are still delivered during recovery.
+3. Choose **Reset and resume**. Reset moves the subscription to the feed head shown in the refusal message; changes before it are not delivered. Then have the receiver reload from current data taken after the reset (a new publication or a live export), not from the older publication named in the details. Reset comes first so later changes are still delivered during recovery.
 4. Verify the refreshed data and subsequent deliveries with the receiver owner. Do not use reset merely to clear an unexplained error.
 
 **Resend** on a saved delivery repeats that request. It does not repair the cause or resume a suspended subscription; use it only for an agreed replay. See [Deliveries](/docs/administer/webhooks/#deliveries).

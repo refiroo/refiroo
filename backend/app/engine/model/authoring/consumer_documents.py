@@ -19,7 +19,7 @@ from ....errors import api_error
 from ....models.database import ModelDraft
 from ....models.schema import EngineModel
 from ..compiler import compile_model
-from ..consumer_contract import contract_diagnostics
+from ..consumer_contract import KEPT_VERSION_CHANGED, contract_diagnostics
 from ..consumer_definitions import consumer_api
 from ..consumer_openapi import consumer_openapi
 from ..consumer_rendering import expanded_definition
@@ -52,7 +52,7 @@ def draft_consumer_api(draft: ModelDraft, key: str, active: EngineModel | None) 
             if item.path == prefix or item.path.startswith(f"{prefix}/")
         ]
         answer["contract"] = {
-            "classification": "version_required" if any(item.severity == "error" for item in mine) else "compatible",
+            "classification": "version_required" if any(item.severity == "error" and item.code != KEPT_VERSION_CHANGED for item in mine) else "compatible",
             "diagnostics": [diagnostic_with_element(data, item) for item in mine],
         }
     return answer

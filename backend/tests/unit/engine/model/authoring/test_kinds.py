@@ -126,6 +126,7 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         yield {"kind": "setContainment", "objectType": type_key, "parent": {"objectTypes": [types[0]], "relationType": {"name": "Holds", "reverseName": "Held by"}, "optional": True}}
     for first, second in pairwise(types):
         yield {"kind": "mergeObjectTypes", "into": first, "from": second}
+    yield from _property_operations(model)
     for attribute in model["attributeTypes"]:
         yield {"kind": "setLabel", "element": {"attributeType": attribute["key"]}, "name": "Other"}
         yield {"kind": "setKey", "element": {"attributeType": attribute["key"]}, "key": "zz-attribute"}
@@ -143,6 +144,91 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
     yield {"kind": "addRelationType", "name": "Zz rel", "reverseName": "Zz rel back"}
     yield {"kind": "setRelease", "version": "9.9.9", "schemaVersion": "0.10"}
     yield from _consumer_operations(model)
+
+
+def _property_operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """The property kinds (0.13 ED) over every type, attribute type, relation type and application."""
+    dates = {a["key"] for a in model["attributeTypes"] if a.get("valueType") == "date"}
+    for object_type in model["objectTypes"]:
+        key = object_type["key"]
+        bound = [b["attributeTypeKey"] for b in object_type.get("attributes", [])]
+        for property_name, value in (
+            ("displayAttributeTypeKey", bound[0] if bound else None),
+            ("displayAttributeTypeKey", None),
+            ("atLeastOneOf", bound[:2]),
+            ("atLeastOneOf", None),
+            ("parentRelationTypeKeys", None),
+            ("effectivePeriod", None),
+        ):
+            yield {
+                "kind": "setObjectTypeProperty",
+                "objectType": key,
+                "property": property_name,
+                "value": value,
+            }
+        if len([k for k in bound if k in dates]) >= 2:
+            start, end = [k for k in bound if k in dates][:2]
+            yield {
+                "kind": "setObjectTypeProperty",
+                "objectType": key,
+                "property": "effectivePeriod",
+                "value": {"startAttributeTypeKey": start, "endAttributeTypeKey": end},
+            }
+        for binding in object_type.get("attributes", []):
+            yield {
+                "kind": "setAttributeBinding",
+                "objectType": key,
+                "attributeType": binding["attributeTypeKey"],
+                "ui": {"hidden": True, "helpText": "Help"},
+            }
+            yield {
+                "kind": "setAttributeBinding",
+                "objectType": key,
+                "attributeType": binding["attributeTypeKey"],
+                "ui": {"hidden": None, "helpText": None},
+            }
+    for attribute in model["attributeTypes"]:
+        for property_name, value in (
+            ("minimum", 1),
+            ("maximum", 99),
+            ("minimum", None),
+            ("hidden", True),
+            ("helpText", "Help"),
+            ("helpText", None),
+        ):
+            yield {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": attribute["key"],
+                "property": property_name,
+                "value": value,
+            }
+    for relation in model["relationTypes"]:
+        yield {
+            "kind": "setRelationTypeProperty",
+            "relationType": relation["key"],
+            "property": "isOriented",
+            "value": not relation.get("isOriented", True),
+        }
+    for binding in model["objectTypeRelations"]:
+        triple = {
+            "relationType": binding["relationTypeKey"],
+            "from": binding["fromObjectTypeKey"],
+            "to": binding["toObjectTypeKey"],
+        }
+        yield {
+            "kind": "setRelationRule",
+            **triple,
+            "attributeTypeKeys": [model["attributeTypes"][0]["key"]],
+        }
+        yield {"kind": "setRelationRule", **triple, "attributeTypeKeys": []}
+    for application in model["applications"]:
+        for view in application["views"]:
+            yield {
+                "kind": "setApplicationProperty",
+                "applicationKey": application["key"],
+                "property": "defaultView",
+                "value": view["key"],
+            }
 
 
 def _consumer_operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
@@ -462,4 +548,266 @@ def test_a_list_whose_column_reaches_another_application_moves_with_its_type(mod
     arrived = [v for v in next(a for a in data["applications"] if a["key"] == target)["views"] if v.get("objectTypeKey") == type_key]
     assert any(v == {**authored, "key": v["key"]} for v in arrived), arrived
     compiled = compile_model(data)
-    assert not [d for d in compiled.diagnostics if d.severity == "error" and not d.path.endswith("/defaultView")], compiled.diagnostics[:2]
+    assert not [
+        d
+        for d in compiled.diagnostics
+        if d.severity == "error" and not d.path.endswith("/defaultView")
+    ], compiled.diagnostics[:2]
+
+
+def _example_with_numbers() -> dict[str, Any]:
+    data = copy.deepcopy(MODELS["example"])
+    type_key = data["objectTypes"][0]["key"]
+    data["attributeTypes"].append({"key": "zz-count", "name": "Count", "valueType": "integer"})
+    data["attributeTypes"].append({"key": "zz-name", "name": "Name", "valueType": "text"})
+    data["objectTypes"][0].setdefault("attributes", []).extend(
+        [{"attributeTypeKey": "zz-count"}, {"attributeTypeKey": "zz-name"}]
+    )
+    data["zz-type"] = type_key
+    return data
+
+
+@pytest.mark.parametrize(
+    ("operation", "field", "reason"),
+    [
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "zz-name",
+                "property": "minimum",
+                "value": 1,
+            },
+            "property",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "zz-count",
+                "property": "minimum",
+                "value": "one",
+            },
+            "value",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "zz-count",
+                "property": "minimum",
+                "value": True,
+            },
+            "value",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "zz-count",
+                "property": "colour",
+                "value": 1,
+            },
+            "property",
+            "unknownElement",
+        ),
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "nope",
+                "property": "hidden",
+                "value": True,
+            },
+            "attributeType",
+            "unknownElement",
+        ),
+        (
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "zz-count",
+                "property": "helpText",
+                "value": 3,
+            },
+            "ui/helpText",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setObjectTypeProperty",
+                "property": "displayAttributeTypeKey",
+                "value": "zz-unbound",
+            },
+            "value",
+            "unknownElement",
+        ),
+        (
+            {
+                "kind": "setObjectTypeProperty",
+                "property": "effectivePeriod",
+                "value": {"startAttributeTypeKey": "zz-name", "endAttributeTypeKey": "zz-count"},
+            },
+            "value/startAttributeTypeKey",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setObjectTypeProperty",
+                "property": "atLeastOneOf",
+                "value": ["zz-count", "zz-unbound"],
+            },
+            "value",
+            "unknownElement",
+        ),
+        (
+            {
+                "kind": "setObjectTypeProperty",
+                "property": "atLeastOneOf",
+                "value": ["zz-count", "zz-count"],
+            },
+            "value",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setObjectTypeProperty",
+                "property": "parentRelationTypeKeys",
+                "value": ["zz-unknown"],
+            },
+            "value",
+            "unknownElement",
+        ),
+        (
+            {
+                "kind": "setRelationTypeProperty",
+                "relationType": "{relation}",
+                "property": "isOriented",
+                "value": "yes",
+            },
+            "value",
+            "invalidValue",
+        ),
+        (
+            {
+                "kind": "setApplicationProperty",
+                "applicationKey": "{application}",
+                "property": "defaultView",
+                "value": "no-such-view",
+            },
+            "value",
+            "unknownElement",
+        ),
+        (
+            {
+                "kind": "setApplicationProperty",
+                "applicationKey": "{application}",
+                "property": "state",
+                "value": "retired",
+            },
+            "property",
+            "unknownElement",
+        ),
+    ],
+)
+def test_a_property_that_does_not_fit_is_refused_with_the_field_at_fault(
+    operation: dict[str, Any], field: str, reason: str
+):
+    data = _example_with_numbers()
+    data.pop("zz-type")
+    operation = json.loads(
+        json.dumps(operation)
+        .replace("{relation}", data["relationTypes"][0]["key"])
+        .replace("{application}", data["applications"][0]["key"])
+    )
+    if operation["kind"] == "setObjectTypeProperty":
+        operation["objectType"] = data["objectTypes"][0]["key"]
+    before = copy.deepcopy(data)
+    with pytest.raises(Refusal) as refused:
+        _apply(data, operation)
+    assert (refused.value.field, refused.value.reason) == (field, reason)
+    assert data == before
+
+
+def test_a_minimum_above_the_maximum_is_refused_and_a_bound_set_is_taken_back_by_its_inverse():
+    data = _example_with_numbers()
+    original = copy.deepcopy(data)
+    _apply(
+        data,
+        {
+            "kind": "setAttributeTypeProperty",
+            "attributeType": "zz-count",
+            "property": "maximum",
+            "value": 5,
+        },
+    )
+    with pytest.raises(Refusal) as refused:
+        _apply(
+            data,
+            {
+                "kind": "setAttributeTypeProperty",
+                "attributeType": "zz-count",
+                "property": "minimum",
+                "value": 6,
+            },
+        )
+    assert refused.value.reason == "invalidValue"
+    applied = _apply(
+        data,
+        {
+            "kind": "setAttributeTypeProperty",
+            "attributeType": "zz-count",
+            "property": "minimum",
+            "value": 2,
+        },
+    )
+    assert next(a for a in data["attributeTypes"] if a["key"] == "zz-count")["validation"] == {
+        "maximum": 5,
+        "minimum": 2,
+    }
+    compile_model(data)
+    _apply(data, applied.inverse)
+    assert next(a for a in data["attributeTypes"] if a["key"] == "zz-count").get("validation") == {
+        "maximum": 5
+    }
+    _apply(
+        data,
+        {
+            "kind": "setAttributeTypeProperty",
+            "attributeType": "zz-count",
+            "property": "maximum",
+            "value": None,
+        },
+    )
+    assert data["attributeTypes"] == original["attributeTypes"]
+
+
+def test_the_type_properties_compile_and_a_parent_relationship_change_needs_a_migration_once_released():
+    data = _example_with_numbers()
+    type_key = data["objectTypes"][0]["key"]
+    for property_name, value in (
+        ("displayAttributeTypeKey", "zz-name"),
+        ("atLeastOneOf", ["zz-count", "zz-name"]),
+    ):
+        _apply(
+            data,
+            {
+                "kind": "setObjectTypeProperty",
+                "objectType": type_key,
+                "property": property_name,
+                "value": value,
+            },
+        )
+    compile_model(data)
+    parents = next(
+        t for t in data["objectTypes"] if (t.get("behavior") or {}).get("parentRelationTypeKeys")
+    )
+    document = Document(data)
+    context = Context(document, lambda atom: atom == f"objectType:{parents['key']}")
+    apply_operation(
+        context,
+        {
+            "kind": "setObjectTypeProperty",
+            "objectType": parents["key"],
+            "property": "parentRelationTypeKeys",
+            "value": None,
+        },
+    )
+    assert context.take_marks() == [(f"objectType:{parents['key']}", False)]

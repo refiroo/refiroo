@@ -8,7 +8,7 @@ Open the [API reference](/docs/api/) to find the operations, request schemas and
 
 ## Choose the right source
 
-The reference opens with **Management API** and lists the consumer APIs declared by the selected workspace's model, each with its contract version. Without an explicit workspace, it uses the default workspace. Reload the reference after changing a workspace's model release so its sources reflect that release. A consumer API missing from this list may belong to another workspace's model; check the workspace before changing your client.
+The reference opens with **Management API** and lists the consumer APIs declared by the selected workspace's model, each with its contract version. Retained earlier versions also have their own OpenAPI documents; their operations are marked deprecated and their introduction names the replacement and any announced sunset day. Select the version your client actually calls. Without an explicit workspace, it uses the default workspace. Reload the reference after changing a workspace's model release so its sources reflect that release. A consumer API missing from this list may belong to another workspace's model; check the workspace before changing your client.
 
 In the browser, **Settings › Integration › API reference** lists the sources, versions and OpenAPI document links. Select a source name to open its reference. You can also open the [management source](/docs/api/?api=management), or discover consumer sources through the [API index](/docs/api/?api=management#tag/consumer). See [Discovering the model](/docs/integrate/discovering-the-model/) for selecting a contract programmatically.
 
@@ -27,3 +27,5 @@ If the reference opens but the request is refused, inspect the operation's error
 The reference script is bundled with the engine by default. It does not need an external font, hosted client or telemetry service. An operator can instead select the pinned CDN script; that mode needs internet access from the browser. See [Configuration](/docs/run/configure/) for deployment settings.
 
 The bundled reference uses Scalar 1.72.2. The operator can set `RDM_API_REFERENCE_SCRIPT=cdn` to use the pinned jsDelivr copy, checked by its integrity hash; `bundled` is the default. A pasted token is used as supplied, so use a consumer client token when trying consumer data operations. Consumer source links use `api=consumer-<name>-v<version>` and can include the intended workspace.
+
+The [consumer index](/docs/api/?api=management#tag/consumer) marks retained entries with `deprecated: true` and an optional `sunset`. These entries remain callable until a model release explicitly stops them. See [Earlier contract versions](/docs/integrate/consumer-apis/#earlier-contract-versions) for response headers and stopped-version errors.

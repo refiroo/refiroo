@@ -97,7 +97,9 @@ Above: adding a public field to a consumer API in the reference model.
 4. Use **Add a match through a related block…** when related data should help identify an
    exposed record. Review **Also match through**, **First of** and **Prefers**. A match
    through a system code can identify its owning record; a shared code can identify several.
-   Review ties with the consuming team rather than relying on the first result.
+   Use that row’s **Preferred types…**, select **Prefer records of these types**, and Apply
+   to prefer exposed owner types; select none to remove the preference. Review ties with the
+   consuming team rather than relying on the first result.
 5. On **Filters**, choose **Add filter…**, **Name** and **Verb**. **By type** selects types;
    **Under** reads containment; **Linked to** selects **Through**; **On related** selects
    **Related block**. Review **Matches on** and the offered **Options**. **Keep only
@@ -145,7 +147,21 @@ The stop number Exact rule scores Chur at 900 for its number 8509000. Matching Q
 
 **Reference-data example:** the reference notification watches code, name and validity dates. A name change produces an update naming the affected name output; changing latitude alone does not. See
 [the event example](/docs/model/consumer-apis/#events-describe-changes-to-the-output).
-The reference contract is version 1. Raising it to 2 changes the consumer’s address after activation; the older live version does not remain available alongside it.
+The reference contract is version 1. When a draft based on its released definition raises it to 2, the editor keeps version 1 in **Earlier versions** by default. After activation both read current data, each in its own shape. Check the retained row and agree the changeover with consumers; see [Raise a contract version](/docs/guide/model/raise-a-contract-version/).
+
+## Plan the earlier version’s lifetime
+
+On **Types and related**, review **Earlier versions** after raising a released contract.
+The editor keeps the base release’s definition even if you made breaking edits before raising;
+it does not keep an unserved draft version. Review **Superseded** and optionally edit
+**Sunset day** to announce an agreed end. Every retained version must still have the model
+sources it reads. Keep those types, fields and relationships while its consumers need them.
+
+The model administrator chooses the notice period. A sunset day does not stop service.
+When the consuming teams are ready, follow
+[Stop serving an earlier contract version](/docs/guide/model/stop-serving-an-earlier-contract-version/)
+to remove the row, review the warning and activate the change. **Undo** restores a removal
+in the draft; it does not reverse an already activated release.
 
 ## Refine a released API safely
 
@@ -161,3 +177,8 @@ stops those reads after activation too. Coordinate any deliberate replacement an
 grants with the consuming team.
 
 *Source for the reference examples: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0.*
+
+To remove an entire contract, choose **Remove consumer API**, read the warning and confirm
+only when consumers are ready to lose that access after activation. Cancel keeps it. Undo
+restores a saved draft removal. **Edit as JSON…** is a specialist alternative on the whole
+API or an individual row; it saves one step and still needs validation and contract review.

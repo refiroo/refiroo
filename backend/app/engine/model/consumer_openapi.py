@@ -22,6 +22,7 @@ from ...models.schema import (
 )
 from ...models.search_index import MIN_INDEXED_LENGTH
 from ..model.consumer_contract import OutputContract, output_contract, parent_keys
+from ..model.consumer_definitions import consumer_api, served_versions
 from ..reads.consumer_events import FULL, IDENTITY
 from ..reads.consumer_events import PAGE_SIZES as EVENT_PAGE_SIZES
 from ..reads.consumer_lists import PAGE_SIZE
@@ -142,6 +143,23 @@ class _Document:
             if operation is None or definition.offers(operation)
         }
         intro = f"{definition.description}\n\n" if definition.description else ""
+        # An earlier version the model keeps is deprecated, and says until when if it was told (DF3).
+        kept = next(
+            (item for item in served_versions(self.model, definition.key) if item.definition is definition and not item.is_current),
+            None,
+        )
+        if kept is not None:
+            for methods in paths.values():
+                for operation in methods.values():
+                    operation["deprecated"] = True
+            current = consumer_api(self.model, definition.key)
+            later = f" Version {current.contractVersion} is the one served now." if current is not None else ""
+            ends = (
+                f" Its administrator announces {kept.sunset} as the day it stops; it is served until the administrator removes it."
+                if kept.sunset
+                else ""
+            )
+            intro += f"**Deprecated:** this earlier contract version is still served.{later}{ends}\n\n"
         return {
             "openapi": OPENAPI_VERSION,
             "info": {

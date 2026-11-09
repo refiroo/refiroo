@@ -10,7 +10,16 @@ Build your integration against a documented API contract and tolerate additions 
 
 The commitment covers the management API's documented operations, request and response shapes, status and error codes; consumer API contracts; change events and webhook payloads, headers and signature verification; and documented sign-in and token interfaces. Deployment setting names, meanings and defaults, and documented operator commands also have a compatibility commitment.
 
-The commitment requires a breaking change to be offered alongside the old interface. Its removal notice must allow at least **12 months and two minor releases**. Management paths, consumer contract versions and event types provide separate version boundaries. A consumer API's contract version is independent of the model release that declares it. Check [current consumer version serving](/docs/integrate/consumer-apis/#discover-and-obtain-access) before coordinating an activation: the current implementation selects the workspace's declared version, so a version increase alone does not retain an old live route.
+For contracts published by refiroo, a breaking replacement is offered alongside the old
+interface, with at least **12 months and two minor releases** before removal. Management
+paths and event types provide separate version boundaries.
+
+An organisation’s consumer API is authored by its model administrator. That administrator
+chooses the notice period with its consuming teams; the engine does not impose the software’s
+own period. A consumer contract version is separate from its model release. The engine
+serves retained earlier versions beside the current version until the administrator removes
+them and activates the release. A sunset date announces the planned end; it does not stop
+service automatically. See [earlier consumer contracts](/docs/integrate/consumer-apis/#earlier-contract-versions).
 
 Database tables, internal modules, browser layouts and browser addresses are outside this commitment. Use an API to connect another system, rather than querying tables or automating a screen's address. Stored-release raising is a maintenance exception to the API and command commitment; see [Model language versions](/docs/model/model-language-versions/).
 
@@ -42,6 +51,6 @@ The compatibility commitment gives the model language a major-release removal bo
 
 ## Notices and supported model files
 
-The commitment names `Deprecation` (RFC 9745) and `Sunset` (RFC 8594) as the response headers for a deprecated interface. Check release notes for announcements and migration instructions. There is no currently deprecated API version to exercise these headers against; do not infer an extended support window merely because a response lacks them.
+The commitment names `Deprecation` (RFC 9745) and `Sunset` (RFC 8594) as the response headers for a deprecated interface. Check release notes for announcements and migration instructions. Retained earlier consumer contracts carry `Deprecation` and, when a day is set, `Sunset`. Their index entries and OpenAPI operations are marked deprecated. The management API has no deprecated version today; do not infer an extended support window merely because a response lacks these headers.
 
 For model files, the current engine reads and writes schema `0.10`. Versions `0.5`–`0.9` need raising; `0.4` and earlier cannot be carried forward by this mechanism. Stored-release raising preserves records, history, change sets and publications. Use [Model language versions](/docs/model/model-language-versions/) for the browser procedure and [Model operations](/docs/integrate/model-and-release-operations/) for integration access. Before 1.0, raising stored releases is a maintenance exception to the committed API and CLI. Do not use its current implementation as a permanent integration contract.

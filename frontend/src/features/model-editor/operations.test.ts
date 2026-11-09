@@ -51,6 +51,11 @@ const KINDS = new Set([
   "setViewProperty",
   "listObjectType",
   "unlistObjectType",
+  // The settings a model holds (0.13 ED).
+  "setObjectTypeProperty",
+  "setAttributeTypeProperty",
+  "setRelationTypeProperty",
+  "setApplicationProperty",
   // The consumer API kinds (0.10 A4c, D51).
   "addConsumerApi",
   "removeConsumerApi",
@@ -58,6 +63,9 @@ const KINDS = new Set([
   "insertConsumerApiPart",
   "moveConsumerApiPart",
   "removeConsumerApiPart",
+  "raiseConsumerApiVersion",
+  "removeConsumerApiVersion",
+  "setConsumerApiSunset",
 ]);
 
 const outline = outlineFixture();
@@ -85,6 +93,9 @@ const TARGETS: Record<OperationTarget["on"], OperationTarget> = {
   },
 };
 
+/** Descriptors that send only what a person changed, and are tried on their own below. */
+const SENDS_WHAT_CHANGED = new Set(["attribute-type-limits", "view-tree-change", "view-grid-change"]);
+
 /** The form as a user completes it: the descriptor's starting values, every empty required field filled. */
 function completed(id: string, target: OperationTarget): FieldValues {
   const operation = operationById(id)!;
@@ -103,23 +114,24 @@ function completed(id: string, target: OperationTarget): FieldValues {
 }
 
 describe("the editor's operation descriptors (D38)", () => {
-  it.each(OPERATIONS.filter((item) => !item.move).map((item) => [item.id, item.on] as const))(
-    "%s builds requests of known kinds with no empty parameter",
-    (id, on) => {
-      const operation = operationById(id)!;
-      const target = TARGETS[on];
-      const operations = operation.build(completed(id, target), target as never, outline);
-      expect(operations.length).toBeGreaterThan(0);
-      for (const item of operations) {
-        expect(KINDS).toContain(item.kind);
-        for (const [name, value] of Object.entries(item)) {
-          if (value === null) continue; // a `parent` or `group` of null means the top level.
-          if (item.kind === "setConsumerApiPart" && name === "pointer") continue; // "" is the whole definition (D51).
-          expect(value, `${item.kind}.${name}`).not.toBe("");
-        }
+  it.each(
+    OPERATIONS.filter((item) => !item.move && !SENDS_WHAT_CHANGED.has(item.id)).map(
+      (item) => [item.id, item.on] as const,
+    ),
+  )("%s builds requests of known kinds with no empty parameter", (id, on) => {
+    const operation = operationById(id)!;
+    const target = TARGETS[on];
+    const operations = operation.build(completed(id, target), target as never, outline);
+    expect(operations.length).toBeGreaterThan(0);
+    for (const item of operations) {
+      expect(KINDS).toContain(item.kind);
+      for (const [name, value] of Object.entries(item)) {
+        if (value === null) continue; // a `parent` or `group` of null means the top level.
+        if (item.kind === "setConsumerApiPart" && name === "pointer") continue; // "" is the whole definition (D51).
+        expect(value, `${item.kind}.${name}`).not.toBe("");
       }
-    },
-  );
+    }
+  });
 
   it("adds a new attribute and attaches it in one step, under the key it names", () => {
     const [add, attach] = operationById("type-new-attribute")!.build(
@@ -136,6 +148,262 @@ describe("the editor's operation descriptors (D38)", () => {
       features: { sortable: true },
     });
     expect(attach).toEqual({ kind: "attachAttribute", objectType: "bin", attributeType: "depth-2", required: true });
+  });
+
+  it("sets a type's display attribute, effective period, at-least-one rule and parent relationships", () => {
+    const type: OperationTarget = { on: "objectType", objectType: "shelf" };
+    const build = (id: string, values: FieldValues) => operationById(id)!.build(values, type as never, outline);
+    expect(build("type-display-attribute", { attribute: "code" })).toEqual([
+      { kind: "setObjectTypeProperty", objectType: "shelf", property: "displayAttributeTypeKey", value: "code" },
+    ]);
+    expect(build("type-display-attribute", { attribute: "" })[0].value).toBeNull();
+    expect(build("type-at-least-one", { attributes: ["code", "depth"] })[0]).toMatchObject({
+      property: "atLeastOneOf",
+      value: ["code", "depth"],
+    });
+    expect(build("type-at-least-one", { attributes: [] })[0].value).toBeNull();
+    expect(build("type-effective-period", { start: "code", end: "depth" })[0].value).toEqual({
+      startAttributeTypeKey: "code",
+      endAttributeTypeKey: "depth",
+    });
+    expect(build("type-effective-period", { start: "", end: "depth" })[0].value).toBeNull();
+    expect(build("type-parent-relations", { relations: ["holds"] })[0]).toMatchObject({
+      property: "parentRelationTypeKeys",
+      value: ["holds"],
+    });
+    // The relationships allowed to the type are what it offers as parents.
+    const field = operationById("type-parent-relations")!.fields!(type as never, outline)[0];
+    expect(fieldOptions(field as never, {}).map((item) => item.value)).toEqual(["holds"]);
+    expect(needsMigration(operationById("type-parent-relations")!, type, outline)).toBe(true);
+  });
+
+  it("sets a number type's bounds, sending only what changed and the looser bound first", () => {
+    const target: OperationTarget = { on: "attributeType", attributeType: "depth" };
+    const limits = operationById("attribute-type-limits")!;
+    expect(operationsFor(target, outline).includes(limits)).toBe(true);
+    expect(operationsFor({ on: "attributeType", attributeType: "colour" }, outline)).not.toContain(limits);
+    expect(limits.build({ minimum: "2", maximum: "" }, target as never, outline)).toEqual([
+      { kind: "setAttributeTypeProperty", attributeType: "depth", property: "minimum", value: 2 },
+    ]);
+    expect(limits.build({ minimum: "", maximum: "" }, target as never, outline)).toEqual([]);
+    const bounded = {
+      ...outline,
+      attributeTypes: outline.attributeTypes.map((item) =>
+        item.key === "depth" ? { ...item, minimum: 1, maximum: 5 } : item,
+      ),
+    };
+    // Both raised above the old maximum: the maximum goes first, or the new minimum would be refused.
+    expect(limits.build({ minimum: "8", maximum: "9" }, target as never, bounded).map((item) => item.property)).toEqual(
+      ["maximum", "minimum"],
+    );
+    expect(limits.build({ minimum: "0", maximum: "3" }, target as never, bounded).map((item) => item.property)).toEqual(
+      ["minimum", "maximum"],
+    );
+  });
+
+  it("chooses the attributes a relationship carries", () => {
+    const [step] = operationById("relation-attributes")!.build(
+      { attributes: ["colour"] },
+      TARGETS.relation as never,
+      outline,
+    );
+    expect(step).toEqual({
+      kind: "setRelationRule",
+      relationType: "stores",
+      from: "shelf",
+      to: "bin",
+      attributeTypeKeys: ["colour"],
+    });
+  });
+
+  it("adds a table, a tree and a mapping grid to an application, listing the types they need", () => {
+    const add = operationById("application-add-view")!;
+    const target = TARGETS.application;
+    const offered = fieldOptions(add.fields!(target as never, outline)[0] as never, {}).map((item) => item.value);
+    expect(offered).toEqual(expect.arrayContaining(["table", "tree", "mappingGrid"]));
+    expect(add.build({ kind: "table", type: "bin", name: "All bins" }, target as never, outline)).toEqual([
+      {
+        kind: "addView",
+        applicationKey: "shop",
+        view: { key: "all-bins", name: "All bins", type: "table", objectTypeKey: "bin" },
+      },
+    ]);
+    const [tree] = add.build(
+      { kind: "tree", name: "Shelves", roots: ["area"], label: "name", secondary: "", order: "name", availability: "" },
+      target as never,
+      outline,
+    );
+    expect(tree).toMatchObject({
+      kind: "addView",
+      view: {
+        type: "tree",
+        config: {
+          rootObjectTypeKeys: ["area"],
+          objectTypeKeys: ["area", "shelf"],
+          labelField: "name",
+          childSort: { shelf: "name" },
+          actions: [],
+          availabilityField: null,
+        },
+      },
+    });
+    const [grid] = add.build(
+      {
+        kind: "mappingGrid",
+        name: "Bin matching",
+        binding: "stores|shelf|bin",
+        rows: "from",
+        sourceColumns: ["name"],
+        targetColumns: ["name"],
+        search: ["name"],
+      },
+      target as never,
+      outline,
+    );
+    expect(grid).toMatchObject({
+      view: {
+        type: "mappingGrid",
+        config: {
+          relationTypeKey: "stores",
+          fromObjectTypeKey: "shelf",
+          toObjectTypeKey: "bin",
+          direction: "outgoing",
+        },
+      },
+    });
+    // The matrix is still one of the kinds, with the preview beside it; the others have none.
+    expect(add.preview!({ kind: "tree" }, target as never, outline)).toBeUndefined();
+  });
+
+  it("Layout… opens on the current layout of a relationships table", () => {
+    const withTable = (layout: string | undefined) => ({
+      ...outline,
+      applications: [
+        {
+          ...outline.applications[0],
+          views: [
+            {
+              key: "links",
+              name: "Links",
+              type: "relationTable",
+              shows: ["area", "shelf"],
+              config: { fromObjectTypeKey: "area", toObjectTypeKey: "shelf", ...(layout ? { layout } : {}) },
+              mark: "new" as const,
+            },
+          ],
+        },
+      ],
+    });
+    const target: OperationTarget = { on: "view", applicationKey: "shop", view: "links" };
+    const layout = operationById("view-table-layout")!;
+    expect(initialValues(layout, target, withTable("grid"))).toMatchObject({ layout: "grid" });
+    expect(initialValues(layout, target, withTable(undefined))).toMatchObject({ layout: "rows" });
+  });
+
+  it("changes a tree or a mapping grid property by property", () => {
+    const withTree = {
+      ...outline,
+      applications: [
+        {
+          ...outline.applications[0],
+          views: [
+            {
+              key: "shelves",
+              name: "Shelves",
+              type: "tree",
+              shows: ["area", "shelf"],
+              config: {
+                rootObjectTypeKeys: ["area"],
+                objectTypeKeys: ["area", "shelf"],
+                labelField: "name",
+                secondaryField: null,
+                childSort: { shelf: "name" },
+                pageSize: 50,
+                actions: [],
+                availabilityField: null,
+              },
+              mark: "new" as const,
+            },
+          ],
+        },
+      ],
+    };
+    const target: OperationTarget = { on: "view", applicationKey: "shop", view: "shelves" };
+    const change = operationById("view-tree-change")!;
+    // A tree needs a top: with none ticked the dialog cannot be applied (found in the ED try).
+    expect(
+      missingField(change, target, withTree, { name: "Shelves", roots: [], label: "code", order: "name" })?.name,
+    ).toBe("roots");
+    expect(operationsFor(target, withTree)).toContain(change);
+    expect(
+      change
+        .build(
+          { name: "Shelves", roots: ["area"], label: "code", secondary: "", order: "name", availability: "" },
+          target as never,
+          withTree,
+        )
+        .map((item) => [item.property, item.value]),
+    ).toEqual([["labelField", "code"]]);
+  });
+
+  it("changing a tree keeps its declared actions and per-type orders", () => {
+    const tree = (config: Record<string, unknown>) => ({
+      ...outline,
+      applications: [
+        {
+          ...outline.applications[0],
+          views: [
+            {
+              key: "shelves",
+              name: "Shelves",
+              type: "tree",
+              shows: ["area", "shelf"],
+              config: {
+                rootObjectTypeKeys: ["area"],
+                objectTypeKeys: ["area", "shelf"],
+                labelField: "name",
+                secondaryField: null,
+                childSort: { shelf: "-code" },
+                pageSize: 50,
+                actions: ["createChild", "rename", "move"],
+                availabilityField: null,
+                ...config,
+              },
+              mark: "new" as const,
+            },
+          ],
+        },
+      ],
+    });
+    const target: OperationTarget = { on: "view", applicationKey: "shop", view: "shelves" };
+    const change = operationById("view-tree-change")!;
+    const values = { name: "Shelves", roots: ["area"], label: "name", secondary: "", order: "code", availability: "" };
+    const model = tree({});
+    // Nothing changed in the form: nothing is sent, so the descending order and the actions stay.
+    expect(change.build(values, target as never, model)).toEqual([]);
+    // A new label moves only the label.
+    expect(
+      change.build({ ...values, label: "code" }, target as never, model).map((item) => [item.property, item.value]),
+    ).toEqual([["labelField", "code"]]);
+    // An availability field adds its action to the declared ones and removes it again.
+    const withField = tree({ actions: ["createChild", "setAvailability"], availabilityField: "open" });
+    expect(
+      change
+        .build({ ...values, availability: "open" }, target as never, tree({ availabilityField: "open" }))
+        .map((item) => [item.property, item.value]),
+    ).toEqual([["actions", ["createChild", "rename", "move", "setAvailability"]]]);
+    expect(
+      change
+        .build({ ...values, availability: "" }, target as never, withField)
+        .map((item) => [item.property, item.value]),
+    ).toEqual([
+      ["actions", ["createChild"]],
+      ["availabilityField", null],
+    ]);
+    // A new order replaces the sort of the types but keeps a type's descending direction.
+    expect(
+      change.build({ ...values, order: "name" }, target as never, model).map((item) => [item.property, item.value]),
+    ).toEqual([["childSort", { shelf: "-name" }]]);
   });
 
   it("tells apart types and relation types that share a name, with what each is for", () => {
@@ -397,8 +665,12 @@ describe("the consumer API descriptors (0.10 A4c, D51)", () => {
 
   it("raises the contract version by one, and adds a related block over a relation of an exposed type", () => {
     expect(operationById("consumer-raise")!.label(api, outline)).toBe("Raise contract version to 2");
+    // The previous version stays served beside the new one unless the author stops it (DF3).
     expect(operationById("consumer-raise")!.build({}, api, outline)).toEqual([
-      { kind: "setConsumerApiPart", consumerApi: "shop-feed", pointer: "/contractVersion", value: 2 },
+      { kind: "raiseConsumerApiVersion", consumerApi: "shop-feed" },
+    ]);
+    expect(operationById("consumer-raise-drop")!.build({}, api, outline)).toEqual([
+      { kind: "raiseConsumerApiVersion", consumerApi: "shop-feed", keep: false },
     ]);
     const via = visibleFields(operationById("consumer-add-related")!, TARGETS.consumerApi, outline, {}).find(
       (field) => field.name === "via",
@@ -408,6 +680,33 @@ describe("the consumer API descriptors (0.10 A4c, D51)", () => {
       "held-by",
       "stores",
       "stored-on",
+    ]);
+  });
+
+  it("sets the sunset day of an earlier version and stops serving it, offered on that version's row only", () => {
+    const row = (pointer: string) =>
+      ({
+        on: "consumerItem",
+        consumerApi: "shop-feed",
+        pointer,
+        label: "version 1",
+        index: 0,
+        count: 1,
+        value: { contractVersion: 1, sunset: "2027-06-30" },
+      }) as never;
+    const offered = (pointer: string) => operationsFor(row(pointer), outline).map((item) => item.id);
+    expect(offered("/earlierVersions/0")).toEqual(
+      expect.arrayContaining(["consumer-version-sunset", "consumer-version-stop"]),
+    );
+    expect(offered("/object/fields/code")).not.toContain("consumer-version-stop");
+    expect(
+      operationById("consumer-version-sunset")!.build({ sunset: "2027-12-31" }, row("/earlierVersions/0"), outline),
+    ).toEqual([{ kind: "setConsumerApiSunset", consumerApi: "shop-feed", version: 1, sunset: "2027-12-31" }]);
+    expect(operationById("consumer-version-sunset")!.build({ sunset: "" }, row("/earlierVersions/0"), outline)).toEqual(
+      [{ kind: "setConsumerApiSunset", consumerApi: "shop-feed", version: 1, sunset: null }],
+    );
+    expect(operationById("consumer-version-stop")!.build({}, row("/earlierVersions/0"), outline)).toEqual([
+      { kind: "removeConsumerApiVersion", consumerApi: "shop-feed", version: 1 },
     ]);
   });
 
@@ -520,6 +819,7 @@ describe("the consumer API descriptors (0.10 A4c, D51)", () => {
         "consumer-describe.description",
         "consumer-key.key",
         "consumer-rename.name",
+        "consumer-version-sunset.sunset",
       ].sort(),
     );
   });

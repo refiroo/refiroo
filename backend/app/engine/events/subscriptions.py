@@ -52,6 +52,7 @@ from .subscription_rules import (
     SUSPENDED,
     SUSPENDED_BY_USER,
     Asked,
+    asked_version,
     definition_findings,
     definition_of,
     finding_body,
@@ -115,7 +116,7 @@ def _findings(
     if workspace is None:
         assert isinstance(resolved, ApiError)
         findings.append(resolved)
-    definition = definition_of(model, asked.consumer_api)
+    definition = definition_of(model, asked.consumer_api, asked.contract_version)
     named = definition is not None and not any(f.code in {"UNKNOWN_PARAMETER", "PARAMETER_NOT_SUPPORTED"} for f in findings)
     if definition is not None and workspace is not None and named:
         source = ConsumerSource(workspace.key)
@@ -248,12 +249,12 @@ def create_subscription(
     else:
         assert payload.consumerApi is not None
         model = _model_of(session, payload.workspaceKey)
-        asked = Asked(payload.consumerApi, events, listed(payload.filters))
+        asked = Asked(payload.consumerApi, events, listed(payload.filters), payload.contractVersion)
         findings, workspace = _findings(session, model, asked, payload.workspaceKey, payload.url, settings)
         if findings:
             raise findings[0]
         assert workspace is not None
-        definition = definition_of(model, asked.consumer_api)
+        definition = definition_of(model, asked.consumer_api, asked.contract_version)
         assert definition is not None
         window = event_window(session, workspace.key, settings.retention_days)
         start = window.feed_head
@@ -349,7 +350,12 @@ def update_subscription(
             findings, _workspace_found = _workspace_findings(session, events, subscription.workspace_key, url)
         else:
             model = resolve_model_snapshot(session, subscription.workspace_key).model
-            asked = Asked(subscription.consumer_api, events, filters)
+            asked = Asked(
+                subscription.consumer_api,
+                events,
+                filters,
+                asked_version(model, subscription.consumer_api, subscription.contract_version),
+            )
             findings, _workspace_found = _findings(
                 session, model, asked, subscription.workspace_key, url, settings
             )
@@ -424,7 +430,12 @@ def resume_subscription(
             model = None
         else:
             model = resolve_model_snapshot(session, subscription.workspace_key).model
-            asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters)
+            asked = Asked(
+                subscription.consumer_api,
+                subscription.event_keys,
+                subscription.filters,
+                asked_version(model, subscription.consumer_api, subscription.contract_version),
+            )
             findings, _workspace_found = _findings(
                 session, model, asked, subscription.workspace_key, subscription.url, settings
             )
@@ -448,10 +459,13 @@ def resume_subscription(
                 "EVENTS_EXPIRED",
                 f"Events from position {subscription.acknowledged_position + 1} to "
                 f"{window.earliest - 1} expired before they were delivered. Resume with reset to "
-                "start after the feed's head, and re-sync from the publication named in the details",
+                f"start after the feed's head (position {window.feed_head}); events up to it are not "
+                "delivered. Then reload the receiver from current data, a live export or a publication "
+                "made after the reset: the publication named in the details may be older than the "
+                "head, so loading it alone misses the changes made since",
                 expired_details(subscription.acknowledged_position, window),
             )
-        definition = definition_of(model, subscription.consumer_api)
+        definition = definition_of(model, subscription.consumer_api, asked.contract_version)
         assert definition is not None
         subscription.contract_version = definition.contractVersion
         subscription.status = ACTIVE
@@ -517,7 +531,8 @@ def rotate_secret(
 
 
 def expired_details(acknowledged: int, window: EventWindow) -> dict[str, Any]:
-    """The events a subscription lost, and the publication its receiver re-syncs from (C-D93)."""
+    """The events a subscription lost, and the active publication (it may be older than the feed head a
+    reset starts after, so it is not a re-sync point by itself) (C-D93)."""
     return {
         "fromPosition": acknowledged + 1,
         "toPosition": window.earliest - 1,

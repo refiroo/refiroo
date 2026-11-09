@@ -16,6 +16,7 @@ base release declares is not refused; the contract check at activation protects 
 
 import copy
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -288,6 +289,105 @@ def remove_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
     _set_container(context, path, list(above), copy.deepcopy(remaining))
     _checked(context, path, "pointer")
     return Applied(raw, inverse, named={atom("consumerApi", key)})
+
+
+# --- earlier contract versions (0.13 DF3) ---
+
+# What a frozen copy of a definition holds: everything but its key and name, which the API keeps.
+_VERSIONED_PARTS = ("description", "exposes", "publicNames", "object", "operations", "filters")
+
+
+def _earlier_index(context: Context, path: Path, version: Any) -> int:
+    if not isinstance(version, int) or isinstance(version, bool):
+        raise Refusal("version", "invalidValue", "'version' is a contract version number")
+    kept = context.document.at(path).get("earlierVersions") or []
+    for index, item in enumerate(kept):
+        if isinstance(item, dict) and item.get("contractVersion") == version:
+            return index
+    raise Refusal("version", "unknownElement", f"Version {version} is not served beside the current one")
+
+
+@kind("raiseConsumerApiVersion", params=("consumerApi", "version", "keep", "deprecated"))
+def raise_consumer_api_version(context: Context, raw: dict[str, Any]) -> Applied:
+    """Raise the contract version to ``version`` (the next one without it). ``keep`` (default true)
+    freezes the definition as the base release served it (none when no release did), beside the new one, with the day it was
+    superseded (``deprecated``, today unless given), so consumers of it go on reading it; ``false``
+    stops serving it (DF3, DF-D1). The inverse puts the whole definition back."""
+    params = Params(raw)
+    key = raw.get("consumerApi")
+    path = _definition_path(context, key)
+    definition = context.document.at(path)
+    current = definition.get("contractVersion")
+    if not isinstance(current, int) or isinstance(current, bool):
+        raise Refusal("consumerApi", "invalidValue", f"Consumer API '{key}' has no contract version to raise")
+    version = params.optional("version", int, current + 1)
+    if version <= current:
+        raise Refusal("version", "outOfRange", f"Version {version} is not above the current version, {current}")
+    keep = params.optional("keep", bool, True)
+    deprecated = params.optional("deprecated", str, datetime.now(UTC).date().isoformat())
+    old = copy.deepcopy(definition)
+    # What was served at this version is the base release's definition, not the draft's, which may
+    # already hold breaking edits; a version no release served (a new API, or one already raised in the
+    # draft) leaves nothing to keep.
+    served = next(
+        (
+            item
+            for item in (context.base or {}).get("consumerApis") or []
+            if isinstance(item, dict) and item.get("key") == key and item.get("contractVersion") == current
+        ),
+        None,
+    )
+    keep = keep and served is not None
+    if keep:
+        assert served is not None
+        frozen: dict[str, Any] = {"contractVersion": current, "deprecated": deprecated}
+        frozen.update({name: copy.deepcopy(served[name]) for name in _VERSIONED_PARTS if name in served})
+        context.document.set(path, "earlierVersions", [frozen, *copy.deepcopy(definition.get("earlierVersions") or [])])
+    context.document.set(path, "contractVersion", version)
+    _checked(context, path, "version")
+    return Applied(
+        {**raw, "version": version, "keep": keep, **({"deprecated": deprecated} if keep else {})},
+        {"kind": "setConsumerApiPart", "consumerApi": key, "pointer": "", "value": old},
+        named={atom("consumerApi", key)},
+    )
+
+
+@kind("removeConsumerApiVersion", params=("consumerApi", "version"))
+def remove_consumer_api_version(context: Context, raw: dict[str, Any]) -> Applied:
+    """Stop serving the earlier contract version ``version`` (DF3); consumers of it get ``404
+    CONTRACT_VERSION_NOT_FOUND`` after the next activation. The inverse keeps it again."""
+    key = raw.get("consumerApi")
+    path = _definition_path(context, key)
+    index = _earlier_index(context, path, raw.get("version"))
+    applied = remove_consumer_api_part(
+        context, {"consumerApi": key, "pointer": _pointer(["earlierVersions", index])}
+    )
+    return Applied(raw, applied.inverse, named=applied.named)
+
+
+@kind("setConsumerApiSunset", params=("consumerApi", "version", "sunset"))
+def set_consumer_api_sunset(context: Context, raw: dict[str, Any]) -> Applied:
+    """Announce the day the earlier version ``version`` stops (``YYYY-MM-DD``; ``null`` takes the
+    announcement back). The engine serves the version until it is removed, whatever the day (DF-D2)."""
+    key = raw.get("consumerApi")
+    path = _definition_path(context, key)
+    version = raw.get("version")
+    index = _earlier_index(context, path, version)
+    sunset = raw.get("sunset")
+    if sunset is not None and not isinstance(sunset, str):
+        raise Refusal("sunset", "invalidValue", "'sunset' is a date written YYYY-MM-DD")
+    before = context.document.at(path)["earlierVersions"][index].get("sunset")
+    context.document.set(path + ["earlierVersions", index], "sunset", sunset)
+    try:
+        _checked(context, path, "sunset")
+    except Refusal:
+        context.document.set(path + ["earlierVersions", index], "sunset", before)
+        raise
+    return Applied(
+        raw,
+        {"kind": "setConsumerApiSunset", "consumerApi": key, "version": version, "sunset": before},
+        named={atom("consumerApi", key)},
+    )
 
 
 # --- whole definitions ---

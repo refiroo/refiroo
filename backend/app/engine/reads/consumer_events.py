@@ -23,7 +23,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import exists, or_, select, tuple_
+from sqlalchemy import and_, exists, or_, select, tuple_
 from sqlalchemy.orm import Session, aliased
 
 from ...common.cursors import encode_cursor
@@ -31,6 +31,7 @@ from ...common.time import as_utc
 from ...errors import api_error
 from ...models.database import ConsumerEvent, ConsumerEventCheckpoint, RdmObject, Workspace
 from ...models.schema import ConsumerApiDefinition, EngineModel, ObjectTypeParameter
+from ..model.consumer_definitions import consumer_api as declared_api
 from .consumer_objects import ConsumerObjects
 from .consumer_parameters import consumer_filter
 from .consumer_source import ConsumerSource
@@ -187,6 +188,21 @@ class EventPage:
     window: EventWindow
 
 
+def _own_events(definition: ConsumerApiDefinition, current_version: int | None) -> Any:
+    """The stored events a definition reads: the API's, or for an earlier version the model keeps
+    (``current_version`` is the one served now, DF3) those derived while it was the current one and those
+    derived for it since."""
+    if current_version is None or current_version == definition.contractVersion:
+        return ConsumerEvent.consumer_api == definition.key
+    return or_(
+        and_(
+            ConsumerEvent.consumer_api == definition.key,
+            ConsumerEvent.contract_version == definition.contractVersion,
+        ),
+        ConsumerEvent.consumer_api == f"{definition.key}@v{definition.contractVersion}",
+    )
+
+
 def event_page(
     session: Session,
     model: EngineModel,
@@ -200,13 +216,15 @@ def event_page(
     """One page of the consumer API's events in the workspace after ``request.start``, and no further
     than ``through`` when given (a webhook batch read again, C12)."""
     window = event_window(session, workspace.key, retention_days)
+    current = declared_api(model, definition.key)
+    served = current.contractVersion if current is not None else None
     head = window.head
     position, ordinal = request.start
     check_after(window, position)
 
     event = ConsumerEvent
     after = tuple_(event.position, event.ordinal) > tuple_(position, ordinal)
-    scope = [event.workspace_key == workspace.key, event.consumer_api == definition.key, event.position <= head]
+    scope = [event.workspace_key == workspace.key, _own_events(definition, served), event.position <= head]
     ceiling = (head, AFTER_POSITION)
     if through is not None:
         scope.append(tuple_(event.position, event.ordinal) <= tuple_(*through))
@@ -304,7 +322,8 @@ def _items(
             "occurredAt": as_utc(row.occurred_at),
             "event": row.event_key,
             "change": row.change,
-            "contractVersion": row.contract_version,
+            # An earlier version reads the event in its own shape (0.13 DF3), so it names no later one.
+            "contractVersion": min(row.contract_version, definition.contractVersion),
             "objectType": row.object_type,
             "id": row.object_id,
             "code": code,

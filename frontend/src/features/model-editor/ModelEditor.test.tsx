@@ -206,6 +206,67 @@ describe("ModelEditor", () => {
     );
   });
 
+  it("shows a type's settings and sets its display attribute in a dialog (0.13 ED)", async () => {
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    renderEditor();
+    fireEvent.click(await screen.findByRole("tab", { name: "Settings" }));
+    expect(await screen.findByText("Display attribute")).toBeTruthy();
+    expect(screen.getByText("At least one of")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Edit Display attribute:/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Which attribute names a Shelf record/ });
+    fireEvent.change(within(dialog).getByLabelText("Attribute"), { target: { value: "depth" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        { kind: "setObjectTypeProperty", objectType: "shelf", property: "displayAttributeTypeKey", value: "depth" },
+      ]),
+    );
+  });
+
+  it("sets a binding's help text and an attribute type's hidden flag in place (0.13 ED)", async () => {
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    renderEditor();
+    fireEvent.click((await screen.findAllByRole("button", { name: /^Edit Help text on this type:/ }))[0]);
+    const form = await screen.findByRole("form", { name: "Edit Help text on this type" });
+    fireEvent.change(within(form).getByLabelText(/Help text on this type/), { target: { value: "Where it stands" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        {
+          kind: "setAttributeBinding",
+          objectType: "shelf",
+          attributeType: "code",
+          ui: { helpText: "Where it stands" },
+        },
+      ]),
+    );
+  });
+
+  it("sets an attribute type's minimum in its dialog and a relation type's orientation in place (0.13 ED)", async () => {
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    const first = renderEditor({ show: "attributeType", key: "depth" });
+    fireEvent.click(await screen.findByRole("button", { name: /^Edit Minimum:/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Smallest and largest Depth accepted/ });
+    fireEvent.change(within(dialog).getByLabelText("Minimum"), { target: { value: "2" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        { kind: "setAttributeTypeProperty", attributeType: "depth", property: "minimum", value: 2 },
+      ]),
+    );
+    first.unmount();
+    renderEditor({ show: "relationType", key: "stores" });
+    fireEvent.click(await screen.findByRole("button", { name: /^Edit Oriented:/ }));
+    const form = await screen.findByRole("form", { name: "Edit Oriented" });
+    fireEvent.change(within(form).getByRole("combobox"), { target: { value: "false" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenLastCalledWith("d1", 4, [
+        { kind: "setRelationTypeProperty", relationType: "stores", property: "isOriented", value: false },
+      ]),
+    );
+  });
+
   // Reported by the user (2026-10-19): Show issues stored the pane open, so it opened empty after.
   it("opens the issues from a preview that cannot render, without keeping the pane open", async () => {
     const editor = (selection: Parameters<typeof ModelEditor>[0]["selection"]) => (
