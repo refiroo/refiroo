@@ -163,7 +163,21 @@ def test_an_allowed_relation_gets_a_panel_and_a_column_at_both_its_types_and_the
             if v.get("objectTypeKey") == type_key
         )
         assert field in view["config"]["columns"] and field in view["config"]["filterFields"]
-    assert compile_model(data).valid
+    # The reference model's Stops API reads values the binding carries: allowing the relation again
+    # leaves them to be chosen (Carries), so the check restores them as the model had them.
+    restored = copy.deepcopy(data)
+    binding = next(
+        b
+        for b in restored["objectTypeRelations"]
+        if (b["relationTypeKey"], b["fromObjectTypeKey"], b["toObjectTypeKey"])
+        == ("stop-operated-by-operator", "stop", "operator")
+    )
+    binding["attributeTypeKeys"] = next(
+        b["attributeTypeKeys"]
+        for b in EXAMPLE["objectTypeRelations"]
+        if b["relationTypeKey"] == "stop-operated-by-operator"
+    )
+    assert compile_model(restored).valid
     _apply(data, applied.inverse)
     assert data == before
     # Taking the binding away again leaves nothing of it on either type.

@@ -283,6 +283,16 @@ def load_set(
             "/api/v1/workspaces",
             {"key": WORKSPACE, "label": LABEL, "modelReleaseId": release["id"]},
         )
+    if ws["model"]["releaseId"] != release["id"]:  # an earlier release of this model: move on
+        ws["model"] = api.call(
+            "POST",
+            f"/api/v1/workspaces/{WORKSPACE}/model/activation",
+            {
+                "releaseId": release["id"],
+                "expectedVersion": ws["model"]["version"],
+                "expectedReleaseId": ws["model"]["releaseId"],
+            },
+        )
     print(
         f"  workspace {ws['key']} runs {ws['model']['releaseKey']} {ws['model']['releaseVersion']}"
     )
@@ -420,6 +430,32 @@ def load_set(
         ensure_rel("system-code-maps-to", x["id"], t) for x in d["codes"] for t in x["targets"]
     ]
     api.batch("code mappings", items, ctx, f"gr-{set_name}-5-mappings")
+
+    # Values of the relationships (0.13 RV): the set may carry some; overwrite makes a rerun safe.
+    values = d.get("relation-values", {})
+    items = [
+        {
+            **ensure_rel("stop-operated-by-operator", x["stop"], x["operator"]),
+            "attributes": x["values"],
+        }
+        for x in values.get("operatorLinks", [])
+    ] + [
+        {
+            **ensure_rel("system-code-maps-to", x["code"], x["municipality"]),
+            "attributes": x["values"],
+        }
+        for x in values.get("codeLinks", [])
+    ]
+    if items:
+        # The key follows the values, so an edited file is applied, not replayed.
+        digest = hashlib.sha1(json.dumps(items, sort_keys=True).encode()).hexdigest()[:8]
+        api.batch(
+            "relationship values",
+            items,
+            ctx,
+            f"gr-{set_name}-5b-values-{digest}",
+            on_existing="overwrite",
+        )
 
     items = [
         {

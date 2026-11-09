@@ -32,7 +32,13 @@ examples below use the reference Stops API. They explain the result of your choi
    one record or several: the answer is respectively an object or an array. A missing
    relationship gives null or an empty array, rather than an invented related record. The
    field picker's group **Attributes of the relationship** lists the values stored on the
-   relationship itself, when the relation's binding carries any.
+   relationship itself, when the relation's binding carries any. Give each selected value a
+   public output name and check its served type in **Schema**. A connection without that value
+   answers null; the same value can differ on two connections to the same related record.
+5. To add these values to an existing block, use its **Fields…** and select from **Attributes
+   of the relationship**. If the group is empty, review **Via** and the pair's **Carries** in
+   [Add a relationship](/docs/guide/model/add-a-relationship/#choose-what-each-relationship-carries).
+   Do not add connection values to the main object's Fields: they need the related block's context.
 
 ![New consumer API dialog with name, key and types to expose](/docs/screens/model-consumer-add-dialog.png)
 
@@ -43,6 +49,14 @@ object includes an `operator` object and a `modes` array. The parent names the m
 the path is `Graubünden/Plessur/Chur` for the Chur stop. These are outputs chosen in
 **Types and related**, not extra records copied into the stop. Compare the
 [complete business object](/docs/model/consumer-apis/#the-business-object-consumers-read).
+
+![Related-block field picker with the Attributes of the relationship group and selected outputs](/docs/screens/model-consumer-relationship-field-picker.png)
+
+*Above: Stops API’s Add related dialog in a reference-model draft, with output operatorLinks
+and Operated by (forward), from Stop to Operator. The fields are name, localName and isPrimary.
+The open source list for isPrimary separates Built in, Attributes of the exposed types and
+Attributes of the relationship. Primary contact is selected beside the Local name and
+Inspected on choices. This dialog has not been applied.*
 
 ## Choose the fields and fallbacks
 
@@ -91,6 +105,11 @@ Above: adding a public field to a consumer API in the reference model.
    related block's items; **Score only matching items** limits which items contribute
    lookup scores. **Crosswalk** lets consumers ask for a target representation from
    that block. Enable only the choices the contract needs.
+6. For a filter on connection values, use **On related**, choose the block, then **Matches on…**
+   and a field under **Attributes of the relationship**. Keep only matching records if objects
+   without a matching connection should disappear too. To score a carried value instead, use
+   a text attribute in the related match's **First of**. Review **Schema** and **Message example**:
+   only the connection with that value supplies a match, even when other records share its target.
 
 ![Filter dialog with verb-specific matching options](/docs/screens/model-consumer-add-filter.png)
 
@@ -105,7 +124,10 @@ The stop number Exact rule scores Chur at 900 for its number 8509000. Matching Q
 1. If every exposed type needs standard notifications for creation, update and deletion,
    enable **Events per type**. For a named event, use **Add custom event…**, then choose
    **Key**, **Types**, **Changes** and **Watches**. No Watches means any change to what
-   consumers read, including related blocks. This defines an event, not a delivery subscription.
+   consumers read, including related blocks. To report edits of carried values, include their
+   related block in Watches and expose those values in the block. The reference event watches
+   only main fields; it needs this extra choice to report connection-value changes.
+   This defines an event, not a delivery subscription.
 2. Use **Describe…** to explain the API's purpose to consuming teams. Review **Issues**,
    **Schema**, **Message example** and the compatibility result. A **Not applied** notice
    means the attempted step was refused: correct its named problem, then review again.

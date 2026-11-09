@@ -75,18 +75,44 @@ Yes. The same state filter can be used with columns representing systems.*
 ## What you can change from a cell
 
 The model chooses the available actions: create a related record, edit its displayed fields,
-link an existing record, or unlink it. A single editable record can open directly in its form;
-a cell with several records lets you inspect them individually. A cell showing only a preview
-of its records offers the row's full record page for the rest.
+link an existing record, or unlink it. Opening a populated cell shows a table, even when it
+contains only one record. Each row identifies a linked record. Its displayed fields come first,
+then a tinted **Attributes of the relationship** group holds values of its connection to the
+matrix row. This separates a record's content from facts about the connection.
+
+Use the filter box to find a row by its record name or displayed record fields. It does not
+search the relationship's values. **Open** leads to the record's full page. **Unlink** asks
+within that row: **Keep** cancels; **Unlink** removes only the connection. A required owner
+connection cannot be removed on its own.
+
+Where editing is permitted, change a value where it stands. A Yes or no checkbox saves with
+one click. Other fields open a small editor over the cell, keeping the table in place. Enter
+submits an ordinary single-line value; Escape cancels. A click outside closes an unchanged
+record-field editor. Relationship-value editors also attempt a save when focus leaves them.
+Review any error before closing. A save refreshes the cell and leaves the table open.
+
+![A populated matrix cell with record fields, tinted relationship values and a small editor open](/docs/screens/matrix-cell-relationship-table-editor.png)
+
+*Above: Municipalities by system in the Graubünden workspace. The Schmitten (GR) cell under
+wikidata-municipalities contains one System code, Q65399. Confirmed is ticked, and the Note
+editor is open over “Merged municipality, old code kept”. Open and Unlink belong to that row.*
+
+An empty cell explains which row and column have no related record and offers **Link existing**
+or **Create** where permitted. A read-only cell keeps the table for inspection without editing.
+Historical content names its publication and remains read-only.
 
 Creation fixes the row and column and asks where under the column the new record belongs.
 A sole container is selected automatically and shown as **Goes in**. The record and its required
-connection are created together. Linking instead uses an existing candidate. Unlinking keeps
+connection are created together. Both Create and Link existing include **Attributes of the
+relationship** when the pair carries values: fill these for the new connection, separately
+from the record's fields. Linking instead uses an existing candidate. Unlinking keeps
 the record, but cannot leave an owned record without a required owner.
 
 For an inactive cell, inspect existing records before creating another. For a conflict, review
 which records should count; do not assume several records are always wrong. All saves must satisfy
-the model's rules, including any limit of one counting record per row and column.
+the model's rules, including any limit of one counting record per row and column. A refusal
+explains that the row already has a record here and **only one may count**. Where offered,
+**Open the … already here** takes you to that record; inspect it before creating another.
 
 ## Who may edit, and refused saves
 
@@ -127,8 +153,8 @@ inspect the complete relationship list. Conditions on the target end produce **I
 uniqueness **Conflict** states only when reading the relationship in its outgoing direction;
 an incoming matrix does not apply those target-end states.
 
-Focus a cell and press Enter or Space, or click it, to open its actions. They can include
-**Edit …**, **Unlink …**, **Open …**, **Create …**, **Link existing …** and **Create from this**.
+Focus a cell and press Enter or Space, or click it, to open its actions. The table offers inline value edits and row actions **Unlink** and **Open**; **Create …**,
+**Link existing …** and **Create from this** appear where applicable.
 When choosing a container, **Goes in** offers **Search places…**. Link or move choices can stay
 visible but disabled with a reason such as **Already linked** or a cardinality limit.
 **Does not count** identifies a candidate outside the cell's counting condition.
@@ -142,7 +168,7 @@ discard unsaved changes; cancel that prompt to keep editing.
 ## Read the dialog and leave it safely
 
 A conflict cell can show **Conflict (… )** with its count. Open the cell with Enter or Space.
-Use **Open …** to inspect a record, or **Close** to leave its actions. Link candidates can
+Use **Open** on a row to inspect a record, or **Close** to leave its table. Link candidates can
 stay visible but disabled with **Already linked** or a message that the record is already
 linked to as many records as allowed. Choose another eligible candidate; searching again
 does not remove that limit. **Does not count** identifies a record outside the counting condition.

@@ -27,6 +27,7 @@ export default [
     "Reading records",
     [
       ["integrate/reading-records", "Reading records"],
+      ["integrate/relationships-and-their-values", "Relationships and their values"],
       "guide/integrate/read-a-collection-completely-and-resume",
       ["integrate/business-dates", "Business dates"],
       "guide/integrate/read-as-of-a-date",

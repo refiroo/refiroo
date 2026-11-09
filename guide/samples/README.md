@@ -7,9 +7,10 @@ put a private model or a source export here. The sources, licences and attributi
 
 | Path | What it is |
 | --- | --- |
-| `model.json` | The model release `guide-reference-swiss`: three applications, Network (canton > district > municipality > stop, operators, modes), Systems (code mappings) and Names (translations by language), and the `stops` consumer API |
+| `model.json` | The model release `guide-reference-swiss`: three applications, Network (canton > district > municipality > stop, operators, modes), Systems (code mappings) and Names (translations by language), and the `stops` consumer API; the stop-to-operator and system-code-to-municipality relations carry values, shown by the relationships tables `stop-operators` (grid) and `stop-operators-rows` (0.13 RV) |
 | `data/docs/` | The docs set, 598 records: the 116 stops a train serves, with their 44 municipalities, 10 districts, the canton, 3 operators, 15 modes, 5 languages, 231 name translations and 170 system codes. The `docs` test group and the tutorials use it |
 | `data/reference/` | The reference set, 3,528 records: all 2,443 current stops of Graubünden with 100 municipalities, 71 operators and the rest, plus an open change set. The reference instance uses it |
+| `data/reference/relation-values.json` | Fictional values of some relationships (stop to operator: local name, primary contact, inspected on; system code to municipality: confirmed, note), applied by `load.py` after the relationships |
 | `fetch.py` | Downloads a fresh snapshot (into `snapshot/`, git-ignored) and rewrites both sets in `data/` |
 | `load.py` | Loads a set through the public API |
 | `Haltestellen_Busbetrieb_Nord.xlsx`, `make_workbook.py` | The fictional bus company's messy stop list (not loaded by `load.py`) and its generator |

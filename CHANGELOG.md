@@ -28,6 +28,7 @@ All notable changes to this project are documented in this file. The format foll
 - **A relationships grid (0.13 RG):** a relationships table with `layout: "grid"` shows each record once with a column group per related record and the relationship's values under it; the viewer picks the related records and the values shown (in the address), filters, links a pair with one click and sets one value on ticked rows or every matching row, counted first (`GET /workspaces/{key}/relation-grid`, `POST /relations/grid-change`).
 - **A relationships grid filters with the collection's own filter bar** over the filter fields of its end types' main views (every operator, search, related filters) and the relationship's values, for the rows and for the column records, shown as columns or not; rows are selected and changed as a collection's are, and a saved cell reads only its own row again.
 - **`POST /relations/batch`** sets attribute values on many relationships as one write, all or none, refusing with `RELATION_BATCH_REFUSED` and each failing item named.
+- **The guide's reference model carries relationship values** (release 1.8.1): stop to operator holds Local name, Primary contact and Inspected on, system code to municipality holds Confirmed and Note; two relationships tables over the first (rows, grid), a related-block field per value in the Stops API, and `samples/data/reference/relation-values.json`. `load.py` moves an existing workspace to the release.
 
 ### Changed (changes that need a migration are made in the editor, 0.13 MG)
 

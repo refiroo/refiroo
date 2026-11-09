@@ -63,6 +63,26 @@ or change its permissions. This design grid differs from a relation matrix that 
 
 Follow [Add a relationship](/docs/guide/model/add-a-relationship/).
 
+The attributes carried by a permitted pair belong to each connection, not to either record.
+**Reference-data example:** Operated by, from Stop to Operator, carries Local name (Text),
+Primary contact (Yes or no) and Inspected on (Date). Maps to, from System code to Municipality,
+carries Confirmed (Yes or no) and Note (Text). These fields describe each connection, so
+connections to the same operator or municipality can hold different values. The model chooses
+which fields each permitted pair carries.
+
+Choose the shared definitions in the pair's **Carries** cell. All eight attribute value types
+listed above are available. The pair is directed: the selected from type, relation and to type
+determine which attributes it carries. Opening the same connection from its other end reads
+the same stored values; it does not create a second set. Another permitted pair using the same
+relation type can carry different attributes.
+
+People see these values in the record's Relationships panel and a relation matrix's cell table.
+A [relationships table](/docs/use/relationship-tables/) can put them beside both records or
+under column groups in a grid. Follow [Add a relationships table](/docs/guide/model/add-a-relationships-table/)
+to choose its layout. Declaring carried attributes does not add a view by itself.
+A [consumer API](/docs/model/consumer-apis/) can explicitly expose these values within a related
+block; carrying a field does not automatically publish it to other systems.
+
 ## Released elements and migrations
 
 You can rename, re-key, remove or reshape a released element in the editor. Labels change

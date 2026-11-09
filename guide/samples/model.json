@@ -3,7 +3,7 @@
   "release": {
     "key": "guide-reference-swiss",
     "name": "Public transport stops of Graubünden",
-    "version": "1.0.0"
+    "version": "1.8.1"
   },
   "product": {
     "name": "refiroo guide reference: stops of Graubünden",
@@ -186,6 +186,49 @@
       "default": true,
       "features": {
         "filterable": true
+      }
+    },
+    {
+      "key": "local-name",
+      "name": "Local name",
+      "valueType": "text",
+      "features": {
+        "filterable": true,
+        "sortable": true
+      }
+    },
+    {
+      "key": "is-primary",
+      "name": "Primary contact",
+      "valueType": "boolean",
+      "features": {
+        "filterable": true
+      }
+    },
+    {
+      "key": "inspected-on",
+      "name": "Inspected on",
+      "valueType": "date",
+      "features": {
+        "filterable": true,
+        "sortable": true
+      }
+    },
+    {
+      "key": "confirmed",
+      "name": "Confirmed",
+      "valueType": "boolean",
+      "features": {
+        "filterable": true
+      }
+    },
+    {
+      "key": "mapping-note",
+      "name": "Note",
+      "valueType": "text",
+      "features": {
+        "filterable": true,
+        "sortable": true
       }
     }
   ],
@@ -596,7 +639,12 @@
       "relationTypeKey": "stop-operated-by-operator",
       "fromObjectTypeKey": "stop",
       "toObjectTypeKey": "operator",
-      "cardinality": "many-to-one"
+      "cardinality": "many-to-one",
+      "attributeTypeKeys": [
+        "local-name",
+        "is-primary",
+        "inspected-on"
+      ]
     },
     {
       "relationTypeKey": "system-contains-code",
@@ -637,7 +685,11 @@
             "value": "wikidata-municipalities"
           }
         ]
-      }
+      },
+      "attributeTypeKeys": [
+        "confirmed",
+        "mapping-note"
+      ]
     },
     {
       "relationTypeKey": "language-contains-translation",
@@ -889,6 +941,87 @@
             ],
             "defaultSort": "name",
             "pageSize": 20
+          }
+        },
+        {
+          "key": "stop-operators-rows",
+          "name": "Stops and operators",
+          "type": "relationTable",
+          "config": {
+            "relationTypeKey": "stop-operated-by-operator",
+            "fromObjectTypeKey": "stop",
+            "toObjectTypeKey": "operator",
+            "fromColumns": [
+              "name",
+              "stop-number"
+            ],
+            "toColumns": [
+              "name",
+              "operator-code"
+            ],
+            "attributeColumns": [
+              "local-name",
+              "is-primary",
+              "inspected-on"
+            ],
+            "filterFields": [
+              "relation:local-name",
+              "relation:is-primary",
+              "relation:inspected-on",
+              "to:operator-code"
+            ],
+            "sortFields": [
+              "from:name",
+              "from:stop-number",
+              "to:name",
+              "to:operator-code",
+              "relation:local-name",
+              "relation:inspected-on"
+            ],
+            "defaultSort": "from:name",
+            "groupBy": "to",
+            "pageSize": 20
+          }
+        },
+        {
+          "key": "stop-operators",
+          "name": "Stops by operator",
+          "type": "relationTable",
+          "config": {
+            "relationTypeKey": "stop-operated-by-operator",
+            "fromObjectTypeKey": "stop",
+            "toObjectTypeKey": "operator",
+            "fromColumns": [
+              "name",
+              "stop-number"
+            ],
+            "toColumns": [
+              "name",
+              "operator-code"
+            ],
+            "attributeColumns": [
+              "local-name",
+              "is-primary",
+              "inspected-on"
+            ],
+            "filterFields": [
+              "relation:local-name",
+              "relation:is-primary",
+              "relation:inspected-on",
+              "to:operator-code"
+            ],
+            "sortFields": [
+              "from:name",
+              "from:stop-number",
+              "to:name",
+              "to:operator-code",
+              "relation:local-name",
+              "relation:inspected-on"
+            ],
+            "defaultSort": "from:name",
+            "groupBy": null,
+            "pageSize": 20,
+            "layout": "grid"
           }
         }
       ],
@@ -2032,7 +2165,9 @@
             "fields": {
               "id": "id",
               "code": "operator-code",
-              "name": "name"
+              "name": "name",
+              "localName": "relation:local-name",
+              "isPrimary": "relation:is-primary"
             }
           },
           "modes": {

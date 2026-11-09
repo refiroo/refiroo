@@ -64,7 +64,8 @@ and Romansh. The state filter tests the chosen or shown languages, not hidden la
    treating it as the field content. Under **Goes in**, check the selected parent; if several
    places are offered, select the correct container under this column.
 4. Fill the type's content fields. Set any checkbox or field that determines whether it counts
-   according to the legend. Choose the form's **Create** action. On success, the dialog closes
+   according to the legend. Fill **Attributes of the relationship**, if shown: these describe
+   the new connection rather than the record itself. Choose the form's **Create** action. On success, the dialog closes
    and the cell refreshes; check its state and displayed content.
 5. Use **Back** to abandon the creation form and return to the cell, then **Close** to leave
    without creating anything. If creation is refused, correct the named problem before retrying.
@@ -84,21 +85,31 @@ was prepared for these captures and filled again afterwards; it is not the refer
 Translated name is empty and Active is selected. Back was used without saving this form.*
 
 If **Link existing** followed by a type name is offered, use it when the desired record already
-exists. Search, inspect the candidate and any refusal reason, select an eligible record and
-choose **Link**. This adds a connection instead of creating another record.
+exists. Search, inspect the candidate and any refusal reason, select an eligible record, fill
+**Attributes of the relationship** if offered, and choose **Link**. This adds a connection instead of creating another record.
 
 ## Correct an existing cell record
 
 1. Remove a missing-cell filter before searching for an existing record. Find the row and open
    the cell under the intended column.
-2. A single editable record can open directly in its form. If several records are listed,
-   inspect them and choose **Edit** beside the intended one. Follow **Open** and the record
-   name if you need its full fields, relationships or history.
-3. Correct the displayed fields. Check the condition for counting before changing an availability
-   checkbox: switching it off can make the cell Inactive rather than remove its record.
-4. Choose **Save** and check the refreshed cell. **Cancel**, or **Back** from a multi-record
-   list, abandons the form. If a cell disappears from a state-filtered result after saving,
-   select **Any state** and find the row again to inspect it.
+2. The cell opens a table with one row per linked record. Use its filter box to narrow record
+   names and displayed record fields. Read the record's columns first, then the tinted
+   **Attributes of the relationship** columns. Choose **Open** for its full page and history.
+3. Edit the intended value in place. A Yes or no checkbox saves with one click. For another
+   field, open its small editor and enter the value; Enter saves an ordinary single-line field,
+   and Escape cancels. Clicking outside an unchanged record-field editor closes it. Leaving
+   a relationship-value editor also attempts to save. Check the refreshed value and any error.
+4. Check the condition for counting before switching an availability checkbox off: the cell
+   can become Inactive without removing the record. Successful inline saves leave the table
+   open. If a row disappears from a state-filtered matrix, select **Any state** to find it again.
+5. To remove a permitted connection, choose **Unlink** on its row. Read the confirmation there:
+   **Keep** cancels, **Unlink** confirms and keeps the related record. Choose **Close** when done.
+
+![Cell table separating record fields from relationship values, with a value editor open](/docs/screens/matrix-cell-relationship-table-editor.png)
+
+*Above: the Schmitten (GR) cell under wikidata-municipalities in Municipalities by system in
+the Graubünden workspace. One code, Q65399, has Confirmed ticked and the Note editor open
+with “Merged municipality, old code kept”. These values belong to its connection to the municipality.*
 
 ![An existing cell record open for editing with a content field and Active checkbox](/docs/screens/matrix-cell-editor.png)
 

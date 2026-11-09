@@ -6,6 +6,12 @@ reader: integrator
 
 Read through a [consumer API](/docs/integrate/consumer-apis/) when another system needs the model's declared business representation. Use an object ID already held, or page a list declared by the contract. Follow [Read through a consumer API](/docs/guide/integrate/read-through-a-consumer-api/) for a complete sequence.
 
+Values carried by a connection can appear inside a declared related block, with their own types
+and nulls. They are included in the same object in single reads, lists, XREF and Resolve; see
+[Publish values of the connection](/docs/integrate/consumer-apis/#publish-values-of-the-connection).
+To read or maintain the underlying connections through the management API, use
+[Relationships and their values](/docs/integrate/relationships-and-their-values/).
+
 ## Read one or many
 
 The get-by-ID operation reads a public record ID. A code from another system belongs in [lookup](/docs/integrate/looking-up-and-resolving/). A list returns its declared type in its configured order; an optional parent scope selects descendants at any depth, not just immediate children. Several parent IDs are alternatives.
@@ -43,7 +49,7 @@ Accept: application/json
 HTTP/1.1 200 OK
 Content-Type: application/json
 RDM-Workspace: graubuenden
-ETag: W/"6d7feaf1a7d44b42750a:1"
+ETag: W/"aa0a706f7657c2adb5a7:1"
 ```
 
 ```json
@@ -71,7 +77,9 @@ ETag: W/"6d7feaf1a7d44b42750a:1"
   "operator": {
     "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
     "code": "MGB-fo",
-    "name": "Matterhorn Gotthard Bahn (fo)"
+    "name": "Matterhorn Gotthard Bahn (fo)",
+    "localName": null,
+    "isPrimary": null
   },
   "modes": [
     {
@@ -138,7 +146,9 @@ RDM-Workspace: graubuenden
       "operator": {
         "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
         "code": "MGB/Autofo",
-        "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
+        "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)",
+        "localName": null,
+        "isPrimary": null
       },
       "modes": [
         {
@@ -210,7 +220,9 @@ RDM-Workspace: graubuenden
       "operator": {
         "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
         "code": "MGB-fo",
-        "name": "Matterhorn Gotthard Bahn (fo)"
+        "name": "Matterhorn Gotthard Bahn (fo)",
+        "localName": null,
+        "isPrimary": null
       },
       "modes": [
         {
@@ -245,14 +257,14 @@ The reference snapshot has 13 stops for this operator. Reusing the unfiltered cu
 
 ## Reuse an unchanged answer
 
-Save the body from the earlier object GET and read its `ETag` response header. In the captured response it is `W/"6d7feaf1a7d44b42750a:1"`. Copy the whole header value into `If-None-Match`, including `W/` and both quotes; use the value from your own response rather than a placeholder:
+Save the body from the earlier object GET and read its `ETag` response header. In the captured response it is `"aa0a706f7657c2adb5a7:1"`. Copy the whole header value into `If-None-Match`, including `W/` and both quotes; use the value from your own response rather than a placeholder:
 
 ```http
 GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden HTTP/1.1
 Host: <instance>
 Authorization: Bearer <consumer-token>
 Accept: application/json
-If-None-Match: W/"6d7feaf1a7d44b42750a:1"
+If-None-Match: "aa0a706f7657c2adb5a7:1"
 ```
 
 If the saved tag still matches, the conditional response is:
@@ -261,7 +273,7 @@ If the saved tag still matches, the conditional response is:
 ```http
 HTTP/1.1 304 Not Modified
 RDM-Workspace: graubuenden
-ETag: W/"6d7feaf1a7d44b42750a:1"
+ETag: "aa0a706f7657c2adb5a7:1"
 ```
 
 A matching-tag 304 has **no response body**. Keep using the cached body. If the server instead returns 200, replace the cached body and tag together. A live write elsewhere in the workspace can change the tag; it is not a per-object change counter. Adding `publication=<publication-id>` pins the read, and the answer identifies it in `RDM-Publication` and collection `publication` fields.

@@ -1,0 +1,310 @@
+{
+  "note": "Illustrative relationship values on the guide's reference instance (0.13 RV screens): the stop-operated-by-operator binding's local-name, is-primary and inspected-on, and the system-code-maps-to municipality binding's confirmed and mapping-note. Fictional.",
+  "operatorLinks": [
+    {
+      "stop": "f30fda47-f1a1-4e76-a87d-67f2156ba1f6",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": true,
+        "inspected-on": "2026-01-10"
+      }
+    },
+    {
+      "stop": "fb91a446-e145-4346-9aa5-f5155e1ba098",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": false
+      }
+    },
+    {
+      "stop": "3ae73169-4551-439e-8b0a-8205a50dc85c",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Station office",
+        "inspected-on": "2026-03-12"
+      }
+    },
+    {
+      "stop": "30b9ebec-2c10-4358-b1c6-8e588a484209",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": true
+      }
+    },
+    {
+      "stop": "eb7a8a54-b6b7-4557-b20d-b88596f98aa9",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": false,
+        "inspected-on": "2026-05-14"
+      }
+    },
+    {
+      "stop": "eb1301c9-5eb4-41aa-9905-f2f20888a338",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Customer counter"
+      }
+    },
+    {
+      "stop": "9263248e-1e9d-403f-9866-dd9521aa565f",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Customer counter",
+        "is-primary": true,
+        "inspected-on": "2026-07-16"
+      }
+    },
+    {
+      "stop": "faa53ba5-ed7f-4bd8-81a6-c686d4d50170",
+      "operator": "a678d368-1422-4534-bb30-060b163ad717",
+      "values": {
+        "local-name": "Customer counter",
+        "is-primary": false
+      }
+    },
+    {
+      "stop": "3da5a144-12fd-4da7-8979-7d3d2ab89a47",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": true,
+        "inspected-on": "2026-01-10"
+      }
+    },
+    {
+      "stop": "bdfe7f52-0877-4ed7-adb8-447108d94b98",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": false
+      }
+    },
+    {
+      "stop": "5f3a7d4e-da4a-4b6e-b773-4e8cd27ee8fd",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Station office",
+        "inspected-on": "2026-03-12"
+      }
+    },
+    {
+      "stop": "0a4988ad-88be-419a-b960-af7b556e77c3",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": true
+      }
+    },
+    {
+      "stop": "1714d0ce-8312-479e-bc37-ae20830b0aa3",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": false,
+        "inspected-on": "2026-05-14"
+      }
+    },
+    {
+      "stop": "166c5907-2d5c-4d90-998f-42fd47e2c696",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Customer counter"
+      }
+    },
+    {
+      "stop": "ba7cc536-fd24-4cfd-874f-c8f086e3f887",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Customer counter",
+        "is-primary": true,
+        "inspected-on": "2026-07-16"
+      }
+    },
+    {
+      "stop": "828e3a77-b709-40e0-9f83-18cbcdd47bf9",
+      "operator": "b3dd8741-6ea1-4d2d-8ea2-ebf440cd479e",
+      "values": {
+        "local-name": "Customer counter",
+        "is-primary": false
+      }
+    },
+    {
+      "stop": "27858123-117d-46ed-935c-4af3b13b1306",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": true,
+        "inspected-on": "2026-01-10"
+      }
+    },
+    {
+      "stop": "35e695a6-37d0-4627-b531-7c48ffe9b7ae",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": false
+      }
+    },
+    {
+      "stop": "7cd8c418-b200-4359-96a3-8fe435ade89f",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Station office",
+        "inspected-on": "2026-03-12"
+      }
+    },
+    {
+      "stop": "f682e173-f4eb-4cfa-a8c7-f9e56c2a3416",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": true
+      }
+    },
+    {
+      "stop": "52624646-8d8e-4f93-83b2-c40cfefe9ab0",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Station office",
+        "is-primary": false,
+        "inspected-on": "2026-05-14"
+      }
+    },
+    {
+      "stop": "d8e270b8-2a56-4231-b7c9-811e586a6f03",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Customer counter"
+      }
+    },
+    {
+      "stop": "56d282bc-cfd6-44bc-a9b9-610b5234b4e9",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Customer counter",
+        "is-primary": true,
+        "inspected-on": "2026-07-16"
+      }
+    },
+    {
+      "stop": "10b8bccd-2f09-43b9-8abd-33776ea63198",
+      "operator": "33786511-8f6c-477a-b384-3a281f90755a",
+      "values": {
+        "local-name": "Customer counter",
+        "is-primary": false
+      }
+    }
+  ],
+  "codeLinks": [
+    {
+      "code": "d61fc844-ea46-40cf-99ef-412d7514ddbd",
+      "municipality": "8f2bba48-a211-4462-8b1e-14203917c4e2",
+      "values": {
+        "confirmed": true,
+        "mapping-note": "Checked against the FSO list"
+      }
+    },
+    {
+      "code": "68f02739-fb48-4f4e-a357-ab13d05727eb",
+      "municipality": "3079f894-d691-49fd-b286-b9497e5a4de3",
+      "values": {
+        "confirmed": false
+      }
+    },
+    {
+      "code": "4f21c078-4015-4182-ae17-f2243c2008b2",
+      "municipality": "e12aaf82-2e62-44a2-8a86-b6ed41a4e044",
+      "values": {
+        "confirmed": true,
+        "mapping-note": "Merged municipality, old code kept"
+      }
+    },
+    {
+      "code": "401627e4-b589-4c4a-b988-e7e2e549325c",
+      "municipality": "6a1723bd-8f0b-4489-b260-00007530ab25",
+      "values": {
+        "confirmed": true
+      }
+    },
+    {
+      "code": "c63cbd79-9d97-441d-ba6e-2b12e5ee1501",
+      "municipality": "24d40a78-2933-47e7-804d-3115347c28d5",
+      "values": {
+        "confirmed": false,
+        "mapping-note": "Name differs in Wikidata"
+      }
+    },
+    {
+      "code": "e1a1e322-44b3-4de6-919b-e6e590c428bd",
+      "municipality": "5d43ea52-1b99-4e06-99c1-c7aebcc6a5ba",
+      "values": {
+        "confirmed": true
+      }
+    },
+    {
+      "code": "88854017-aa24-4498-ae77-8d61ca58d449",
+      "municipality": "5146ba83-0b90-4f31-a449-b6f646660db1",
+      "values": {
+        "confirmed": true,
+        "mapping-note": "Confirmed by the municipality"
+      }
+    },
+    {
+      "code": "bdcfa2ec-96cd-4b85-bbdb-5e3b2923bb28",
+      "municipality": "9236bdc3-902e-4d20-af72-d7eeeea95ffa",
+      "values": {
+        "confirmed": false
+      }
+    },
+    {
+      "code": "d4b2e9e7-938a-407c-86d2-8eaa325d6a31",
+      "municipality": "95428f97-d107-417d-9c4a-a97f9a7114d1",
+      "values": {
+        "confirmed": true,
+        "mapping-note": "Checked against the FSO list"
+      }
+    },
+    {
+      "code": "ec85d620-69bb-4f9a-8acb-f5a3e082b357",
+      "municipality": "3366a499-4793-4f47-a2f7-aacf22926e0b",
+      "values": {
+        "confirmed": true
+      }
+    },
+    {
+      "code": "a81a0604-c3ef-42c5-84ef-5aca9040e3d8",
+      "municipality": "1fc5cb51-bf23-47e9-bc54-868f66e9183c",
+      "values": {
+        "confirmed": false,
+        "mapping-note": "Merged municipality, old code kept"
+      }
+    },
+    {
+      "code": "61bad52c-b125-4f12-a576-dfe2b1b20a2f",
+      "municipality": "ed237bf8-ab67-4332-820b-5d9a6885073c",
+      "values": {
+        "confirmed": true
+      }
+    },
+    {
+      "code": "f4caf46d-867f-4271-8c5b-e76805cad23b",
+      "municipality": "19ffba41-dbe1-45f9-8788-07bb66f5db41",
+      "values": {
+        "confirmed": true,
+        "mapping-note": "Name differs in Wikidata"
+      }
+    },
+    {
+      "code": "5f63a67a-1700-4508-a856-ce9a966bd4d7",
+      "municipality": "9e1f01a9-5f80-4f54-9bdf-d64501f11aa5",
+      "values": {
+        "confirmed": false
+      }
+    }
+  ]
+}

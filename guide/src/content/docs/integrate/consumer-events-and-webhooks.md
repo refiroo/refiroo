@@ -75,7 +75,7 @@ Workspace subscriptions deliver `change-set.submitted`, `change-set.approved` an
 
 This adds an event named `stops-changed` to the contract's Events operation. It watches those output fields, so a change affecting only height is not this event. A broader event or additional watched fields needs a model declaration. Standard per-type events are available when a model declares them; this reference model declares this custom event instead.
 
-The following response was read from the reference instance. Starting after position 63 returns the creation of Selva, via Alpsu spv. at position 207 by an import job. The full object is composed at position 8950. These positions, IDs and times belong to this instance:
+The following response was read from the reference instance. Starting after position 63 returns the creation of Selva, via Alpsu spv. at position 207 by an import job. The full object is composed at position 8986. These positions, IDs and times belong to this instance:
 
 ```http
 GET /api/consumer/stops/v1/events?workspace=graubuenden&after=63&event=stops-changed&pageSize=1&payload=full HTTP/1.1
@@ -94,9 +94,9 @@ RDM-Workspace: graubuenden
 {
   "items": [
     {
-      "eventId": "4b4f3604-a821-7aff-1852-ae2b6cd1e8d2",
+      "eventId": "a141f374-b312-9649-bd6f-b878fd2aacf5",
       "position": 207,
-      "occurredAt": "2026-11-02T17:06:00.982769+00:00",
+      "occurredAt": "2026-11-03T21:29:54.748509+00:00",
       "event": "stops-changed",
       "change": "created",
       "contractVersion": 1,
@@ -107,9 +107,9 @@ RDM-Workspace: graubuenden
       "changed": [],
       "cause": {
         "kind": "job",
-        "id": "99f69475-71d1-47ce-abde-559e238691f4"
+        "id": "b2984b17-a315-4fba-a2d5-e08432e86cfd"
       },
-      "stateAt": 8950,
+      "stateAt": 8986,
       "object": {
         "objectType": "Stop",
         "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
@@ -134,7 +134,9 @@ RDM-Workspace: graubuenden
         "operator": {
           "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
           "code": "MGB/Autofo",
-          "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
+          "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)",
+          "localName": null,
+          "isPrimary": null
         },
         "modes": [
           {
@@ -152,12 +154,12 @@ RDM-Workspace: graubuenden
   "pageSize": 1,
   "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
   "caughtUp": false,
-  "headPosition": 8950,
+  "headPosition": 8986,
   "earliestPosition": 1
 }
 ```
 
-This page contains one event and is not caught up: `caughtUp` is false and `headPosition` is 8950. Continue with its cursor even though it contains only one item. The creation event has an empty `changed` list.
+This page contains one event and is not caught up: `caughtUp` is false and `headPosition` is 8986. Continue with its cursor even though it contains only one item. The creation event has an empty `changed` list.
 
 `position` says which committed change produced the event. `stateAt` says when the current object was composed; it can be later than the event position. `changed` names affected outputs, not old and new values. `cause` identifies the kind of work; it is not the actor's identity. A deletion omits `object` and `stateAt` and has null `code` and `name`.
 

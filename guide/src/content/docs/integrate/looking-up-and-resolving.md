@@ -98,7 +98,9 @@ RDM-Workspace: graubuenden
       "operator": {
         "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
         "code": "MGB-fo",
-        "name": "Matterhorn Gotthard Bahn (fo)"
+        "name": "Matterhorn Gotthard Bahn (fo)",
+        "localName": null,
+        "isPrimary": null
       },
       "modes": [
         {
@@ -193,7 +195,9 @@ RDM-Workspace: graubuenden
   "operator": {
     "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
     "code": "MGB-fo",
-    "name": "Matterhorn Gotthard Bahn (fo)"
+    "name": "Matterhorn Gotthard Bahn (fo)",
+    "localName": null,
+    "isPrimary": null
   },
   "modes": [
     {
@@ -288,7 +292,9 @@ RDM-Workspace: graubuenden
         "operator": {
           "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
           "code": "MGB-fo",
-          "name": "Matterhorn Gotthard Bahn (fo)"
+          "name": "Matterhorn Gotthard Bahn (fo)",
+          "localName": null,
+          "isPrimary": null
         },
         "modes": [
           {

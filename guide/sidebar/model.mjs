@@ -43,6 +43,7 @@ export default [
       "guide/model/arrange-applications-and-views",
       "guide/model/group-collections-in-navigation",
       "guide/model/add-a-relation-matrix",
+      "guide/model/add-a-relationships-table",
     ],
   ],
   [

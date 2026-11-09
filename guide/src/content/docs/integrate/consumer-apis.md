@@ -16,7 +16,7 @@ The model chooses the content: exposed types, public names, field sources, relat
 
 ### Two types, one declared shape
 
-**Reference-data example:** the `stops` API exposes both stops and operators. These two Get by ID answers have exactly the same fields. The table places their complete object bodies side by side; values come from the reference snapshot, composed with the engine's object renderer rather than captured over HTTP.
+**Reference-data example:** the `stops` API exposes both stops and operators. These two Get by ID answers have exactly the same fields. The table places their complete object bodies side by side; values were captured from the reference instance through Get by ID.
 
 | Field | Stop: Tschamut-Selva | Operator: Matterhorn Gotthard Bahn (fo) |
 | --- | --- | --- |
@@ -35,7 +35,7 @@ The model chooses the content: exposed types, public names, field sources, relat
 | `sboid` | `null` | `"ch:1:sboid:100029"` |
 | `parent` | `{"objectType": "Municipality", "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc", "code": null, "name": "Tujetsch"}` | `null` |
 | `path` | `"Graubünden/Surselva/Tujetsch"` | `""` |
-| `operator` | `{"id": "f94ef862-2a95-4675-9e31-6b1d0a03317f", "code": "MGB-fo", "name": "Matterhorn Gotthard Bahn (fo)"}` | `null` |
+| `operator` | `{"id": "f94ef862-2a95-4675-9e31-6b1d0a03317f", "code": "MGB-fo", "name": "Matterhorn Gotthard Bahn (fo)", "localName": null, "isPrimary": null}` | `null` |
 | `modes` | `[{"id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9", "code": "TRAIN", "name": "Train"}]` | `[]` |
 | `systemCodes` | `[{"system": "Wikidata: stations", "systemKey": "wikidata-stations", "code": "Q33467326", "name": "Q33467326 Tschamut-Selva"}]` | `[]` |
 | `translations` | `[]` | `[]` |
@@ -118,7 +118,7 @@ Your organisation declares its own consumer APIs. Their names, fields and operat
     "related": {
       "operator": {
         "via": "stop-operated-by-operator",
-        "fields": {"id": "id", "code": "operator-code", "name": "name"}
+        "fields": {"id": "id", "code": "operator-code", "name": "name", "localName": "relation:local-name", "isPrimary": "relation:is-primary"}
       }
     }
   },
@@ -216,6 +216,150 @@ Under and Linked to default to matching ID, applicable code sources and name. Co
 Filter names cannot shadow `query`, `expect`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`, `workspace`, `ref`, `id`, `event`, `after` or `payload`, or start with `to.`. Every source, type, relation and ancestor reference is checked against the release. Invalid definitions report the authored path and reason; repair the definition rather than removing a restriction from a client's request.
 
 Descriptions on fields, related blocks, operations, lists and filters appear in generated OpenAPI. They explain a contract without changing stored records. Review the expanded definition, schema and OpenAPI together before activating it.
+
+## Publish values of the connection
+
+A related block can expose a value held by the relationship used to reach its item. Write
+`relation:<attribute-key>` in `object.related.<block>.fields`. The source reads that connection,
+not an attribute of either endpoint. A missing value becomes null; the schema and generated
+OpenAPI retain the attribute's type, including boolean and numeric types. All business-object
+reads use it: Get by ID, lists, XREF and Resolve. A crosswalk can return it in its selected
+related representation too.
+
+**Reference-data example:** the stop-to-operator binding carries Local name (`local-name`,
+text), Primary contact (`is-primary`, boolean) and Inspected on (`inspected-on`, date).
+The Stops API exposes the first two in its existing v1 `operator` block:
+
+```json
+{
+  "operator": {
+    "via": "stop-operated-by-operator",
+    "fields": {
+      "id": "id",
+      "code": "operator-code",
+      "name": "name",
+      "localName": "relation:local-name",
+      "isPrimary": "relation:is-primary"
+    }
+  }
+}
+```
+
+This is the `object.related` excerpt from the reference declaration. Adding these fields is
+compatible with its existing contract; it does not require a v2. Carrying Inspected on does
+not expose it automatically: this block does not select it.
+
+### Read the object and filter a list
+
+Palüds (B)'s connection to Rhätische Bahn holds Local name “Station office”, Primary contact
+Yes and Inspected on 10 January 2026 in the reference data. This complete live answer returns
+the two selected relationship values alongside the operator's own fields:
+
+```http
+GET /api/consumer/stops/v1/objects/f30fda47-f1a1-4e76-a87d-67f2156ba1f6?workspace=graubuenden HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+RDM-Workspace: graubuenden
+```
+
+```json
+{
+  "objectType": "Stop",
+  "id": "f30fda47-f1a1-4e76-a87d-67f2156ba1f6",
+  "code": "ch:1:sloid:5331",
+  "name": "Palüds (B)",
+  "validFrom": "2025-10-14",
+  "validTo": null,
+  "stopNumber": 8505331,
+  "abbreviation": "PALU",
+  "fsoNumber": null,
+  "latitude": "46.55352096785679",
+  "longitude": "9.868828554080435",
+  "height": "1755.847",
+  "sboid": null,
+  "parent": {
+    "objectType": "Municipality",
+    "id": "8ec1aea0-c18a-4802-ba4f-ac14fc5a00e6",
+    "code": null,
+    "name": "Bever"
+  },
+  "path": "Graubünden/Maloja/Bever",
+  "operator": {
+    "id": "a678d368-1422-4534-bb30-060b163ad717",
+    "code": "RhB",
+    "name": "Rhätische Bahn",
+    "localName": "Station office",
+    "isPrimary": true
+  },
+  "modes": [],
+  "systemCodes": [],
+  "translations": []
+}
+```
+
+Tschamut-Selva's connection has neither value: its complete answer near the start of this
+page has `localName: null` and `isPrimary: null`. Another stop connected to the same operator
+can hold different values. These are sample relationship values, not transport-source facts.
+The [list examples](/docs/integrate/reading-business-objects/) return these fields too.
+The reference `operator` filter still matches the operator's code or name; it does not match
+Local name or Primary contact.
+
+An `onRelated` filter's `matchOn` can select `relation:local-name` or `relation:is-primary`
+when the model declares that choice. It compares each item's own connection. With
+`keepOnlyMatching: true`, it drops objects with no matching item; without that option it
+only trims the related block. `scoreOnlyMatching` and `crosswalk` retain their usual meanings.
+These relationship-value filters are supported choices, but are not declared in Stops API.
+
+### Match and resolve through that connection
+
+`alsoMatchThrough.firstOf` can name `relation:local-name` even if the block does not expose it.
+A scored relationship source must hold text. Its weight belongs to the connection that
+matched: another stop sharing the operator does not receive that score just because this
+stop's connection holds “Station office”. Relationship attributes need neither Searchable nor
+Unique for these matching choices. Matching reads the relationships' values, so broad rules
+over many connections can cost more than an indexed identifier lookup.
+
+The reference Stops API matches through system codes and translated names, not through
+Local name. Its [captured XREF and Resolve answers](/docs/integrate/looking-up-and-resolving/)
+include `localName` and `isPrimary` because they reuse the declared object, regardless of
+which source matched the query.
+
+### Publications, business dates and validation
+
+Use `publication` to read the saved relationship values in a compatible publication. An `asOf`
+read applies business validity in the selected source; it does not restore the relationship's
+values to what they were on that date. For the shipped contract's validity fields and the
+complete sequence, see [Business dates](/docs/integrate/business-dates/) and
+[Reading business objects](/docs/integrate/reading-business-objects/).
+
+The source is allowed only in related fields, an `onRelated` filter's `matchOn`, and a related
+XREF promotion's `firstOf`. Main object fields, own XREF rules and `under` or `linkedTo` match
+fields refuse it with `INVALID_REFERENCE`. The named attribute must be carried by a binding
+of that relation, in the chosen direction, reachable from an exposed type. Validation names
+the authored path, relation and attribute. A non-text relationship attribute in a scored
+`firstOf` rule is `INVALID_MODEL`. Correct the model; dropping a request filter does not repair
+an invalid declaration.
+
+### Follow edits of carried values
+
+An event watching a related block that exposes relationship values can report an edit of
+those values with `change: updated` and `changed: ["operator"]`. This names the affected
+block, not an old/new value diff. The reference `stops-changed` event watches only code, name
+and validity fields; it does not report connection-value edits unless its watch declaration
+changes. Unpublished change-set edits produce no consumer event; publication makes their
+committed effects eligible.
+
+With full payload, a reference event includes the current business object, including
+`operator.localName` and `operator.isPrimary`, and `stateAt`. Those values are composed at
+read or delivery time, rather than frozen at the event's position. See the
+[captured full event and webhook request shape](/docs/integrate/consumer-events-and-webhooks/)
+for complete bodies, signing, retries, CloudEvents and recovery.
 
 ## Review a contract change
 

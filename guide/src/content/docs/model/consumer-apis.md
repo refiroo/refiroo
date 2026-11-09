@@ -67,6 +67,38 @@ writes a value into a record. It must have the field's served type.
 
 **Reference-data example:** the reference API has no field defaults. If you set a default abbreviation of “—”, records without an abbreviation receive that fallback in the consumer answer. Chur still shows CH. Neither record’s stored abbreviation changes.
 
+### Values belonging to a relationship
+
+A related block can publish values of the connection as well as values of the related record.
+In its **Fields** picker, **Attributes of the relationship** lists the shared attributes carried
+by the allowed pair in the selected direction. Choose a public output name for each one.
+The answer uses its declared type: Yes or no stays boolean, for example. A connection without
+a held value returns null for that field. If no related record exists, the whole block still
+uses its usual empty object-or-list form.
+
+These choices belong inside the related block, not the main object's **Fields**. The main object
+has no single connection from which to read such a value. If a carried field is missing from
+the picker, review **Via**, the exposed types and the allowed pair's **Carries** before editing
+the contract. The same values appear in object reads, lists, lookups and resolved objects.
+Publications retain their saved values; a business date filters validity rather than rewinding
+later edits. See the [integrator's reference example](/docs/integrate/consumer-apis/#publish-values-of-the-connection)
+for the resulting contract and answers.
+
+![Consumer related-field picker showing Attributes of the relationship beside record sources](/docs/screens/model-consumer-relationship-field-picker.png)
+
+*Above: Stops API’s Add related dialog in a reference-model draft. The proposed output
+operatorLinks follows Operated by (forward) from Stop to Operator and has fields name,
+localName and isPrimary. The isPrimary source list is open: Attributes of the relationship
+offers Local name (text), Primary contact (boolean) and Inspected on (date), with Primary
+contact selected. Built in and Attributes of the exposed types are separate groups. Nothing
+has been applied.*
+
+An **On related** filter can select one of these carried attributes in **Matches on**. It
+matches that particular connection, not every object connected to the same related record.
+A lookup's **Also match through** rule can also use a carried text value in **First of**.
+A scored match needs text; a filter can compare other declared types, including Yes or no.
+These matching choices do not require the attribute to be searchable or unique.
+
 ## Lists, filters and the requests they enable
 
 A list selects the type to return and its order. **Within the filter** gives a list a
@@ -107,7 +139,10 @@ and declares only its custom `stops-changed` event.
 
 **Reference-data example:** Stops API watches code, name and validity dates. Renaming Chur to Chur Bahnhof produces an update notification naming the name output. Changing latitude alone does not trigger that event. This is an example change, not a record of a change in the reference snapshot.
 
-A related record’s edit or a relationship joining or leaving a watched block can also trigger an update. Watched source changes can be reported even if a fallback leaves the displayed answer equal. A validity date passing without a write produces no notification. Moving a record into an event’s types counts as creation, moving it out as deletion, and moving between included types as an update to its type.
+A related record’s edit or a relationship joining or leaving a watched block can also trigger an update.
+If a block exposes connection values, an update of that relationship can report the block as
+changed too. Add the block to **Watches**, or leave Watches empty to include all output changes.
+A notification watching only unrelated main fields does not report that edit. Watched source changes can be reported even if a fallback leaves the displayed answer equal. A validity date passing without a write produces no notification. Moving a record into an event’s types counts as creation, moving it out as deletion, and moving between included types as an update to its type.
 
 Full notifications carry current business objects when delivered, rather than a saved historical copy. Deleted records have no object body. Declaring an event does not register a receiver or grant access. Administrators manage delivery separately; see [Webhooks](/docs/administer/webhooks/).
 

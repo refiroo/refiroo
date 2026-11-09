@@ -63,7 +63,9 @@ records. The heading shows its ID and version.*
 A **relationship** is a named connection between records. The model defines its meaning in each
 direction, which types it connects, whether it is required and how many connections are allowed.
 A connection can carry fields of its own. A relationship table shows connected records using
-the fields and labels chosen by the model.
+the fields and labels chosen by the model. In the Relationships panel, the connection's own
+values follow the related record's columns. **Display** lists them under **Attributes of the
+relationship**. They cannot be used to sort this panel; see [Relationships](/docs/use/relationships/).
 
 A **parent** gives a record its place in a hierarchy. Some types can stand at the top; others
 need a parent of an allowed type. The path on a record's page shows its ancestors. A parent is

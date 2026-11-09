@@ -16,12 +16,30 @@ One connection appears from both ends; these are not two separately maintained c
 
 A relationship can allow one record or several at either end. A section that allows one offers
 **Set** when empty and **Change** when filled. A section allowing several offers **Add relationship**.
-A connection may also hold fields of its own, editable where the panel offers that action.
+A connection may also hold fields of its own. These belong to this connection, rather than to
+one of its records. The same record can have different values on different connections.
 
 ![A record with separate relationship tables and connected records](/docs/screens/relationships-stop.png)
 
 *Above: Chur Wiesental in Network has Train under Modes, Rhätische Bahn under Operator, and two
 System codes. The reference model allows several modes but exactly one operator per stop.*
+
+The Relationships panel puts these values in columns after the related record's fields.
+Open **Display** and find **Attributes of the relationship** to show or hide them. A panel
+covering several allowed pairs can show a column that does not apply to every row. These
+columns cannot sort this panel: sort by an offered field of the related record instead.
+Use the relationship's edit action to change its values; this does not edit the related record.
+
+![Rhätische Bahn operator record with Stops operated and its Display choices](/docs/screens/record-relationship-attribute-columns.png)
+
+*Above: the Rhätische Bahn operator in the Graubünden workspace. Stops operated is filtered
+to Chur W, showing Chur West with Local name Customer counter and Primary contact. Display
+lists the record columns separately from Local name, Primary contact and Inspected on under
+Attributes of the relationship; the column width is Narrow.*
+
+For many connections at once, use a [relationships table](/docs/use/relationship-tables/).
+Its grid can [change relationship values in bulk](/docs/guide/use/change-relationship-values-in-bulk/),
+including links to several shown column records.
 
 ## Associations, ownership and containment
 

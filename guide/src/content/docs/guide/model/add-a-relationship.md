@@ -87,3 +87,18 @@ A relation type's names and reverse name describe the connection from both ends.
 reverse key are stable once released; changing its wording does not create a new identity.
 In **Relationship matrix**, selecting a pair opens its relations' menus and the action to allow
 another; resize the selected-pair panel if the choices need more room.
+
+## Choose what each relationship carries
+
+1. On **Relations**, edit the pair’s **Carries** cell or choose **Attributes of the relationship…**
+   from its menu. If there are no attribute types, create the shared definitions first.
+2. Select the **Attributes** whose values belong to the connection itself, then **Apply**.
+   Carries now names them; an empty selection reads **Nothing**. Endpoints’ fields are unchanged.
+   Select shared definitions of the right value type: a date stays a date, and a Yes or no value
+   becomes a checkbox. Check the from and to types in the dialog title: this choice applies to
+   that directed pair, not every pair using the relation type.
+
+After installation, check the relationship's columns on a record or in a matrix cell. To give
+people a dedicated view for these values, [add a relationships table](/docs/guide/model/add-a-relationships-table/).
+To expose them to another system, [choose them in a consumer API's related block](/docs/guide/model/define-a-consumer-api/).
+Each connection holds its own values; selecting Carries creates no values on existing connections.

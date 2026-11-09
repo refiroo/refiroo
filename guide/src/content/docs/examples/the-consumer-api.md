@@ -183,7 +183,9 @@ related blocks are omitted from this excerpt; it is not a complete model to inst
         "fields": {
           "id": "id",
           "code": "operator-code",
-          "name": "name"
+          "name": "name",
+          "localName": "relation:local-name",
+          "isPrimary": "relation:is-primary"
         }
       }
     }
@@ -269,7 +271,7 @@ Accept: application/json
 HTTP/1.1 200 OK
 Content-Type: application/json
 RDM-Workspace: graubuenden
-ETag: W/"6d7feaf1a7d44b42750a:1"
+ETag: W/"aa0a706f7657c2adb5a7:1"
 ```
 
 ```json
@@ -297,7 +299,9 @@ ETag: W/"6d7feaf1a7d44b42750a:1"
   "operator": {
     "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
     "code": "MGB-fo",
-    "name": "Matterhorn Gotthard Bahn (fo)"
+    "name": "Matterhorn Gotthard Bahn (fo)",
+    "localName": null,
+    "isPrimary": null
   },
   "modes": [
     {
@@ -366,7 +370,9 @@ RDM-Workspace: graubuenden
       "operator": {
         "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
         "code": "MGB/Autofo",
-        "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
+        "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)",
+        "localName": null,
+        "isPrimary": null
       },
       "modes": [
         {
@@ -436,7 +442,9 @@ RDM-Workspace: graubuenden
       "operator": {
         "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
         "code": "MGB-fo",
-        "name": "Matterhorn Gotthard Bahn (fo)"
+        "name": "Matterhorn Gotthard Bahn (fo)",
+        "localName": null,
+        "isPrimary": null
       },
       "modes": [
         {
@@ -513,7 +521,9 @@ RDM-Workspace: graubuenden
   "operator": {
     "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
     "code": "MGB-fo",
-    "name": "Matterhorn Gotthard Bahn (fo)"
+    "name": "Matterhorn Gotthard Bahn (fo)",
+    "localName": null,
+    "isPrimary": null
   },
   "modes": [
     {
@@ -605,7 +615,9 @@ RDM-Workspace: graubuenden
         "operator": {
           "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
           "code": "MGB-fo",
-          "name": "Matterhorn Gotthard Bahn (fo)"
+          "name": "Matterhorn Gotthard Bahn (fo)",
+          "localName": null,
+          "isPrimary": null
         },
         "modes": [
           {
@@ -653,7 +665,7 @@ and rejected. For a file, follow [Resolve a file of codes](/docs/guide/integrate
 ### Reuse an unchanged answer
 
 Read the `ETag` header from the earlier object GET and save it with that body. The captured header is
-`W/"6d7feaf1a7d44b42750a:1"`. Repeat the identical request with the complete value, including `W/`
+`"aa0a706f7657c2adb5a7:1"`. Repeat the identical request with the complete value, including `W/`
 and both quotes. Use your own response header rather than a literal placeholder:
 
 ```http
@@ -661,7 +673,7 @@ GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspac
 Host: <instance>
 Authorization: Bearer <consumer-token>
 Accept: application/json
-If-None-Match: W/"6d7feaf1a7d44b42750a:1"
+If-None-Match: "aa0a706f7657c2adb5a7:1"
 ```
 
 If the saved tag still matches, the conditional response is:
@@ -669,7 +681,7 @@ If the saved tag still matches, the conditional response is:
 ```http
 HTTP/1.1 304 Not Modified
 RDM-Workspace: graubuenden
-ETag: W/"6d7feaf1a7d44b42750a:1"
+ETag: "aa0a706f7657c2adb5a7:1"
 ```
 
 A matching-tag 304 has no response body; retain the cached answer. A 200 response replaces the body and tag
@@ -705,7 +717,7 @@ Correct the name from the workspace's contract. An error is not an empty collect
 
 The declaration above enables `stops-changed`. The response below reports the creation of
 Selva, via Alpsu spv. by an import job at position 207. Although the request starts after 63,
-the first matching event is later. The captured head is 8950 and `caughtUp` is false;
+the first matching event is later. The captured head is 8986 and `caughtUp` is false;
 continue with the returned cursor to read the remaining events.
 
 ```http
@@ -724,9 +736,9 @@ RDM-Workspace: graubuenden
 {
   "items": [
     {
-      "eventId": "4b4f3604-a821-7aff-1852-ae2b6cd1e8d2",
+      "eventId": "a141f374-b312-9649-bd6f-b878fd2aacf5",
       "position": 207,
-      "occurredAt": "2026-11-02T17:06:00.982769+00:00",
+      "occurredAt": "2026-11-03T21:29:54.748509+00:00",
       "event": "stops-changed",
       "change": "created",
       "contractVersion": 1,
@@ -737,7 +749,7 @@ RDM-Workspace: graubuenden
       "changed": [],
       "cause": {
         "kind": "job",
-        "id": "99f69475-71d1-47ce-abde-559e238691f4"
+        "id": "b2984b17-a315-4fba-a2d5-e08432e86cfd"
       }
     }
   ],
@@ -745,7 +757,7 @@ RDM-Workspace: graubuenden
   "pageSize": 1,
   "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
   "caughtUp": false,
-  "headPosition": 8950,
+  "headPosition": 8986,
   "earliestPosition": 1
 }
 ```

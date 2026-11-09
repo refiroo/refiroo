@@ -71,6 +71,8 @@ async function act(page, a) {
   else if (a.select) await locate(page, a.select).selectOption({ label: a.value });
   else if (a.upload) await locate(page, a.upload).setInputFiles(path.resolve(REPO, a.value)); // a file chooser; value is a path from the repo root
   else if (a.press) await page.keyboard.press(a.press);
+  // A native <select> cannot be photographed open: show its options (and group headings) as a list, "rows" of them at most.
+  else if (a.expand) await locate(page, a.expand).evaluate((e, rows) => { e.size = Math.min(e.querySelectorAll('option, optgroup').length, rows ?? 14); }, a.rows);
   else if (a.waitFor) await locate(page, a.waitFor).waitFor(a.timeout ? { timeout: a.timeout } : {}); // "timeout": ms, for slow work such as an AI request
   else if (a.scrollTo) {
     await locate(page, a.scrollTo).evaluate((e, off) => { e.scrollIntoView({ block: 'start' }); window.scrollBy(0, -(off ?? 0)); }, a.offset ?? 90);

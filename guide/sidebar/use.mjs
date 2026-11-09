@@ -53,6 +53,8 @@ export default [
     "Relationships",
     [
       ["use/relationships", "About relationships"],
+      ["use/relationship-tables", "About relationships tables"],
+      "guide/use/change-relationship-values-in-bulk",
       "guide/use/relate-records",
       "guide/use/replace-a-records-related-records",
     ],

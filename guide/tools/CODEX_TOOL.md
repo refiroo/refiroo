@@ -39,6 +39,9 @@ directory, then in `guide/public/screens/`). `reply --images ...` attaches image
 (`codex exec resume` accepts `-i`). The images sent are in `run.json` (per turn: path and sha1) and in
 `turn-N.images.txt`; `run --dry-run` lists them.
 
+A step `{"expand": <locator>, "rows": N}` turns a native `<select>` into an open list (its choices and group headings),
+because a headless browser cannot photograph an open native menu.
+
 A `waitFor` step may carry `"timeout"` in milliseconds (default 15000), for slow work such as an AI
 proposal or an assistant task (use minutes: 300000).
 
