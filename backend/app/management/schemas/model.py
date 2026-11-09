@@ -643,6 +643,8 @@ class OutlineView(BaseModel):
     shows: list[str]
     # A relation matrix's configuration, as the model declares it; absent on other kinds.
     matrix: dict[str, Any] | None = None
+    # A relationships table's configuration, as the model declares it; absent on other kinds.
+    config: dict[str, Any] | None = None
     mark: OutlineMark
 
 

@@ -508,6 +508,8 @@ def _views(application: dict[str, Any], base: dict[str, Any]) -> list[dict[str, 
                 "shows": [key for key in shows if isinstance(key, str)],
                 # What the editor changes a matrix from; the other kinds change in the preview.
                 **({"matrix": config} if kind == "relationMatrix" else {}),
+                # A relationships table's configuration, which its setting dialogs start from (0.13 RV).
+                **({"config": config} if kind == "relationTable" else {}),
                 "mark": "new" if old is None else "released" if old == view else "changed",
             }
         )

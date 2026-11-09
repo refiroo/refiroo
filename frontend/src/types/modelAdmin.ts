@@ -366,6 +366,8 @@ export interface OutlineView {
   shows: string[];
   /** A relation matrix's configuration, as the model declares it. */
   matrix?: Record<string, unknown> | null;
+  /** A relationships table's configuration, as the model declares it. */
+  config?: Record<string, unknown> | null;
   mark: OutlineMark;
 }
 

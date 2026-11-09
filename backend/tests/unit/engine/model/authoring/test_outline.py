@@ -101,6 +101,15 @@ def test_a_relation_carries_which_records_it_may_choose():
     assert "candidates" not in build_outline(DOCUMENT, None)["relations"][0]
 
 
+def test_a_relationships_table_view_carries_its_config():
+    draft = copy.deepcopy(DOCUMENT)
+    config = {"fromObjectTypeKey": "a", "toObjectTypeKey": "b", "layout": "grid"}
+    draft["applications"][0]["views"].append({"key": "rel", "type": "relationTable", "config": config})
+    views = {view["key"]: view for view in build_outline(draft, None)["applications"][0]["views"]}
+    assert views["rel"]["config"] == config
+    assert "config" not in views["v"]
+
+
 def test_a_consumer_api_written_by_hand_without_its_parts_is_outlined_without_failing():
     """A definition saved through the JSON workbench may lack its key or name, or hold a version that
     is not a number; the outline lists what it can and leaves the rest to the diagnostics (0.10 A4c)."""

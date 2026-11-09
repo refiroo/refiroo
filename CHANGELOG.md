@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file. The format foll
 - **They match too.** An `onRelated` filter's `matchOn` (with `keepOnlyMatching`, `scoreOnlyMatching`, `crosswalk`) and an XREF `alsoMatchThrough` rule's `firstOf` may name `relation:<attribute>`: the value is compared with the relationship's attribute, so an item matches through that relationship only. An XREF rule reads a text attribute.
 - **The editor offers them.** The field picker of a related block, and its `matchOn` pickers, have a group **Attributes of the relationship**, listing the attributes of the relation's bindings; `GET /model-drafts/{id}/outline` lists `attributeTypeKeys` on each relation.
 
+### Fixed (Layout… of a relationships table, 0.13 RV)
+
+- **"Layout…" opens on the view's current layout.** Cause: the draft outline (`GET /model-drafts/{id}/outline`) carried a view's `config` only for tree and mapping-grid views; it now carries a relationships table's too, so a grid view opens on "Grid".
+
 ### Added (attributes of the relationship in views, 0.13 RV)
 
 - **A matrix cell shows and changes the relationship's own values.** Each cell record carries `relationAttributes`; the cell dialog shows them under "Attributes of the relationship", a link or a create-in-cell sends the values entered, and an edit claims the relationship's version, with the conflict notice of the Edit values dialog. One shared `RelationAttributes` serves all three.
