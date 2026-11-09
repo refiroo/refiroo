@@ -55,14 +55,21 @@ from ...models.schema import (
     ProjectionParameter,
     RelatedParameter,
 )
-from ..model.consumer_contract import projection_targets, split_ancestor_reference
+from ..model.consumer_contract import (
+    projection_targets,
+    split_ancestor_reference,
+    split_relation_reference,
+)
 from ..model.traversal import ancestor_type_keys
-from ..records.values import VALUE_COLUMNS
+from ..records.values import VALUE_COLUMNS, stored_json_value
 from .consumer_source import ConsumerSource
 from .object_query import SEARCH_CANDIDATE_LIMIT, effective_on, escape_like, parse_typed
 
 # A condition on a record, given the entity (the source's records, or an alias of them) that holds it.
 Predicate = Callable[[Any], Any]
+# A condition on a projection's item, given the related record's entity and the relationship row it
+# was reached through (``relation:<attribute>`` matches on the relationship's own values).
+ItemPredicate = Callable[[Any, Any], Any]
 
 VIA_SELF = "self"
 VIA_SHARED = "sharedProjection:"
@@ -88,8 +95,8 @@ class ConsumerFilter:
     ``objectType`` parameter)."""
 
     records: tuple[Predicate, ...] = ()
-    limits: Mapping[str, Predicate] = field(default_factory=dict)
-    scoring: Mapping[str, Predicate] = field(default_factory=dict)
+    limits: Mapping[str, ItemPredicate] = field(default_factory=dict)
+    scoring: Mapping[str, ItemPredicate] = field(default_factory=dict)
     target: Target | None = None
     as_of: date | None = None
     dated: frozenset[str] = frozenset()
@@ -154,11 +161,11 @@ def consumer_filter(
     nothing. Its ``requireMatch`` and ``scoresFrom`` act as without the target (C-D54)."""
     builder = _Builder(session, model, definition, source)
     records: list[Predicate] = []
-    limits: dict[str, list[Predicate]] = {}
-    scoring: dict[str, list[Predicate]] = {}
-    own_limits: dict[str, Predicate] = {}
+    limits: dict[str, list[ItemPredicate]] = {}
+    scoring: dict[str, list[ItemPredicate]] = {}
+    own_limits: dict[str, ItemPredicate] = {}
     target: Target | None = None
-    target_item: Predicate | None = None
+    target_item: ItemPredicate | None = None
     returnable = set(definition.objectTypes)
     for name, given in values.items():
         if name.startswith(TARGET_PREFIX):
@@ -248,7 +255,16 @@ def _candidates(builder: _Builder, parameter: Any, value: str) -> Select[Any]:
     selects = []
     for match_field in parameter.matchFields:
         reference = split_ancestor_reference(match_field)
-        if reference is None:
+        attribute = split_relation_reference(match_field)
+        if attribute is not None:
+            relation = builder.source.relation_alias()
+            selects.append(
+                select(relation.sequence_id.cast(String).label("id")).where(
+                    relation.relation_type_key == route.relation,
+                    builder._relation_match(relation, attribute, [value]),
+                )
+            )
+        elif reference is None:
             selects.append(builder.candidates(targets, [match_field], [value]))
         else:
             type_key, field_name = reference
@@ -278,8 +294,8 @@ def _effective(model: EngineModel, source: ConsumerSource, dated: frozenset[str]
     return predicate
 
 
-def _all(predicates: list[Predicate]) -> Predicate:
-    return lambda entity: and_(*(predicate(entity) for predicate in predicates))
+def _all(predicates: list[ItemPredicate]) -> ItemPredicate:
+    return lambda entity, relation: and_(*(predicate(entity, relation) for predicate in predicates))
 
 
 class _Builder:
@@ -326,30 +342,68 @@ class _Builder:
 
     def projection(
         self, parameter: ProjectionParameter, values: Sequence[str]
-    ) -> tuple[Predicate, Predicate | None]:
+    ) -> tuple[ItemPredicate, Predicate | None]:
         """The condition on the projection's items, and on the record when ``requireMatch``."""
         route = self.definition.projections[parameter.projection].from_
         targets = [item.key for item in projection_targets(self.model, self.definition, route.relation, route.direction)]
-        matches: list[Predicate] = []
+        matches: list[ItemPredicate] = []
+        by_relation = False
         for match_field in parameter.matchFields:
+            attribute = split_relation_reference(match_field)
             reference = split_ancestor_reference(match_field)
-            if reference is None:
+            if attribute is not None:
+                by_relation = True
                 matches.append(
-                    lambda entity, name=match_field: entity.id.in_(self.candidates(targets, [name], values))
+                    lambda _entity, relation, key=attribute: self._relation_match(relation, key, values)
+                )
+            elif reference is None:
+                matches.append(
+                    lambda entity, _relation, name=match_field: entity.id.in_(self.candidates(targets, [name], values))
                 )
             else:
                 type_key, name = reference
                 starts = self.candidates([type_key], [name], values)
-                matches.append(below(self.session, self.model, self.source, starts, targets))
+                below_match = below(self.session, self.model, self.source, starts, targets)
+                matches.append(lambda entity, _relation, below_match=below_match: below_match(entity))
 
-        def item(entity: Any) -> Any:
-            return or_(*(match(entity) for match in matches))
+        def item(entity: Any, relation: Any) -> Any:
+            return or_(*(match(entity, relation) for match in matches))
 
         if not parameter.requireMatch:
             return item, None
+        if by_relation:
+            # Some match reads the relationship, so the record needs a relationship whose item matches.
+            return item, lambda entity: self._linked_item(entity, parameter.projection, item)
         related = self.source.object_alias()
-        matching = select(related.id).where(item(related))
+        matching = select(related.id).where(item(related, None))
         return item, lambda entity: self._linked(entity, parameter.projection, entity_ids=matching)
+
+    def _relation_match(self, relation: Any, key: str, values: Sequence[str]) -> Any:
+        """The relationship's attribute ``key`` equals a value (text ignoring case, a typed value by
+        its parsed value), read from the relation's stored JSON."""
+        value_type = self.model.attribute_type(key).valueType
+        stored = relation.attributes[key].as_string()
+        comparisons = []
+        for value in values:
+            if value_type in {"text", "longText"}:
+                comparisons.append(stored.ilike(escape_like(value), escape="\\"))
+                continue
+            try:
+                parsed = stored_json_value(parse_typed(value_type, value))
+            except ValueError:
+                continue
+            comparisons.append(stored == ("true" if parsed is True else "false" if parsed is False else str(parsed)))
+        return or_(*comparisons) if comparisons else false()
+
+    def _linked_item(self, entity: Any, projection: str, item: ItemPredicate) -> Any:
+        """``entity`` relates through the projection to a record whose item ``item`` holds for."""
+        relation, related = self.source.relation_alias(), self.source.object_alias()
+        key, own, other = self._ends(relation, projection)
+        return exists(
+            select(relation.sequence_id)
+            .join(related, related.id == other)
+            .where(relation.relation_type_key == key, own == entity.id, item(related, relation))
+        )
 
     def candidates(self, type_keys: Sequence[str], fields: Sequence[str], values: Sequence[str]) -> Select[Any]:
         """The IDs of the records of ``type_keys`` in the source whose ``fields`` match a value."""

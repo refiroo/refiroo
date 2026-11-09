@@ -17,7 +17,8 @@ A change reaches:
 4. the owners of a projection it is an item of, when a field the projection reads changed;
 5. the owners of the projected records below it, when an ``ancestor:`` field reads it, or when it
    moved (their ancestors changed);
-6. a relation's owner end, when a relation of a projection's type is created or deleted; and for a
+6. a relation's owner end, when a relation of a projection's type is created or deleted, or updated
+   while a field reads the relationship's own values (``relation:<attribute>``); and for a
    projection over a containment relation, which has no relation entries, the record's parents
    before and after (C-D95).
 
@@ -35,6 +36,7 @@ from ..model.consumer_contract import (
     OBJECT_ROLES,
     PROJECTION_TYPE_SOURCE,
     split_ancestor_reference,
+    split_relation_reference,
 )
 from ..records.feed import changed_names
 
@@ -134,6 +136,8 @@ class _Projection:
     # Names of the item's own fields the projection reads (attribute keys, ``name``).
     item_names: frozenset[str]
     reads_item_type: bool
+    # A field reads the relationship's own values (``relation:<attribute>``).
+    reads_relation: bool
     # Per ancestor type, the names of its fields the projection reads.
     ancestors: dict[str, frozenset[str]]
     # Over a containment relation: items join and leave with the record's parent (C-D95).
@@ -209,12 +213,15 @@ class EventPlan:
         return owns, reaches
 
     def _relation(self, change: FeedChange) -> list[Reach]:
-        if change.action not in ("created", "deleted"):
-            # A projection reads related records, never the relation's own values.
-            return []
         found = []
         for projection in self.projections:
             if projection.relation != change.relation_type_key:
+                continue
+            # An update changes only the relationship's values, so it reaches the projections that
+            # read them, whichever value changed.
+            if change.action not in ("created", "deleted") and not (
+                change.action == "updated" and projection.reads_relation
+            ):
                 continue
             owner = change.from_id if projection.direction == "outgoing" else change.to_id
             if owner is not None:
@@ -315,9 +322,12 @@ def _projection(
     item_names: set[str] = set()
     ancestors: dict[str, set[str]] = {}
     reads_type = False
+    reads_relation = False
     for source in fields.values():
         reference = split_ancestor_reference(source)
-        if reference is not None:
+        if split_relation_reference(source) is not None:
+            reads_relation = True
+        elif reference is not None:
             ancestor_type, name = reference
             if name != "id":
                 ancestors.setdefault(ancestor_type, set()).add(name)
@@ -331,6 +341,7 @@ def _projection(
         direction=direction,
         item_names=frozenset(item_names),
         reads_item_type=reads_type,
+        reads_relation=reads_relation,
         ancestors={key: frozenset(names) for key, names in ancestors.items()},
         containment=relation in containment,
     )

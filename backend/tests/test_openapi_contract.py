@@ -427,10 +427,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.13 navigation (additive): the draft outline's navigation groups gain `entries`
     # (`OutlineNavigationEntry`) and `navigation` gains `opens`; `OutlineView` gains `collection`;
     # `placeCollection` takes `view` in place of `collection` and `setCollectionOpening` is a public kind
-    # (`SetCollectionOpeningOperation`); nothing else changed.
+    # (`SetCollectionOpeningOperation`); nothing else changed. Re-baselined for 0.13 RA (additive): the
+    # draft outline's `OutlineRelation` gains an optional `attributeTypeKeys`; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e3514fe41b0b6586558e452d8513018200972d4667a5204b82d500bad4e2c8ac"
+        "5e8470d0fbee727b801d2d221ded6a932374d438525af19bd1dc5742fc19917d"
     )
 
 

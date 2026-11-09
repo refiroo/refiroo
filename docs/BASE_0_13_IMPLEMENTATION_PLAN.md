@@ -387,6 +387,7 @@ when both are empty but for reasoned exclusions.
 | [MG](#mg-changes-that-need-a-migration-made-in-the-editor) | - | A change to released structure that data holds (an application move, a new parent, a key, a split, a merge, a conversion, a removal) is made in the editor; installing the draft runs the migration the draft itself states, previewed and confirmed. Moved from 1.0 | Primary agent (plan); implementer. **Delivered 2026-11-09** |
 | [AD](#ad-an-assistant-task-makes-its-own-model-draft) | - | A workbook task's session makes its own model draft; a proposal on a draft it did not make goes back to the session instead of failing the task | Primary agent. **Delivered 2026-11-06** |
 | [AT](#at-the-assistant-starts-from-the-engines-reading) | AD | A workbook task's session starts from a draft the engine has already read the workbook into (its inference and one dry run), not from nothing; a draft's dry run reads the draft's own profile | Primary agent (plan); implementer. **Planned and ordered by the user 2026-11-08. Built; tries slower than AP11; the user removed the start, kept the dry-run fix and accepted the timings (2026-11-08)** |
+| [RA](#ra-attributes-of-the-relationship-in-consumer-api-related-fields) | - | A consumer API related block's fields can read an attribute of the relationship itself (`relation:<attribute>`), typed, validated and offered in the editor's field picker | Primary agent (plan); implementer. **Ordered by the user 2026-11-09; RA-D1 to RA-D3 decided 2026-11-09; built 2026-11-09** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
 
 The waves are ordered by dependence, not by importance: concepts first (the how-tos and tutorials link
@@ -1240,6 +1241,105 @@ migration page opened with the proposed rows: https://claude.ai/artifact/Jt2yhJa
 | MG-D1 | Only the application move, or every change that needs a migration? | **Every one.** One mechanism serves all of them: the editor applies the step, the draft states its migration, the migration carries it. A move-only package would build the same three parts and leave them to be widened in 1.0. Cost: a split and a conversion need new data statements in the migration |
 | MG-D2 | Key changes of released elements | **Allowed, with the migration.** The invariant "public IDs and model keys are stable" exists because an integration names an element by its key where no guard sees it. The change therefore shows, before install, every consumer API and contract that names the old key (the existing check, D54), and the install dialog says that integrations naming the key must change with it. 1.0's scope already listed key renames. Alternative: keep keys fixed and allow the rest |
 | MG-D3 | Where the derived migration lives | **Computed from the draft's history when read.** It then always matches the steps, including after an undo. Cost: one derivation per read of the draft's migration |
+
+## RA: Attributes of the relationship in consumer API related fields
+
+**Status:** Raised on 2026-11-09 by an integration that needs, for each pair of related records, a value stored on the
+relationship between them; added to the 0.13 build by the user on 2026-11-09 ("add to the 0.13 build as a wp"). 
+
+**Why.** A relation binding can carry attributes of its own (`attributeTypeKeys` on the binding; the relationship's
+values, edited on a record page's relationships panel with **Edit values**, `RelationsPanel.tsx`, `RelationFormDialog.tsx`).
+They describe the pair, not either record: a local name one record has at the other, or yes/no flags that hold only for
+that pairing. The management API reads and writes them, but the consumer API cannot publish them: a related block's
+field sources resolve only against the related record (built-ins `id`, `name`, `objectType`, the related types'
+attributes, `ancestor:<type>.<field>`; `projection_field_type` → `reference_value_type` in
+`engine/model/consumer_contract.py`; [CONSUMER_API](CONSUMER_API.md), "Related fields"). An integrator who must know,
+per related item, a fact about the pairing has no read for it, and the consumer API editor's field picker offers none.
+This breaks [API first](../AGENTS.md): a capability the model holds and the management API serves is missing from the
+consumer contract.
+
+**What changes.**
+
+1. **A source for the relationship's attribute.** In `object.related.<name>.fields`, the source
+   `relation:<attribute-type-key>` reads that attribute's value on the relationship the item was reached through
+   (`via`, outgoing or incoming alike). Example: `"fields": { "id": "id", "name": "name", "localName": "relation:local-name", "primary": "relation:is-primary" }`.
+2. **Validated against the binding.** The source resolves only when the attribute type is in `attributeTypeKeys` of a
+   binding of that relation, in the block's direction, from an exposed type. Otherwise the draft compile, install and
+   model validation refuse it at the field's pointer (`/consumerApis/<key>/object/related/<name>/fields/<field>`),
+   naming the field, the relation and the attribute. A `relation:` source anywhere other than a related block's fields
+   and the `matchOn` that read them (RA-D2) is refused at its pointer.
+3. **Typed like any field.** The output type is the attribute's value type (a boolean stays a boolean, a text a
+   string) in the definition's output schema and the published OpenAPI; mixed source lists follow C-D19 as before.
+4. **Read at run time.** Each related item carries the value stored on its own relationship, `null` when the
+   relationship has none. The same in objects, lists, XREF and resolve answers, and in publication, `asOf` and
+   change-set reads, which read the relationship's values from the same source as the records. Read in one set-based
+   statement per block, with the related items, not per item.
+5. **Matched like any related field (RA-D2).** An `onRelated` filter's `matchOn` and XREF's `alsoMatchThrough` may
+   name `relation:<key>`; the value is compared with the relationship's attribute, so the item counts as matched only
+   through that relationship.
+6. **Offered in the editor.** The consumer API editor's field picker for a related block (and its `matchOn` pickers) gets a group
+   **Attributes of the relationship**, listing the binding's `attributeTypeKeys`, beside the built-in, exposed-type
+   and ancestor groups; choosing one writes `relation:<key>`. An existing `relation:` source shows by the attribute's
+   name.
+
+**Decisions.**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| RA-D1 | How is the relationship's attribute named in a source? | **A prefix, `relation:<attribute-type-key>`** (**decided by the user 2026-11-09 as recommended:** "okay then this can be built with d1 as you recommended"), beside the existing `ancestor:<type>.<field>`: one source string per field, the same place an integrator already looks, no new block in the definition. Alternative: a separate `relationFields` map on the block, which splits one item's fields across two maps |
+| RA-D2 | Where is the source allowed? | **Asked by the user 2026-11-09 to include matching ("can it be included?"): included.** In a related block's fields, and in every `matchOn` that reads a related block's fields: an `onRelated` filter's `matchOn` (with `keepOnlyMatching`, `scoreOnlyMatching` and `crosswalk` as for any other field) and XREF's `alsoMatchThrough`. A value matches the relationship's attribute, so the item matches through that relationship only. Elsewhere (object fields, own `matchOn`, `under`/`linkedTo` filters) the source is refused at its pointer: there is no relationship per record there |
+| RA-D3 | Relation-matrix cells | **Not in RA (the user, 2026-11-09: another session covers it).** Showing relationship attributes in the editor's views is delivered by its own session |
+
+**Journey cases.** One API journey on the related-block fixture of the journey configurations (at least two
+configurations, no configuration's keys named): a binding with a boolean and a text attribute of the relationship; one
+relationship given values through the management API, another none; the consumer object, a list and an XREF answer
+show the values on the first item and `null` on the second; the output schema types the boolean field as boolean; an `onRelated` filter on a relationship's text attribute keeps
+only the item reached through the matching relationship. Unit tests of the contract: a valid source's type, an unknown attribute, an attribute the binding does not carry, the
+incoming direction, the source outside a related block.
+
+**Checks.** The consumer API journeys and contract groups (`python -m tests.affected`), the OpenAPI lock where the
+published schema changes, `test_boundaries`, Ruff on the changed files; the consumer API editor's tests, frontend
+format, lint and production build. **Migration:** none (the relationship's values are already stored). **Docs:**
+[CONSUMER_API](CONSUMER_API.md) (sources, related fields, validation rules), the guide's consumer API editor page and
+a guide rebuild, CHANGELOG.
+
+**Composable domains (ADR-032).** Generic: any relation's attributes, any value type, any direction; no domain named.
+It opens a door rather than closing one: catalogue and MDM-lite cases (a product's price at a channel, a role a party
+has at a site) publish facts about a pairing the same way.
+
+**Built (2026-11-09), RA.** As planned, with these choices:
+
+- **Contract.** `RELATION_REFERENCE_PREFIX`, `split_relation_reference` and `relation_attribute_keys` in
+  `engine/model/consumer_contract.py`; `projection_field_type` takes the block's route (relation, direction) and
+  types `relation:<key>` as the attribute's value type. Refusals in `consumer_api_rules.py`: `INVALID_REFERENCE` at
+  the field's pointer when no binding of the route carries the attribute, and at its pointer for the source in an
+  object field, an own `matchOn` or an `under`/`linkedTo` filter. An XREF `firstOf` rule over a relationship's
+  attribute reads text only (`INVALID_MODEL` otherwise); an `onRelated` filter compares any value type by its stored
+  canonical form (a boolean as `true`/`false`).
+- **Reads.** `ConsumerObjects._related` selects the relationship row's values in the related items' statement, from
+  the source's own relationship table, so publication reads keep the published values. `asOf` filters records by
+  their effective period and needs nothing of its own.
+- **Matching.** A projection limit is an `ItemPredicate(entity, relation)`, so a `relation:` criterion is a
+  condition on the relationship row; `keepOnlyMatching`, `scoreOnlyMatching` and `crosswalk` act per relationship
+  only when a criterion reads one. XREF's `alsoMatchThrough` resolves its hits per relationship when a rule reads
+  one; other entries keep the old statement. The relationship rows a rule reads have no index of their own; the
+  read is bounded by the match limit and was not measured at volume.
+- **Events.** An update of a relationship reaches the owner of every block that reads `relation:`. The audit entry
+  does not say which attribute changed, so any update of the relationship counts.
+- **Editor.** The draft outline lists each relation's `attributeTypeKeys` (`OutlineRelation`, OpenAPI lock
+  re-baselined, [API](API.md)). The group **Attributes of the relationship** is in the related block's
+  Add related / Fields… picker, the `onRelated` `matchOn` picker and the XREF field picker; a `relation:` source
+  the picker does not offer shows under "Written by hand". Seen in the browser on the journey configuration's
+  related block (the a4c consumer API runner passes but does not open that picker).
+- **Tests.** Journeys in `test_j28_consumer_read.py` (values in object, list and XREF answers, `null` when unset,
+  a publication keeping its values, OpenAPI types; a filter matching the relationship, not the related record; a
+  boolean match; a crosswalk target), `test_j29_consumer_xref.py` (a promoted match and a scoring limit through the
+  relationship), on both generated configurations; contract unit cases in `test_consumer_contract.py`; an event
+  plan case; frontend picker cases. Runs: the four consumer files 115 passed, `-m consumer` and `-m contract`
+  green apart from j23/j30 cases that passed when rerun alone (load, cause not established),
+  `test_model_independence` fails on `ai-tasks/designFixture.ts`, which already fails before RA.
+- **Docs.** [CONSUMER_API](CONSUMER_API.md) (sources, related fields, rules, events), two sentences in the guide's
+  consumer API pages (the guide build and check pass), CHANGELOG.
 ## The writing rules
 
 These go into `guide/AGENTS.md` in DOC1; they are the contract between the briefs and the writer.

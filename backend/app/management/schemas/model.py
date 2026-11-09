@@ -711,6 +711,8 @@ class OutlineRelation(BaseModel):
     containment: bool
     # The ancestor type under which a source may hold only one target; absent without the rule.
     uniquePer: str | None = None
+    # The attribute types the relationship itself carries; absent without.
+    attributeTypeKeys: list[str] | None = None
     # Which records may be chosen at each end (0.9 K7), as the model declares it; absent without.
     candidates: dict[str, Any] | None = None
     mark: OutlineMark

@@ -76,7 +76,7 @@ from ...models.schema import (
     EngineModel,
 )
 from ...models.search_index import MIN_INDEXED_LENGTH
-from ..model.consumer_contract import projection_targets
+from ..model.consumer_contract import projection_targets, split_relation_reference
 from ..records.values import VALUE_COLUMNS
 from .consumer_objects import ConsumerObjects, one_target
 from .consumer_parameters import ConsumerFilter, as_of_not_supported, without_target
@@ -120,6 +120,12 @@ def contains_ceiling(match: ConsumerMatch) -> int:
     own = sum(rule.contains or 0 for rule in match.own)
     promoted = max((rule.contains or 0 for entry in match.promoted for rule in entry.firstMatch), default=0)
     return max(own, promoted)
+
+
+def reads_relationship(promoted: ConsumerPromotedMatch) -> bool:
+    """Whether a ``firstMatch`` rule reads the relationship's own values (``relation:<attribute>``):
+    its hits then hold relationships, and a record rule's hits are read per relationship too."""
+    return any(split_relation_reference(rule.field) is not None for rule in promoted.firstMatch)
 
 
 def safe_positions(promoted: ConsumerPromotedMatch) -> set[int]:
@@ -247,7 +253,12 @@ class _Scoring:
     # --- what one rule matches ---
 
     def _arms(
-        self, rule: ConsumerMatchRule, type_keys: Sequence[str], contains: bool, columns: tuple[Any, ...]
+        self,
+        rule: ConsumerMatchRule,
+        type_keys: Sequence[str],
+        contains: bool,
+        columns: tuple[Any, ...],
+        route: str | None = None,
     ) -> list[Select[Any]]:
         """``(item, term, id, *columns)`` for each term and record of ``type_keys`` the rule's
         exact (or contains) weight matches, at most ``MATCH_LIMIT + 1`` records per term.
@@ -257,6 +268,9 @@ class _Scoring:
         then plans each probe on the pattern it reads, where a pattern from the terms relation
         would be planned as matching a thousand records and join every record of the types (0.9 C14,
         measured at 22 ms against 4 ms per probe)."""
+        if split_relation_reference(rule.field) is not None:
+            assert route is not None
+            return self._relation_arms(rule, contains, columns, route)
         if contains:
             return [
                 select(literal(item).label("item"), literal(number).label("term"), matched.c.id, *columns)
@@ -274,6 +288,44 @@ class _Scoring:
                     return []
         bounded = self._matched(rule.field, type_keys, terms=source).lateral()
         return [select(source.c.item, source.c.term, bounded.c.id, *columns).select_from(source).join(bounded, true())]
+
+    def _relation_arms(
+        self, rule: ConsumerMatchRule, contains: bool, columns: tuple[Any, ...], route: str
+    ) -> list[Select[Any]]:
+        """``(item, term, id, *columns)`` for each term and relationship of the rule's route whose
+        text attribute (``relation:<attribute>``) the rule's exact (or contains) weight matches; ``id``
+        is the relationship's ID, at most ``MATCH_LIMIT + 1`` of them per term. A relationship's
+        values have no index of their own, so a rule over them reads the route's relationships."""
+        key = split_relation_reference(rule.field)
+        assert key is not None
+        if contains:
+            arms = []
+            for item, number, term in self.terms.rows:
+                if len(term) < MIN_INDEXED_LENGTH:
+                    continue
+                relation = self.source.relation_alias()
+                stored = relation.attributes[key].as_string()
+                matched = (
+                    select(relation.id)
+                    .where(relation.relation_type_key == route, _text_match(stored, None, f"%{escape_like(term)}%"))
+                    .limit(MATCH_LIMIT + 1)
+                    .subquery()
+                )
+                arms.append(
+                    select(literal(item).label("item"), literal(number).label("term"), matched.c.id, *columns)
+                    .select_from(matched)
+                )
+            return arms
+        terms = self.terms.relation
+        relation = self.source.relation_alias()
+        stored = relation.attributes[key].as_string()
+        bounded = (
+            select(relation.id)
+            .where(relation.relation_type_key == route, _text_match(stored, terms, None))
+            .limit(MATCH_LIMIT + 1)
+            .lateral()
+        )
+        return [select(terms.c.item, terms.c.term, bounded.c.id, *columns).select_from(terms).join(bounded, true())]
 
     def _matched(
         self, field: str, type_keys: Sequence[str], *, terms: Any = None, contains_pattern: str | None = None
@@ -340,6 +392,8 @@ class _Scoring:
         same rule; ``safe`` marks an exact weight no contains weight precedes."""
         targets = self._targets(promoted)
         safe = safe_positions(promoted)
+        route = self.definition.projections[promoted.projection].from_.relation
+        by_relation = reads_relationship(promoted)
         arms = [
             arm
             for position, rule in enumerate(promoted.firstMatch)
@@ -348,10 +402,16 @@ class _Scoring:
                 rule,
                 targets,
                 contains,
-                (
+                route=route,
+                columns=(
                     literal(position * 2 + int(contains)).label("position"),
                     literal(weight).label("weight"),
                     literal(not contains and position in safe).label("safe"),
+                    *(
+                        [literal(split_relation_reference(rule.field) is not None).label("relationship")]
+                        if by_relation
+                        else []
+                    ),
                 ),
             )
         ]
@@ -366,24 +426,76 @@ class _Scoring:
     def _passed(self, promoted: ConsumerPromotedMatch, hits: Any) -> Select[Any]:
         """``(item, object_id, score, safe)``: each related record's first matching weight, passed to
         the exposed objects it relates to through the projection (C-D36); with a ``scoresFrom``
-        parameter over the projection, only by the related records it matches (C-D43)."""
-        best = (
-            select(hits.c.item, hits.c.id, hits.c.term, hits.c.weight, hits.c.safe)
-            .distinct(hits.c.item, hits.c.id, hits.c.term)
-            .order_by(hits.c.item, hits.c.id, hits.c.term, hits.c.position)
-        )
-        scoring = self.narrowed.scoring.get(promoted.projection)
-        if scoring is not None:
-            related = self.source.object_alias()
-            best = best.join(related, related.id == hits.c.id).where(scoring(related))
-        best = best.subquery()
+        parameter over the projection, only by the related records it matches (C-D43). When a rule
+        reads the relationship's values, the first matching weight is each relationship's, and it
+        passes to that relationship's owner only."""
         route = self.definition.projections[promoted.projection].from_
         relation, owner = self.source.relation_alias(), self.source.object_alias()
         outgoing = route.direction == "outgoing"
         own = relation.from_object_id if outgoing else relation.to_object_id
         other = relation.to_object_id if outgoing else relation.from_object_id
+        scoring = self.narrowed.scoring.get(promoted.projection)
+        by_relationship = reads_relationship(promoted)
+        # A scoring condition may read the relationship's values, so it is read per relationship too.
+        if by_relationship or scoring is not None:
+            resolved = (
+                select(
+                    hits.c.item,
+                    other.label("id"),
+                    hits.c.term,
+                    hits.c.weight,
+                    hits.c.safe,
+                    hits.c.position,
+                    relation.id.label("relation_id"),
+                    own.label("owner_id"),
+                )
+                .select_from(hits)
+                .join(
+                    relation,
+                    and_(
+                        relation.relation_type_key == route.relation,
+                        or_(
+                            and_(hits.c.relationship, relation.id == hits.c.id),
+                            and_(~hits.c.relationship, other == hits.c.id),
+                        )
+                        if by_relationship
+                        else other == hits.c.id,
+                    ),
+                )
+                .subquery()
+            )
+            best = (
+                select(
+                    resolved.c.item,
+                    resolved.c.id,
+                    resolved.c.term,
+                    resolved.c.weight,
+                    resolved.c.safe,
+                    resolved.c.owner_id,
+                )
+                .distinct(resolved.c.item, resolved.c.relation_id, resolved.c.term)
+                .order_by(resolved.c.item, resolved.c.relation_id, resolved.c.term, resolved.c.position)
+            )
+            if scoring is not None:
+                related, through = self.source.object_alias(), self.source.relation_alias()
+                best = best.join(related, related.id == resolved.c.id).join(
+                    through, through.id == resolved.c.relation_id
+                ).where(scoring(related, through))
+            best = best.subquery()
+            owner_id = best.c.owner_id
+        else:
+            best = (
+                select(hits.c.item, hits.c.id, hits.c.term, hits.c.weight, hits.c.safe)
+                .distinct(hits.c.item, hits.c.id, hits.c.term)
+                .order_by(hits.c.item, hits.c.id, hits.c.term, hits.c.position)
+            )
+            if scoring is not None:
+                related = self.source.object_alias()
+                best = best.join(related, related.id == hits.c.id).where(scoring(related, None))
+            best = best.subquery()
+            owner_id = own
         preferred = list(promoted.preferTargetTypes)
-        columns = [best.c.item, own.label("object_id"), best.c.weight.label("score"), best.c.safe]
+        columns = [best.c.item, owner_id.label("object_id"), best.c.weight.label("score"), best.c.safe]
         if preferred:
             is_preferred = owner.object_type_key.in_(preferred)
             columns += [
@@ -392,12 +504,11 @@ class _Scoring:
                 .over(partition_by=(best.c.item, best.c.id, best.c.term))
                 .label("has_preferred"),
             ]
-        passed = (
-            select(*columns)
-            .select_from(best)
-            .join(relation, and_(relation.relation_type_key == route.relation, other == best.c.id))
-            .join(owner, owner.id == own)
-            .where(owner.workspace_key == self.source.workspace_key, owner.object_type_key.in_(self.exposed))
+        passed = select(*columns).select_from(best)
+        if not (by_relationship or scoring is not None):
+            passed = passed.join(relation, and_(relation.relation_type_key == route.relation, other == best.c.id))
+        passed = passed.join(owner, owner.id == owner_id).where(
+            owner.workspace_key == self.source.workspace_key, owner.object_type_key.in_(self.exposed)
         )
         if not preferred:
             return passed

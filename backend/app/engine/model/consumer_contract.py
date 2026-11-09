@@ -33,6 +33,8 @@ BUILT_IN_FIELDS = {"id": "text", "name": "text"}
 # A projection field's source naming the related record's public type name (C-D73).
 PROJECTION_TYPE_SOURCE = "objectType"
 ANCESTOR_REFERENCE_PREFIX = "ancestor:"
+# A projection field's source naming an attribute of the relationship itself (``relation:<attribute>``).
+RELATION_REFERENCE_PREFIX = "relation:"
 # Value types that compare as one output type (C-D19).
 _TEXT_TYPES = {"text", "longText"}
 
@@ -77,6 +79,28 @@ def split_ancestor_reference(field: str) -> tuple[str, str] | None:
     return (type_key, name) if separator and type_key and name else ("", "")
 
 
+def split_relation_reference(field: str) -> str | None:
+    """``relation:<attribute>`` as the attribute type key, ``""`` when none follows the prefix, or
+    ``None`` for another field."""
+    if not field.startswith(RELATION_REFERENCE_PREFIX):
+        return None
+    return field.removeprefix(RELATION_REFERENCE_PREFIX)
+
+
+def relation_attribute_keys(
+    model: EngineModel, definition: ConsumerApiDefinition, relation: str, direction: str
+) -> set[str]:
+    """The relation attributes the bindings of the route carry, from an exposed type's end."""
+    exposed = set(definition.objectTypes)
+    return {
+        key
+        for binding in model.objectTypeRelations
+        if binding.relationTypeKey == relation
+        and (binding.fromObjectTypeKey if direction == "outgoing" else binding.toObjectTypeKey) in exposed
+        for key in binding.attributeTypeKeys
+    }
+
+
 def reference_value_type(
     model: EngineModel, types: Sequence[ObjectTypeDefinition], field: str
 ) -> str | None:
@@ -100,12 +124,23 @@ def projection_field_type(
     definition: ConsumerApiDefinition,
     targets: Sequence[ObjectTypeDefinition],
     source: str,
+    route: tuple[str, str] | None = None,
 ) -> str | None:
     """The output type of a projection field's source, or ``None`` when it does not resolve.
 
     ``objectType`` is the related record's public type name, so it resolves only where the definition
     exposes every type the projection reaches; another type has no public name (C-D73).
+    ``relation:<attribute>`` is an attribute of the relationship itself, which a binding of the
+    projection's ``route`` (relation, direction) must carry.
     """
+    attribute = split_relation_reference(source)
+    if attribute is not None:
+        definition_ = model.attribute_type(attribute)
+        if route is None or definition_ is None or attribute not in relation_attribute_keys(
+            model, definition, *route
+        ):
+            return None
+        return output_type(definition_.valueType)
     if source == PROJECTION_TYPE_SOURCE:
         exposed = bool(targets) and all(item.key in definition.objectTypes for item in targets)
         return "text" if exposed else None
@@ -235,7 +270,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
         projections[name] = {
             "shape": projection_shape(model, definition, route.relation, route.direction),
             "fields": {
-                output: projection_field_type(model, definition, targets, source)
+                output: projection_field_type(model, definition, targets, source, (route.relation, route.direction))
                 for output, source in projection.fields.items()
             },
         }

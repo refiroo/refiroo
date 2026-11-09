@@ -1804,7 +1804,11 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
           type: "pairs",
           required: true,
           hint: "Each field's name for consumers and what it reads from the related record.",
-          options: (v) => relatedFieldOptions(o, relatedTypesOf(o, text(v, "via"), exposesOf(t.definition))),
+          options: (v) =>
+            relatedFieldOptions(o, relatedTypesOf(o, text(v, "via"), exposesOf(t.definition)), [], {
+              via: text(v, "via"),
+              exposes: exposesOf(t.definition),
+            }),
         },
       ],
       initial: () => ({ fields: ["name=name"] }),
@@ -1892,7 +1896,10 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
           required: true,
           options: (v) => {
             const block = relatedOf(t.definition).find((row) => row.output === text(v, "related"));
-            return relatedFieldOptions(o, relatedTypesOf(o, block?.via ?? "", exposesOf(t.definition)));
+            return relatedFieldOptions(o, relatedTypesOf(o, block?.via ?? "", exposesOf(t.definition)), [], {
+              via: block?.via ?? "",
+              exposes: exposesOf(t.definition),
+            });
           },
         },
         { name: "exact", label: "Exact weight", type: "text" },
@@ -2129,7 +2136,7 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
             type: "pairs",
             required: true,
             hint: "Each field's name for consumers and what it reads from the related record.",
-            options: relatedFieldOptions(o, relatedTypesOf(o, via, exposes), current),
+            options: relatedFieldOptions(o, relatedTypesOf(o, via, exposes), current, { via, exposes }),
           },
         ];
       },

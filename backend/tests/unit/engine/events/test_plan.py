@@ -84,13 +84,16 @@ def test_a_rename_reaches_children_descendants_and_the_owners_of_a_projected_rec
 
 def test_a_relation_of_a_projections_type_reaches_its_owner_end():
     """Creating or deleting a ``B11`` relation updates its from end (the projection is outgoing);
-    an update of its values changes no projection, which never reads them."""
+    an update of its values changes no projection that reads none of them, and reaches the owner of one
+    that reads the relationship's own values (``relation:<attribute>``), whichever value changed."""
     plan = _plan()
     for action in ("created", "deleted"):
         change = FeedChange(7, "relation", action, "rel", relation_type_key=k("B11"), from_id="r", to_id="t")
         assert plan.seeds([change]) == ([], [Reach(7, "r", SELF, None, None, (k("Capi.B11"),))])
     change = FeedChange(7, "relation", "updated", "rel", relation_type_key=k("B11"), from_id="r", to_id="t")
     assert plan.seeds([change]) == ([], [])
+    change = FeedChange(7, "relation", "updated", "rel", relation_type_key=k("Bscope"), from_id="r", to_id="d")
+    assert plan.seeds([change]) == ([], [Reach(7, "r", SELF, None, None, (k("Capi.Bscope"),))])
 
 
 def test_a_type_change_is_an_own_change_naming_object_type():

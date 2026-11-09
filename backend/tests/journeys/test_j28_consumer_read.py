@@ -12,6 +12,7 @@ from scenario import (
     consumer_list_typed,
     consumer_object,
     consumer_publications,
+    consumer_xref,
     ok,
     refused,
 )
@@ -668,3 +669,122 @@ def test_the_publications_list_and_etag(world):
     resolved = world.api.post(f"/api/consumer/{world.key('Capi')}/v1/resolve", {"items": [{"query": "L1"}]})
     assert resolved.status_code == 200
     assert "ETag" not in resolved.headers
+
+
+def _watched_pair(world):
+    """An R watching two permits (Bscope): the first with the relationship's own values, the second
+    with none; the permits' names order them."""
+    north, south = world.made("G", "Region north"), world.made("G", "Region south")
+    watcher = world.made("R", "Watching ledger", values={"R.u": "WL-1"})
+    first = _dependant(world, watcher["id"], north["id"], "Permit a")
+    second = _dependant(world, watcher["id"], south["id"], "Permit b")
+    relation = ok(
+        world.relate("Bscope", watcher["id"], first["id"], {"Bscope.flag": True, "Bscope.note": "Front desk"}),
+        201,
+    )
+    ok(world.relate("Bscope", watcher["id"], second["id"]), 201)
+    return watcher, relation
+
+
+def _shown(world, answer):
+    """The watched block's items as ``(name, flag, note)``."""
+    return [
+        (item[_out(world, "Bscope.name")], item[_out(world, "Bscope.flag")], item[_out(world, "Bscope.note")])
+        for item in answer[_out(world, "Bscope")]
+    ]
+
+
+@pytest.mark.journey("J28")
+@pytest.mark.structures(*CAPI, "Bscope.flag", "Bscope.note")
+def test_a_related_item_shows_the_values_of_its_own_relationship(world):
+    """Given an R related to two D by a relationship that carries a boolean and a text attribute, one
+    relationship given values through the API and the other none. When the R is read by its object ID,
+    in a list and by XREF. Then the first item shows its relationship's values and the second null,
+    the same in every answer; a change of the values through the API shows at once and a
+    publication keeps the values it was published with; and the published OpenAPI types the boolean field as boolean."""
+    watcher, relation = _watched_pair(world)
+    expected = [("Permit a", True, "Front desk"), ("Permit b", None, None)]
+    answer = _read(world, watcher["id"])
+    assert _shown(world, answer) == expected
+
+    listed = ok(consumer_list(world, _out(world, "all")))["items"]
+    assert _shown(world, next(item for item in listed if item[_out(world, "id")] == watcher["id"])) == expected
+    (found,) = ok(consumer_xref(world, query="WL-1"))["results"]
+    assert _shown(world, found) == expected
+
+    path = f"/relations/{relation['id']}"
+    changed = {"attributes": {world.key("Bscope.flag"): False}, "expectedVersion": relation["version"]}
+    ok(world.api.patch(path, changed))
+    assert _shown(world, _read(world, watcher["id"])) == [("Permit a", False, None), ("Permit b", None, None)]
+
+    # A publication keeps the values it was published with.
+    published = world.publish(world.change_set())["id"]
+    again = {"attributes": {world.key("Bscope.flag"): True}, "expectedVersion": relation["version"] + 1}
+    ok(world.api.patch(path, again))
+    assert _shown(world, _read(world, watcher["id"], publication=published))[0] == ("Permit a", False, None)
+    assert _shown(world, _read(world, watcher["id"]))[0] == ("Permit a", True, None)
+
+    document = ok(world.api.get(f"/api/consumer/{world.key('Capi')}/v1/openapi.json"))
+    item = document["components"]["schemas"][f"Projection_{_out(world, 'Bscope')}"]["properties"]
+    assert item[_out(world, "Bscope.flag")]["type"] == ["boolean", "null"]
+    assert item[_out(world, "Bscope.note")]["type"] == ["string", "null"]
+
+
+@pytest.mark.journey("J28.8")
+@pytest.mark.structures(*CAPI, "Bscope.flag", "Bscope.note")
+def test_a_filter_matches_the_relationship_not_the_related_record(world):
+    """Given a D related to two Rs by relationships with different text values, and one of the two
+    Rs also related to another D with none. When read with the filter that matches the relationship's
+    text, ignoring case. Then each answer keeps only the item reached through the matching relationship:
+    the other R, which relates to the same D through another value, is not found; a value nothing
+    carries finds none."""
+    watcher, _relation = _watched_pair(world)
+    other = world.made("R", "Other ledger", values={"R.u": "OL-1"})
+    permit = ok(world.api.get("/objects", workspaceKey=W1, search="Permit a"))["items"][0]
+    ok(world.relate("Bscope", other["id"], permit["id"], {"Bscope.note": "Back office"}), 201)
+
+    label = _out(world, "label")
+    found = _read(world, watcher["id"], **{label: "front DESK"})
+    assert _shown(world, found) == [("Permit a", True, "Front desk")]
+    refused(consumer_object(world, other["id"], **{label: "front desk"}), 404, "OBJECT_NOT_FOUND")
+    assert _shown(world, _read(world, other["id"], **{label: "back office"})) == [("Permit a", None, "Back office")]
+    page = ok(consumer_list(world, _out(world, "all"), **{label: "front desk"}))["items"]
+    assert [item[_out(world, "id")] for item in page] == [watcher["id"]]
+    assert ok(consumer_list(world, _out(world, "all"), **{label: "nothing"}))["items"] == []
+
+
+@pytest.mark.journey("J28.8")
+@pytest.mark.structures(*CAPI, "Bscope.flag", "Bscope.note")
+def test_a_boolean_relationship_attribute_matches_by_its_value(world):
+    """Given a relationship carrying true and an R with another carrying none. When the list is
+    filtered by "true" and by "false". Then only the R whose relationship holds true is found by the
+    first and none by the second."""
+    watcher, _relation = _watched_pair(world)
+    other = world.made("R", "Other ledger", values={"R.u": "OL-2"})
+    permit = ok(world.api.get("/objects", workspaceKey=W1, search="Permit b"))["items"][0]
+    ok(world.relate("Bscope", other["id"], permit["id"]), 201)
+
+    flag = _out(world, "flag")
+    page = ok(consumer_list(world, _out(world, "all"), **{flag: "true"}))["items"]
+    assert [item[_out(world, "id")] for item in page] == [watcher["id"]]
+    assert ok(consumer_list(world, _out(world, "all"), **{flag: "false"}))["items"] == []
+
+
+@pytest.mark.journey("J28.8")
+@pytest.mark.structures(*CAPI, "Bscope.flag", "Bscope.note")
+def test_a_crosswalk_target_is_the_item_reached_through_the_matching_relationship(world):
+    """Given an R whose two relationships carry different text, and another R relating to one of the
+    permits through other text. When read by ID with the crosswalk naming one text. Then the target
+    is the item reached through that relationship; a text the R's relationships do not carry is
+    404 TARGET_NOT_FOUND, though the other R's relationship carries it."""
+    watcher, _relation = _watched_pair(world)
+    other = world.made("R", "Other ledger", values={"R.u": "OL-3"})
+    permit = ok(world.api.get("/objects", workspaceKey=W1, search="Permit b"))["items"][0]
+    ok(world.relate("Bscope", other["id"], permit["id"], {"Bscope.note": "Back office"}), 201)
+
+    target = f"to.{_out(world, 'score')}"
+    found = _read(world, watcher["id"], **{target: "front desk"})["target"]
+    assert (found[_out(world, "Bscope.name")], found[_out(world, "Bscope.note")]) == ("Permit a", "Front desk")
+    refused(consumer_object(world, watcher["id"], **{target: "back office"}), 404, "TARGET_NOT_FOUND")
+    back = _read(world, other["id"], **{target: "back office"})["target"]
+    assert back[_out(world, "Bscope.name")] == "Permit b"

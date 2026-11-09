@@ -365,7 +365,7 @@ def test_scores_from_limits_which_related_records_score(world):
     assert watched["totalCount"] == 4
     (north_watcher,) = [item for item in watched["results"] if item[_out(world, "name")] == "North watcher"]
     assert north_watcher[_out(world, "id")] == watchers["North watcher"]["id"]
-    assert north_watcher[_out(world, "Bscope")] == [{_out(world, "Bscope.name"): "Gate zone"}]
+    assert north_watcher[_out(world, "Bscope")] == [_watched_item(world, "Gate zone")]
 
 
 # --- batch resolve (C14) ---
@@ -626,7 +626,8 @@ def _crosswalk(world):
 
 
 def _watched_item(world, name):
-    return {_out(world, "Bscope.name"): name}
+    # The relationships carry no values here, so the block's relationship fields are null.
+    return {_out(world, "Bscope.name"): name, _out(world, "Bscope.flag"): None, _out(world, "Bscope.note"): None}
 
 
 def _without_pointer(error):
@@ -854,3 +855,45 @@ def test_resolving_against_a_publication(world):
             assert outcome["object"] == single.json()
         else:
             assert _without_pointer(outcome["error"]) == _without_pointer(single.json()["error"])
+
+
+@pytest.mark.journey("J29.1")
+@pytest.mark.structures(*CAPI, "Bscope.note")
+def test_a_promoted_match_reads_the_relationship_it_passes_through(world):
+    """Given two Rs watching one D through relationships with different text values. When query is
+    one of the values. Then only the R whose relationship carries it is found, with the rule's weight,
+    though both relate to the matching D."""
+    owner = _ledger(world, "Owner", "OW-2")
+    region = world.made("G", "Region two", values={"K.code": "RG-2"})
+    permit = world.made(
+        "D", "Shared zone", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+    )
+    front, back = _ledger(world, "Front ledger", "FL-1"), _ledger(world, "Back ledger", "BL-1")
+    ok(world.relate("Bscope", front["id"], permit["id"], {"Bscope.note": "Front desk"}), 201)
+    ok(world.relate("Bscope", back["id"], permit["id"], {"Bscope.note": "Back office"}), 201)
+
+    assert _scored(world, _xref(world, query="front desk")) == [("Front ledger", 55)]
+    assert _scored(world, _xref(world, query="Back office")) == [("Back ledger", 55)]
+    _same_as_get_by_id(world, _xref(world, query="Back office"))
+
+
+@pytest.mark.journey("J29.7")
+@pytest.mark.structures(*CAPI, "Bscope.note")
+def test_a_scoring_limit_on_a_relationship_value_passes_scores_through_it_only(world):
+    """Given two Rs watching one D through relationships with different text. When query names the D,
+    without and with the scoring filter naming one text. Then the D and both Rs score without it; with it the D and only
+    the R whose relationship carries the text scores, though both relate to the D."""
+    owner = _ledger(world, "Owner", "OW-3")
+    region = world.made("G", "Region three", values={"K.code": "RG-3"})
+    permit = world.made(
+        "D", "Joint zone", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+    )
+    front, back = _ledger(world, "Front ledger", "FL-2"), _ledger(world, "Back ledger", "BL-2")
+    ok(world.relate("Bscope", front["id"], permit["id"], {"Bscope.note": "Front desk"}), 201)
+    ok(world.relate("Bscope", back["id"], permit["id"], {"Bscope.note": "Back office"}), 201)
+
+    assert _scored(world, _xref(world, query="Joint zone")) == [
+        ("Joint zone", 200), ("Back ledger", 60), ("Front ledger", 60)
+    ]
+    limited = _xref(world, query="Joint zone", **{_out(world, "score"): "front desk"})
+    assert _scored(world, limited) == [("Joint zone", 200), ("Front ledger", 60)]

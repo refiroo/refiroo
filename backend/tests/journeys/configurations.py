@@ -38,7 +38,8 @@ Structures:
   holds one K, a K serves many H; 0.9 K3a), ``Bnn`` H→K many-to-many with
   ``Bnn.weight`` (integer, minimum 1) and ``Bnn.note``; ``Bown`` R→D required one-to-many (D a
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
-  many-to-many with the same scope rule, and from ``R2`` to ``D`` without it; ``Hparent`` the
+  many-to-many with the same scope rule and the relationship's own ``Bscope.flag`` (boolean) and
+  ``Bscope.note`` (text), and from ``R2`` to ``D`` without them; ``Hparent`` the
   self-hierarchy's containment. ``Bsrc`` H→K many-to-many whose ``from`` end takes an ``H`` whose
   ``H.code`` starts with "OK" (the mapping grid's sources, view ``Vsrc``). Candidates (0.9 K7): ``Bcand`` H→K many-to-many whose ``to`` end takes a
   ``K`` whose ``K.code`` starts with "OK"; ``Banc`` R→D many-to-many whose ``from`` end takes an ``R``
@@ -49,7 +50,8 @@ Structures:
 - ``Capi``: a consumer API exposing ``R``, ``R2`` and ``D`` (generated only): the ``id`` role,
   ``code`` (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default
   50) and ``R.dt``, ``parent``, ``path`` and ``hierarchy``; projections ``B11`` outgoing (one),
-  ``Bown`` outgoing with ``ancestor:G.name`` (many) and ``Bscope`` outgoing (many); the lists
+  ``Bown`` outgoing with ``ancestor:G.name`` (many) and ``Bscope`` outgoing (many, also showing ``relation:Bscope.flag`` and ``relation:Bscope.note``, and matched by
+  ``relation:Bscope.note`` in the filters ``label``, ``score`` (scoring and crosswalk) and ``flag``, and in the XREF rule at 55); the lists
   ``all`` (``R``, sorted by ``R.n``), ``entries`` (``R2`` under ``R``), ``permits`` (``D`` under
   ``G``), and ``rates`` and ``fees`` over ``E`` (dated) and ``F`` (not), also exposed (J23, C16); the parameters ``container`` (``ancestor``, ``M`` by name), ``permit`` (``projection``
   over ``Bown`` by ``ancestor:G.name``, ``requireMatch``, ``targetable``), ``token`` (``related``, ``K`` by name
@@ -125,6 +127,8 @@ def _naming(variant: str) -> dict[str, str]:
         "L.only1": "tier-note",
         "Bnn.weight": "strength",
         "Bnn.note": "comment",
+        "Bscope.flag": "is-primary",
+        "Bscope.note": "local-label",
         "B11": "ledger-pairs-token",
         "B1n": "ledger-lists-token",
         "Bnn": "branch-cites-token",
@@ -220,6 +224,8 @@ def generated(variant: str) -> Configuration:
         attribute("R2.u", features={**searchable, "unique": True}),
         attribute("Bnn.weight", "integer", validation={"minimum": 1}),
         attribute("Bnn.note"),
+        attribute("Bscope.flag", "boolean"),
+        attribute("Bscope.note"),
     ]
 
     def binding(structure: str, order: int, **extra: Any) -> dict[str, Any]:
@@ -459,6 +465,7 @@ def generated(variant: str) -> Configuration:
             "toObjectTypeKey": k["D"],
             "cardinality": "many-to-many",
             "features": scope,
+            "attributeTypeKeys": [k["Bscope.flag"], k["Bscope.note"]],
         },
         # An R2 may watch a D too, so a D can relate to an R and an R2 (J29.1, preferTargetTypes).
         {
@@ -707,6 +714,8 @@ def _consumer_names(variant: str) -> dict[str, str]:
         "Capi.D": "Permit",
         "Capi.Bscope": "watchedPermits",
         "Capi.Bscope.name": "watchedName",
+        "Capi.Bscope.flag": "isPrimary",
+        "Capi.Bscope.note": "localLabel",
         "Capi.all": "ledgers",
         "Capi.entries": "entries",
         "Capi.entries.parent": "ledger",
@@ -718,6 +727,9 @@ def _consumer_names(variant: str) -> dict[str, str]:
         "Capi.peer": "peer",
         "Capi.kind": "kind",
         "Capi.watch": "watchRegion",
+        "Capi.label": "pairLabel",
+        "Capi.score": "pairScore",
+        "Capi.flag": "pairFlag",
         "Capi.E": "Rate",
         "Capi.F": "Fee",
         "Capi.rates": "rates",
@@ -777,7 +789,14 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                         n["Capi.Bown.G"]: f"ancestor:{k['G']}.name",
                     },
                 },
-                n["Capi.Bscope"]: {"via": k["Bscope"], "fields": {n["Capi.Bscope.name"]: "name"}},
+                n["Capi.Bscope"]: {
+                    "via": k["Bscope"],
+                    "fields": {
+                        n["Capi.Bscope.name"]: "name",
+                        n["Capi.Bscope.flag"]: f"relation:{k['Bscope.flag']}",
+                        n["Capi.Bscope.note"]: f"relation:{k['Bscope.note']}",
+                    },
+                },
             },
         },
         "operations": {
@@ -800,7 +819,10 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                     },
                     {
                         "related": n["Capi.Bscope"],
-                        "firstOf": [{"field": "name", "exact": 60}],
+                        "firstOf": [
+                            {"field": "name", "exact": 60},
+                            {"field": f"relation:{k['Bscope.note']}", "exact": 55},
+                        ],
                         "preferTypes": [k["R2"]],
                     },
                 ],
@@ -840,6 +862,25 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                 "matchOn": [f"ancestor:{k['G']}.name"],
                 "scoreOnlyMatching": True,
                 "crosswalk": True,
+            },
+            # Matches the relationship's own text value, so an item counts through that relationship.
+            n["Capi.label"]: {
+                "onRelated": n["Capi.Bscope"],
+                "matchOn": [f"relation:{k['Bscope.note']}"],
+                "keepOnlyMatching": True,
+            },
+            # The same text, scoring and crosswalking only through the matching relationship.
+            n["Capi.score"]: {
+                "onRelated": n["Capi.Bscope"],
+                "matchOn": [f"relation:{k['Bscope.note']}"],
+                "scoreOnlyMatching": True,
+                "crosswalk": True,
+            },
+            # A boolean relationship attribute, compared by its canonical form.
+            n["Capi.flag"]: {
+                "onRelated": n["Capi.Bscope"],
+                "matchOn": [f"relation:{k['Bscope.flag']}"],
+                "keepOnlyMatching": True,
             },
         },
     }

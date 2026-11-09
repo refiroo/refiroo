@@ -533,6 +533,7 @@ def test_a_definition_offers_the_operations_it_lists(world):
     model, definition = _capi_model(world, "objects-only")
     del definition["operations"]["xref"], definition["operations"]["resolve"]
     del definition["filters"][world.key("Capi.watch")]["scoreOnlyMatching"]
+    del definition["filters"][world.key("Capi.score")]["scoreOnlyMatching"]
     draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "version_required"
     paths = [d["path"] for d in compiled["consumerContracts"]["diagnostics"]]
@@ -557,6 +558,7 @@ def test_a_definition_offers_the_operations_it_lists(world):
     model, definition = _capi_model(world, "all-again")
     definition["contractVersion"] = 2
     del definition["filters"][world.key("Capi.watch")]["scoreOnlyMatching"]
+    del definition["filters"][world.key("Capi.score")]["scoreOnlyMatching"]
     _draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "compatible", compiled["consumerContracts"]
 

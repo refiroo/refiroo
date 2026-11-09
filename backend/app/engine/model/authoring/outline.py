@@ -219,6 +219,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "required": bool(b.get("required", False)),
                 "containment": b.get("relationTypeKey") in containment,
                 **({"uniquePer": _unique_per(b)} if _unique_per(b) else {}),
+                **({"attributeTypeKeys": list(b["attributeTypeKeys"])} if b.get("attributeTypeKeys") else {}),
                 **({"candidates": b["candidates"]} if isinstance(b.get("candidates"), dict) else {}),
                 "mark": mark.relation(b),
             }

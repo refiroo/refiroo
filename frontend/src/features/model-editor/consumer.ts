@@ -516,6 +516,10 @@ export function matchOptions(
     const block = relatedOf(definition).find((row) => row.output === reads.related);
     for (const [output, source] of Object.entries(block?.fields ?? {}))
       add(source, source === output ? output : `${output} (${source})`, `Fields of ${reads.related}`);
+    // The relationship's own text values match too, whichever the block shows.
+    if (block)
+      for (const item of relationAttributeOptions(outline, block.via, exposesOf(definition)))
+        add(item.value, item.label, item.group);
   }
   for (const value of current) add(value, value, "Written by hand");
   return [...options.values()];
@@ -534,17 +538,57 @@ export function relatedTypesOf(outline: ModelDraftOutline, via: string, exposes:
   return [...new Set(found)];
 }
 
+/** The attributes the relationship itself carries, for a related block over `via` (a relation's key
+ * forward, its reverse key backward) from the exposed types: those of the bindings the block follows,
+ * as `relation:<attribute>` sources. */
+export function relationAttributeOptions(outline: ModelDraftOutline, via: string, exposes: string[]): SourceOption[] {
+  const keys: string[] = [];
+  for (const relation of outline.relations) {
+    const type = outline.relationTypes.find((item) => item.key === relation.relationType);
+    if (!type) continue;
+    const reached =
+      (type.key === via && exposes.includes(relation.from)) ||
+      (type.reverseKey === via && exposes.includes(relation.to));
+    if (reached) for (const key of relation.attributeTypeKeys ?? []) if (!keys.includes(key)) keys.push(key);
+  }
+  return keys.map((key) => {
+    const attribute = outline.attributeTypes.find((item) => item.key === key);
+    return {
+      value: `relation:${key}`,
+      label: `${attribute?.name ?? key}${attribute?.valueType ? ` · ${attribute.valueType}` : ""}`,
+      group: "Attributes of the relationship",
+    };
+  });
+}
+
 /** The fields a related record offers: its ID and public type name besides what `sourceOptions`
- * lists for its types (the name, their attributes, the types above them). */
+ * lists for its types (the name, their attributes, the types above them), and, given the block's
+ * route, the attributes of the relationship itself. */
 export function relatedFieldOptions(
   outline: ModelDraftOutline,
   types: string[],
   current: string[] = [],
+  route?: { via: string; exposes: string[] },
 ): SourceOption[] {
+  const relationship = route ? relationAttributeOptions(outline, route.via, route.exposes) : [];
+  const offered = sourceOptions(
+    outline,
+    types,
+    current.filter((value) => !value.startsWith("relation:") || relationship.some((item) => item.value === value)),
+  );
+  const rest = current
+    .filter((value) => value.startsWith("relation:") && !relationship.some((item) => item.value === value))
+    .map((value) => ({
+      value,
+      label: outline.attributeTypes.find((item) => item.key === value.slice(9))?.name ?? value,
+      group: "Written by hand",
+    }));
   return [
     { value: "id", label: "ID", group: "Built in" },
     { value: "objectType", label: "Public type name", group: "Built in" },
-    ...sourceOptions(outline, types, current),
+    ...offered,
+    ...relationship,
+    ...rest,
   ];
 }
 

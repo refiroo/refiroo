@@ -28,6 +28,7 @@ from ..model.consumer_contract import (
     BUILT_IN_FIELDS,
     OBJECT_ROLES,
     PROJECTION_TYPE_SOURCE,
+    RELATION_REFERENCE_PREFIX,
     exposed_types,
     parent_keys,
     projection_shape,
@@ -36,7 +37,13 @@ from ..model.consumer_contract import (
 )
 from ..model.consumer_definitions import consumer_api as declared_api
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
-from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate, Target, as_of_not_supported
+from .consumer_parameters import (
+    NO_FILTER,
+    ConsumerFilter,
+    ItemPredicate,
+    Target,
+    as_of_not_supported,
+)
 from .consumer_source import ConsumerSource
 
 # The targets an ambiguous crosswalk names, as many as an ambiguous match's candidates (C-D55).
@@ -107,7 +114,17 @@ class _Projection:
     @property
     def attribute_keys(self) -> set[str]:
         sources = {source for _output, source in self.fields if isinstance(source, str)}
-        return sources - set(BUILT_IN_FIELDS) - {PROJECTION_TYPE_SOURCE}
+        return {
+            source for source in sources if not source.startswith(RELATION_REFERENCE_PREFIX)
+        } - set(BUILT_IN_FIELDS) - {PROJECTION_TYPE_SOURCE}
+
+    @property
+    def reads_relation(self) -> bool:
+        """Whether a field reads the relationship's own values (``relation:<attribute>``)."""
+        return any(
+            isinstance(source, str) and source.startswith(RELATION_REFERENCE_PREFIX)
+            for _output, source in self.fields
+        )
 
     @property
     def ancestor_keys(self) -> set[str]:
@@ -237,7 +254,7 @@ class ConsumerObjects:
         source: ConsumerSource,
         projection: _Projection,
         owner_ids: list[str],
-        limit: Predicate | None,
+        limit: ItemPredicate | None,
     ) -> list[tuple[str, _Record]]:
         """``(owner ID, related record)`` for each relationship of the projection, by name then ID;
         ``limit`` keeps only the related records it holds for."""
@@ -254,6 +271,7 @@ class ConsumerObjects:
                 objects.object_type_key,
                 objects.name,
                 objects.parent_object_id,
+                *([relations.attributes.label("relation_attributes")] if projection.reads_relation else []),
             )
             .select_from(relations)
             .join(objects, objects.id == other)
@@ -261,14 +279,27 @@ class ConsumerObjects:
                 relations.relation_type_key == projection.relation,
                 own.in_(owner_ids),
                 objects.workspace_key == source.workspace_key,
-                *([] if limit is None else [limit(objects)]),
+                *([] if limit is None else [limit(objects, relations)]),
             )
             .subquery()
         )
-        rows = _rows(session, source, pairs, projection.attribute_keys, extra=(pairs.c.owner_id,))
+        rows = _rows(
+            session,
+            source,
+            pairs,
+            projection.attribute_keys,
+            extra=(pairs.c.owner_id, *([pairs.c.relation_attributes] if projection.reads_relation else [])),
+        )
         found: dict[tuple[str, str], _Record] = {}
         for row in rows:
-            record = found.setdefault((row.owner_id, row.id), _record(row))
+            record = found.get((row.owner_id, row.id))
+            if record is None:
+                record = found[(row.owner_id, row.id)] = _record(row)
+                if projection.reads_relation:
+                    # The relationship's own values, from the same rows the relation is (live or a
+                    # publication's); a value the relationship has not set stays absent.
+                    for key, value in (row.relation_attributes or {}).items():
+                        record.values[f"{RELATION_REFERENCE_PREFIX}{key}"] = value
             _add_value(record, row)
         return [(owner, record) for (owner, _id), record in found.items()]
 

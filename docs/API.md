@@ -4363,6 +4363,9 @@ can be read, beside its diagnostics.
   target (`features.uniqueToAncestorTypeKey`); absent without that rule.
 - **`relations[].candidates`**: which records the relationship may choose at each end (0.9 K7), as the
   model declares it; absent when it has none.
+- **`relations[].attributeTypeKeys`**: the attribute types the relationship itself carries, as the
+  model binds them; absent when it carries none. The consumer API editor offers them as
+  `relation:<key>` sources (0.13 RA).
 - **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model
   (every problem of the views and detail pages together, the first one of any other rule), each with
   **`element`**: the element its pointer falls in, named as operations name elements

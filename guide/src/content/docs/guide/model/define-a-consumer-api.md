@@ -30,7 +30,9 @@ examples below use the reference Stops API. They explain the result of your choi
    **Output name**, **Via** and **Fields**. Each related field pairs a public name with a
    value on the related record. Check the relationship's direction and whether it serves
    one record or several: the answer is respectively an object or an array. A missing
-   relationship gives null or an empty array, rather than an invented related record.
+   relationship gives null or an empty array, rather than an invented related record. The
+   field picker's group **Attributes of the relationship** lists the values stored on the
+   relationship itself, when the relation's binding carries any.
 
 ![New consumer API dialog with name, key and types to expose](/docs/screens/model-consumer-add-dialog.png)
 

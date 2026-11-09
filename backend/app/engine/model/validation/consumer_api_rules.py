@@ -39,6 +39,7 @@ from ..consumer_contract import (
     reference_value_type,
     source_type,
     split_ancestor_reference,
+    split_relation_reference,
 )
 from ..consumer_definitions import authored_pointer, consumer_apis
 from ..consumer_expansion import authored_through
@@ -179,8 +180,41 @@ class _Definition:
                 claim(output, f"/object/{role}")
         return set(outputs)
 
+    def _refuse_relation_source(self, field: str, path: str) -> None:
+        """``relation:<attribute>`` reads the relationship of a related block's item; no other field
+        has one."""
+        if split_relation_reference(field) is not None:
+            self._fail(
+                "INVALID_REFERENCE",
+                path,
+                f"field '{field}' reads a relation attribute, which only a related block's fields and"
+                " the matchOn that read them can name",
+            )
+
+    def _require_relation_attribute(
+        self, field: str, route: tuple[str, str], path: str, *, text_only: bool = False
+    ) -> None:
+        """``relation:<attribute>`` of a related block's route: an attribute a binding of the relation
+        carries, in that direction, from an exposed type. A scored (``firstOf``) rule reads text."""
+        value_type = projection_field_type(self.model, self.definition, [], field, route)
+        if value_type is None:
+            self._fail(
+                "INVALID_REFERENCE",
+                path,
+                f"field '{field}' names relation attribute '{split_relation_reference(field)}', which no"
+                f" binding of {route[1]} relation '{route[0]}' from an exposed type carries",
+            )
+        if text_only and value_type != "text":
+            self._fail(
+                "INVALID_MODEL",
+                path,
+                f"field '{field}' holds {value_type}, and a scored match reads a relation attribute that"
+                " holds text",
+            )
+
     def _check_sources(self, sources: Sequence[str], default: Any, path: str) -> None:
         for index, source in enumerate(sources):
+            self._refuse_relation_source(source, f"{path}/source/{index}")
             if field_value_type(self.model, self.types, source) is None:
                 self._fail(
                     "INVALID_REFERENCE",
@@ -211,12 +245,24 @@ class _Definition:
                     f"no exposed type has a {route.direction} binding of relation '{route.relation}'",
                 )
             for output, source in projection.fields.items():
-                if projection_field_type(self.model, self.definition, targets, source) is None:
+                resolved = projection_field_type(
+                    self.model, self.definition, targets, source, (route.relation, route.direction)
+                )
+                reads = split_relation_reference(source)
+                if resolved is None and reads is not None:
+                    self._fail(
+                        "INVALID_REFERENCE",
+                        f"{path}/fields/{pointer_segment(output)}",
+                        f"field '{source}' names relation attribute '{reads}', which no binding of"
+                        f" {route.direction} relation '{route.relation}' from an exposed type carries",
+                    )
+                if resolved is None:
                     self._fail(
                         "INVALID_REFERENCE",
                         f"{path}/fields/{pointer_segment(output)}",
                         f"field '{source}' is not 'id', 'name', an attribute of the related records' types,"
-                        " 'ancestor:<type>.<field>' of an ancestor they can sit under, or 'objectType'"
+                        " 'ancestor:<type>.<field>' of an ancestor they can sit under,"
+                        " 'relation:<attribute>' of the relationship, or 'objectType'"
                         " where the definition exposes every related type",
                     )
 
@@ -235,8 +281,14 @@ class _Definition:
             route = projection.from_
             targets = projection_targets(self.model, self.definition, route.relation, route.direction)
             for rule_index, rule in enumerate(promoted.firstMatch):
-                self._require_matchable(rule.field, targets, f"{path}/firstMatch/{rule_index}/field")
-                self._require_text_for_contains(rule, targets, f"{path}/firstMatch/{rule_index}")
+                rule_path = f"{path}/firstMatch/{rule_index}"
+                if split_relation_reference(rule.field) is not None:
+                    self._require_relation_attribute(
+                        rule.field, (route.relation, route.direction), f"{rule_path}/field", text_only=True
+                    )
+                    continue
+                self._require_matchable(rule.field, targets, f"{rule_path}/field")
+                self._require_text_for_contains(rule, targets, rule_path)
             for type_index, key in enumerate(promoted.preferTargetTypes):
                 if key not in self.definition.objectTypes:
                     self._fail(
@@ -249,6 +301,7 @@ class _Definition:
         """``name``, ``id``, or an attribute of ``types`` that is searchable or unique (C-D20)."""
         if field in BUILT_IN_FIELDS:
             return
+        self._refuse_relation_source(field, path)
         definition = self.model.attribute_type(field)
         if definition is None or not binding_types(types, field):
             self._fail("INVALID_REFERENCE", path, f"field '{field}' is not 'id', 'name' or an attribute of those types")
@@ -303,6 +356,11 @@ class _Definition:
                 route = projection.from_
                 targets = projection_targets(self.model, self.definition, route.relation, route.direction)
                 for field_index, field in enumerate(parameter.matchFields):
+                    if split_relation_reference(field) is not None:
+                        self._require_relation_attribute(
+                            field, (route.relation, route.direction), f"{path}/matchFields/{field_index}"
+                        )
+                        continue
                     if reference_value_type(self.model, targets, field) is None:
                         self._fail(
                             "INVALID_REFERENCE",

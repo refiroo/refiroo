@@ -456,6 +456,8 @@ export interface OutlineRelation {
   containment: boolean;
   /** The ancestor type under which a source may hold only one target; absent without the rule. */
   uniquePer?: string | null;
+  /** The attribute types the relationship itself carries; absent without. */
+  attributeTypeKeys?: string[] | null;
   /** Which records may be chosen at each end (0.9 K7); absent without criteria. */
   candidates?: {
     from?: { field: string; op: string; value: string | number | boolean }[];

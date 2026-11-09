@@ -407,7 +407,7 @@ below (C-D141):
   only, and one has role `id`; `resolve` needs `objects` and `xref`; an `events` declares `perType` or
   `custom`; `field: "code"` needs a field with role `code`; a public name names an exposed type; a
   list `within` a filter that is not `under` gives `types`.
-- **Sources:** every source, `field` and `ancestor:<type>.<field>` reference resolves in the release.
+- **Sources:** every source, `field`, `ancestor:<type>.<field>` and `relation:<attribute>` reference resolves in the release.
 - **Scalar values** keep their declared attribute type; `default` must match that type.
 - **Related shape:** a related block is an object or `null` when the relation, in that direction,
   allows at most one related object, and an array otherwise. This is derived, never declared, so a
@@ -415,10 +415,27 @@ below (C-D141):
 - **Related fields** read the related record's `id`, `name`, an attribute of the related types,
   `ancestor:<type>.<field>` (the ancestor of that type nearest the root, as `path` shows it, and as
   the management API shows such a field; Base 0.9 D209), or `objectType`: its public type name,
-  allowed where the definition exposes every type the block reaches (C-D73). A filter's `matchOn`
+  allowed where the definition exposes every type the block reaches (C-D73), or `relation:<attribute>`:
+  the value of that attribute on the relationship the item was reached through (see below). A filter's `matchOn`
   of `ancestor:<type>.<field>` is a criterion: any ancestor of that type may match. The `parent` block's fields are keyed by the roles'
   output names (C-D75).
-- **Match fields** must be `searchable` or explicitly listed as identifiers; weights are positive
+- **Attributes of the relationship (0.13 RA):** `relation:<attribute-type-key>` in a related block's
+  `fields` reads the attribute's value stored on the relationship between the object and the item, as
+  `PATCH /relations/{id}` writes it; `null` when that relationship has none. The attribute must be in
+  `attributeTypeKeys` of a binding of the block's relation, in its direction, from an exposed type,
+  else `INVALID_REFERENCE` at the field naming the field, the relation and the attribute. The field has
+  the attribute's value type (a boolean stays boolean in the schema and the OpenAPI document). The source
+  is allowed in a related block's `fields` and in the `matchOn` that read them: an `onRelated` filter's
+  (with `keepOnlyMatching`, `scoreOnlyMatching` and `crosswalk` as for any related field) and an
+  `alsoMatchThrough` rule's `firstOf`. The value is compared with the relationship's attribute (text
+  ignoring case, a typed value by its parsed value; a `firstOf` rule reads a text attribute), so an
+  item matches through that relationship only: two objects relating to the same record through
+  different values match differently. A relationship's values have no index, so such a rule reads the
+  relation's relationships. An object field, an own `matchOn` or an `under`/`linkedTo` filter refuses
+  the source (`INVALID_REFERENCE`). Example: `"fields": { "id": "id", "name": "name", "localName": "relation:local-name", "isPrimary": "relation:is-primary" }`.
+  Publication and `asOf` reads show the values the publication holds, and an event watching the block
+  reports an update of the relationship's values.
+- **Match fields** must be `searchable` or explicitly listed as identifiers (a `relation:` attribute needs neither); weights are positive
   integers.
 - **Filter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
   `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`,
@@ -729,7 +746,8 @@ exposed type (`<type>-changed`, every change, no watch) and `custom` for its own
 - **An object is `updated`** when a read of it by ID would answer differently in a watched output,
   for a change in live data. That includes the records it shows: its parent's fields, an ancestor's
   name in `path` or `hierarchy`, a projected record's declared fields (and its ancestors' through
-  `ancestor:`), and a projection gaining or losing an item, also when the relation itself was deleted.
+  `ancestor:`), a projection gaining or losing an item, also when the relation itself was deleted, and a
+  change to the values of a relationship a `relation:` field reads (any update of that relationship).
   Renaming a codelist makes `updated` for each of its values that watches `path` or `parent`. A period
   starting or ending with no write is no change (C-D82).
 - **A type change** (ADR-034) uses the same three kinds, seen from the event: an object moving out of
