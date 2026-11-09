@@ -150,5 +150,17 @@ export function useRelationValues(relation: Pick<RelationRecord, "id" | "version
     }
   }
 
-  return { save, saving, error, current, version, clearError: () => setError("") };
+  return {
+    save,
+    saving,
+    error,
+    current,
+    version,
+    clearError: () => setError(""),
+    /** Forgets a refusal and a conflict left by an earlier try, when an editor is opened again. */
+    reset: () => {
+      setError("");
+      setCurrent(undefined);
+    },
+  };
 }

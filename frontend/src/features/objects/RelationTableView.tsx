@@ -9,7 +9,7 @@
  * (a publication, a read-only view, no permission) no control is offered.
  */
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import {
@@ -17,9 +17,8 @@ import {
   RelationAttributes,
   RelationConflictNotice,
   relationAttributeTypes,
-  relationValuesFromForm,
-  useRelationValues,
 } from "@/features/objects/relations/RelationAttributes";
+import { useRelationValueSave } from "@/features/objects/relations/RelationValueField";
 import { relationAttributeColumn } from "@/features/objects/relations/relationAttributeColumns";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
@@ -35,7 +34,7 @@ import type {
 import { Card } from "@/ui/Card";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { Icon } from "@/ui/Icon";
-import { IconButton } from "@/ui/IconButton";
+import { EditInPlaceCell } from "@/ui/EditInPlace";
 import { HueTile } from "@/ui/HueTile";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
@@ -632,35 +631,32 @@ function AttributeCell({
   onSaved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const edit = useRelationValues({ id: row.relationId, version: row.relationVersion }, workspaceKey);
-  const display: ReactNode = formatValue(row.attributes[attribute.key]);
+  const edit = useRelationValueSave(
+    attribute,
+    { id: row.relationId, version: row.relationVersion, attributes: row.attributes },
+    workspaceKey,
+  );
   async function save(form: HTMLFormElement) {
-    const next = relationValuesFromForm(form, [attribute])[attribute.key];
-    if (JSON.stringify(next ?? null) === JSON.stringify(row.attributes[attribute.key] ?? null)) {
+    const result = await edit.saveValue(form);
+    if (result) {
       setEditing(false);
-      return;
-    }
-    const values = { ...row.attributes, [attribute.key]: next };
-    if (next === null) delete values[attribute.key];
-    if (await edit.save(values)) {
-      setEditing(false);
-      onSaved();
+      if (result === "saved") onSaved();
     }
   }
   if (!editing)
-    return (
-      <span className="relation-attribute-cell">
-        {display}
-        {editable && (
-          <IconButton
-            icon="pencil"
-            label={`Edit ${attribute.name} of ${label}`}
-            tooltip="Edit value"
-            quiet
-            onClick={() => setEditing(true)}
-          />
-        )}
-      </span>
+    return editable ? (
+      <EditInPlaceCell
+        name={attribute.name}
+        record={label}
+        onEdit={() => {
+          edit.reset();
+          setEditing(true);
+        }}
+      >
+        {formatValue(row.attributes[attribute.key])}
+      </EditInPlaceCell>
+    ) : (
+      <span className="relation-attribute-cell">{formatValue(row.attributes[attribute.key])}</span>
     );
   return (
     <form

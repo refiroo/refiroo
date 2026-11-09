@@ -29,11 +29,10 @@ import { objectTypeFor } from "@/model/lookup";
 import { columnLabel, StateMark, stateLabel, type MatrixBinding } from "@/features/objects/relationMatrixStates";
 import {
   RelationAttributes,
-  RelationConflictNotice,
   relationAttributeTypes,
   relationValuesFromForm,
-  useRelationValues,
 } from "@/features/objects/relations/RelationAttributes";
+import { RelationValueFields } from "@/features/objects/relations/RelationValueField";
 import type {
   ApplicationDefinition,
   AttributeTypeDefinition,
@@ -57,8 +56,6 @@ const setValues = (values: Record<string, unknown>) =>
 type Mode =
   | { kind: "view" }
   | { kind: "edit"; recordId: string }
-  /** The relationship's own values of one linked record (0.13 RV). */
-  | { kind: "values"; recordId: string }
   | { kind: "create"; prefill?: Record<string, unknown> }
   | { kind: "link" }
   | { kind: "unlink"; recordId: string };
@@ -119,6 +116,8 @@ export function RelationMatrixCellDialog({
   );
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // An open in-place relationship value, apart from the record form so neither clears the other.
+  const [valuesDirty, setValuesDirty] = useState(false);
   const [error, setError] = useState<{ message: string; conflictingObjectId?: string; stale?: boolean }>();
   const heading = `${row.row.name} · ${columnLabel(column)}`;
 
@@ -166,13 +165,9 @@ export function RelationMatrixCellDialog({
 
   const editing = mode.kind === "edit" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
   const unlinking = mode.kind === "unlink" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
-  const valuing = mode.kind === "values" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
   // A re-read after a stale write can drop the record being edited or unlinked; the cell is shown
   // again rather than an empty dialog, and the notice says why.
-  const orphaned =
-    (mode.kind === "edit" && !editing) ||
-    (mode.kind === "unlink" && !unlinking) ||
-    (mode.kind === "values" && !valuing);
+  const orphaned = (mode.kind === "edit" && !editing) || (mode.kind === "unlink" && !unlinking);
   const showing = orphaned ? "view" : mode.kind;
   /** Starts another action from the cell; a notice about an earlier one no longer applies. */
   const choose = (next: Mode) => {
@@ -187,7 +182,13 @@ export function RelationMatrixCellDialog({
   };
 
   return (
-    <Modal title={heading} eyebrow={view.name} busy={saving} dirty={dirty && !orphaned} onClose={onClose}>
+    <Modal
+      title={heading}
+      eyebrow={view.name}
+      busy={saving}
+      dirty={(dirty || valuesDirty) && !orphaned}
+      onClose={onClose}
+    >
       <div className="matrix-cell-dialog">
         <p className="matrix-cell-dialog-state">
           <StateMark state={cell.state} conflict={cell.conflict} />
@@ -216,6 +217,10 @@ export function RelationMatrixCellDialog({
                       fields={config.cellFields}
                       binding={binding}
                       relationAttributes={relationAttributes}
+                      workspaceKey={workspaceKey}
+                      editable={writable && !history}
+                      onSaved={onRefresh}
+                      onDirty={setValuesDirty}
                     />
                     <div className="matrix-cell-record-actions">
                       {!history && (
@@ -230,15 +235,6 @@ export function RelationMatrixCellDialog({
                           onClick={() => choose({ kind: "edit", recordId: record.id })}
                         >
                           Edit<span className="visually-hidden"> {record.name}</span>
-                        </button>
-                      )}
-                      {!history && writable && relationAttributes.length > 0 && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => choose({ kind: "values", recordId: record.id })}
-                        >
-                          Edit relationship values<span className="visually-hidden"> of {record.name}</span>
                         </button>
                       )}
                       {!history && can("unlink") && (
@@ -342,37 +338,23 @@ export function RelationMatrixCellDialog({
                 );
               }}
             />
-            {writable && relationAttributes.length > 0 && (
-              <RelationValuesForm
-                key={`${editing.relationId}:${editing.relationVersion}`}
-                attributes={relationAttributes}
-                record={editing}
-                workspaceKey={workspaceKey}
-                busy={saving}
-                onDirty={() => setDirty(true)}
-                onSaved={async () => {
-                  setDirty(false);
-                  await onSaved();
-                }}
-              />
+            {!orphaned && writable && relationAttributes.length > 0 && (
+              <div className="relation-values-form">
+                <RelationValueFields
+                  attributes={relationAttributes}
+                  relation={{
+                    id: editing.relationId,
+                    version: editing.relationVersion,
+                    attributes: editing.relationAttributes ?? {},
+                  }}
+                  workspaceKey={workspaceKey}
+                  editable
+                  onSaved={onRefresh}
+                  onDirty={setValuesDirty}
+                />
+              </div>
             )}
           </>
-        )}
-
-        {valuing && (
-          <RelationValuesForm
-            key={`${valuing.relationId}:${valuing.relationVersion}`}
-            attributes={relationAttributes}
-            record={valuing}
-            workspaceKey={workspaceKey}
-            busy={saving}
-            onDirty={() => setDirty(true)}
-            onCancel={back}
-            onSaved={async () => {
-              setDirty(false);
-              await onSaved();
-            }}
-          />
         )}
 
         {mode.kind === "create" && (
@@ -492,6 +474,10 @@ function RecordSummary({
   fields,
   binding,
   relationAttributes,
+  workspaceKey,
+  editable,
+  onSaved,
+  onDirty,
 }: {
   model: EngineModel;
   objectTypeKey: string;
@@ -499,6 +485,11 @@ function RecordSummary({
   fields: string[];
   binding: MatrixBinding;
   relationAttributes: AttributeTypeDefinition[];
+  workspaceKey: string;
+  /** The relationship's values edit in place where the cell can be written. */
+  editable: boolean;
+  onSaved: () => Promise<void>;
+  onDirty: (dirty: boolean) => void;
 }) {
   return (
     <div className="matrix-record-summary">
@@ -521,67 +512,19 @@ function RecordSummary({
             </div>
           ))}
       </dl>
-      <RelationAttributes
+      <RelationValueFields
         attributes={relationAttributes}
-        relation={{ attributes: record.relationAttributes ?? {} }}
-        mode="display"
+        relation={{
+          id: record.relationId,
+          version: record.relationVersion,
+          attributes: record.relationAttributes ?? {},
+        }}
+        workspaceKey={workspaceKey}
+        editable={editable}
+        onSaved={onSaved}
+        onDirty={onDirty}
       />
     </div>
-  );
-}
-
-/**
- * The relationship's own values of one linked record, saved against the relationship's version as
- * the Edit values dialog saves them; a conflict shows the relationship as it is saved now.
- */
-function RelationValuesForm({
-  attributes,
-  record,
-  workspaceKey,
-  busy,
-  onDirty,
-  onCancel,
-  onSaved,
-}: {
-  attributes: AttributeTypeDefinition[];
-  record: RelationMatrixCellRecord;
-  workspaceKey: string;
-  busy: boolean;
-  onDirty: () => void;
-  onCancel?: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const edit = useRelationValues({ id: record.relationId, version: record.relationVersion }, workspaceKey);
-  const pending = busy || edit.saving;
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (await edit.save(relationValuesFromForm(event.currentTarget, attributes))) await onSaved();
-  }
-  return (
-    <form className="matrix-cell-form dialog-form relation-values-form" onSubmit={submit} onChange={onDirty}>
-      <RelationAttributes
-        attributes={attributes}
-        relation={{ attributes: record.relationAttributes ?? {} }}
-        mode="edit"
-      />
-      {edit.current && <RelationConflictNotice attributes={attributes} current={edit.current} />}
-      {edit.error && (
-        <Notice tone="error" title="The relationship values were not saved" focusOnMount>
-          {edit.error}
-        </Notice>
-      )}
-      <div className="dialog-actions">
-        <span className="dialog-actions-spacer" />
-        {onCancel && (
-          <button type="button" className="secondary" disabled={pending} onClick={onCancel}>
-            Back
-          </button>
-        )}
-        <button className="primary" disabled={pending}>
-          {pending ? "Saving…" : "Save relationship values"}
-        </button>
-      </div>
-    </form>
   );
 }
 

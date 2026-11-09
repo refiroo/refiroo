@@ -5483,3 +5483,8 @@ form.install-dialog .dialog-actions {
 .info-hint-value {
   font-weight: 700;
 }
+/* A relationship's values in a matrix cell dialog: the record page's field rows, one column. */
+.relation-attributes .attribute-grid {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+}

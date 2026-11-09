@@ -679,12 +679,28 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
     // The cell's one record opens in Edit; the relationship's values follow the record's own fields.
-    const form = within(dialog).getByRole("group", { name: "Attributes of the relationship" });
-    expect(within(form).getByLabelText("Weight")).toHaveValue(2);
+    const group = within(dialog).getByRole("group", { name: "Attributes of the relationship" });
+    expect(within(group).getByText("2")).toBeInTheDocument();
+    fireEvent.click(within(group).getByRole("button", { name: /Edit Weight/ }));
+    const form = within(group).getByRole("form", { name: "Edit Weight" });
     fireEvent.change(within(form).getByLabelText("Weight"), { target: { value: "6" } });
-    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Save relationship values" })));
+    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
     expect(api.updateRelation).toHaveBeenCalledWith("rel-n5", { attributes: { weight: 6 }, expectedVersion: 1 });
     expect(await within(dialog).findByText("Current saved relationship (v3)")).toBeInTheDocument();
+  });
+
+  it("asks before dropping a changed relationship value when the dialog is closed (0.13 RV)", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderMatrix(tagsView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Edit Weight/ }));
+    fireEvent.change(within(dialog).getByLabelText("Weight"), { target: { value: "6" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(confirm).toHaveBeenCalledWith("Discard your unsaved changes?");
+    expect(screen.getByRole("dialog", { name: "Sizes · EA" })).toBeInTheDocument();
+    confirm.mockRestore();
   });
 
   it("offers no relationship values to edit in a read-only matrix, and shows them (0.13 RV)", async () => {
@@ -692,9 +708,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Sizes", 1));
     const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
-    expect(
-      within(dialog).queryByRole("button", { name: /Save relationship values|Edit relationship values/ }),
-    ).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /Edit Weight/ })).toBeNull();
     expect(within(dialog).getByRole("group", { name: "Attributes of the relationship" })).toHaveTextContent("2");
   });
 

@@ -386,8 +386,8 @@ set, and the same view links and unlinks system values.
 
 A relationship can carry values of its own (a weight, a flag, a note) that its type declares. A
 relation matrix cell shows them for each linked record under "Attributes of the relationship", offers
-them when a record is linked or created in the cell, and edits them against the relationship's
-version, as the Edit values dialog does. A record's Relationships panel shows them as columns after
+them when a record is linked or created in the cell, and edits each value in place, as a record's
+fields are edited, against the relationship's version. A record's Relationships panel shows them as columns after
 the related record's, which the Display menu can hide.
 
 A relationships table lists one declared relationship type's relationships as rows: both records'
