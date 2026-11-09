@@ -108,4 +108,13 @@ describe("a relationships table in the dialog (0.13 RV)", () => {
       },
     });
   });
+
+  it("writes the grid layout only when it is chosen", () => {
+    const values = { ...newTableValues<Record<string, unknown>>(outline), name: "Item places" };
+    const config = (layout: string) =>
+      (addTable(outline, "a", { ...values, layout })[1] as unknown as { view: { config: Record<string, unknown> } })
+        .view.config;
+    expect(config("grid")).toMatchObject({ layout: "grid" });
+    expect(config("rows")).not.toHaveProperty("layout");
+  });
 });

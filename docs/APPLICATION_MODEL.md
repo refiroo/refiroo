@@ -553,13 +553,15 @@ application may declare it over any non-containment binding.
 | `filterFields` | `from:<field>`, `to:<field>` (`name` or a scalar attribute of that end's type) or `relation:<attribute>`; an attribute must be `filterable`; unique; may be empty |
 | `sortFields` | The same references; any non-JSON attribute; non-empty, unique |
 | `defaultSort` | One of `sortFields`, `-` for descending |
-| `groupBy` | `from`, `to` or absent: the rows stand under their record with the group's count |
+| `groupBy` | `from`, `to` or absent: the rows stand under their record with the group's count; ignored in the grid layout |
+| `layout` | `rows` (the default, one row per relationship) or `grid`: each `from` record once, a column group per related `to` record with the `attributeColumns` under it; the first `toColumns` field labels a group, `from:` sorts order the rows and `to:` filters select the column records; a grid also filters by the filter fields of each end type's main view (the table its collection opens with) without declaring them (0.13 RG) |
 | `pageSize` | 1–100 |
 
 Each failing reference is reported at its own pointer (`…/config/attributeColumns/0`,
 `…/config/filterFields/1`). The rows are read from the workspace edge list with the view's
 `applicationKey` and `viewKey` ([API](API.md#relationships-table-rows-and-batch-values-rv)), live, in a
-change set and in a publication.
+change set and in a publication; the grid layout is read from `GET /workspaces/{key}/relation-grid`
+([API](API.md#relationships-grid-rg)). `layout` is one more setting of the same view type: no schema bump.
 
 ### Tree view (`type: "tree"`, schema 0.7)
 

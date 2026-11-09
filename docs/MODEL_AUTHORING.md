@@ -206,7 +206,7 @@ is allowed:
 | Values | Map values: variants to one value, placeholders to empty | Yes | Additive |
 | Values | Add values found in the data to a list: the load creates the records a lookup names that do not exist (0.10 A5, D77) | Yes | Additive |
 | Views | Add, reorder, show or hide views, panels, columns, filters and fields | — | Additive |
-| Views | Add a relationships table over a declared binding (`addView` of type `relationTable`; the editor's **Add a relationships table…**, 0.13 RV, J33.20): its columns, the binding's attributes as columns, filters and sorts that follow, how rows are headed | — | Additive |
+| Views | Add a relationships table over a declared binding (`addView` of type `relationTable`; the editor's **Add a relationships table…**, 0.13 RV, J33.20): its columns, the binding's attributes as columns, filters and sorts that follow, how rows are headed, its layout (one row per relationship or a grid, 0.13 RG; changed later with the view's **Layout…**, a `setViewProperty` of `layout`) | — | Additive |
 
 Once a release is installed, a draft-only operation on a released element that data holds is recorded
 as a migration request with its impact (records, values and relationships affected), not applied. Type changes of

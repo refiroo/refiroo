@@ -46,7 +46,7 @@ Structures:
   with ``R.b`` true and whose ``to`` end a ``D`` under a ``G`` whose name contains "reserved" (any
   case).
 - Views: ``Vrt`` a relationships table over ``Bnn`` (0.13 RV: ``from:name`` and ``Bnn.weight``
-  filters, four sorts, grouped by ``H``), ``Bassoc`` carries ``Bnn.weight`` and ``Bnn.note`` too (the matrix ``Massoc``);
+  filters, four sorts, grouped by ``H``), ``Vrg`` the same binding as a grid (0.13 RG: ``layout`` ``grid``), ``Bassoc`` carries ``Bnn.weight`` and ``Bnn.note`` too (the matrix ``Massoc``);
   ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``; ``Vcand`` over
   ``Bcand``; the matrix ``Mcand`` over ``Banc`` (R rows, G columns, D cells).
 - ``Capi``: a consumer API exposing ``R``, ``R2`` and ``D`` (generated only): the ``id`` role,
@@ -178,6 +178,7 @@ def _naming(variant: str) -> dict[str, str]:
         "Vsrc": "branch-token-lists",
         "Mcand": "reserves-by-region",
         "Vrt": "branch-token-rows",
+        "Vrg": "branch-token-grid",
     }
     if variant == "a":
         return a
@@ -634,6 +635,28 @@ def generated(variant: str) -> Configuration:
                 ],
                 "defaultSort": "from:name",
                 "groupBy": "from",
+                "pageSize": 20,
+            },
+        }
+    )
+    # The same binding as a grid (0.13 RG): each H once, a column group per K, the weight and the
+    # note under it; H's name and K's name filter and the weight matches at a shown K.
+    h_application["views"].append(
+        {
+            "key": k["Vrg"],
+            "name": "Vrg",
+            "type": "relationTable",
+            "config": {
+                "relationTypeKey": k["Bnn"],
+                "fromObjectTypeKey": k["H"],
+                "toObjectTypeKey": k["K"],
+                "fromColumns": ["name", k["H.code"]],
+                "toColumns": ["name", k["K.code"]],
+                "attributeColumns": [k["Bnn.weight"], k["Bnn.note"]],
+                "filterFields": ["from:name", "to:name", f"relation:{k['Bnn.weight']}"],
+                "sortFields": ["from:name", f"relation:{k['Bnn.weight']}"],
+                "defaultSort": "from:name",
+                "layout": "grid",
                 "pageSize": 20,
             },
         }

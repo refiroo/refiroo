@@ -66,6 +66,49 @@ class MappingListPage(CollectionPage[MappingListRow]):
     groupCounts: dict[str, int] | SkipJsonSchema[None] = requested_count()
 
 
+class RelationGridColumn(BaseModel):
+    """One column group of a relationships grid: a ``to`` record. ``label`` is the view's first
+    ``toColumns`` field, ``fields`` all of them, ``linkedCount`` how many of the rows under the
+    request's filters (on every page) are related to it."""
+
+    id: str
+    objectTypeKey: str
+    name: str
+    label: str
+    fields: dict[str, Any]
+    linkedCount: int
+
+
+class RelationGridRelation(BaseModel):
+    """A row's relationship to one column record: its ID and version (what a change to its
+    ``attributes`` claims), the values of the attributes the request chose (every stored value without a choice), and whether a change
+    set proposes it (it stages that relationship; always false live and in a publication)."""
+
+    relationId: str
+    version: int
+    attributes: dict[str, Any]
+    proposed: bool
+
+
+class RelationGridRow(BaseModel):
+    """One ``from`` record with the relationships it has to the shown column records, by their ID.
+    ``mappingVersion`` is the version of its set of this binding, which a link claims."""
+
+    source: MappingObjectSummary
+    mappingVersion: int
+    relations: dict[str, RelationGridRelation]
+
+
+class RelationGridPage(CollectionPage[RelationGridRow]):
+    """A relationships grid's page of rows with the column groups it shows. ``columnTotal`` is
+    how many records match the column filters and the pick, of which at most
+    ``COLUMN_CAP`` (50) are in ``columns``; ``rowTotal`` how many rows match the row filters."""
+
+    columns: list[RelationGridColumn]
+    columnTotal: int
+    rowTotal: int
+
+
 class MappingReplacementResponse(BaseModel):
     sourceObjectId: str
     mappingVersion: int

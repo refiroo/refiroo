@@ -1383,6 +1383,18 @@ cell dialog's link payload and edit, `RelationTableView`, the editor's builders.
 | RV-D5 | With `groupBy` the group heading stands in the group's first row and the group end's columns leave the rows | A window measures rows by number; a separate heading row would break it |
 | RV-D6 | A refused batch is `409` when a version was stale, else `422` | The caller refreshes on `409` |
 | RV-D7 | The example model's table is over the mapping relationship, which declares no attributes | The starter has no relationship with attributes; adding one is a model decision |
+| RV-D8 | The grid is a layout (`layout: "rows" \| "grid"`, default `rows`) of the existing view type; no new view type and no schema bump (0.10 is unreleased in 0.13) | The brief; one more setting of the same view, so validation, references, cascade and the outline need no change |
+| RV-D9 | Both grid routes work on any `relationTable` view, whatever its `layout`; the layout only tells a client which to draw | API-first: the API reads the binding either way |
+| RV-D10 | The grid read is `GET /workspaces/{key}/relation-grid` through the view (`applicationKey`, `viewKey`), as the rows layout is; rows are every `from` record matching the `from:` filters and `search`, sorted by a `from:` sort (any other sort field falls back to the name), columns at most 50 `to` records with the total, `relation:` filters keep the rows with a matching relationship at a shown column record | The brief; validation keeps `sortFields` as it was |
+| RV-D11 | Without `attribute` the grid returns every stored value of a relationship, not only the view's `attributeColumns`; with it, only those | A cell's edit saves the stored values merged with the one changed (`PATCH` replaces); returning fewer would erase the rest. The UI picks which attributes are shown client-side and asks for all |
+| RV-D12 | `POST /relations/grid-change` selects, counts and lists in PostgreSQL (rows crossed with the columns, left-joined to the relationships, one counting statement, one listing statement); the write is decided over the batch lookup and written through the write unit as one batch, as `POST /relations/batch` does | AGENTS.md: relationships are written only through the write unit; the set-based part is the selection and counting. A change over `ATOMIC_JOB_MAX_ITEMS` is `413` before anything is read into Python |
+| RV-D13 | A dry run also decides every item (without writing) and answers what the apply would be refused for in `refused`, `200`; an apply with any refusal is `RELATION_BATCH_REFUSED` and writes nothing. The dry run is `413` too when the apply would be | The user sees refusals (cardinality, uniqueness scope, a minimum) before applying; "all pairs checked, no sampling" |
+| RV-D14 | The record picker of the related-records menu is the matrix's `ColumnChooser`, exported and given a `max`; the picks are `gridColumn` address parameters; the attributes shown are the Display menu's (as the relationships table has it), not an address parameter | One component, no copies; the matrix keeps its limit of 20 |
+| RV-D15 | The editor offers Layout in Add a relationships table… and as a **Layout…** action on a relationships table (`setViewProperty` `layout`); the default layout is not written out | The brief; `operations.ts` changed only by those two additions |
+| RV-D16 | A yes/no value flips with one click through `RelationValueCell`'s `floating` mode (`FlagCell`); other values open the floating editor | The brief's addition; those components are not changed |
+| RV-D17 | A grid's filters are its own `filterFields` plus, as `from:`/`to:` references, the filter fields of the table view each end type's collection opens with (the navigation's `opens` view, else the application's default view, else its table; the grid's application first; only `name` or `filterable` non-JSON attributes bound to the type). The engine resolves it from the model (`main_view_filter_fields`), so any client has the rule; values chosen are the grid's own, in its URL (the user, 2026-11-09). The rows and the column records are selected with the object list's filter and search code (`record_ids_selector`: typed operators, `related:`, search, the same errors), live, in a change set and in a publication, and joined to the relationships in SQL; a relationship's value takes the operators its type takes. The client uses the collection's `ObjectToolbar` and `FilterBar` for both ends, with `relation:` attributes as extra fields of the rows' bar | The user's requirement (2026-11-09): the same filter UI and behaviour as the main view; no grid-specific filter controls |
+| RV-D18 | The grid uses the collection's selection (`useRecordSelection`, `SelectionBar`) and a dialog of its own built from the shared shell parts (`Modal`, `AttributeField`, `Choice`, `Section`, `DescriptionList`), not `BulkJobDialog`; "all matching" carries `exceptObjectIds`; the preview is the engine's dry run, read when the dialog's choices change; apply is worded "Apply" as the collection's | `BulkJobDialog` is a background-job flow (a preview job, then confirm); the grid's change is one synchronous all-or-none request with its own dry run. Making the job dialog generic would change every collection's bulk dialogs |
+| RV-D19 | A cell saved reads its relationship again and patches its row; rows are memoised and the Display menu keeps which attributes are shown (no `gridAttribute` address parameter) | Measured lag: ticking one row drew all rows (110 ms of render for 250 rows); a cell save refetched the whole list |
 
 **Checks.** `tests/journeys/test_j13_relation_attributes.py`, J33.20 in `test_j33_operations`,
 `tests/unit/engine/model/validation/test_application_rules.py`; Vitest for the files above; the production build.
@@ -1392,9 +1404,17 @@ Groups: model, authoring, records, mapping, matrix, contract (the OpenAPI lock, 
 any model (a catalogue's price per channel, a rate per listing). No identity, attribute storage, history or
 consumer `match` change; relation set versions and matrix states follow as for any relationship write.
 
+**The grid (RG).** Added to RV by the user on 2026-11-09 from an approved mock-up, with the viewer picking which
+related records and which attributes are shown: `layout: "grid"`, `GET /workspaces/{key}/relation-grid`,
+`POST /relations/grid-change` (J13.15, J13.16), `RelationGridView` with its filter bar and bulk bar, the editor's
+Layout, and RV-D8 to RV-D19 above. Composable domains (ADR-032): generic, and no identity, attribute storage,
+history or `match` change; the bulk change writes as any relationship write.
+
 **Still manual / not built.** No sorting of a panel by a relationship attribute; no typed operators in a table's
 filters; the guide has no new prose for the table (guide text comes from Codex); the browser acceptance runner
-(`test:browser`) for the table and the cell dialog is not written.
+(`test:browser`) for the table, the grid and the cell dialog is not written; the grid's appearance (sticky columns, group tints, the
+floating editors in a wide table, 390px) is not inspected in a browser; no guide prose for the grid.
+
 
 ## The writing rules
 

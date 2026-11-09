@@ -17,6 +17,7 @@ from ...common.pagination import (
 )
 from ...db import begin_snapshot_read
 from ...engine.model.registry import ModelSnapshot, resolve_request_model
+from ...engine.model.relation_table import find_relation_table
 from ...engine.operations.mapping_replacement import PREVIEW_SIZE, MappingConflictSet
 from ...engine.reads.mapping_projection import context_projection
 from ...engine.reads.mapping_scope import MappingScope
@@ -43,8 +44,9 @@ from ..schemas.mapping import (
     MappingObjectSummary,
     MappingTargetPage,
     MappingTargetSummary,
+    RelationGridPage,
 )
-from .relation_table import relation_table_page
+from .relation_table import relation_grid_page, relation_table_page
 
 
 def projection_bundle(projection: Subquery) -> Bundle:
@@ -870,8 +872,43 @@ def _relation_table(
             "fromObjectTypeKey, toObjectTypeKey and direction",
         )
     objects, relations = context_projection(session, workspace_key, change_set_id, publication_id)
-    # The summaries only read records, so a grid config of the table's own columns stands in.
-    reader = MappingRead(
+    reader = _table_reader(
+        session, workspace_key, snapshot, config, change_set_id, publication_id, objects, relations
+    )
+    return relation_table_page(
+        session,
+        snapshot.model,
+        config,
+        objects,
+        relations,
+        reader.summary,
+        workspace_key=workspace_key,
+        change_set_id=change_set_id,
+        publication_id=publication_id,
+        from_object_id=from_object_id,
+        to_object_id=to_object_id,
+        field_filters=field_filters,
+        search=search,
+        sort=sort,
+        scope=scope,
+        page=page,
+        page_size=page_size,
+    )
+
+
+def _table_reader(
+    session: Session,
+    workspace_key: str,
+    snapshot: ModelSnapshot,
+    config: RelationTableViewConfig,
+    change_set_id: str | None,
+    publication_id: str | None,
+    objects: Subquery,
+    relations: Subquery,
+) -> MappingRead:
+    """The reader a relationships table's summaries come from; it only reads records, so a grid
+    config of the table's own columns stands in."""
+    return MappingRead(
         session,
         workspace_key,
         change_set_id,
@@ -891,7 +928,44 @@ def _relation_table(
         objects,
         relations,
     )
-    return relation_table_page(
+
+
+def relation_grid(
+    session: Session,
+    workspace_key: str,
+    application_key: str,
+    view_key: str,
+    *,
+    scope: str,
+    change_set_id: str | None,
+    publication_id: str | None,
+    to_object_ids: list[str],
+    attributes: list[str] | None,
+    field_filters: list[tuple[str, str, str]],
+    search: str | None,
+    to_search: str | None,
+    sort: str | None,
+    page: PageRequest,
+    page_size: int | None,
+) -> RelationGridPage:
+    """A relationships table's grid: each ``from`` record once with its relationships to the shown
+    ``to`` records (0.13 RG). The view is a ``relationTable``, whatever its ``layout``."""
+    begin_snapshot_read(session)
+    resolve_workspace(session, workspace_key)
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, publication_id)
+    config = find_relation_table(snapshot.model, application_key, view_key)
+    objects, relations = context_projection(session, workspace_key, change_set_id, publication_id)
+    reader = _table_reader(
+        session,
+        workspace_key,
+        snapshot,
+        config,
+        change_set_id,
+        publication_id,
+        objects,
+        relations,
+    )
+    return relation_grid_page(
         session,
         snapshot.model,
         config,
@@ -899,12 +973,14 @@ def _relation_table(
         relations,
         reader.summary,
         workspace_key=workspace_key,
+        application_key=application_key,
         change_set_id=change_set_id,
         publication_id=publication_id,
-        from_object_id=from_object_id,
-        to_object_id=to_object_id,
+        to_object_ids=to_object_ids,
+        attributes=attributes,
         field_filters=field_filters,
         search=search,
+        to_search=to_search,
         sort=sort,
         scope=scope,
         page=page,

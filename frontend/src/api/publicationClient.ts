@@ -13,6 +13,7 @@ export function createPublicationClient(publicationId: string): typeof api {
     mappingCoverage: (query) => api.mappingCoverage({ ...query, changeSetId: undefined, publicationId: publicationId }),
     mappingTargets: (query) => api.mappingTargets({ ...query, changeSetId: undefined, publicationId: publicationId }),
     relationTable: (query) => api.relationTable({ ...query, changeSetId: undefined, publicationId: publicationId }),
+    relationGrid: (query) => api.relationGrid({ ...query, changeSetId: undefined, publicationId: publicationId }),
     relationMatrix: (query) => api.relationMatrix({ ...query, changeSetId: undefined, publicationId: publicationId }),
     mappingCandidates: (query) =>
       api.mappingCandidates({ ...query, changeSetId: undefined, publicationId: publicationId }),

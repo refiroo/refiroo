@@ -366,6 +366,37 @@ describe("routes", () => {
     expect(parseRoute(model)).not.toHaveProperty("matrixColumnIds");
   });
 
+  it("keeps a relationships grid's picked records in the address, for a grid only", () => {
+    const model = structuredClone(testModel);
+    const config = {
+      relationTypeKey: "domain-contains-codelist",
+      fromObjectTypeKey: "domain",
+      toObjectTypeKey: "codelist",
+      fromColumns: ["name"],
+      toColumns: ["name"],
+      attributeColumns: [],
+      filterFields: [],
+      sortFields: ["from:name"],
+      defaultSort: "from:name",
+      pageSize: 20,
+    };
+    model.applications[0].views.push(
+      { key: "grid", name: "Grid", type: "relationTable", config: { ...config, layout: "grid" } },
+      { key: "rows", name: "Rows", type: "relationTable", config },
+    );
+    window.history.replaceState(
+      {},
+      "",
+      "/apps/test-app/views/grid?workspaceKey=west&gridColumn=c1&gridColumn=c2&gridColumn=c1",
+    );
+    const route = parseRoute(model);
+    expect(route).toMatchObject({ gridColumnIds: ["c1", "c2"] });
+    window.history.replaceState({}, "", routePath(route));
+    expect(parseRoute(model)).toEqual(route);
+    window.history.replaceState({}, "", "/apps/test-app/views/rows?workspaceKey=west&gridColumn=c1");
+    expect(parseRoute(model)).not.toHaveProperty("gridColumnIds");
+  });
+
   it("restores supported collection controls and drops legacy object-state filters", () => {
     window.history.pushState(
       {},

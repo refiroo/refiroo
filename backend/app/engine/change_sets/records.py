@@ -18,6 +18,8 @@ from ...models.database import (
     ChangeSetObject,
     ChangeSetRelation,
 )
+from ..reads.mapping_projection import change_set_mapping_projection
+from ..reads.relation_grid import record_ids_selector
 from ..reads.snapshot_reads import change_set_context, find_relation
 from ..records import rules
 from ..records.attributes import (
@@ -39,6 +41,12 @@ from ..records.deletion import (
 from ..records.feed import object_subject
 from ..records.refusals import CHANGE_SET
 from ..records.relation_batch import RelationValues, decide_relation_values
+from ..records.relation_grid_change import (
+    GridChange,
+    GridChangeResult,
+    decide_grid_change,
+    plan_grid_change,
+)
 from ..records.relation_set_versions import (
     SetClaim,
     advance_set_versions,
@@ -747,6 +755,50 @@ def update_change_set_relations(
     rows = [_written_relation(writes, item.relation_id) for item in items]
     session.commit()
     return rows
+
+
+def change_set_relation_grid(
+    session: Session,
+    change_set_id: str,
+    expected_change_set_version: int | None,
+    change: GridChange,
+    *,
+    dry_run: bool,
+    max_items: int,
+) -> GridChangeResult:
+    """One value set on the relationships of a grid's selection in a change set as one write, or
+    on a dry run only counted and decided; the selection is read as the change set holds it."""
+    if dry_run:
+        change_set = load_change_set(session, change_set_id)
+        writes = None
+        model = change_set_model(session, change_set)
+        lookup = ChangeSetBatchLookup.of(session, change_set_id)
+    else:
+        change_set, writes, model, lookup = _change_set_relation_lookup(session, change_set_id)
+    objects, relations = change_set_mapping_projection(session, change_set_id)
+    plan = plan_grid_change(
+        session,
+        model,
+        change,
+        objects,
+        relations,
+        live=False,
+        record_ids=record_ids_selector(
+            session,
+            model,
+            workspace_key=change_set.workspace_key,
+            change_set_id=change_set_id,
+            publication_id=None,
+        ),
+        max_items=max_items,
+        collect=True,
+    )
+    refused = decide_grid_change(lookup, model, plan, collect=dry_run)
+    if writes is not None:
+        writes.claim(expected_change_set_version)
+        write_change_set(writes, lookup.changes())
+        session.commit()
+    return GridChangeResult(plan, refused)
 
 
 def delete_change_set_relation(

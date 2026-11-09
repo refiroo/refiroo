@@ -84,7 +84,7 @@ export function followTable<V extends Values>(
 }
 
 export function newTableValues<V extends Values>(outline: ModelDraftOutline): V {
-  const start = { binding: bindingOptions(outline)[0]?.value ?? "", name: "", groupBy: "" };
+  const start = { binding: bindingOptions(outline)[0]?.value ?? "", name: "", groupBy: "", layout: "rows" };
   return followTable(outline, start, start, "binding") as unknown as V;
 }
 
@@ -116,6 +116,8 @@ function configOf(outline: ModelDraftOutline, values: Values) {
     ],
     defaultSort: "from:name",
     groupBy: values.groupBy === "from" || values.groupBy === "to" ? values.groupBy : null,
+    // The default layout is not written out.
+    ...(values.layout === "grid" ? { layout: "grid" } : {}),
     pageSize: 20,
   };
 }

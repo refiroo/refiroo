@@ -29,10 +29,14 @@ import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor, relationshipFilterFields } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
 import { navigationGroupFor } from "@/model/collections";
+import { gridFilterFields } from "@/model/relationGrid";
 
 const MATRIX_STATES = ["one", "several", "inactive", "historyOnly", "none"] as const;
 /** The relation matrix shows at most this many named columns at once (D10). */
 export const MATRIX_MAX_COLUMNS = 20;
+
+/** A relationships grid shows at most this many column groups at once (the engine's cap, 0.13 RG). */
+export const GRID_MAX_COLUMNS = 50;
 
 /** A matrix's shown columns and state filter; the state needs named columns, as the API does. */
 function matrixQuery(query: URLSearchParams) {
@@ -42,6 +46,13 @@ function matrixQuery(query: URLSearchParams) {
     ...(columnIds.length ? { matrixColumnIds: columnIds } : {}),
     ...(columnIds.length && state ? { matrixState: state } : {}),
   };
+}
+
+/** A grid's picked column records (0.13 RG), as repeated parameters. */
+function gridQuery(query: URLSearchParams) {
+  const columnIds = [...new Set(query.getAll("gridColumn").filter(Boolean))].slice(0, GRID_MAX_COLUMNS);
+  const search = query.get("gridSearch")?.trim();
+  return { ...(columnIds.length ? { gridColumnIds: columnIds } : {}), ...(search ? { gridSearch: search } : {}) };
 }
 
 function viewDefaults(view: ViewDefinition | undefined) {
@@ -558,6 +569,15 @@ export function parseRoute(
       const relationships = new Set(
         view.type === "table" && view.objectTypeKey ? relationshipFilterFields(model, view.objectTypeKey) : [],
       );
+      // A grid also filters by its end types' main views' fields (0.13 RG).
+      const allowedFilters = new Set(
+        view.type === "relationTable" && view.config.layout === "grid"
+          ? gridFilterFields(model, application!.key, view.config)
+          : (tableConfig?.filterFields ?? []),
+      );
+      // A list also filters by the stamps and by any relationship it has, declared or not.
+      const isGrid = view.type === "relationTable" && view.config.layout === "grid";
+      const gridUndeclared = (field: string) => isGrid && /^(from|to):(related:|createdAt$|updatedAt$)/.test(field);
       const filters = Array.from(query.entries())
         .filter(([key]) => key.startsWith("filter."))
         .flatMap(([key, value]) => {
@@ -569,7 +589,7 @@ export function parseRoute(
           const stamp = !changeSetId && !publicationId && ["createdAt", "updatedAt"].includes(field);
           return field &&
             operator &&
-            (stamp || relationships.has(field) || (tableConfig?.filterFields ?? []).includes(field))
+            (stamp || relationships.has(field) || allowedFilters.has(field) || gridUndeclared(field))
             ? [{ field, operator, value }]
             : [];
         });
@@ -601,6 +621,7 @@ export function parseRoute(
           : {}),
         ...(view.type === "mappingGrid" && query.get("proposed") === "true" ? { mappingProposed: true } : {}),
         ...(view.type === "relationMatrix" ? matrixQuery(query) : {}),
+        ...(view.type === "relationTable" && view.config.layout === "grid" ? gridQuery(query) : {}),
         ...(query.get("anchor") ? { anchor: query.get("anchor")! } : {}),
       };
     }
@@ -695,6 +716,8 @@ export function routePath(route: RouteState) {
     if (route.mappingProposed) query.set("proposed", "true");
     route.matrixColumnIds?.forEach((id) => query.append("matrixColumn", id));
     if (route.matrixState && route.matrixColumnIds?.length) query.set("matrixState", route.matrixState);
+    route.gridColumnIds?.forEach((id) => query.append("gridColumn", id));
+    if (route.gridSearch) query.set("gridSearch", route.gridSearch);
     if (route.anchor) query.set("anchor", route.anchor);
     return `/apps/${app}/views/${encodeURIComponent(route.viewKey)}?${query}`;
   }

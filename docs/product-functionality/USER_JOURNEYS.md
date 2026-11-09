@@ -306,6 +306,18 @@ The containment relationship is not edited here: it follows the record's parent 
   version, and one stale version, unknown relationship or invalid value refuses the whole request,
   naming each item that failed. The values are those of the relationships, kept as they were
   except the one set.
+- **J13.15 A relationships grid** (0.13 RG): a relationships table whose layout is the grid shows
+  each `from` record once, linked or not, with a column group per related (`to`) record and the
+  relationship's attributes under it; not-linked pairs are marked and linked with one click, values
+  edit in the cell (a yes/no value flips with one click). The viewer filters the rows, picks which
+  related records and which attributes are shown (at most 50 groups, with the total and a hint to
+  narrow it) and filters by a relationship's value; the picks stay in the address. In a change set
+  what it stages is marked proposed; a publication reads the same.
+- **J13.16 One value on the relationships a grid shows** (0.13 RG): rows ticked, or every row the
+  filters select, get one attribute set to one value at the shown related records or one of them in
+  one request. It says first how many relationships change, already hold the value and are not
+  linked, and what it would refuse; the apply changes only what differs, links the missing pairs
+  only when asked, and is all or none. In a change set the values are staged, not live.
 
 **Refusals:** `422 UNKNOWN_RELATION_TYPE`, `422 INVALID_RELATION_PAIR`, `422 RELATION_ENDPOINT_MISSING`,
 `422 RELATION_WRONG_SCOPE`, `422 UNKNOWN_RELATION_ATTRIBUTES`, `422 IMMUTABLE_RELATION`,
@@ -314,10 +326,10 @@ The containment relationship is not edited here: it follows the record's parent 
 `409 DUPLICATE_RELATION`, `404 RELATION_NOT_FOUND`, `422 RELATION_CANDIDATE_REFUSED` (0.9 K7),
 `409`/`422 RELATION_BATCH_REFUSED`, `422 DUPLICATE_BATCH_ITEMS`, `413 BATCH_TOO_LARGE` (J13.14),
 `422 RELATION_TABLE_VIEW_REQUIRED`, `422 RELATION_TABLE_BINDING_FIXED`, `422 INVALID_FILTER`,
-`422 INVALID_SORT` (J13.13).
+`422 INVALID_SORT` (J13.13), `422 INVALID_ATTRIBUTE` (J13.15), `422 INVALID_GRID_CHANGE` (J13.16).
 
 **Evidence today:** `test_relations`, `test_relation_set_versions`, `test_rule_parity`,
-`test_translations`, `test_pg3_concurrency`; J13.12–J13.14 `test_j13_relation_attributes`.
+`test_translations`, `test_pg3_concurrency`; J13.12–J13.16 `test_j13_relation_attributes`.
 
 ### J14 — Build and change a hierarchy
 

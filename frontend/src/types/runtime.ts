@@ -527,6 +527,79 @@ export interface RelationTablePage extends PageNavigation {
   groupCounts?: Record<string, number>;
 }
 
+/** One column group of a relationships grid: a `to` record (0.13 RG). */
+export interface RelationGridColumn {
+  id: string;
+  objectTypeKey: string;
+  name: string;
+  /** The view's first `toColumns` field. */
+  label: string;
+  fields: Record<string, unknown>;
+  /** How many of the rows under the filters, on every page, are related to it. */
+  linkedCount: number;
+}
+
+/** A row's relationship to one column record. */
+export interface RelationGridRelation {
+  relationId: string;
+  version: number;
+  /** The attributes the request chose. */
+  attributes: Record<string, unknown>;
+  /** A change set stages this relationship. */
+  proposed: boolean;
+}
+
+export interface RelationGridRow {
+  source: MappingObjectSummary;
+  /** The version of the row's set of this binding, which a link claims. */
+  mappingVersion: number;
+  /** By the column record's ID; a column record without an entry is not linked. */
+  relations: Record<string, RelationGridRelation>;
+}
+
+export interface RelationGridPage extends PageNavigation {
+  items: RelationGridRow[];
+  /** At most 50 of `columnTotal`. */
+  columns: RelationGridColumn[];
+  columnTotal: number;
+  rowTotal: number;
+}
+
+/** One value set on a grid's relationships (`POST /relations/grid-change`). */
+export interface RelationGridChangeInput {
+  applicationKey: string;
+  viewKey: string;
+  fromObjectIds?: string[];
+  allMatching?: boolean;
+  /** With `allMatching`: rows left out of the selection. */
+  exceptObjectIds?: string[];
+  search?: string;
+  filters?: { field: string; operator?: string; value: string }[];
+  toObjectIds: string[];
+  attributeTypeKey: string;
+  value: unknown;
+  linkMissing?: boolean;
+  dryRun?: boolean;
+  workspaceKey?: string;
+}
+
+export interface RelationGridChangeResult {
+  dryRun: boolean;
+  change: number;
+  same: number;
+  missing: number;
+  linked: number;
+  refused: {
+    index: number;
+    relationId?: string | null;
+    fromObjectId?: string | null;
+    toObjectId?: string | null;
+    code: string;
+    message: string;
+  }[];
+  changeSetVersion?: number | null;
+}
+
 /** Values set on many relationships as one write; each names the version it read. */
 export interface RelationBatchInput {
   items: { id: string; expectedVersion: number; attributes: Record<string, unknown> }[];

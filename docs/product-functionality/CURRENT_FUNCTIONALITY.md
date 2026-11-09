@@ -399,7 +399,12 @@ columns and the relationship's values, filters, sorting on the column headers, r
 cell and saved as it is left; ticked rows get one value set in one request that either changes every
 row or none, naming the rows that refused. Nothing to edit is offered where the data cannot be changed
 (a publication, a read-only view, no permission). A model editor adds one from an application's
-Views section.
+Views section. A relationships table can instead be a grid: each record once, with a column group for each
+related record and the relationship's values under it. The person looking chooses which related records and
+which values are shown (the choice stays in the address), filters the records and the values, and sees which
+pairs are not linked, linking them with one click. Ticked records, or every record the filters select, get
+one value set at the shown related records in one step, which first says how many relationships change, already
+hold it and are not linked, and either changes all of them or none; in a change set the changes are proposed.
 
 Evidence: [relation matrix](../../frontend/src/features/objects/RelationMatrixView.tsx),
 [A5 runner](../../frontend/e2e/a5-matrix-acceptance.mjs),

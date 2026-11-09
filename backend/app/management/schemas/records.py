@@ -107,6 +107,34 @@ class RelationBatchResponse(BaseModel):
     changeSetVersion: int | None = None
 
 
+class RelationGridChangeItem(BaseModel):
+    """A relationship or pair a grid change would refuse: its position among the changes, the
+    relationship (none for a pair to link), the pair's ends, the code and the message."""
+
+    index: int
+    relationId: str | None = None
+    fromObjectId: str | None = None
+    toObjectId: str | None = None
+    code: str
+    message: str
+
+
+class RelationGridChangeResponse(BaseModel):
+    """What a grid change did, or on a dry run would do. ``change`` relationships hold another
+    value, ``same`` already hold it and ``missing`` pairs are not related. ``linked`` is how many
+    pairs were (would be) related, ``missing`` when ``linkMissing`` was set, else 0. ``refused``
+    lists on a dry run what the apply would be refused for (empty when it would go through);
+    an apply with any refusal is refused whole, ``RELATION_BATCH_REFUSED``."""
+
+    dryRun: bool
+    change: int
+    same: int
+    missing: int
+    linked: int
+    refused: list[RelationGridChangeItem] = Field(default_factory=list)
+    changeSetVersion: int | None = None
+
+
 class RelationExpansion(BaseModel):
     direction: Literal["outgoing", "incoming"]
     relation: RelationResponse

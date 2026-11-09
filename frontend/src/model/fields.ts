@@ -16,7 +16,9 @@ import {
   relatedFieldLabel,
 } from "@/model/lookup";
 
-export function attributeName(model: EngineModel, key: string) {
+export function attributeName(model: EngineModel, key: string): string {
+  // A relationship's attribute in a relationships grid's filters (0.13 RG).
+  if (key.startsWith("relation:")) return attributeName(model, key.slice("relation:".length));
   if (key.startsWith(RELATED_FIELD_PREFIX)) {
     const column = relatedColumn(model, key);
     if (!column) return key;

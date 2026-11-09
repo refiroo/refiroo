@@ -580,6 +580,11 @@ const matrixFields = (outline: ModelDraftOutline): OperationField[] => [
   { name: "name", label: "Name", type: "text", required: true },
 ];
 
+const LAYOUT_OPTIONS = [
+  { value: "rows", label: "One row per relationship" },
+  { value: "grid", label: "Grid: each record once, a column group per related record" },
+];
+
 const tableFields = (outline: ModelDraftOutline): OperationField[] => [
   {
     name: "binding",
@@ -610,6 +615,13 @@ const tableFields = (outline: ModelDraftOutline): OperationField[] => [
     label: "Attributes of the relationship",
     type: "checkboxes",
     options: (v) => attributeOptions(outline, v.binding),
+  },
+  {
+    name: "layout",
+    label: "Layout",
+    type: "select",
+    options: LAYOUT_OPTIONS,
+    hint: "A grid shows each from record once, with a column group for each to record.",
   },
   {
     name: "groupBy",
@@ -852,6 +864,27 @@ export const OPERATIONS: OperationSpec[] = [
     },
     build: (values, t) => [
       { kind: "placeCollection", applicationKey: t.applicationKey, view: t.view, group: text(values, "group") || null },
+    ],
+  }),
+  spec<On<"view">>({
+    id: "view-table-layout",
+    on: "view",
+    label: "Layout…",
+    title: (t, o) => `Layout of ${viewOf(t, o)?.name ?? t.view}`,
+    available: (t, o) => viewOf(t, o)?.type === "relationTable",
+    fields: () => [{ name: "layout", label: "Layout", type: "select", options: LAYOUT_OPTIONS, required: true }],
+    initial: (t, o) => ({
+      layout:
+        (viewOf(t, o) as { config?: { layout?: string } } | undefined)?.config?.layout === "grid" ? "grid" : "rows",
+    }),
+    build: (values, t) => [
+      {
+        kind: "setViewProperty",
+        applicationKey: t.applicationKey,
+        view: t.view,
+        property: "layout",
+        value: text(values, "layout") === "grid" ? "grid" : "rows",
+      },
     ],
   }),
   spec<On<"view">>({

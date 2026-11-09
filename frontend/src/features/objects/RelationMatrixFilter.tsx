@@ -111,12 +111,13 @@ export function RelationMatrixFilter({
   );
 }
 
-function ColumnChooser({
+export function ColumnChooser({
   model,
   workspaceKey,
   columnType,
   labelField,
   chosen,
+  max = MATRIX_MAX_COLUMNS,
   onChange,
 }: {
   model: EngineModel;
@@ -124,6 +125,8 @@ function ColumnChooser({
   columnType: ObjectTypeDefinition;
   labelField: string;
   chosen: string[];
+  /** The most records that can be chosen; the matrix's limit unless a view says otherwise. */
+  max?: number;
   onChange: (ids: string[]) => void;
 }) {
   const api = useDataApi();
@@ -141,12 +144,12 @@ function ColumnChooser({
       }),
     [columnType.key, workspaceKey, debounced],
   );
-  const full = chosen.length >= MATRIX_MAX_COLUMNS;
+  const full = chosen.length >= max;
   const plural = columnType.pluralName.toLowerCase();
   return (
     <>
       <SearchField value={search} onChange={setSearch} label={`Search ${plural}`} placeholder={`Search ${plural}`} />
-      {full && <p className="muted-text">At most {MATRIX_MAX_COLUMNS} can be shown at once.</p>}
+      {full && <p className="muted-text">At most {max} can be shown at once.</p>}
       <ScrollWindow
         list={list}
         label={`${columnType.pluralName} to choose from`}

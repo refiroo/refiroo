@@ -64,6 +64,7 @@ export function createChangeSetClient(
     mappingCoverage: (query) => api.mappingCoverage({ ...query, changeSetId: initial.id }),
     mappingTargets: (query) => api.mappingTargets({ ...query, changeSetId: initial.id }),
     relationTable: (query) => api.relationTable({ ...query, changeSetId: initial.id }),
+    relationGrid: (query) => api.relationGrid({ ...query, changeSetId: initial.id }),
     mappingCandidates: (query) => api.mappingCandidates({ ...query, changeSetId: initial.id }),
     relationMatrix: (query) => api.relationMatrix({ ...query, changeSetId: initial.id }),
     relationMatrixContainers: (query) => api.relationMatrixContainers({ ...query, changeSetId: initial.id }),
@@ -87,6 +88,15 @@ export function createChangeSetClient(
       write((context) => api.deleteAttribute(type, id, key, version, context)),
     createRelation: (payload) => write((context) => api.createRelation({ ...payload, ...context })),
     updateRelation: (id, payload) => write((context) => api.updateRelation(id, { ...payload, ...context })),
+    // A dry run writes nothing, so it claims no version and leaves the change set's token as it is.
+    relationGridChange: (payload) =>
+      payload.dryRun
+        ? api.relationGridChange({
+            ...payload,
+            changeSetId: initial.id,
+            expectedChangeSetVersion: changeSet?.version ?? initial.version,
+          })
+        : write((context) => api.relationGridChange({ ...payload, ...context })),
     updateRelationBatch: (payload) => write((context) => api.updateRelationBatch({ ...payload, ...context })),
     deleteRelation: (id, version, _context, claim) =>
       write((context) => api.deleteRelation(id, version, context, claim)),

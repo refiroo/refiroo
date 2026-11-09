@@ -143,6 +143,8 @@ export interface RelationTableViewDefinition {
     sortFields: string[];
     defaultSort: string;
     groupBy?: "from" | "to" | null;
+    /** `grid`: each `from` record once with a column group per `to` record (0.13 RG); `rows` when absent. */
+    layout?: "rows" | "grid";
     pageSize: number;
   };
 }

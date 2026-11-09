@@ -5880,6 +5880,65 @@ DUPLICATE_BATCH_ITEMS` (a relationship twice) and `413 BATCH_TOO_LARGE` above `B
 caller needs the right to write the relationships' types, as for `PATCH`; the relation sets' versions
 and the matrix states follow as for any relationship write.
 
+### Relationships grid (RG)
+
+Delivered in 0.13 RG. A `relationTable` view whose `layout` is `grid` shows each `from` record once with a
+column group per related (`to`) record. Two routes serve it; both work on any `relationTable` view, whatever
+its `layout`.
+
+**`GET /workspaces/{key}/relation-grid`** with `applicationKey` and `viewKey` (and `changeSetId` or
+`publicationId`; `404 RELATION_TABLE_NOT_FOUND` for a view that is not a relationships table). The rows
+are every `from` record that matches the `from:` filters and `search` (linked or not), one each, paged as every
+collection (`cursor`, `position`, `from`, `includeTotal`, `seek`, `pageSize`) and ordered by `sort`, a
+`from:` sort field of the view (`defaultSort` when omitted; any other sort field falls back to the record's name;
+`422 INVALID_SORT` for a field the view does not declare), records without a value last.
+
+| Parameter | Meaning |
+| --- | --- |
+| `toObjectId` | Repeatable: show only these column records (still narrowed by the `to:` filters); none shows every matching record |
+| `attribute` | Repeatable, from the view's `attributeColumns`: return only these relationship values (`422 INVALID_ATTRIBUTE` otherwise); none returns every stored value |
+| `filter.<ref>.<operator>` | Repeatable. `from:<field>` selects the rows and `to:<field>` the column records with the object list's own filters for that type (every operator the list takes for the field: `eq`, `contains`, `startsWith`, ranges, `isNull`, `isUnset`, `related:<key>` with `eq`, `isNull`, `under`, `notUnder`, and the stamps live), with its validation and errors, live, in a change set and in a publication. The fields a grid offers are its own `filterFields` and the filter fields of the table view each end type's collection opens with (the navigation's `opens` view, else the application's default view, else its table; the grid's own application first); anything else is `422 INVALID_FILTER`. `relation:<attribute>` keeps the rows with a relationship to a shown column record whose value holds, with the operators the attribute's type takes |
+| `toSearch` | Searches the column records as their type's list searches; `search` does the same for the rows |
+| `search` | The row records' names, case-insensitively |
+
+Each row is `source` (the `from` record with the view's `fromColumns`), `mappingVersion` (its set of this
+binding, which a link claims) and `relations`: for each shown column record the row is related to, keyed by
+its ID, `relationId`, `version`, `attributes` and `proposed` (a change set stages that relationship; false live
+and in a publication). A column record without an entry is not linked. The page also gives `columns` (at most
+50 records, in name order: `id`, `objectTypeKey`, `name`, `label`, `fields` from `toColumns` and `linkedCount`,
+how many of the rows under the filters, on every page, are related to it), `columnTotal` (how many records match
+the column filters and the pick, so a viewer can be told to narrow them) and `rowTotal`. All of it is read in SQL
+in a fixed number of statements, live, in a change set and in a publication.
+
+**`POST /relations/grid-change`** sets one value on the relationships the grid shows, as one write, live or in a
+change set:
+
+```json
+{
+  "applicationKey": "…", "viewKey": "…",
+  "fromObjectIds": ["…"],
+  "toObjectIds": ["…"],
+  "attributeTypeKey": "requires-driver", "value": true,
+  "linkMissing": false, "dryRun": true
+}
+```
+
+The rows are `fromObjectIds` (the ticked ones) or `allMatching: true` with the grid's `search` and `filters`
+(`[{ "field": "from:category", "operator": "eq", "value": "Dental" }]`; `operator` is `eq` when omitted), less `exceptObjectIds`; exactly one of the two. `toObjectIds` (1 to 50) are the
+column records. The selection and the counts are read in PostgreSQL: `change` relationships hold another value,
+`same` already hold it, `missing` pairs are not related (every pair is checked). With `linkMissing` the missing
+pairs are related too, with that value. `dryRun` answers the counts and, in `refused`, every item the apply would
+be refused for (`index`, `relationId` or the pair, `code`, `message`), and writes nothing. An apply writes through
+the write unit as one batch, as `POST /relations/batch` does, with the rules of a single write (cardinality,
+uniqueness scope, conditions, attribute checks): any refusal refuses all, `RELATION_BATCH_REFUSED` (`409` for a
+stale version, else `422`) naming each item, and nothing is written. It answers the counts, `linked` (pairs
+related) and, in a change set, `changeSetVersion`; relationship versions, relation sets, history and matrix states
+follow as for any relationship write. `changeSetId` with `expectedChangeSetVersion` writes into a change set
+(`workspaceKey` names the workspace of live data). Also `422 INVALID_GRID_CHANGE` (an attribute the binding does
+not declare or that is not scalar, a value of another type, records of another type) and `413 BATCH_TOO_LARGE`
+above `ATOMIC_JOB_MAX_ITEMS` relationships to write, for the dry run too. The caller needs the right to write
+the relationships' types, as for `POST /relations/batch`.
+
 ## Product 0.8 restructuring API (Milestone C design)
 
 Designed in C0 ([ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back));

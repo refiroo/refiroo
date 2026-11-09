@@ -13,8 +13,9 @@ from typing import Any
 
 from ...errors import ApiError, api_error
 from ...models.schema import EngineModel
+from . import rules
 from .batch_lookup import BatchLookup
-from .relation_writes import decide_relation_update
+from .relation_writes import decide_relation_create, decide_relation_update
 
 
 @dataclass(frozen=True)
@@ -26,11 +27,26 @@ class RelationValues:
     attributes: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class RelationLink:
+    """A relationship to create: its type, ends and values (a grid change's "also link")."""
+
+    relation_type_key: str
+    from_object_id: str
+    to_object_id: str
+    attributes: dict[str, Any]
+
+
 def decide_relation_values(
-    lookup: BatchLookup, model: EngineModel, items: list[RelationValues]
+    lookup: BatchLookup,
+    model: EngineModel,
+    items: list[RelationValues],
+    links: list[RelationLink] | None = None,
 ) -> None:
-    """Decide every item over ``lookup``; raise ``RELATION_BATCH_REFUSED`` with every item that
-    failed (its position, relationship, code, message and details) when any did."""
+    """Decide every item over ``lookup``, then every link, each seeing those before it; raise
+    ``RELATION_BATCH_REFUSED`` with every one that failed (its position, relationship, code,
+    message and details) when any did."""
+    links = links or []
     ids = [item.relation_id for item in items]
     if len(set(ids)) != len(ids):
         repeated = sorted({item for item in ids if ids.count(item) > 1})
@@ -66,12 +82,50 @@ def decide_relation_values(
                     "details": error.details,
                 }
             )
+    if links:
+        ends = [end for link in links for end in (link.from_object_id, link.to_object_id)]
+        lookup.prefetch_objects(ends)
+        for relation_type_key in {link.relation_type_key for link in links}:
+            same = [link for link in links if link.relation_type_key == relation_type_key]
+            lookup.prefetch_relations(
+                [link.from_object_id for link in same], "outgoing", [relation_type_key]
+            )
+            lookup.prefetch_relations(
+                [link.to_object_id for link in same], "incoming", [relation_type_key]
+            )
+    for offset, link in enumerate(links, start=len(items)):
+        try:
+            with lookup.deciding():
+                found = lookup.objects([link.from_object_id, link.to_object_id])
+                for end in (link.from_object_id, link.to_object_id):
+                    if end not in found:
+                        raise rules.relation_endpoint_missing(end)
+                decide_relation_create(
+                    lookup,
+                    model,
+                    link.relation_type_key,
+                    found[link.from_object_id],
+                    found[link.to_object_id],
+                    link.attributes,
+                )
+        except ApiError as error:
+            failed.append(
+                {
+                    "index": offset,
+                    "relationId": None,
+                    "fromObjectId": link.from_object_id,
+                    "toObjectId": link.to_object_id,
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                }
+            )
     if failed:
         stale = any(entry["code"] in _CONFLICTS for entry in failed)
         raise api_error(
             409 if stale else 422,
             "RELATION_BATCH_REFUSED",
-            f"{len(failed)} of {len(items)} items were refused; nothing was written",
+            f"{len(failed)} of {len(items) + len(links)} items were refused; nothing was written",
             {"items": failed},
         )
 

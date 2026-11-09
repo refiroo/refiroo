@@ -10,7 +10,7 @@ last, and is closed by the relationship's ID so every page can be sought. With `
 are ordered by the group end's name first, so a group's rows stand together.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -43,7 +43,7 @@ from ..records.values import VALUE_COLUMNS
 from .object_query import parse_typed
 
 # What a record without a value sorts as inside its rank, so a cursor holds a value to compare.
-_NEUTRAL: dict[str, Any] = {
+NEUTRAL: dict[str, Any] = {
     "text": "",
     "integer": 0,
     "decimal": Decimal(0),
@@ -54,7 +54,7 @@ _NEUTRAL: dict[str, Any] = {
 _SCALAR = {"text": "text", "longText": "text"}
 
 
-def _kind(value_type: str) -> str:
+def value_kind(value_type: str) -> str:
     return _SCALAR.get(value_type, value_type)
 
 
@@ -75,7 +75,7 @@ class RelationTableQuery:
     group_column: Any | None
 
 
-def _format(value: Any) -> str:
+def format_value(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (date, datetime)):
@@ -83,7 +83,7 @@ def _format(value: Any) -> str:
     return str(value)
 
 
-def _end_value(
+def end_value(
     model: EngineModel,
     end: Subquery,
     field: str,
@@ -102,14 +102,16 @@ def _end_value(
             .correlate_except(AttributeValue)
             .scalar_subquery()
         )
-        return value, _kind(value_type)
-    return _json_value(type_coerce(end.c.attributes, JSON), field, value_type), _kind(value_type)
+        return value, value_kind(value_type)
+    return json_value(type_coerce(end.c.attributes, JSON), field, value_type), value_kind(
+        value_type
+    )
 
 
-def _json_value(document: Any, key: str, value_type: str) -> Any:
+def json_value(document: Any, key: str, value_type: str) -> Any:
     """One value of a JSON ``attributes`` document, typed as the value table types it."""
     item = document[key]
-    kind = _kind(value_type)
+    kind = value_kind(value_type)
     if kind == "text":
         return item.as_string()
     if kind == "integer":
@@ -121,6 +123,46 @@ def _json_value(document: Any, key: str, value_type: str) -> Any:
     if kind == "date":
         return cast(item.as_string(), Date)
     return cast(item.as_string(), DateTime(timezone=True))
+
+
+def field_conditions(
+    config: RelationTableViewConfig,
+    field_filters: list[tuple[str, str, str]],
+    value_of: Callable[[str], tuple[Any, str]],
+    allowed: Sequence[str] | None = None,
+) -> tuple[list[tuple[str, Any]], list[dict[str, str]]]:
+    """Each ``filter.<ref>.eq`` as (``ref``, its condition), and the filters in the form a cursor
+    binds; a field the view does not declare or another operator is ``422 INVALID_FILTER``."""
+    conditions: list[tuple[str, Any]] = []
+    normalized: list[dict[str, str]] = []
+    for ref, operator, lexical in field_filters:
+        if ref not in (config.filterFields if allowed is None else allowed):
+            raise api_error(
+                422,
+                "INVALID_FILTER",
+                f"'{ref}' is not one of the view's filterFields",
+                {"path": f"/query/filter.{ref}.{operator}"},
+            )
+        if operator != "eq":
+            raise api_error(
+                422,
+                "INVALID_FILTER",
+                f"Operator '{operator}' is not supported on a relationships table; use eq",
+                {"path": f"/query/filter.{ref}.{operator}"},
+            )
+        value, kind = value_of(ref)
+        try:
+            parsed = parse_typed(kind, lexical)
+        except ValueError:
+            raise api_error(
+                422,
+                "INVALID_FILTER",
+                f"Invalid {kind} value for '{ref}'",
+                {"path": f"/query/filter.{ref}.{operator}"},
+            ) from None
+        conditions.append((ref, value == literal(parsed, value.type)))
+        normalized.append({"field": ref, "operator": operator, "value": format_value(parsed)})
+    return conditions, normalized
 
 
 def build_relation_table_query(
@@ -147,10 +189,10 @@ def build_relation_table_query(
         place, field = parts
         if place == "relation":
             value_type = model.attribute_type(field).valueType
-            return _json_value(type_coerce(relations.c.attributes, JSON), field, value_type), _kind(
-                value_type
-            )
-        return _end_value(model, ends[place], field, live=live)
+            return json_value(
+                type_coerce(relations.c.attributes, JSON), field, value_type
+            ), value_kind(value_type)
+        return end_value(model, ends[place], field, live=live)
 
     conditions: list[Any] = [
         relations.c.relation_type_key == config.relationTypeKey,
@@ -169,34 +211,8 @@ def build_relation_table_query(
             )
         )
 
-    normalized: list[dict[str, str]] = []
-    for ref, operator, lexical in field_filters:
-        if ref not in config.filterFields:
-            raise api_error(
-                422,
-                "INVALID_FILTER",
-                f"'{ref}' is not one of the view's filterFields",
-                {"path": f"/query/filter.{ref}.{operator}"},
-            )
-        if operator != "eq":
-            raise api_error(
-                422,
-                "INVALID_FILTER",
-                f"Operator '{operator}' is not supported on a relationships table; use eq",
-                {"path": f"/query/filter.{ref}.{operator}"},
-            )
-        value, kind = value_of(ref)
-        try:
-            parsed = parse_typed(kind, lexical)
-        except ValueError:
-            raise api_error(
-                422,
-                "INVALID_FILTER",
-                f"Invalid {kind} value for '{ref}'",
-                {"path": f"/query/filter.{ref}.{operator}"},
-            ) from None
-        conditions.append(value == literal(parsed, value.type))
-        normalized.append({"field": ref, "operator": operator, "value": _format(parsed)})
+    parsed_filters, normalized = field_conditions(config, field_filters, value_of)
+    conditions.extend(condition for _ref, condition in parsed_filters)
     normalized.sort(key=lambda item: (item["field"], item["value"]))
 
     join = relations.join(from_end, from_end.c.id == relations.c.from_object_id).join(
@@ -224,7 +240,7 @@ def build_relation_table_query(
                 attribute=label,
                 descending=down,
                 parse=parse,
-                format=_format,
+                format=format_value,
             )
         )
 
@@ -245,7 +261,7 @@ def build_relation_table_query(
             {"path": "/query/sort"},
         )
     column, kind = value_of(ref)
-    neutral = literal(_NEUTRAL[kind], column.type)
+    neutral = literal(NEUTRAL[kind], column.type)
 
     def parse(raw: str, kind: str = kind) -> Any:
         return parse_typed(kind, raw)

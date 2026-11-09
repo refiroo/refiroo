@@ -77,7 +77,18 @@ is:
   window; both records' columns and the relationship's attributes as columns, a filter bar from
   `filterFields`, sort on the headers, group headings with counts, a cell edited where it stands
   through the shared `RelationAttributes` and saved as it is left, ticked rows set through
-  `POST /relations/batch`; edit controls are hidden where the data cannot be written
+  `POST /relations/batch`; edit controls are hidden where the data cannot be written. With `layout: "grid"`
+  (0.13 RG) each `from` record is one row and each related record a tinted column group with the attributes
+  under it (a not-linked pair is hatched and linked with one click, a yes/no value flips with one click, other
+  values edit in a small floating form and only that row is read again). The toolbar is the from
+  type's collection's own (`ObjectToolbar`: search, asking in words, the filter bar with its fields and operators,
+  over the main view's filter fields and the grid's own, the relationship's attribute values among them), a
+  Display menu for the columns and attributes shown (the record's name is always shown), and a menu for the
+  related records holding the same toolbar over the to type's main view and a pick by name (at most 50, in the
+  address). Both header rows stay in view while the rows scroll. Rows are selected as a
+  collection's are (the selection bar, "Select all N matching", the header checkbox) and the bar's Change
+  relationship values opens a dialog: attribute, where (all shown records or one), the value, the engine's
+  count (changes, already that value, not linked, with "Also link them") and any refusal, then Apply
 - `tree`: hierarchy browsing, contextual child creation and safe parent selection; sibling ordering
   has no separately accepted contract
 - `dashboard`: unscheduled concept, not a release commitment

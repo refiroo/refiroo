@@ -8,6 +8,8 @@ from ...models.commands import RelationCreate
 from ...models.database import ObjectRelation, RdmObject
 from ...models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..model.traversal import ancestor_type_keys
+from ..reads.mapping_projection import context_projection
+from ..reads.relation_grid import record_ids_selector
 from ..workspaces.catalogue import resolve_workspace
 from . import rules
 from .batch_lookup import LiveBatchLookup
@@ -15,6 +17,7 @@ from .bulk import write_live
 from .context import load_object
 from .refusals import LIVE
 from .relation_batch import RelationValues, decide_relation_values
+from .relation_grid_change import GridChange, GridChangeResult, decide_grid_change, plan_grid_change
 from .relation_set_versions import SetClaim
 from .relation_writes import decide_relation_create, decide_relation_delete, decide_relation_update
 from .writes import LiveWrites
@@ -210,6 +213,42 @@ def update_live_relations(
         )
     }
     return [rows[item.relation_id] for item in items]
+
+
+def change_live_grid(
+    session: Session,
+    model: EngineModel,
+    workspace_key: str,
+    change: GridChange,
+    *,
+    dry_run: bool,
+    max_items: int,
+) -> GridChangeResult:
+    """One value set on the live relationships of a grid's selection as one write, or on a dry
+    run only counted and decided (``RELATION_BATCH_REFUSED`` items are then the answer's
+    ``refused``). The write holds the workspace lock from before the selection is read."""
+    resolve_workspace(session, workspace_key, require_active=not dry_run)
+    writes = None if dry_run else LiveWrites(session, workspace_key)
+    objects, relations = context_projection(session, workspace_key, None, None)
+    plan = plan_grid_change(
+        session,
+        model,
+        change,
+        objects,
+        relations,
+        live=True,
+        record_ids=record_ids_selector(
+            session, model, workspace_key=workspace_key, change_set_id=None, publication_id=None
+        ),
+        max_items=max_items,
+        collect=True,
+    )
+    lookup = LiveBatchLookup.of(session, workspace_key)
+    refused = decide_grid_change(lookup, model, plan, collect=dry_run)
+    if writes is not None:
+        write_live(writes, model, lookup.changes())
+        session.commit()
+    return GridChangeResult(plan, refused)
 
 
 def delete_live_relation(

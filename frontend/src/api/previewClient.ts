@@ -47,6 +47,7 @@ const READS = [
   "mappingCandidates",
   "mappingTargets",
   "relationTable",
+  "relationGrid",
   "relationMatrix",
   "relationMatrixContainers",
   "relationMatrixLinkCandidates",

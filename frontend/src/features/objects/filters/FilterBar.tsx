@@ -122,6 +122,7 @@ const conditionKey = (entry: CollectionFilter) =>
 
 /** The field's kind, from the model: a relationship, or the attribute's value type. */
 export function filterKind(model: EngineModel, field: string): FilterKind {
+  if (field.startsWith("relation:")) return filterKind(model, field.slice("relation:".length));
   if (field.startsWith(RELATED_FIELD_PREFIX)) return "relation";
   if (["createdAt", "updatedAt"].includes(field)) return "date";
   const type: ValueType | undefined = model.attributeTypes.find((item) => item.key === field)?.valueType;

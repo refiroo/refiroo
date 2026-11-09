@@ -1,0 +1,111 @@
+/* A relationships grid (0.13 RG): each record once, a tinted column group per related record. */
+.relation-grid-table thead tr:nth-child(2) th {
+  top: var(--grid-head-1, 40px);
+}
+.relation-grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface-sunken, var(--surface-fill));
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+.relation-grid-table .relation-grid-select {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 40px;
+  text-align: center;
+  background: var(--surface-raised);
+}
+.relation-grid-table .relation-grid-name {
+  position: sticky;
+  left: 40px;
+  z-index: 2;
+  min-width: 190px;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+.relation-grid-table thead .relation-grid-select,
+.relation-grid-table thead .relation-grid-name {
+  z-index: 4;
+}
+.relation-grid-table tbody tr.is-selected td {
+  background: color-mix(in srgb, var(--action-primary) 7%, var(--surface-raised));
+}
+.relation-grid-table th.relation-grid-group {
+  border-left: 1px solid var(--state-selected-line);
+  background: color-mix(in srgb, var(--hue-fill, var(--state-selected)) 80%, var(--surface-fill));
+}
+.relation-grid-group-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.relation-grid-table th.relation-grid-sub {
+  background: color-mix(in srgb, var(--hue-fill, var(--state-selected)) 60%, var(--surface-fill));
+}
+.relation-grid-table .first {
+  border-left: 1px solid var(--state-selected-line);
+}
+.relation-grid-table td.relation-grid-value {
+  position: relative;
+  background: color-mix(in srgb, var(--state-selected) 16%, var(--surface-raised));
+}
+.relation-grid-table td.is-proposed {
+  background: color-mix(in srgb, var(--context-change-set-surface) 70%, var(--surface-raised));
+}
+.relation-grid-proposed {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--context-change-set-marker);
+}
+.relation-grid-table td.relation-grid-unlinked {
+  background: repeating-linear-gradient(135deg, transparent 0 6px, var(--border-faint) 6px 7px);
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+.relation-grid-unlinked-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.relation-grid-unlinked-note button {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+  opacity: 0;
+}
+tr:hover .relation-grid-unlinked-note button,
+.relation-grid-unlinked-note button:focus-visible {
+  opacity: 1;
+}
+.relation-grid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+.relation-grid-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.relation-grid-proposed-key {
+  position: static;
+  display: inline-block;
+}
+.relation-grid-hatch {
+  display: inline-block;
+  width: 16px;
+  height: 12px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(135deg, transparent 0 4px, var(--border-control) 4px 5px);
+}

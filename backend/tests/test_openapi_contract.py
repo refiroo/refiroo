@@ -433,9 +433,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # /relations/batch` (`RelationBatchUpdate`, `RelationBatchItem`, `RelationBatchResponse`); the
     # workspace edge list takes `fromObjectId`, `toObjectId`, `sort`, `filter.<field>.<operator>`
     # and the seek parameters, and its rows carry `relationVersion` and its page `groupCounts`.
+    # Re-baselined for 0.13 RG (additive): `GET /workspaces/{key}/relation-grid` (`RelationGridPage`,
+    # `RelationGridRow`, `RelationGridColumn`, `RelationGridRelation`); `POST /relations/grid-change`
+    # (`RelationGridChange`, `RelationGridFilter`, `RelationGridChangeResponse`,
+    # `RelationGridChangeItem`); the relationships table's `layout` in the model schema.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "bc8be555995d119fa0e1f9a8d9182f650ca4182b287fa9b4dc1d88c2668b30f8"
+        "dc398254cca4a6e616bfd01a7d0b71e6837b895f578efe12fdb9e65273bd3afe"
     )
 
 
@@ -471,6 +475,7 @@ def test_paging_openapi_inventory():
         "/api/v1/workspaces/{workspace_key}/relations",
         "/api/v1/workspaces/{workspace_key}/mapping-coverage",
         "/api/v1/workspaces/{workspace_key}/relation-matrix",
+        "/api/v1/workspaces/{workspace_key}/relation-grid",
     }
     paged = set()
     for path, operations in document["paths"].items():
@@ -505,8 +510,8 @@ def test_paging_openapi_inventory():
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
     # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox;
-    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes; 0.16 AG1 agent clients, assistants and calls; 0.16 AO3 the followed workspaces.
-    assert seekable <= paged and len(paged) == 72
+    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes; 0.16 AG1 agent clients, assistants and calls; 0.16 AO3 the followed workspaces; 0.13 RG a relationships grid's rows.
+    assert seekable <= paged and len(paged) == 73
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

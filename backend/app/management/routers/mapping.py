@@ -28,6 +28,7 @@ from ..projections.mapping import (
     coverage,
     list_mappings,
     open_mapping_read,
+    relation_grid,
     target_details,
     validate_binding,
 )
@@ -39,6 +40,7 @@ from ..schemas.mapping import (
     MappingListPage,
     MappingReplacementResponse,
     MappingTargetPage,
+    RelationGridPage,
 )
 
 router = APIRouter(
@@ -243,6 +245,102 @@ def get_workspace_relations(
     field filters over the view's ``sortFields`` and ``filterFields``, and ``groupCounts`` with
     ``groupBy``."""
     return edge_list(session, query, paging, "workspace-relations")
+
+
+@router.get(
+    "/relation-grid",
+    response_model=RelationGridPage,
+    tags=["relations"],
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "filter.<field>.<operator>",
+                "in": "query",
+                "required": False,
+                "description": (
+                    "Repeatable: filter.<ref>.eq=<value>, <ref> one of the view's filterFields."
+                    " from:<field> narrows the rows, to:<field> the column groups and"
+                    " relation:<attribute> keeps the rows with a relationship to a shown column"
+                    " record that holds the value"
+                ),
+                "schema": {"type": "string"},
+            }
+        ]
+    },
+)
+@accepts_field_filters
+@requires("records.read", at=WORKSPACE_PATH)
+def get_relation_grid(
+    request: Request,
+    workspace_key: str,
+    session: DbSession,
+    paging: SeekablePageQuery,
+    application_key: str = Query(alias="applicationKey"),
+    view_key: str = Query(alias="viewKey"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
+    to_object_ids: Annotated[
+        list[str] | None,
+        Query(
+            alias="toObjectId",
+            description="Repeatable: show only these column records (still narrowed by the to:"
+            " filters); none shows every matching record, at most 50",
+        ),
+    ] = None,
+    attributes: Annotated[
+        list[str] | None,
+        Query(
+            alias="attribute",
+            description="Repeatable: return only these relationship attributes, from the view's"
+            " attributeColumns; none returns every stored value of the relationship",
+        ),
+    ] = None,
+    search: str | None = Query(
+        default=None,
+        max_length=500,
+        description="Search the row records, as the object list of their type searches",
+    ),
+    to_search: str | None = Query(
+        default=None,
+        alias="toSearch",
+        max_length=500,
+        description="Search the column records, as the object list of their type searches",
+    ),
+    sort: str | None = Query(
+        default=None,
+        description="One of the view's sortFields, '-' for descending; only from:<field> orders"
+        " the rows, any other falls back to the record's name. The view's defaultSort when omitted",
+    ),
+    page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+) -> RelationGridPage:
+    """A relationships table as a grid (layout ``grid``, 0.13 RG): each record of the view's
+    ``from`` type once, linked or not, with its relationships to the shown ``to`` records, and
+    those column groups (``columns``, at most 50 of ``columnTotal``) with how many of the rows
+    each is related to. Rows page by cursor, position or seek, in live data, a change set (a
+    relationship it stages is ``proposed``) or a publication."""
+    if change_set_id and publication_id:
+        raise api_error(
+            422,
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
+            "changeSetId and publicationId cannot be combined",
+        )
+    return relation_grid(
+        session,
+        workspace_key,
+        application_key,
+        view_key,
+        scope="relation-grid",
+        change_set_id=change_set_id,
+        publication_id=publication_id,
+        to_object_ids=list(dict.fromkeys(to_object_ids or [])),
+        attributes=attributes,
+        field_filters=field_filters(request),
+        search=search,
+        to_search=to_search,
+        sort=sort,
+        page=paging,
+        page_size=page_size,
+    )
 
 
 @router.get("/mapping-candidates", response_model=MappingCandidatePage)

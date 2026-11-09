@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ...common.pagination import PageRequest, paginate_statement
 from ...engine.change_sets.records import (
+    change_set_relation_grid,
     delete_change_set_relation,
     put_change_set_relation,
     update_change_set_relation,
@@ -33,8 +34,10 @@ from ...engine.reads.snapshot_reads import (
 )
 from ...engine.records.context import load_active_projection
 from ...engine.records.relation_batch import RelationValues
+from ...engine.records.relation_grid_change import GridChange
 from ...engine.records.relation_set_versions import anchored_set_versions, set_claim
 from ...engine.records.relations import (
+    change_live_grid,
     create_live_relation,
     delete_live_relation,
     load_relation,
@@ -48,6 +51,7 @@ from ...models.commands import (
     ChangeSetRelationWrite,
     RelationBatchUpdate,
     RelationCreate,
+    RelationGridChange,
     RelationUpdate,
 )
 from ...models.database import RdmObject
@@ -70,6 +74,8 @@ from ..schemas.records import (
     HeldRecordPage,
     RelationBatchResponse,
     RelationExpansion,
+    RelationGridChangeItem,
+    RelationGridChangeResponse,
     RelationPage,
     RelationResponse,
     RelationSetVersionItem,
@@ -162,6 +168,78 @@ def update_relations(
             build_relation_response(row)
             for row in update_live_relations(session, model, workspace.key, items)
         ]
+    )
+
+
+@router.post("/relations/grid-change", response_model=RelationGridChangeResponse)
+@requires("records.write", at=RECORD_CREATE)
+def change_relation_grid(
+    payload: RelationGridChange, request: Request, session: DbSession
+) -> RelationGridChangeResponse:
+    """Set one attribute value on the relationships a relationships grid shows, as one write, live
+    or in a change set (0.13 RG).
+
+    The rows are the ticked ``fromObjectIds`` or, with ``allMatching``, every record the grid's
+    ``search`` and ``filters`` select; the columns are ``toObjectIds``. The selection is read in the
+    database: ``dryRun`` answers how many relationships ``change`` (hold another value), already
+    hold it (``same``) and are not related (``missing``), with what an apply would be refused for
+    in ``refused``, and writes nothing. An apply changes the relationships that differ and, with
+    ``linkMissing``, relates the missing pairs with the value, all or none: a refusal is ``409
+    RELATION_BATCH_REFUSED`` (a stale version) or ``422``, naming each item. ``413
+    BATCH_TOO_LARGE`` above ``ATOMIC_JOB_MAX_ITEMS`` relationships to write; ``422
+    INVALID_GRID_CHANGE`` for an attribute the binding does not declare, a value of another type or
+    records of another type."""
+    max_items = request.app.state.batch_limits.atomic_max_items
+    change = GridChange(
+        application_key=payload.applicationKey,
+        view_key=payload.viewKey,
+        from_object_ids=(
+            [str(item) for item in payload.fromObjectIds]
+            if payload.fromObjectIds is not None
+            else None
+        ),
+        to_object_ids=[str(item) for item in payload.toObjectIds],
+        field_filters=[(item.field, item.operator, item.value) for item in payload.filters],
+        search=payload.search or None,
+        attribute_type_key=payload.attributeTypeKey,
+        value=payload.value,
+        link_missing=payload.linkMissing,
+        except_ids=[str(item) for item in payload.exceptObjectIds] or None,
+    )
+    version = None
+    if payload.changeSetId:
+        change_set = str(payload.changeSetId)
+        expected = _ctx(change_set, payload.expectedChangeSetVersion)
+        result = change_set_relation_grid(
+            session, change_set, expected, change, dry_run=payload.dryRun, max_items=max_items
+        )
+        if not payload.dryRun:
+            version = change_set_context(session, change_set).change_set.version
+    else:
+        workspace = resolve_workspace(session, payload.workspaceKey)
+        model = resolve_model_snapshot(session, workspace.key).model
+        result = change_live_grid(
+            session, model, workspace.key, change, dry_run=payload.dryRun, max_items=max_items
+        )
+    plan = result.plan
+    return RelationGridChangeResponse(
+        dryRun=payload.dryRun,
+        change=plan.change,
+        same=plan.same,
+        missing=plan.missing,
+        linked=plan.linked,
+        refused=[
+            RelationGridChangeItem(
+                index=item["index"],
+                relationId=item.get("relationId"),
+                fromObjectId=item.get("fromObjectId"),
+                toObjectId=item.get("toObjectId"),
+                code=item["code"],
+                message=item["message"],
+            )
+            for item in result.refused
+        ],
+        changeSetVersion=version,
     )
 
 

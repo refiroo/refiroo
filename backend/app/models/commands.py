@@ -5,7 +5,7 @@ item and its single-write route validate one shape.
 """
 
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -167,6 +167,60 @@ class RelationBatchUpdate(BaseModel):
     workspaceKey: str | None = None
     changeSetId: UUID4 | None = None
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+
+
+class RelationGridFilter(BaseModel):
+    """One ``filter.<ref>.eq`` of a relationships grid as a body carries it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: str = Field(min_length=1)
+    operator: str = Field(default="eq", min_length=1)
+    value: str
+
+
+class RelationGridChange(BaseModel):
+    """One value set on the relationships between many ``from`` records and some ``to`` records
+    of a relationships grid, all or none (0.13 RG).
+
+    The rows are ``fromObjectIds`` (the ticked ones) or, with ``allMatching``, every record the
+    ``search`` and ``filters`` of the grid select, less ``exceptObjectIds``; the columns are ``toObjectIds`` (the shown or
+    picked groups, at most 50). ``value`` is set on ``attributeTypeKey`` of each relationship
+    between them that holds another value (``null`` clears it); with ``linkMissing`` the pairs not
+    yet related are related too, with that value. ``dryRun`` answers the counts and every refusal
+    the apply would meet, and writes nothing. In live data the relationships are those of
+    ``workspaceKey`` (the default workspace without it); with ``changeSetId`` they are the change
+    set's and ``expectedChangeSetVersion`` is required.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    applicationKey: str
+    viewKey: str
+    fromObjectIds: list[UUID4] | None = Field(default=None, min_length=1)
+    allMatching: bool = False
+    # With ``allMatching``: rows left out of the selection, as a collection's selection keeps them.
+    exceptObjectIds: list[UUID4] = Field(default_factory=list)
+    search: str | None = Field(default=None, max_length=500)
+    filters: list[RelationGridFilter] = Field(default_factory=list)
+    toObjectIds: list[UUID4] = Field(min_length=1, max_length=50)
+    attributeTypeKey: str
+    value: Any = None
+    linkMissing: bool = False
+    dryRun: bool = False
+    workspaceKey: str | None = None
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _selection(self) -> Self:
+        if (self.fromObjectIds is None) == (not self.allMatching):
+            raise ValueError("give either fromObjectIds or allMatching: true, not both or neither")
+        if self.fromObjectIds is not None and (self.search or self.filters or self.exceptObjectIds):
+            raise ValueError(
+                "search, filters and exceptObjectIds select rows only with allMatching: true"
+            )
+        return self
 
 
 class WorkspaceCreate(BaseModel):

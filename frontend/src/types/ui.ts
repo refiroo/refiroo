@@ -32,6 +32,10 @@ export interface CollectionQueryState {
   matrixColumnIds?: string[];
   /** Relation-matrix-only: rows with a cell in this state in any shown column. */
   matrixState?: "one" | "several" | "inactive" | "historyOnly" | "none";
+  /** Relationships-grid-only: the `to` records shown as column groups; absent shows those the filters select. */
+  gridColumnIds?: string[];
+  /** Relationships-grid-only: the search over the column records. */
+  gridSearch?: string;
   /** Cursor that reopens the page at the top of the list (ADR-030); omitted on the first page. */
   anchor?: string;
 }

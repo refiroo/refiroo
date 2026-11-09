@@ -237,6 +237,8 @@ class RelationMatrixViewDefinition(ModelDefinition):
 
 
 RelationTableGroup = Literal["from", "to"]
+# One row per relationship, or one row per ``from`` record with a column group per ``to`` record.
+RelationTableLayout = Literal["rows", "grid"]
 
 
 class RelationTableViewConfig(ModelDefinition):
@@ -247,6 +249,10 @@ class RelationTableViewConfig(ModelDefinition):
     or sort field names its place: ``from:<field>``, ``to:<field>`` (``name`` or a scalar attribute
     of that end's type) or ``relation:<attribute>``. ``defaultSort`` is one of ``sortFields``, with
     ``-`` for descending. ``groupBy`` heads the rows by their ``from`` or ``to`` record.
+
+    ``layout`` ``grid`` shows each ``from`` record once with a column group per ``to`` record, the
+    relationship's ``attributeColumns`` under it (0.13 RG): ``from:`` sorts order the rows,
+    ``groupBy`` is ignored and the first ``toColumns`` field labels a column group.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -261,6 +267,7 @@ class RelationTableViewConfig(ModelDefinition):
     sortFields: tuple[str, ...] = Field(min_length=1)
     defaultSort: str
     groupBy: RelationTableGroup | None = None
+    layout: RelationTableLayout = Field(default="rows", exclude_if=lambda value: value == "rows")
     pageSize: int = Field(ge=1, le=100)
 
 

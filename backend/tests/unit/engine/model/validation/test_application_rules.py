@@ -97,3 +97,10 @@ def test_a_filter_needs_a_filterable_attribute_and_a_sort_does_not():
 
     found = _compile(make_unfilterable)
     assert found and found[0][0] == _path("filterFields", "1"), found
+
+
+def test_a_table_may_be_a_grid_and_no_other_layout_exists():
+    assert _compile(lambda c, _m: c.update(layout="grid")) == []
+    assert _compile(lambda c, _m: c.update(layout="rows")) == []
+    found = _compile(lambda c, _m: c.update(layout="columns"))
+    assert found and found[0][0].endswith("/config/layout"), found

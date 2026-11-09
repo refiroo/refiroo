@@ -131,6 +131,9 @@ import type {
   MappingReplacementRequest,
   MappingReplacementResponse,
   RelationMatrixPage,
+  RelationGridChangeInput,
+  RelationGridChangeResult,
+  RelationGridPage,
   RelationTablePage,
   RelationBatchInput,
   RelationBatchResult,
@@ -376,6 +379,25 @@ export interface RelationTableQuery extends PageSelector {
   sort?: string;
   /** Equalities on the view's `filterFields`, by field reference (`from:name`, `relation:<attribute>`). */
   filters?: { field: string; value: string }[];
+}
+
+/** A relationships grid's rows and column groups: the view read as a grid (0.13 RG). */
+export interface RelationGridQuery extends PageSelector {
+  workspaceKey: string;
+  applicationKey: string;
+  viewKey: string;
+  changeSetId?: string;
+  publicationId?: string;
+  search?: string;
+  pageSize?: number;
+  /** The column records to show; none shows those the `to:` filters select, at most 50. */
+  toObjectIds?: string[];
+  /** Searches the column records as their type's list does. */
+  toSearch?: string;
+  /** Only these relationship attributes are returned; none returns every stored value. */
+  attributes?: string[];
+  sort?: string;
+  filters?: { field: string; operator?: string; value: string }[];
 }
 
 export interface MappingTargetQuery {
@@ -1719,6 +1741,29 @@ export const api = {
       `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/relations?${params}`,
     );
   },
+  relationGrid: (query: RelationGridQuery) => {
+    const params = new URLSearchParams({ applicationKey: query.applicationKey, viewKey: query.viewKey });
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    if (query.publicationId) params.set("publicationId", query.publicationId);
+    if (query.search) params.set("search", query.search);
+    if (query.sort) params.set("sort", query.sort);
+    if (query.toSearch) params.set("toSearch", query.toSearch);
+    for (const id of query.toObjectIds ?? []) params.append("toObjectId", id);
+    for (const key of query.attributes ?? []) params.append("attribute", key);
+    for (const filter of query.filters ?? [])
+      params.append(`filter.${filter.field}.${filter.operator ?? "eq"}`, filter.value);
+    setPaging(params, query);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    return request<RelationGridPage>(
+      `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/relation-grid?${params}`,
+    );
+  },
+  /** One value set on the relationships a grid shows, or on a dry run only counted (0.13 RG). */
+  relationGridChange: (payload: RelationGridChangeInput & ChangeSetWriteContext) =>
+    request<RelationGridChangeResult>("/api/v1/relations/grid-change", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   /** Values set on many relationships as one write; any stale or invalid item refuses all (0.13 RV). */
   updateRelationBatch: (payload: RelationBatchInput & ChangeSetWriteContext) =>
     request<RelationBatchResult>("/api/v1/relations/batch", { method: "POST", body: JSON.stringify(payload) }),
