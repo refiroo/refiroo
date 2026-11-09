@@ -686,3 +686,270 @@ export function tableSortSpec(model: EngineModel, place: LayoutPlace, view: Tabl
     ],
   );
 }
+
+// --- the settings a page, a table and a panel hold beyond their contents (0.13 ED) ---
+
+const sortableFields = (model: EngineModel, typeKeys: readonly string[], keep: readonly string[]) => {
+  const sortable = new Set(model.attributeTypes.filter((item) => item.features?.sortable).map((item) => item.key));
+  const attributes = typeKeys.flatMap(
+    (key) => model.objectTypes.find((item) => item.key === key)?.attributes.map((item) => item.attributeTypeKey) ?? [],
+  );
+  return [...new Set(["name", ...keep, ...attributes.filter((key) => sortable.has(key))])];
+};
+
+const PAGE_SIZES = [10, 20, 25, 50, 100].map((size) => ({ value: String(size), label: String(size) }));
+const pageSizeOptions = (current: number) =>
+  PAGE_SIZES.some((item) => item.value === String(current))
+    ? PAGE_SIZES
+    : [...PAGE_SIZES, { value: String(current), label: String(current) }].sort(
+        (a, b) => Number(a.value) - Number(b.value),
+      );
+
+/** The operations that set the properties of `values` that differ from what is held now. */
+const changed = (
+  target: Record<string, unknown>,
+  properties: { property: string; now: unknown; next: unknown }[],
+): DraftOperation[] =>
+  properties
+    .filter((item) => JSON.stringify(item.now ?? null) !== JSON.stringify(item.next ?? null))
+    .map((item) => ({ kind: "setViewProperty", ...target, property: item.property, value: item.next ?? null }));
+
+/**
+ * The page's header and breadcrumbs: which field titles a record and which sits under it, whether the
+ * header names the type, and which of the application, the type and the ancestors lead the breadcrumbs.
+ */
+export function pageHeaderSpec(model: EngineModel, place: LayoutPlace, detail: DetailViewDefinition): OperationSpec {
+  const fields = options(model, [
+    "name",
+    ...(model.objectTypes.find((item) => item.key === place.objectTypeKey)?.attributes ?? []).map(
+      (item) => item.attributeTypeKey,
+    ),
+  ]);
+  const { header, breadcrumbs } = detail;
+  return spec(
+    "layout-page-header",
+    "Header and breadcrumbs",
+    [
+      { name: "title", label: "Title of the record", type: "select", required: true, options: fields },
+      {
+        name: "subtitle",
+        label: "Line under the title",
+        type: "select",
+        options: [{ value: "", label: "None" }, ...fields],
+      },
+      { name: "headerType", label: "Show the type's name in the header", type: "checkbox" },
+      { name: "crumbApplication", label: "Breadcrumbs start with the application", type: "checkbox" },
+      { name: "crumbType", label: "Breadcrumbs name the type", type: "checkbox" },
+      { name: "crumbAncestors", label: "Breadcrumbs name the records above it", type: "checkbox" },
+    ],
+    {
+      title: header.titleField,
+      subtitle: header.subtitleField ?? "",
+      headerType: header.showObjectType,
+      crumbApplication: breadcrumbs.showApplication,
+      crumbType: breadcrumbs.showObjectType,
+      crumbAncestors: breadcrumbs.showAncestors,
+    },
+    (values) =>
+      changed(page(place), [
+        { property: "header.titleField", now: header.titleField, next: text(values.title) },
+        { property: "header.subtitleField", now: header.subtitleField, next: text(values.subtitle) || null },
+        { property: "header.showObjectType", now: header.showObjectType, next: values.headerType === true },
+        {
+          property: "breadcrumbs.showApplication",
+          now: breadcrumbs.showApplication,
+          next: values.crumbApplication === true,
+        },
+        { property: "breadcrumbs.showObjectType", now: breadcrumbs.showObjectType, next: values.crumbType === true },
+        { property: "breadcrumbs.showAncestors", now: breadcrumbs.showAncestors, next: values.crumbAncestors === true },
+      ]),
+  );
+}
+
+/** A table's sort menu (the fields a reader may sort by) and the number of rows on a page. */
+export function tableMenuSpec(model: EngineModel, place: LayoutPlace, view: TableViewDefinition): OperationSpec {
+  const current = view.config.sortFields;
+  return spec(
+    "layout-table-menu",
+    `Sort menu and page size of ${view.name}`,
+    [
+      {
+        name: "sortFields",
+        label: "Fields a reader can sort by",
+        type: "checkboxes",
+        options: options(model, sortableFields(model, [view.objectTypeKey], current)),
+        hint: "Only fields set to be sortable are offered. The default sort stays one of them.",
+      },
+      {
+        name: "pageSize",
+        label: "Rows on a page",
+        type: "select",
+        required: true,
+        options: pageSizeOptions(view.config.pageSize),
+      },
+    ],
+    { sortFields: current, pageSize: String(view.config.pageSize) },
+    (values) => {
+      const chosen = list(values.sortFields);
+      const defaultField = view.config.defaultSort.replace(/^-/, "");
+      const target = viewTarget(place, view);
+      const keeps = chosen.includes(defaultField);
+      return [
+        // A default sort the new list no longer holds moves to its first field before the list changes.
+        ...(keeps || !chosen.length
+          ? []
+          : [{ kind: "setViewProperty", ...target, property: "defaultSort", value: chosen[0] } as DraftOperation]),
+        ...changed(target, [
+          { property: "sortFields", now: current, next: chosen.length ? chosen : current },
+          { property: "pageSize", now: view.config.pageSize, next: Number(values.pageSize) },
+        ]),
+      ];
+    },
+  );
+}
+
+/**
+ * The settings of one panel: which relationships a relations panel lists, their direction, the
+ * relationship column and the sort menu; a hierarchy panel's parent and ancestors; a table panel's
+ * parent filter; a page size. Undefined for a panel with none (an attributes panel).
+ */
+export function panelSettingsSpec(
+  model: EngineModel,
+  place: LayoutPlace,
+  panel: PanelDefinition,
+): OperationSpec | undefined {
+  const target = { ...page(place), panel: panel.key };
+  if (panel.type === "relations") {
+    const config = panel.config;
+    const held = [
+      ...new Set(
+        model.objectTypeRelations
+          .filter(
+            (item) => item.fromObjectTypeKey === place.objectTypeKey || item.toObjectTypeKey === place.objectTypeKey,
+          )
+          .map((item) => item.relationTypeKey),
+      ),
+    ];
+    const related = panelTypes(model, place, panel);
+    return spec(
+      "layout-panel-settings",
+      `Settings of ${panel.title}`,
+      [
+        {
+          name: "relations",
+          label: "Relationships listed",
+          type: "checkboxes",
+          options: held.map((key) => ({
+            value: key,
+            label: model.relationTypes.find((item) => item.key === key)?.name ?? key,
+          })),
+        },
+        {
+          name: "direction",
+          label: "Listed from",
+          type: "select",
+          required: true,
+          options: [
+            { value: "outgoing", label: "This record to the others" },
+            { value: "incoming", label: "The others to this record" },
+            { value: "both", label: "Both ways" },
+          ],
+        },
+        { name: "relationshipColumn", label: "Show which relationship joins each record", type: "checkbox" },
+        {
+          name: "sortFields",
+          label: "Fields a reader can sort by",
+          type: "checkboxes",
+          options: options(model, sortableFields(model, related, config.sortFields ?? [])),
+          hint: "Leave all unchecked to list by name.",
+        },
+      ],
+      {
+        relations: config.relationTypeKeys,
+        direction: config.direction,
+        relationshipColumn: config.showRelationshipColumn === true,
+        sortFields: config.sortFields ?? [],
+      },
+      (values) => {
+        const chosen = list(values.sortFields);
+        const defaultField = config.defaultSort?.replace(/^-/, "");
+        return [
+          ...(config.defaultSort && !chosen.includes(defaultField ?? "")
+            ? [
+                {
+                  kind: "setViewProperty",
+                  ...target,
+                  property: "defaultSort",
+                  value: chosen[0] ?? null,
+                } as DraftOperation,
+              ]
+            : []),
+          ...changed(target, [
+            { property: "relationTypeKeys", now: config.relationTypeKeys, next: list(values.relations) },
+            { property: "direction", now: config.direction, next: text(values.direction) },
+            {
+              property: "showRelationshipColumn",
+              now: config.showRelationshipColumn === true,
+              next: values.relationshipColumn === true,
+            },
+            { property: "sortFields", now: config.sortFields ?? [], next: chosen.length ? chosen : null },
+          ]),
+        ];
+      },
+    );
+  }
+  if (panel.type === "hierarchy") {
+    const config = panel.config;
+    return spec(
+      "layout-panel-settings",
+      `Settings of ${panel.title}`,
+      [
+        { name: "showParent", label: "Show the parent", type: "checkbox" },
+        { name: "showAncestors", label: "Show the records above the parent", type: "checkbox" },
+      ],
+      { showParent: config.showParent, showAncestors: config.showAncestors },
+      (values) =>
+        changed(target, [
+          { property: "showParent", now: config.showParent, next: values.showParent === true },
+          { property: "showAncestors", now: config.showAncestors, next: values.showAncestors === true },
+        ]),
+    );
+  }
+  if (panel.type === "table" || panel.type === "children") {
+    const config = panel.config;
+    return spec(
+      "layout-panel-settings",
+      `Settings of ${panel.title}`,
+      [
+        ...(panel.type === "table"
+          ? [
+              {
+                name: "filterByParent",
+                label: "List only the records under this one",
+                type: "checkbox",
+              } as OperationField,
+            ]
+          : []),
+        {
+          name: "pageSize",
+          label: "Rows on a page",
+          type: "select",
+          required: true,
+          options: pageSizeOptions(config.pageSize),
+        },
+      ],
+      {
+        ...(panel.type === "table" ? { filterByParent: panel.config.filterByParent } : {}),
+        pageSize: String(config.pageSize),
+      },
+      (values) =>
+        changed(target, [
+          ...(panel.type === "table"
+            ? [{ property: "filterByParent", now: panel.config.filterByParent, next: values.filterByParent === true }]
+            : []),
+          { property: "pageSize", now: config.pageSize, next: Number(values.pageSize) },
+        ]),
+    );
+  }
+  return undefined;
+}

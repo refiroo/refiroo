@@ -93,6 +93,7 @@ export function OperationDialog({
       </ConfirmDialog>
     );
 
+  const preview = operation.preview?.(values, target as never, outline);
   const missing = missingField(operation, target, outline, values);
   const fields = visibleFields(operation, target, outline, values).map((field) => ({
     ...field,
@@ -121,15 +122,12 @@ export function OperationDialog({
     <Modal
       title={title}
       eyebrow="Change the model"
-      size={operation.preview ? "wide" : "compact"}
+      size={preview ? "wide" : "compact"}
       busy={pending}
       onClose={onClose}
     >
-      <form
-        className={`dialog-body operation-form${operation.preview ? " operation-form-beside" : ""}`}
-        onSubmit={submit}
-      >
-        {operation.preview && <MatrixPreviewPane preview={operation.preview(values, target as never, outline)} />}
+      <form className={`dialog-body operation-form${preview ? " operation-form-beside" : ""}`} onSubmit={submit}>
+        {preview && <MatrixPreviewPane preview={preview} />}
         {fields.map((field, index) => {
           if (field.type === "checkbox")
             return (

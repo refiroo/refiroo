@@ -64,6 +64,17 @@ const LISTS: Record<string, string> = {
   fields: "the fields of",
 };
 
+const PROPERTY_WORDS: Record<string, string> = {
+  minimum: "minimum",
+  maximum: "maximum",
+  hidden: "visibility",
+  helpText: "help text",
+  displayAttributeTypeKey: "display attribute",
+  effectivePeriod: "effective period",
+  atLeastOneOf: "attributes of which one must be filled",
+  parentRelationTypeKeys: "parent relationships",
+};
+
 function listWords(p: Record<string, unknown>, names: Names): string {
   if (str(p.list) === "panels") return layoutTarget(p, names);
   return `${LISTS[str(p.list)] ?? `${str(p.list)} of`} ${layoutTarget(p, names)}`;
@@ -128,6 +139,14 @@ export function describeOperation(
       return `Removed attribute type ${attribute(p.attributeType)}`;
     case "setAttributeTypeFeatures":
       return `Changed the features of ${attribute(p.attributeType)}`;
+    case "setAttributeTypeProperty":
+      return `Changed the ${PROPERTY_WORDS[str(p.property)] ?? str(p.property)} of ${attribute(p.attributeType)}`;
+    case "setObjectTypeProperty":
+      return `Changed the ${PROPERTY_WORDS[str(p.property)] ?? str(p.property)} of ${type(p.objectType)}`;
+    case "setRelationTypeProperty":
+      return `Made ${relation(p.relationType)} ${p.value === false ? "not oriented" : "oriented"}`;
+    case "setApplicationProperty":
+      return `Set the default view of ${names("application", str(p.applicationKey))} to ${str(p.value)}`;
     case "setValueType":
       return `Made ${attribute(p.attributeType)} ${str(p.valueType)}`;
     case "attachAttribute":
@@ -141,6 +160,7 @@ export function describeOperation(
         return `Moved ${attribute(p.attributeType)} on ${type(p.objectType)} to place ${Number(p.position) + 1}`;
       if ("required" in p)
         return `Made ${attribute(p.attributeType)} on ${type(p.objectType)} ${p.required ? "required" : "optional"}`;
+      if ("ui" in p) return `Changed how ${attribute(p.attributeType)} shows on ${type(p.objectType)}`;
       return `Made ${attribute(p.attributeType)} on ${type(p.objectType)} ${p.readOnly ? "read-only" : "editable"}`;
     case "setContainment": {
       const parent = (p.parent as { objectTypes?: string[] } | null)?.objectTypes?.[0];

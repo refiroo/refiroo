@@ -40,6 +40,8 @@ import { ProfileLoadDialog } from "./ProfileLoadDialog";
 import { ignoreColumn, renameColumn, setMissing } from "./profileEdits";
 import { count } from "./limits";
 import { useCapabilities } from "./useSystem";
+import { DeleteAction } from "./DeleteAction";
+import { useHoldsGroup } from "@/app/useMe";
 
 const IMPORTS: Extract<SettingsRoute, { page: "import-profiles" }> = { kind: "settings", page: "import-profiles" };
 
@@ -127,6 +129,10 @@ export function ImportProfilesPage({
               onChanged={(changed) =>
                 feed.setItems((items) => items.map((item) => (item.key === changed.key ? changed : item)))
               }
+              onDeleted={(key) => {
+                feed.setItems((items) => items.filter((item) => item.key !== key));
+                onNavigate(IMPORTS);
+              }}
               onOpenReview={({ applicationKey, workspaceKey, changeSetId }) =>
                 onNavigate({
                   kind: "changeSetChanges",
@@ -186,6 +192,7 @@ function ProfileDetail({
   defaultWorkspace,
   job,
   onChanged,
+  onDeleted,
   onOpenReview,
 }: {
   profileKey: string;
@@ -195,10 +202,14 @@ function ProfileDetail({
   job: (jobId: string) => void;
   /** The profile changed here: the catalogue shows it too. */
   onChanged: (profile: ImportProfile) => void;
+  /** The profile was deleted here. */
+  onDeleted: (profileKey: string) => void;
   onOpenReview: (target: { applicationKey: string; workspaceKey: string; changeSetId: string }) => void;
 }) {
   const { capabilities } = useCapabilities();
   const canWrite = capabilities?.integrationJobs.createJobs ?? false;
+  // Profiles and files are deleted by those who may import; others are not offered it.
+  const canDelete = useHoldsGroup("bulk") === true;
   const [profile, setProfile] = useState<ImportProfile>();
   const [file, setFile] = useState<SourceFile | null>();
   const [check, setCheck] = useState<ProfileCheck | null>();
@@ -328,19 +339,54 @@ function ProfileDetail({
         </div>
         <StatusPill tone={profile.valid ? "success" : "error"}>{profile.valid ? "Valid" : "Needs a fix"}</StatusPill>
       </header>
-      {canWrite && (
+      {(canWrite || canDelete) && (
         <div className="model-actions">
-          <button type="button" className="secondary" onClick={() => setDialog({ kind: "upload" })}>
-            Upload the next version…
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={!canLoad || checking}
-            onClick={() => setDialog({ kind: "load" })}
-          >
-            Load into a change set…
-          </button>
+          {canWrite && (
+            <>
+              <button type="button" className="secondary" onClick={() => setDialog({ kind: "upload" })}>
+                Upload the next version…
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={!canLoad || checking}
+                onClick={() => setDialog({ kind: "load" })}
+              >
+                Load into a change set…
+              </button>
+            </>
+          )}
+          {canDelete && file && (
+            <DeleteAction
+              label="Delete the file…"
+              title={`Delete ${file.name}?`}
+              confirmLabel="Delete the file"
+              onDelete={async () => {
+                await api.deleteSourceFile(file.id, file.version);
+                reads.current += 1;
+                setCheck(undefined);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              The uploaded file {file.name}, its stored cells and its profiling are deleted, and a check or dry run
+              still reading it is stopped. The profile stays, and so do the records already loaded from the file. Upload
+              the file again to check it.
+            </DeleteAction>
+          )}
+          {canDelete && (
+            <DeleteAction
+              label="Delete the profile…"
+              title={`Delete the profile ${profile.name}?`}
+              confirmLabel="Delete the profile"
+              onDelete={async () => {
+                await api.deleteImportProfile(profile.key, profile.version);
+                onDeleted(profile.key);
+              }}
+            >
+              The profile {profile.name} is deleted. The records already loaded through it stay. Loading this workbook
+              again needs a new profile, saved by installing a model draft that holds it.
+            </DeleteAction>
+          )}
         </div>
       )}
       <Section

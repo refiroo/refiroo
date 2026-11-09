@@ -219,6 +219,17 @@ describe("the consumer API steps in words (0.10 A4c)", () => {
       "Set Shop feed to contract version 2",
     ],
     [
+      "raiseConsumerApiVersion",
+      { consumerApi: "shop-feed", version: 2, keep: true },
+      "Raised Shop feed to contract version 2, keeping the earlier one",
+    ],
+    ["removeConsumerApiVersion", { consumerApi: "shop-feed", version: 1 }, "Stopped serving version 1 of Shop feed"],
+    [
+      "setConsumerApiSunset",
+      { consumerApi: "shop-feed", version: 1, sunset: "2027-06-30" },
+      "Set the sunset of version 1 of Shop feed to 2027-06-30",
+    ],
+    [
       "setConsumerApiPart",
       { consumerApi: "shop-feed", pointer: "/operations/xref", value: null },
       "Stopped offering XREF in Shop feed",
@@ -286,6 +297,27 @@ describe("what a step could not keep (found 2026-10-19)", () => {
     expect(describeStep(step, names)).toMatch(
       /\. Removed, as their types no longer stand in one application: Shelves by area in Shop and the Shelves panel of Area in Shop\. Undo puts them back\.$/,
     );
+  });
+});
+
+describe("the words for the settings kinds (0.13 ED)", () => {
+  it("names what changed on which element", () => {
+    expect(
+      describeOperation("setObjectTypeProperty", { objectType: "shelf", property: "effectivePeriod" }, names),
+    ).toBe("Changed the effective period of Shelf");
+    expect(describeOperation("setAttributeTypeProperty", { attributeType: "depth", property: "minimum" }, names)).toBe(
+      "Changed the minimum of Depth",
+    );
+    expect(describeOperation("setRelationTypeProperty", { relationType: "stores", value: false }, names)).toBe(
+      "Made Stores not oriented",
+    );
+    expect(
+      describeOperation(
+        "setAttributeBinding",
+        { objectType: "shelf", attributeType: "depth", ui: { hidden: true } },
+        names,
+      ),
+    ).toBe("Changed how Depth shows on Shelf");
   });
 });
 

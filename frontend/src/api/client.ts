@@ -1060,6 +1060,11 @@ export const api = {
     return request<ModelMapping>(`/api/v1/model-mappings/${encodeURIComponent(key)}?${params}`);
   },
   /** A mapping between the releases two workspaces run, with no type mapped (D104). */
+  /** Delete a mapping with its history and proposals at its version (0.13 ED). */
+  deleteModelMapping: (key: string, expectedVersion: number) =>
+    request<void>(`/api/v1/model-mappings/${encodeURIComponent(key)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
   createModelMapping: (body: { key: string; name: string; sourceWorkspaceKey: string; targetWorkspaceKey: string }) =>
     request<ModelMapping>("/api/v1/model-mappings", { method: "POST", body: JSON.stringify(body) }),
   /** One step of a mapping's history (D107). */

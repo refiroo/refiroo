@@ -23,6 +23,8 @@ import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { STATE } from "@/features/jobs/jobText";
 import { useCapabilities } from "@/features/settings/useSystem";
+import { DeleteAction } from "@/features/settings/DeleteAction";
+import { useHoldsGroup } from "@/app/useMe";
 import { NewMoveDialog } from "./NewMoveDialog";
 import { moveAbility } from "./moveAbility";
 
@@ -42,6 +44,8 @@ export function MovesPage({ onNavigate }: { onNavigate: (route: RouteState) => v
   const workspaces = workspaceFeed.items;
   const { capabilities } = useCapabilities();
   const ability = moveAbility(capabilities);
+  // A mapping is deleted by those who copy and move records; others are not offered it.
+  const canDelete = useHoldsGroup("copy-move") === true;
   const [creating, setCreating] = useState(false);
   // Each step of the editor replaces its dry run; the cancelled ones say nothing (D140).
   const listed = moves.items.filter((job) => job.state !== "cancelled" && job.state !== "expired");
@@ -79,7 +83,10 @@ export function MovesPage({ onNavigate }: { onNavigate: (route: RouteState) => v
         ) : mappings.items.length === 0 ? (
           <EmptyState>No mapping yet. New copy or move… proposes one between the models of two workspaces.</EmptyState>
         ) : (
-          <SettingsTable label="Mappings" columns={["Mapping", "From model", "To model", "Version", "Updated"]}>
+          <SettingsTable
+            label="Mappings"
+            columns={["Mapping", "From model", "To model", "Version", "Updated", ...(canDelete ? ["Actions"] : [])]}
+          >
             {mappings.items.map((mapping) => {
               const pair = workspacesFor(mapping, workspaces);
               return (
@@ -96,6 +103,23 @@ export function MovesPage({ onNavigate }: { onNavigate: (route: RouteState) => v
                   <td data-label="To model">{mapping.targetModelKey}</td>
                   <td data-label="Version">{mapping.version}</td>
                   <td data-label="Updated">{formatServerTime(mapping.updatedAt)}</td>
+                  {canDelete && (
+                    <td data-label="Actions">
+                      <DeleteAction
+                        label="Delete…"
+                        title={`Delete the mapping ${mapping.name}?`}
+                        confirmLabel="Delete the mapping"
+                        onDelete={async () => {
+                          await api.deleteModelMapping(mapping.key, mapping.version);
+                          mappings.setItems((items) => items.filter((item) => item.key !== mapping.key));
+                        }}
+                      >
+                        The mapping from {mapping.sourceModelKey} to {mapping.targetModelKey} is deleted with its
+                        history and proposals. Copies and moves already made stay as they are; a new one needs a new
+                        mapping.
+                      </DeleteAction>
+                    </td>
+                  )}
                 </tr>
               );
             })}

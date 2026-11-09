@@ -366,7 +366,7 @@ export interface OutlineView {
   shows: string[];
   /** A relation matrix's configuration, as the model declares it. */
   matrix?: Record<string, unknown> | null;
-  /** A relationships table's configuration, as the model declares it. */
+  /** A tree's, a mapping grid's or a relationships table's configuration, as the model declares it (0.13 ED). */
   config?: Record<string, unknown> | null;
   mark: OutlineMark;
 }
@@ -416,6 +416,9 @@ export interface OutlineAttribute {
   readOnly: boolean;
   unique: boolean;
   sharedWith: string[];
+  /** The display hints this type gives the attribute (0.13 ED). */
+  hidden?: boolean;
+  helpText?: string | null;
   mark: OutlineMark;
 }
 
@@ -427,6 +430,12 @@ export interface OutlineObjectType {
   description?: string | null;
   rootCreatable: boolean;
   parents: string[];
+  /** The attribute that names a record, its effective period, the attributes of which one must be
+   * filled and the relation types that place it under a parent (0.13 ED). */
+  displayAttribute?: string | null;
+  effectivePeriod?: { startAttributeTypeKey: string; endAttributeTypeKey: string } | null;
+  atLeastOneOf?: string[];
+  parentRelationTypeKeys?: string[];
   attributes: OutlineAttribute[];
   mark: OutlineMark;
 }
@@ -436,6 +445,11 @@ export interface OutlineAttributeType {
   name: string;
   valueType?: string | null;
   features: Record<string, unknown>;
+  /** The bounds of a number type and its display hints (0.13 ED). */
+  minimum?: number | null;
+  maximum?: number | null;
+  hidden?: boolean;
+  helpText?: string | null;
   boundBy: string[];
   mark: OutlineMark;
 }
@@ -446,6 +460,7 @@ export interface OutlineRelationType {
   name: string;
   reverseName?: string | null;
   containment: boolean;
+  isOriented?: boolean;
   mark: OutlineMark;
 }
 
@@ -455,11 +470,11 @@ export interface OutlineRelation {
   to: string;
   cardinality?: string | null;
   required: boolean;
+  /** The attributes a relationship carries (0.13 ED). */
+  attributeTypeKeys?: string[];
   containment: boolean;
   /** The ancestor type under which a source may hold only one target; absent without the rule. */
   uniquePer?: string | null;
-  /** The attribute types the relationship itself carries; absent without. */
-  attributeTypeKeys?: string[] | null;
   /** Which records may be chosen at each end (0.9 K7); absent without criteria. */
   candidates?: {
     from?: { field: string; op: string; value: string | number | boolean }[];

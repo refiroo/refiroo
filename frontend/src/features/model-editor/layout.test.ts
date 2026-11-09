@@ -10,10 +10,13 @@ import {
   moveField,
   movePanel,
   newFieldGroupSpec,
+  pageHeaderSpec,
   panelColumnsSpec,
+  panelSettingsSpec,
   panelToRegion,
   tableColumnsSpec,
   tableFiltersSpec,
+  tableMenuSpec,
   tableSortSpec,
 } from "@/features/model-editor/layout";
 import type { DetailViewDefinition, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
@@ -347,5 +350,85 @@ describe("related columns and panels in the editor (0.13 RL)", () => {
     const labels = relation && "options" in relation ? fieldOptions(relation, {}).map((option) => option.label) : [];
     expect(labels).toContain("Served by mode (on the page)");
     expect(labels).toContain("Is represented by system code (on the page)");
+  });
+});
+
+describe("the settings of a page, a table and a panel (0.13 ED)", () => {
+  const none = undefined as never;
+
+  it("sets the header and the breadcrumbs, sending only what changed", () => {
+    const spec = pageHeaderSpec(model, place, detail);
+    const initial = spec.initial?.(none, none) ?? {};
+    expect(initial).toMatchObject({ title: "name", subtitle: "", headerType: true, crumbAncestors: true });
+    expect(spec.build(initial, none, none)).toEqual([]);
+    expect(
+      spec.build(
+        { ...initial, title: "code", subtitle: "colour", headerType: false, crumbAncestors: false },
+        none,
+        none,
+      ),
+    ).toEqual([
+      { kind: "setViewProperty", ...target, property: "header.titleField", value: "code" },
+      { kind: "setViewProperty", ...target, property: "header.subtitleField", value: "colour" },
+      { kind: "setViewProperty", ...target, property: "header.showObjectType", value: false },
+      { kind: "setViewProperty", ...target, property: "breadcrumbs.showAncestors", value: false },
+    ]);
+  });
+
+  const view = {
+    key: "items",
+    name: "Items",
+    type: "table",
+    objectTypeKey: "item",
+    config: { columns: ["name"], filterFields: [], sortFields: ["name", "code"], defaultSort: "-code", pageSize: 20 },
+  } as unknown as TableViewDefinition;
+  const sortable = {
+    ...model,
+    attributeTypes: model.attributeTypes.map((item) => ({ ...item, features: { sortable: item.key !== "price" } })),
+  } as unknown as EngineModel;
+
+  it("sets a table's sort menu and page size, moving the default sort off a field that leaves the menu", () => {
+    const spec = tableMenuSpec(sortable, place, view);
+    const field = spec.fields?.(none, none)[0];
+    expect(field && "options" in field ? fieldOptions(field, {}).map((item) => item.value) : []).toEqual([
+      "name",
+      "code",
+      "colour",
+    ]);
+    expect(spec.build({ sortFields: ["name", "code"], pageSize: "20" }, none, none)).toEqual([]);
+    expect(spec.build({ sortFields: ["name", "colour"], pageSize: "50" }, none, none)).toEqual([
+      { kind: "setViewProperty", applicationKey: "catalogue", view: "items", property: "defaultSort", value: "name" },
+      {
+        kind: "setViewProperty",
+        applicationKey: "catalogue",
+        view: "items",
+        property: "sortFields",
+        value: ["name", "colour"],
+      },
+      { kind: "setViewProperty", applicationKey: "catalogue", view: "items", property: "pageSize", value: 50 },
+    ]);
+  });
+
+  it("sets what a hierarchy panel and a table panel show", () => {
+    const hierarchy = panelSettingsSpec(model, place, panel("hierarchy", "side", 10))!;
+    expect(hierarchy.build({ showParent: true, showAncestors: false }, none, none)).toEqual([
+      { kind: "setViewProperty", ...target, panel: "hierarchy", property: "showAncestors", value: false },
+    ]);
+    const table = {
+      key: "children",
+      title: "Children",
+      type: "table",
+      region: "main",
+      order: 30,
+      visible: true,
+      config: { objectTypeKey: "item", columns: [], filterByParent: false, pageSize: 10 },
+    } as unknown as PanelDefinition;
+    expect(panelSettingsSpec(model, place, table)!.build({ filterByParent: true, pageSize: "25" }, none, none)).toEqual(
+      [
+        { kind: "setViewProperty", ...target, panel: "children", property: "filterByParent", value: true },
+        { kind: "setViewProperty", ...target, panel: "children", property: "pageSize", value: 25 },
+      ],
+    );
+    expect(panelSettingsSpec(model, place, panel("details", "main", 10, []))).toBeUndefined();
   });
 });

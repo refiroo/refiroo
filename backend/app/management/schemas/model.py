@@ -643,7 +643,7 @@ class OutlineView(BaseModel):
     shows: list[str]
     # A relation matrix's configuration, as the model declares it; absent on other kinds.
     matrix: dict[str, Any] | None = None
-    # A relationships table's configuration, as the model declares it; absent on other kinds.
+    # A tree's, a mapping grid's or a relationships table's configuration, as the model declares it (0.13 ED); absent on other kinds.
     config: dict[str, Any] | None = None
     mark: OutlineMark
 
@@ -671,6 +671,9 @@ class OutlineAttribute(BaseModel):
     readOnly: bool
     unique: bool
     sharedWith: list[str]
+    # The display hints this type gives the attribute (0.13 ED).
+    hidden: bool = False
+    helpText: str | None = None
     mark: OutlineMark
 
 
@@ -682,6 +685,13 @@ class OutlineObjectType(BaseModel):
     description: str | None = None
     rootCreatable: bool
     parents: list[str]
+    # What the editor's Settings show (0.13 ED): the attribute that names a record, its effective
+    # period (start and end date attributes), the attributes of which one must be filled and the
+    # relation types that place it under a parent.
+    displayAttribute: str | None = None
+    effectivePeriod: dict[str, str] | None = None
+    atLeastOneOf: list[str] = []
+    parentRelationTypeKeys: list[str] = []
     attributes: list[OutlineAttribute]
     mark: OutlineMark
 
@@ -691,6 +701,11 @@ class OutlineAttributeType(BaseModel):
     name: str
     valueType: str | None = None
     features: dict[str, Any]
+    # Bounds of a number type and display hints (0.13 ED).
+    minimum: float | int | None = None
+    maximum: float | int | None = None
+    hidden: bool = False
+    helpText: str | None = None
     boundBy: list[str]
     mark: OutlineMark
 
@@ -701,6 +716,7 @@ class OutlineRelationType(BaseModel):
     name: str
     reverseName: str | None = None
     containment: bool
+    isOriented: bool = True
     mark: OutlineMark
 
 
@@ -710,11 +726,11 @@ class OutlineRelation(BaseModel):
     to: str
     cardinality: str | None = None
     required: bool
+    # The attributes a relationship carries (0.13 ED).
+    attributeTypeKeys: list[str] = []
     containment: bool
     # The ancestor type under which a source may hold only one target; absent without the rule.
     uniquePer: str | None = None
-    # The attribute types the relationship itself carries; absent without.
-    attributeTypeKeys: list[str] | None = None
     # Which records may be chosen at each end (0.9 K7), as the model declares it; absent without.
     candidates: dict[str, Any] | None = None
     mark: OutlineMark

@@ -52,7 +52,8 @@ async function journey(label, source) {
       .first()
       .click();
     await page.getByRole("heading", { name: "Views", level: 3 }).waitFor();
-    await page.getByRole("button", { name: "Relation matrix", exact: true }).click();
+    await page.getByRole("button", { name: "View", exact: true }).click();
+    await dialog().getByLabel("Kind of view").selectOption("relationMatrix");
 
     // A row type this application does not list, so the dialog says it will be.
     const offered = await dialog()
