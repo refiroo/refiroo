@@ -72,6 +72,8 @@ const REFUSALS: Record<string, (version: string) => string> = {
   REQUIRED_RELATION_MISSING: (version) => `Lacks a relationship ${version} requires`,
   PARENT_REQUIRED: (version) => `Must stand under a parent in ${version}`,
   PARENT_RELATION_SEMANTICS_CHANGED: (version) => `${version} has no place for it under its parent`,
+  APPLICATION_TARGET_AMBIGUOUS: (version) =>
+    `${version} lists its type in several applications, and none is the one it newly gains: choose the application in the mapping`,
   CHANGE_SET_CONFLICT: () => "Changed both in the change set and live since the change set started",
   MAPPING_SET_CHANGED: () => "Its relationships changed live since the change set started",
   MISSING_REQUIRED_ATTRIBUTES: (version) => `A field ${version} requires is empty`,

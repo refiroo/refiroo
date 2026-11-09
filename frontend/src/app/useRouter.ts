@@ -11,7 +11,9 @@ import {
   missingElement,
   relocatedPath,
   parseRoute,
+  routeChangeSetId,
   routePath,
+  routePublicationId,
   type MissingElement,
 } from "@/routing/routes";
 import { historyState, navigationEntry, restoreOrigin, routeWithOrigin } from "@/routing/navigationHistory";
@@ -103,6 +105,48 @@ export async function openingWorkspace(defaultWorkspaceKey: string): Promise<str
   return page.items[0]?.key;
 }
 
+/** The change set or publication an address shows its data in; none means the workspace's own model. */
+interface ModelContext {
+  changeSetId?: string;
+  publicationId?: string;
+}
+
+const sameContext = (a: ModelContext | undefined, b: ModelContext | undefined) =>
+  (a?.changeSetId ?? "") === (b?.changeSetId ?? "") && (a?.publicationId ?? "") === (b?.publicationId ?? "");
+
+function addressContext(location: Pick<Location, "pathname" | "search">): ModelContext | undefined {
+  const query = new URLSearchParams(location.search);
+  const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const changeSetId =
+    query.get("changeSetId")?.trim() ||
+    (parts[0] === "apps" && parts[2] === "change-sets" && parts[3] ? parts[3] : undefined);
+  if (changeSetId) return { changeSetId };
+  const publicationId = query.get("publicationId")?.trim();
+  return publicationId ? { publicationId } : undefined;
+}
+
+function routeContext(route: RouteState): ModelContext | undefined {
+  const changeSetId = routeChangeSetId(route);
+  if (changeSetId) return { changeSetId };
+  const publicationId = routePublicationId(route);
+  return publicationId ? { publicationId } : undefined;
+}
+
+/**
+ * The model of an address's context: the change set's or publication's own release (it may be newer
+ * than the workspace's active one), else the workspace's. Read afresh on entering a context, since a
+ * change set's model can change; one that cannot be read falls back to the workspace's, and the
+ * page then says what is wrong with the change set itself.
+ */
+async function contextModel(workspaceKey: string, context: ModelContext | undefined): Promise<EngineModel> {
+  if (!context) return workspaceModel(workspaceKey);
+  try {
+    return await api.model({ workspaceKey, ...context });
+  } catch {
+    return workspaceModel(workspaceKey);
+  }
+}
+
 /** The bare address, naming no workspace: home (0.12 HM1, D331). */
 function isHomeAddress(location: Pick<Location, "pathname" | "search">) {
   return (
@@ -130,7 +174,7 @@ export function useRouter(): Router {
   const mostRecentCollection = useRef<ListRoute | undefined>(undefined);
   const mostRecentApplicationRoute = useRef<ApplicationRoute | undefined>(undefined);
   const currentRoute = useRef<RouteState | undefined>(undefined);
-  const shown = useRef<{ model: EngineModel; workspaceKey: string } | undefined>(undefined);
+  const shown = useRef<{ model: EngineModel; workspaceKey: string; context?: ModelContext } | undefined>(undefined);
   const defaultKey = useRef("default");
   const historyIndex = useRef(0);
   const restoring = useRef(false);
@@ -139,8 +183,14 @@ export function useRouter(): Router {
 
   /** Show `next` under `loaded`, the model of `workspaceKey`, with what could not be shown. */
   const show = useCallback(
-    (loaded: EngineModel, workspaceKey: string, next: RouteState, found: RouteProblem | undefined) => {
-      shown.current = { model: loaded, workspaceKey };
+    (
+      loaded: EngineModel,
+      workspaceKey: string,
+      next: RouteState,
+      found: RouteProblem | undefined,
+      context?: ModelContext,
+    ) => {
+      shown.current = { model: loaded, workspaceKey, context };
       currentRoute.current = next;
       setModel(loaded);
       setModelWorkspaceKey(workspaceKey);
@@ -168,13 +218,15 @@ export function useRouter(): Router {
           workspaceKey: fallback,
           route: outside ? parseRoute(empty, fallback, location) : defaultRoute(empty, fallback),
           problem: undefined,
+          context: undefined,
         };
       // Settings and home keep the model of the workspace shown before them (D49).
       const workspaceKey = outside
         ? (shown.current?.workspaceKey ?? fallback)
         : addressWorkspaceKey(fallback, location);
+      const context = outside ? shown.current?.context : addressContext(location);
       try {
-        const loaded = await workspaceModel(workspaceKey);
+        const loaded = await contextModel(workspaceKey, context);
         // A collection a migration moved to another application opens there, in place of this entry.
         const moved = outside ? undefined : relocatedPath(loaded, location);
         if (moved) {
@@ -188,6 +240,7 @@ export function useRouter(): Router {
           workspaceKey,
           route: parsed,
           problem: missing ? { ...missing, workspaceKey } : undefined,
+          context,
         };
       } catch (cause) {
         const unknown = isApiError(cause, "WORKSPACE_NOT_FOUND");
@@ -204,6 +257,7 @@ export function useRouter(): Router {
             workspaceKey,
             ...(unknown ? {} : { unavailable: errorMessage(cause) }),
           },
+          context: undefined,
         };
       }
     },
@@ -224,7 +278,7 @@ export function useRouter(): Router {
         const entry = navigationEntry(window.history.state, `${window.location.pathname}${window.location.search}`);
         const resolved = await resolveAddress(window.location, entry);
         historyIndex.current = entry?.index ?? 0;
-        show(resolved.loaded, resolved.workspaceKey, resolved.route, resolved.problem);
+        show(resolved.loaded, resolved.workspaceKey, resolved.route, resolved.problem, resolved.context);
         // An address that cannot be shown stays in the address bar, so it can be corrected or shared.
         if (!resolved.problem)
           window.history.replaceState(
@@ -274,7 +328,7 @@ export function useRouter(): Router {
               "",
               routePath(resolved.route),
             );
-          show(resolved.loaded, resolved.workspaceKey, resolved.route, resolved.problem);
+          show(resolved.loaded, resolved.workspaceKey, resolved.route, resolved.problem, resolved.context);
         })
         .catch((cause) => setError(errorMessage(cause)));
     };
@@ -312,6 +366,7 @@ export function useRouter(): Router {
       workspaceKey: string,
       /** A page carried over by a switch of workspace: not asked for, so its absence is no problem. */
       carried = false,
+      context?: ModelContext,
     ) => {
       const asked = routePath(destination);
       const moved = isApplicationRoute(destination)
@@ -334,7 +389,7 @@ export function useRouter(): Router {
         "",
         address,
       );
-      show(loaded, workspaceKey, shownRoute, missing && !carried ? { ...missing, workspaceKey } : undefined);
+      show(loaded, workspaceKey, shownRoute, missing && !carried ? { ...missing, workspaceKey } : undefined, context);
     },
     [show],
   );
@@ -345,15 +400,22 @@ export function useRouter(): Router {
       const destination = routeWithOrigin(next, currentRoute.current);
       const current = shown.current;
       const workspaceKey = isApplicationRoute(destination) ? destination.workspaceKey : current?.workspaceKey;
+      const context = isApplicationRoute(destination) ? routeContext(destination) : current?.context;
       const ticket = ++sequence.current;
-      if (current && (!workspaceKey || workspaceKey === current.workspaceKey)) {
-        commit(destination, replace, current.model, current.workspaceKey);
+      if (
+        current &&
+        (!workspaceKey || workspaceKey === current.workspaceKey) &&
+        sameContext(context, current.context)
+      ) {
+        commit(destination, replace, current.model, current.workspaceKey, false, current.context);
         return true;
       }
-      // Another workspace: its model first, then its page under that model (0.11 M5).
-      workspaceModel(workspaceKey!)
+      // Another workspace or another change set or publication: its model first, then its page under
+      // that model (0.11 M5). A change set's release can add what the workspace's active one lacks.
+      contextModel(workspaceKey ?? current!.workspaceKey, context)
         .then((loaded) => {
-          if (ticket === sequence.current) commit(destination, replace, loaded, workspaceKey!, carried);
+          if (ticket === sequence.current)
+            commit(destination, replace, loaded, workspaceKey ?? current!.workspaceKey, carried, context);
         })
         .catch((cause) => {
           if (ticket !== sequence.current || !current) return;
@@ -388,8 +450,8 @@ export function useRouter(): Router {
     forgetWorkspaceModel(workspaceKey);
     const current = shown.current;
     if (!current || (workspaceKey !== undefined && workspaceKey !== current.workspaceKey)) return;
-    const loaded = await workspaceModel(current.workspaceKey);
-    shown.current = { model: loaded, workspaceKey: current.workspaceKey };
+    const loaded = await contextModel(current.workspaceKey, current.context);
+    shown.current = { model: loaded, workspaceKey: current.workspaceKey, context: current.context };
     setModel(loaded);
   }, []);
 

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from ....errors import ApiError
 from ....models.database import ModelDraft, ModelRelease
 from ..compiler import compile_model
-from ..migrations import check_landing
+from ..migrations import arrived_applications, check_landing
 from ..registry import resolve_pinned_release
 from ..workspace_models import load_assignment
 from .history import effective_entries
@@ -85,6 +85,13 @@ def derive(
     ``to`` the release it goes to (the one installed from the draft): the steps are read against the
     first, whatever the draft was based on when they were applied, and the models are the two
     releases'."""
+    if against is None and workspace_key is not None:
+        # The migration starts from the release the workspace runs: after an install the draft is
+        # based on the release it installed, which a migration read would otherwise start from.
+        running = load_assignment(session, workspace_key)[1]
+        own = base_release(session, draft)
+        if own is None or running.release_key == own.release_key:
+            against = running
     release = against or base_release(session, draft)
     base = release.model_json if release is not None else {}
     model = (to.model_json if to is not None else draft.model_json) or {}
@@ -315,7 +322,7 @@ def application_target(was_in: set[str | None], now_in: set[str]) -> str | None:
     are, and one that only left (the target lists it elsewhere) names no destination: the migration
     sends its records to the one application that lists it, or lists them as lost."""
     left = {app for app in was_in if app} - now_in
-    arrived = sorted(now_in - {app for app in was_in if app})
+    arrived = arrived_applications(was_in, now_in)
     return arrived[0] if left and arrived else None
 
 

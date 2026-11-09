@@ -131,6 +131,8 @@ describe("record navigation", () => {
     act(() => {
       first.result.current.navigate({ ...detail, changeSetId: "draft-1" });
     });
+    // The change set's model loads before its page shows.
+    await waitFor(() => expect(first.result.current.route).toMatchObject({ changeSetId: "draft-1" }));
     expect(first.result.current.route).not.toHaveProperty("collectionOrigin");
     act(() => {
       first.result.current.navigate({ ...detail, workspaceKey: "east" });
@@ -297,6 +299,86 @@ describe("a workspace's own model (0.11 M5, D48, D49)", () => {
     });
     await waitFor(() => expect(router.result.current.problem).toBeUndefined());
     expect(router.result.current.model).toBe(testModel);
+  });
+});
+
+describe("a change set's own model", () => {
+  /** The change set's release adds an application the workspace's active release lacks. */
+  const changeSetModel = {
+    ...testModel,
+    applications: [
+      ...testModel.applications,
+      {
+        ...testModel.applications[0],
+        key: "person-lists",
+        views: [{ ...testModel.applications[0].views[0], key: "people" }],
+      },
+    ],
+  };
+  const inChangeSet: RouteState = {
+    ...defaultRoute(changeSetModel, "stops"),
+    applicationKey: "person-lists",
+    viewKey: "people",
+    changeSetId: "cs1",
+  };
+
+  beforeEach(() => {
+    forgetWorkspaceModel();
+    vi.mocked(api.model).mockImplementation(async ({ changeSetId } = {}) => (changeSetId ? changeSetModel : testModel));
+    vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
+      defaultWorkspaceKey: "default",
+      version: 1,
+      updatedAt: "",
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("parses an address inside a change set under the change set's model", async () => {
+    window.history.replaceState({}, "", routePath(inChangeSet));
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.model).toBe(changeSetModel));
+    expect(api.model).toHaveBeenCalledWith({ workspaceKey: "stops", changeSetId: "cs1" });
+    expect(router.result.current.problem).toBeUndefined();
+    expect(router.result.current.route).toMatchObject({ applicationKey: "person-lists", changeSetId: "cs1" });
+  });
+
+  it("enters a change set from the workspace page and leaves it for the workspace's model again", async () => {
+    window.history.replaceState({}, "", routePath(defaultRoute(testModel, "stops")));
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.model).toBe(testModel));
+    act(() => {
+      router.result.current.navigate(inChangeSet);
+    });
+    await waitFor(() => expect(router.result.current.model).toBe(changeSetModel));
+    expect(router.result.current.problem).toBeUndefined();
+    expect(router.result.current.route).toMatchObject({ applicationKey: "person-lists", changeSetId: "cs1" });
+    // Inside the change set, another page of the new application stays under its model.
+    act(() => {
+      router.result.current.navigate({ ...inChangeSet, search: "x" });
+    });
+    expect(router.result.current.model).toBe(changeSetModel);
+    expect(router.result.current.problem).toBeUndefined();
+    // Out of the change set, the workspace's model lacks the application again.
+    act(() => {
+      router.result.current.navigate({ ...inChangeSet, changeSetId: undefined });
+    });
+    await waitFor(() => expect(router.result.current.model).toBe(testModel));
+    expect(router.result.current.problem).toEqual({
+      kind: "application",
+      applicationKey: "person-lists",
+      workspaceKey: "stops",
+    });
+  });
+
+  it("falls back to the workspace's model when the change set's cannot be read", async () => {
+    vi.mocked(api.model).mockImplementation(async ({ changeSetId } = {}) => {
+      if (changeSetId) throw new Error("gone");
+      return testModel;
+    });
+    window.history.replaceState({}, "", routePath({ ...inChangeSet, applicationKey: "test-app", viewKey: "domains" }));
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.model).toBe(testModel));
+    expect(router.result.current.route).toMatchObject({ applicationKey: "test-app", changeSetId: "cs1" });
   });
 });
 

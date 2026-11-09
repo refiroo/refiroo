@@ -131,8 +131,10 @@ class Spawn:
 class MigrationPlan:
     """Rows of the plan's temporary tables, decided from the two models alone."""
 
-    # (application, type, target application, target type, loss code)
-    types: list[tuple[str, str, str | None, str | None, str | None]] = field(default_factory=list)
+    # (application, type, target application, target type, loss code, candidate applications)
+    types: list[tuple[str, str, str | None, str | None, str | None, str | None]] = field(
+        default_factory=list
+    )
     # (type, attribute, target attribute or None, its value type or None)
     values: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
     # (relation type, from type, to type, kept, containment, parent kept)
@@ -207,6 +209,16 @@ class Mappings:
     @property
     def listed(self) -> bool:
         return bool(self.types or self.relations or self.spawns)
+
+
+# The code of a record whose type the target lists in several applications with no way to tell which
+# one gets it: refused in the preview (never lost), settled by a mapping's toApplicationKey.
+AMBIGUOUS_APPLICATION = "APPLICATION_TARGET_AMBIGUOUS"
+
+
+def arrived_applications(was_in: set[str | None], now_in: set[str]) -> list[str]:
+    """The applications that list a type now and did not before, sorted."""
+    return sorted(now_in - {app for app in was_in if app})
 
 
 def _invalid(pointer: str, message: str) -> ApiError:
@@ -299,26 +311,49 @@ def plan_migration(
             seen.add((application.key, type_key))
             new_type = becomes(type_key)
             if new_type is None:
-                plan.types.append((application.key, type_key, None, None, "OBJECT_TYPE_IN_USE"))
+                plan.types.append(
+                    (application.key, type_key, None, None, "OBJECT_TYPE_IN_USE", None)
+                )
                 continue
             same = target_apps.get(application.key)
             if same is not None and new_type in same.objectTypeKeys:
-                plan.types.append((application.key, type_key, application.key, new_type, None))
+                plan.types.append(
+                    (application.key, type_key, application.key, new_type, None, None)
+                )
                 continue
             holders = [a.key for a in target.applications if new_type in a.objectTypeKeys]
             chosen = mapped[type_key].to_application if type_key in mapped else None
             if chosen is not None:
                 # The mapping names the application, so a type the target lists in several moves
                 # too (MG).
-                plan.types.append((application.key, type_key, chosen, new_type, None))
-            # One application of the target lists it: its records go there, whether the mapping
-            # names the type or it kept its key and moved (the editor's setContainment with an
-            # application, 0.11 R, R-F3).
-            elif len(holders) == 1 and (type_key in mapped or new_type == type_key):
-                plan.types.append((application.key, type_key, holders[0], new_type, None))
-            else:
+                plan.types.append((application.key, type_key, chosen, new_type, None, None))
+                continue
+            if not holders:
                 code = "APPLICATION_IN_USE" if same is None else "APPLICATION_OBJECT_TYPE_IN_USE"
-                plan.types.append((application.key, type_key, None, None, code))
+                plan.types.append((application.key, type_key, None, None, code, None))
+                continue
+            # The type stands in the target, so its records are never lost (0.11 D68, amended
+            # 2026-11-09): they go to the one application that lists it, or to the one that lists it
+            # newly; several candidates are a refusal the mapping's toApplicationKey settles.
+            was_in = {a.key for a in current.applications if type_key in a.objectTypeKeys}
+            arrived = arrived_applications(was_in, set(holders))
+            if len(holders) == 1:
+                destination = holders[0]
+            elif len(arrived) == 1:
+                destination = arrived[0]
+            else:
+                plan.types.append(
+                    (
+                        application.key,
+                        type_key,
+                        None,
+                        None,
+                        AMBIGUOUS_APPLICATION,
+                        ", ".join(sorted(holders)),
+                    )
+                )
+                continue
+            plan.types.append((application.key, type_key, destination, new_type, None, None))
 
     for object_type in current.objectTypes:
         new_key = becomes(object_type.key)
@@ -597,7 +632,8 @@ UNION SELECT 'changed', r.relation_type_key FROM migration_relation_changes c
 PLAN_TABLES = """
 CREATE TEMPORARY TABLE migration_types (
     application_key text, object_type_key text, target_application_key text,
-    target_type_key text, code text, PRIMARY KEY (application_key, object_type_key)
+    target_type_key text, code text, candidates text,
+    PRIMARY KEY (application_key, object_type_key)
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_values (
     object_type_key text, attribute_type_key text, target_key text, to_type text,
@@ -683,6 +719,7 @@ _FILL = (
     """
     WITH RECURSIVE lost AS (
         SELECT object_id FROM migration_objects WHERE lost_code IS NOT NULL
+            AND lost_code <> 'APPLICATION_TARGET_AMBIGUOUS'
         UNION
         SELECT child.object_id FROM migration_objects child
         JOIN lost ON child.parent_object_id = lost.object_id
@@ -705,7 +742,9 @@ _FILL = (
             WHEN coalesce(p.containment, false) AND t.lost_code IS NULL AND f.lost_code IS NULL
                 THEN NULL
             WHEN NOT coalesce(p.kept, false) THEN 'RELATION_PAIR_IN_USE'
-            WHEN f.lost_code IS NOT NULL OR t.lost_code IS NOT NULL THEN 'RELATION_END_REMOVED'
+            -- A record refused for want of an application is not lost, nor is its relationship.
+            WHEN (f.lost_code IS NOT NULL AND f.lost_code <> 'APPLICATION_TARGET_AMBIGUOUS')
+                OR (t.lost_code IS NOT NULL AND t.lost_code <> 'APPLICATION_TARGET_AMBIGUOUS') THEN 'RELATION_END_REMOVED'
         END,
         coalesce(p.target_relation_type_key, r.relation_type_key),
         coalesce(p.containment AND p.releases, false)
@@ -871,7 +910,7 @@ FROM (
     SELECT 3, object_id, '', json_build_object(
         'outcome', 'loss', 'code', lost_code, 'objectId', object_id, 'objectName', name,
         'objectTypeKey', object_type_key)
-    FROM migration_objects WHERE lost_code IS NOT NULL
+    FROM migration_objects WHERE lost_code IS NOT NULL AND lost_code <> 'APPLICATION_TARGET_AMBIGUOUS'
     UNION ALL
     SELECT 4, relation_id, '', json_build_object(
         'outcome', 'loss', 'code', lost_code, 'objectId', from_object_id,
@@ -1497,6 +1536,7 @@ class _Migration:
             ids = self.session.scalars(select(records.subquery().c[0]).distinct())
             found.extend((str(item), code, path, message) for item in ids)
 
+        found.extend(self._ambiguous())
         result = analyze_compatibility(
             self.session,
             relaxed(self.target, self.current, self._touched),
@@ -1507,7 +1547,36 @@ class _Migration:
         )
         if listing:
             return found
-        return [("", item.code, item.path, item.message) for item in result.diagnostics]
+        return [
+            *({("", code, "", message) for _id, code, _path, message in found}),
+            *(("", item.code, item.path, item.message) for item in result.diagnostics),
+        ]
+
+    def _ambiguous(self) -> list[tuple[str, str, str, str]]:
+        """Records of a type the target lists in several applications, none of them newly: refused,
+        with the candidates named, until a mapping's ``toApplicationKey`` chooses (0.11 D68)."""
+        rows = self.session.execute(
+            text(
+                "SELECT o.object_id, o.object_type_key, t.candidates FROM migration_objects o "
+                "JOIN migration_types t ON t.application_key = o.application_key "
+                "AND t.object_type_key = o.object_type_key "
+                "WHERE o.lost_code = :code ORDER BY o.object_id"
+            ),
+            {"code": AMBIGUOUS_APPLICATION},
+        )
+        return [
+            (
+                str(object_id),
+                AMBIGUOUS_APPLICATION,
+                "",
+                (
+                    f"The target release lists type '{type_key}' in several applications "
+                    f"({candidates}); name the one its records go to in the mapping's "
+                    "toApplicationKey"
+                ),
+            )
+            for object_id, type_key, candidates in rows
+        ]
 
     def publication_refusals(self, change_set: ChangeSet) -> list[tuple[str, str, str, str]]:
         """What would stop the change set's publication over the migrated data (D82)."""
@@ -1576,11 +1645,23 @@ class LandingCheck:
     moved: int = 0
     created_records: int = 0
     created_relationships: int = 0
+    # The same losses with what they hang on: values by (type, attribute), relationships by
+    # (relation type, from type, to type).
+    value_losses: dict[tuple[str, str], int] = field(default_factory=dict)
+    relationship_losses: dict[tuple[str, str, str], int] = field(default_factory=dict)
 
+
+_LOSS_DETAIL = """
+SELECT 'values', o.object_type_key, c.attribute_type_key, NULL, count(*)
+    FROM migration_value_changes c JOIN migration_objects o ON o.object_id = c.object_id
+    WHERE c.outcome = 'loss' AND o.lost_code IS NULL GROUP BY 2, 3
+UNION ALL SELECT 'relationships', relation_type_key, from_type, to_type, count(*)
+    FROM migration_relations WHERE lost_code IS NOT NULL AND NOT containment GROUP BY 2, 3, 4
+"""
 
 _LOSSES = """
 SELECT 'records', object_type_key, count(*) FROM migration_objects
-    WHERE lost_code IS NOT NULL GROUP BY 2
+    WHERE lost_code IS NOT NULL AND lost_code <> 'APPLICATION_TARGET_AMBIGUOUS' GROUP BY 2
 UNION ALL SELECT 'values', o.object_type_key, count(*) FROM migration_value_changes c
     JOIN migration_objects o ON o.object_id = c.object_id
     WHERE c.outcome = 'loss' AND o.lost_code IS NULL GROUP BY 2
@@ -1626,6 +1707,13 @@ def check_landing(
         for kind, type_key, count in session.execute(text(_LOSSES)):
             if type_key is not None:
                 losses.setdefault(type_key, {})[kind] = int(count)
+        value_losses: dict[tuple[str, str], int] = {}
+        relationship_losses: dict[tuple[str, str, str], int] = {}
+        for kind, first, second, third, count in session.execute(text(_LOSS_DETAIL)):
+            if kind == "values":
+                value_losses[(first, second)] = int(count)
+            else:
+                relationship_losses[(first, second, third)] = int(count)
         moved, created_records, created_relationships = (
             int(count or 0) for count in session.execute(text(_LANDING_FIGURES)).one()
         )
@@ -1647,7 +1735,15 @@ def check_landing(
                 )
     finally:
         savepoint.rollback()
-    return LandingCheck(tuple(found), losses, moved, created_records, created_relationships)
+    return LandingCheck(
+        tuple(found),
+        losses,
+        moved,
+        created_records,
+        created_relationships,
+        value_losses,
+        relationship_losses,
+    )
 
 
 def publication_refusal_items(
