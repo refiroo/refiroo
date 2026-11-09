@@ -910,6 +910,15 @@ that is a model-language change outside RL.
 
 **Test.** J50.41: a session that only links existing records lands `loaded` with `relationsCreated` counted; one whose change set holds nothing fails with the note.
 
+**A third point (found 2026-11-06, approved by the user the same day: "yes you can fix this").** A person never lands on a task page with no way forward. The task that hit the counting bug above stood `failed` with its session's change set (231 relationships) unreachable: the page said "Nothing was installed or loaded", and Try again or Tell would have loaded into a second change set and orphaned the first. Four changes:
+
+1. **A failed load that left work behind keeps it reachable.** When a load fails but the change set the session named, which the task's own client made, is in the task's workspace and holds changes, `accepted()` records it on the task (`result.changeSetId`, `changeSetName`, `counts`, the existing result fields) while the state stays `failed` with its reason. The landing checks are one function (`_landing`) for the load and for the re-read below.
+2. **The failed page shows it.** `TaskEnd` says why, then "It loaded <what> into "<name>" before it stopped. Live data is unchanged.", with **Review the change set** (the route the loaded view uses), the Tell box and **Discard the task and its change set** (confirmed, as on the loaded view). Never "Nothing was installed or loaded" when something was. The journey bar's sentence for such a task says the same.
+3. **Retry and Tell discard that change set first** (`_go_on`), and **Discard** of the failed task discards it with the task (`discard`), so there are never two.
+4. **A failed load is re-evaluated when the task is read** (`sync` calls `agent.recover_load`): for a failed task at the load stage whose session has not ended, the most recent open change set the task's client made in its workspace is judged by the rules of the day. If it passes the landing checks the task lands `loaded` with the result `accepted()` would build (the failure warnings dropped); otherwise the change set is attached as in point 1. Idempotent; a kept change set published or discarded elsewhere is dropped from the task. The words the session ended with are kept (`design.loadWords`) so a final-release line is honoured. This recovers the task above without a database edit.
+
+**Test.** J50.41: a load that fails after the session wrote a change set shows it on the task and a retry discards it; a failed task re-read under the current rules lands `loaded`. `AiTaskPage.test.tsx`: the failed page with a change set.
+
 ## AT: The assistant starts from the engine's reading
 
 **Status:** An open product finding of the guide pictures (`guide/_waves/HANDOVER.md`, "the assistant is far over the import time limit"); 0.16 AP11 closed it unmet, accepted by the user on 2026-11-01. Planned in 0.13 and ordered for delivery by the user on 2026-11-08 ("plan a package in 0.13 and implement it").

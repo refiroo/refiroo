@@ -115,6 +115,13 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; ca
   const base = { steps, stoppable: state === "reading" || state === "checking" || state === "loading" };
 
   if (ended) {
+    if (state === "failed" && task.result?.changeSetId)
+      return {
+        ...base,
+        sentence:
+          "The assistant stopped after it wrote a change set. Review it, tell the assistant how to go on, or discard the task.",
+        primary: { label: "Review the change set", action: "openChangeSet" },
+      };
     if (state === "failed" || state === "stopped")
       return {
         ...base,

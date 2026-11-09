@@ -335,6 +335,8 @@ export function AiTaskPage({
           onDiscard={() => void write(() => ai.discardTask(task.id))}
           onOpenEditor={openEditor}
           onBack={() => onOpenWorkspace(task.workspaceKey)}
+          review={review}
+          onNavigate={onNavigate}
         />
       )}
     </SettingsLayout>

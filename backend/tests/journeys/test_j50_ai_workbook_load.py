@@ -1931,6 +1931,70 @@ def test_a_load_that_only_adds_relationships_is_a_load_and_an_empty_one_says_why
     assert any("nothing was loaded" in note["text"] for note in task["notes"]), task["notes"]
 
 
+@pytest.mark.journey("J50.41")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_load_that_fails_after_writing_a_change_set_keeps_it_and_a_read_under_the_fixed_rules_lands_it(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a load that fails after the session wrote a change set, then the task shows the change
+    set and what it holds, and a second try discards it first; given a failed task whose change set
+    the rules of the day accept, when the task is read, then it is loaded."""
+    from sqlalchemy import select
+
+    from app.engine.tasks import agent
+    from app.models.database import ChangeSet
+
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    ledgers = Ledgers(world)
+    token = world.made(
+        "K", f"Token {ledgers.tag}", workspace=ledgers.workspace, values={"K.code": ledgers.tag}
+    )
+    ledger = ledgers.records[f"{ledgers.tag}-00"]
+    batch = [
+        {
+            "op": "createRelation",
+            "relationTypeKey": world.key("B1n"),
+            "from": {"id": ledger["id"]},
+            "to": {"id": token["id"]},
+        }
+    ]
+    found = _assistant(world, tmp_path, monkeypatch, ledgers.workspace, api=True, batch=batch)
+    still_open = lambda: world.api.get(f"/change-sets/{found['changeSet']}").status_code == 200
+    with monkeypatch.context() as broken:
+        broken.setattr(agent, "_then_release", lambda session, task, words: None)
+        task = _accept(world, _read(world, ledgers, accept=False))
+    assert task["state"] == "failed", task["notes"]
+    assert task["result"]["changeSetId"] == found["changeSet"]
+    assert task["result"]["counts"]["relationsCreated"] == 1
+    assert still_open()
+
+    # A second try discards that change set first, so there are never two.
+    ok(world.api.post(f"/ai/tasks/{task['id']}/retry", {"expectedVersion": task["version"]}), 202)
+    assert not still_open()
+
+    # A task that failed with a change set the rules of the day accept is loaded when it is read.
+    later = tmp_path / "later"
+    later.mkdir()
+    found = _assistant(world, later, monkeypatch, ledgers.workspace, api=True, batch=batch)
+    with monkeypatch.context() as broken:
+        broken.setattr(agent, "_then_release", lambda session, task, words: None)
+        task = _accept(world, _read(world, ledgers, accept=False))
+    assert task["state"] == "failed" and task["notes"]
+    monkeypatch.setattr(
+        agent,
+        "_session_change_sets",
+        lambda session, current: list(
+            session.scalars(select(ChangeSet).where(ChangeSet.id == found["changeSet"]))
+        ),
+    )
+    task = _task(world, task)
+    assert task["state"] == "loaded" and task["result"]["changeSetId"] == found["changeSet"]
+    assert not [n for n in task["notes"] if n["kind"] == "warning"]
+
+
 # --- AP11: a session's log lies beside its folder ---------------------------------------------------
 
 

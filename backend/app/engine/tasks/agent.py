@@ -1893,7 +1893,6 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
     ``words`` are the person's, on a second try (AP-D54). The folder and the client stay until the
     work is in the person's hands for good (AP-D56)."""
     task = load_task(session, task_id)
-    workspace = task.workspace_key
     folder = folder_of(ctx.files, task)
     moves = (task.design or {}).get("moves")
     unchanged = bool((task.design or {}).get("modelUnchanged"))
@@ -1951,52 +1950,148 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
                 discard_change_set(session, change_set.id, change_set.version)
             session.commit()
             return
+    if not _land(session, task, words, change_set_id, change_set, _retention(ctx)):
+        # The words stay: a later read lands the load under the rules of the day (:func:`recover_load`).
+        task.design = {**(task.design or {}), "loadWords": words[-4000:]}
+    session.commit()
+
+
+def _landing(
+    session: Session,
+    task: AiTask,
+    words: str,
+    change_set_id: str | None,
+    change_set: ChangeSet | None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """What a load that ended well leaves on the task, or ``None`` and why not (the reason may be
+    ``None`` when a note already says it). An empty change set is no load, whatever the session's
+    last line says; one that holds only relationships is one."""
+    unchanged = bool((task.design or {}).get("modelUnchanged"))
     counts = _counts(session, change_set.id) if change_set is not None else None
-    # An empty change set is no load, whatever the session's last line says; a change set that holds
-    # only relationships is one. A task never fails without saying why.
     if change_set is None:
-        note(
-            task,
-            "warning",
+        return None, (
             "The session named no change set of this task's own, so nothing was loaded"
             if change_set_id
-            else "The session ended without naming the change set it loaded into, so nothing was loaded",
+            else "The session ended without naming the change set it loaded into, so nothing was loaded"
         )
-        finish(task, "failed", _retention(ctx))
-    elif change_set.workspace_key != workspace:
-        note(
-            task,
-            "warning",
-            "The session's change set is in another workspace, so nothing was loaded",
+    if change_set.workspace_key != task.workspace_key:
+        return None, "The session's change set is in another workspace, so nothing was loaded"
+    if not _holds_changes(counts):
+        return None, (
+            "The session's change set holds no record or relationship to add, change or remove, "
+            "so nothing was loaded"
         )
-        finish(task, "failed", _retention(ctx))
-    elif not _holds_changes(counts):
-        note(
-            task,
-            "warning",
-            "The session's change set holds no record or relationship to add, change or remove, so nothing was loaded",
-        )
-        finish(task, "failed", _retention(ctx))
-    elif unchanged and change_set.model_release_id != load_assignment(session, workspace)[1].id:
+    if (
+        unchanged
+        and change_set.model_release_id != load_assignment(session, task.workspace_key)[1].id
+    ):
         # The model does not change: the change set is on the release the workspace runs, or it is not
         # the change the person accepted.
-        note(task, "warning", "The change set is not on the model the workspace runs")
-        finish(task, "failed", _retention(ctx))
-    else:
-        then = _then_release(session, task, words)
-        if then is None:
-            finish(task, "failed", _retention(ctx))
-        else:
-            task.result = {
-                "changeSetId": change_set.id,
-                "changeSetName": change_set.name,
-                "counts": counts,
-                **_saved_profile(session, task, change_set),
-                **then,
-                **_change_set_release(session, change_set, then),
-            }
-            finish(task, "loaded", _retention(ctx))
-    session.commit()
+        return None, "The change set is not on the model the workspace runs"
+    then = _then_release(session, task, words)
+    if then is None:
+        return None, None
+    return {
+        "changeSetId": change_set.id,
+        "changeSetName": change_set.name,
+        "counts": counts,
+        **_saved_profile(session, task, change_set),
+        **then,
+        **_change_set_release(session, change_set, then),
+    }, None
+
+
+def _land(
+    session: Session,
+    task: AiTask,
+    words: str,
+    change_set_id: str | None,
+    change_set: ChangeSet | None,
+    retention_days: int,
+) -> bool:
+    """End a load: ``loaded`` with its result, or ``failed`` with the reason, keeping any change set
+    the session did write reachable on the task (a person never lands on a task with no way
+    forward). Whether it loaded."""
+    result, reason = _landing(session, task, words, change_set_id, change_set)
+    if result is None:
+        if reason:
+            note(task, "warning", reason)
+        finish(task, "failed", retention_days)
+        _keep_written(session, task, change_set)
+        return False
+    task.result = result
+    finish(task, "loaded", retention_days)
+    return True
+
+
+def _keep_written(session: Session, task: AiTask, change_set: ChangeSet | None) -> None:
+    """A failed load that left a change set holding changes: it stays on the task, to review or to
+    discard, and is never orphaned by a second try."""
+    if change_set is None or change_set.workspace_key != task.workspace_key:
+        return
+    counts = _counts(session, change_set.id)
+    if _holds_changes(counts):
+        task.result = {
+            "changeSetId": change_set.id,
+            "changeSetName": change_set.name,
+            "counts": counts,
+        }
+
+
+def _session_change_sets(session: Session, task: AiTask) -> list[ChangeSet]:
+    """The open change sets the task's own client made in its workspace, the most recent first."""
+    return list(
+        session.scalars(
+            select(ChangeSet)
+            .where(
+                ChangeSet.created_by_client_id == task.client_id,
+                ChangeSet.workspace_key == task.workspace_key,
+            )
+            .order_by(ChangeSet.created_at.desc(), ChangeSet.sequence_id.desc())
+        )
+    )
+
+
+def recover_load(session: Session, task: AiTask, retention_days: int) -> None:
+    """A failed task at the load stage whose session has not ended, read again: the rules may have
+    moved on since it failed (a load that only linked records was once no load). When the session's own
+    change set (the task's client made it, the most recent that holds changes) now passes the landing
+    checks the task is ``loaded``; otherwise the change set stays reachable on the task. Idempotent."""
+    design = task.design or {}
+    if (
+        task.state != "failed"
+        or design.get("stage") != "load"
+        or design.get("moves")
+        or not design.get("agentSession")
+        or design.get("sessionEnded")
+        or task.client_id is None
+    ):
+        return
+    kept = (task.result or {}).get("changeSetId")
+    change_set = next(
+        (c for c in _session_change_sets(session, task) if _holds_changes(_counts(session, c.id))),
+        None,
+    )
+    if change_set is None:
+        if kept and session.scalar(select(ChangeSet.id).where(ChangeSet.id == kept)) is None:
+            # What the task kept was published or discarded elsewhere.
+            task.result = None
+            session.flush()
+        return
+    notes = task.notes
+    result, _ = _landing(
+        session, task, str(design.get("loadWords") or ""), change_set.id, change_set
+    )
+    if result is None:
+        task.notes = notes
+        if kept != change_set.id:
+            _keep_written(session, task, change_set)
+            session.flush()
+        return
+    task.notes = [n for n in notes if n.get("kind") != "warning"]
+    task.result = result
+    finish(task, "loaded", retention_days)
+    session.flush()
 
 
 def end_session(

@@ -270,6 +270,35 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
     await waitFor(() => expect(ai.retryTask).toHaveBeenCalledWith("task-1", { expectedVersion: 4 }));
   });
 
+  it("keeps the change set a failed load left reachable: what it loaded, a way to review it, and a discard that takes it along", async () => {
+    vi.mocked(ai.task).mockResolvedValue(
+      task({
+        state: "failed",
+        check: null,
+        canTell: true,
+        notes: [{ kind: "warning", text: "The session ended before it said what it loaded.", at: "t" }],
+        result: {
+          changeSetId: "cs-1",
+          changeSetName: "Station availability",
+          counts: { created: 0, updated: 0, unchanged: 0, relationsCreated: 231 },
+        },
+      }),
+    );
+    vi.mocked(ai.discardTask).mockResolvedValue(task({ state: "cancelled", check: null, canTell: false }));
+    const { onNavigate } = open();
+    await screen.findByRole("heading", { name: "The assistant stopped" });
+    expect(screen.getByText(/The session ended before it said what it loaded/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/It loaded 231 relationships new into “Station availability” before it stopped/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing was installed or loaded/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Review the change set" }));
+    expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ changeSetId: "cs-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard the task and its change set" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(ai.discardTask).toHaveBeenCalledWith("task-1"));
+  });
+
   it("discards a task that stopped and then says it was discarded", async () => {
     vi.mocked(ai.task).mockResolvedValue(task({ state: "stopped", check: null, canTell: true, draftId: null }));
     vi.mocked(ai.discardTask).mockResolvedValue(task({ state: "cancelled", check: null, canTell: false }));

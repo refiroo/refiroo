@@ -1000,6 +1000,11 @@ def _go_on(
     if state in ("failed", "stopped"):
         # Its reasons were the page's while it stood there; going on, they are no longer true.
         task.notes = []
+    if state == "failed" and (task.result or {}).get("changeSetId"):
+        # What a failed load left behind goes first, so a second try never leaves two change sets.
+        _discard_kept(session, task)
+        task = load_task(session, task_id, for_update=True)
+        task.result = None
     if retry and state == "checked" and design.get("agentSession"):
         # Going on without words is for a task that stopped, or one the assistant has not read yet.
         raise api_error(409, "AI_TASK_STATE", "Only a task that stopped can be tried again")
@@ -1060,6 +1065,13 @@ def _discard_loaded(session: Session, task: AiTask) -> None:
     discard_change_set(session, change_set.id, change_set.version)
 
 
+def _discard_kept(session: Session, task: AiTask) -> None:
+    """The change set a failed load left on the task, discarded when it is still open (commits)."""
+    change_set_id = (task.result or {}).get("changeSetId")
+    if change_set_id and session.scalar(select(ChangeSet.id).where(ChangeSet.id == change_set_id)):
+        _discard_loaded(session, task)
+
+
 def queue_back(
     session: Session, task_id: str, expected_version: int, retention_days: int
 ) -> AiTask:
@@ -1083,7 +1095,7 @@ def discard(session: Session, task_id: str, files: Any, retention_days: int) -> 
     task = load_task(session, task_id, for_update=True)
     require_state(task, "checked", "read", "stopped", "failed", "loaded")
     discarded_set = False
-    if task.state == "loaded":
+    if task.state in ("loaded", "failed"):
         change_set_id = (task.result or {}).get("changeSetId")
         if change_set_id and session.scalar(
             select(ChangeSet.id).where(ChangeSet.id == change_set_id)
@@ -1117,6 +1129,7 @@ def sync(session: Session, task: AiTask, retention_days: int, files: Any) -> Non
         if job is not None and job.state == "cancelled":
             _discard_written(session, task)
     store.sync(session, task, retention_days)
+    agent.recover_load(session, task, retention_days)
     if task.state == "loaded":
         _settle(session, task, retention_days, files)
         session.flush()
