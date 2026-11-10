@@ -538,6 +538,8 @@ export type ConsumerApiDocumentKind = "schema" | "example" | "openapi";
 export interface ModelDraftOutline {
   version: number;
   baseReleaseId: string | null;
+  /** The version installing proposes: free for the model, so installing does not refuse it. */
+  suggestedReleaseVersion?: string | null;
   release: { key?: string | null; name?: string | null; version?: string | null; schemaVersion?: string | null };
   baseRelease: { key?: string | null; name?: string | null; version?: string | null } | null;
   applications: OutlineApplication[];

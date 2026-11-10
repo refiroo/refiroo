@@ -168,11 +168,13 @@ export function keyFromLabel(label: string, taken: Set<string>): string {
 }
 
 /**
- * The version install and activate proposes (D18): the draft's own when it already differs from its
- * base release's, otherwise the base's with its last number raised by one. Empty when no number
- * can be raised, so the user writes one.
+ * The version install and activate proposes (D18): the engine's, which no installed release of the model
+ * holds. Without it (an older engine) the draft's own when it already differs from its base release's,
+ * otherwise the base's with its last number raised by one. Empty when no number can be raised, so the
+ * user writes one.
  */
 export function suggestedVersion(outline: ModelDraftOutline): string {
+  if (outline.suggestedReleaseVersion) return outline.suggestedReleaseVersion;
   const own = outline.release.version ?? "";
   const base = outline.baseRelease?.version ?? "";
   if (own && own !== base) return own;

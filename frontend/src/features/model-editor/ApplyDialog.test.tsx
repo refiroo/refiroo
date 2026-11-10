@@ -101,6 +101,49 @@ describe("ApplyDialog", () => {
     expect(api.activateWorkspaceModel).toHaveBeenCalled();
   });
 
+  it("offers the free version when the release's version is taken, and installs with it (RELEASE_IDENTITY_CONFLICT)", async () => {
+    vi.mocked(api.installModelDraft)
+      .mockRejectedValueOnce(
+        new ApiError(409, "RELEASE_IDENTITY_CONFLICT", "taken", {
+          releaseKey: "m",
+          releaseVersion: "1.1",
+          freeVersion: "1.3",
+        }),
+      )
+      .mockResolvedValueOnce(release as never);
+    const run = vi.fn(() => Promise.resolve("applied"));
+    vi.mocked(api.compileModelDraft).mockResolvedValue(compiled("compatible"));
+    vi.mocked(api.modelDraftMigration).mockRejectedValue(new Error("no migration"));
+    vi.mocked(useCapabilities).mockReturnValue({
+      capabilities: { modelAdmin: { activate: true }, integrationJobs: { createJobs: true } },
+    } as never);
+    const onApplied = vi.fn(() => Promise.resolve());
+    render(
+      <ApplyDialog
+        draftId="d1"
+        outline={{ ...outline, suggestedReleaseVersion: "1.1" }}
+        run={run as never}
+        latestVersion={() => 6}
+        workspaceKey="north"
+        onApplied={onApplied}
+        onMigrationStarted={vi.fn()}
+        onClose={() => undefined}
+      />,
+    );
+    await screen.findByText("Your records stay as they are");
+    fireEvent.click(screen.getByRole("button", { name: "Apply to North" }));
+    expect(await screen.findByText(/Version 1.1 is taken by another installed release/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Use 1.3" }));
+    await waitFor(() => expect(screen.queryByText(/is taken by another/)).not.toBeInTheDocument());
+    expect(run).toHaveBeenLastCalledWith([{ kind: "setRelease", key: "m", name: "Model", version: "1.3" }]);
+
+    // The next apply sends the free version, not the stale one.
+    fireEvent.click(screen.getByRole("button", { name: "Apply to North" }));
+    await waitFor(() => expect(onApplied).toHaveBeenCalledWith(release, north));
+    expect(run).toHaveBeenLastCalledWith([{ kind: "setRelease", key: "m", name: "Model", version: "1.3" }]);
+  });
+
   it("installs and starts the preview when records must move, activating nothing", async () => {
     vi.mocked(api.startWorkspaceMigration).mockResolvedValue({ id: "job" } as never);
     const { onMigrationStarted } = open(compiled("migration_required"));

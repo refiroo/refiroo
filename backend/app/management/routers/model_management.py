@@ -48,6 +48,7 @@ from ...engine.model.releases import (
     WorkspaceNotFound,
     WorkspaceRetired,
     activate_model_release,
+    next_free_version,
 )
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
@@ -728,6 +729,11 @@ def install_model_draft(
             409,
             "RELEASE_IDENTITY_CONFLICT",
             f"Release '{exc.release_key}@{exc.release_version}' is already installed with different content",
+            {
+                "releaseKey": exc.release_key,
+                "releaseVersion": exc.release_version,
+                "freeVersion": next_free_version(session, exc.release_key, exc.release_version),
+            },
         ) from exc
     session.commit()
     if not created:

@@ -796,6 +796,8 @@ class ModelDraftOutlineResponse(BaseModel):
     version: int
     baseReleaseId: str | None
     workspaceKey: str | None = None
+    # The version installing proposes: free for the model's key, so installing does not refuse it.
+    suggestedReleaseVersion: str | None = None
     release: OutlineReleaseIdentity
     baseRelease: OutlineReleaseIdentity | None
     applications: list[OutlineApplication]

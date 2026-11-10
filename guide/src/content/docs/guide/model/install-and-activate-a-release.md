@@ -14,7 +14,8 @@ administration**. Read [Releases](/docs/model/releases/) and
 1. Open the draft and choose **Install and activate…**. Read the confirmation; opening it alone
    installs nothing.
 2. Check **Release key**, **Version** and **Name**. Keep the key when releasing another version of
-   the same model. Choose a version not already used for different definitions. The draft's edit
+   the same model. The dialog proposes a version no release of this model holds. If you type one that is taken by
+   different definitions, the refusal offers a **Use** button with the next free version. The draft's edit
    number is not this version.
 3. Under **Activate into**, choose **An existing workspace** and select it, or **A new workspace**
    and complete its details. Read the workspace name carefully: another workspace may run another

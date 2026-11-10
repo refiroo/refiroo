@@ -17,6 +17,7 @@ from it was added, changed or removed: the relations a type starts are part of t
 outgoing relations panel and the matrix's rows show.
 """
 
+import re
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -39,10 +40,26 @@ from ..consumer_contract import KEPT_VERSION_CHANGED, contract_diagnostics
 from ..consumer_expansion import public_name
 from ..diagnostics import ModelDiagnostic
 from ..placements import model_placements
+from ..releases import installed_versions, next_free_version
 from .document import Document
 from .kinds import atom, unlistable_types
 from .layout import contained_types
 from .released import base_release, released_atoms
+
+
+def suggested_release_version(session: Session, data: dict[str, Any], base: Any) -> str | None:
+    """The version installing the draft proposes: its own when it is set, differs from its base's and
+    no installed release of the key holds it; otherwise the next free one after the highest of its
+    own and its base's. ``None`` when the draft has no release key."""
+    release = data.get("release") or {}
+    key, own = release.get("key"), str(release.get("version") or "")
+    if not key:
+        return None
+    base_version = str(((base.model_json if base else None) or {}).get("release", {}).get("version") or "")
+    if own and own != base_version and own not in installed_versions(session, key):
+        return own
+    highest = max([own, base_version], key=lambda text: [int(n) for n in re.findall(r"\d+", text)])
+    return next_free_version(session, key, highest or "0.0.0")
 
 
 def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | None = None) -> dict[str, Any]:
@@ -66,6 +83,7 @@ def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | Non
             }
     return {
         "version": draft.version,
+        "suggestedReleaseVersion": suggested_release_version(session, data, base),
         "baseReleaseId": base.public_id if base else None,
         "workspaceKey": draft.workspace_key,
         **outline,

@@ -21,6 +21,13 @@ import {
 import { DraftMigrationNotice, proposalOf, useDraftMigration } from "@/features/model-editor/DraftMigration";
 import type { RunStep } from "@/features/model-editor/OperationDialog";
 import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
+import {
+  freeVersionOf,
+  setReleaseVersion,
+  UseFreeVersion,
+  versionTakenText,
+  type FreeVersion,
+} from "@/features/model-editor/ReleaseVersionConflict";
 import { useCapabilities } from "@/features/settings/useSystem";
 import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
 import type { ChangeSet, ModelCompilation, ModelDraftOutline, ModelRelease, Workspace } from "@/types";
@@ -61,6 +68,8 @@ export function ApplyDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [freeKey, setFreeKey] = useState<string>();
+  // The release version is taken by another release of the model: the one the engine found free.
+  const [freeVersion, setFreeVersion] = useState<FreeVersion>();
   // Installed, and the activation refused: Try again repeats the activation alone.
   const [installed, setInstalled] = useState<ModelRelease>();
   const identity = useReleaseIdentity(outline);
@@ -125,6 +134,7 @@ export function ApplyDialog({
     setPending(true);
     setError("");
     setFreeKey(undefined);
+    setFreeVersion(undefined);
     try {
       let release = installed;
       if (!release) {
@@ -156,8 +166,10 @@ export function ApplyDialog({
       }
       await onApplied(release, workspace);
     } catch (cause) {
+      const taken = freeVersionOf(cause);
       setFreeKey(freeKeyOf(cause));
-      setError(errorMessage(cause));
+      setFreeVersion(taken);
+      setError(taken ? versionTakenText(taken) : errorMessage(cause));
     } finally {
       setPending(false);
     }
@@ -293,19 +305,38 @@ export function ApplyDialog({
             title="Not applied"
             focusOnMount
             actions={
-              freeKey && (
-                <UseFreeKey
-                  freeKey={freeKey}
-                  disabled={pending}
-                  onUse={() =>
-                    void run([setProfileKey(freeKey)]).then((outcome) => {
-                      if (outcome === "applied") {
-                        setError("");
-                        setFreeKey(undefined);
+              (freeKey || freeVersion) && (
+                <>
+                  {freeKey && (
+                    <UseFreeKey
+                      freeKey={freeKey}
+                      disabled={pending}
+                      onUse={() =>
+                        void run([setProfileKey(freeKey)]).then((outcome) => {
+                          if (outcome === "applied") {
+                            setError("");
+                            setFreeKey(undefined);
+                          }
+                        })
                       }
-                    })
-                  }
-                />
+                    />
+                  )}
+                  {freeVersion && (
+                    <UseFreeVersion
+                      version={freeVersion.free}
+                      disabled={pending}
+                      onUse={() => {
+                        identity.setVersion(freeVersion.free);
+                        void run([setReleaseVersion(identity, freeVersion.free)]).then((outcome) => {
+                          if (outcome === "applied") {
+                            setError("");
+                            setFreeVersion(undefined);
+                          }
+                        });
+                      }}
+                    />
+                  )}
+                </>
               )
             }
           >

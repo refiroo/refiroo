@@ -11,6 +11,13 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
+import {
+  freeVersionOf,
+  setReleaseVersion,
+  UseFreeVersion,
+  versionTakenText,
+  type FreeVersion,
+} from "@/features/model-editor/ReleaseVersionConflict";
 import type { DraftProfile, DryRun, Job, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -67,6 +74,8 @@ export function LoadDialog({
   const [error, setError] = useState("");
   // The profile's key belongs to another model: the key the engine found free.
   const [freeKey, setFreeKey] = useState<string>();
+  // The release version is taken by another release of the model: the one the engine found free.
+  const [freeVersion, setFreeVersion] = useState<FreeVersion>();
   const [job, setJob] = useState<Job>();
   const [changeSetId, setChangeSetId] = useState<string>();
 
@@ -130,6 +139,7 @@ export function LoadDialog({
         }
       }
       setFreeKey(undefined);
+      setFreeVersion(undefined);
       const release = await api.installModelDraft(draftId, latestVersion());
       if (!release.importProfile) {
         setStage("stopped");
@@ -165,10 +175,12 @@ export function LoadDialog({
       );
     } catch (cause) {
       const free = freeKeyOf(cause);
+      const taken = freeVersionOf(cause);
       setFreeKey(free);
-      // A key to change is a step to take here, then load again: the dialog is not over.
-      setStage(free ? "ready" : "stopped");
-      setError(errorMessage(cause));
+      setFreeVersion(taken);
+      // A key or version to change is a step to take here, then load again: the dialog is not over.
+      setStage(free || taken ? "ready" : "stopped");
+      setError(taken ? versionTakenText(taken) : errorMessage(cause));
     }
   }
 
@@ -240,21 +252,41 @@ export function LoadDialog({
         {error && (
           <Notice
             tone="error"
-            title={freeKey ? "The profile's key belongs to another model" : "Stopped"}
+            title={
+              freeKey ? "The profile's key belongs to another model" : freeVersion ? "The version is taken" : "Stopped"
+            }
             focusOnMount
             actions={
-              freeKey && (
-                <UseFreeKey
-                  freeKey={freeKey}
-                  onUse={() =>
-                    void run([setProfileKey(freeKey)]).then((outcome) => {
-                      if (outcome === "applied") {
-                        setError("");
-                        setFreeKey(undefined);
+              (freeKey || freeVersion) && (
+                <>
+                  {freeKey && (
+                    <UseFreeKey
+                      freeKey={freeKey}
+                      onUse={() =>
+                        void run([setProfileKey(freeKey)]).then((outcome) => {
+                          if (outcome === "applied") {
+                            setError("");
+                            setFreeKey(undefined);
+                          }
+                        })
                       }
-                    })
-                  }
-                />
+                    />
+                  )}
+                  {freeVersion && (
+                    <UseFreeVersion
+                      version={freeVersion.free}
+                      onUse={() => {
+                        identity.setVersion(freeVersion.free);
+                        void run([setReleaseVersion(identity, freeVersion.free)]).then((outcome) => {
+                          if (outcome === "applied") {
+                            setError("");
+                            setFreeVersion(undefined);
+                          }
+                        });
+                      }}
+                    />
+                  )}
+                </>
               )
             }
           >

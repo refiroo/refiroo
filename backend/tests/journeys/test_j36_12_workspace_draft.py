@@ -89,6 +89,51 @@ def test_a_workspaces_model_is_edited_and_applied_from_the_workspace(world):
     assert again["baseReleaseId"] == release["id"]
 
 
+def _outline(world, draft_id):
+    return ok(world.api.get(f"/model-drafts/{draft_id}/outline"))
+
+
+def _set_version(world, draft_id, version):
+    body = {"expectedVersion": _draft(world, draft_id)["version"]}
+    body["operations"] = [{"kind": "setRelease", "version": version}]
+    ok(world.api.post(f"/model-drafts/{draft_id}/operations", body))
+
+
+@pytest.mark.journey("J36.12")
+@pytest.mark.structures(*BOTH)
+def test_a_version_another_draft_took_is_not_proposed_and_the_refusal_names_a_free_one(world):
+    """Given two drafts of one release, each with its own change. When the first installs the version
+    the outline proposes. Then the second's outline proposes another; installing it at the taken
+    version is refused with a free version, and setting that one installs it."""
+    running = _model(world)
+    release = ok(world.api.get(f"/model-releases/{running['releaseId']}", includeModel=True))
+    base = release["model"]
+    drafts = []
+    for label in ("one", "two"):
+        changed, field = _with_field(world, base)
+        changed["release"]["version"] = base["release"]["version"]
+        next(t for t in changed["attributeTypes"] if t["key"] == field)["name"] = f"Field {label}"
+        body = {"name": label, "model": changed, "baseReleaseId": running["releaseId"]}
+        drafts.append(ok(world.api.post("/model-drafts", body), 201))
+    first, second = drafts
+
+    taken = _outline(world, first["id"])["suggestedReleaseVersion"]
+    assert taken and taken != base["release"]["version"]
+    assert _outline(world, second["id"])["suggestedReleaseVersion"] == taken
+    _set_version(world, first["id"], taken)
+    ok(_install(world, _draft(world, first["id"])), 201)
+
+    free = _outline(world, second["id"])["suggestedReleaseVersion"]
+    assert free not in (taken, base["release"]["version"])
+    _set_version(world, second["id"], taken)
+    error = refused(_install(world, _draft(world, second["id"])), 409, "RELEASE_IDENTITY_CONFLICT")
+    assert error["details"]["releaseVersion"] == taken
+    assert error["details"]["freeVersion"] == free
+
+    _set_version(world, second["id"], error["details"]["freeVersion"])
+    ok(_install(world, _draft(world, second["id"])), 201)
+
+
 @pytest.mark.journey("J36.12")
 @pytest.mark.structures(*BOTH)
 def test_an_existing_draft_of_the_running_release_is_reused(world):

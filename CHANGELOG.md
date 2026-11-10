@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (a taken release version has a way forward, 0.13 FX)
+
+- **Apply, Install and Load no longer end in "already installed with different content" with nothing to do.** Cause: the editor proposed the base release's next version without knowing which versions were installed (the assistant's drafts take them), and after the failed try the draft kept the taken version, so every retry hit the same `RELEASE_IDENTITY_CONFLICT`. Now the draft outline carries `suggestedReleaseVersion` (a free version, or the draft's own when free), the 409 carries `details.releaseKey`, `releaseVersion` and `freeVersion`, and each dialog (and the model workbench) offers **Use <version>**, which sets the release and goes on. `next_free_version` in `engine/model/releases.py` is the one rule, shared with the assistant's install.
+
 ### Fixed (a file already in the workspace is a checked load, 0.13 AB)
 
 - **A workbook whose every record is stored already ends `checked`, and accepting it ends `loaded` with nothing new.** Cause: the assistant's prompt (`agent/18`) let the session decide "already there", send no items dry run and write no proposal, so the task failed, and an accepted items load whose change set held nothing failed with "nothing to load". `agent/19` says the items dry run and the proposal are always sent (the draft is the current model, each item names an existing record by ID); the accept ends `loaded` with zero counts and the matched records as `unchanged`, no release when the model does not change, and the empty change set stays on the task to discard. A session that ends with no proposal still fails.

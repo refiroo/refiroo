@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -310,6 +311,31 @@ def switch_workspace_release(
         )
     )
     return Activation(workspace_key, candidate_release, new_version, updated_at, left_behind)
+
+
+def installed_versions(session: Session, key: str) -> set[str]:
+    """The versions the instance holds of one release key."""
+    return set(
+        session.scalars(select(ModelRelease.release_version).where(ModelRelease.release_key == key))
+    )
+
+
+def next_free_version(session: Session, key: str, version: str) -> str:
+    """The version after the highest the model's releases (and ``version``) have, its last number
+    bumped and never one an installed release holds: a release is the newest, whatever release its
+    draft came from."""
+    taken = installed_versions(session, key)
+
+    def order(text: str) -> tuple[int, ...]:
+        return tuple(int(part) for part in re.findall(r"\d+", text))
+
+    highest = max([*taken, version], key=order)
+    match = re.match(r"^(.*?)(\d+)$", highest)
+    head, number = (match.group(1), int(match.group(2))) if match else (f"{highest}.", 0)
+    number += 1
+    while f"{head}{number}" in taken:
+        number += 1
+    return f"{head}{number}"
 
 
 def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRelease, bool]:

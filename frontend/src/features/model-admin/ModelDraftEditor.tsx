@@ -5,6 +5,12 @@ import type { ModelCompilation, ModelDraft, ModelValidation } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
 import { Notice } from "@/ui/Notice";
+import {
+  freeVersionOf,
+  UseFreeVersion,
+  versionTakenText,
+  type FreeVersion,
+} from "@/features/model-editor/ReleaseVersionConflict";
 import { downloadJson } from "@/lib/download";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { ModelDiff } from "@/features/model-admin/ModelDiff";
@@ -47,6 +53,8 @@ export function ModelDraftEditor({
   const [pending, setPending] = useState("");
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  // The draft's release version is taken by another release: the free one the engine found.
+  const [freeVersion, setFreeVersion] = useState<FreeVersion>();
   const [confirm, setConfirm] = useState<"install" | "delete">();
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
@@ -125,10 +133,30 @@ export function ModelDraftEditor({
   async function install() {
     setPending("install");
     setError("");
+    setFreeVersion(undefined);
     try {
       const release = await api.installModelDraft(draft.id, draft.version);
       setConfirm(undefined);
       onInstalled(release.id);
+    } catch (cause) {
+      const taken = freeVersionOf(cause);
+      setFreeVersion(taken);
+      // The step is offered below the draft, so the confirmation gives way to it.
+      if (taken) setConfirm(undefined);
+      setError(taken ? versionTakenText(taken) : errorMessage(cause));
+    } finally {
+      setPending("");
+    }
+  }
+
+  async function applyFreeVersion(version: string) {
+    setPending("version");
+    setError("");
+    try {
+      await api.applyModelDraftOperations(draft.id, draft.version, [{ kind: "setRelease", version }]);
+      setFreeVersion(undefined);
+      setCompilation(undefined);
+      await onReload();
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -231,7 +259,22 @@ export function ModelDraftEditor({
         </section>
       )}
       {parsed && <ModelSummary model={parsed} />}
-      {error && <Notice tone="error">{error}</Notice>}
+      {error && (
+        <Notice
+          tone="error"
+          actions={
+            freeVersion && (
+              <UseFreeVersion
+                version={freeVersion.free}
+                disabled={pending !== ""}
+                onUse={() => void applyFreeVersion(freeVersion.free)}
+              />
+            )
+          }
+        >
+          {error}
+        </Notice>
+      )}
       {conflict && (
         <div className="conflict-actions">
           <strong>A newer draft version exists. Your local JSON is preserved.</strong>

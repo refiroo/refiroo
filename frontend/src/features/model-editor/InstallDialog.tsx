@@ -14,6 +14,13 @@
  */
 
 import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
+import {
+  freeVersionOf,
+  setReleaseVersion,
+  UseFreeVersion,
+  versionTakenText,
+  type FreeVersion,
+} from "@/features/model-editor/ReleaseVersionConflict";
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -200,6 +207,8 @@ export function InstallDialog({
   const [error, setError] = useState("");
   // The profile's key belongs to another model: the key the engine found free.
   const [freeKey, setFreeKey] = useState<string>();
+  // The release version is taken by another release of the model: the one the engine found free.
+  const [freeVersion, setFreeVersion] = useState<FreeVersion>();
   const [outcome, setOutcome] = useState<Outcome>();
   const { capabilities } = useCapabilities();
   const canCreate = Boolean(capabilities?.workspaceAdmin.manageWorkspaces);
@@ -268,6 +277,7 @@ export function InstallDialog({
   async function confirm() {
     setPending(true);
     setError("");
+    setFreeVersion(undefined);
     try {
       if (identity.changed) {
         const outcome = await run([identity.operation]);
@@ -308,8 +318,10 @@ export function InstallDialog({
       setOutcome({ kind: "active", release });
       await onActivated(release, workspace);
     } catch (cause) {
+      const taken = freeVersionOf(cause);
       setFreeKey(freeKeyOf(cause));
-      setError(errorMessage(cause));
+      setFreeVersion(taken);
+      setError(taken ? versionTakenText(taken) : errorMessage(cause));
     } finally {
       setPending(false);
     }
@@ -488,19 +500,38 @@ export function InstallDialog({
             tone="error"
             title="Not installed"
             actions={
-              freeKey && (
-                <UseFreeKey
-                  freeKey={freeKey}
-                  disabled={pending}
-                  onUse={() =>
-                    void run([setProfileKey(freeKey)]).then((outcome) => {
-                      if (outcome === "applied") {
-                        setError("");
-                        setFreeKey(undefined);
+              (freeKey || freeVersion) && (
+                <>
+                  {freeKey && (
+                    <UseFreeKey
+                      freeKey={freeKey}
+                      disabled={pending}
+                      onUse={() =>
+                        void run([setProfileKey(freeKey)]).then((outcome) => {
+                          if (outcome === "applied") {
+                            setError("");
+                            setFreeKey(undefined);
+                          }
+                        })
                       }
-                    })
-                  }
-                />
+                    />
+                  )}
+                  {freeVersion && (
+                    <UseFreeVersion
+                      version={freeVersion.free}
+                      disabled={pending}
+                      onUse={() => {
+                        identity.setVersion(freeVersion.free);
+                        void run([setReleaseVersion(identity, freeVersion.free)]).then((outcome) => {
+                          if (outcome === "applied") {
+                            setError("");
+                            setFreeVersion(undefined);
+                          }
+                        });
+                      }}
+                    />
+                  )}
+                </>
               )
             }
           >

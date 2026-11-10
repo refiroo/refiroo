@@ -6,7 +6,6 @@ file a saved profile still fits gets the engine's own proposal, no AI, and after
 one dry run of every row and the import into a new change set.
 """
 
-import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -38,7 +37,7 @@ from ..imports.profiles import save_profile as save_import_profile
 from ..imports.submit import submit_import
 from ..jobs.store import start_job
 from ..model.compiler import compile_model
-from ..model.releases import activate_model_release, install_model_release
+from ..model.releases import activate_model_release, install_model_release, next_free_version
 from ..model.workspace_models import load_assignment
 from ..sources.dry_run import is_items_run
 from ..sources.profile_check import previous_file
@@ -719,22 +718,8 @@ def changes_model(session: Session, draft: ModelDraft) -> bool:
 
 
 def _next_version(session: Session, key: str, version: str) -> str:
-    """The version after the highest the model's releases (and the draft) have, its last number
-    bumped: a release the assistant installs is the newest, whatever release the draft came from."""
-    taken = set(
-        session.scalars(select(ModelRelease.release_version).where(ModelRelease.release_key == key))
-    )
-
-    def order(text: str) -> tuple[int, ...]:
-        return tuple(int(part) for part in re.findall(r"\d+", text))
-
-    highest = max([*taken, version], key=order)
-    match = re.match(r"^(.*?)(\d+)$", highest)
-    head, number = (match.group(1), int(match.group(2))) if match else (f"{highest}.", 0)
-    number += 1
-    while f"{head}{number}" in taken:
-        number += 1
-    return f"{head}{number}"
+    """The version the assistant's release takes: ``next_free_version``."""
+    return next_free_version(session, key, version)
 
 
 def install_and_activate(session: Session, task: AiTask, draft: ModelDraft, max_items: int) -> str:
