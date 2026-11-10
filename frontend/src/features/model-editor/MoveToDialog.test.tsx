@@ -18,6 +18,11 @@ function twoApplications(): ModelDraftOutline {
     navigation: { groups: [], ungrouped: ["bin"], opens: {} },
     views: [],
     unlistable: [],
+    ownTypes: ["bin"],
+    ownTree: [{ objectType: "bin", children: [] }],
+    borrowed: [],
+    borrowedTree: [],
+    unused: [],
     mark: "new",
   });
   return outline;

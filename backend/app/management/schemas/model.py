@@ -648,6 +648,32 @@ class OutlineView(BaseModel):
     mark: OutlineMark
 
 
+class OutlineUse(BaseModel):
+    """How a relation view of an application uses a type it lists: ``role`` is rows, columns, cells,
+    from, to, or link (a type on the containment path between a matrix's column and cell types)."""
+
+    view: str
+    viewName: str
+    viewType: str
+    role: Literal["rows", "columns", "cells", "from", "to", "link"]
+    relationType: str | None = None
+    relationName: str | None = None
+
+
+class OutlineBorrowedType(BaseModel):
+    """A type an application lists only because one of its relation views uses it; ``home`` is the
+    first application, in model order, that holds the type's records (``null`` when none does)."""
+
+    objectType: str
+    home: str | None = None
+    uses: list[OutlineUse]
+
+
+class OutlineBorrowedIn(BaseModel):
+    application: str
+    uses: list[OutlineUse]
+
+
 class OutlineApplication(BaseModel):
     key: str
     name: str
@@ -656,6 +682,14 @@ class OutlineApplication(BaseModel):
     defaultView: str | None = None
     objectTypeKeys: list[str]
     tree: list[OutlineTypeNode]
+    # What the application holds the records of (a table view of the type, or a tree that includes
+    # it), in its containment tree; what its relation views use of other applications' types; what
+    # it lists and nothing here uses.
+    ownTypes: list[str] = []
+    ownTree: list[OutlineTypeNode] = []
+    borrowed: list[OutlineBorrowedType] = []
+    borrowedTree: list[OutlineTypeNode] = []
+    unused: list[str] = []
     navigation: OutlineNavigation
     views: list[OutlineView]
     # The types it could stop listing: unused here, listed elsewhere, not in the base release here.
@@ -693,6 +727,11 @@ class OutlineObjectType(BaseModel):
     atLeastOneOf: list[str] = []
     parentRelationTypeKeys: list[str] = []
     attributes: list[OutlineAttribute]
+    # The first application, in model order, that holds the type's records; every application that
+    # does; and the applications that list it for a relation view, with the uses.
+    home: str | None = None
+    ownIn: list[str] = []
+    borrowedIn: list[OutlineBorrowedIn] = []
     mark: OutlineMark
 
 

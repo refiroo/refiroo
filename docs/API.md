@@ -4387,6 +4387,16 @@ can be read, beside its diagnostics.
   **`unlistable`** names the types `unlistObjectType`
   would accept: nothing in the application needs them, another application lists them, and the base
   release does not list them here.
+- **`ownTypes`, `ownTree`, `borrowed`, `borrowedTree` and `unused`** say why an application lists a type.
+  A listed type is *own* when the application has a `table` view of it or a `tree` view whose
+  `objectTypeKeys` include it; *borrowed* when it is not own and a relation matrix (row, column or cell
+  type), mapping grid or relationships table (from or to type) of the application uses it, or it stands
+  on the containment path between a matrix's column and cell types; *unused* when it is neither. `ownTree`
+  and `borrowedTree` are `tree` over those types. Each `borrowed` entry is `{ objectType, home, uses }`:
+  `home` is the first application, in model order, where the type is own (`null` when none), and each
+  use is `{ view, viewName, viewType, role, relationType, relationName }` with `role` one of `rows`,
+  `columns`, `cells`, `from`, `to` or `link`. An outline `objectTypes` entry adds `home`, `ownIn` (the
+  applications where it is own) and `borrowedIn` (`[{ application, uses }]`).
 - **`uniquePer`** on an allowed relation names the ancestor type under which a source may hold only one
   target (`features.uniqueToAncestorTypeKey`); absent without that rule.
 - **The settings the editor shows** (0.13 ED): an application's `defaultView`; a type's `displayAttribute`,

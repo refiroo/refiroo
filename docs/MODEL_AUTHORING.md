@@ -138,6 +138,17 @@ run. A workbook adds a source pane left of the model pane; a selected column's m
 centre, as a selected type's definition does. At 390px the panes are tabs. The panes as first
 designed:
 
+An application lists a type because it holds the type's records (*own*: a `table` view of it, or a
+`tree` including it) or because one of its relation views needs it (*borrowed*: a matrix's row, column or
+cell type or a type between its column and cell types, a mapping grid's or relationships table's ends);
+a listed type that is neither is *unused* there. The server works this out (the outline's `ownTypes`,
+`borrowed`, `unused`) and a type's *home* is the first application, in model order, where it is own. The
+model pane shows each type once per application: a type placed in a navigation group stands only in its
+group (own types with the types they contain beneath them, borrowed types marked), the other own types in
+their containment tree, borrowed types in no group under "From other applications", unused types last. A borrowed type opens on
+its home application, and its page names where it is maintained and which views of other applications
+use it. An application's navigation groups and a group's entries are also ordered by dragging a row.
+
 - **Source.** The sheet or block with its header row, each column marked mapped, unmapped, ignored or
   with issues, and its statistics (filled, distinct, value types, candidate key, overlap with other
   columns).

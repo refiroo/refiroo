@@ -12,16 +12,19 @@ export function HueTile({
   icon,
   glyph,
   size = 22,
+  dashed = false,
 }: {
   hue?: Hue;
   icon?: string;
   /** The interface's own glyph in place of a model icon (a relation matrix's entry). */
   glyph?: IconName;
   size?: 18 | 20 | 22 | 40;
+  /** A dashed outline: a type the application lists but does not hold the records of. */
+  dashed?: boolean;
 }) {
   const glyphSize = size === 40 ? 20 : size <= 18 ? 11 : 12;
   return (
-    <span className={`hue-tile hue-tile-${size}`} data-hue={hue}>
+    <span className={`hue-tile hue-tile-${size}${dashed ? " hue-tile-dashed" : ""}`} data-hue={hue}>
       {glyph ? <Icon name={glyph} size={glyphSize} /> : <ModelIcon name={icon} size={glyphSize} />}
     </span>
   );

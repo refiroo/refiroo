@@ -1,7 +1,7 @@
 /**
  * A yes/no value in a table cell that is the control itself (the relation matrix cell's table): one
  * click flips it and saves, so no editor opens. The word beside the box says the value ("Yes",
- * "No"); the box is disabled while the save runs; "Saved" follows it as a status. A refused save
+ * "No", or the `words` a caller gives it); the box is disabled while the save runs; "Saved" follows it as a status. A refused save
  * puts its notice in a layer over the cell (`FloatingCellEditor`), where Dismiss closes it.
  */
 
@@ -16,6 +16,7 @@ export function FlagCell({
   notice,
   onDismiss,
   onToggle,
+  words = { on: "Yes", off: "No" },
 }: {
   /** What the box edits: "Requires driver of Riverside". */
   label: string;
@@ -26,6 +27,8 @@ export function FlagCell({
   notice?: ReactNode;
   onDismiss: () => void;
   onToggle: (next: boolean) => void;
+  /** The word beside the box for each value; `null` shows the box alone, where the column header says it. */
+  words?: { on: string; off: string } | null;
 }) {
   return (
     <span className="flag-cell">
@@ -37,7 +40,7 @@ export function FlagCell({
           disabled={saving}
           onChange={(event) => onToggle(event.target.checked)}
         />
-        <span>{checked ? "Yes" : "No"}</span>
+        {words && <span>{checked ? words.on : words.off}</span>}
       </label>
       {saved && (
         <span role="status" className="flag-cell-saved">

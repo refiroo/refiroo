@@ -54,8 +54,8 @@ collection stays where it was, and its view tabs still offer the matrix.
 
 ## Order entries and choose what opens
 
-1. In **Entries**, open a row's menu and choose **Move up** or **Move down**. Collections and
-   matrices share one order. The first entry cannot move up; the last cannot move down.
+1. In **Entries**, drag a row by its grip to a new place, or open its menu and choose **Move up** or
+   **Move down**. Collections and matrices share one order. The first entry cannot move up; the last cannot move down.
 2. Choose **Move to another group…** to select a different **Group**. This action is available
    when another group exists. **Take out of the group** returns a collection to the top of the
    sidebar; a matrix returns to being available only through its row collection.
@@ -77,8 +77,9 @@ relation matrix.*
 
 1. Use **Rename…** and **Start unfolded** / **Start folded** in the group panel to change its
    label and initial state. A person's later folding choice is remembered in their browser.
-2. Use the group menu's **Move up** or **Move down** to order groups. The application table
-   also lets you edit **Label** and **Starts** directly. **Change key…** is for unreleased keys only.
+2. Drag a group's row by its grip in the application table, or use the group menu's **Move up** or
+   **Move down**, to order groups. The table also lets you edit **Label** directly, and **Starts
+   folded** is a box you click to change. **Change key…** is for unreleased keys only.
 3. To remove the grouping, choose **Remove group**, read the confirmation and confirm.
    The confirmation says that its collections return to the top of the sidebar and, when the
    group holds relation matrices, that they go back inside their row type's entry; matrices

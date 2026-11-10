@@ -181,6 +181,11 @@
 .hue-tile .icon {
   stroke-width: 2.2;
 }
+.hue-tile-dashed {
+  background: transparent;
+  outline: 1px dashed var(--hue-ink, var(--border-strong));
+  outline-offset: -1px;
+}
 .hue-tile-22 {
   width: 22px;
   height: 22px;

@@ -8,7 +8,8 @@ Use preview to check a draft's appearance before applying it. You need **Model a
 See [Record pages and tables](/docs/model/record-pages-and-tables/) for what preview reads.
 
 1. Select the type in the model pane and choose **Preview**. A type listed in several applications
-   is previewed in the application whose row you selected; when none is selected, in the one
+   is previewed in the application whose row you selected (a type another application only borrows
+   for a relation view opens on the application that holds its records); when none is selected, in the one
    that holds the workspace's records of the type. Choose the application in the band to switch.
    If **The draft has … issues, so
    it cannot be previewed** appears, choose **Show issues**, fix the errors and return.

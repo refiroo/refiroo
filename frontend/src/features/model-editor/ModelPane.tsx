@@ -18,12 +18,12 @@
  */
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import type { EditorSelection, ModelDraftOutline, OutlineMark, OutlineTypeNode } from "@/types";
+import type { EditorSelection, ModelDraftOutline, OutlineApplication, OutlineMark, OutlineTypeNode } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 import { ProposedPill } from "@/features/model-editor/ProposedBecause";
-import { draftTypeHue, objectTypeOf, typeName } from "@/features/model-editor/outline";
+import { borrowedWords, draftTypeHue, objectTypeOf } from "@/features/model-editor/outline";
 import { scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
 import { DRAG_COLUMN } from "@/features/model-editor/SourcePane";
 
@@ -65,6 +65,10 @@ export type TreeRow = {
   topLevel?: boolean;
   /** Still as the inference proposed it (0.10 A6b): marked Proposed in place of its mark. */
   proposed?: boolean;
+  /** A heading over the rows after it that selects nothing. */
+  subhead?: boolean;
+  /** A type the application lists for a relation view: where the view, relation and home are said. */
+  borrowed?: { chip?: string; text: string };
 };
 type Row = TreeRow;
 
@@ -86,42 +90,78 @@ export function paneRows(
       applicationKey: application.key,
       topLevel: true,
     });
-    const visit = (node: OutlineTypeNode, level: number, path: string) => {
-      const type = objectTypeOf(outline, node.objectType);
-      rows.push({
-        id: `type:${application.key}:${path}${node.objectType}`,
+    const typeRow = (key: string, level: number, id: string): Row => {
+      const type = objectTypeOf(outline, key);
+      return {
+        id,
         level,
-        label: type?.name ?? node.objectType,
+        label: type?.name ?? key,
         mark: type?.mark,
-        selection: { show: "type", key: node.objectType, application: application.key },
-        typeKey: node.objectType,
+        selection: { show: "type", key, application: application.key },
+        typeKey: key,
         applicationKey: application.key,
-        proposed: proposed.has(`objectType:${node.objectType}`),
-      });
-      for (const child of node.children) visit(child, level + 1, `${path}${node.objectType}/`);
+        proposed: proposed.has(`objectType:${key}`),
+      };
     };
-    for (const node of application.tree) visit(node, 2, "");
+    const own = new Set(application.ownTypes);
+    const borrowed = new Map(application.borrowed.map((item) => [item.objectType, item]));
+    // A borrowed type opens on the application that holds its records, so its Preview and layout
+    // editor show the screen where they are edited; one with no such application opens here.
+    const borrowedRow = (key: string, level: number, id: string): Row => {
+      const item = borrowed.get(key)!;
+      return {
+        ...typeRow(key, level, id),
+        selection: { show: "type", key, application: item.home ?? application.key },
+        borrowed: borrowedWords(outline, application, item),
+      };
+    };
+    // Each type stands once: a type placed in a navigation group stands in its group only (a held type
+    // with the types it contains beneath it); the rest stand in the containment tree, or, when borrowed,
+    // under "From other applications".
+    const grouped = new Set(application.navigation.groups.flatMap((group) => group.collections));
+    const shown = new Set<string>();
+    const visit = (node: OutlineTypeNode, level: number, path: string, id: (key: string) => string) => {
+      if (grouped.has(node.objectType) && level === 2) return;
+      rows.push(typeRow(node.objectType, level, `${id(node.objectType)}${path}`));
+      shown.add(node.objectType);
+      for (const child of node.children)
+        if (!grouped.has(child.objectType) && !shown.has(child.objectType))
+          visit(child, level + 1, `${path}/${child.objectType}`, id);
+    };
+    for (const node of application.ownTree)
+      if (!shown.has(node.objectType)) visit(node, 2, "", (key) => `type:${application.key}:${key}`);
+    const nodeOf = (key: string, nodes: OutlineTypeNode[]): OutlineTypeNode | undefined => {
+      for (const node of nodes) {
+        const found = node.objectType === key ? node : nodeOf(key, node.children);
+        if (found) return found;
+      }
+      return undefined;
+    };
     for (const group of application.navigation.groups) {
       rows.push({
         id: `group:${application.key}:${group.key}`,
         level: 2,
         label: group.label,
-        note: "group",
+        note: `group · ${group.entries.length}`,
         mark: group.mark,
         proposed: proposed.has(`group:${application.key}/${group.key}`),
         selection: { show: "group", application: application.key, key: group.key },
       });
       for (const entry of group.entries) {
-        if (entry.collection)
-          rows.push({
-            id: `collection:${application.key}:${group.key}:${entry.collection}`,
-            level: 3,
-            label: typeName(outline, entry.collection),
-            selection: { show: "type", key: entry.collection, application: application.key },
-            typeKey: entry.collection,
-            applicationKey: application.key,
-          });
-        else if (entry.view)
+        if (entry.collection) {
+          const id = `collection:${application.key}:${group.key}:${entry.collection}`;
+          if (own.has(entry.collection)) {
+            rows.push(typeRow(entry.collection, 3, id));
+            shown.add(entry.collection);
+            const node = nodeOf(entry.collection, application.ownTree);
+            for (const child of node?.children ?? [])
+              if (!grouped.has(child.objectType) && !shown.has(child.objectType))
+                visit(child, 4, `/${child.objectType}`, () => `${id}:`);
+          } else
+            rows.push(
+              borrowed.has(entry.collection) ? borrowedRow(entry.collection, 3, id) : typeRow(entry.collection, 3, id),
+            );
+        } else if (entry.view)
           // A matrix has no panel of its own: its row shows the group it stands in.
           rows.push({
             id: `matrix:${application.key}:${group.key}:${entry.view}`,
@@ -131,6 +171,31 @@ export function paneRows(
             selection: { show: "group", application: application.key, key: group.key },
           });
       }
+    }
+    const loose = application.borrowedTree.length ? looseBorrowed(application, grouped) : [];
+    if (loose.length) {
+      rows.push({
+        id: `from-others:${application.key}`,
+        level: 2,
+        label: "From other applications",
+        note: String(loose.length),
+        subhead: true,
+      });
+      for (const { key, depth } of loose) rows.push(borrowedRow(key, 2 + depth, `borrowed:${application.key}:${key}`));
+    }
+    if (application.unused.length) {
+      rows.push({
+        id: `unused:${application.key}`,
+        level: 2,
+        label: "Listed, used by no view here",
+        note: String(application.unused.length),
+        subhead: true,
+      });
+      for (const key of application.unused)
+        rows.push({
+          ...typeRow(key, 2, `unused:${application.key}:${key}`),
+          note: application.unlistable.includes(key) ? "can be unlisted" : undefined,
+        });
     }
   }
   rows.push({
@@ -169,6 +234,19 @@ export function paneRows(
       });
   rows.push({ id: "matrix", level: 1, label: "Relationship matrix", selection: { show: "matrix" } });
   return rows;
+}
+
+/** The borrowed types in no group, in their containment tree, with how deep each stands among those
+ * shown: a type in a group stands there, so its children come up a level. */
+function looseBorrowed(application: OutlineApplication, grouped: Set<string>) {
+  const result: { key: string; depth: number }[] = [];
+  const walk = (node: OutlineTypeNode, depth: number) => {
+    const shown = !grouped.has(node.objectType);
+    if (shown) result.push({ key: node.objectType, depth });
+    for (const child of node.children) walk(child, shown ? depth + 1 : depth);
+  };
+  for (const node of application.borrowedTree) walk(node, 0);
+  return result;
 }
 
 function sameSelection(a: EditorSelection | undefined, b: EditorSelection) {
@@ -352,10 +430,15 @@ export function EditorTree({
             aria-selected={row.selection ? selected : undefined}
             aria-expanded={row.section ? !folded.has(row.section) : undefined}
             tabIndex={index === tabIndex ? 0 : -1}
+            title={
+              row.borrowed ? [row.label, row.borrowed.chip, row.borrowed.text].filter(Boolean).join(" · ") : undefined
+            }
             className={[
               "model-pane-row",
               `level-${row.level}`,
               row.section || row.level === 1 ? "heading" : "",
+              row.subhead ? "subhead" : "",
+              row.borrowed ? "borrowed" : "",
               selected ? "selected" : "",
               dropTarget === row.id ? "drop-target" : "",
               row.typeKey && linked?.has(row.typeKey) ? "linked" : "",
@@ -397,13 +480,24 @@ export function EditorTree({
             {row.section ? (
               <Icon name={folded.has(row.section) ? "chevron-right" : "chevron-down"} size={14} />
             ) : row.typeKey ? (
-              <HueTile hue={draftTypeHue(outline, row.typeKey)} icon={type?.icon ?? undefined} size={20} />
+              <HueTile
+                hue={draftTypeHue(outline, row.typeKey)}
+                icon={type?.icon ?? undefined}
+                size={20}
+                dashed={Boolean(row.borrowed)}
+              />
             ) : row.id === "matrix" ? (
               <Icon name="matrix" size={14} />
             ) : row.icon ? (
               <Icon name={row.icon} size={14} />
             ) : null}
             <span className="model-pane-label">{row.label}</span>
+            {row.borrowed && (
+              <span className="model-pane-borrowed" title={row.borrowed.text}>
+                {row.borrowed.chip && <span className="model-pane-chip">{row.borrowed.chip}</span>}
+                <span className="model-pane-borrowed-text">{row.borrowed.text}</span>
+              </span>
+            )}
             {row.note && <span className="model-pane-note">{row.note}</span>}
             {row.proposed ? <ProposedPill /> : row.mark && <MarkPill mark={row.mark} />}
             {row.badge}

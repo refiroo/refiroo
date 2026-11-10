@@ -15,6 +15,12 @@ stores, every default written out (``_same``): a draft holds what was authored, 
 installation its base release holds the same elements with their defaults (0.10 T1). A type is also ``changed`` when a relation allowed
 from it was added, changed or removed: the relations a type starts are part of the type, as its
 outgoing relations panel and the matrix's rows show.
+
+An application lists a type either because it holds the type's records (the type is *own*: a table view
+of it, or a tree that includes it) or because one of its relation views needs the type as rows,
+columns, cells or ends (*borrowed*: the validation rule makes the view's types listed). A type that is
+neither is *unused* there. The *home* of a type is the first application, in model order, where it is
+own. The browser reads these sets from here (0.16.1 editor, borrowed types).
 """
 
 import re
@@ -123,6 +129,8 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
         for binding in _items(object_type, "attributes"):
             sharing.setdefault(binding.get("attributeTypeKey"), []).append(object_type.get("key"))
     attribute_types = {item.get("key"): item for item in _items(data, "attributeTypes")}
+    roles = _roles(document, data, relation_types)
+    homes = _homes(roles)
 
     object_types = []
     for object_type in _items(data, "objectTypes"):
@@ -174,6 +182,13 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                     (object_type.get("behavior") or {}).get("parentRelationTypeKeys") or []
                 ),
                 "attributes": attributes,
+                "home": homes.get(key),
+                "ownIn": [app for app, (own, _, _) in roles.items() if key in own],
+                "borrowedIn": [
+                    {"application": app, "uses": borrowed[key]}
+                    for app, (_, borrowed, _) in roles.items()
+                    if key in borrowed
+                ],
                 "mark": type_mark,
             }
         )
@@ -182,6 +197,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
     for application in _items(data, "applications"):
         app_key = application.get("key")
         types = [key for key in application.get("objectTypeKeys") or [] if isinstance(key, str)]
+        own, borrowed, unused = roles[app_key]
         applications.append(
             {
                 "key": app_key,
@@ -191,6 +207,13 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "defaultView": application.get("defaultView"),
                 "objectTypeKeys": types,
                 "tree": _tree(document, types),
+                "ownTypes": own,
+                "ownTree": _tree(document, own),
+                "borrowed": [
+                    {"objectType": key, "home": homes.get(key), "uses": uses} for key, uses in borrowed.items()
+                ],
+                "borrowedTree": _tree(document, list(borrowed)),
+                "unused": unused,
                 "navigation": _navigation(application, base, types),
                 "views": _views(application, base),
                 "unlistable": unlistable_types(document, app_key, released.__contains__),
@@ -419,6 +442,101 @@ class _Marks:
             ),
             None,
         )
+
+
+_Uses = dict[str, list[dict[str, Any]]]
+
+
+def _roles(
+    document: Document, data: dict[str, Any], relation_types: dict[Any, dict[str, Any]]
+) -> dict[Any, tuple[list[str], _Uses, list[str]]]:
+    """For each application, in model order: the listed types it holds the records of (*own*, in the
+    application's order), those its relation views use (*borrowed*, each with its uses) and those
+    neither (*unused*). A use is ``{view, viewName, viewType, role, relationType, relationName}``; the
+    role is rows, columns, cells, from, to, or link for a type on the containment path from a matrix's
+    column type down to its cell type."""
+    result: dict[Any, tuple[list[str], _Uses, list[str]]] = {}
+    for application in _items(data, "applications"):
+        listed = [key for key in application.get("objectTypeKeys") or [] if isinstance(key, str)]
+        owned: set[str] = set()
+        uses: _Uses = {}
+        for view in _items(application, "views"):
+            config = view.get("config") or {}
+            kind = view.get("type")
+            if kind == "table":
+                owned.add(view.get("objectTypeKey"))
+                continue
+            if kind == "tree":
+                owned.update(key for key in config.get("objectTypeKeys") or [] if isinstance(key, str))
+                continue
+            if kind == "relationMatrix":
+                ends = [
+                    ("rows", config.get("rowObjectTypeKey")),
+                    ("columns", config.get("columnObjectTypeKey")),
+                    ("cells", config.get("cellObjectTypeKey")),
+                ]
+                ends += [
+                    ("link", key)
+                    for key in _path_between(document, config.get("columnObjectTypeKey"), config.get("cellObjectTypeKey"))
+                ]
+            elif kind in ("mappingGrid", "relationTable"):
+                ends = [("from", config.get("fromObjectTypeKey")), ("to", config.get("toObjectTypeKey"))]
+            else:
+                continue
+            relation = config.get("relationTypeKey")
+            for role, key in ends:
+                if isinstance(key, str):
+                    uses.setdefault(key, []).append(
+                        {
+                            "view": view.get("key"),
+                            "viewName": view.get("name") or view.get("key"),
+                            "viewType": kind,
+                            "role": role,
+                            "relationType": relation,
+                            "relationName": (relation_types.get(relation) or {}).get("name") or relation,
+                        }
+                    )
+        own = [key for key in listed if key in owned]
+        borrowed = {key: uses[key] for key in listed if key not in owned and key in uses}
+        result[application.get("key")] = (
+            own,
+            borrowed,
+            [key for key in listed if key not in owned and key not in uses],
+        )
+    return result
+
+
+def _homes(roles: dict[Any, tuple[list[str], _Uses, list[str]]]) -> dict[str, Any]:
+    """The first application, in model order, where each type is own."""
+    homes: dict[str, Any] = {}
+    for app, (own, _, _) in roles.items():
+        for key in own:
+            homes.setdefault(key, app)
+    return homes
+
+
+def _path_between(document: Document, top: Any, bottom: Any) -> list[str]:
+    """The types strictly between ``top`` and ``bottom`` on the shortest containment path down from
+    one to the other; none when there is no path or they are the same type."""
+    if not isinstance(top, str) or not isinstance(bottom, str) or top == bottom:
+        return []
+    came: dict[str, str] = {}
+    pending = [top]
+    while pending:
+        current = pending.pop(0)
+        for child in contained_types(document, current):
+            if child in came or child == top:
+                continue
+            came[child] = current
+            if child == bottom:
+                path: list[str] = []
+                node = came[child]
+                while node != top:
+                    path.append(node)
+                    node = came[node]
+                return path[::-1]
+            pending.append(child)
+    return []
 
 
 def _tree(document: Document, types: list[str]) -> list[dict[str, Any]]:

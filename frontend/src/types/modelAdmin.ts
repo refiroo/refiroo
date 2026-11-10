@@ -395,6 +395,32 @@ export interface OutlineNavigationGroup {
   mark: OutlineMark;
 }
 
+/** How a relation view of an application uses a type it lists: `link` is a type on the containment
+ * path between a matrix's column type and its cell type. */
+export type OutlineUseRole = "rows" | "columns" | "cells" | "from" | "to" | "link";
+
+export interface OutlineUse {
+  view: string;
+  viewName: string;
+  viewType: string;
+  role: OutlineUseRole;
+  relationType?: string | null;
+  relationName?: string | null;
+}
+
+/** A type an application lists only because a relation view uses it. `home` is the first
+ * application, in model order, that holds the type's records; none when no application does. */
+export interface OutlineBorrowedType {
+  objectType: string;
+  home?: string | null;
+  uses: OutlineUse[];
+}
+
+export interface OutlineBorrowedIn {
+  application: string;
+  uses: OutlineUse[];
+}
+
 export interface OutlineApplication {
   key: string;
   name: string;
@@ -403,6 +429,13 @@ export interface OutlineApplication {
   defaultView?: string | null;
   objectTypeKeys: string[];
   tree: OutlineTypeNode[];
+  /** The listed types it holds the records of (a table view of the type, or a tree including it) and
+   * their containment tree; the types its relation views use; the types nothing here uses. */
+  ownTypes: string[];
+  ownTree: OutlineTypeNode[];
+  borrowed: OutlineBorrowedType[];
+  borrowedTree: OutlineTypeNode[];
+  unused: string[];
   navigation: {
     groups: OutlineNavigationGroup[];
     ungrouped: string[];
@@ -444,6 +477,11 @@ export interface OutlineObjectType {
   atLeastOneOf?: string[];
   parentRelationTypeKeys?: string[];
   attributes: OutlineAttribute[];
+  /** The first application, in model order, that holds the type's records; every application that
+   * does; the applications that list it for a relation view, with their uses. */
+  home?: string | null;
+  ownIn?: string[];
+  borrowedIn?: OutlineBorrowedIn[];
   mark: OutlineMark;
 }
 

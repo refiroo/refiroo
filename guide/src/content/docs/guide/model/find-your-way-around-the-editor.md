@@ -21,7 +21,9 @@ Open a [model draft](/docs/guide/model/create-a-model-draft/) in the editor. You
    The **Consumer APIs** tab has its own add action.
 5. Open an element's operations menu to change it. In the model pane, Up/Down and Home/End
    move focus, Enter or Space selects, Right/Left unfolds or folds, and Shift+F10 or the
-   context-menu key opens that row's operations. A disabled action is not applied.
+   context-menu key opens that row's operations. A type an application lists only because one of its
+   relation views needs it is shown with a dashed icon, in its group or under **From other
+   applications**, and opens on the application that holds its records; types no view uses come last. A disabled action is not applied.
 6. Expand **Issues and history** to inspect errors or saved steps. With a workbook, use
    **Issues, history and dry run** and the additional **Source** pane. Resize the pane dividers
    for space. On a phone, use the pane tabs; dragging is unavailable, so use the menus.

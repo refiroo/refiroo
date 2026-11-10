@@ -125,3 +125,125 @@ def test_a_consumer_api_written_by_hand_without_its_parts_is_outlined_without_fa
     assert entry["contractVersion"] is None
     assert entry["exposes"] == [{"objectType": "shelf", "publicName": "Shelf"}]
     assert entry["mark"] == "new"
+
+
+def _matrix(key, relation, row, column, cell):
+    return {
+        "key": key,
+        "name": f"{key} name",
+        "type": "relationMatrix",
+        "config": {
+            "relationTypeKey": relation,
+            "direction": "outgoing",
+            "rowObjectTypeKey": row,
+            "columnObjectTypeKey": column,
+            "cellObjectTypeKey": cell,
+        },
+    }
+
+
+def _table(key, type_key):
+    return {"key": key, "name": key, "type": "table", "objectTypeKey": type_key}
+
+
+def _contains(parent, child):
+    return {"relationTypeKey": "holds", "fromObjectTypeKey": parent, "toObjectTypeKey": child}
+
+
+BORROWED = {
+    "applications": [
+        {
+            "key": "reference",
+            "objectTypeKeys": ["gender", "system", "system-value"],
+            "views": [_table("genders", "gender"), _table("systems", "system"), _table("values", "system-value")],
+        },
+        {
+            "key": "codes",
+            "objectTypeKeys": ["gender", "system", "system-value"],
+            "views": [_table("systems", "system"), _matrix("gender-by-system", "maps-to", "gender", "system", "system-value")],
+        },
+        {
+            "key": "translations",
+            "objectTypeKeys": ["gender", "language", "group", "translation"],
+            "views": [
+                _table("genders", "gender"),
+                _matrix("in-every-language", "has-translation", "gender", "language", "translation"),
+            ],
+        },
+        {
+            "key": "catalogue",
+            "objectTypeKeys": ["category", "system", "system-value", "brand", "location", "language", "group", "translation"],
+            "views": [
+                _table("categories", "category"),
+                _matrix("offered", "offered-at", "category", "brand", "location"),
+                _matrix("named", "has-translation", "category", "language", "translation"),
+            ],
+        },
+    ],
+    "objectTypes": [
+        {"key": key, "name": key.title(), "behavior": {"parentRelationTypeKeys": ["holds"]} if key in ("group", "translation") else {}}
+        for key in (
+            "gender", "system", "system-value", "language", "group", "translation", "category", "brand", "location",
+        )
+    ],
+    "relationTypes": [
+        {"key": "holds", "name": "Holds", "features": {"parentOf": True}},
+        {"key": "maps-to", "name": "Maps to"},
+        {"key": "has-translation", "name": "Has translation"},
+        {"key": "offered-at", "name": "Offered at"},
+    ],
+    "objectTypeRelations": [_contains("language", "group"), _contains("group", "translation")],
+}
+
+
+def _roles(outline, app):
+    entry = next(item for item in outline["applications"] if item["key"] == app)
+    return entry["ownTypes"], {item["objectType"]: item for item in entry["borrowed"]}, entry["unused"]
+
+
+def test_a_type_an_application_lists_for_a_relation_view_is_borrowed_from_its_home():
+    outline = build_outline(BORROWED, None)
+    own, borrowed, unused = _roles(outline, "codes")
+    assert own == ["system"]
+    gender = borrowed["gender"]
+    assert gender["home"] == "reference"
+    (use,) = gender["uses"]
+    assert use == {
+        "view": "gender-by-system",
+        "viewName": "gender-by-system name",
+        "viewType": "relationMatrix",
+        "role": "rows",
+        "relationType": "maps-to",
+        "relationName": "Maps to",
+    }
+    assert borrowed["system-value"]["uses"][0]["role"] == "cells"
+    assert unused == []
+
+
+def test_columns_cells_and_the_containment_link_between_them_are_borrowed_and_unused_types_are_listed():
+    outline = build_outline(BORROWED, None)
+    own, borrowed, unused = _roles(outline, "catalogue")
+    assert own == ["category"]
+    roles = {key: [use["role"] for use in item["uses"]] for key, item in borrowed.items()}
+    assert roles["brand"] == ["columns"] and roles["location"] == ["cells"]
+    assert roles["group"] == ["link"]
+    assert roles["language"] == ["columns"] and roles["translation"] == ["cells"]
+    assert borrowed["translation"]["home"] is None
+    assert unused == ["system", "system-value"]
+    entry = next(item for item in outline["applications"] if item["key"] == "catalogue")
+    assert entry["borrowedTree"] == [
+        {"objectType": "brand", "children": []},
+        {"objectType": "location", "children": []},
+        {"objectType": "language", "children": [
+            {"objectType": "group", "children": [{"objectType": "translation", "children": []}]}
+        ]},
+    ]
+
+
+def test_a_type_own_in_two_applications_has_the_first_as_its_home_and_the_type_entry_lists_the_rest():
+    outline = build_outline(BORROWED, None)
+    gender = next(item for item in outline["objectTypes"] if item["key"] == "gender")
+    assert gender["home"] == "reference"
+    assert gender["ownIn"] == ["reference", "translations"]
+    assert [(item["application"], item["uses"][0]["role"]) for item in gender["borrowedIn"]] == [("codes", "rows")]
+    assert next(item for item in outline["objectTypes"] if item["key"] == "language")["home"] is None

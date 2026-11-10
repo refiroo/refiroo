@@ -8,17 +8,68 @@ import type {
   ModelDraftOutline,
   OutlineApplication,
   OutlineAttributeType,
+  OutlineBorrowedType,
   OutlineConsumerApi,
   OutlineElement,
   OutlineMark,
   OutlineObjectType,
   OutlineRelation,
   OutlineRelationType,
+  OutlineUse,
 } from "@/types";
 import { HUE_SLOTS, type Hue } from "@/model/hues";
 
 export function objectTypeOf(outline: ModelDraftOutline, key: string): OutlineObjectType | undefined {
   return outline.objectTypes.find((item) => item.key === key);
+}
+
+/** What each kind of view is called in the editor. */
+export const VIEW_KINDS: Record<string, string> = {
+  table: "Table",
+  tree: "Tree",
+  relationMatrix: "Relation matrix",
+  mappingGrid: "Mapping grid",
+  relationTable: "Relationships table",
+};
+
+/** The short kind chip a borrowed type's row carries. */
+const KIND_CHIPS: Record<string, string> = {
+  relationMatrix: "matrix",
+  mappingGrid: "mapping grid",
+  relationTable: "relationships",
+};
+
+/** What a link type does, in words: "links languages to translations". */
+export function linkWords(outline: ModelDraftOutline, application: OutlineApplication, use: OutlineUse): string {
+  const config = application.views.find((view) => view.key === use.view)?.matrix ?? {};
+  const name = (key: unknown) =>
+    typeof key === "string" ? (objectTypeOf(outline, key)?.pluralName ?? typeName(outline, key)).toLowerCase() : "";
+  return `links ${name(config.columnObjectTypeKey)} to ${name(config.cellObjectTypeKey)}`;
+}
+
+/** The short kind chip a use's view carries. */
+export const kindChip = (viewType: string) => KIND_CHIPS[viewType] ?? (VIEW_KINDS[viewType] ?? viewType).toLowerCase();
+
+/** The first use of a borrowed type, as the pane words it: the chip, and the line after it. */
+export function borrowedWords(
+  outline: ModelDraftOutline,
+  application: OutlineApplication,
+  borrowed: OutlineBorrowedType,
+): { chip?: string; text: string } {
+  const use = borrowed.uses[0];
+  const from = borrowed.home ? ` · from ${applicationOf(outline, borrowed.home)?.name ?? borrowed.home}` : "";
+  if (use.role === "link") return { text: `${linkWords(outline, application, use)}${from}` };
+  const view = use.role === "columns" || use.role === "cells" ? `${use.role} of ${use.viewName}` : use.viewName;
+  return {
+    chip: KIND_CHIPS[use.viewType],
+    text: [
+      view,
+      use.relationName,
+      borrowed.home ? `from ${applicationOf(outline, borrowed.home)?.name ?? borrowed.home}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
 }
 
 export function applicationOf(outline: ModelDraftOutline, key: string): OutlineApplication | undefined {

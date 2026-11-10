@@ -464,9 +464,9 @@ describe("ModelEditor", () => {
             .map((cell) => cell.textContent?.trim()),
         ),
       ).toEqual([
-        ["Bin", "Collection", expect.stringContaining("Bins (table)")],
-        ["Shelves by bin", "Relation matrix", "Itself"],
-        ["Shelf", "Collection", expect.stringContaining("Shelves (table)")],
+        ["Bin", "List", expect.stringContaining("table · Bins")],
+        ["Shelves by bin", "Relation matrix", "relation matrix · Shelves by bin"],
+        ["Shelf", "List", expect.stringContaining("table · Shelves")],
       ]);
       expect(screen.getByText("Navigation group of")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Add to group…" })).toBeTruthy();
@@ -478,7 +478,7 @@ describe("ModelEditor", () => {
       vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
       renderEditor({ show: "group", application: "shop", key: "lists" });
       await screen.findByRole("table", { name: "Entries of Lists" });
-      fireEvent.click(screen.getByRole("button", { name: /^Edit Opens on: Shelves \(table\)/ }));
+      fireEvent.click(screen.getByRole("button", { name: /^Edit Opens on: table · Shelves/ }));
       const form = await screen.findByRole("form", { name: "Edit Opens on" });
       fireEvent.change(within(form).getByRole("combobox"), { target: { value: "shelves-by-bin" } });
       fireEvent.click(within(form).getByRole("button", { name: "Save" }));

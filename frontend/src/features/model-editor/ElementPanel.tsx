@@ -19,6 +19,8 @@ import { Icon } from "@/ui/Icon";
 import { Tabs } from "@/ui/Tabs";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { GroupFoldCell } from "@/features/model-editor/GroupFoldCell";
+import { TypePlacement } from "@/features/model-editor/TypePlacement";
 import { EditorTable, type EditorColumn } from "@/features/model-editor/EditorTable";
 import { YES_NO } from "@/features/model-editor/EditableCell";
 import { describeCandidates } from "@/features/model-editor/candidates";
@@ -49,7 +51,6 @@ import {
 } from "@/features/model-editor/operations";
 import {
   applicationOf,
-  applicationsOf,
   attributeTypeOf,
   collectionViews,
   draftTypeHue,
@@ -57,12 +58,15 @@ import {
   entryRefId,
   groupEntries,
   isReleased,
+  kindChip,
+  linkWords,
   objectTypeOf,
   openingView,
   placeOf,
   relationTypeOf,
   relationsOf,
   typeName,
+  VIEW_KINDS,
   type NavigationEntryRef,
 } from "@/features/model-editor/outline";
 
@@ -135,14 +139,6 @@ export function OperationButton({
     </button>
   );
 }
-
-const VIEW_KINDS: Record<string, string> = {
-  table: "Table",
-  tree: "Tree",
-  relationMatrix: "Relation matrix",
-  mappingGrid: "Mapping grid",
-  relationTable: "Relationships table",
-};
 
 /** An element's key, and whether it can still change (A-D6): a released key changes with a migration, labels always free. */
 const keyFacts = (key: string, mark: OutlineMark | undefined, extra: Fact[] = []) => (
@@ -304,7 +300,6 @@ export function ElementPanel({
     const type = objectTypeOf(outline, selection.key);
     if (!type) return <Missing what="type" />;
     const target: OperationTarget = { on: "objectType", objectType: type.key };
-    const apps = applicationsOf(outline, type.key);
     const relations = relationsOf(outline, type.key);
     return (
       <section className="element-panel" aria-labelledby="element-title">
@@ -323,10 +318,7 @@ export function ElementPanel({
           {menu(`Operations for ${type.name}`, target)}
         </Header>
         {proposed}
-        <p className="element-place">
-          {placeOf(outline, type)}
-          {apps.length ? ` · in ${apps.map((a) => a.name).join(", ")}` : " · in no application"}
-        </p>
+        <TypePlacement outline={outline} type={type} onSelect={onSelect} />
         <Tabs
           label={`${type.name} structure`}
           selected={tab}
@@ -630,7 +622,7 @@ export function ElementPanel({
           scope="application-types"
           label={`Object types of ${application.name}`}
           noun={["object type", "object types"]}
-          rows={application.objectTypeKeys}
+          rows={application.ownTypes}
           rowKey={(key) => key}
           menu={(key) => (
             <OperationsMenu
@@ -671,6 +663,144 @@ export function ElementPanel({
             },
           ]}
         />
+        {application.borrowed.length > 0 && (
+          <>
+            <h3 className="element-subheading">
+              From other applications <span className="muted">{application.borrowed.length}</span>
+            </h3>
+            <EditorTable
+              editing={editing}
+              scope="application-borrowed"
+              label={`Types of ${application.name} from other applications`}
+              noun={["borrowed type", "borrowed types"]}
+              rows={application.borrowed}
+              rowKey={(item) => item.objectType}
+              menu={(item) => (
+                <OperationsMenu
+                  label={`Operations for ${typeName(outline, item.objectType)}`}
+                  target={{ on: "objectType", objectType: item.objectType, applicationKey: application.key }}
+                  outline={outline}
+                  onOperation={onOperation}
+                />
+              )}
+              emptyMessage="No types from other applications."
+              columns={[
+                {
+                  key: "type",
+                  label: "Type",
+                  cell: (item) => (
+                    <TypeLink
+                      outline={outline}
+                      typeKey={item.objectType}
+                      application={item.home ?? application.key}
+                      dashed
+                      onSelect={onSelect}
+                    />
+                  ),
+                },
+                {
+                  key: "from",
+                  label: "From",
+                  cell: (item) => (item.home ? (applicationOf(outline, item.home)?.name ?? item.home) : "—"),
+                },
+                {
+                  key: "usedBy",
+                  label: "Used by",
+                  cell: (item) => (
+                    <>
+                      {item.uses.map((use) => (
+                        <div key={`${use.view}:${use.role}`}>
+                          <span className="model-pane-chip">{kindChip(use.viewType)}</span> {use.viewName} · {use.role}
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+                {
+                  key: "relation",
+                  label: "Relation",
+                  cell: (item) => (
+                    <>
+                      {item.uses.map((use) => (
+                        <div key={`${use.view}:${use.role}`}>
+                          {use.role === "link" ? linkWords(outline, application, use) : (use.relationName ?? "—")}
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+                {
+                  key: "group",
+                  label: "Group",
+                  cell: (item) =>
+                    application.navigation.groups.find((group) =>
+                      group.entries.some((entry) => entry.collection === item.objectType),
+                    )?.label ?? "—",
+                },
+                {
+                  key: "state",
+                  label: "State",
+                  cell: (item) => {
+                    const type = objectTypeOf(outline, item.objectType);
+                    return type && <MarkPill mark={type.mark} />;
+                  },
+                },
+              ]}
+            />
+          </>
+        )}
+        {application.unused.length > 0 && (
+          <>
+            <h3 className="element-subheading">
+              Listed, used by no view here <span className="muted">{application.unused.length}</span>
+            </h3>
+            <EditorTable
+              editing={editing}
+              scope="application-unused"
+              label={`Types of ${application.name} used by no view`}
+              noun={["type", "types"]}
+              rows={application.unused}
+              rowKey={(key) => key}
+              menu={(key) => (
+                <OperationsMenu
+                  label={`Operations for ${typeName(outline, key)}`}
+                  target={{ on: "objectType", objectType: key, applicationKey: application.key }}
+                  outline={outline}
+                  onOperation={onOperation}
+                />
+              )}
+              emptyMessage="No unused types."
+              columns={[
+                {
+                  key: "type",
+                  label: "Type",
+                  cell: (key) => <TypeLink outline={outline} typeKey={key} onSelect={onSelect} />,
+                },
+                {
+                  key: "stands",
+                  label: "Stands",
+                  cell: (key) => {
+                    const type = objectTypeOf(outline, key);
+                    return type ? placeOf(outline, type) : "—";
+                  },
+                },
+                {
+                  key: "state",
+                  label: "State",
+                  cell: (key) => {
+                    const type = objectTypeOf(outline, key);
+                    return type && <MarkPill mark={type.mark} />;
+                  },
+                },
+                {
+                  key: "unlist",
+                  label: "Unlisting",
+                  cell: (key) => (application.unlistable.includes(key) ? "Can be unlisted" : ""),
+                },
+              ]}
+            />
+          </>
+        )}
         <div className="element-tab-actions">
           <OperationButton id="application-add-type" target={target} outline={outline} onOperation={onOperation}>
             <Icon name="plus" /> Object type
@@ -726,6 +856,10 @@ export function ElementPanel({
           noun={["navigation group", "navigation groups"]}
           rows={application.navigation.groups}
           rowKey={(group) => group.key}
+          reorder={{
+            onMove: (group, position) =>
+              run([{ kind: "setNavigationGroup", applicationKey: application.key, group, position }]),
+          }}
           menu={(group) => (
             <OperationsMenu
               label={`Operations for the group ${group.label}`}
@@ -768,24 +902,17 @@ export function ElementPanel({
             },
             {
               key: "starts",
-              label: "Starts",
-              cell: (group) => (group.collapsed ? "Folded" : "Open"),
-              edit: (group) => ({
-                label: "Starts",
-                value: String(group.collapsed),
-                options: [
-                  { value: "false", label: "Open" },
-                  { value: "true", label: "Folded" },
-                ],
-                operations: (value) => [
-                  {
-                    kind: "setNavigationGroup",
-                    applicationKey: application.key,
-                    group: group.key,
-                    collapsed: value === "true",
-                  },
-                ],
-              }),
+              label: "Starts folded",
+              cell: (group) => (
+                <GroupFoldCell
+                  applicationKey={application.key}
+                  group={group.key}
+                  label={group.label}
+                  folded={group.collapsed}
+                  outline={outline}
+                  run={run}
+                />
+              ),
             },
             { key: "state", label: "State", cell: (group) => <MarkPill mark={group.mark} /> },
           ]}
@@ -870,6 +997,21 @@ export function ElementPanel({
           noun={["entry", "entries"]}
           rows={entries}
           rowKey={entryRefId}
+          reorder={{
+            onMove: (id, position) => {
+              const entry = entries.find((item) => entryRefId(item) === id);
+              if (!entry) return;
+              return run([
+                {
+                  kind: "placeCollection",
+                  applicationKey: application.key,
+                  ...(entry.kind === "matrix" ? { view: entry.key } : { collection: entry.key }),
+                  group: group.key,
+                  position,
+                },
+              ]);
+            },
+          }}
           menu={(entry) => (
             <OperationsMenu
               label={`Operations for ${entryName(outline, application, entry)}`}
@@ -895,12 +1037,20 @@ export function ElementPanel({
             {
               key: "kind",
               label: "Kind",
-              cell: (entry) => (entry.kind === "collection" ? "Collection" : "Relation matrix"),
+              cell: (entry) =>
+                entry.kind === "matrix"
+                  ? "Relation matrix"
+                  : application.borrowed.some((item) => item.objectType === entry.key)
+                    ? "Borrowed list"
+                    : "List",
             },
             {
               key: "opens",
               label: "Opens on",
-              cell: (entry) => (entry.kind === "matrix" ? "Itself" : openingCell(application, entry.key)),
+              cell: (entry) =>
+                entry.kind === "matrix"
+                  ? openingLabel(application.views.find((view) => view.key === entry.key))
+                  : openingLabel(openingView(application, entry.key)),
               edit: (entry) => {
                 if (entry.kind === "matrix") return undefined;
                 const views = collectionViews(application, entry.key);
@@ -1198,10 +1348,9 @@ function bindingOf(outline: ModelDraftOutline, typeKey: string, attributeKey: st
 const viewLabel = (view: { name: string; type?: string | null }) =>
   `${view.name} (${(VIEW_KINDS[view.type ?? ""] ?? view.type ?? "view").toLowerCase()})`;
 
-/** The view a collection's entry opens on, in words. */
-function openingCell(application: OutlineApplication, typeKey: string) {
-  const view = openingView(application, typeKey);
-  return view ? viewLabel(view) : "—";
+/** The view an entry opens on, in words: its kind, then its name. */
+function openingLabel(view?: { name: string; type?: string | null }) {
+  return view ? `${(VIEW_KINDS[view.type ?? ""] ?? view.type ?? "view").toLowerCase()} · ${view.name}` : "—";
 }
 
 /** A relation matrix named in a table: its glyph in its row type's hue, then its name. */
@@ -1269,17 +1418,28 @@ export function TypeLink({
   outline,
   typeKey,
   onSelect,
+  application,
+  dashed,
 }: {
   outline: ModelDraftOutline;
   typeKey: string;
   onSelect: (selection: EditorSelection) => void;
+  /** The application the type opens on. */
+  application?: string;
+  /** A dashed tile: a type the application borrows. */
+  dashed?: boolean;
 }) {
   return (
-    <button type="button" className="link-button type-link" onClick={() => onSelect({ show: "type", key: typeKey })}>
+    <button
+      type="button"
+      className="link-button type-link"
+      onClick={() => onSelect({ show: "type", key: typeKey, ...(application ? { application } : {}) })}
+    >
       <HueTile
         hue={draftTypeHue(outline, typeKey)}
         icon={objectTypeOf(outline, typeKey)?.icon ?? undefined}
         size={18}
+        dashed={dashed}
       />
       {typeName(outline, typeKey)}
     </button>
