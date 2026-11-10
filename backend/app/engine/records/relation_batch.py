@@ -59,6 +59,7 @@ def decide_relation_values(
     lookup.prefetch_relation_ids(ids)
     failed: list[dict[str, Any]] = []
     for position, item in enumerate(items):
+        relation = None
         try:
             with lookup.deciding():
                 relation = lookup.relation(item.relation_id)
@@ -77,6 +78,15 @@ def decide_relation_values(
                 {
                     "index": position,
                     "relationId": item.relation_id,
+                    # The ends, so a caller can say which pair was refused (absent when the relationship is).
+                    **(
+                        {
+                            "fromObjectId": relation.from_object_id,
+                            "toObjectId": relation.to_object_id,
+                        }
+                        if relation is not None
+                        else {}
+                    ),
                     "code": error.code,
                     "message": error.message,
                     "details": error.details,

@@ -588,6 +588,7 @@ export function RelationGridView({
           columns={columns}
           selection={selection.selection}
           selected={selection.count}
+          rowNames={new Map(items.map((row) => [row.source.id, row.source.name]))}
           search={query.search}
           filters={filters}
           onClose={() => setChanging(false)}

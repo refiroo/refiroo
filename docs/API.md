@@ -5974,7 +5974,7 @@ it). The response gives each relationship in the order of the items, at its new 
 `changeSetVersion` in a change set. The items are decided as a single `PATCH` is, in order, and written
 as one set: any stale version or invalid value refuses the whole request with `RELATION_BATCH_REFUSED`
 (`409` when a version was stale, otherwise `422`) whose `details.items` name each failing item by
-`index`, `relationId`, `code`, `message` and `details`, and nothing is written. Also `422
+`index`, `relationId`, the relationship's `fromObjectId` and `toObjectId` (absent when the relationship was not found), `code`, `message` and `details`, and nothing is written. Also `422
 DUPLICATE_BATCH_ITEMS` (a relationship twice) and `413 BATCH_TOO_LARGE` above `BATCH_MAX_ITEMS`. The
 caller needs the right to write the relationships' types, as for `PATCH`; the relation sets' versions
 and the matrix states follow as for any relationship write.
@@ -6027,7 +6027,7 @@ The rows are `fromObjectIds` (the ticked ones) or `allMatching: true` with the g
 column records. The selection and the counts are read in PostgreSQL: `change` relationships hold another value,
 `same` already hold it, `missing` pairs are not related (every pair is checked). With `linkMissing` the missing
 pairs are related too, with that value. `dryRun` answers the counts and, in `refused`, every item the apply would
-be refused for (`index`, `relationId` or the pair, `code`, `message`), and writes nothing. An apply writes through
+be refused for (`index`, `relationId` and the pair's `fromObjectId` and `toObjectId`, or the pair alone for a link, `code`, `message`), and writes nothing. An apply writes through
 the write unit as one batch, as `POST /relations/batch` does, with the rules of a single write (cardinality,
 uniqueness scope, conditions, attribute checks): any refusal refuses all, `RELATION_BATCH_REFUSED` (`409` for a
 stale version, else `422`) naming each item, and nothing is written. It answers the counts, `linked` (pairs

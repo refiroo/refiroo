@@ -303,6 +303,10 @@ def test_one_stale_or_invalid_item_refuses_the_whole_batch(world):
     failed = {item["index"]: item["code"] for item in error["details"]["items"]}
     assert failed == {0: "VERSION_CONFLICT", 1: "ATTRIBUTE_BELOW_MINIMUM"}
     assert error["details"]["items"][0]["relationId"] == made[0]["id"]
+    # A refusal names the pair, so a caller can say which relationship it was.
+    assert {(item["fromObjectId"], item["toObjectId"]) for item in error["details"]["items"]} == {
+        (row["fromObjectId"], row["toObjectId"]) for row in made[:2]
+    }
     for row, expected in zip(made, (3, 2, 2), strict=True):
         assert ok(world.api.get(f"/relations/{row['id']}"))["attributes"][weight] == expected
 

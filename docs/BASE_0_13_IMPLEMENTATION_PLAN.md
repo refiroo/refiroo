@@ -412,10 +412,10 @@ either point here or are closed. Nothing else is open.
 | # | Item | Evidence | Who acts |
 | --- | --- | --- | --- |
 | 1 | **Closed 2026-11-10: AB acceptance runs**, accepted by the user ("this is good and accepted, the ab can be closed"). Record under [AB](#ab-the-assistant-loads-a-file-as-one-checked-batch), "Acceptance runs" | the 0.16 usage log, 2026-11-10 rows | - |
-| 3 | **The outside reader of DOC11.** The exit gate asks for every tutorial completed by a reader from outside the project; the checks done are the weaker one (a fresh agent with a browser, no person) | DOC11 status; `guide/_coverage/notes/C11-READER2/report.md`, `C11-READER2-AI/report.md`, `C11-HOST/findings.md` | The user accepts the weaker check as the gate or arranges a reader |
+| 3 | **Closed 2026-11-10: the outside reader of DOC11.** The user: no outside reader will be had, the item is closed; the weaker check (a fresh agent with a browser: C11-READER2, C11-READER2-AI, the clean-host rehearsal C11-HOST) stands as the exit gate's reader check | DOC11 status; `guide/_coverage/notes/C11-READER2/report.md`, `C11-READER2-AI/report.md`, `C11-HOST/findings.md` | - |
 | 4 | **Live tries the depth waves could not run.** Statements written from the code and never run on a live system: phone trust of the developer instance, provider sign-in and mail receipt, collector setup, a backup and restore onto a public replacement host, an interrupted upgrade, webhook receiver deliveries, a physical passkey ceremony | the `Open:` lines of `guide/_coverage/notes/D-RUN/depth.md`; the clean-host rehearsal (DOC11, 139 commands) covered install, backup, restore and upgrade on one host only | R's rehearsal, or the outside reader (item 3) |
-| 7 | **DOC-D26 is undecided**: AI in the reference instance (recommendation 2026-11-02: not now; at DOC9A an optional, off-by-default setup) | [Decisions](#decisions), DOC-D26 | The user |
-| 8 | **RV's browser runner.** The look at 390 px and 1280 px was taken once on 2026-11-10 (below, under RV): no defect found. No browser acceptance runner (`test:browser`) exists for the relationships table, the grid or the cell dialog | RV, "Still manual / not built" | The user decides whether a runner is wanted |
+| 7 | **Closed 2026-11-10: DOC-D26.** The reference instance's optional AI setup already exists and is used: `guide/reference/README.md`, "Switch on AI with a Claude subscription" (the dev subscription token in the git-ignored `guide/reference/.env`, Claude Code `sonnet`); the 2026-11-10 picture retakes ran on it. Decided by the user on 2026-11-10: use the current dev key | [Decisions](#decisions), DOC-D26; the 0.16 usage log, 2026-11-10 rows | - |
+| 8 | **Closed 2026-11-10: RV's browser runner.** `frontend/e2e/rv-relationship-values.mjs` (`test:browser:rv`, 22 checks, 14 axe scans, passed): the relationships panel's Edit values, the rows table (columns, group headings, a Yes/no filter, sort), the grid (a refused preview, a bulk change, cells in place), `POST /relations/batch` refusing whole and naming the item, a change set against live, the matrix cell dialog as a table edited in place, Layout… in the model editor, keyboard, 390 x 844 touch and a dark pass, each write read back through the API. Rows RV-1 to RV-4 in [UI acceptance](testing/UI_ACCEPTANCE.md) | RV, "Still manual / not built" | - |
 | 9 | **MS: mail through Microsoft 365**, delivered 2026-11-10 (secret, certificate, managed identity in both modes); the real try waits for the organisation refiroo is deployed for (managed identity) | [MS](#ms-mail-through-microsoft-365-graph) | Implementer builds; primary agent checks and reports |
 | 10 | **Release step R**: the full review of every change since 0.12, the exit gate, the versioned site build (`website/tools/engine.mjs <tag>`) and the release | R row; Exit gate; DOC12 | Primary agent, each heavy run announced one at a time |
 
@@ -669,7 +669,7 @@ rehearsed. Pages changed since (CP, ED, RL, DF, AT). **Planned again and approve
    their CHANGELOG entry and guide text.
 5. **Record:** this status, the CHANGELOG, `npm run verify`.
 
-Still the weaker check (no outside person), now done rather than read.
+Still the weaker check (no outside person), now done rather than read. **The user closed the outside reader on 2026-11-10** ("this we won't have, this can be closed"): this weaker check is the exit gate's reader check.
 
 **Clean-host rehearsal done 2026-11-08** (`guide/_coverage/notes/C11-HOST/findings.md`): 139 commands run on 15
 pages, 128 as the page says, 11 differ, 24 not run with reasons. Product findings: the tag `v0.16.0` cannot be built
@@ -1655,14 +1655,13 @@ model's own relationship values, with live examples under `guide/_coverage/live/
 offered as a table sort made the generated view invalid); it is fixed (CHANGELOG, 0.13 RV).
 
 **Still manual / not built.** No sorting of a panel by a relationship attribute; no typed operators in a table's
-filters; the browser acceptance runner (`test:browser`) for the table, the grid and the cell dialog is not written; the
-grid's appearance was inspected once on 2026-11-10 in a browser on the reference instance at 390 x 844 (touch) and
+filters; the grid's appearance was inspected once on 2026-11-10 in a browser on the reference instance at 390 x 844 (touch) and
 1280 px, light and dark, for the relationships table in rows layout, the grid (rows ticked, the bulk change dialog, the
 `+ Link` cells) and the matrix cell dialog as a table: no horizontal scroll of the page at either width (the grid and the
 dialog's table scroll inside their own scrollers), sticky first column, filters, Display, selection bar, group headings
 and both dialogs usable in both themes, so nothing was changed. Seen and left: the sticky Stop column takes about two
 thirds of the width at 390 px, so one further column shows without scrolling; the dialog table's attribute columns are
-reached by scrolling it sideways, with no cue. No browser runner exists ([open item 8](#open-for-013)).
+reached by scrolling it sideways, with no cue. The browser runner `test:browser:rv` (`frontend/e2e/rv-relationship-values.mjs`, 22 checks) was written on 2026-11-10 and covers the panel, the table, the grid, its bulk change, the cell dialog, Layout…, keyboard, 390 px and dark with axe, each write read back through the API ([open item 8](#open-for-013), closed). It found that a refused grid change did not name its relationship, fixed the same day (see [FX](#fx-fixes-found-during-the-013-build)); it left as it was that the cell dialog's attribute columns at 390 px sit past the dialog's edge.
 
 
 ## RA: Attributes of the relationship in consumer API related fields
@@ -2021,6 +2020,7 @@ named by a package in the table above (checked with `git log --oneline v0.16.1-a
 | Fix | Where found | Where it is |
 | --- | --- | --- |
 | An AI task's progress line showed the session's shell command (`_plain` defined twice in `tasks/agent.py`) | reported by the user from a running task, 2026-11-09 | package [AW](#aw-an-ai-tasks-progress-line-in-words-not-the-command), uncommitted; not repeated here |
+| The relationships grid's bulk change listed a refusal's message without saying which relationship it was (two pairs below a minimum gave two identical lines) | `test:browser:rv`, 2026-11-10 | `RelationGridChangeDialog.tsx` (`refusalLines`), `RelationGridView.tsx` (`rowNames`), `backend/app/engine/records/relation_batch.py` (the ends on a refused item), `test_j13_relation_attributes.py`, `RelationGridView.test.tsx`; uncommitted; CHANGELOG "a refused grid change names its relationships, 0.13 FX"; guide wave `RV-REFUSED` |
 | A tall Display popover of a relationship or collection panel looked cut off, and no popover opened with no height on a scrolled page | not recorded in the CHANGELOG | `frontend/src/ui/ControlPopover.tsx`, `styles/layout.css`; uncommitted; CHANGELOG "a tall Display popover looks cut off, 0.13 FX" |
 | The assistant re-checked a stale copy of its own corrected draft (sessions keep loaded rows after a commit), so the task failed after the session had fixed the draft | the user's AI task `cbd71b4b`, 2026-11-10 | `app/engine/tasks/agent.py` (`_proposal_landed`, `_run_turn`), `tasks/store.py` (`load_task`), `tests/journeys/test_j50_ai_reshape.py`; commit of 2026-11-10; CHANGELOG "the assistant re-checked an outdated copy of its draft, 0.13 FX" |
 | On a change set page the pinned band held the whole change set bar, the submit comment and the model-mismatch notice (the bar's `BelowContextBand` sat outside the slot provider), covering about half the window | reported by the user on a change set page, 2026-11-10 | `frontend/src/app/AppShell.tsx`, `features/workspaces/ChangeSets.tsx`, `styles/components.css`, `app/App.test.tsx`; commit of 2026-11-10; CHANGELOG "the change set band stays compact, 0.13 FX" |
@@ -2108,7 +2108,7 @@ approving the recommendations, and DOC-D13 by choosing the recommended option.
 | DOC-D23 | When does Codex edit files 0.16 also edits? | **Decided by the user 2026-11-02: the recommendation.** DOC2's description batches run in a window the user names when no 0.16 session runs, and each batch is committed before the window closes. Guide pages need no window |
 | DOC-D24 | Licences of the guide's shipped libraries | **Decided by the user 2026-11-02: the recommendation.** Python-2.0, BlueOak-1.0.0 and CC0-1.0 join the notices script's allowed list (all permissive, compatible with AGPL distribution) |
 | DOC-D25 | The private-model names for the banned-terms check | **Decided by the user 2026-11-02: the recommendation.** The list stays empty: Codex works only from the reference domain and never sees a private model. Names can be added at any time with `node tools/check.mjs hash-term` |
-| DOC-D26 | AI in the reference instance | **Recommendation (2026-11-02), not yet decided by the user.** Not now. At DOC9A the reference instance gets an optional, off-by-default AI setup (`AI_PROVIDER=claude` and the assistant's command, key in the git-ignored `guide/reference/.env`), each try reported with tokens and cost; the `docs` group uses the engine's offline provider. Which key, and who pays, is decided then |
+| DOC-D26 | AI in the reference instance | **Decided by the user 2026-11-10: the current dev key.** The reference instance has an optional, off-by-default AI setup: the Claude Code subscription token in the git-ignored `guide/reference/.env` (`guide/reference/README.md`, "Switch on AI with a Claude subscription"), each try reported with tokens and cost in the 0.16 usage log; the `docs` group uses the engine's offline provider. (Recommendation 2026-11-02 was: not now, an optional setup at DOC9A.) |
 
 ## DF: Findings of the depth waves
 
@@ -2232,7 +2232,8 @@ coverage check and `npm run verify`.
   `/docs/api`, which the guide links to (0.14 deepens its descriptions).
 - Each of the ten points is stated where the table above places it.
 - Every tutorial was completed by a reader from outside (DOC11, the fresh-reader check, run after the full
-  documentation), and their findings were closed.
+  documentation), and their findings were closed. **Changed by the user 2026-11-10:** no outside reader will be had;
+  the weaker check (a fresh agent with a browser on the reference instance, and the clean-host rehearsal) is this gate.
 - The fact-check of each wave is recorded with its removals.
 - The guide is served offline by the engine at `/docs` (DF4: was `/guide`), published as a static site with search, in light
   and dark, and passes the accessibility gate.

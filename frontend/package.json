@@ -90,6 +90,7 @@
     "test:browser:k3": "node e2e/k3-bulk-relations.mjs",
     "test:browser:k5": "node e2e/k5-relation-columns.mjs",
     "test:browser:k6": "node e2e/k6-relationship-filters.mjs",
+    "test:browser:rv": "node e2e/rv-relationship-values.mjs",
     "test:browser:k7": "node e2e/k7-relationship-candidates.mjs",
     "test:browser:ua8": "node e2e/ua8-record-in-place.mjs",
     "test:browser:ua9": "node e2e/ua9-tree-selection.mjs",

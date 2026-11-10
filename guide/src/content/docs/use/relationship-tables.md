@@ -112,5 +112,10 @@ editable relationship fields. Bulk selection also depends on the deployment's bu
 capabilities. JSON values do not appear in the grid's bulk-change attribute choices.
 
 A failed read is not an empty grid. Retry before linking anything. A refused write keeps the
-saved data unchanged; correct the named value, rule or stale version before retrying. If a bulk
-request is too large, narrow the rows or column groups and apply smaller reviewed selections.
+saved data unchanged; correct the named value, rule or stale version before retrying. In the
+grid's bulk-change dialog, the preview and **Nothing was changed** notice name each refused
+connection as **From record → To record: reason** when both names are known. Otherwise, the
+line shows only the reason. The same connection and reason appear once. Each notice shows
+at most five lines; the preview heading counts all distinct refusal lines. Narrow the selection
+to investigate any others. If a bulk request is too large, narrow the rows or column groups
+and apply smaller reviewed selections.

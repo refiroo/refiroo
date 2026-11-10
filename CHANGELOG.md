@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file. The format foll
 ### Documentation (the relationships table, grid and cell dialog looked at on a phone, 0.13 RV)
 
 - **Inspected once at 390 x 844 (touch) and 1280 px, light and dark; nothing needed changing.** The page does not scroll sideways at either width, the grid and the matrix cell dialog's table scroll inside their own scrollers, and the filters, Display, the selection bar, the bulk change dialog, the `+ Link` cells and the group headings work. The result is recorded under RV in the 0.13 plan.
+- **`test:browser:rv`**, a browser acceptance runner for the relationships panel, the relationships table, the grid and the matrix cell dialog: values edited and bulk changed with each write read back through the API, live and in a change set, a refused batch naming the failing item, Layout… in the model editor, keyboard, 390 x 844 touch and a dark pass, with axe.
 
 ### Fixed (the guide home's tab title, the AI task fixture's keys, 0.13 FX)
 
@@ -74,6 +75,10 @@ All notable changes to this project are documented in this file. The format foll
 - **A relationships grid filters with the collection's own filter bar** over the filter fields of its end types' main views (every operator, search, related filters) and the relationship's values, for the rows and for the column records, shown as columns or not; rows are selected and changed as a collection's are, and a saved cell reads only its own row again.
 
 - **The guide's reference model carries relationship values** (release 1.8.1): stop to operator holds Local name, Primary contact and Inspected on, system code to municipality holds Confirmed and Note; two relationships tables over the first (rows, grid), a related-block field per value in the Stops API, and `samples/data/reference/relation-values.json`. `load.py` moves an existing workspace to the release.
+
+### Fixed (a refused grid change names its relationships, 0.13 FX)
+
+- **The relationships grid's Change relationship values dialog says which relationship each refusal belongs to.** Found by `test:browser:rv`: a value below an attribute's minimum on two pairs listed the engine's message twice with nothing to tell the pairs apart. Cause: the dialog listed `refused[].message` only, and the engine's refused items for an existing relationship carried its ID but not its ends. The engine now adds `fromObjectId` and `toObjectId` to such items (`decide_relation_values`, so `POST /relations/batch` and `POST /relations/grid-change` both), and the dialog writes each refusal, in the preview and after a refused Apply, as "Stop A → Operator B: message" with the names the grid shows, once per relationship and reason; the title counts those lines.
 
 ### Fixed (Layout… of a relationships table, 0.13 RV)
 

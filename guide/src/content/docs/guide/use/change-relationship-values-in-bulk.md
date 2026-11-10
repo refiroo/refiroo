@@ -40,7 +40,12 @@ with access to change the connections. A publication is read-only.
 5. If missing pairs should also become connections, select **Also link them, with …**. Leave
    it unticked to change existing connections only. Review the refreshed preview: new links
    must meet the same candidate, number and ownership rules as any other new connection.
-6. Read every refusal shown and the number beside **Applying changes … relationships**. **Apply**
+6. Read the refusal notice, if shown. Each line names the row record and column record as
+   **From record → To record: reason**. The same connection refused for the same reason appears
+   once. The heading **N would be refused, so nothing can be changed yet** counts those lines,
+   but only the first five are shown. If a record's name is unavailable, a line shows only the
+   reason; this can happen with matching rows the grid has not read. Narrow the selection to
+   investigate. Check the number beside **Applying changes … relationships**. **Apply**
    stays unavailable while the value is missing or invalid, the preview is loading or failed,
    nothing would change, or any pair would be refused. Correct the value or selection; do not
    assume the remaining pairs will be applied around a refusal.
@@ -63,8 +68,11 @@ Yes 4 and Not linked to the operator 10. Also link them is unticked, so Applying
    [review and publish](/docs/guide/use/prepare-and-publish-a-change-set/) when ready. Applying
    this dialog alone does not publish the change set.
 
-**Nothing was changed** means Apply was refused. Read the reasons, check current connections
-and retry with corrected choices. **Cancel** closes without applying the preview.
+**Nothing was changed** means Apply was refused. Its list uses the same record names and
+reasons as the preview, with up to five lines and only the reason when a name is unavailable.
+Check the named connections and current values, then retry with corrected choices. Narrow the
+selection if you need to investigate refusals beyond those shown. **Cancel** closes without
+applying the preview.
 
 The deployment limits how many source records can be selected and how many relationships one
 atomic change can write. One source row can affect many column groups, so a selection can fit

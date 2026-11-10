@@ -47,7 +47,9 @@ read models, permissions and version rules.
 4. Send `dryRun: true` with the value and `linkMissing` choice. Null clears the named attribute;
    false sets a Yes or no value to No. Missing connections are left alone unless
    `linkMissing: true` asks to create them with that value.
-5. Read `change`, `same`, `missing`, `linked` and every `refused` item. The preview checks all
+5. Read `change`, `same`, `missing`, `linked` and every `refused` item. Use each item's
+   `fromObjectId` and `toObjectId` to identify the pair in your source data, including refusals
+   for existing relationships. A refused new link has `relationId: null`. The preview checks all
    selected pairs, not a sample. A 200 preview with refusals is not permission to apply a
    partial result. Correct the selection, model rule or value first.
 6. Send the reviewed selection with `dryRun: false`. The operation checks current data again
@@ -113,7 +115,10 @@ existing connection to one of those columns whose primary value is empty. It doe
 unlinked pairs merely because they have no primary value.
 
 An apply refusal is `RELATION_BATCH_REFUSED` (409 for a stale version, otherwise 422), with
-item codes and messages, and writes nothing. `422 INVALID_GRID_CHANGE` means the attribute,
+item codes and messages in `details.items`, and writes nothing. Reconcile each refused pair
+using its endpoint IDs, just as in the dry run; keep its relationship ID when present. The
+[grid-change operation](/docs/api/?api=management#tag/relations/POST/api/v1/relations/grid-change)
+describes the result fields. `422 INVALID_GRID_CHANGE` means the attribute,
 value or endpoint type is invalid. Model or request-shape errors must be corrected, not retried
 unchanged. `413 BATCH_TOO_LARGE` reports the `ATOMIC_JOB_MAX_ITEMS` ceiling, including during
 a dry run. The limit counts values that would change plus missing pairs to link, not source
@@ -132,7 +137,10 @@ rows. Narrow rows or columns, or coordinate a limit change with the operator.
    `expectedChangeSetVersion`. On success, retain returned relationship versions and any
    `changeSetVersion`. Results follow input order.
 4. On `RELATION_BATCH_REFUSED`, reconcile `details.items` by index, relationship ID and item
-   error code. A stale item makes the response 409, other refusals 422, and nothing applies.
+   error code. Each item also carries `fromObjectId` and `toObjectId` when the relationship
+   still exists, so you can identify its pair in your source data. If the relationship cannot
+   be found, use the index and relationship ID instead; endpoint IDs are absent. A stale item
+   makes the response 409, other refusals 422, and nothing applies.
    Read current values before sending corrected version claims. Repeating an ID is
    `DUPLICATE_BATCH_ITEMS`; an oversized request is `413 BATCH_TOO_LARGE` under `BATCH_MAX_ITEMS`.
 

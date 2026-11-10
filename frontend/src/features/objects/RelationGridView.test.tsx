@@ -331,7 +331,24 @@ describe("relationships grid (0.13 RG)", () => {
       same: 0,
       missing: 0,
       linked: 0,
-      refused: [{ index: 0, relationId: "r1", code: "ATTRIBUTE_BELOW_MINIMUM", message: "Weight must be at least 1" }],
+      refused: [
+        {
+          index: 0,
+          relationId: "r1",
+          fromObjectId: "from-Connections",
+          toObjectId: "to-Sizes",
+          code: "ATTRIBUTE_BELOW_MINIMUM",
+          message: "Weight must be at least 1",
+        },
+        {
+          index: 0,
+          relationId: "r1",
+          fromObjectId: "from-Connections",
+          toObjectId: "to-Sizes",
+          code: "ATTRIBUTE_BELOW_MINIMUM",
+          message: "Weight must be at least 1",
+        },
+      ],
     });
     renderGrid();
     await waitFor(() => expect(bodyRows()).toHaveLength(2));
@@ -339,7 +356,10 @@ describe("relationships grid (0.13 RG)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Change relationship values" }));
     const dialog = await screen.findByRole("form", { name: "Change relationship values" });
     fireEvent.change(within(dialog).getByLabelText("Weight"), { target: { value: "0" } });
-    expect(await within(dialog).findByText("Weight must be at least 1")).toBeInTheDocument();
+    // The refusal names the relationship as the grid shows it, once however many times the engine said it.
+    expect(await within(dialog).findByText("Connections → Sizes: Weight must be at least 1")).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/Weight must be at least 1/)).toHaveLength(1);
+    expect(within(dialog).getByText("1 would be refused, so nothing can be changed yet")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled();
   });
 

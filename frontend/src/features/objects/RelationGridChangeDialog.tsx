@@ -31,6 +31,13 @@ import { Section } from "@/ui/Section";
 
 const count = (value: number) => value.toLocaleString("en");
 
+interface Refusal {
+  relationId?: string | null;
+  fromObjectId?: string | null;
+  toObjectId?: string | null;
+  message: string;
+}
+
 interface Preview {
   key: string;
   result?: RelationGridChangeResult;
@@ -47,6 +54,7 @@ export function RelationGridChangeDialog({
   columns,
   selection,
   selected,
+  rowNames,
   search,
   filters,
   onClose,
@@ -65,6 +73,8 @@ export function RelationGridChangeDialog({
   columns: RelationGridColumn[];
   selection: RecordSelection;
   selected: number;
+  /** The names of the rows the grid has read, so a refusal can name its relationship. */
+  rowNames?: ReadonlyMap<string, string>;
   search: string;
   filters: CollectionFilter[];
   onClose: () => void;
@@ -81,6 +91,24 @@ export function RelationGridChangeDialog({
   const [preview, setPreview] = useState<Preview>();
   const [applying, setApplying] = useState(false);
   const [refusal, setRefusal] = useState<{ message: string; lines: string[] }>();
+
+  /**
+   * A refusal in the words a person recognises: the two records as the grid shows them, then the engine's
+   * message; the same relationship refused for the same reason is said once.
+   */
+  function refusalLines(items: Refusal[]): string[] {
+    const lines = new Map<string, string>();
+    for (const item of items) {
+      const from = item.fromObjectId
+        ? (rowNames?.get(item.fromObjectId) ??
+          (selection.mode === "ids" ? selection.ids.get(item.fromObjectId)?.name : undefined))
+        : undefined;
+      const to = columns.find((column) => column.id === item.toObjectId)?.label;
+      const line = from && to ? `${from} → ${to}: ${item.message}` : item.message;
+      lines.set(`${item.relationId ?? `${item.fromObjectId}:${item.toObjectId}`}|${line}`, line);
+    }
+    return [...lines.values()];
+  }
 
   const attribute = attributes.find((item) => item.key === attributeKey) ?? attributes[0];
   const value: unknown =
@@ -152,13 +180,14 @@ export function RelationGridChangeDialog({
       onClose();
     } catch (cause) {
       const refused = isApiError(cause, "RELATION_BATCH_REFUSED")
-        ? (cause.details as { items?: { message: string }[] } | undefined)?.items
+        ? (cause.details as { items?: Refusal[] } | undefined)?.items
         : undefined;
-      setRefusal({ message: errorMessage(cause), lines: refused?.map((item) => item.message) ?? [] });
+      setRefusal({ message: errorMessage(cause), lines: refused ? refusalLines(refused) : [] });
       setApplying(false);
     }
   }
 
+  const refusedLines = result ? refusalLines(result.refused) : [];
   const shown = value === true ? "Yes" : value === false ? "No" : value === null ? "empty" : String(value ?? "");
   return (
     <Modal
@@ -254,11 +283,11 @@ export function RelationGridChangeDialog({
               {result.refused.length > 0 && (
                 <Notice
                   tone="error"
-                  title={`${count(result.refused.length)} would be refused, so nothing can be changed yet`}
+                  title={`${count(refusedLines.length)} would be refused, so nothing can be changed yet`}
                 >
                   <ul>
-                    {result.refused.slice(0, 5).map((item) => (
-                      <li key={`${item.index}:${item.relationId ?? item.toObjectId}`}>{item.message}</li>
+                    {refusedLines.slice(0, 5).map((line) => (
+                      <li key={line}>{line}</li>
                     ))}
                   </ul>
                 </Notice>
