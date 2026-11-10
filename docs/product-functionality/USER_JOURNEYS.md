@@ -2773,6 +2773,9 @@ API; it calls no AI provider.
   checked again first, and a refusal then fails the task before anything is installed.
 - **J50.70 A refused item in an items dry run (0.13 AB)**: an item the draft's model refuses is counted and listed with
   its ref and the engine's code; a dry run takes either a source file or items, never both and never neither.
+- **J50.71 A file already in the workspace (0.13 AB)**: a file whose every record is stored already is a normal
+  outcome: the items dry run shows every item matched or unchanged, none new or refused, the task is checked, and
+  accepting ends it loaded with nothing new, installs no release (the model does not change) and changes no live data.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

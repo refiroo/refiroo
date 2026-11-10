@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (a file already in the workspace is a checked load, 0.13 AB)
+
+- **A workbook whose every record is stored already ends `checked`, and accepting it ends `loaded` with nothing new.** Cause: the assistant's prompt (`agent/18`) let the session decide "already there", send no items dry run and write no proposal, so the task failed, and an accepted items load whose change set held nothing failed with "nothing to load". `agent/19` says the items dry run and the proposal are always sent (the draft is the current model, each item names an existing record by ID); the accept ends `loaded` with zero counts and the matched records as `unchanged`, no release when the model does not change, and the empty change set stays on the task to discard. A session that ends with no proposal still fails.
+
 ### Fixed (the change set band stays compact, 0.13 FX)
 
 - **On a change set page the pinned band holds one compact strip, and the rest scrolls with the page.** Cause: the change set bar in the band (`contextActions`) reached `BelowContextBand` outside `ContextBandSlotContext`, whose provider wrapped only the page content, so its notices (model mismatch, sent back, warning) rendered in place inside the sticky band instead of in the slot below it; with a long submit comment the band covered about half the window. `AppShell` now provides the slot to the band as well. The band keeps the name (one line, ellipsis, full name in its title), the "Waiting for approval" pill and the buttons; the version, source, model and creator line, "Submitted by", the comment (two lines with Show more / Show less where it is longer) and "Withdraw the request to edit it." sit below it with the notices. Frontend only.

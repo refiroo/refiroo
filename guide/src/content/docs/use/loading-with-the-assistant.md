@@ -99,8 +99,10 @@ installed before a load refusal can remain installed.
 For a words-only task with no model change, **Accept** lets the session prepare a new change set
 on the workspace's current release. It installs and activates nothing. Model-only and record-move
 proposals keep **Accept the model** and the migration or staged-move endings described below.
-A task with nothing to load reports why and can be corrected; an empty change set is not reported
-as a successful load.
+A file whose records are all stored already is a normal outcome: the check shows every record as
+already there, **Accept** ends the task loaded with nothing new, and the change set it leaves is empty
+(discard it from the task). A session that loads without the engine's check and names an empty
+change set is not reported as a successful load.
 
 The result names the change set and its counts. **Review the change set** opens its normal
 review. Check the actual rows and relationships, validate, then submit for approval or publish

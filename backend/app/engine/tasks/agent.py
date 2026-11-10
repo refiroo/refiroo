@@ -74,7 +74,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "agent/18"
+PROMPT_VERSION = "agent/19"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -163,7 +163,12 @@ _ITEMS = (
     "GET /model-drafts/{id}/dry-run until it completes, and read its items summary (per type: new, "
     "matched, changed, refused; the relationships; examples with their refs; the findings). Fix your "
     "items or the draft until nothing is refused and every finding is explained, then write the "
-    "proposal. What you sent last is exactly what is loaded when the person accepts. An empty cell is "
+    "proposal. What you sent last is exactly what is loaded when the person accepts. Always send the "
+    "items dry run and write the proposal, also when you believe the file is already fully in the "
+    "workspace: then the draft is the workspace's current model, unchanged, every item names an "
+    "existing record by its ID, and the engine's summary, not your reading, shows that everything "
+    "matches and nothing is new; say that in the proposal's summary in the person's terms. A "
+    "session that ends with no items sent and no proposal fails the task. An empty cell is "
     "no value: never call its row skipped or left out."
 )
 

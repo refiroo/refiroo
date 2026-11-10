@@ -329,15 +329,12 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     design = dict(task.design or {})
     design.pop("progress", None)
     task.design = design
-    if not agent._holds_changes(counts):
-        _discard(session, change_set.id)
-        _fail(
-            session,
-            task_id,
-            "Everything in the file is already stored as it is, so there was nothing to load."
-            + _withdraw(session, task_id),
-        )
-        return
+    # A file whose content is all stored already is a normal outcome (0.13 AB): the task ends
+    # ``loaded`` with zero counts, the records it matched counted as unchanged. The change set stays
+    # (empty): the loaded page says nothing changed and offers to discard it.
+    counts["unchanged"] = int(
+        (session.get(Job, batch.sequence_id).counts or {}).get("unchanged", 0)
+    )
     task.result = {
         "changeSetId": change_set.id,
         "changeSetName": change_set.name,

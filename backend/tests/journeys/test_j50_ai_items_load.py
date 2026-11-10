@@ -385,3 +385,61 @@ def test_a_draft_changed_after_the_check_is_checked_again_before_anything_is_ins
     assert len(_all(world, "/model-releases")) == releases
     changes = _all(world, f"/workspaces/{partners.workspace}/change-sets")
     assert [c["id"] for c in changes] == [partners.settings["changeSet"]]
+
+
+@pytest.mark.journey("J50.71")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_file_already_in_the_workspace_is_checked_and_accepting_it_loads_nothing_new(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a file whose every record is stored already (items naming the existing supplier by its
+    ID with the values it holds) and a draft that does not change the model, when the session
+    sends them and proposes, then the task is checked and the summary shows every item matched, none
+    new or refused; accepting installs no release, ends the task loaded with nothing new and changes
+    no live data."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    partners = Partners(world, tmp_path, monkeypatch)
+    k = partners.k
+    same = [
+        {
+            "op": "update",
+            "target": {"id": partners.supplier["id"]},
+            "expectedVersion": partners.supplier["version"],
+            "name": "Supplier 0",
+            "ref": "Sheet!A2:B2",
+        }
+    ]
+    draft = ok(
+        world.api.post(
+            "/model-drafts",
+            {
+                "name": "Unchanged",
+                "model": ok(
+                    world.api.get(f"/model-releases/{partners.release}", includeModel=True)
+                )["model"],
+                "baseReleaseId": partners.release,
+            },
+        ),
+        201,
+    )["id"]
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({**json.loads(config.read_text()), "draft": draft, "items": same}))
+    task = partners.proposed()
+    assert task["state"] == "checked", task["notes"]
+    load = task["design"]["load"]
+    assert load["figures"]["recordsNew"] == 0 and load["figures"]["refused"] == 0
+    assert load["figures"]["recordsMatched"] == 1 and load["figures"]["recordsChanged"] == 0
+    releases = len(_all(world, "/model-releases"))
+    task = partners.accept(task)
+    assert task["state"] == "loaded", task["notes"]
+    counts = task["result"]["counts"]
+    assert counts["created"] == counts["updated"] == counts["deleted"] == 0
+    assert counts["relationsCreated"] == 0 and counts["unchanged"] == 1
+    assert not task["result"].get("releaseId")
+    assert len(_all(world, "/model-releases")) == releases
+    live = _all(world, f"/objects/{k.supplier}", workspaceKey=partners.workspace)
+    assert [item["name"] for item in live] == ["Supplier 0"]
+    assert len(partners.turns()) == 1
