@@ -26,6 +26,12 @@ to the source of that running build. The authenticated system-information operat
 `GET /api/v1/system` also reports it as `engine.sourceCode`, alongside engine version and licence;
 see the [API reference](/docs/api).
 
+About also shows a **Build** row: the release tag and the short commit the engine was built from,
+each linked to that tag or commit in the repository. The sign-in screen repeats them in a small
+line under the form, without links, so you can tell which build an instance runs before signing
+in. The API reports them as `engine.build` (`commit`, `tag`); either is empty when the build does
+not record it, and the row or line is then left out.
+
 Keep this source address with the version and configuration in your upgrade and backup records.
 Changing it provides the link; it does not publish the source for you.
 

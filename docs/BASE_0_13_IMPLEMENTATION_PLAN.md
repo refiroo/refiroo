@@ -2010,7 +2010,7 @@ Delivered 2026-11-10. The engine knows which commit and tag it was built from (`
 arguments, else `git` in a checkout, else unknown); `GET /system` carries `engine.build`, the public sign-in options
 carry `build` with the version, About has a Build row linked to the repository, and the sign-in screen has one very
 small line with the tag and commit in the link colour. Nothing else is public. CHANGELOG "build reference on About and
-sign-in, 0.13 BR".
+sign-in, 0.13 BR". Guide: `run/licence-and-source` (Build row, sign-in line). Closed 2026-11-10.
 
 ## FX: Fixes found during the 0.13 build
 
