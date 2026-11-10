@@ -70,7 +70,7 @@ describe("DesignCheckView", () => {
     expect(screen.getByText(/165 rows checked: 123 created, 40 changed, 0 unchanged, 2 refused/)).toBeInTheDocument();
     const table = screen.getByRole("group", { name: "Check per sheet" });
     expect(within(table).getByText("Records the structure needs")).toBeInTheDocument();
-    expect(within(table).queryByText("Structure Domain")).not.toBeInTheDocument();
+    expect(within(table).queryByText("Structure Topic")).not.toBeInTheDocument();
     expect(screen.getByText(/Row 14: No category named Walk-in/)).toBeInTheDocument();
     expect(screen.getByText(/Installs the model change and activates it in West/)).toBeInTheDocument();
   });

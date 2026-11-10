@@ -5,7 +5,7 @@ import { DesignView } from "./DesignView";
 import { designTask } from "./designFixture";
 
 const activeModel = {
-  objectTypes: [{ key: "codelist", name: "Codelist", pluralName: "Codelists" }],
+  objectTypes: [{ key: "category", name: "Category", pluralName: "Categories" }],
   attributeTypes: [],
   relationTypes: [],
 } as unknown as EngineModel;
@@ -28,11 +28,11 @@ describe("DesignView", () => {
     expect(within(model).getByText("Proposed")).toBeInTheDocument();
     expect(within(model).getByText("New application")).toBeInTheDocument();
     expect(within(model).getByText(/Starts \(required\)/)).toBeInTheDocument();
-    expect(within(model).getByText(/Timetable → Codelist \(many to one\)/)).toBeInTheDocument();
+    expect(within(model).getByText(/Timetable → Category \(many to one\)/)).toBeInTheDocument();
     fireEvent.click(within(model).getByRole("button", { name: "Open in the model editor" }));
     expect(onOpenEditor).toHaveBeenCalledWith("draft-1");
     const sheets = screen.getByRole("region", { name: "Where each sheet goes" });
-    expect(within(sheets).getByText("Adds to Codelists")).toBeInTheDocument();
+    expect(within(sheets).getByText("Adds to Categories")).toBeInTheDocument();
     expect(screen.queryByText("Note → Left out")).not.toBeInTheDocument();
     fireEvent.click(within(sheets).getByRole("button", { name: "Show what each column fills" }));
     expect(within(sheets).getByText("Note → Left out")).toBeInTheDocument();

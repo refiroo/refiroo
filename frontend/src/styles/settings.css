@@ -3580,6 +3580,7 @@ a.account-reach-app:hover {
    second gap under a card's title, and the stacked tables as one ruled card per row on a phone. */
 .task-check {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   min-width: 0;
 }

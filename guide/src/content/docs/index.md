@@ -2,6 +2,9 @@
 title: refiroo documentation
 description: Learn what refiroo does, look after shared data, shape a model, manage access, run the service or connect another system.
 reader: evaluator
+head:
+  - tag: title
+    content: refiroo documentation
 ---
 
 refiroo is where a team keeps the shared lists, codes, names and connections that other systems depend on. A model shapes the applications and rules; people maintain the data in the browser, and other systems read or change it through APIs.
