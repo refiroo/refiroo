@@ -20,7 +20,7 @@ from sqlalchemy.exc import ArgumentError
 
 # The product version: the management API document's ``info.version`` and ``GET /api/v1/system``.
 # ``pyproject.toml`` carries the same value, held equal by ``tests/unit/test_config.py``.
-ENGINE_VERSION = "0.16.0"
+ENGINE_VERSION = "0.16.1-alpha.2"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "model" / "rdm-starter.json"

@@ -453,9 +453,10 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.13 MS-D5 (additive): `identityMode`, `identityClientId` on both, and
     # `credential` on the response (a managed identity as a third Microsoft 365 credential).
     # Re-baselined for 0.13 BR (additive): `EngineInfo.build` and `BuildInfo` (`commit`, `tag`).
+    # Re-baselined for 0.16.1-alpha.2: info.version only; with 0.16.0 the document hashes to the previous lock.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ec3df72b0472b48adff867445af5c21bb486de306d3a20d984d93dca1afa0fac"
+        "b4e16ae22d22d7948fa00bbe95fd735037de28d844c2716be37827b2327590bf"
     )
 
 
