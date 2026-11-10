@@ -2725,7 +2725,7 @@
       "shows": "Sixth capture: one new workbook task in the fresh isolated workspace c10-workbook-retake-pictures (the first workspace already holds the installed workbook model), waits up to 25 minutes for a checked proposal. Not a picture.",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=c10-workbook-retake-pictures"
+          "goto": "/apps/network/views/stops?workspaceKey=c10-workbook-retake2-pictures"
         },
         {
           "click": {
@@ -2763,14 +2763,14 @@
         },
         {
           "waitFor": {
-            "text": "The check of every row"
+            "text": "What the load does"
           },
           "timeout": 1500000
         }
       ],
       "expect": [
         "The assistant’s proposal",
-        "The check of every row"
+        "What the load does"
       ],
       "height": 1500
     },
@@ -2847,45 +2847,45 @@
     },
     {
       "name": "use-assistant-proposal",
-      "shows": "The checked proposal of the new workbook task (c10-workbook-retake-pictures, task 5af26232): actual row counts, no second upload.",
+      "shows": "The checked proposal of the new workbook task (c10-workbook-retake2-pictures, task c4a64a49): the model it reuses, \"What the load does\" with the engine's counts and Accept and load to change set; no second upload.",
       "actions": [
         {
-          "goto": "/settings/ai-tasks/5af26232-a6a7-42aa-85d3-7567cc2b449d"
+          "goto": "/settings/ai-tasks/c4a64a49-ac6f-4c72-895e-5b085cbc9776"
         },
         {
           "waitFor": {
-            "text": "The assistant’s proposal"
+            "text": "What the load does"
           },
           "timeout": 300000
         },
         {
-          "waitFor": {
-            "text": "The check of every row"
+          "scrollTo": {
+            "role": "heading",
+            "name": "What the load does",
+            "exact": true
           },
-          "timeout": 300000
+          "offset": 190
         }
       ],
       "expect": [
         "The assistant’s proposal",
-        "The check of every row",
-        "Accept the model",
-        "Show the model change"
+        "What the load does",
+        "Accept and load to change set"
       ],
       "height": 1500
     },
     {
       "name": "model-assistant-workbook-proposal",
-      "shows": "The SAME workbook proposal at 1440x1500, with its proposed model expanded. No second task/request. The following loaded-state recipe accepts it into an unpublished change set; retain the installed release without activating it. Checks, questions and omissions depend on actual provider output and need image review.",
+      "shows": "The SAME workbook proposal at 1440x1500 with its proposed model change expanded. No second task/request.",
       "actions": [
         {
-          "goto": "/settings/ai-tasks/5af26232-a6a7-42aa-85d3-7567cc2b449d"
+          "goto": "/settings/ai-tasks/c4a64a49-ac6f-4c72-895e-5b085cbc9776"
         },
         {
           "waitFor": {
-            "text": "The assistant’s proposal",
-            "exact": false
+            "text": "What the load does"
           },
-          "timeout": 1800000
+          "timeout": 300000
         },
         {
           "click": {
@@ -2898,17 +2898,56 @@
       "expect": [
         "The assistant’s proposal",
         "Hide the model change",
-        "The check of every row",
-        "Accept the model"
+        "What the load does",
+        "Accept and load to change set"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-workbook-accept",
+      "shows": "Sixth capture: Accept and load to change set on the checked workbook task of c10-workbook-retake-pictures; waits up to 25 minutes for the loaded task. Not a picture.",
+      "actions": [
+        {
+          "goto": "/settings/ai-tasks/7c1eb899-a35d-454c-96d5-acf900d30295"
+        },
+        {
+          "waitFor": {
+            "text": "What the load does"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Accept and load to change set",
+            "exact": true,
+            "nth": 1
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Review the change set",
+            "exact": true
+          },
+          "timeout": 1500000
+        }
+      ],
+      "expect": [
+        "Loaded into the change set",
+        "Review the change set"
       ],
       "height": 1500
     },
     {
       "name": "use-assistant-loaded",
-      "shows": "Continue the same Claude Code task after both proposal captures. Accept the model once; engine/tasks/agent.py installs without activation and loads only an unpublished change set. Do not use a saved-profile Load button (it may activate). Wait for the loaded result; no correction is sent, activation or publication confirmed. Retain the task/change set for the next two captures.",
+      "shows": "The workbook task of c10-workbook-retake-pictures (task 7c1eb899) after Accept and load to change set: the counts the engine loaded, the unpublished change set, Review the change set and Discard the change set. No saved profile.",
       "actions": [
         {
-          "goto": "/settings/ai-tasks/1ffb2cd3-99d7-444a-ad2d-4aab26286396"
+          "goto": "/settings/ai-tasks/7c1eb899-a35d-454c-96d5-acf900d30295"
         },
         {
           "waitFor": {
@@ -2928,8 +2967,11 @@
     },
     {
       "name": "model-assistant-workbook-loaded",
-      "shows": "Same loaded task, model-administrator view, no additional request. Counts and profile status must be read from the actual result. Exclusions may be absent; do not invent Not loaded details.",
+      "shows": "Same loaded task, model-administrator view, no additional request. Counts are those of the actual result.",
       "actions": [
+        {
+          "goto": "/settings/ai-tasks/7c1eb899-a35d-454c-96d5-acf900d30295"
+        },
         {
           "waitFor": {
             "role": "button",
@@ -2950,6 +2992,9 @@
       "name": "use-assistant-reload",
       "shows": "Same loaded task. Type an unsent correction to open the destructive reload confirmation, capture its warning and Cancel. No reload, deletion or extra provider turn occurs. The unpublished change set, unactivated release and task remain: cancel this dialog because this picture needs only the warning.",
       "actions": [
+        {
+          "goto": "/settings/ai-tasks/7c1eb899-a35d-454c-96d5-acf900d30295"
+        },
         {
           "waitFor": {
             "role": "button",
@@ -3150,6 +3195,9 @@
       "name": "use-assistant-words",
       "shows": "Same words-only proposal, before acceptance. Review that it changes only Chur Wiesental Abbreviation; actual provider text/counts require capture review.",
       "actions": [
+        {
+          "goto": "/settings/ai-tasks/f06c4806-44f5-4066-bb4b-aecc1e8cd5bf"
+        },
         {
           "waitFor": {
             "text": "The assistant’s proposal"

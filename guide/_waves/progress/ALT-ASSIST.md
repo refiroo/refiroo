@@ -1,0 +1,6 @@
+
+- 2026-11-10T11:43:04+01:00: Finished `guide/src/content/docs/use/loading-with-the-assistant.md`. Replaced the screenshot alt text and added a three-sentence caption covering the checked load summary, results by type, Questions and acceptance before anything is installed or loaded. Checked the supplied picture and the proposal/load components; no adjacent sentence needed changing and no uncertainty found. No steer file was present.
+
+- 2026-11-10T11:43:04+01:00: Finished `guide/src/content/docs/journeys/work-with-an-assistant.md`. Replaced the alt text and three-sentence caption with the visible load summary, type results, assumed answer and acceptance bar. No adjacent sentence needed changing, no uncertainty found, and no steer file was present.
+
+- 2026-11-10T11:43:26+01:00: Validation finished for both pages: `GUIDE_OUT=_build/ALT-ASSIST npm run verify` passed (isolated build, terms/brand, coverage and local links; 257 built pages). Ran the checks directly because the wave wrapper writes outside the permitted files. The build warned of a conflicting `/404` route; no other issue was found within the screenshot-caption scope, no further screenshots are needed, and no steer file was present.

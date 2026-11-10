@@ -64,10 +64,11 @@ changed after the check, acceptance checks every record and relationship again f
 [Review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/)
 explains this review.
 
-![Workbook proposal with formatted notes, assumed answers and the start of the type summary](/docs/screens/use-assistant-proposal.png)
+![Workbook proposal showing what the load does, its results by type and the choices before acceptance](/docs/screens/use-assistant-proposal.png)
 
-*Above: the workbook proposal for the Graubünden reference data. The notes describe new stops,
-related records and assumed answers; the type summary begins below. Nothing is loaded yet.*
+*Above: the workbook proposal for the Graubünden reference data, showing What the load does
+and the table of results by type. Below it, Questions marks the assumed answer, and the acceptance
+bar explains that the checked records go into a new change set. Nothing is loaded or published yet.*
 
 A words-only proposal that says **No change to the model.** uses **Accept**. It has no model
 draft and prepares a change set on the workspace’s current release, installing and activating
