@@ -295,7 +295,13 @@ def _landing(monkeypatch, tmp_path, proposal, *, workbook):
     from app.engine.tasks import agent
 
     task = SimpleNamespace(
-        id=1, state="reading", notes=[], design={"stage": "model"}, draft_id=None, check="old"
+        id=1,
+        state="reading",
+        notes=[],
+        design={"stage": "model"},
+        draft_id=None,
+        check="old",
+        title=None,
     )
     monkeypatch.setattr(agent, "load_task", lambda *args, **kwargs: task)
     monkeypatch.setattr(agent, "touch", lambda *args, **kwargs: None, raising=False)

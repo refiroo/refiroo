@@ -158,7 +158,7 @@ def test_the_plan_decides_each_type_value_and_relationship():
 
     current, target = _models(change)
     plan = plan_migration(current, target, ())
-    types = {(app, kind): (new_app, new_kind, code) for app, kind, new_app, new_kind, code in plan.types}
+    types = {(app, kind): (new_app, new_kind, code) for app, kind, new_app, new_kind, code, _cand in plan.types}
     lost = {kind: code for (_app, kind), (_a, _k, code) in types.items() if code}
     assert lost == {KEYS["N"]: "OBJECT_TYPE_IN_USE"}
     assert all(new_kind == kind for (_app, kind), (_a, new_kind, code) in types.items() if not code)
@@ -189,12 +189,12 @@ def test_a_type_mapping_keeps_the_records_and_names_attribute_sources():
 
     current, target = _models(change)
     unmapped = plan_migration(current, target, ())
-    assert {kind: code for _a, kind, _na, _nk, code in unmapped.types if code} == {
+    assert {kind: code for _a, kind, _na, _nk, code, _c in unmapped.types if code} == {
         KEYS["C2"]: "OBJECT_TYPE_IN_USE"
     }
     display = target.object_type(renamed).displayAttributeTypeKey
     mapped = plan_migration(current, target, (TypeMapping(KEYS["C2"], renamed, ((display, None),)),))
-    assert {kind: (new_kind, code) for _a, kind, _na, new_kind, code in mapped.types}[KEYS["C2"]] == (
+    assert {kind: (new_kind, code) for _a, kind, _na, new_kind, code, _c in mapped.types}[KEYS["C2"]] == (
         renamed,
         None,
     )
