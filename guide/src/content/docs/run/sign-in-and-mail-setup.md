@@ -200,7 +200,7 @@ disabled person. Give the reason to the responsible administrator without copyin
 
 Arrange an SMTP server and a sender address. A security administrator saves these on **Settings › Integration › Mail**:
 
-1. In **Mail server**, enter **Server** and **Port**, then choose **Connection** (STARTTLS or TLS
+1. Choose **SMTP server** under **Send mail through**. In **Mail server**, enter **Server** and **Port**, then choose **Connection** (STARTTLS or TLS
    for an authenticated server).
 2. Enter **User name** and **Password** if required, **From address** and the public **Application
    address** used for links. Choose **Save**. A save refusal leaves the existing settings intact;
@@ -227,14 +227,240 @@ Finished messages stay for 30 days; message text containing links is erased afte
 The Mail page reports connection, TLS, login and address failures; Operations shows `mailSender`.
 Removing mail settings stops sending; waiting messages fail once their retry window ends.
 
+## Prepare Microsoft 365 delivery
+
+Use Microsoft Graph to send as one mailbox in your Microsoft 365 tenant. Arrange access to
+Microsoft Entra app registrations, an administrator who can grant consent, and Exchange Online
+administration to restrict the sending application. A refiroo administrator needs **Security
+administration** for the whole instance to save and test the settings.
+
+Choose a client secret, certificate or managed identity. The managed identity setups below apply only
+when refiroo runs in Azure; otherwise prepare a secret or certificate.
+
+### Client secret or certificate
+
+Prepare the application in Microsoft Entra before saving it in refiroo:
+
+1. In the **Microsoft Entra admin center**, open **App registrations** and register an application.
+   Copy its **Directory (tenant) ID** and **Application (client) ID**. refiroo also accepts the
+   tenant’s domain name in place of its directory ID.
+2. Give the registration one credential:
+   - For a client secret, open **Certificates & secrets**, create a secret and copy its **Value**,
+     which is shown once. The secret’s ID is not its value. Record the expiry and store the value
+     securely until the refiroo administrator enters it.
+   - For a certificate, upload the public certificate to the registration. Give the refiroo
+     administrator its matching RSA private key and certificate together as PEM text. The private
+     key must not be password-protected. Do not upload the private key to Entra.
+3. Add Microsoft Graph’s **Mail.Send** **Application permission** and **grant admin consent**.
+   The engine sends as an application, without a person signing in to approve each message.
+4. Restrict the application to the sending mailbox. Without a restriction, the permission allows
+   it to send as any mailbox in the tenant. In Exchange Online PowerShell, use
+   `New-ApplicationAccessPolicy` restricted to a mail-enabled security group holding that mailbox,
+   or use **RBAC for Applications** in Exchange Online. Allow time for the restriction to apply
+   before testing; a newly changed policy may not take effect immediately.
+5. Confirm that the sending address belongs to a licensed user or a shared mailbox in this tenant.
+   Arrange access for someone to monitor that mailbox for bounces and replies.
+
+On **Settings › Integration › Mail**, choose **Microsoft 365** under **Send mail through**.
+Enter **Tenant ID** and **Application (client) ID**, choose **Client secret** or **Certificate**
+under **Sign in with**, and enter the prepared value or PEM text. Set **Sending mailbox** to the
+mailbox above and **Application address** to the public address recipients use to open refiroo.
+An empty application address uses the default displayed below the field.
+
+### Managed identity in the same tenant
+
+Choose **Managed identity – this tenant** when the Azure host and Microsoft 365 belong to the
+same tenant. The engine asks the host for a Microsoft Graph token and sends with it; it makes
+no request to the tenant’s token endpoint. Use either the host’s system-assigned identity or
+a user-assigned identity attached to the host.
+
+1. Enable the system-assigned identity on the Azure host, or assign the intended user-assigned
+   identity. Find its principal (object) ID under **Enterprise applications › Managed identities**.
+   Keep this distinct from its client ID: the role assignment below names the principal ID,
+   while the mailbox policy and refiroo form use the client ID.
+2. Give the identity’s service principal the Microsoft Graph **Mail.Send** app role. Entra has
+   no portal button for this assignment. Run these Microsoft Graph PowerShell commands with
+   `Application.ReadWrite.All` and `AppRoleAssignment.ReadWrite.All` consented, replacing the
+   placeholder with the identity’s principal ID:
+
+   ```powershell
+   Connect-MgGraph -Scopes "Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
+   $identity = "<the identity's principal (object) ID>"
+   $graph = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
+   $role = $graph.AppRoles | Where-Object { $_.Value -eq "Mail.Send" }
+   New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $identity `
+     -PrincipalId $identity -ResourceId $graph.Id -AppRoleId $role.Id
+   ```
+
+   The assignment is the consent. There is no separate admin-consent screen for a managed identity.
+3. Restrict the identity to the sending mailbox. In Exchange Online PowerShell, replace both
+   placeholders and run:
+
+   ```powershell
+   New-ApplicationAccessPolicy -AccessRight RestrictAccess -AppId <the identity's client ID> -PolicyScopeGroupId <mail-enabled security group holding the mailbox> -Description "refiroo"
+   ```
+
+   The group must hold the sending mailbox. RBAC for Applications is another way to restrict it.
+   Without a restriction, the role allows sending as any mailbox in the tenant. Allow time for
+   a changed policy to apply before testing.
+4. On **Settings › Integration › Mail**, choose **Microsoft 365**, then **Managed identity – this
+   tenant** under **Sign in with**. Leave **Identity client ID** empty for the system-assigned
+   identity, or enter the user-assigned identity’s client ID. Do not supply a tenant or application
+   ID; this choice neither asks for nor accepts them. Enter **Sending mailbox** and **Application
+   address**, then save and test as described below.
+
+### Managed identity hosted in another tenant
+
+Choose **Managed identity – hosted in another tenant** when refiroo runs in the hosting
+organisation’s Azure tenant and sends through the customer’s Microsoft 365 tenant. This needs
+a **user-assigned** managed identity: a system-assigned identity cannot be a federated credential.
+A multitenant app registration in the hosting tenant trusts that identity.
+
+1. Assign the user-assigned identity to the Azure host running refiroo. In the hosting tenant,
+   register a multitenant app. Record the hosting tenant ID, the app’s object ID and client ID,
+   and the identity’s principal (object) ID and client ID; these are different values.
+2. Add a federated credential to that app under **App registrations › Certificates & secrets ›
+   Federated credentials**. For Microsoft’s global cloud, save the following as `credential.json`,
+   replacing the placeholders as written:
+
+   ```json
+   {
+     "name": "refiroo-managed-identity",
+     "issuer": "https://login.microsoftonline.com/<hosting tenant ID>/v2.0",
+     "subject": "<the user-assigned identity's principal (object) ID>",
+     "audiences": ["api://AzureADTokenExchange"]
+   }
+   ```
+
+   With Azure CLI signed in to the hosting tenant, create it with this command, replacing the
+   app object ID placeholder:
+
+   ```bash
+   az ad app federated-credential create --id <the app's object ID> --parameters credential.json
+   ```
+
+3. Add the Microsoft Graph **Mail.Send** application permission to the app registration. The
+   customer’s administrator grants admin consent to the app in the customer’s tenant, for
+   example at the following address after replacing both placeholders:
+
+   ```text
+   https://login.microsoftonline.com/<customer tenant ID>/adminconsent?client_id=<the app's client ID>
+   ```
+
+   Confirm that the app has the **Mail.Send** application permission in that tenant.
+4. In the customer’s Exchange Online tenant, restrict the app to the sending mailbox with an
+   application access policy, using `-AppId <the app's client ID>`, or RBAC for Applications.
+   For an application access policy, use a mail-enabled security group holding that mailbox.
+   Allow time for the restriction to apply.
+5. On **Settings › Integration › Mail**, choose **Microsoft 365**, then **Managed identity – hosted
+   in another tenant** under **Sign in with**. Enter the customer’s **Tenant ID**, the multitenant
+   app’s **Application (client) ID** and the user-assigned **Identity client ID**. All three are
+   required. Enter **Sending mailbox** and **Application address**, then save and test below.
+
+The engine obtains an identity token from the Azure host for `api://AzureADTokenExchange` and
+uses it as the `client_assertion` in an OAuth client-credentials grant at the customer’s tenant.
+The audience follows the cloud of **Token address**: `api://AzureADTokenExchangeUSGov` for US
+Government or `api://AzureADTokenExchangeChina` for China. The federated credential must trust
+the matching issuer, subject and audience. Microsoft does not support federation to a cloud
+different from the identity’s cloud.
+
+### How the Azure host supplies tokens
+
+Both managed identity choices work on Azure App Service, Container Apps or a virtual machine
+with a managed identity. The engine uses `IDENTITY_ENDPOINT` together with `IDENTITY_HEADER`
+when both are present, as supplied by App Service and Container Apps. It sends the header as
+`X-IDENTITY-HEADER` and uses `api-version=2019-08-01`.
+
+Otherwise it uses the virtual machine instance metadata service at
+`http://169.254.169.254/metadata/identity/oauth2/token`, with `Metadata: true` and
+`api-version=2018-02-01`. A user-assigned identity’s client ID is passed as `client_id`.
+The engine process must be able to reach the host’s endpoint. AKS workload identity, which
+supplies a token file, is not supported.
+
+No mail secret or certificate is stored with a managed identity, and none needs renewal.
+Tokens are cached in each process until shortly before expiry and obtained again as needed.
+Saving a managed identity clears a saved secret or certificate; saving a secret or certificate
+clears the identity settings. Keep the identity choice and its fields in every save. For
+[automated mail configuration, use the API reference](/docs/api); omitting the identity settings
+does not keep a previously saved identity.
+
+### Service addresses, saving and testing
+
+After **Sending mailbox**, the folded **What to set up in Microsoft Entra** section shows the
+steps for the selected **Sign in with** entry. Open **Other Microsoft clouds (token and Graph
+addresses)** to set the addresses below. It opens automatically for a saved non-default address.
+**Application address** follows both sections.
+
+| Address | Global-service default | Operator action |
+| --- | --- | --- |
+| Token address | `https://login.microsoftonline.com` | Where the engine requests Microsoft’s tokens. Leave empty for the global service. |
+| Graph address | `https://graph.microsoft.com` | Where the engine sends mail. Leave empty for the global service. |
+
+For a national cloud, set both addresses to the services for that cloud. Allow outbound HTTPS
+from the engine to both, including DNS resolution and trusted certificates. These are service base
+addresses; do not append a tenant, token path or mailbox path. With a secret or certificate, the
+engine uses the OAuth client-credentials grant and signs an RS256 assertion for a certificate.
+A federated identity uses the exchange described above; an identity in the same tenant obtains
+its Graph token directly from the host. Tokens are cached in each process until shortly before
+expiry. No Microsoft client library is required.
+
+Choose **Save**, then send a test from **Test message**. Saving Microsoft 365 replaces the saved
+SMTP fields and password; saving SMTP replaces the Microsoft 365 fields and credential. One method
+is active, with no fallback. A refused save leaves the saved settings intact. For automated
+configuration, use [Mail settings in the API reference](/docs/api); send only the chosen method’s
+fields, since fields belonging to the other method are refused.
+
+The settings live in the database, not in `.env`. The client secret and certificate with its key
+are sealed with `SECRETS_ENCRYPTION_KEY`, like the SMTP password, and never returned for reading.
+The page shows a saved certificate’s SHA-1 thumbprint, as in Entra, and expiry instead. Preserve
+the encryption key with backups. When changing that key, stop all engines and follow the
+[resealing procedure](/docs/run/secrets-and-keys/); replacing the environment value alone does
+not reseal stored secrets. The `reseal_secrets` tool covers these values as **Microsoft 365 client
+secret** and **Microsoft 365 certificate**.
+
+Renew the secret or certificate before its expiry. Create the replacement in Entra, then enter
+and save it in refiroo and send a test before retiring the former credential. For a certificate,
+upload the replacement public certificate first and compare its thumbprint with the one saved in
+refiroo. An expired certificate is refused on saving; credentials that expire after saving can
+cause a `login` failure when Microsoft refuses them. refiroo does not renew Entra credentials.
+Leaving the credential empty keeps the saved one only for the same tenant ID, application ID
+and token address. Supply it again in the same save if any of these changes.
+
+Mail contains the same plain text, HTML and embedded brand images as through SMTP. Microsoft
+saves each message in the sending mailbox’s **Sent Items**; this cannot be disabled in refiroo.
+An HTTP 202 response means Microsoft accepted the message, so refiroo shows **Sent**. A bad
+recipient can be reported later as a bounce to the sending mailbox, just as with an SMTP relay.
+refiroo does not read bounces or replies. Check that mailbox and the recipient’s inbox and junk
+folder when confirming delivery.
+
 ## Read mail refusals
 
 | Message | What to do |
 | --- | --- |
 | `422 MAIL_INSECURE_LOGIN` | Choose TLS or STARTTLS before supplying a username, or remove the login for a trusted unencrypted relay. The settings were not saved. See [Save mail settings in the API reference](/docs/api) (`PUT /api/v1/mail-settings`). |
-| `409 MAIL_NOT_SET_UP` | A security administrator must save SMTP settings before a test or a request that queues mail can run. Removing settings also refuses further mail requests; queued messages remain pending until delivery can resume or their retry window ends. See [Mail settings and test operations](/docs/api). |
+| `409 MAIL_NOT_SET_UP` | A security administrator must save mail settings for either method before a test or a request that queues mail can run. Removing settings also refuses further mail requests; queued messages remain pending until delivery can resume or their retry window ends. See [Mail settings and test operations](/docs/api). |
 | `422 MAIL_PASSWORD_REQUIRED` | Supply a password for a new login, or enter it again when changing host or port. A stored password is never forwarded to a new server automatically. |
+| `422 MAIL_CREDENTIAL_REQUIRED` | Supply a client secret or certificate for Microsoft 365. A saved credential is kept only while the tenant ID, application ID and token address stay unchanged. Enter it again in the same save when changing any of these. The settings were not saved. |
+| `422 MAIL_CERTIFICATE_INVALID` | Supply PEM text containing an unencrypted RSA private key and its matching, unexpired certificate. Read the reason to find what is missing or unusable; the settings were not saved. |
 | `409 VERSION_CONFLICT` | Another administrator changed the settings. Reload, review their changes and save again. |
+
+For a test failure, the [mail test operation](/docs/api) reports `422 MAIL_SEND_FAILED` with
+a failure kind and an explanation. The Mail page displays that explanation under a heading;
+queued messages record it under **Last problem**. Microsoft 365 uses these kinds:
+
+| Kind and heading | Meaning and recovery |
+| --- | --- |
+| `login` — The login was refused | Microsoft refused a token, **Mail.Send** application permission lacks admin consent, or the mailbox restriction does not allow this sender. Check the tenant and application IDs, secret value and expiry, certificate registration and expiry, consent and mailbox scope. Fix settings while messages wait. The failure is shared with other waiting messages handled in that sending round. |
+| `login` — refiroo is not running with a managed identity on an Azure host | The host’s identity endpoint did not answer. Confirm that refiroo runs on supported Azure hosting with an identity and can reach its endpoint. Outside Azure, use a client secret or certificate. The test and queued mail share this login failure. |
+| `login` — The Azure host did not issue a token for the identity | Check the identity client ID named in the explanation and that the identity is assigned to this host. An unreadable host token response is also a login failure. |
+| `login` — Microsoft did not issue a token, AADSTS 70025 or 700213 | For 70025, add the missing federated credential to the hosting tenant’s app registration. For 700213, check its issuer, subject and audience against the user-assigned identity, and confirm the customer administrator’s consent. Check that both tenants use the same Microsoft cloud. Correct the setup while queued messages wait. |
+| `connection` — The server could not be reached | Microsoft could not be reached, timed out, was busy (HTTP 429) or returned a server error (5xx). Check outbound HTTPS to the required Microsoft services. A busy Azure identity endpoint (HTTP 429 or 5xx) also causes this kind of failure. Queued mail retries after the usual wait of 30 seconds, doubling up to one hour, or Microsoft’s `Retry-After` if longer. |
+| `sender` — The server refused the from address | Microsoft does not know a sending mailbox that can send. Confirm a licensed user or shared mailbox in this tenant. This is not a permanent failure: the message waits and is tried again after the usual wait, exactly as with SMTP, until its 24-hour window ends. Correct **Sending mailbox**, save and test; the waiting message continues on its next try. |
+| `rejected` — The server did not accept the message | Microsoft refused the message for another reason. The queued message fails immediately except for HTTP 409, a temporary conflict, which is retried. Use the reported HTTP status and short error name when investigating. |
+
+Waiting messages still have a 24-hour limit. Microsoft’s full response, the credential and the
+token are not included in the explanation, outbox or normal logs. An AADSTS code or a short Graph
+error name may be included to help diagnose the refusal.
 
 ## Inbox mail and digests
 
@@ -260,7 +486,7 @@ or person content; their message text is protected and erased like password-link
 Before handing setup to the access administrator, you need the permanent HTTPS origin, an enabled
 local recovery administrator, provider-registration rights if using one, and direct outbound access
 from the engine to that provider. A provider's token-exchange endpoint and signing-key endpoint
-must be reachable as well as discovery. Its configuration and SMTP settings live in the database;
+must be reachable as well as discovery. Its configuration and mail settings live in the database;
 they are not additional `.env` settings. Environment/session settings above are non-secret and
 all need engine recreation after a change.
 
@@ -298,14 +524,15 @@ that supplies one address for everyone.
 
 ## Diagnose mail without exposing message links
 
-You need Security administration to save/test mail, a sender allowed by the SMTP service and a
-recipient whose mailbox you can inspect. In the reference installation the engine connects directly
-from its network to that host and port. A successful TCP connection alone does not prove TLS,
-credentials or sender permissions.
+You need Security administration to save/test mail, a sender allowed by the chosen mail service and a
+recipient whose mailbox you can inspect. For SMTP, the engine connects directly from its network
+to the configured host and port. A successful TCP connection alone does not prove TLS, credentials
+or sender permissions. For Microsoft 365, check HTTPS access to both the token and Graph addresses;
+access to one does not prove access to the other.
 
 | Exact message fragment | Cause and next step |
 | --- | --- |
-| `Mail is not set up` | Save SMTP settings before testing or requesting mail. |
+| `Mail is not set up` | Save mail settings for the chosen method before testing or requesting mail. |
 | `A user name needs a password` | Supply the login password in the same save. |
 | `Could not connect to` | Check DNS, routing, server port and whether SMTP is listening. The message names the host and underlying reason. |
 | `The TLS handshake with` and `failed:` | Check TLS/STARTTLS mode, trusted CA chain, hostname and expiry. |
@@ -315,6 +542,10 @@ credentials or sender permissions.
 | `refused the from address` | Authorise the configured sender address with the SMTP service. |
 | `did not accept the message:` | Read the SMTP reason and inspect the sender's limits or policy. |
 | `closed the connection:` | Check the server log, connection policy and network path; transient failures retry in the background. |
+| `Microsoft did not issue a token:` | Check the explanation and AADSTS code. Use the secret’s Value rather than its ID, replace an expired secret, check tenant/application IDs or register the matching certificate. If the signed assertion is not valid now, check the engine’s clock. |
+| `did not accept the app's token:` or `refused to send as` | Check **Mail.Send** application permission, admin consent and the application’s access to the sending mailbox. Allow a changed Exchange Online policy time to apply. |
+| `Microsoft 365 has no mailbox` | Correct **Sending mailbox** to a licensed user or shared mailbox in this tenant. Save and test the corrected settings. The message remains waiting and continues on its next try after the usual wait, exactly as with SMTP, unless its 24-hour window has ended. |
+| `Could not reach`, `did not answer in time`, `is busy and asked the engine to wait` or `is not available` | Check access to the Microsoft service named in the explanation. Queued messages wait and retry, respecting Microsoft’s requested delay. |
 
 If a new host or port save is refused as `MAIL_PASSWORD_REQUIRED`, re-enter the password in that
 same save. To undo a mistaken change, save the prior server details and password again with the
@@ -322,7 +553,12 @@ current settings version; reloading first avoids overwriting another administrat
 settings stops sending and eventually expires queued attempts, but does not roll back notices in
 the inbox or invalidate links already issued. Keep one-time reset links out of diagnostic reports.
 
-After SMTP accepts the test, confirm receipt and open its public link from the recipient's network.
+For Microsoft 365, a changed tenant, application ID or token address needs the credential again
+(`MAIL_CREDENTIAL_REQUIRED`). Reload the current settings before correcting them. When reporting
+a failure, include its kind, safe explanation and any HTTP, AADSTS or Graph error code shown;
+keep client secrets, private keys, tokens and message links out of the report.
+
+After the mail service accepts the test, confirm receipt and open its public link from the recipient's network.
 For password reset, use a test person and complete the single-use reset, then sign in; this checks
 link address and expiry as well as delivery. For digests, inspect the person's saved time zone and
 notification choices before changing the server clock: delivery is due at that person's 07:00.

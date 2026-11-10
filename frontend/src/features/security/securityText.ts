@@ -227,6 +227,16 @@ export function grantSentence({
 
 /** The mail settings' fields as a person names them, for a security event. */
 const MAIL_FIELDS: Record<string, string> = {
+  method: "sending method",
+  tenantId: "tenant ID",
+  clientId: "application ID",
+  clientSecret: "client secret",
+  certificate: "certificate",
+  certificateThumbprint: "certificate",
+  identityMode: "managed identity",
+  identityClientId: "managed identity client ID",
+  authorityUrl: "token address",
+  graphUrl: "Graph address",
   host: "server",
   port: "port",
   security: "connection security",

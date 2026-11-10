@@ -534,7 +534,8 @@ secret and the redirect address), `browser` (started in another browser) or `dea
 
 ### Sending mail
 
-The engine sends e-mail through the organisation's own SMTP server (0.12 M1, D418, D419): it is
+The engine sends e-mail through the organisation's own SMTP server (0.12 M1, D418, D419) or through
+Microsoft 365 ([below](#sending-through-microsoft-365-graph), 0.13 MS), one method at a time: it is
 used for a new person's link, a password reset and, when a person asks, inbox notices; never for a
 password or a code (D395). **Settings › Integration › Mail** (or `PUT /api/v1/mail-settings`, needing
 Security administration at the instance) takes the server, the port, how the connection is secured
@@ -578,8 +579,125 @@ message from the same page: it names what failed (the connection, TLS, the login
 - **Several processes** each run a sender; leases keep them off the same message.
 - A message still being retried can be stopped from the Messages list (Stop sending): it fails at once and is
   not tried again. Its link keeps working until it expires.
+
+#### Sending through Microsoft 365 (Graph)
+
+Where SMTP with a user name and password is not possible (Microsoft is retiring basic authentication
+for SMTP AUTH in Exchange Online) the engine sends through Microsoft Graph as one mailbox (0.13 MS).
+Choose **Microsoft 365** on Settings › Mail (or `PUT /api/v1/mail-settings` with `"method":
+"microsoft365"`). It takes the tenant ID, the application (client) ID, a client secret or a
+certificate or a managed identity ([below](#managed-identity-refiroo-runs-in-azure)), and the sending
+mailbox (the from address). The token address
+(`https://login.microsoftonline.com`) and the Graph address (`https://graph.microsoft.com`) are
+settings with those defaults; change both for a national cloud. Saving one method replaces the other's
+saved fields. Set this up in Microsoft Entra first:
+
+1. **Register an application** (Entra admin center, App registrations); copy the tenant (directory)
+   ID and the application (client) ID.
+2. **Give it a credential.** Either a client secret (Certificates & secrets; copy the secret's
+   *Value*, which is shown once; it expires, 6 to 24 months by default) or a certificate: upload the
+   public certificate to the registration and give refiroo the private key and the certificate as one
+   PEM text (the key not password-protected, RSA). The page shows the certificate's thumbprint (the
+   value the Entra portal shows) and expiry; renew before it passes, since mail then fails with
+   `login`.
+3. **Add the `Mail.Send` application permission** (Microsoft Graph, Application permissions) and
+   **grant admin consent**.
+4. **Limit the application to the one mailbox.** With only the permission, the application can send as
+   any mailbox in the tenant. Use an application access policy (`New-ApplicationAccessPolicy` in
+   Exchange Online PowerShell, restricted to a mail-enabled security group holding the mailbox) or
+   RBAC for Applications in Exchange Online. A policy can take some time to apply.
+5. The sending mailbox must be a licensed user or a shared mailbox of the tenant.
+
+- **A message is sent with `POST /users/<mailbox>/sendMail`** with the same MIME message the SMTP
+  path builds (text, HTML and the inline brand images), so mail looks the same through both. Microsoft
+  saves a message sent this way in the mailbox's **Sent Items**; the MIME route has no way to turn that off.
+- **The token** comes from the client-credentials grant (`<token address>/<tenant>/oauth2/v2.0/token`,
+  scope `<Graph address>/.default`; with a certificate a signed assertion, RS256) and is kept in the
+  process until shortly before it expires; a token Graph refuses (`401`) is dropped and asked for again.
+  No Microsoft library is used.
+- **Failures.** A refused token (wrong or expired secret, an unknown certificate, application or
+  tenant), missing consent, or a mailbox the application may not use is `login` and the same for every
+  message, so all waiting messages share it; the sentence says what to change. Microsoft not reachable,
+  throttled (429, 503, any 5xx) is `connection`: the message is tried again after the usual wait, and at
+  least as long as Microsoft's `Retry-After`. A mailbox that does not exist is `sender`: the message waits and is tried
+  again, as with SMTP, so the administrator can correct the mailbox before it gives up. Messages fail after 24 hours as with SMTP. The secret, the token and Microsoft's
+  answers are never written into a message, the outbox or the log.
+- **A bad recipient is not seen at sending.** Microsoft accepts the message (`202`) and reports an
+  address that does not exist later, as a bounce to the sending mailbox, as an SMTP relay does. The
+  engine does not read bounces (MS-D2): refiroo shows the message as sent, and the administrator
+  finds the bounce in the mailbox. Do not use a mailbox people read as the only place to find them
+  without telling them what it is for.
+- **The client secret and the certificate are sealed** with `SECRETS_ENCRYPTION_KEY` like the SMTP
+  password and are covered by `reseal_secrets`; they are never shown or logged. A managed identity stores
+  no secret.
 - Removing the settings stops sending at once; messages still waiting fail after their 24 hours.
   Each change to the settings is a security event.
+
+##### Managed identity (refiroo runs in Azure)
+
+Where refiroo runs on Azure (App Service, Container Apps or a virtual machine with a managed identity)
+no secret or certificate is needed or stored (0.13 MS-D5): the Azure host gives the engine a token. On
+Settings › Mail choose **Sign in with** › **Managed identity – this tenant** or **Managed identity – hosted in another tenant**, or send
+`identityMode` with `PUT /api/v1/mail-settings`. It works only on an Azure host: elsewhere the test
+message and queued mail fail as `login` with "refiroo is not running with a managed identity on an
+Azure host". The engine reads the host's token endpoint from `IDENTITY_ENDPOINT` and `IDENTITY_HEADER`
+(set by App Service and Container Apps; header `X-IDENTITY-HEADER`, `api-version=2019-08-01`), else the
+instance metadata service of a virtual machine (`http://169.254.169.254/metadata/identity/oauth2/token`,
+`Metadata: true`, `api-version=2018-02-01`); a client ID of a user-assigned identity is passed as
+`client_id`. AKS workload identity (a token file) is not supported. Tokens are kept in the process until
+shortly before they expire. Two modes:
+
+**1. The identity is in the organisation's own tenant (`direct`).** The engine asks the host for a token for
+Microsoft Graph and sends with it; no tenant token request is made, so refiroo's settings need no tenant ID
+or application ID. The identity is the host's system-assigned one, or a user-assigned one named by its
+client ID.
+1. Give the identity's **service principal** (Enterprise applications › Managed identities, or its
+   principal (object) ID) the Microsoft Graph `Mail.Send` app role. Entra has no portal button for it;
+   run, with `Application.ReadWrite.All` and `AppRoleAssignment.ReadWrite.All` consented:
+
+   ```powershell
+   Connect-MgGraph -Scopes "Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
+   $identity = "<the identity's principal (object) ID>"
+   $graph = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
+   $role = $graph.AppRoles | Where-Object { $_.Value -eq "Mail.Send" }
+   New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $identity `
+     -PrincipalId $identity -ResourceId $graph.Id -AppRoleId $role.Id
+   ```
+
+   The assignment is the consent; there is no admin-consent screen for a managed identity.
+2. Limit it to the sending mailbox: `New-ApplicationAccessPolicy -AccessRight RestrictAccess -AppId
+   <the identity's client ID> -PolicyScopeGroupId <mail-enabled security group holding the mailbox>
+   -Description "refiroo"` in Exchange Online PowerShell (or RBAC for Applications), as for an app. A
+   policy can take some time to apply.
+3. In refiroo, enter the user-assigned identity's client ID (empty for the system-assigned one) and the
+   sending mailbox.
+
+**2. refiroo hosted in another tenant (`federated`).** One instance per organisation runs in the
+hosting organisation's Azure, and the Microsoft 365 is the customer's. A **user-assigned** managed
+identity (the only kind Microsoft allows here) is a federated credential of a **multitenant app
+registration** in the hosting tenant. The engine takes an identity token for the audience
+`api://AzureADTokenExchange` (`…USGov` or `…China` by the cloud of the token address) and sends it as the
+`client_assertion` of the client-credentials grant at the customer's tenant, as a certificate's signed
+assertion would be. Another cloud than the identity's is not supported by Microsoft.
+1. In the hosting tenant, register a multitenant app and add a federated credential (App registrations ›
+   Certificates & secrets › Federated credentials, or `az ad app federated-credential create --id <the
+   app's object ID> --parameters credential.json`):
+
+   ```json
+   {
+     "name": "refiroo-managed-identity",
+     "issuer": "https://login.microsoftonline.com/<hosting tenant ID>/v2.0",
+     "subject": "<the user-assigned identity's principal (object) ID>",
+     "audiences": ["api://AzureADTokenExchange"]
+   }
+   ```
+2. In the customer's tenant, an administrator **grants admin consent** to the app (for example at
+   `https://login.microsoftonline.com/<customer tenant ID>/adminconsent?client_id=<the app's client ID>`).
+   The app gets the `Mail.Send` application permission there.
+3. In the customer's tenant, limit the app to the sending mailbox with an application access policy
+   (`-AppId <the app's client ID>`) or RBAC for Applications.
+4. In refiroo, enter the identity's client ID, the app's client ID and the customer's tenant ID, and the
+   sending mailbox.
 
 ## Database
 

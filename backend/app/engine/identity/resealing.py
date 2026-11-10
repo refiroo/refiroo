@@ -3,8 +3,8 @@
 The engine stores what it must read back sealed with AES-256-GCM (``common/sealing``), each value
 bound to what it belongs to: the token signing keys, the webhook signing keys (the current and the
 previous one of a rotation), a sign-in provider's client secret, a person's authenticator secret and
-the provider ID tokens kept while a sign-in is under way or open, the mail server's password and
-the bodies of mail waiting to be sent. ``reseal`` opens each with the old
+the provider ID tokens kept while a sign-in is under way or open, the mail server's password, the Microsoft 365
+client secret and certificate, and the bodies of mail waiting to be sent. ``reseal`` opens each with the old
 key and seals it again with the new one, in one transaction: either every value is re-sealed or none
 is. Every value is opened first; if any does not open (another key, damaged data) nothing is
 written and the refusal names each one by kind and identity, never by content.
@@ -138,6 +138,26 @@ SEALED = (
         select(MailSettings.id, MailSettings.password, literal("password")).where(
             MailSettings.password.is_not(None)
         ),
+        mail_settings.password_context,
+    ),
+    Sealed(
+        "Microsoft 365 client secret",
+        MailSettings,
+        "id",
+        "ms_client_secret",
+        select(MailSettings.id, MailSettings.ms_client_secret, literal(mail_settings.SECRET)).where(
+            MailSettings.ms_client_secret.is_not(None)
+        ),
+        mail_settings.password_context,
+    ),
+    Sealed(
+        "Microsoft 365 certificate",
+        MailSettings,
+        "id",
+        "ms_certificate",
+        select(
+            MailSettings.id, MailSettings.ms_certificate, literal(mail_settings.CERTIFICATE)
+        ).where(MailSettings.ms_certificate.is_not(None)),
         mail_settings.password_context,
     ),
     Sealed(

@@ -3893,3 +3893,29 @@ a.account-reach-app:hover {
   line-height: 1.6;
   vertical-align: middle;
 }
+
+/* Settings › Mail: a folded section of the Microsoft 365 form (what to set up in Entra, other clouds). */
+.settings-fold {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.settings-fold summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-sunken);
+  cursor: pointer;
+}
+.settings-fold[open] summary {
+  border-bottom: 1px solid var(--border-faint);
+}
+.settings-fold-body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.settings-fold-body ol {
+  margin: 0;
+  padding-left: var(--space-5);
+}

@@ -6,9 +6,11 @@ reader: access-admin
 
 Use **Settings › Integration › Mail** to connect refiroo to your organisation’s mail server. You need **Security administration** for the whole instance. Mail carries password links and, when people choose them, inbox notices and digests. It never sends a password or an authenticator code.
 
+Under **Send mail through**, choose **SMTP server** or **Microsoft 365**. One method is used at a time. Saving one replaces the other method’s saved fields and credentials. There is no automatic fallback to the other method.
+
 Every message includes plain text and an HTML version with the refiroo mascot and wordmark embedded in the message, so opening it does not load images from the server. If the model gives the product its own name, that name appears beside the wordmark.
 
-Without a saved server, nothing is sent. Administrators can still copy a new person’s password link and pass it on. Follow [Set up mail](/docs/guide/administer/set-up-mail/) to configure and test delivery.
+Without saved mail settings, nothing is sent. Administrators can still copy a new person’s password link and pass it on. Follow [Set up mail](/docs/guide/administer/set-up-mail/) to configure and test SMTP delivery.
 
 ## Mail server
 
@@ -28,9 +30,37 @@ Leave **User name** empty for a relay without login. Otherwise supply **Password
 
 ![Mail server form before configuration, with Test message unavailable](/docs/screens/admin-mail-settings.png)
 
+## Send through Microsoft 365
+
+Choose **Microsoft 365** under **Send mail through** to send as one mailbox through Microsoft Graph. Next, choose **Sign in with**. A short line below the menu explains the selected choice; only that choice’s fields appear.
+
+| Sign in with | When to choose it and what to enter |
+| --- | --- |
+| Client secret | The simplest choice. Enter **Tenant ID**, **Application (client) ID** and **Client secret**. Use the secret’s value, which Microsoft shows once when it is created, not its ID. The secret expires and must be renewed. |
+| Certificate | Choose this to avoid sending a shared secret. Enter **Tenant ID**, **Application (client) ID** and **Certificate**: the RSA private key, without password protection, and its matching certificate together as PEM text. Only the public certificate is uploaded to the app registration. Renew it before expiry. |
+| Managed identity – this tenant | Choose this when refiroo runs in Azure in the same tenant as Microsoft 365. Azure supplies its login. **Identity client ID** is optional: leave it empty for the host’s own, system-assigned identity, or enter a user-assigned identity’s client ID. No tenant or application ID is needed or shown. |
+| Managed identity – hosted in another tenant | Choose this when refiroo runs in another Azure tenant and a multitenant app in that hosting tenant trusts its identity. Enter the customer’s **Tenant ID**, the multitenant app’s **Application (client) ID** and the **Identity client ID**. The last field is required: only a user-assigned identity can be used this way. |
+
+For a tenant ID, use the directory ID or the tenant’s domain name. Both managed identity choices need refiroo to run in Azure on App Service, Container Apps or a virtual machine with the identity assigned. They store no secret or certificate in refiroo.
+
+Below the sign-in fields, enter **Sending mailbox**: a licensed user or shared mailbox in the Microsoft 365 tenant. Then use the two folded sections:
+
+- **What to set up in Microsoft Entra** shows only the preparation for the selected sign-in choice. A secret or certificate needs an app registration, Microsoft Graph’s **Mail.Send** application permission with admin consent, and a restriction to the sending mailbox. An identity in this tenant needs the **Mail.Send** app role assigned to its service principal and a mailbox restriction naming the identity’s client ID; there is no admin-consent screen for that identity. An identity hosted in another tenant needs a multitenant app that trusts it, the customer administrator’s consent, and the app’s permission and mailbox restriction in the customer’s tenant. Without a mailbox restriction, it can send as any mailbox in that tenant. Ask the operator to follow [Prepare Microsoft 365 delivery](/docs/run/sign-in-and-mail-setup/#prepare-microsoft-365-delivery).
+- **Other Microsoft clouds (token and Graph addresses)** contains **Token address** and **Graph address**. Leave them empty for Microsoft’s global service. For a national cloud, ask the operator for both addresses and change them together. This section opens automatically when a saved address differs from the global default.
+
+After these sections, set **Application address** to the address people use to reach refiroo. Empty uses the default shown below the field. Check that recipients can open it, then choose **Save**.
+
+Like the SMTP password, a client secret or certificate with its private key is kept sealed and never displayed again. For a saved certificate, the page shows its SHA-1 thumbprint, as in the Entra portal, and its expiry. An expired certificate cannot be saved. Renew a secret or certificate before it expires; after expiry Microsoft can refuse the login and mail cannot be sent.
+
+Leave the secret or certificate field empty to keep the saved credential only while **Tenant ID**, **Application (client) ID** and **Token address** remain unchanged. If any of these changes, enter the credential again. To replace it or change its kind, choose the required **Sign in with** entry, enter the new secret or certificate, save and test.
+
+Saving a managed identity clears a saved secret or certificate. Saving a secret or certificate clears the identity settings. Keep the intended managed identity choice and its fields selected on each save; there is no saved secret to keep by leaving a credential field empty. Azure supplies fresh tokens as needed, so there is no mail secret or certificate to renew.
+
+Microsoft saves messages sent this way in the sending mailbox’s **Sent Items**; refiroo cannot turn this off. Replies and delivery failures (bounces) arrive in that mailbox. Arrange for someone to check it: refiroo does not read replies or bounces. An address that does not exist can be reported later as a bounce, while the message still shows as **Sent** in refiroo. This can also happen through an SMTP relay.
+
 ## Test a saved configuration
 
-**Send test message** uses the saved settings immediately and includes the address links point to. **Sent** means the server accepted the message, not that it reached the inbox. Check the mailbox and junk folder too.
+**Send test message** works with either method, uses the saved settings immediately and includes the address links point to. **Sent** means the mail service accepted the message, not that it reached the inbox. Check the mailbox and junk folder too.
 
 The failure heading distinguishes an unreachable server, a failed secure connection, a refused login, a refused recipient or sender, and a rejected message. Use that reason with the mail administrator to correct the relevant setting, save and test again.
 
@@ -44,13 +74,13 @@ Ordinary messages wait in an outbox and are sent in the background. Under **Mess
 | Sent | Accepted by the mail server. Ask the recipient to check their mailbox. |
 | Failed | Delivery stopped. Correct the cause and make a fresh password link if needed. |
 
-A temporary failure retries after 30 seconds, then doubles the wait up to one hour. A permanently refused recipient fails immediately. Other messages give up after 24 hours. Finished entries are kept for 30 days. Waiting message text is sealed, never shown in this list, and erased after sending or failure.
+A temporary failure retries after 30 seconds, then doubles the wait up to one hour. Microsoft 365 can ask for a longer wait, which refiroo respects. A permanently refused recipient fails immediately. Microsoft 365 fails a message immediately if it is permanently rejected. A sending mailbox that does not exist leaves the message waiting for the usual retry, exactly as with SMTP. Correct **Sending mailbox**, save and test; the waiting message continues on its next try, within its 24-hour window. Messages still waiting give up after 24 hours. Finished entries are kept for 30 days. Waiting message text is sealed, never shown in this list, and erased after sending or failure.
 
 **Stop sending** is available for waiting messages. Confirm **Stop sending**, or choose **Keep trying**. Stopping marks the message failed and erases its text. It does not invalidate the link already made; make a new password link to replace that link. If sending finished before your action arrived, the list refreshes to its final state.
 
 With a state selected and no matching messages, the list says **No message is in this state.** With **All** selected and no messages yet, it explains that new-person links and password resets appear here when sent.
 
-**Remove settings…** asks **Remove the mail settings?** Choose **Remove them** to stop sending and delete the saved password. Waiting messages remain and fail after their 24-hour window unless settings are saved again in time. **Cancel** in the form discards unsaved edits.
+**Remove settings…** asks **Remove the mail settings?** Choose **Remove them** to stop sending and delete the saved password, client secret or certificate and key. Waiting messages remain and fail after their 24-hour window unless settings are saved again in time. **Cancel** in the form discards unsaved edits.
 
 ## Password links
 
@@ -76,12 +106,19 @@ Use the test's heading to decide who needs to act:
 
 | Test result | Check with the operator or mail administrator |
 | --- | --- |
-| The server could not be reached | Server name, port, network access and whether the mail service is running. |
+| The server could not be reached | For SMTP, server name, port, network access and whether the mail service is running. For Microsoft 365, access to Microsoft’s services; a busy or unavailable service leaves messages waiting for another try. |
 | The secure connection failed | Connection choice and the server certificate, name and trusted certificate authority. |
-| The login was refused | User name, replacement password and whether the mail service offers login. |
+| The login was refused | For SMTP, user name, replacement password and whether the mail service offers login. For Microsoft 365, tenant and application IDs, a wrong or expired secret, an unregistered or expired certificate, **Mail.Send** application permission with admin consent, and whether the mailbox restriction permits this sender. Follow the sentence below the heading. |
+| The login was refused — refiroo is not running with a managed identity on an Azure host | Ask the operator to check that refiroo runs on a supported Azure host with a managed identity. Otherwise choose a client secret or certificate. |
+| The login was refused — the Azure host did not issue a token for the identity | Check **Identity client ID** and ask the operator to confirm that this identity is assigned to the host. |
+| The login was refused — no federated credential, or none matches | Ask the operator to check the multitenant app’s trust in the hosting tenant and the customer administrator’s consent. The identity, hosting tenant and Microsoft cloud must match the prepared setup. |
 | The server refused the address | The recipient address and the server's stated refusal. |
-| The server refused the from address | An approved sender in From address. |
-| The server did not accept the message | The server's reason for rejecting the message. |
+| The server refused the from address | For SMTP, an approved sender in **From address**; the message waits for another try. For Microsoft 365, check that **Sending mailbox** is a licensed user or shared mailbox in the tenant; an unknown mailbox leaves the message waiting and is tried again after the usual wait, exactly as with SMTP. Correct **Sending mailbox**, save and test; the waiting message continues on its next try, unless its 24-hour window has ended. |
+| The server did not accept the message | The service’s reason for rejecting the message. Microsoft 365 normally fails the message immediately; a temporary conflict leaves it waiting for another try. |
+
+A Microsoft 365 login failure can affect all waiting messages. Correct the settings while they wait, save and test again before their 24-hour window ends. The explanation does not display the secret or Microsoft’s full response.
+
+If saving asks for a client secret or certificate, enter it again for the chosen tenant, application and token address. If the certificate cannot be used, check that the PEM text includes an unencrypted RSA private key and a matching, unexpired certificate. Ask the Microsoft 365 administrator to register the public certificate and compare the saved thumbprint with Entra.
 
 For a replaced or expired mail password, enter its replacement in **Password**, choose
 **Save**, then **Send test message**. refiroo does not renew the mail account's credentials.

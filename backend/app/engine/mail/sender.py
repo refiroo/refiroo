@@ -3,7 +3,7 @@
 Every couple of seconds it queues the mail of due inbox notices and the digests that have come due
 (``notifications.mailing``, M2, AO3),
 gives up on messages older than 24 hours, leases the ones that are due
-and hands each to the SMTP server. A message that fails waits longer each time (30 seconds,
+and hands each to the configured sender (an SMTP server or Microsoft 365). A message that fails waits longer each time (30 seconds,
 doubling, at most an hour); one the server refuses for good (an address that does not exist) fails
 at once. When the whole server fails (it cannot be reached, TLS, the login), the other leased
 messages share that failure instead of each waiting out a timeout. Every process runs one; leases
@@ -30,7 +30,8 @@ from ..identity.settings import IdentitySettings
 from ..notifications import mailing
 from . import settings as mail_settings
 from .outbox import GIVE_UP_AFTER, RETAIN_FINISHED, body_context, retry_delay, unpack
-from .smtp import SERVER_WIDE, Connection, MailError, build, deliver
+from .smtp import SERVER_WIDE, MailError, build
+from .transport import Transport, deliver
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ class MailSender:
     def _send(
         self,
         message_id: int,
-        connection: Connection | None,
+        connection: Transport | None,
         server_failure: MailError | None,
         now: datetime,
     ) -> MailError | None:
@@ -195,16 +196,20 @@ class MailSender:
                 if failure.permanent or now - message.created_at >= GIVE_UP_AFTER:
                     message.status, message.body, message.finished_at = "failed", None, now
                 else:
-                    message.next_attempt_at = now + retry_delay(message.attempts)
+                    wait = retry_delay(message.attempts)
+                    if failure.retry_after is not None:
+                        # The service said when to come back (Graph's Retry-After): not sooner.
+                        wait = max(wait, timedelta(seconds=failure.retry_after))
+                    message.next_attempt_at = now + wait
             kind = message.kind
             session.commit()
         if failure is not None and failure is not server_failure:
             logger.warning("A %s mail was not sent: %s", kind, failure)
         return failure
 
-    def _try(self, message: MailOutbox, connection: Connection | None) -> MailError | None:
+    def _try(self, message: MailOutbox, connection: Transport | None) -> MailError | None:
         if connection is None:
-            return MailError(NOT_SET_UP, "Mail is not set up: the SMTP settings were removed")
+            return MailError(NOT_SET_UP, "Mail is not set up: the mail settings were removed")
         try:
             body, html = unpack(
                 unseal(
@@ -220,9 +225,8 @@ class MailSender:
                 permanent=True,
             )
         built = build(connection, message.to_address, message.subject, body, html)
-        kwargs = {} if self.timeout_seconds is None else {"timeout": self.timeout_seconds}
         try:
-            deliver(connection, built, **kwargs)
+            deliver(connection, built, timeout=self.timeout_seconds)
         except MailError as error:
             return error
         return None

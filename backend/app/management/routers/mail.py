@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query, Request, Response
 
 from ...engine.identity.settings import IdentitySettings
 from ...engine.identity.users import load_user
-from ...engine.mail import outbox, settings, smtp, templates
+from ...engine.mail import outbox, settings, smtp, templates, transport
 from ...engine.notifications import mailing
 from ...errors import api_error
 from ...models.commands import MailSettingsUpdate, MailTest
@@ -37,8 +37,9 @@ def _identity(request: Request) -> IdentitySettings:
 @router.get("/mail-settings", response_model=MailSettingsResponse)
 @requires("security.manage", at=INSTANCE)
 def get_mail_settings(request: Request, session: DbSession) -> MailSettingsResponse:
-    """The SMTP connection mail is sent through, the address its links point to and how many
-    messages wait, were sent or failed. Never the password (0.12 M1)."""
+    """How mail is sent (`smtp` or `microsoft365`), the address its links point to and how many
+    messages wait, were sent or failed. Never a password, client secret or certificate; a
+    certificate is answered by its thumbprint and expiry (0.12 M1, 0.13 MS)."""
     return present.settings_response(session, _identity(request), settings.load(session))
 
 
@@ -48,9 +49,14 @@ def put_mail_settings(
     payload: MailSettingsUpdate, request: Request, session: DbSession
 ) -> MailSettingsResponse:
     """Save the settings, replacing what was saved; the first save omits ``expectedVersion``.
-    ``password`` is sealed and never answered; omitted, it keeps the saved one. A login is refused
-    over an unencrypted connection (``422 MAIL_INSECURE_LOGIN``). Nothing is sent: try the settings
-    with ``POST /mail-settings/test``."""
+    ``method`` is `smtp` (the default) or `microsoft365`; saving one method clears the other's
+    saved fields. Microsoft 365 takes a client secret, a certificate or a managed identity
+    (`identityMode` `direct` or `federated`, no secret stored). ``password``, ``clientSecret`` and ``certificate`` are sealed and never answered;
+    omitted, they keep the saved one (not for another host, port, tenant, application or token
+    address: ``422 MAIL_PASSWORD_REQUIRED``, ``422 MAIL_CREDENTIAL_REQUIRED``). A certificate that
+    cannot be used is ``422 MAIL_CERTIFICATE_INVALID``. A login is refused over an unencrypted
+    connection (``422 MAIL_INSECURE_LOGIN``). Nothing is sent: try the settings with
+    ``POST /mail-settings/test``."""
     row = settings.save(session, _identity(request), payload)
     return present.settings_response(session, _identity(request), row)
 
@@ -69,7 +75,7 @@ def delete_mail_settings(session: DbSession) -> Response:
 def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> MailTestResponse:
     """Send a test message through the saved settings now, and answer what failed if it cannot be
     sent (``422 MAIL_SEND_FAILED``, ``details.kind``: `connection`, `tls`, `login`, `recipient`,
-    `sender` or `rejected`). The message shows the address links will point to."""
+    `sender` or `rejected`), with either method. The message shows the address links will point to."""
     identity = _identity(request)
     row = settings.require(session)
     connection = settings.connection(identity, row)
@@ -78,7 +84,7 @@ def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> M
     )
     session.rollback()
     try:
-        smtp.deliver(
+        transport.deliver(
             connection,
             smtp.build(connection, payload.to, rendered.subject, rendered.body, rendered.html),
         )

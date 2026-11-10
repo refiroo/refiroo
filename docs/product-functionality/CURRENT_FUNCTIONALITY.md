@@ -38,7 +38,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
-| F28 | Send mail | Settings › Integration › Mail | The organisation's mail server saved with its password sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1 |
+| F28 | Send mail | Settings › Integration › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph with a client secret or a certificate) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
 | F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -1514,6 +1514,21 @@ the address mail comes from and the address people reach refiroo at, which the l
 never shown again. **Send test message** sends one to an address at once; if it cannot be sent, the
 page says what failed: the server could not be reached, the secure connection failed (a certificate
 the host does not trust included), the login was refused, or the server refused the address.
+
+**Microsoft 365 (0.13 MS).** Where SMTP with a login is not possible, the administrator chooses
+**Microsoft 365** at the top of the same form instead: the tenant ID, the application (client) ID, a client
+secret or a certificate (its private key is sealed and never shown; the page shows the certificate's
+thumbprint and when it expires) and the mailbox mail is sent as. The page lists what to set up in
+Microsoft Entra first (an app registration, the Mail.Send permission with admin consent, and an access
+policy that limits the application to that mailbox). One method is used at a time; saving one replaces the
+other's settings. Where refiroo runs on Azure the credential can be a **managed identity** instead (no secret is
+stored): the identity of the host in the organisation's tenant, or, for refiroo hosted in another tenant,
+a user-assigned identity that is a federated credential of an app the organisation has consented. The page
+lists what to set up per case, and says that mail fails as a refused login where refiroo does not run on an
+Azure host with a managed identity. Mail is sent with Microsoft Graph, looks the same as through SMTP, and lands in the
+mailbox's Sent Items. A refused sign-in or missing consent shows as a refused login with what to change; a
+mailbox that does not exist keeps the message waiting, as with SMTP, until it is corrected or 24 hours pass. A bad recipient address is reported later by
+Microsoft as a bounce to the sending mailbox; refiroo does not read bounces and shows the message as sent.
 
 Mail the application sends is never sent while someone waits: it goes into an outbox and is sent in
 the background. A message that fails is tried again after half a minute, then after longer waits up to

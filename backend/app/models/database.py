@@ -2399,9 +2399,12 @@ class LocalSignIn(Base):
 
 
 class MailSettings(Base):
-    """The SMTP connection the engine sends mail through: one row, absent until set (0.12 M1, D419).
+    """How the engine sends mail: one row, absent until set (0.12 M1, D419; 0.13 MS).
 
-    The password is sealed with ``SECRETS_ENCRYPTION_KEY`` (D253) and never answered.
+    ``method`` is ``smtp`` (``host``, ``port``, ``security``, a login) or ``microsoft365`` (the
+    ``ms_*`` columns: Microsoft Graph with a client secret, a certificate or a managed identity,
+    the last storing no secret). One method is active; the other's columns are null. Passwords, client secrets and
+    certificates are sealed with ``SECRETS_ENCRYPTION_KEY`` (D253) and never answered.
     ``application_url`` is where the links in mail point (D422); empty, the first browser origin.
     """
 
@@ -2414,14 +2417,58 @@ class MailSettings(Base):
         CheckConstraint(
             "password IS NULL OR username IS NOT NULL", name="ck_mail_settings_password_user"
         ),
+        CheckConstraint("method IN ('smtp', 'microsoft365')", name="ck_mail_settings_method"),
+        CheckConstraint(
+            "ms_identity_mode IN ('direct', 'federated')", name="ck_mail_settings_identity_mode"
+        ),
+        CheckConstraint(
+            "method <> 'smtp' OR (host IS NOT NULL AND port IS NOT NULL AND security IS NOT NULL "
+            "AND ms_tenant_id IS NULL AND ms_client_id IS NULL AND ms_client_secret IS NULL "
+            "AND ms_certificate IS NULL AND ms_certificate_thumbprint IS NULL "
+            "AND ms_certificate_expires_at IS NULL AND ms_authority_url IS NULL "
+            "AND ms_graph_url IS NULL AND ms_identity_mode IS NULL "
+            "AND ms_identity_client_id IS NULL)",
+            name="ck_mail_settings_smtp_fields",
+        ),
+        CheckConstraint(
+            "method <> 'microsoft365' OR (ms_authority_url IS NOT NULL AND ms_graph_url IS NOT NULL "
+            "AND ((ms_client_secret IS NOT NULL)::int + (ms_certificate IS NOT NULL)::int "
+            "+ (ms_identity_mode IS NOT NULL)::int = 1) "
+            "AND ((ms_certificate IS NULL) = (ms_certificate_thumbprint IS NULL)) "
+            "AND ((ms_certificate IS NULL) = (ms_certificate_expires_at IS NULL)) "
+            "AND ((ms_identity_mode = 'direct') = (ms_tenant_id IS NULL AND ms_client_id IS NULL)) "
+            "AND (ms_identity_mode = 'direct' OR "
+            "(ms_tenant_id IS NOT NULL AND ms_client_id IS NOT NULL)) "
+            "AND (ms_identity_mode IS DISTINCT FROM 'federated' "
+            "OR ms_identity_client_id IS NOT NULL) "
+            "AND (ms_identity_mode IS NOT NULL OR ms_identity_client_id IS NULL) "
+            "AND host IS NULL AND port IS NULL AND security IS NULL AND username IS NULL "
+            "AND password IS NULL)",
+            name="ck_mail_settings_microsoft365_fields",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    host: Mapped[str] = mapped_column(String(255), nullable=False)
-    port: Mapped[int] = mapped_column(Integer, nullable=False)
-    security: Mapped[str] = mapped_column(String(16), nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False, server_default="smtp")
+    host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    security: Mapped[str | None] = mapped_column(String(16), nullable=True)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    ms_tenant_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ms_client_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ms_client_secret: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # The certificate's private key and certificate as one sealed PEM; its identity is in the clear.
+    ms_certificate: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    ms_certificate_thumbprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ms_certificate_expires_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True
+    )
+    ms_authority_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ms_graph_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Managed identity (0.13 MS-D5): `direct` or `federated`; the user-assigned identity's client ID.
+    ms_identity_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ms_identity_client_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     from_address: Mapped[str] = mapped_column(String(320), nullable=False)
     application_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

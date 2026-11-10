@@ -24,7 +24,7 @@ from app.db import DatabaseStartupError, get_engine
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261124_01"
+HEAD = "20261127_01"
 LIMITED_ROLE = "rdm_startup_limited"
 LIMITED_PASSWORD = "limited-role-pass"
 
@@ -126,7 +126,7 @@ def test_the_upgrade_command_prints_the_refusal_and_fails(monkeypatch, capsys):
     monkeypatch.setenv("DATABASE_URL", "sqlite:///./rdm-engine.db")
     reload_settings()
     try:
-        assert database_upgrade.main() == 1
+        assert database_upgrade.main([]) == 1
     finally:
         monkeypatch.undo()
         reload_settings()

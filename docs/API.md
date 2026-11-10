@@ -6969,18 +6969,24 @@ security change is audited with its actor.
 
 ### Mail
 
-_Delivered by M1 (2026-10-26), D418–D423._ The engine sends e-mail through the organisation's SMTP
-server. Every route needs Security administration at the instance (`security.manage`): mail decides
+_Delivered by M1 (2026-10-26), D418–D423; Microsoft 365 by 0.13 MS._ The engine sends e-mail through the
+organisation's SMTP server or through Microsoft 365 (Microsoft Graph), one method at a time. Every route needs Security administration at the instance (`security.manage`): mail decides
 where one-time links go. Nothing is sent without saved settings.
 
-- `GET /mail-settings`: `configured`, `host`, `port`, `security` (`tls`, `starttls` or `none`),
-  `username`, `passwordSet` (the password is never answered), `fromAddress`, `applicationUrl` (where
+- `GET /mail-settings`: `configured`, `method` (`smtp` or `microsoft365`; null before the first save),
+  `host`, `port`, `security` (`tls`, `starttls` or `none`), `username`, `passwordSet` (the password is
+  never answered): the SMTP fields, null with Microsoft 365; `credential` (`secret`, `certificate` or
+  `managedIdentity`; null with SMTP), `identityMode` (`direct` or `federated`) and `identityClientId` (a
+  managed identity; null otherwise or for a system-assigned one), `tenantId`, `clientId` (null with a
+  direct managed identity), `clientSecretSet` (the secret is never answered), `certificateThumbprint` (SHA-1, as the Entra portal shows it) and
+  `certificateExpiresAt` (null with a secret), `authorityUrl`, `graphUrl`: the Microsoft 365 fields, null
+  with SMTP; `fromAddress` (with Microsoft 365 the sending mailbox), `applicationUrl` (where
   the links in mail point: the saved address, else the first `CORS_ORIGINS` entry, D422) with
   `applicationUrlIsDefault`, `outbox` (`pending`, `sent`, `failed`: finished messages are kept for 30
   days), `version` and `updatedAt`. Before the first save `configured` is false, the connection
   fields are null and `version` is null.
-- `PUT /mail-settings`: replaces the settings: `host`, `port`, `security`, `username`, `password`,
-  `fromAddress`, `applicationUrl` and `expectedVersion` (absent for the first save; a stale or
+- `PUT /mail-settings`: replaces the settings: `method` (`smtp`, the default, or `microsoft365`), the
+  method's fields, `fromAddress`, `applicationUrl` and `expectedVersion` (absent for the first save; a stale or
   missing one is `409 VERSION_CONFLICT` with `currentVersion`, 0 when nothing is saved). `password`
   is sealed with `SECRETS_ENCRYPTION_KEY` and never answered; omitted, the saved one is kept while the
   `host` and `port` stay as saved, but when either changes it is not carried to the new server: the save
@@ -6989,14 +6995,45 @@ where one-time links go. Nothing is sent without saved settings.
   MAIL_INSECURE_LOGIN` (a login is only sent over TLS or STARTTLS); a user name with no password
   saved or sent is `422 MAIL_PASSWORD_REQUIRED`. `applicationUrl` is an http or https address with no
   query or fragment (a trailing `/` is dropped). Nothing is sent: saving a change is a security event
-  (`mail-settings`, `changedFields`, never the password).
+  (`mail-settings`, `changedFields`, never a password, secret or key).
+  **Microsoft 365** (`method: "microsoft365"`, 0.13 MS): `tenantId` and `clientId` (required), and a
+  `clientSecret` or a `certificate` (PEM text with the private key, not encrypted, and the certificate;
+  RSA), never both; `authorityUrl` (default `https://login.microsoftonline.com`) and `graphUrl` (default
+  `https://graph.microsoft.com`; https, or http for localhost only) for a national cloud or a test.
+  `fromAddress` is the mailbox mail is sent as. The other method's fields in a request are
+  `422 REQUEST_VALIDATION_ERROR` at their own pointer (`body.host`), and a missing required one too.
+  `clientSecret` and `certificate` are sealed (each under its own identity) and never answered; omitted,
+  the saved credential is kept for the same `tenantId`, `clientId` and `authorityUrl`, and otherwise the
+  save is `422 MAIL_CREDENTIAL_REQUIRED` (`details.field` `clientSecret`). A certificate that cannot be
+  used (not PEM, no or an encrypted or non-RSA key, no certificate that belongs to the key, expired) is
+  `422 MAIL_CERTIFICATE_INVALID` (`details.field` `certificate`). Saving one method clears the other's
+  saved fields.
+  **Managed identity** (0.13 MS-D5), the third credential: no secret is stored, so it is sent whole in
+  every save (omitting it is not a keep). `identityMode` `direct`: the Azure host's identity in the
+  organisation's own tenant; `identityClientId` is the user-assigned identity's client ID, omitted for the
+  host's system-assigned one; `tenantId`, `clientId`, `clientSecret` and `certificate` are refused. The
+  engine asks the Azure host for a token for the Graph address and sends with it; there is no tenant token
+  request. `identityMode` `federated`: refiroo hosted in another tenant; `identityClientId` (a user-assigned
+  identity, required), `clientId` (the multitenant app registration that trusts it) and `tenantId` (the
+  customer's tenant) are required: the engine takes an identity token for the audience
+  `api://AzureADTokenExchange` (`…USGov`, `…China` by the `authorityUrl`'s cloud) and sends it as the
+  `client_assertion` of the client-credentials grant at the tenant. The host's token endpoint is
+  `IDENTITY_ENDPOINT` with `IDENTITY_HEADER` (App Service, Container Apps), else the instance metadata
+  service of a virtual machine. A secret or certificate with an identity mode is refused at its field;
+  saving a managed identity clears a saved secret or certificate. Where no Azure host answers, the test and
+  queued mail fail as `login` with a sentence saying refiroo is not running with a managed identity on an
+  Azure host.
 - `DELETE /mail-settings`: removes the settings; `204`, or `409 MAIL_NOT_SET_UP`. Messages waiting stay
   in the outbox and fail after 24 hours.
 - `POST /mail-settings/test {to}`: sends a test message at once through the saved settings and answers
   `{sentTo}`. It shows the application address. A failure is `422 MAIL_SEND_FAILED`, `details.kind`
   one of `connection`, `tls` (also a certificate the engine does not trust), `login`, `recipient`,
   `sender` or `rejected`, and `details.reason` the sentence; `409 MAIL_NOT_SET_UP` with no settings.
-  The server's certificate is verified against the system's trusted certificates.
+  The SMTP server's certificate is verified against the system's trusted certificates. With Microsoft 365
+  a refused token, no `Mail.Send` consent or a mailbox the application may not use is `login`; Microsoft
+  out of reach, throttled (429, with the wait it asks for) or failing is `connection`; a mailbox that
+  does not exist is `sender`; any other refusal is `rejected`. The sentence names what to change, never
+  the secret, the token or Microsoft's own text.
 - `GET /mail-outbox`: the messages, newest first, cursor paged, `status=` (`pending`, `sent`,
   `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `test`, `notice`), `to`,
   `subject`, `status`, `attempts`, `lastError` (the sentence of the last failure) and `lastErrorKind`
@@ -7016,8 +7053,11 @@ told a new one was asked for (`password-reset`). `409 MAIL_NOT_SET_UP` and `409 
 before the earlier link is replaced, so it keeps working. No other route queues a message: the engine's own code does, in the caller's transaction, refusing with
 `409 MAIL_NOT_SET_UP` when mail is not set up. A background thread (`mailSender` on a process's
 threads) sends them: a failed attempt is tried again after 30 seconds, then twice as long up to an
-hour; an address the server refuses for good fails at once; anything else fails after 24 hours,
-reading `Not sent within 24 hours. Last error: …`.
+hour (at least as long as Microsoft asked with `Retry-After`); an address the server refuses for good, or
+a mailbox Microsoft 365 does not know, fails at once; anything else fails after 24 hours,
+reading `Not sent within 24 hours. Last error: …`. With Microsoft 365 a message Graph accepted (`202`)
+is `sent`: the engine does not read bounces, which go to the sending mailbox, and a message sent this way
+is saved in that mailbox's Sent Items (the MIME route of `sendMail` has no switch for it).
 
 **Inbox notices (M2, D432):** the sender also queues one `notice` message per inbox notice of a person who
 switched `PUT /me/notification-mail` on: a notice that is unread, made after they switched it on and under 24 hours

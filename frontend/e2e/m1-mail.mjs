@@ -6,6 +6,10 @@
 // what the engine queued (rows written from outside the API, so each state is shown whatever the
 // producers SP3 and I6 queue in the other runners) and narrows to the failed one with its reason; the settings are removed
 // through their confirmation. Axe on each state; screenshots; no horizontal page scroll at 390px.
+// 0.13 MS: the Microsoft 365 form (section 7, `microsoftForm`): the four "Sign in with" entries, the Entra
+// checklist and the other clouds opened, at 1440px and 390px, light and dark, each with axe, the menu reached by
+// keyboard, only the chosen entry's fields visible and no sideways scroll at 390px. `M1_M365_ONLY=1` runs only that
+// section; `M1_MODELS=starter` limits the models.
 import { writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -59,6 +63,93 @@ with engine.begin() as connection:
   });
 }
 
+const SIGN_IN = {
+  secret: { label: "Client secret", fields: ["Tenant ID", "Application (client) ID", "Client secret"] },
+  certificate: { label: "Certificate", fields: ["Tenant ID", "Application (client) ID", "Certificate"] },
+  direct: { label: "Managed identity – this tenant", fields: ["Identity client ID"] },
+  federated: {
+    label: "Managed identity – hosted in another tenant",
+    fields: ["Tenant ID", "Application (client) ID", "Identity client ID"],
+  },
+};
+const SIGN_IN_FIELDS = ["Tenant ID", "Application (client) ID", "Client secret", "Certificate", "Identity client ID"];
+
+/** 7. The Microsoft 365 form: four ways to sign in, the Entra steps and the other clouds, in four looks. */
+async function microsoftForm(harness, tag) {
+  const { uiUrl, output, browser } = harness;
+  for (const [width, height, scheme] of [
+    [1440, 900, "light"],
+    [1440, 900, "dark"],
+    [390, 844, "light"],
+    [390, 844, "dark"],
+  ]) {
+    const look = `${tag}-m365-${width}-${scheme}`;
+    const context = await browser.newContext({
+      viewport: { width, height },
+      colorScheme: scheme,
+      hasTouch: width < 600,
+    });
+    const page = await context.newPage();
+    page.setDefaultTimeout(15000);
+    page.on("pageerror", (error) => failures.push(`${look}: ${error.message}`));
+    const shot = (name) => page.screenshot({ path: resolve(output, `${look}-${name}.png`), fullPage: true });
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const check = async (name) => {
+      if (width < 600) expect((await overflow()) <= 0, `${look}-${name}: scrolls sideways at 390px`);
+      await shot(name);
+      await axe(page, `${look}-${name}`);
+    };
+    await page.goto(`${uiUrl}/settings/mail`);
+    await page.getByRole("heading", { level: 1, name: "Mail" }).waitFor();
+    await page.getByLabel("Send mail through", { exact: true }).selectOption("microsoft365");
+    // The menu is reached by keyboard: Tab from the method choice lands on it.
+    await page.getByLabel("Send mail through", { exact: true }).focus();
+    await page.keyboard.press("Tab");
+    expect(
+      await page.getByLabel("Sign in with", { exact: true }).evaluate((el) => el === document.activeElement),
+      `${look}: Sign in with is the next stop after the method choice`,
+    );
+    const menu = await page.getByLabel("Sign in with", { exact: true }).locator("option").allInnerTexts();
+    expect(
+      JSON.stringify(menu) === JSON.stringify(Object.values(SIGN_IN).map((entry) => entry.label)),
+      `${look}: the menu lists the four entries, found ${JSON.stringify(menu)}`,
+    );
+    for (const [entry, { label, fields }] of Object.entries(SIGN_IN)) {
+      await page.getByLabel("Sign in with", { exact: true }).selectOption(entry);
+      const shown = [];
+      for (const field of SIGN_IN_FIELDS) {
+        if (await page.getByLabel(field, { exact: true }).isVisible()) shown.push(field);
+      }
+      expect(
+        JSON.stringify(shown) === JSON.stringify(fields),
+        `${look}-${entry}: shows ${JSON.stringify(shown)}, expected ${JSON.stringify(fields)}`,
+      );
+      expect(
+        (await page.getByLabel("Server", { exact: true }).count()) === 0,
+        `${look}-${entry}: SMTP fields are hidden`,
+      );
+      await check(entry);
+      checks.push(`${look}: ${label}: only ${fields.join(", ")} shown; axe; screenshot`);
+    }
+    // The Entra steps of a managed identity entry, and the other clouds.
+    await page.getByLabel("Sign in with", { exact: true }).selectOption("direct");
+    const steps = page.getByText("What to set up in Microsoft Entra", { exact: true });
+    await steps.click();
+    await page.getByText(/Mail.Send.* app role/).waitFor();
+    await check("direct-entra-steps");
+    await page.getByLabel("Sign in with", { exact: true }).selectOption("federated");
+    await page.getByText(/add a federated credential for the identity/).waitFor();
+    await check("federated-entra-steps");
+    await page.getByText(/Other Microsoft clouds/).click();
+    await page.getByLabel("Token address", { exact: true }).waitFor();
+    await check("other-clouds");
+    checks.push(
+      `${look}: the Entra steps (both managed identity entries) and the other clouds opened; axe; screenshots`,
+    );
+    await context.close();
+  }
+}
+
 async function walk(configuration) {
   const smtp = await startSmtp();
   const harness = await bootShaped(configuration);
@@ -68,6 +159,15 @@ async function walk(configuration) {
     const overflow = (target) => target.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     const shot = (target, name) => target.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
 
+    if (process.env.M1_M365_ONLY) {
+      await microsoftForm(harness, tag);
+      await writeFile(
+        resolve(output, "report.json"),
+        JSON.stringify({ browser: browser.version(), model: tag, checks, failures, passed: !failures.length }, null, 2),
+      );
+      console.log(`M1 Microsoft 365 evidence (${tag}): ${output}`);
+      return;
+    }
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     page.setDefaultTimeout(15000);
@@ -247,6 +347,7 @@ async function walk(configuration) {
     checks.push(`${tag}: removal confirmed by keyboard; Mail is not set up again`);
 
     await context.close();
+    await microsoftForm(harness, tag);
     const report = { browser: browser.version(), model: tag, checks, failures, passed: !failures.length };
     await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
     console.log(`M1 browser evidence (${tag}): ${output}`);
@@ -257,7 +358,8 @@ async function walk(configuration) {
 }
 
 try {
-  for (const configuration of SHAPED_MODELS) await walk(configuration);
+  const only = process.env.M1_MODELS?.split(",");
+  for (const configuration of SHAPED_MODELS) if (!only || only.includes(configuration.name)) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

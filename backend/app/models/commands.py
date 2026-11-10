@@ -14,6 +14,7 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -1116,30 +1117,166 @@ class GrantCreate(BaseModel):
 # --- Mail (Product 0.12 M1, D419, D422) -------------------------------------------------------
 
 
-class MailSettingsUpdate(BaseModel):
-    """The SMTP connection mail is sent through, replacing what was saved.
+DEFAULT_AUTHORITY_URL = "https://login.microsoftonline.com"
+DEFAULT_GRAPH_URL = "https://graph.microsoft.com"
+_SMTP_ONLY = ("host", "port", "security", "username", "password")
+_MICROSOFT_ONLY = (
+    "identityMode",
+    "identityClientId",
+    "tenantId",
+    "clientId",
+    "clientSecret",
+    "certificate",
+    "authorityUrl",
+    "graphUrl",
+)
 
-    ``expectedVersion`` is the saved version, absent when none is saved yet. ``password`` omitted
-    keeps the saved one; a ``username`` of null removes the login and with it the password.
-    ``applicationUrl`` null means the first browser origin (``CORS_ORIGINS``).
+
+def _service_address(value: str) -> str:
+    """An https address (http only for this computer, which tests use), as ``scheme://host/path``."""
+    parts = urlsplit(value.strip())
+    local = parts.hostname in ("localhost", "127.0.0.1", "::1")
+    if parts.scheme != "https" and not (parts.scheme == "http" and local) or not parts.hostname:
+        raise ValueError("must be an https address (http only for localhost)")
+    if parts.query or parts.fragment or parts.username or parts.password:
+        raise ValueError("must not carry a query, a fragment or a login")
+    return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+
+
+class MailSettingsUpdate(BaseModel):
+    """How mail is sent, replacing what was saved (0.12 M1; ``method`` 0.13 MS).
+
+    ``expectedVersion`` is the saved version, absent when none is saved yet. ``method`` is `smtp`
+    (``host``, ``port``, ``security`` and optionally a login) or `microsoft365` (``tenantId``,
+    ``clientId`` and a ``clientSecret`` or a ``certificate`` or a managed identity: ``identityMode``
+    ``direct`` or ``federated`` with ``identityClientId``); the other method's fields must be
+    absent, and saving replaces the other method's saved fields. ``password``, ``clientSecret`` and
+    ``certificate`` omitted keep the saved one (the same method and the same server or application);
+    a ``username`` of null removes the login and with it the password. ``certificate`` is PEM text
+    holding the private key (not encrypted) and the certificate. ``fromAddress`` is the sending
+    mailbox with Microsoft 365. ``applicationUrl`` null means the first browser origin
+    (``CORS_ORIGINS``).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     expectedVersion: int | None = Field(default=None, ge=1)
-    host: str = Field(min_length=1, max_length=255, pattern=r"^[^\s/]+$")
-    port: int = Field(ge=1, le=65535)
-    security: Literal["tls", "starttls", "none"] = Field(
-        description="tls: encrypted from the first byte (usually port 465); starttls: upgraded "
-        "after greeting (587); none: unencrypted, for a relay on a trusted network, and refused "
-        "together with a login"
+    method: Literal["smtp", "microsoft365"] = "smtp"
+    host: str | None = Field(
+        default=None, min_length=1, max_length=255, pattern=r"^[^\s/]+$", validate_default=True
     )
-    username: str | None = Field(default=None, min_length=1, max_length=255)
+    port: int | None = Field(default=None, ge=1, le=65535, validate_default=True)
+    security: Literal["tls", "starttls", "none"] | None = Field(
+        default=None,
+        validate_default=True,
+        description="SMTP. tls: encrypted from the first byte (usually port 465); starttls: "
+        "upgraded after greeting (587); none: unencrypted, for a relay on a trusted network, and "
+        "refused together with a login",
+    )
+    username: str | None = Field(default=None, min_length=1, max_length=255, validate_default=True)
     password: str | None = Field(
-        default=None, min_length=1, max_length=2000, description="Write-only"
+        default=None, min_length=1, max_length=2000, description="Write-only", validate_default=True
+    )
+    identityMode: Literal["direct", "federated"] | None = Field(
+        default=None,
+        validate_default=True,
+        description="Microsoft 365, managed identity (no secret is stored; not with a client "
+        "secret or certificate). direct: the Azure host's identity in the organisation's own "
+        "tenant (no `tenantId` or `clientId`); federated: a user-assigned identity that is a "
+        "federated credential of the app `clientId`, which is consented in `tenantId`",
+    )
+    identityClientId: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        pattern=r"^[^\s/]+$",
+        validate_default=True,
+        description="Microsoft 365, managed identity: the user-assigned identity's client ID; "
+        "required for federated, optional for direct (empty: the host's system-assigned identity)",
+    )
+    tenantId: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        pattern=r"^[^\s/]+$",
+        validate_default=True,
+        description="Microsoft 365: the Entra tenant (directory) ID or its domain name; not "
+        "used with a direct managed identity",
+    )
+    clientId: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        pattern=r"^[^\s/]+$",
+        validate_default=True,
+        description="Microsoft 365: the app registration's application (client) ID; not used "
+        "with a direct managed identity",
+    )
+    clientSecret: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=2000,
+        validate_default=True,
+        description="Microsoft 365: write-only; not together with a certificate",
+    )
+    certificate: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20000,
+        validate_default=True,
+        description="Microsoft 365: write-only PEM of the private key and the certificate",
+    )
+    authorityUrl: str | None = Field(
+        default=None,
+        max_length=2000,
+        validate_default=True,
+        description=f"Microsoft 365: where tokens are issued; default {DEFAULT_AUTHORITY_URL}",
+    )
+    graphUrl: str | None = Field(
+        default=None,
+        max_length=2000,
+        validate_default=True,
+        description=f"Microsoft 365: the Graph address; default {DEFAULT_GRAPH_URL}",
     )
     fromAddress: Email
     applicationUrl: str | None = Field(default=None, max_length=2000)
+
+    @field_validator(*_SMTP_ONLY, *_MICROSOFT_ONLY)
+    @classmethod
+    def only_the_methods_fields(cls, value: Any, info: ValidationInfo) -> Any:
+        method, name = info.data.get("method"), info.field_name
+        if method is None:
+            return value
+        smtp = name in _SMTP_ONLY
+        if value is not None and (method == "smtp") != smtp:
+            raise ValueError(
+                "is not used with the SMTP method"
+                if method == "smtp"
+                else "is not used with the Microsoft 365 method"
+            )
+        direct = info.data.get("identityMode") == "direct"
+        if value is not None and name in ("tenantId", "clientId") and direct:
+            raise ValueError("is not used with a direct managed identity")
+        if value is not None and name == "identityClientId" and not info.data.get("identityMode"):
+            raise ValueError("is used only with a managed identity (identityMode)")
+        if value is not None and name in ("clientSecret", "certificate"):
+            if info.data.get("identityMode"):
+                raise ValueError("is not used with a managed identity: no secret is stored")
+            if name == "certificate" and info.data.get("clientSecret"):
+                raise ValueError("give a client secret or a certificate, not both")
+        if value is None and (
+            (method == "smtp" and name in ("host", "port", "security"))
+            or (method == "microsoft365" and name in ("tenantId", "clientId") and not direct)
+            or (
+                method == "microsoft365"
+                and name == "identityClientId"
+                and info.data.get("identityMode") == "federated"
+            )
+        ):
+            raise ValueError(f"is required with the {'SMTP' if smtp else 'Microsoft 365'} method")
+        if name in ("authorityUrl", "graphUrl") and value is not None:
+            return _service_address(value)
+        return value
 
     @field_validator("applicationUrl")
     @classmethod

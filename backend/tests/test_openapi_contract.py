@@ -447,9 +447,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `RelationGridChangeItem`); the relationships table's `layout` in the model schema.
     # Re-baselined for 0.13 TN (additive): `AiTaskResponse.title`, nullable, the short title the task's
     # session wrote.
+    # Re-baselined for 0.13 MS (additive): `MailSettingsUpdate` and `MailSettingsResponse` carry
+    # `method` (`smtp`, `microsoft365`) and the Microsoft 365 fields (tenant, client, secret or
+    # certificate, token and Graph addresses; the response its certificate's thumbprint and expiry).
+    # Re-baselined for 0.13 MS-D5 (additive): `identityMode`, `identityClientId` on both, and
+    # `credential` on the response (a managed identity as a third Microsoft 365 credential).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "65a51db0a290056948272c55183bcf19f8138b6c6c5fbd09df6425102c2e4b8a"
+        "9435bfbfb1a1d463a595cd3d053ea987e1806aa7cac2bac3b599aab9b8ab1548"
     )
 
 

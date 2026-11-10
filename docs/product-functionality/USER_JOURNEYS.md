@@ -2416,9 +2416,10 @@ Account for the inbox switch), API (`GET`/`PUT`/`DELETE /mail-settings`, `POST /
 M1 (2026-10-26); a new person's link and an administrator's reset are mailed by SP3, a forgotten
 password by I6 and inbox notices by M2 (2026-10-27).
 
-1. Open Mail and enter the organisation's SMTP server: host, port, how the connection is secured
-   (TLS, STARTTLS or none), a user name and password if it asks for one, the address mail comes from
-   and the address the application is reached at.
+1. Open Mail and choose how mail is sent. With SMTP, enter the organisation's server: host, port, how
+   the connection is secured (TLS, STARTTLS or none), a user name and password if it asks for one, the
+   address mail comes from and the address the application is reached at. With Microsoft 365 (0.13 MS,
+   J46.11), enter the tenant, the application and its secret or certificate, and the sending mailbox.
 2. Send a test message to an address; the page says it went, or what failed.
 3. Messages the engine queues are sent in the background; the page lists those waiting, sent and
    failed, and a failed one says why.
@@ -2471,9 +2472,27 @@ password by I6 and inbox notices by M2 (2026-10-27).
   mail only, the notice still reaches the inbox, and notices of the kind made while it was off are
   mailed if the kind is switched back on while they are still unread and under 24 hours old. The
   choice can be made before mail is set up or while mail is off; an unknown kind is refused by code. Since 0.16 AO3 each kind is also choosable as "in the digest" (J57); the at-once mail above is what every kind stays until changed.
+- **J46.11 Mail through Microsoft 365** (0.13 MS): instead of an SMTP server the administrator chooses
+  Microsoft 365: the tenant ID, the application (client) ID, a client secret or a certificate (private
+  key and certificate in PEM) and the sending mailbox; or, where refiroo runs on Azure, a managed
+  identity instead of a secret or certificate (MS-D5): `direct`, the Azure host's own identity in the
+  organisation's tenant (no tenant or application ID, an optional client ID of a user-assigned identity),
+  or `federated`, a user-assigned identity that is a federated credential of a multitenant app for refiroo
+  hosted in another tenant (the identity's client ID, the app's client ID and the customer's tenant). No
+  secret is stored for it; saving one credential clears the others. Where no Azure host answers, mail
+  fails as a refused login saying refiroo is not running with a managed identity; the token address and the Graph address default
+  to Microsoft's global service and can be set for a national cloud. One method is active: saving one
+  clears the other's fields, and a saved secret or certificate is kept only for the same tenant,
+  application and token address. The answer never holds the secret or the key; a certificate is
+  answered by its thumbprint and expiry. The test message and queued mail are sent with Microsoft Graph
+  as that mailbox, with the same text and HTML as through SMTP. A refused token, missing admin
+  consent or a mailbox the app may not use is a `login` failure for every waiting message, with a
+  sentence that says what to change in Microsoft Entra; Graph out of reach or throttled waits, at least
+  as long as Graph asked; a mailbox that does not exist waits and is tried again (`sender`), as with SMTP. A message Graph
+  accepted shows as sent; bounces go to the sending mailbox and are not read.
 
 **Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `422 UNKNOWN_NOTICE_KIND`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
-MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
+MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_CREDENTIAL_REQUIRED`, `422 MAIL_CERTIFICATE_INVALID`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
 
 ### J47 — Check the security model
 

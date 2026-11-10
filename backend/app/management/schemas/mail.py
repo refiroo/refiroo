@@ -17,19 +17,44 @@ class MailCounts(BaseModel):
 
 
 class MailSettingsResponse(BaseModel):
-    """The SMTP connection mail is sent through; never its password (D419).
+    """How mail is sent; never a password, client secret or certificate (D419, 0.13 MS).
 
-    Without saved settings ``configured`` is false, the connection fields are null and no mail is
-    sent. ``applicationUrl`` is where the links in mail point: the saved address, or the first
-    browser origin while ``applicationUrlIsDefault``.
+    Without saved settings ``configured`` is false, ``method`` and the connection fields are null and
+    no mail is sent. With `smtp` the SMTP fields are set; with `microsoft365` the Microsoft 365 ones
+    (``fromAddress`` is the sending mailbox; a managed identity stores no secret), and a certificate is answered by its thumbprint (SHA-1,
+    as the Entra portal shows it) and expiry. ``applicationUrl`` is where the links in mail point: the
+    saved address, or the first browser origin while ``applicationUrlIsDefault``.
     """
 
     configured: bool
+    method: Literal["smtp", "microsoft365"] | None
     host: str | None
     port: int | None
     security: Literal["tls", "starttls", "none"] | None
     username: str | None
-    passwordSet: bool = Field(description="The password is saved; it is never answered")
+    passwordSet: bool = Field(description="SMTP: the password is saved; it is never answered")
+    credential: Literal["secret", "certificate", "managedIdentity"] | None = Field(
+        description="Microsoft 365: what proves the application to Microsoft; null with SMTP"
+    )
+    identityMode: Literal["direct", "federated"] | None = Field(
+        description="Microsoft 365, managed identity: `direct` (the Azure host's identity in the "
+        "organisation's tenant; `tenantId` and `clientId` are null) or `federated`"
+    )
+    identityClientId: str | None = Field(
+        description="Microsoft 365, managed identity: the user-assigned identity's client ID; null "
+        "for a system-assigned one"
+    )
+    tenantId: str | None
+    clientId: str | None
+    clientSecretSet: bool = Field(
+        description="Microsoft 365: a client secret is saved; it is never answered"
+    )
+    certificateThumbprint: str | None = Field(
+        description="Microsoft 365: the saved certificate's SHA-1 thumbprint; null with a secret"
+    )
+    certificateExpiresAt: datetime | None
+    authorityUrl: str | None
+    graphUrl: str | None
     fromAddress: str | None
     applicationUrl: str
     applicationUrlIsDefault: bool

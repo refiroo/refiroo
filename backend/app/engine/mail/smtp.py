@@ -13,6 +13,7 @@ import ssl
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
+from typing import Protocol
 
 from . import html as mailhtml
 
@@ -46,18 +47,34 @@ class Connection:
         return f"{self.host}:{self.port}"
 
 
+class Sender(Protocol):
+    """What ``build`` needs of a connection: the address the message is from."""
+
+    @property
+    def from_address(self) -> str: ...
+
+
 class MailError(Exception):
     """A message that could not be sent: ``kind`` says what failed, ``permanent`` that trying again
     cannot help, and ``str(error)`` is the sentence shown to an administrator."""
 
-    def __init__(self, kind: str, message: str, *, permanent: bool = False) -> None:
+    def __init__(
+        self,
+        kind: str,
+        message: str,
+        *,
+        permanent: bool = False,
+        retry_after: float | None = None,
+    ) -> None:
         super().__init__(message)
         self.kind = kind
         self.permanent = permanent
+        # Seconds the service asked the sender to wait before trying again (Graph's Retry-After).
+        self.retry_after = retry_after
 
 
 def build(
-    connection: Connection, to_address: str, subject: str, body: str, html: str | None = None
+    connection: Sender, to_address: str, subject: str, body: str, html: str | None = None
 ) -> EmailMessage:
     """A message from the configured address: the plain text and, when there is HTML, the HTML
     after it with the brand images as inline ``cid:`` parts (multipart/alternative, the HTML part

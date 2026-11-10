@@ -399,6 +399,7 @@ when both are empty but for reasoned exclusions.
 | [NG](#ng-relation-matrices-in-navigation-groups) | - | A relation matrix is an entry of a navigation group of its own, a collection has an opening view, and a group has a panel in the editor | Built by the 0.13 build, not planned beforehand; recorded 2026-11-10. **Delivered 2026-11-09** (`30d29a8d`, guide wave `NAV-GROUPS`). Narrows [0.17 NG1](BASE_0_17_IMPLEMENTATION_PLAN.md#ng1-views-in-navigation-groups) |
 | [RV](#rv-attributes-of-the-relationship-in-views) | RA | A relationship's own attributes in a matrix cell, a relationships panel, a relationships table and a relationships grid with a bulk change | Primary agent (plan); implementer. **Approved 2026-11-09; delivered 2026-11-09** (`075675bb`, `a2a672dc`, `f9e82a2f`, `538c4b97`, `d69cb0bd`, `e696076c`); guide pages with the waves `RV-GUIDE` and `RV-GUIDE-FIX` (`0dcb0f0b`, `9a341f83`) |
 | [CL](#cl-images-built-in-ci-and-ci-as-a-quick-gate) | - | The engine and web images built once in CI and tagged only after they start; CI on GitHub a quick gate | Primary agent. **Delivered 2026-11-07 to 2026-11-08** (twelve commits, listed under CL) |
+| [MS](#ms-mail-through-microsoft-365-graph) | - | Mail sent through Microsoft 365 (Graph, client credentials) as a second method beside SMTP, set on Settings › Mail; extends 0.12's D419 | Primary agent (plan); implementer. **Approved by the user 2026-11-10 (MS-D1 to MS-D5); delivered 2026-11-10 except the real try at the organisation refiroo is deployed for** |
 | [FX](#fx-fixes-found-during-the-013-build) | - | Fixes found while building 0.13 that no package names: one row each with where it was found | Primary agent. **Recorded 2026-11-10** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
 
@@ -418,7 +419,8 @@ either point here or are closed. Nothing else is open.
 | 6 | **The guide home's title repeats**: "refiroo documentation \| refiroo documentation" (Starlight joins the page and site titles) | `guide/src/content/docs/index.md` (`title`) and `guide/astro.config.mjs` (`title`) are equal; the built `index.html` carries both; website W8, 2026-11-06 | Primary agent (a home title that does not repeat the site title) |
 | 7 | **DOC-D26 is undecided**: AI in the reference instance (recommendation 2026-11-02: not now; at DOC9A an optional, off-by-default setup) | [Decisions](#decisions), DOC-D26 | The user |
 | 8 | **RV's browser look.** The grid's sticky columns, group tints and floating editors in a wide table at 390 px are not inspected, and no browser runner exists for the relationships table, the grid or the cell dialog | RV, "Still manual / not built" | The user decides whether a runner is wanted; primary agent otherwise looks once in a browser |
-| 9 | **Release step R**: the full review of every change since 0.12, the exit gate, the versioned site build (`website/tools/engine.mjs <tag>`) and the release | R row; Exit gate; DOC12 | Primary agent, each heavy run announced one at a time |
+| 9 | **MS: mail through Microsoft 365**, delivered 2026-11-10 (secret, certificate, managed identity in both modes); the real try waits for the organisation refiroo is deployed for (managed identity) | [MS](#ms-mail-through-microsoft-365-graph) | Implementer builds; primary agent checks and reports |
+| 10 | **Release step R**: the full review of every change since 0.12, the exit gate, the versioned site build (`website/tools/engine.mjs <tag>`) and the release | R row; Exit gate; DOC12 | Primary agent, each heavy run announced one at a time |
 
 Closed by this record, with evidence: `WEB_MAX_BODY` is passed to the web container (`compose.yml`, `web.environment`);
 the CP notes (classified under [CP](#cp-completeness-from-the-code)); the DOC11 assistant journey (recorded under
@@ -1890,6 +1892,113 @@ entry is "Added (images built in CI and CI as a quick gate, 0.13 CL)".
 **Commits:** `530e4da3`, `87428ca4`, `d94c1373`, `4eb12288`, `97d46cfd`, `e0e29066`, `809a92eb`, `aef8ae65`, `0d761cf2`,
 `718a3bc1`, `ea26ac8e`, `4d1701f2`. **Open:** none. The release step R still checks the tag builds (DOC11's clean-host rehearsal found
 that `v0.16.0` cannot be built; the images workflow now builds every `v*` tag).
+
+## MS: Mail through Microsoft 365 (Graph)
+
+**Status:** Asked for by the user on 2026-11-10 ("beside of smtp is it possible to add an email option for ms azure
+graph?", then "add this to the 0.13 as a package"). **Approved by the user 2026-11-10 with MS-D1 to MS-D4 as
+recommended ("the above accepted with recommendations, build it please"). Delivered 2026-11-10 except the real try** (open item 9). No separate mock-up: the page
+keeps Settings › Mail's layout and adds the method choice and its fields.
+
+**Why.** 0.12's [D419](BASE_0_12_IMPLEMENTATION_PLAN.md) chose SMTP only ("no mail API of a provider (a later package
+may add one)"). An organisation on Microsoft 365 often cannot use SMTP with a user name and password: Microsoft is
+retiring basic authentication for SMTP AUTH in Exchange Online (Message Center MC786329, updated 2026-01-27: the
+March–April 2026 removal is on hold; basic auth off by default from late December 2026, re-enable possible; the final
+date to be announced in the second half of 2027), and its
+recommended way for an application to send is Microsoft Graph. Today such an organisation needs an SMTP relay connector
+in Exchange to use refiroo's mail at all. This package extends D419 with a second way to send; SMTP stays as it is.
+
+**What is there now** (read 2026-11-10). The outbox and the sender thread (`engine/mail/sender.py`, `outbox.py`) queue,
+lease, retry with a growing delay, give up after 24 hours and share a server-wide failure across the leased messages;
+none of that depends on SMTP. The protocol is all in `engine/mail/smtp.py`: `build` makes the MIME message (text, HTML,
+inline `cid:` operator images), `deliver` sends it and turns a failure into a `MailError` with a kind (`connection`,
+`tls`, `login` server-wide; `recipient`, `sender`, `rejected` per message). The settings are one row
+(`mail_settings`, `engine/mail/settings.py`: host, port, security, user, sealed password, from address, application
+address), set through `GET/PUT/DELETE /mail-settings` and `POST /mail-settings/test` on Settings › Mail
+(`frontend/src/features/settings/MailPage.tsx`). Guide pages: `administer/mail.md`, `run/sign-in-and-mail-setup.md`.
+
+**What changes (proposal).**
+
+1. **A sending method on the mail settings.** The one settings row gains `method`, `smtp` (today's fields) or
+   `microsoft365`: tenant ID, application (client) ID, a client secret or a certificate (sealed with
+   `SECRETS_ENCRYPTION_KEY` like the SMTP password, never answered), the sending mailbox (the from address). One
+   method is active at a time (MS-D1). A migration adds the columns; an existing row is `smtp`.
+2. **A Graph transport beside `deliver`.** It takes a token with the client-credentials grant from
+   `login.microsoftonline.com/<tenant>`, keeps it until shortly before it expires, and sends with
+   `POST /users/<mailbox>/sendMail` with the MIME message `build` already makes (base64, `text/plain`), so the HTML and
+   inline images are the same as through SMTP. The MIME route has no `saveToSentItems` (Microsoft's `sendMail`
+   page, read 2026-11-10: "This method saves the message in the Sent Items folder"; the switch exists only in the JSON
+   form): system mail lands in the mailbox's Sent Items, and the pages say so. `httpx` is already a dependency; no Microsoft library is added (MS-D3).
+3. **Failures in the kinds the sender knows.** The token refused, consent missing or the mailbox not allowed (401, 403,
+   `AADSTS…` codes) is `login`, server-wide; Graph out of reach is `connection`; 429 and 503 wait at least the
+   `Retry-After` Graph gives; a mailbox that does not exist is `sender` and waits, as with SMTP (decided 2026-11-10 by recommendation: a mistyped mailbox must not lose a queued reset mail). Each failure is one sentence an
+   administrator can act on ("The app has no Mail.Send permission with admin consent"), never the secret or Graph's raw
+   body.
+4. **A recipient is not checked at sending.** Graph accepts a message and reports a bad address later as a bounce to the
+   sending mailbox, as an SMTP relay does (only a server that is the recipient's own, or checks addresses, refuses at
+   once). A message Graph accepted shows as sent; the page and the guide say that bounces go to the sending mailbox
+   (MS-D2).
+5. **Settings › Mail** offers the method; choosing Microsoft 365 shows its fields and a short list of what the
+   administrator sets up in Entra (an app registration, `Mail.Send` application permission with admin consent, and an
+   application access policy or RBAC for Applications that limits the app to the one mailbox, without which the app can
+   send as any mailbox in the tenant). **Send test mail** works for both methods. Mock-up with the plan (UI package).
+6. **API and docs.** `MailSettingsResponse` and the update command carry `method` and the Microsoft 365 fields; the
+   OpenAPI lock, `docs/API.md`, `docs/OPERATIONS.md` "Sending mail", `CHANGELOG.md`; the guide pages above through a
+   Codex wave (`guide/_waves/MS.md`), then a guide rebuild.
+7. **Managed identity, a third credential (MS-D5).** Added by the user 2026-11-10 after the first build ("can we add
+   managed identity authentication option beside of the certificate?", then "yes, so with ms365 there are different
+   authentication options offered, so they can choose"). Only when refiroo runs in Azure (Container Apps, App Service,
+   a VM); the page says so. Two modes, read from Microsoft's
+   [Configure an application to trust a managed identity](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-config-app-trust-managed-identity)
+   (updated 2026-09-29):
+   - **Managed identity in the organisation's tenant.** The engine asks the Azure host for a Graph token
+     (`resource=https://graph.microsoft.com`) and sends with it; no tenant token request. The identity is the host's
+     system-assigned one, or a user-assigned one named by its client ID. `Mail.Send` is given to the identity's service
+     principal with a Graph app-role assignment (Entra has no portal button for it; the guide shows the command), and the
+     mailbox access policy names the identity.
+   - **Managed identity as an app's federated credential (refiroo hosted in another tenant).** A user-assigned identity
+     (the only kind Microsoft allows here) is a federated credential of a multitenant app registration in the hosting
+     tenant (issuer `https://login.microsoftonline.com/<hosting tenant>/v2.0`, subject the identity's principal ID,
+     audience `api://AzureADTokenExchange`, `…USGov` or `…China` by cloud). The customer's admin consents the app in
+     their tenant. The engine takes an identity token for `api://AzureADTokenExchange/.default` and uses it as the
+     `client_assertion` of the client-credentials grant at the customer's tenant: the certificate's path with another
+     assertion. Another cloud is not supported by Microsoft.
+   - **The Azure host's token endpoint.** `IDENTITY_ENDPOINT` with `IDENTITY_HEADER` (App Service, Container Apps), else
+     the instance metadata endpoint `http://169.254.169.254/metadata/identity/oauth2/token` with `Metadata: true` (a
+     VM). No secret is stored. A host without either is a `login` failure that says refiroo does not run with a managed
+     identity. AKS workload identity (a token file) is not included.
+
+**Decisions (approved by the user 2026-11-10 as recommended).**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| MS-D1 | One method or both at once? | **One active method on the one settings row.** Why: an organisation sends from one place; a fallback from Graph to SMTP would hide a broken setup and needs a rule for which failures switch. Cost: switching method replaces the other method's saved fields |
+| MS-D2 | Does refiroo read bounces? | **No, for either method; the page and guide say bounces go to the sending mailbox.** An SMTP relay bounces later too, so this is not Graph's alone. Reading bounces is a feature of its own: polling the mailbox or a renewed Graph subscription to a public address, parsing delivery reports (told apart from out-of-office and delay notices), matching each to its outbox message by the quoted `Message-ID` (not kept today), a new "bounced" state after "sent", and cleaning up a mailbox people may also use. The permission (`Mail.Read`, limited to the one mailbox by the same access policy) is the smallest part. Cost: a mistyped address shows as sent in refiroo; the administrator sees the bounce in the mailbox |
+| MS-D3 | Microsoft's library (MSAL) or plain HTTP? | **Plain `httpx`.** The client-credentials grant is one form post; no new dependency in the shared venv. Cost: the certificate assertion (a signed JWT) is built by the engine, with the `cryptography` already installed |
+| MS-D4 | Client secret, certificate or both | **Both.** Many tenants forbid client secrets by policy; a secret is what a small organisation starts with. Cost: a certificate upload field and its expiry shown on the page |
+| MS-D5 | Managed identity | **Decided by the user 2026-11-10: a third credential beside secret and certificate, with both modes** (point 7): the identity in the organisation's tenant, and a user-assigned identity as a multitenant app's federated credential for refiroo hosted in another tenant. Why: no secret to store or renew where refiroo runs in Azure; the second mode is the hosting case (one instance per organisation in refiroo's Azure, the customer's Microsoft 365 elsewhere). Cost: works only on an Azure host; the real try needs one |
+
+**Checks.** One journey beside `test_j46_mail.py`: an administrator sets Microsoft 365, a test mail and a reset mail
+reach a local stub of the token and `sendMail` endpoints with the expected MIME; a refused token is a server-wide
+`login` failure on every leased message; a 429 waits its `Retry-After`. The token and Graph addresses are settings with
+the global defaults, which also serves national clouds and lets the journey point at the stub. Frontend build. **One
+real try** sending through a real Exchange Online mailbox. **Checked 2026-11-10:** the refiroo Azure tenant has no
+Microsoft 365 or Exchange Online licence (`subscribedSkus` empty), so it cannot be tried there; nothing was created in it.
+The user will ask the organisation refiroo is being deployed for to set up the managed identity method; the real try
+is made there, managed identity only (the user, 2026-11-10). Managed identity's checks: both modes against a local
+stand-in for the Azure host's token endpoint (both `IDENTITY_ENDPOINT` and the metadata form), the federated mode's
+assertion reaching the tenant token stub, and the "no managed identity here" failure.
+
+**Delivered (2026-11-10).**
+
+- **Engine.** `engine/mail/graph.py` (token by secret, certificate assertion, managed identity `direct` or as a federated `client_assertion`; the Azure host's `IDENTITY_ENDPOINT` or IMDS; cached tokens; failures in the sender's kinds, `Retry-After` kept), `engine/mail/transport.py` (SMTP or Graph), `smtp.py` (`MailError.retry_after`), `sender.py`, `settings.py` (one method; the other's fields cleared), `identity/resealing.py`. Migrations `20261126_01_mail_microsoft365.py`, `20261127_01_mail_managed_identity.py`. A Graph 404 (no such mailbox) waits like SMTP's `sender` (decided 2026-11-10 by recommendation). The MIME `sendMail` has no `saveToSentItems`: system mail lands in the mailbox's Sent Items.
+- **API.** `GET/PUT /mail-settings` carry `method`, `credential`, `identityMode`, the Microsoft 365 fields; `422 MAIL_CREDENTIAL_REQUIRED`, `MAIL_CERTIFICATE_INVALID`; the OpenAPI lock re-baselined.
+- **Settings › Mail.** One **Sign in with** menu of four entries (approved by the user 2026-11-10, layout A), each showing its own fields; the Entra checklist and "Other Microsoft clouds" folded below (`MailPage.tsx`, `mailText.ts`, `settings.css`).
+- **Tests.** J46.11 `test_j46_mail_microsoft365.py` against `tests/graph_server.py` (16 passed); the J46 mail group (95), contract and startup (49; `test_startup` no longer reads pytest's argv); `MailPage.test.tsx` (11); `npm run build`. Browser: `m1-mail.mjs` section 7 (`M1_M365_ONLY=1 M1_MODELS=starter`), 1440 and 390 px, light and dark: 48 checks, axe 0, no sideways scroll; generated-b and a saved Microsoft 365 configuration not run in the browser.
+- **Docs and guide.** `docs/API.md`, `OPERATIONS.md`, `CURRENT_FUNCTIONALITY.md`, `USER_JOURNEYS.md` J46.11, `CHANGELOG.md`; guide waves `MS` and `MS-MI` (Codex, 1.18M and 2.15M tokens), guide rebuilt. Pictures of the Microsoft 365 form are not in the guide yet.
+- **Open.** The real try (item 9).
+
+**Composable domains (ADR-032).** Operations only; no model, identity, attribute storage, history or consumer API change.
 
 ## FX: Fixes found during the 0.13 build
 
