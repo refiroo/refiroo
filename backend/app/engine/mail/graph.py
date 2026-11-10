@@ -374,7 +374,9 @@ def deliver(
     where = connection.describe()
     mailbox = connection.from_address
     url = f"{connection.graph_url}/v1.0/users/{quote(mailbox, safe='@')}/sendMail"
-    body = base64.b64encode(message.as_bytes())
+    # Graph's MIME import needs CRLF line ends; the message's own policy writes LF, with which
+    # Exchange cannot find the parts and delivers the message empty (smtplib converts by itself).
+    body = base64.b64encode(message.as_bytes(policy=message.policy.clone(linesep="\r\n")))
     with httpx.Client(timeout=timeout, follow_redirects=False) as client:
         for attempt in (1, 2):
             token = _token(connection, client)

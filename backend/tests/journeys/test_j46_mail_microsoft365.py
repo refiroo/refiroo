@@ -88,8 +88,9 @@ def _save(world, stub: FakeGraph, **changes) -> dict:
 def test_microsoft365_is_set_up_and_a_test_and_a_reset_mail_reach_graph(world, stub):
     """Given an instance with no mail settings, when the administrator saves Microsoft 365 with a
     client secret, then the settings are answered without the secret, a test message and a queued
-    reset message reach Graph as the saved mailbox with the same text and HTML as through SMTP, one
-    token serves both, and the change is a security event that never holds the secret."""
+    reset message reach Graph as the saved mailbox with the same text and HTML as through SMTP, its
+    MIME with CRLF line ends (with a bare LF Exchange delivers the message empty), one token serves
+    both, and the change is a security event that never holds the secret."""
     saved = _save(world, stub, applicationUrl="https://refiroo.example.org")
     assert saved["configured"] is True and saved["method"] == "microsoft365"
     assert saved["tenantId"] == TENANT and saved["clientId"] == CLIENT
@@ -111,6 +112,8 @@ def test_microsoft365_is_set_up_and_a_test_and_a_reset_mail_reach_graph(world, s
     assert reset["To"] == "ada@example.org" and reset["Subject"].startswith("Choose a new")
     assert "Hello Ada" in reset.get_body(("plain",)).get_content()
     assert "<html" in reset.get_body(("html",)).get_content().lower()
+    for mime in stub.raw_messages:
+        assert b"\r\n" in mime and b"\n" not in mime.replace(b"\r\n", b"")
     assert stub.tokens_issued == 1
     [token_request, *_] = [r for r in stub.requests if r[1].endswith("/token")]
     assert token_request[3]["scope"] == f"{stub.url}/.default"

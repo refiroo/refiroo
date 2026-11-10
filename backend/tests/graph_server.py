@@ -50,6 +50,9 @@ class FakeGraph:
         self.send_answer: tuple[int, dict[str, str]] | None = None
         self.expires_in = 3600
         self.messages: list[EmailMessage] = []
+        # Each message's MIME as Graph received it, before parsing: Exchange reads its parts only
+        # when every line ends in CRLF (a bare LF leaves the delivered message empty).
+        self.raw_messages: list[bytes] = []
         self.mailboxes: list[str] = []
         self.requests: list[tuple[str, str, dict[str, str], object]] = []
         self.assertions: list[dict] = []
@@ -174,13 +177,13 @@ class FakeGraph:
             return status, {"error": {"code": "Scripted", "message": "raw Graph text"}}, extra
         mailbox = path.split("/")[3]
         try:
-            message = message_from_bytes(
-                base64.b64decode(raw, validate=True), policy=policy.default
-            )
+            mime = base64.b64decode(raw, validate=True)
+            message = message_from_bytes(mime, policy=policy.default)
         except ValueError:
             return 400, {"error": {"code": "ErrorMimeContentInvalidBase64String"}}, {}
         with self._lock:
             self.messages.append(message)  # type: ignore[arg-type]
+            self.raw_messages.append(mime)
             self.mailboxes.append(mailbox)
         return 202, None, {}
 
