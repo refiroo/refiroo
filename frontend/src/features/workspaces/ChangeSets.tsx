@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -292,6 +292,33 @@ export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, un
         );
       })}
     </ul>
+  );
+}
+
+/** The submitter's comment, two lines of it until "Show more" is chosen (only where it overflows). */
+function ClampedComment({ text }: { text: string }) {
+  const [element, setElement] = useState<HTMLParagraphElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    if (!element || open) return undefined;
+    const measure = () => setOverflows(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => observer?.disconnect();
+  }, [element, open, text]);
+  return (
+    <div className="change-set-comment">
+      <p ref={setElement} className={open ? undefined : "clamped"}>
+        “{text}”
+      </p>
+      {(overflows || open) && (
+        <button type="button" className="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -589,26 +616,8 @@ export function ChangeSetActions({
     <>
       <section className="change-set-bar" aria-label="Change set publication">
         <div className="change-set-bar-main">
-          <h2>{current.name || "Untitled change set"}</h2>
-          <span className="change-set-bar-meta">
-            <span>Version {current.version}</span>
-            <span>{changeSetSource(current)}</span>
-            <span>
-              Model {current.modelReleaseKey} {current.modelReleaseVersion}
-            </span>
-            {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
-          </span>
-          {waiting && request && (
-            <span className="change-set-bar-meta">
-              <StatusPill tone="warning">Waiting for approval</StatusPill>
-              <span>
-                Submitted by {request.submitter ? principalName(request.submitter) : "an unknown person"} · version{" "}
-                {request.version}
-              </span>
-              {request.comment && <span>“{request.comment}”</span>}
-              {works && <span>Withdraw the request to edit it.</span>}
-            </span>
-          )}
+          <h2 title={current.name || undefined}>{current.name || "Untitled change set"}</h2>
+          {waiting && request && <StatusPill tone="warning">Waiting for approval</StatusPill>}
         </div>
         {(works || (onReview && !reviewing)) && (
           <div className="change-set-bar-actions">
@@ -685,6 +694,28 @@ export function ChangeSetActions({
         )}
       </section>
       <BelowContextBand>
+        <div className="change-set-details">
+          <span className="change-set-bar-meta">
+            <span>Version {current.version}</span>
+            <span>{changeSetSource(current)}</span>
+            <span>
+              Model {current.modelReleaseKey} {current.modelReleaseVersion}
+            </span>
+            {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
+          </span>
+          {waiting && request && (
+            <>
+              <span className="change-set-bar-meta">
+                <span>
+                  Submitted by {request.submitter ? principalName(request.submitter) : "an unknown person"} · version{" "}
+                  {request.version}
+                </span>
+                {works && <span>Withdraw the request to edit it.</span>}
+              </span>
+              {request.comment && <ClampedComment text={request.comment} />}
+            </>
+          )}
+        </div>
         {sentBack && (
           <Notice tone="info">
             Sent back{sentBack.decider ? ` by ${principalName(sentBack.decider)}` : ""}

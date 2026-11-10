@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (the change set band stays compact, 0.13 FX)
+
+- **On a change set page the pinned band holds one compact strip, and the rest scrolls with the page.** Cause: the change set bar in the band (`contextActions`) reached `BelowContextBand` outside `ContextBandSlotContext`, whose provider wrapped only the page content, so its notices (model mismatch, sent back, warning) rendered in place inside the sticky band instead of in the slot below it; with a long submit comment the band covered about half the window. `AppShell` now provides the slot to the band as well. The band keeps the name (one line, ellipsis, full name in its title), the "Waiting for approval" pill and the buttons; the version, source, model and creator line, "Submitted by", the comment (two lines with Show more / Show less where it is longer) and "Withdraw the request to edit it." sit below it with the notices. Frontend only.
+
 ### Fixed (a moved collection opens in its new application, 0.13 MG)
 
 - **An old address of a collection a model migration moved to another application opens it there, instead of the "not in this workspace's model" page.** Cause: `missingElement` looked only at the application named in the path, so a view, kind of record or navigation group that now lives in another application of the same model was reported as missing. `relocatedPath` (`routing/routes.ts`) now finds the one other application that holds the key and rewrites only the `/apps/<key>` segment, keeping the rest of the path and the whole query; the router replaces the history entry (Back does not loop), and Home's remembered "continue where you left off" address is moved the same way. A key held by none or by several applications still shows the page as before. Frontend only.

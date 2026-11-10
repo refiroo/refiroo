@@ -792,9 +792,8 @@ describe("App", () => {
       within(screen.getByRole("region", { name: "Change set publication" })).getByRole("heading", { name: "Review" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Edits stay in this change set until it is published.")).toBeInTheDocument();
-    expect(
-      within(screen.getByRole("region", { name: "Change set publication" })).getByText("Version 8"),
-    ).toBeInTheDocument();
+    // The facts the pinned strip leaves out scroll below the band.
+    expect(screen.getByText("Version 8")).toBeInTheDocument();
     expect(api.objectHistory).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
     await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));

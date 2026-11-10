@@ -206,31 +206,34 @@ export function AppShell({
         ),
       }}
     >
-      <DataContextBand
-        model={model}
-        application={application}
-        route={activeRoute}
-        workspaceLabel={workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
-        contextActions={contextActions}
-        permissionNote={permissionNote}
-        ownChangeSet={ownChangeSet}
-        onNavigate={onNavigate}
-        onSelectApplication={onSelectApplication}
-        onChangeWorkspace={onChangeWorkspace}
-        workspaceActions={workspaceActions}
-        onManageWorkspaces={
-          manageWorkspaces
-            ? () => onNavigate({ kind: "settings", page: "workspaces", workspaceKey: activeRoute.workspaceKey })
-            : undefined
-        }
-      />
-      <div ref={setBandSlot} className="band-details" />
-      {workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (
-        <Notice tone="info" title="Read-only workspace">
-          {RETIRED_WORKSPACE_TEXT}
-        </Notice>
-      )}
-      <ContextBandSlotContext.Provider value={bandSlot}>{children}</ContextBandSlotContext.Provider>
+      {/* The provider reaches the band too: its change set bar places what it reports below it. */}
+      <ContextBandSlotContext.Provider value={bandSlot}>
+        <DataContextBand
+          model={model}
+          application={application}
+          route={activeRoute}
+          workspaceLabel={workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
+          contextActions={contextActions}
+          permissionNote={permissionNote}
+          ownChangeSet={ownChangeSet}
+          onNavigate={onNavigate}
+          onSelectApplication={onSelectApplication}
+          onChangeWorkspace={onChangeWorkspace}
+          workspaceActions={workspaceActions}
+          onManageWorkspaces={
+            manageWorkspaces
+              ? () => onNavigate({ kind: "settings", page: "workspaces", workspaceKey: activeRoute.workspaceKey })
+              : undefined
+          }
+        />
+        <div ref={setBandSlot} className="band-details" />
+        {workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (
+          <Notice tone="info" title="Read-only workspace">
+            {RETIRED_WORKSPACE_TEXT}
+          </Notice>
+        )}
+        {children}
+      </ContextBandSlotContext.Provider>
     </ShellFrame>
   );
 }
