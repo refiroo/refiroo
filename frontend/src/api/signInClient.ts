@@ -17,6 +17,8 @@ export interface SignInOptions {
   /** A forgotten password can be asked for here: mail is set up and local sign-in is on (I6). */
   reset: boolean;
   providers: { key: string; name: string; start: string }[];
+  /** What the screen's small footer names: the version, and the tag and commit when known (0.13 BR). */
+  build: { version: string; commit: string | null; tag: string | null };
 }
 
 export interface SecondStep {

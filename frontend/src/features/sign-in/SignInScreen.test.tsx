@@ -38,7 +38,14 @@ vi.mock("@/lib/passkeySignIn", () => ({
 
 const { SignInScreen, refusalText, waitText } = await import("./SignInScreen");
 
-const OPTIONS: SignInOptions = { product: "refiroo", local: true, passkey: false, reset: false, providers: [] };
+const OPTIONS: SignInOptions = {
+  product: "refiroo",
+  local: true,
+  passkey: false,
+  reset: false,
+  providers: [],
+  build: { version: "0.16.0", commit: "045b8cfe", tag: "v0.16.1-alpha.1" },
+};
 const SECOND: SecondStep = {
   status: "second_factor",
   step: "tok",

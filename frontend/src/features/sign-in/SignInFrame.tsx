@@ -12,6 +12,7 @@ export function SignInFrame({
   named,
   busy,
   title,
+  build,
   children,
 }: {
   product: string;
@@ -19,6 +20,8 @@ export function SignInFrame({
   named: boolean;
   busy: boolean;
   title: string;
+  /** The engine's version and build, as a small line under the card; none until it is known. */
+  build?: { version: string; commit: string | null; tag: string | null };
   children: ReactNode;
 }) {
   return (
@@ -34,6 +37,21 @@ export function SignInFrame({
         <h1>{title}</h1>
         {children}
       </div>
+      {build && (
+        <p className="sign-in-build">
+          {product} {build.version}
+          {(build.tag || build.commit) && (
+            <>
+              {" "}
+              &middot; build {build.tag && <span className="sign-in-build-ref">{build.tag}</span>}
+              {build.tag && build.commit && " "}
+              {build.commit && (
+                <span className="sign-in-build-ref">{build.tag ? `(${build.commit})` : build.commit}</span>
+              )}
+            </>
+          )}
+        </p>
+      )}
     </main>
   );
 }

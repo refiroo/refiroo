@@ -53,7 +53,10 @@ def test_read_what_the_deployment_runs(world):
         "managementApi": "v1",
         "license": "AGPL-3.0-or-later",
         "sourceCode": f"https://github.com/refiroo/refiroo/tree/v{document['info']['version']}",
+        "build": system["engine"]["build"],
     }
+    # The commit and tag the code was built from: each a string or null (0.13 BR).
+    assert set(system["engine"]["build"]) == {"commit", "tag"}
     # The licence is in the API document too (0.12 L1, D219).
     assert document["info"]["license"]["identifier"] == "AGPL-3.0-or-later"
     # Oldest first, by number: 0.10 after 0.9 (0.10 N1).
@@ -71,7 +74,14 @@ def test_read_what_the_deployment_runs(world):
     }
     # What the deployment runs is for anyone signed in; how it is configured is not in it (D246).
     # The instance's product, which a person with no workspace reads too (0.12 HM1, D338).
-    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product", "ai", "mcp"}
+    assert set(system) == {
+        "engine",
+        "schemaLanguages",
+        "activeModelRelease",
+        "product",
+        "ai",
+        "mcp",
+    }
     # Whether an AI provider is set, for a client to offer an AI action only then (0.16 AP1).
     assert system["ai"] == {
         "configured": False,

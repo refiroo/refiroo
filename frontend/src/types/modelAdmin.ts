@@ -84,7 +84,14 @@ export interface SystemSetting {
 
 /** What the deployment runs, for anyone signed in (`GET /api/v1/system`, D246). */
 export interface SystemResponse {
-  engine: { version: string; managementApi: string; license: string; sourceCode: string };
+  engine: {
+    version: string;
+    managementApi: string;
+    license: string;
+    sourceCode: string;
+    /** The commit and tag the code was built from; each null when unknown (0.13 BR). */
+    build: { commit: string | null; tag: string | null };
+  };
   schemaLanguages: string[];
   activeModelRelease: {
     id: string;

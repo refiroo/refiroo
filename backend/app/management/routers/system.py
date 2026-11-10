@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
+from ...build_reference import build_reference
 from ...common.pagination import datetime_key, paginate_statement, text_key
 from ...common.prometheus import CONTENT_TYPE
 from ...common.time import as_utc
@@ -42,6 +43,7 @@ from ..schemas.agent_access import McpSystemInfo
 from ..schemas.system import (
     ActiveModelRelease,
     BackupRehearsalPage,
+    BuildInfo,
     DatabaseInfo,
     EngineInfo,
     InstanceProduct,
@@ -63,12 +65,14 @@ metrics_router = APIRouter(route_class=AuthorizedRoute, tags=["system"])
 def get_system(request: Request, session: DbSession) -> SystemResponse:
     state = read_system_state(session)
     release = state.active_release
+    build = build_reference()
     return SystemResponse(
         engine=EngineInfo(
             version=ENGINE_VERSION,
             managementApi="v1",
             license=ENGINE_LICENSE,
             sourceCode=get_settings().source_code_url,
+            build=BuildInfo(commit=build.commit, tag=build.tag),
         ),
         schemaLanguages=list(SCHEMA_VERSIONS),
         activeModelRelease=ActiveModelRelease(

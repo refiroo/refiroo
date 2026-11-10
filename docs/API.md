@@ -275,7 +275,8 @@ for an empty model, read it):
 {
   "engine": {
     "version": "0.9.0", "managementApi": "v1", "license": "AGPL-3.0-or-later",
-    "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.9.0"
+    "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.9.0",
+    "build": { "commit": "045b8cfe", "tag": "v0.16.1-alpha.1" }
   },
   "schemaLanguages": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
   "activeModelRelease": {
@@ -290,6 +291,13 @@ for an empty model, read it):
 `info.license`), and `engine.sourceCode` is where the corresponding source of the running version is
 (0.12 L1, D219; AGPL section 13): the `SOURCE_CODE_URL` setting, by default the project's tag of the version.
 Settings › About and the account menu show both.
+
+`engine.build` (0.13 BR) is the commit and tag the running code was built from: `commit` the first eight
+characters of the commit, `tag` the release tag on that commit; each `null` when unknown (a commit with no tag
+has `tag: null`). An image carries them from its build (`REFIROO_BUILD_COMMIT`, `REFIROO_BUILD_TAG`, set by the
+image workflow); a checkout reads them once from `git`. About shows them, linked to the repository. The
+sign-in screen's `GET /oauth/sign-in/options` answers `build: {version, commit, tag}` too, with nothing else of
+the system: no token is needed to read it.
 
 `product` (0.12 HM1, D338) is the instance's name and description: the default workspace's model's
 `product`, which the top bar shows. A person who may browse no workspace cannot read that model, so

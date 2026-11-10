@@ -35,6 +35,7 @@ const system: SystemResponse = {
     managementApi: "v1",
     license: "AGPL-3.0-or-later",
     sourceCode: "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+    build: { commit: "045b8cfe", tag: "v0.9.0-alpha.1" },
   },
   schemaLanguages: ["0.7", "0.8"],
   activeModelRelease: {
@@ -241,6 +242,15 @@ describe("About", () => {
     expect(within(engine).getByRole("link", { name: /github\.com\/refiroo\/refiroo/ })).toHaveAttribute(
       "href",
       "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+    );
+    // The build: the commit and tag, linked into the repository (0.13 BR).
+    expect(within(engine).getByRole("link", { name: "045b8cfe" })).toHaveAttribute(
+      "href",
+      "https://github.com/refiroo/refiroo/commit/045b8cfe",
+    );
+    expect(within(engine).getByRole("link", { name: "v0.9.0-alpha.1" })).toHaveAttribute(
+      "href",
+      "https://github.com/refiroo/refiroo/releases/tag/v0.9.0-alpha.1",
     );
     // The help entry: the documentation the engine serves, then the API reference (0.13 DOC1).
     expect(screen.getByRole("link", { name: "documentation" })).toHaveAttribute(

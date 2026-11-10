@@ -8,6 +8,11 @@ from .ai import AiSystemInfo
 from .common import CollectionPage
 
 
+class BuildInfo(BaseModel):
+    commit: str | None = Field(description="The short commit the running code was built from")
+    tag: str | None = Field(description="The release tag on that commit; null when it has none")
+
+
 class EngineInfo(BaseModel):
     version: str = Field(description="The product version, as the API document's info.version")
     managementApi: Literal["v1"]
@@ -15,6 +20,7 @@ class EngineInfo(BaseModel):
     sourceCode: str = Field(
         description="Where the corresponding source of the running version is (SOURCE_CODE_URL)"
     )
+    build: BuildInfo = Field(description="The commit and tag the code was built from (0.13 BR)")
 
 
 class ActiveModelRelease(BaseModel):

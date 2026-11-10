@@ -15,6 +15,8 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 
+from ...build_reference import build_reference
+from ...config import ENGINE_VERSION
 from ...engine.identity import (
     browser_sign_in,
     passkeys,
@@ -117,6 +119,11 @@ def options(
             "local": providers.local_enabled(session),
             "reset": providers.local_enabled(session) and mail_settings.load(session) is not None,
             "passkey": passkeys.any_exist(session),
+            "build": {
+                "version": ENGINE_VERSION,
+                "commit": build_reference().commit,
+                "tag": build_reference().tag,
+            },
             "providers": [
                 {"key": provider.key, "name": provider.name, "start": path}
                 for provider, path in (

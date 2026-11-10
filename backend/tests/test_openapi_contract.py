@@ -452,9 +452,10 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # certificate, token and Graph addresses; the response its certificate's thumbprint and expiry).
     # Re-baselined for 0.13 MS-D5 (additive): `identityMode`, `identityClientId` on both, and
     # `credential` on the response (a managed identity as a third Microsoft 365 credential).
+    # Re-baselined for 0.13 BR (additive): `EngineInfo.build` and `BuildInfo` (`commit`, `tag`).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9435bfbfb1a1d463a595cd3d053ea987e1806aa7cac2bac3b599aab9b8ab1548"
+        "ec3df72b0472b48adff867445af5c21bb486de306d3a20d984d93dca1afa0fac"
     )
 
 

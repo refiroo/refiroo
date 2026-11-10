@@ -2004,6 +2004,14 @@ assertion reaching the tenant token stub, and the "no managed identity here" fai
 
 **Composable domains (ADR-032).** Operations only; no model, identity, attribute storage, history or consumer API change.
 
+## BR: Build reference on About and sign-in
+
+Delivered 2026-11-10. The engine knows which commit and tag it was built from (`app/build_reference.py`: image build
+arguments, else `git` in a checkout, else unknown); `GET /system` carries `engine.build`, the public sign-in options
+carry `build` with the version, About has a Build row linked to the repository, and the sign-in screen has one very
+small line with the tag and commit in the link colour. Nothing else is public. CHANGELOG "build reference on About and
+sign-in, 0.13 BR".
+
 ## FX: Fixes found during the 0.13 build
 
 **Status:** Recorded 2026-11-10. One row per fix that no package names, with where it was found and where it is. A fix that

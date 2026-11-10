@@ -56,6 +56,7 @@ jobs:
     outputs:
       sha: ${{ steps.what.outputs.sha }}
       version: ${{ steps.what.outputs.version }}
+      tag: ${{ steps.what.outputs.tag }}
       tags: ${{ steps.what.outputs.tags }}
     steps:
       - uses: actions/checkout@v5
@@ -78,6 +79,7 @@ jobs:
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml | head -n 1)
           [ -n "$version" ] || { echo "::error::No version in backend/pyproject.toml"; exit 1; }
 
+          tag=""
           check_tag=false
           case "$EVENT" in
             push)
@@ -109,6 +111,7 @@ jobs:
           {
             echo "sha=$sha"
             echo "version=$version"
+            echo "tag=$tag"
             echo "tags<<EOF"
             echo "$tags"
             echo "EOF"
@@ -149,6 +152,9 @@ jobs:
           file: backend/Dockerfile
           platforms: linux/${{ matrix.arch }}
           provenance: false
+          build-args: |
+            REFIROO_BUILD_COMMIT=${{ needs.prepare.outputs.sha }}
+            REFIROO_BUILD_TAG=${{ needs.prepare.outputs.tag }}
           labels: |
             org.opencontainers.image.source=${{ env.SOURCE_URL }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.version }}

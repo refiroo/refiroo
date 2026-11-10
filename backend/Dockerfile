@@ -63,7 +63,12 @@ COPY --chmod=u=rwX,go=rX model/rdm-starter.json /opt/refiroo/rdm-engine/model/rd
 # The built guide, served at /docs (app/management/guide_site.py finds guide/dist beside backend/).
 COPY --from=guide --chmod=u=rwX,go=rX /repo/guide/dist /opt/refiroo/rdm-engine/guide/dist
 
-ENV RDM_MODEL_PATH=/opt/refiroo/rdm-engine/model/rdm-starter.json \
+# Which commit and tag the image was built from (0.13 BR); the image has no .git.
+ARG REFIROO_BUILD_COMMIT=
+ARG REFIROO_BUILD_TAG=
+ENV REFIROO_BUILD_COMMIT=$REFIROO_BUILD_COMMIT \
+    REFIROO_BUILD_TAG=$REFIROO_BUILD_TAG \
+    RDM_MODEL_PATH=/opt/refiroo/rdm-engine/model/rdm-starter.json \
     JOB_FILE_DIR=/opt/refiroo/rdm-engine/data/job-files \
     AI_AGENT_FOLDERS=/opt/refiroo/rdm-engine/data/assistant \
     CLAUDE_CONFIG_DIR=/opt/refiroo/rdm-engine/data/assistant-claude \

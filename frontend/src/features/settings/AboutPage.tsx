@@ -18,6 +18,9 @@ import { useSystem } from "./useSystem";
 export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) => void }) {
   const { system, error, retry } = useSystem();
   const release = system?.activeModelRelease;
+  const build = system?.engine.build ?? { commit: null, tag: null };
+  // The source address may name the tree of the version (the default); a build's links start at the repository.
+  const repository = (system?.engine.sourceCode ?? "").replace(/\/tree\/.*$/, "").replace(/\/$/, "");
   const releaseRoute: SettingsRoute | undefined = release && { kind: "settings", page: "model", releaseId: release.id };
   return (
     <SettingsLayout eyebrow="General" title="About" description="What this deployment runs.">
@@ -65,6 +68,33 @@ export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) =
                 { term: "Management API", value: <code>{system.engine.managementApi}</code> },
                 { term: "Schema languages", value: system.schemaLanguages.join(", ") },
                 { term: "Licence", value: system.engine.license },
+                ...(build.tag || build.commit
+                  ? [
+                      {
+                        term: "Build",
+                        value: (
+                          <>
+                            {build.tag && (
+                              <a href={`${repository}/releases/tag/${build.tag}`} target="_blank" rel="noreferrer">
+                                {build.tag}
+                              </a>
+                            )}
+                            {build.tag && build.commit && " "}
+                            {build.commit && (
+                              <a
+                                href={`${repository}/commit/${build.commit}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mono"
+                              >
+                                {build.commit}
+                              </a>
+                            )}
+                          </>
+                        ),
+                      },
+                    ]
+                  : []),
                 {
                   term: "Source code",
                   value: (

@@ -53,6 +53,8 @@ def test_the_screen_signs_a_person_in_with_a_password(world):
     offered = ok(browser.get(OPTIONS, params=request, headers=APP))
     assert offered["local"] is True and offered["passkey"] is False
     assert offered["providers"] == [] and offered["product"]
+    # The footer's build reference, and nothing else of the system (0.13 BR).
+    assert set(offered["build"]) == {"version", "commit", "tag"}
 
     wrong = browser.post(
         PASSWORD_STEP, json={"request": request, "username": "ana", "password": "nope"}, headers=APP

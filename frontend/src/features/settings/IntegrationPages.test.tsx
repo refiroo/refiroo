@@ -37,6 +37,7 @@ const system = {
     managementApi: "v1",
     license: "AGPL-3.0-or-later",
     sourceCode: "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+    build: { commit: null, tag: null },
   },
   schemaLanguages: ["0.8"],
   activeModelRelease: {

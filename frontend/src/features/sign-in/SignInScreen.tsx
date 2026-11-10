@@ -169,6 +169,7 @@ export function SignInScreen() {
       named={!!options || !!loadError}
       busy={leaving || (!options && !loadError)}
       title={title}
+      build={options?.build}
     >
       {loadError ? (
         <>
