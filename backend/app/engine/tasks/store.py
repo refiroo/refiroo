@@ -354,3 +354,24 @@ def refuse_draft_of_another_task(session: Session, draft_public_id: str, client_
             "it should start the same",
             {"draftId": draft_public_id},
         )
+
+
+def cut_at_word(text: str, limit: int, ellipsis: bool = True) -> str:
+    """The text, whitespace collapsed, cut at a word boundary within ``limit`` characters (0.13 TN):
+    never mid-word, with ``…`` after a cut when ``ellipsis``. One word longer than the limit is cut
+    at the limit."""
+    words = " ".join(text.split())
+    if len(words) <= limit:
+        return words
+    room = limit - 1 if ellipsis else limit
+    cut = words[: room + 1]
+    head = cut[:room] if cut[room].isspace() else cut[:room].rpartition(" ")[0] or cut[:room]
+    return f"{head.rstrip()}…" if ellipsis else head.rstrip()
+
+
+def title_of(proposal: Any) -> str | None:
+    """The short title a session states in its proposal, or ``None`` when it states none."""
+    value = proposal.get("title") if isinstance(proposal, dict) else None
+    if not isinstance(value, str):
+        return None
+    return cut_at_word(value, 100, ellipsis=False) or None

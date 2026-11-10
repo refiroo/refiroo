@@ -7385,10 +7385,11 @@ registered with `INTEGRATION_JOBS_ENABLED`.
 There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `plan` on the task and
 `?table=` on `/changes` do not exist (`404`; the query parameter is ignored).
 
-**The task** (`id`, `workspaceKey`, `fileName`, `sourceFileId`, `words`, `state`, `version`, `jobId`,
+**The task** (`id`, `workspaceKey`, `fileName`, `sourceFileId`, `words`, `title`, `state`, `version`, `jobId`,
 `phase`, `createdAt`, `updatedAt`, `requestedBy`, `reading`, `design`, `draftId`, `check`, `notes`,
 `result`, `canTell`):
 
+- `title` (0.13 TN): a short title the task's session states with its first answer (the proposal's optional `title`, "Move types under the person group"), `null` until then and for a task that ends before any answer. The assistant's draft is named `Assistant: <title>` once it arrives (renamed once). Clients name a words task by `title`, else its `words` cut at a word boundary; `words` stay as given, uncut.
 - `state`: `reading` (the workbook is read and the session starts), `checking` (the session works, or a
   saved layout's dry run), `checked` (a proposal waits for the person), `loading`, `loaded`, `failed`,
   `stopped` (the person stopped it before any proposal), `cancelled` (discarded). The schema also lists `read`, which no task reaches. `version` moves with every change; a

@@ -510,6 +510,8 @@ export interface AiTask {
   fileName: string;
   sourceFileId: string | null;
   words: string | null;
+  /** A short title the task's session wrote with its first answer; null until then. */
+  title?: string | null;
   state: AiTaskState;
   version: number;
   jobId: string | null;

@@ -65,7 +65,7 @@ def parse_origin(text: str) -> tuple[str, str]:
 
 def _tasks() -> Any:
     """Assistant tasks with the name the assistant page shows: the workbook's file name, else the
-    instruction (shortened), else ``Instruction``."""
+    title the session wrote, else the instruction (shortened at a word), else ``Instruction``."""
     file_name = (
         select(SourceFile.name)
         .where(SourceFile.task_id == AiTask.id)
@@ -73,12 +73,23 @@ def _tasks() -> Any:
         .limit(1)
         .scalar_subquery()
     )
-    words = func.trim(func.coalesce(AiTask.words, ""))
+    words = func.regexp_replace(func.trim(func.coalesce(AiTask.words, "")), r"\s+", " ", "g")
+    head = func.left(words, _WORDS_NAME - 1)
+    # Cut at a word boundary, never mid-word (the page's own cut: aiTaskText.ts `cutAtWord`).
     shortened = case(
-        (func.length(words) > _WORDS_NAME, func.left(words, _WORDS_NAME - 1) + literal("…")),
-        else_=words,
+        (func.length(words) <= _WORDS_NAME, words),
+        (
+            func.substr(words, _WORDS_NAME, 1) == " ",
+            func.concat(head, "…"),
+        ),
+        else_=func.concat(func.regexp_replace(head, r"\s+\S*$", ""), "…"),
     )
-    name = func.coalesce(func.nullif(file_name, ""), func.nullif(shortened, ""), "Instruction")
+    name = func.coalesce(
+        func.nullif(file_name, ""),
+        func.nullif(AiTask.title, ""),
+        func.nullif(shortened, ""),
+        "Instruction",
+    )
     return select(AiTask.id, AiTask.public_id, AiTask.client_id, name.label("name")).subquery(
         "origin_tasks"
     )

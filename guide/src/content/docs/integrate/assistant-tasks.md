@@ -22,6 +22,13 @@ Send `POST /api/v1/ai/tasks` as multipart form data. Include the workspace and i
 
 Keep the returned task ID, version and job ID. A `202` means work was accepted, not reviewed or published. Follow the [job](/docs/integrate/jobs/) and reread the task for the proposal. The job kind is `aiTask`; task state and job state are separate. A worker restart ends an earlier still-running session before resuming, so two sessions do not work in the same task folder.
 
+The [task response](/docs/api/?api=management#tag/ai) returns the original `words` uncut
+and, beside them, `title`: a short title the assistant writes with its first answer. It is
+`null` until then and for a task that ends before an answer. Name a words-only task by
+`title` when present; otherwise use `words`, shortened at a word boundary with “…” if needed.
+Keep the full request visible with the proposal. A workbook task keeps its file name, and
+the assistant’s draft is named `Assistant: <title>` once the title arrives.
+
 | Task state | Client behavior |
 | --- | --- |
 | `reading` | The file is being read or the session is starting. |

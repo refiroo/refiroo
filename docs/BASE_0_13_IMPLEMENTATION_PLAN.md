@@ -392,6 +392,7 @@ when both are empty but for reasoned exclusions.
 | [DF](#df-findings-of-the-depth-waves) | CP | Workspace-event webhooks from the browser; a deactivated client's secret rotated; an old consumer API contract version served beside the new one; the exit gate matched to how 0.13 was built | Primary agent; Codex (guide pages). **Approved 2026-11-07; delivered 2026-11-08**, guide pages with the wave `guide/_waves/D-DF.md` |
 | [RA](#ra-attributes-of-the-relationship-in-consumer-api-related-fields) | - | A consumer API related block's fields can read an attribute of the relationship itself (`relation:<attribute>`), typed, validated and offered in the editor's field picker | Primary agent (plan); implementer. **Ordered by the user 2026-11-09; RA-D1 to RA-D3 decided 2026-11-09; built 2026-11-09** |
 | [AW](#aw-an-ai-tasks-progress-line-in-words-not-the-command) | - | An AI task's "Working on it" line says what the session does in words; the session's shell command never reaches the page | Primary agent. **Added to the 0.13 build by the user 2026-11-09; delivered 2026-11-09** |
+| [TN](#tn-an-ai-task-named-by-what-it-asks) | - | An AI task given in words gets a short title the assistant writes from the request, shown on the task page, the task lists and the draft it makes, instead of the cut-off request | Primary agent (plan); implementer. **Added to the 0.13 build by the user 2026-11-10; delivered 2026-11-10: the session writes the title (`agent/20`, `ai_tasks.title`), the task page, confirm bar, Jobs group and draft use it, words cut at a word until then; J50.72; try $0.44** |
 | [AQ](#aq-the-assistant-loads-a-laid-out-workbook-and-asks-only-what-a-person-decides) | - | A laid-out workbook loads through the assistant without guessed operation names, replayed profiles or questions the engine could answer; the session limit is a handled ending | Primary agent (plan); implementer. **Found 2026-11-08; delivered 2026-11-08** (`f34d2c24`, `dbcc8f28`; the try, task 97, run the same day) |
 | [JG](#jg-related-jobs-grouped-on-the-jobs-page) | - | The Jobs page groups the jobs an assistant task or a model draft requested, with a trail back and the group in the address | Primary agent (plan); implementer. **Approved 2026-11-08; delivered 2026-11-08** (`0059d6a4`) |
 | [AB](#ab-the-assistant-loads-a-file-as-one-checked-batch) | AQ | The assistant loads a file as one batch the engine has previewed in full; accepting runs exactly those items with no assistant turn | Primary agent (plan); implementer. **Approved 2026-11-09; built 2026-11-09; acceptance runs 2026-11-10, accepted by the user; closed** |
@@ -1773,6 +1774,45 @@ received the command itself.
 "Reading stored … records", "Reading …" or "Writing …"; anything else reads "Working" (or "Working through the
 workbook"). The quote comparison keeps `_plain`. No API, model or frontend change. A task already running keeps
 the old code until the engine restarts.
+
+## TN: An AI task named by what it asks
+
+**Status:** Reported by the user on 2026-11-10 from the task page of a "Change this model" task
+(`/settings/ai-tasks/750e8cd4-…`) and added to the 0.13 build by the user ("add this to the 0.13 build").
+**Delivered 2026-11-10 (approved by the user the same day).** What was built is in "Delivered" below the checks.
+
+**What is wrong.** A task given in words is titled by its words, cut at 80 characters
+(`frontend/src/features/ai-tasks/aiTaskText.ts`, `taskTitle`): the page read "can you move the objecttypes and
+objects under th person group in the person an…", with the person's typing and its typos, ending mid-word. The
+draft the task makes is named the same way (`engine/tasks/design_job.py`: `"Assistant: " + words[:120]`), so the
+model's draft list shows the same cut-off sentence. A workbook task is titled by its file name and is not affected.
+
+**What changes (proposal).** The user's idea: let the assistant describe the request and use that.
+
+1. **The session writes the title.** The task's own session states a short title with its first answer (a
+   few words, the change it is asked to make, e.g. "Move types under the person group"); the engine stores it on
+   the task as `title`. No second model call and no own loop: it is part of the turn the task already runs
+   (see the AI rules: Claude Code inside refiroo, no own formats beyond what the task returns).
+2. **Shown everywhere the task is named.** The task page heading, the task lists, the journey bar and JG's job group
+   (if it names the task; to be checked at plan time) use `title`; the request's full words stay as the page's description ("You said: …"), never
+   cut. The draft is named `Assistant: <title>`; a draft already opened is renamed once the title arrives.
+3. **Until there is a title**, and for a task that stops before its first answer, the name stays as today (the
+   words, cut at a word boundary rather than mid-word).
+4. The API returns `title` on the task (null until written); the generated references and the guide page on AI
+   tasks say so (guide text through Codex).
+
+**Checks.** One journey in `test_j50_ai_reshape.py`'s group: a words task gets a title, its draft carries it, a
+task stopped early keeps the words. One real try on the user's model with the provider `.dev/settings.env` names,
+tokens and cost reported. Frontend build.
+
+**Delivered (2026-11-10).**
+
+- **Session and engine.** `proposal.json` takes an optional `title` (prompt `agent/20`, `agent.py` `_propose_prompt`; no second call, no new format). `_proposal_landed` stores it once as `ai_tasks.title` (`String(120)`, migration `20261125_01_ai_task_title.py`; `title_of` and `cut_at_word` in `engine/tasks/store.py`) and names the session's draft `Assistant: <title>` once (`design.draftNamed`; a person's later rename stays). `design_job.start` (the saved-layout path) names its draft by the title, else the words cut at a word.
+- **API.** `AiTaskResponse.title` (null until written), `docs/API.md` "The task"; the OpenAPI lock re-baselined to `65a51db0…` (the working tree, other sessions' uncommitted schema changes included).
+- **Where the task is named.** `taskTitle` (file name, else `title`, else the words cut at a word boundary with "…" within 80 characters, `cutAtWord`) names the task page heading and the confirm bar (`DesignCheckView`); the Jobs page group name is the same rule in SQL (`engine/jobs/origins.py` `_tasks`). "You said: …" stays uncut. **Left as they are:** the journey bar label and the trail's "Change this model" / "Change records" / "Change with the assistant" (`wordsTaskName`) name the journey, as "Import with the assistant" does for a file, not the task; there is no separate task list component.
+- **Tests.** J50.72 `test_a_words_task_is_titled_by_its_session_and_its_draft_carries_the_title` in `test_j50_ai_reshape.py` (the group: 38 passed), `test_j24_job_groups.py` (4 passed), `test_openapi_contract.py` (12 passed), `aiTaskText.test.ts` and the `ai-tasks` and `jobs` frontend tests (157 passed), `npm run build`.
+- **Try.** Task 105's words in `stops` (task 116, `agent/20`, Claude Code `sonnet`): title "Move the passenger lists under the People group", draft "Assistant: Move the passenger lists under the People group"; 1 turn, 778,678 tokens in, 11,403 out, 119 s, $0.44. Discarded afterwards.
+- **Guide.** Wave brief `guide/_waves/TN.md` (Codex writes the prose and the guide is rebuilt after it); `CHANGELOG.md` entry "Changed (an AI task is named by what it asks, 0.13 TN)"; `USER_JOURNEYS.md` J50.72.
 
 ## NG: Relation matrices in navigation groups
 

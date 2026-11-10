@@ -366,6 +366,8 @@ class AiTaskResponse(BaseModel):
     fileName: str
     sourceFileId: str
     words: str | None
+    # A short title the task's session wrote with its first answer; null until then.
+    title: str | None = None
     state: TaskState
     version: int
     jobId: str | None

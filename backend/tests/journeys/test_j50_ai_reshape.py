@@ -223,7 +223,10 @@ if "accepted" not in prompt:
         proposal["moves"] = config["moves"]
     if config.get("removals") is not None:
         proposal["removals"] = config["removals"]
-    json.dump(proposal, open("proposal.json", "w"))
+    if config.get("title"):
+        proposal["title"] = config["title"]
+    if not config.get("silent"):
+        json.dump(proposal, open("proposal.json", "w"))
     print(json.dumps({"type": "result", "result": "Ready."}))
 elif config["mode"] == "merge":
     release = install(draft=config.get("fixed") or config["draft"])
@@ -1280,3 +1283,37 @@ def test_what_stays_out_a_discarded_task_retires_its_release_and_the_final_relea
     assert _release_status(world, task["result"]["thenReleaseId"]) != "retired"
     extra = [r for r in _all(world, "/model-releases") if "-split-extra-" in r["version"]]
     assert all(r["status"] == "retired" for r in extra)
+
+
+# --- a task named by what it asks (0.13 TN) --------------------------------------------------------
+
+
+@pytest.mark.journey("J50.72")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_words_task_is_titled_by_its_session_and_its_draft_carries_the_title(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a words task whose session states a title with its first answer, then the task carries
+    the title and its draft is named after it; given a task whose session ends before any answer, then
+    the task has no title and the words stay what it is named by."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, parented=True)
+    words = "can you make suppliers and vendors one type, i dont mind what it is called, thanks"
+    merge.settings["title"] = "Merge suppliers and vendors"
+    (tmp_path / "config.json").write_text(json.dumps(merge.settings))
+    task = _proposed(world, merge.workspace, words)
+    assert task["state"] == "checked", task["notes"]
+    assert task["title"] == "Merge suppliers and vendors"
+    assert task["words"] == words
+    draft = ok(world.api.get(f"/model-drafts/{task['draftId']}"))
+    assert draft["name"] == "Assistant: Merge suppliers and vendors"
+
+    merge.settings.update({"title": None, "silent": True})
+    (tmp_path / "config.json").write_text(json.dumps(merge.settings))
+    early = _proposed(world, merge.workspace, words)
+    assert early["state"] == "failed"
+    assert early["title"] is None
+    assert early["words"] == words

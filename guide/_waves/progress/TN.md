@@ -1,0 +1,12 @@
+
+- 2026-11-10T02:07:35+01:00 — Finished `guide/src/content/docs/guide/use/change-records-with-the-assistant.md`. Clarified journey labels versus the heading and added the first-answer title, draft name, full request and pre-answer fallback. No steer file was present; no wording uncertainty. Inspected `use-assistant-words.png`: its cut-off request heading needs recapturing.
+
+- 2026-11-10T02:07:47+01:00 — Finished `guide/src/content/docs/guide/model/change-a-model-with-the-assistant.md`. Added words-task title and draft naming, full instructions and fallback; distinguished journey labels and workbook file names. No steer file was present; no wording uncertainty. Inspected the dialog (unaffected) and both move screenshots: `model-assistant-whole-type-move.png` and `model-assistant-partial-move.png` show cut-off request headings and need recapturing.
+
+- 2026-11-10T02:07:55+01:00 — Finished `guide/src/content/docs/guide/use/continue-an-assistant-task.md`. Explained how to recognise a words task in Jobs and its heading, including draft naming, full instructions and the pre-answer fallback. No steer file was present; no uncertainty. Inspected the stopped-task and reload pictures: both use a workbook file name and are unaffected by TN.
+
+- 2026-11-10T02:08:11+01:00 — Finished `guide/src/content/docs/integrate/assistant-tasks.md`. Added `title` beside uncut `words`, its null states and client naming guidance, with a task-reference link. No steer file was present; no uncertainty and no pictures on this page. Existing action links and task-state, acceptance and recovery passages remain unchanged.
+
+- 2026-11-10T02:08:28+01:00 — Finished final review and validation. `GUIDE_OUT=_build/TN npm run build` in `guide/` passed (257 pages); it warned of a conflicting `/404` route. Scoped `git diff --check` passed. No steer file was present.
+
+  Checked and retained: record-guide acceptance and publication instructions; model-guide journey labels, workbook naming, migration and staged-move instructions; continuation-guide Stop, retry and discard instructions; integration-page task states, acceptance boundaries and API-reference links. Naming was verified against `taskTitle`, `cutAtWord`, `wordsTaskName`, `DesignView`, `_proposal_landed`, job origins and the API task contract. No new pictures, product changes or commits. No unresolved TN wording questions or product defects found; the build warning remains outside this wave.

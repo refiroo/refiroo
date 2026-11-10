@@ -3134,6 +3134,8 @@ class AiTask(Base):
     )
     workspace_key: Mapped[str] = mapped_column(String(160), nullable=False)
     words: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A short title the task's session states with its first answer (0.13 TN); null until then.
+    title: Mapped[str | None] = mapped_column(String(120), nullable=True)
     state: Mapped[str] = mapped_column(String(16), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     reading: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)

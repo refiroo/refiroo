@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (an AI task is named by what it asks, 0.13 TN)
+
+- **A task given in words is titled by a short title its own session writes, not by its request cut off.** Cause: the task page and the Jobs page named it by its words cut at 80 characters (mid-word, typos included), and the draft was named the same way. Now the session's `proposal.json` carries an optional `title` (a few words, for example "Move types under the person group"; prompt `agent/20`, no second model call), the engine stores it on the task (`ai_tasks.title`, migration `20261125_01`) and the API returns it as `title` (null until written). The task page heading, the Jobs page group name and the confirm bar use it; the full request stays shown uncut ("You said: …"). The assistant's draft is named `Assistant: <title>`, once. Until a title arrives, and for a task that ends before its first answer, the words are cut at a word boundary, never mid-word (`cutAtWord` in `aiTaskText.ts`, `cut_at_word` in `engine/tasks/store.py`, and the same cut in the Jobs page origin name). J50.72.
+
 ### Fixed (a taken release version has a way forward, 0.13 FX)
 
 - **Apply, Install and Load no longer end in "already installed with different content" with nothing to do.** Cause: the editor proposed the base release's next version without knowing which versions were installed (the assistant's drafts take them), and after the failed try the draft kept the taken version, so every retry hit the same `RELEASE_IDENTITY_CONFLICT`. Now the draft outline carries `suggestedReleaseVersion` (a free version, or the draft's own when free), the 409 carries `details.releaseKey`, `releaseVersion` and `freeVersion`, and each dialog (and the model workbench) offers **Use <version>**, which sets the release and goes on. `next_free_version` in `engine/model/releases.py` is the one rule, shared with the assistant's install.

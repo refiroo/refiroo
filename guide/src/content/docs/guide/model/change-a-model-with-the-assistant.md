@@ -23,9 +23,14 @@ and retention in full. Check your organisation's policy before sending a file.
    to attach an XLSX or CSV file when it helps explain the change.
 3. Read the disclosure of what is sent. Choose **Ask the assistant**, or **Cancel** to leave
    without starting a task. Wait on the task page; **Stop** pauses the work without discarding
-   the task. Before a proposal exists, the task is named **Change with the assistant**.
-   It becomes **Change this model** when the proposal changes the model, or **Change records**
-   when it leaves the model unchanged.
+   the task. Before a proposal exists, the journey bar and trail say **Change with the assistant**
+   for a task without a workbook. They become **Change this model** when the proposal changes
+   the model, or **Change records** when it leaves the model unchanged.
+   For words alone, the task heading gets a short title with the assistant’s first answer;
+   any draft it makes is named **Assistant:** followed by that title. Your full instructions
+   stay under **You said:** on the proposal. Until the title arrives, including after a stop
+   or failure before an answer, the heading uses your words, shortened at a word boundary
+   with “…” if needed. With a workbook, the heading keeps the file name.
 4. Read **The assistant’s proposal**. Check every type it adds or changes, **Checks**, questions
    and the records that move. For a whole-type move, check both the destination type and the
    number of records. Open **Show the model change**. **No type, attribute or relationship

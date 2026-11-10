@@ -44,7 +44,7 @@ from ..sources.profile_check import previous_file
 from ..sources.store import stored_upload
 from . import agent, design_checks, draft_plan, matching, store
 from .profile_reading import headers_of
-from .store import claim, finish, load_task, note, require_state, touch
+from .store import claim, cut_at_word, finish, load_task, note, require_state, touch
 
 
 def task_source(session: Session, task: AiTask) -> SourceFile:
@@ -74,7 +74,11 @@ def start(session: Session, task: AiTask) -> ModelDraft:
         if found is not None:
             return found
     source = workbook_of(session, task)
-    title = source.name if source is not None else (task.words or "an instruction")[:120]
+    title = (
+        source.name
+        if source is not None
+        else task.title or cut_at_word(task.words or "", 120, False) or "an instruction"
+    )
     draft = draft_plan.open_draft(session, task.workspace_key, f"Assistant: {title}")
     task.draft_id = draft.id
     return draft

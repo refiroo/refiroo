@@ -20,8 +20,12 @@ retained. See [AI and your data](/docs/use/ai-and-your-data/) and
    model. Instructions are limited to 4,000 characters.
 3. Read the sending note and choose **Ask the assistant**. This starts a saved task; it is
    different from **Ask** on a table list, which only chooses filters. Until a proposal exists,
-   the task is named **Change with the assistant**. A proposal that leaves the model unchanged
-   is named **Change records**; one that changes it is named **Change this model**.
+   the journey bar and trail say **Change with the assistant**. With a proposal, they say
+   **Change records** if the model stays unchanged, or **Change this model** if it changes.
+   The task heading gets a short title with the assistant’s first answer; any draft it makes
+   is named **Assistant:** followed by that title. Your full instructions stay under **You said:**
+   on the proposal. Until the title arrives, including after a stop or failure before an answer,
+   the heading uses your words, shortened at a word boundary with “…” if needed.
 4. Read the proposal and any counts or checks shown. Check that it affects the intended
    records and reuses existing types and records where appropriate. Answer any **Questions** with **Answer and
    design again**, or use **Tell the assistant what to change** and **Send to the assistant**.

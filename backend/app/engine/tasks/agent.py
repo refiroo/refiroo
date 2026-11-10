@@ -70,11 +70,11 @@ from ..model.migrations import LandingRefusal, Mappings, check_landing, plan_mig
 from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
 from .cell_coverage import cells_left_out
-from .store import finish, held_by_another, held_counts, load_task, note
+from .store import finish, held_by_another, held_counts, load_task, note, title_of
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "agent/19"
+PROMPT_VERSION = "agent/20"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -236,7 +236,7 @@ def _propose_prompt(
         f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
         f"{_WORDS} {_RECORDS} {_PARTIAL} {_SHAPE + ' ' + _ITEMS + ' ' + _QUESTIONS + ' ' if workbook else ''}{check}; install, "
         "activate, load and publish nothing yet: the person reviews first. Then write "
-        f'{PROPOSAL}: {{"draftId": {"..." if workbook else "... (null when the model does not change)"}, "summary": two sentences a person reads, "questions": '
+        f'{PROPOSAL}: {{"draftId": {"..." if workbook else "... (null when the model does not change)"}, "title": a few words naming what the person asks for, as an instruction (for example "Move types under the person group"), "summary": two sentences a person reads, "questions": '
         '[{"text": the question itself first, at most three short sentences, "options", "assumed"}] '
         'for what only a person can decide, "moves": '
         '[{"from": a type key, "to": its type key in the draft, "attributes": [{"attributeTypeKey", '
@@ -2016,6 +2016,9 @@ def _proposal_landed(
         proposal = json.loads(path.read_text())
     except OSError, ValueError:
         proposal = None
+    stated_title = title_of(proposal)
+    if task.title is None and stated_title is not None:
+        task.title = stated_title
     draft = (
         session.scalar(
             select(ModelDraft)
@@ -2071,6 +2074,10 @@ def _proposal_landed(
     design = dict(task.design or {})
     design.pop("progress", None)
     design.pop("modelUnchanged", None)
+    if task.title and not design.get("draftNamed"):
+        # The draft is named by what the task asks, once; a person may rename it afterwards.
+        draft.name = f"Assistant: {task.title}"[:300]
+        design["draftNamed"] = True
     questions = _questions(proposal)
     current = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id)
     base = current.model_json

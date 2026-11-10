@@ -81,6 +81,7 @@ def task_response(session: Session, task: AiTask) -> AiTaskResponse:
             "fileName": source.name if source else "",
             "sourceFileId": source.public_id if source else "",
             "words": task.words,
+            "title": task.title,
             "state": task.state,
             "version": task.version,
             "jobId": task.job_id,

@@ -6,6 +6,12 @@ reader: steward
 
 Return to the task from **Settings › Jobs**, or use the task's bar when it accompanies the model
 editor or change-set review. The same assistant session can continue while the task is retained.
+For a task given in words, its Jobs group and page heading use the short title the assistant
+writes with its first answer; any draft it makes is named **Assistant:** followed by that title.
+Your full instructions stay under **You said:** on the proposal. Until the title arrives,
+including after a stop or failure before an answer, the name uses your words, shortened at
+a word boundary with “…” if needed. A workbook task keeps its file name.
+
 Further turns can incur costs and read the task's workbook and permitted records again. See
 [AI and your data](/docs/use/ai-and-your-data/) for sending and retention, and
 [task states](/docs/use/loading-with-the-assistant/#stop-correct-or-end-a-task) for their rules.

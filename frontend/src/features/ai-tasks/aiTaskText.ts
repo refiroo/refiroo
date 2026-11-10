@@ -99,8 +99,20 @@ export function wordsTaskName(task: Pick<AiTask, "design" | "draftId">): string 
   return task.draftId ? "Change this model" : "Change with the assistant";
 }
 
-export function taskTitle(task: Pick<AiTask, "fileName" | "words">): string {
+/** The text cut at a word boundary within `limit` characters, never mid-word, with "…" after a cut. */
+export function cutAtWord(text: string, limit: number): string {
+  const words = text.split(/\s+/).filter(Boolean).join(" ");
+  if (words.length <= limit) return words;
+  const room = limit - 1;
+  const head = /\s/.test(words[room])
+    ? words.slice(0, room)
+    : words.slice(0, room).replace(/\s+\S*$/, "") || words.slice(0, room);
+  return `${head.trimEnd()}…`;
+}
+
+/** What the task is called: its file, else the title its session wrote, else its words cut at a word, else "Instruction". */
+export function taskTitle(task: Pick<AiTask, "fileName" | "words" | "title">): string {
   if (task.fileName) return task.fileName;
-  const words = (task.words ?? "").trim();
-  return words ? (words.length > 80 ? `${words.slice(0, 79)}…` : words) : "Instruction";
+  if (task.title?.trim()) return task.title.trim();
+  return cutAtWord(task.words ?? "", 80) || "Instruction";
 }

@@ -445,9 +445,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `RelationGridRow`, `RelationGridColumn`, `RelationGridRelation`); `POST /relations/grid-change`
     # (`RelationGridChange`, `RelationGridFilter`, `RelationGridChangeResponse`,
     # `RelationGridChangeItem`); the relationships table's `layout` in the model schema.
+    # Re-baselined for 0.13 TN (additive): `AiTaskResponse.title`, nullable, the short title the task's
+    # session wrote.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "42b382d50a486e69412f0fe50bf00c62cae6b0ba3eff4305141f216fedf36ddd"
+        "65a51db0a290056948272c55183bcf19f8138b6c6c5fbd09df6425102c2e4b8a"
     )
 
 
