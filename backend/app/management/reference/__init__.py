@@ -179,6 +179,18 @@ _SIGN_IN = """
   var schemes = ["engineOAuth", "oauth2"];
   var token = null;
   var expiresAt = 0;
+  // The Token URL field shows this engine's own token endpoint, as the browser reaches it.
+  var tokenUrl = location.origin + __ROOT__ + "/oauth/token";
+  function configured(credentials) {
+    var securitySchemes = {};
+    schemes.forEach(function (name) {
+      securitySchemes[name] = { flows: { clientCredentials: Object.assign({ tokenUrl: tokenUrl }, credentials) } };
+    });
+    return securitySchemes;
+  }
+  reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
+    authentication: { securitySchemes: configured({}) },
+  }));
   function ask() {
     return fetch(__ROOT__ + "/oauth/console-token", { method: "POST", credentials: "same-origin" })
       .then(function (response) { return response.ok ? response.json() : null; })
@@ -187,10 +199,7 @@ _SIGN_IN = """
   function give(answer) {
     token = answer.access_token;
     expiresAt = Date.now() + answer.expires_in * 1000;
-    var securitySchemes = {};
-    schemes.forEach(function (name) {
-      securitySchemes[name] = { flows: { clientCredentials: { token: token } } };
-    });
+    var securitySchemes = configured({ token: token });
     reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
       authentication: { preferredSecurityScheme: schemes[0], securitySchemes: securitySchemes },
       onBeforeRequest: beforeRequest,
