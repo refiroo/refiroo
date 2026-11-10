@@ -150,15 +150,15 @@ Install Claude Code on the host and authenticate it with your development accoun
 ```dotenv
 AI_AGENT_COMMAND="claude --model sonnet"
 AI_SEND_LEVEL=values
-AI_PROVIDER=devtools.claude_code_provider:provider
+AI_PROVIDER=claude-code
 AI_MODEL=sonnet
 ```
 
 Leave `AI_AGENT_SANDBOX` unset on the host so the session uses the operating-system sandbox.
-The provider in `backend/devtools` runs Claude Code with your sign-in and limits. It appends usage
-to `backend/devtools/usage.jsonl`; dollar amounts report usage at API prices rather than money
-charged to the subscription. It is for development and trying features, and is absent from the
-production engine image. For a noninteractive subscription token, API-key credentials, compatible
+The built-in `claude-code` provider runs Claude Code with your sign-in and limits. Its usage and
+cost appear in **Calls**; dollar amounts report usage at API prices rather than money charged to
+the subscription. With a subscription it is for development and trying features; a production
+installation normally uses `claude` with `AI_API_KEY`. For a noninteractive subscription token, API-key credentials, compatible
 endpoints and separate tests of both switches, follow [Set up AI](/docs/run/set-up-ai/).
 
 Stop and restart the engine command to read changed settings. AI requests can send model details,

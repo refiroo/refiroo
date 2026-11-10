@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (the Claude Code proposal provider is built in, `AI_PROVIDER=claude-code`)
+
+- **`AI_PROVIDER=claude-code` is a provider of the engine, in the image.** Why: a deployed image set `AI_PROVIDER=devtools.claude_code_provider:provider` and refused to start (`No module named 'devtools'`), because `backend/devtools/` is not in the image (only the guide's reference instance mounted it). The provider moved to `engine/proposals/claude_code.py` and behaves as before: one headless `claude -p` call per request, no tools, MCP servers, project settings or saved session, in an empty temporary directory, `AI_MODEL` as `--model`, `AI_TIMEOUT_SECONDS` as the limit. It needs no `AI_API_KEY`; it signs in as Claude Code does (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` in the environment, or the host's sign-in). The `usage.jsonl` file is gone: `ProviderAnswer` has an optional `cost_usd` (the CLI's `total_cost_usd`), and `calls.ask` writes it to `ai_calls.cost_usd`, so the cost of a provider call shows in Calls; the other providers leave it empty. `backend/devtools/` and the reference instance's mount are removed; the reference `.env` and README use `claude-code`. Production normally keeps `claude` with `AI_API_KEY`. Docs: `.env.example`, `docs/OPERATIONS.md`, the guide's Set up AI, Developer instance and AI pages.
+
 ### Fixed (mail through Microsoft 365 arrived empty, 0.13 MS)
 
 - **A message sent through Microsoft 365 arrives with its text and HTML.** Cause: the MIME handed to Graph's `sendMail` had bare LF line ends (the message's own policy); Exchange then finds no parts and delivers an empty message, while SMTP was unaffected because `smtplib` converts the line ends. `engine/mail/graph.py` now serialises with CRLF; J46.11 checks the MIME Graph receives. Seen on the first live Microsoft 365 setup (managed identity, 10 Nov 2026).

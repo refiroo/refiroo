@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -65,12 +66,13 @@ def ask(
     answer: BaseModel | None = None
     data: Any = None
     model = model_label(provider)
-    tokens_in = tokens_out = None
+    tokens_in = tokens_out = cost_usd = None
     failure_kind = failure = None
     try:
         answered = provider.propose(request)
         data, model = answered.data, answered.model or model
         tokens_in, tokens_out = answered.tokens_in, answered.tokens_out
+        cost_usd = answered.cost_usd
         answer = request.answer.model_validate(data)
     except ProviderError as error:
         failure_kind, failure = error.kind, error.message
@@ -95,6 +97,7 @@ def ask(
         bytes_out=len(json.dumps(data, ensure_ascii=False).encode()) if data is not None else 0,
         tokens_in=tokens_in,
         tokens_out=tokens_out,
+        cost_usd=Decimal(str(round(cost_usd, 4))) if cost_usd is not None else None,
         outcome="failed" if failure else "answered",
         failure_kind=failure_kind,
         failure=failure,

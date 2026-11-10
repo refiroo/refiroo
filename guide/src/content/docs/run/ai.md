@@ -147,7 +147,7 @@ service. **Settings › Administration › AI** displays them; it does not edit 
 
 | Setting | Default | What to choose |
 | --- | --- | --- |
-| `AI_PROVIDER` | Empty | `claude`, `openai-compatible`, or a factory `package.module:function`. Empty disables provider features, independently of the assistant. See [credential choices](/docs/run/set-up-ai/#choose-the-features-and-credentials). |
+| `AI_PROVIDER` | Empty | `claude`, `claude-code`, `openai-compatible`, or a factory `package.module:function`. Empty disables provider features, independently of the assistant. See [credential choices](/docs/run/set-up-ai/#choose-the-features-and-credentials). |
 | `AI_MODEL` | Empty | Provider model. Claude defaults to `claude-opus-5-5`; a compatible endpoint requires a model. A factory defines its own default. This does not choose the assistant's model. |
 | `AI_API_KEY` | Empty | Provider secret; required for `claude`, optional for compatible endpoints. Never displayed. |
 | `AI_BASE_URL` | Empty | Required for a compatible endpoint, for example `http://models.internal:8080/v1`. Claude uses `https://api.anthropic.com` unless a gateway is specified. |

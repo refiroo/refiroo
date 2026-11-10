@@ -19,7 +19,7 @@ mapping targets. The two switches can use different credentials.
 | Features | Switch | With a Claude subscription | With an Anthropic API key |
 | --- | --- | --- | --- |
 | Load a workbook or change records with the assistant; **Change this model…** | `AI_AGENT_COMMAND="claude --model sonnet --permission-mode bypassPermissions"` | `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` | `ANTHROPIC_API_KEY` |
-| Proposed mapping targets, asking a list in words, explanations of model changes and what changed | `AI_PROVIDER` | Development and reference instance only: `AI_PROVIDER=devtools.claude_code_provider:provider`, `AI_MODEL=sonnet`; uses Claude Code's sign-in or `CLAUDE_CODE_OAUTH_TOKEN` | `AI_PROVIDER=claude`, `AI_API_KEY`; optional `AI_MODEL` |
+| Proposed mapping targets, asking a list in words, explanations of model changes and what changed | `AI_PROVIDER` | Development and trying features: `AI_PROVIDER=claude-code`, `AI_MODEL=sonnet`; built into the engine image, uses Claude Code's sign-in or `CLAUDE_CODE_OAUTH_TOKEN` | `AI_PROVIDER=claude`, `AI_API_KEY`; optional `AI_MODEL` |
 
 For a production provider, use the Claude API with an API key, or `openai-compatible` with a
 chat-completions endpoint, including a model hosted inside your organisation. `AI_PROVIDER=claude`
@@ -134,25 +134,25 @@ not the amount read by the assistant at `values`.
 
 ### Use the subscription for provider features in development
 
-The repository supplies a development-only provider in `backend/devtools/claude_code_provider.py`.
-It answers through Claude Code using the developer's sign-in and limits. It is absent from the
-engine image. It works on a [developer instance](/docs/run/developer-instance/) and on the guide's
-reference instance, whose Compose override mounts `backend/devtools` into the engine.
+The built-in `claude-code` provider answers through Claude Code using the token's or the
+developer's sign-in and limits. It is part of the engine image, so it works on a
+[developer instance](/docs/run/developer-instance/), on the guide's reference instance and in a
+container without extra files.
 
 For a developer instance, put these settings in `.dev/settings.env`; install and authenticate
 Claude Code on the host. For the reference instance, put them in `guide/reference/.env` beside the
 assistant settings and subscription token from step 2:
 
 ```dotenv
-AI_PROVIDER=devtools.claude_code_provider:provider
+AI_PROVIDER=claude-code
 AI_MODEL=sonnet
 ```
 
-Leave `AI_API_KEY` unset for this provider. Each request runs a separate Claude Code call with no
-tools, MCP servers or saved session. It still sends the feature's context to Claude. Usage is
-recorded in **Calls** and appended to `backend/devtools/usage.jsonl`; reported dollar amounts are
-usage at API prices, not a subscription invoice. This option is for development and trying the
-features. A production installation uses `claude` with `AI_API_KEY` or `openai-compatible`.
+Leave `AI_API_KEY` unset for this provider; it authenticates as Claude Code does (`CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY` for API billing). Each request runs a separate Claude Code call with no
+tools, MCP servers or saved session. It still sends the feature's context to Claude. Usage and
+cost are recorded in **Calls**; reported dollar amounts are usage at API prices, not a
+subscription invoice. With a subscription token this option is for development and trying the
+features. A production installation normally uses `claude` with `AI_API_KEY` or `openai-compatible`.
 
 A custom provider can also be named as `AI_PROVIDER=package.module:function`. The module must be
 installed in the engine's Python environment; the factory takes no arguments and returns an object

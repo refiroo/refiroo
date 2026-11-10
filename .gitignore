@@ -45,5 +45,3 @@ backend/.testmondata*
 # The public website is its own repository (website/.git), never part of rdm-engine
 /website/
 
-# The AI usage log a developer tool appends to (kept locally)
-backend/devtools/usage.jsonl

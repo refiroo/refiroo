@@ -47,6 +47,9 @@ class ProviderAnswer:
     model: str
     tokens_in: int | None = None
     tokens_out: int | None = None
+    # What the provider reports the call cost, in US dollars, when it does (Claude Code does);
+    # ``ai_calls.cost_usd`` keeps it.
+    cost_usd: float | None = None
 
 
 @dataclass

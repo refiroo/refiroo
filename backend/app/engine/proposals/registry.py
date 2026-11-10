@@ -10,6 +10,7 @@ from typing import Any
 
 from ...config import Settings
 from .claude import ClaudeProvider
+from .claude_code import ClaudeCodeProvider
 from .context import Policy
 from .openai_compatible import OpenAICompatibleProvider
 from .provider import ProposalProvider, Purpose
@@ -51,6 +52,8 @@ def load_provider(settings: Settings) -> ProposalProvider | None:
         return ClaudeProvider(
             settings.ai_api_key, settings.ai_model, base_url=settings.ai_base_url, timeout=timeout
         )
+    if setting == "claude-code":
+        return ClaudeCodeProvider(settings.ai_model, timeout)
     if setting == "openai-compatible":
         missing = [
             name
@@ -74,7 +77,7 @@ def load_provider(settings: Settings) -> ProposalProvider | None:
     module_name, separator, attribute = setting.partition(":")
     if not separator or not module_name or not attribute:
         raise RuntimeError(
-            f"AI_PROVIDER must be claude, openai-compatible or a factory written module:function, not {setting!r}"
+            f"AI_PROVIDER must be claude, claude-code, openai-compatible or a factory written module:function, not {setting!r}"
         )
     try:
         factory: Any = getattr(importlib.import_module(module_name), attribute)

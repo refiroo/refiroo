@@ -8,6 +8,7 @@ import pytest
 
 from app.config import Settings
 from app.engine.proposals.claude import ClaudeProvider
+from app.engine.proposals.claude_code import ClaudeCodeProvider
 from app.engine.proposals.fake import FakeProvider
 from app.engine.proposals.openai_compatible import OpenAICompatibleProvider
 from app.engine.proposals.registry import configure, load_provider
@@ -27,6 +28,10 @@ def test_each_provider_is_resolved_from_its_settings():
     assert isinstance(
         load_provider(_settings(AI_PROVIDER="claude", AI_API_KEY="k")), ClaudeProvider
     )
+    code = load_provider(
+        _settings(AI_PROVIDER="claude-code", AI_MODEL="sonnet", AI_TIMEOUT_SECONDS="120")
+    )
+    assert isinstance(code, ClaudeCodeProvider) and (code.model, code.timeout) == ("sonnet", 120)
     found = load_provider(
         _settings(AI_PROVIDER="openai-compatible", AI_BASE_URL="http://h/v1", AI_MODEL="m")
     )
@@ -41,7 +46,7 @@ def test_each_provider_is_resolved_from_its_settings():
     [
         ({"AI_PROVIDER": "claude"}, "needs AI_API_KEY"),
         ({"AI_PROVIDER": "openai-compatible"}, "needs AI_BASE_URL and AI_MODEL"),
-        ({"AI_PROVIDER": "gemini"}, "must be claude, openai-compatible or a factory"),
+        ({"AI_PROVIDER": "gemini"}, "must be claude, claude-code, openai-compatible or a factory"),
         ({"AI_PROVIDER": "rdm_missing_module:make"}, "could not be loaded"),
         ({"AI_PROVIDER": "rdm_no_propose:make"}, "without propose"),
     ],

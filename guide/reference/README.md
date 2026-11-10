@@ -33,15 +33,14 @@ CLAUDE_CODE_OAUTH_TOKEN=replace-with-your-private-token
 AI_AGENT_COMMAND="claude --model sonnet --permission-mode bypassPermissions"
 AI_AGENT_SANDBOX=container
 AI_SEND_LEVEL=values
-AI_PROVIDER=devtools.claude_code_provider:provider
+AI_PROVIDER=claude-code
 AI_MODEL=sonnet
 ```
 
 Leave `ANTHROPIC_API_KEY` and `AI_API_KEY` unset for this subscription setup. Never commit the token.
 The command enables the built-in assistant; the provider enables mapping targets, questions in words
-and explanations. Both are needed for all features. The reference Compose override mounts
-`backend/devtools` into the engine for this development-only provider; it is absent from the image.
-It uses Claude Code's sign-in and limits and appends usage to `backend/devtools/usage.jsonl`.
+and explanations. Both are needed for all features. `claude-code` is built into the engine image;
+it uses Claude Code's token and limits, and each call's cost at API prices appears in **Calls**.
 For production use `AI_PROVIDER=claude` with `AI_API_KEY`, or `openai-compatible`.
 
 Settings are read at startup. Apply them from the repository root:

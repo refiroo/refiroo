@@ -706,7 +706,7 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "AI_PROVIDER",
         "ai_provider",
         "ai",
-        "The proposal provider: claude, openai-compatible or a factory module:function; empty, "
+        "The proposal provider: claude, claude-code, openai-compatible or a factory module:function; empty, "
         "the default, sends nothing anywhere",
     ),
     CatalogueEntry(

@@ -986,7 +986,7 @@ offered.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `AI_PROVIDER` | empty | `claude` (the Claude API), `openai-compatible` (any endpoint speaking the chat-completions protocol, including a model the organisation runs itself), or a factory `package.module:function` returning an object with `propose(request)`. Empty: no provider |
+| `AI_PROVIDER` | empty | `claude` (the Claude API), `claude-code` (one headless Claude Code call per request, in the image: no `AI_API_KEY`, it signs in as Claude Code does, with `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` in the environment or the host's sign-in; `AI_MODEL` is passed to `--model`; the call's `total_cost_usd` fills `ai_calls.cost_usd`; production normally uses `claude`), `openai-compatible` (any endpoint speaking the chat-completions protocol, including a model the organisation runs itself), or a factory `package.module:function` returning an object with `propose(request)`. Empty: no provider |
 | `AI_MODEL` | empty | The model asked. Empty with `claude` means `claude-opus-5-5`; required with `openai-compatible` |
 | `AI_API_KEY` | empty | The provider's key; required with `claude`, optional with `openai-compatible`. Read from the environment only, never stored in the database, never shown or answered |
 | `AI_BASE_URL` | empty | The provider's address: required with `openai-compatible` (for example `http://models.internal:8080/v1`); with `claude`, empty for Anthropic's own API or a gateway's address |
