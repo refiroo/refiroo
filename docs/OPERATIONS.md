@@ -584,8 +584,8 @@ message from the same page: it names what failed (the connection, TLS, the login
 
 Where SMTP with a user name and password is not possible (Microsoft is retiring basic authentication
 for SMTP AUTH in Exchange Online) the engine sends through Microsoft Graph as one mailbox (0.13 MS).
-Choose **Microsoft 365** on Settings › Mail (or `PUT /api/v1/mail-settings` with `"method":
-"microsoft365"`). It takes the tenant ID, the application (client) ID, a client secret or a
+Choose **Microsoft 365** on Settings › Mail, then how to **Sign in with** (client secret, certificate or one of
+two managed identities; or `PUT /api/v1/mail-settings` with `"method": "microsoft365"`). It takes the tenant ID, the application (client) ID, a client secret or a
 certificate or a managed identity ([below](#managed-identity-refiroo-runs-in-azure)), and the sending
 mailbox (the from address). The token address
 (`https://login.microsoftonline.com`) and the Graph address (`https://graph.microsoft.com`) are

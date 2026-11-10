@@ -1,0 +1,179 @@
+{
+  "screens": [
+    {
+      "name": "admin-mail-microsoft365-menu",
+      "shows": "Settings > Mail with Send mail through set to Microsoft 365 and the Sign in with menu shown open as a list of its four entries: Client secret, Certificate, Managed identity - this tenant, Managed identity - hosted in another tenant. Sending mailbox mail@example.org. Nothing saved.",
+      "height": 1150,
+      "actions": [
+        {
+          "goto": "/settings/mail"
+        },
+        {
+          "waitFor": {
+            "label": "Send mail through",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Send mail through",
+            "exact": true
+          },
+          "value": "Microsoft 365"
+        },
+        {
+          "waitFor": {
+            "label": "Sign in with",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Sending mailbox",
+            "exact": true
+          },
+          "value": "mail@example.org"
+        },
+        {
+          "expand": {
+            "label": "Sign in with",
+            "exact": true
+          },
+          "rows": 4
+        }
+      ],
+      "expect": [
+        "Send mail through",
+        "Sign in with",
+        "Client secret",
+        "Certificate",
+        "Managed identity"
+      ]
+    },
+    {
+      "name": "admin-mail-microsoft365-secret",
+      "shows": "Settings > Mail with Microsoft 365 chosen and Sign in with set to Client secret, filled with demo values only: Tenant ID and Application (client) ID as example GUIDs, a masked client secret, Sending mailbox mail@example.org. Nothing saved, no test sent.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/mail"
+        },
+        {
+          "waitFor": {
+            "label": "Send mail through",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Send mail through",
+            "exact": true
+          },
+          "value": "Microsoft 365"
+        },
+        {
+          "waitFor": {
+            "label": "Tenant ID",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Tenant ID",
+            "exact": true
+          },
+          "value": "11111111-2222-3333-4444-555555555555"
+        },
+        {
+          "fill": {
+            "label": "Application (client) ID",
+            "exact": true
+          },
+          "value": "66666666-7777-8888-9999-000000000000"
+        },
+        {
+          "fill": {
+            "label": "Client secret",
+            "exact": true
+          },
+          "value": "example-secret-value"
+        },
+        {
+          "fill": {
+            "label": "Sending mailbox",
+            "exact": true
+          },
+          "value": "mail@example.org"
+        }
+      ],
+      "expect": [
+        "Tenant ID",
+        "Application (client) ID",
+        "Client secret",
+        "Sending mailbox",
+        "What to set up in Microsoft Entra"
+      ]
+    },
+    {
+      "name": "admin-mail-microsoft365-entra",
+      "shows": "Settings > Mail with Microsoft 365 and Sign in with set to Managed identity - this tenant: the Identity client ID field and the note that it works only in Azure, the Sending mailbox mail@example.org, and the fold What to set up in Microsoft Entra opened with the steps for that entry. Nothing saved.",
+      "height": 1180,
+      "actions": [
+        {
+          "goto": "/settings/mail"
+        },
+        {
+          "waitFor": {
+            "label": "Send mail through",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Send mail through",
+            "exact": true
+          },
+          "value": "Microsoft 365"
+        },
+        {
+          "waitFor": {
+            "label": "Sign in with",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Sign in with",
+            "exact": true
+          },
+          "value": "Managed identity – this tenant"
+        },
+        {
+          "fill": {
+            "label": "Sending mailbox",
+            "exact": true
+          },
+          "value": "mail@example.org"
+        },
+        {
+          "click": {
+            "text": "What to set up in Microsoft Entra",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Mail.Send",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Identity client ID",
+        "Sending mailbox",
+        "What to set up in Microsoft Entra",
+        "Mail.Send"
+      ]
+    }
+  ]
+}

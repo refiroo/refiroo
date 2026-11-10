@@ -34,6 +34,10 @@ Leave **User name** empty for a relay without login. Otherwise supply **Password
 
 Choose **Microsoft 365** under **Send mail through** to send as one mailbox through Microsoft Graph. Next, choose **Sign in with**. A short line below the menu explains the selected choice; only that choice’s fields appear.
 
+![The Microsoft 365 mail form with the Sign in with menu open to show its four choices.](/docs/screens/admin-mail-microsoft365-menu.png)
+
+*Above: Microsoft 365 is selected, and Sign in with shows Client secret, Certificate, Managed identity – this tenant and Managed identity – hosted in another tenant. The Sending mailbox address is an example; the credential fields are empty. Nothing has been saved.*
+
 | Sign in with | When to choose it and what to enter |
 | --- | --- |
 | Client secret | The simplest choice. Enter **Tenant ID**, **Application (client) ID** and **Client secret**. Use the secret’s value, which Microsoft shows once when it is created, not its ID. The secret expires and must be renewed. |
@@ -43,10 +47,18 @@ Choose **Microsoft 365** under **Send mail through** to send as one mailbox thro
 
 For a tenant ID, use the directory ID or the tenant’s domain name. Both managed identity choices need refiroo to run in Azure on App Service, Container Apps or a virtual machine with the identity assigned. They store no secret or certificate in refiroo.
 
+![The Microsoft 365 mail form with Client secret selected and example IDs, a masked secret and a sending mailbox entered.](/docs/screens/admin-mail-microsoft365-secret.png)
+
+*Above: Client secret is selected, with example values in Tenant ID, Application (client) ID, Client secret and Sending mailbox. The secret is masked. Nothing has been saved and no test message has been sent.*
+
 Below the sign-in fields, enter **Sending mailbox**: a licensed user or shared mailbox in the Microsoft 365 tenant. Then use the two folded sections:
 
 - **What to set up in Microsoft Entra** shows only the preparation for the selected sign-in choice. A secret or certificate needs an app registration, Microsoft Graph’s **Mail.Send** application permission with admin consent, and a restriction to the sending mailbox. An identity in this tenant needs the **Mail.Send** app role assigned to its service principal and a mailbox restriction naming the identity’s client ID; there is no admin-consent screen for that identity. An identity hosted in another tenant needs a multitenant app that trusts it, the customer administrator’s consent, and the app’s permission and mailbox restriction in the customer’s tenant. Without a mailbox restriction, it can send as any mailbox in that tenant. Ask the operator to follow [Prepare Microsoft 365 delivery](/docs/run/sign-in-and-mail-setup/#prepare-microsoft-365-delivery).
 - **Other Microsoft clouds (token and Graph addresses)** contains **Token address** and **Graph address**. Leave them empty for Microsoft’s global service. For a national cloud, ask the operator for both addresses and change them together. This section opens automatically when a saved address differs from the global default.
+
+![The Microsoft 365 mail form with Managed identity – this tenant selected and What to set up in Microsoft Entra expanded.](/docs/screens/admin-mail-microsoft365-entra.png)
+
+*Above: Managed identity – this tenant is selected, Identity client ID is empty, and What to set up in Microsoft Entra shows the steps for this choice. Sending mailbox holds an example address. Nothing has been saved.*
 
 After these sections, set **Application address** to the address people use to reach refiroo. Empty uses the default shown below the field. Check that recipients can open it, then choose **Save**.
 
@@ -74,7 +86,7 @@ Ordinary messages wait in an outbox and are sent in the background. Under **Mess
 | Sent | Accepted by the mail server. Ask the recipient to check their mailbox. |
 | Failed | Delivery stopped. Correct the cause and make a fresh password link if needed. |
 
-A temporary failure retries after 30 seconds, then doubles the wait up to one hour. Microsoft 365 can ask for a longer wait, which refiroo respects. A permanently refused recipient fails immediately. Microsoft 365 fails a message immediately if it is permanently rejected. A sending mailbox that does not exist leaves the message waiting for the usual retry, exactly as with SMTP. Correct **Sending mailbox**, save and test; the waiting message continues on its next try, within its 24-hour window. Messages still waiting give up after 24 hours. Finished entries are kept for 30 days. Waiting message text is sealed, never shown in this list, and erased after sending or failure.
+A temporary failure retries after 30 seconds, then doubles the wait up to one hour. Microsoft 365 can ask for a longer wait, which refiroo respects. A permanently refused recipient fails immediately. Microsoft 365 fails permanently rejected messages immediately and retries other rejections. A sending mailbox that does not exist leaves the message waiting for the usual retry, exactly as with SMTP. Correct **Sending mailbox**, save and test; the waiting message continues on its next try, within its 24-hour window. Messages still waiting give up after 24 hours. Finished entries are kept for 30 days. Waiting message text is sealed, never shown in this list, and erased after sending or failure.
 
 **Stop sending** is available for waiting messages. Confirm **Stop sending**, or choose **Keep trying**. Stopping marks the message failed and erases its text. It does not invalidate the link already made; make a new password link to replace that link. If sending finished before your action arrived, the list refreshes to its final state.
 
@@ -114,7 +126,7 @@ Use the test's heading to decide who needs to act:
 | The login was refused — no federated credential, or none matches | Ask the operator to check the multitenant app’s trust in the hosting tenant and the customer administrator’s consent. The identity, hosting tenant and Microsoft cloud must match the prepared setup. |
 | The server refused the address | The recipient address and the server's stated refusal. |
 | The server refused the from address | For SMTP, an approved sender in **From address**; the message waits for another try. For Microsoft 365, check that **Sending mailbox** is a licensed user or shared mailbox in the tenant; an unknown mailbox leaves the message waiting and is tried again after the usual wait, exactly as with SMTP. Correct **Sending mailbox**, save and test; the waiting message continues on its next try, unless its 24-hour window has ended. |
-| The server did not accept the message | The service’s reason for rejecting the message. Microsoft 365 normally fails the message immediately; a temporary conflict leaves it waiting for another try. |
+| The server did not accept the message | The service’s reason for rejecting the message. Microsoft 365 normally fails the message immediately; some rejections are retried. |
 
 A Microsoft 365 login failure can affect all waiting messages. Correct the settings while they wait, save and test again before their 24-hour window ends. The explanation does not display the secret or Microsoft’s full response.
 

@@ -2419,7 +2419,7 @@ password by I6 and inbox notices by M2 (2026-10-27).
 1. Open Mail and choose how mail is sent. With SMTP, enter the organisation's server: host, port, how
    the connection is secured (TLS, STARTTLS or none), a user name and password if it asks for one, the
    address mail comes from and the address the application is reached at. With Microsoft 365 (0.13 MS,
-   J46.11), enter the tenant, the application and its secret or certificate, and the sending mailbox.
+   J46.11), choose how to sign in (**Sign in with**: client secret, certificate or a managed identity) and enter what that entry asks for (the tenant, the application and its secret or certificate, or an identity's client ID), and the sending mailbox.
 2. Send a test message to an address; the page says it went, or what failed.
 3. Messages the engine queues are sent in the background; the page lists those waiting, sent and
    failed, and a failed one says why.

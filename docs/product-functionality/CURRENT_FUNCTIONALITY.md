@@ -38,7 +38,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
-| F28 | Send mail | Settings › Integration › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph with a client secret or a certificate) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
+| F28 | Send mail | Settings › Integration › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph, signing in with a client secret, a certificate or a managed identity) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
 | F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -1516,7 +1516,7 @@ page says what failed: the server could not be reached, the secure connection fa
 the host does not trust included), the login was refused, or the server refused the address.
 
 **Microsoft 365 (0.13 MS).** Where SMTP with a login is not possible, the administrator chooses
-**Microsoft 365** at the top of the same form instead: the tenant ID, the application (client) ID, a client
+**Microsoft 365** at the top of the same form instead and picks one entry of the **Sign in with** menu (client secret, certificate or, below, a managed identity): the tenant ID, the application (client) ID, a client
 secret or a certificate (its private key is sealed and never shown; the page shows the certificate's
 thumbprint and when it expires) and the mailbox mail is sent as. The page lists what to set up in
 Microsoft Entra first (an app registration, the Mail.Send permission with admin consent, and an access

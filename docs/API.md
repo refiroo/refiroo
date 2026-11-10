@@ -7022,7 +7022,7 @@ where one-time links go. Nothing is sent without saved settings.
   service of a virtual machine. A secret or certificate with an identity mode is refused at its field;
   saving a managed identity clears a saved secret or certificate. Where no Azure host answers, the test and
   queued mail fail as `login` with a sentence saying refiroo is not running with a managed identity on an
-  Azure host.
+  Azure host. AKS workload identity (a token file) is not supported.
 - `DELETE /mail-settings`: removes the settings; `204`, or `409 MAIL_NOT_SET_UP`. Messages waiting stay
   in the outbox and fail after 24 hours.
 - `POST /mail-settings/test {to}`: sends a test message at once through the saved settings and answers
@@ -7032,7 +7032,7 @@ where one-time links go. Nothing is sent without saved settings.
   The SMTP server's certificate is verified against the system's trusted certificates. With Microsoft 365
   a refused token, no `Mail.Send` consent or a mailbox the application may not use is `login`; Microsoft
   out of reach, throttled (429, with the wait it asks for) or failing is `connection`; a mailbox that
-  does not exist is `sender`; any other refusal is `rejected`. The sentence names what to change, never
+  does not exist is `sender` (the message waits, as with SMTP); any other refusal is `rejected`. The sentence names what to change, never
   the secret, the token or Microsoft's own text.
 - `GET /mail-outbox`: the messages, newest first, cursor paged, `status=` (`pending`, `sent`,
   `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `test`, `notice`), `to`,
@@ -7053,8 +7053,10 @@ told a new one was asked for (`password-reset`). `409 MAIL_NOT_SET_UP` and `409 
 before the earlier link is replaced, so it keeps working. No other route queues a message: the engine's own code does, in the caller's transaction, refusing with
 `409 MAIL_NOT_SET_UP` when mail is not set up. A background thread (`mailSender` on a process's
 threads) sends them: a failed attempt is tried again after 30 seconds, then twice as long up to an
-hour (at least as long as Microsoft asked with `Retry-After`); an address the server refuses for good, or
-a mailbox Microsoft 365 does not know, fails at once; anything else fails after 24 hours,
+hour (at least as long as Microsoft asked with `Retry-After`); an address the server refuses for good
+fails at once (with Microsoft 365 also a refusal that is not a `login`, `connection` or `sender` failure, except HTTP 409, which waits);
+a mailbox Microsoft 365 does not know (`sender`) waits and is tried again, as an SMTP server's refused from address does, so a mistyped
+mailbox can be corrected; anything else fails after 24 hours,
 reading `Not sent within 24 hours. Last error: …`. With Microsoft 365 a message Graph accepted (`202`)
 is `sent`: the engine does not read bounces, which go to the sending mailbox, and a message sent this way
 is saved in that mailbox's Sent Items (the MIME route of `sendMail` has no switch for it).

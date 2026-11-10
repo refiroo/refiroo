@@ -9,7 +9,8 @@
 // 0.13 MS: the Microsoft 365 form (section 7, `microsoftForm`): the four "Sign in with" entries, the Entra
 // checklist and the other clouds opened, at 1440px and 390px, light and dark, each with axe, the menu reached by
 // keyboard, only the chosen entry's fields visible and no sideways scroll at 390px. `M1_M365_ONLY=1` runs only that
-// section; `M1_MODELS=starter` limits the models.
+// section; `M1_MODELS=starter` limits the models. Section 7b (`microsoftSaved`): a saved Microsoft 365 configuration
+// (secret, then certificate) opens on its entry with the credential kept, not shown; switching entry and back.
 import { writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -150,6 +151,95 @@ async function microsoftForm(harness, tag) {
   }
 }
 
+/** A throwaway RSA key and self-signed certificate as one PEM text, for a saved certificate. */
+function demoCertificatePem() {
+  const out = execFileSync(
+    "openssl",
+    ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", "/dev/stdout", "-out", "/dev/stdout", "-subj", "/CN=refiroo-demo", "-days", "365"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  );
+  return out;
+}
+
+/** 7b. A Microsoft 365 configuration already saved: the form opens on it, the credential is kept, not shown. */
+async function microsoftSaved(harness, tag) {
+  const { uiUrl, api, output, browser } = harness;
+  const demo = {
+    method: "microsoft365",
+    tenantId: "11111111-2222-3333-4444-555555555555",
+    clientId: "66666666-7777-8888-9999-000000000000",
+    fromAddress: "mail@example.org",
+  };
+  for (const credential of ["secret", "certificate"]) {
+    const current = await api("/mail-settings");
+    const body = { ...demo, ...(current.version ? { expectedVersion: current.version } : {}) };
+    if (credential === "secret") body.clientSecret = "demo-secret-value-not-real";
+    else body.certificate = demoCertificatePem();
+    await api("/mail-settings", body, "PUT");
+    for (const [width, height, scheme] of [
+      [1440, 900, "light"],
+      [390, 844, "dark"],
+    ]) {
+      const look = `${tag}-m365-saved-${credential}-${width}-${scheme}`;
+      const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, hasTouch: width < 600 });
+      const page = await context.newPage();
+      page.setDefaultTimeout(15000);
+      page.on("pageerror", (error) => failures.push(`${look}: ${error.message}`));
+      const check = async (name) => {
+        if (width < 600) {
+          const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          expect(over <= 0, `${look}-${name}: scrolls sideways at 390px`);
+        }
+        await page.screenshot({ path: resolve(output, `${look}-${name}.png`), fullPage: true });
+        await axe(page, `${look}-${name}`);
+      };
+      await page.goto(`${uiUrl}/settings/mail`);
+      await page.getByRole("heading", { level: 1, name: "Mail" }).waitFor();
+      await page.getByRole("button", { name: "Remove settings…" }).waitFor();
+      expect(
+        (await page.getByLabel("Send mail through", { exact: true }).inputValue()) === "microsoft365",
+        `${look}: the method is Microsoft 365`,
+      );
+      expect(
+        (await page.getByLabel("Sign in with", { exact: true }).inputValue()) === credential,
+        `${look}: the menu opens on ${credential}`,
+      );
+      expect((await page.getByLabel("Tenant ID", { exact: true }).inputValue()) === demo.tenantId, `${look}: tenant ID shown`);
+      expect((await page.getByLabel("Server", { exact: true }).count()) === 0, `${look}: SMTP fields are hidden`);
+      const field = page.getByLabel(credential === "secret" ? "Client secret" : "Certificate", { exact: true });
+      expect((await field.inputValue()) === "", `${look}: the credential is not shown`);
+      expect(
+        (await field.getAttribute("placeholder"))?.startsWith("Saved"),
+        `${look}: the credential field says it is saved`,
+      );
+      if (credential === "secret") {
+        expect(
+          !(await page.content()).includes("demo-secret-value-not-real"),
+          `${look}: the secret value is not in the page`,
+        );
+      } else {
+        await page.getByText(/Saved: thumbprint/).waitFor();
+        expect(!(await page.content()).includes("PRIVATE KEY"), `${look}: no key in the page`);
+      }
+      expect(await page.getByRole("button", { name: "Save" }).isDisabled(), `${look}: Save is off before any change`);
+      await check("opened");
+      // Switching the entry and back keeps the saved credential.
+      await page.getByLabel("Sign in with", { exact: true }).selectOption("direct");
+      expect((await page.getByLabel("Identity client ID", { exact: true }).count()) === 1, `${look}: switched to the managed identity`);
+      await check("switched");
+      await page.getByLabel("Sign in with", { exact: true }).selectOption(credential);
+      expect(
+        (await field.getAttribute("placeholder"))?.startsWith("Saved"),
+        `${look}: back on ${credential} the credential is still kept`,
+      );
+      await check("switched-back");
+      checks.push(`${look}: opens on the saved entry, the credential kept and not shown, switch and back; axe; screenshots`);
+      await context.close();
+    }
+  }
+  await api("/mail-settings", undefined, "DELETE");
+}
+
 async function walk(configuration) {
   const smtp = await startSmtp();
   const harness = await bootShaped(configuration);
@@ -161,6 +251,7 @@ async function walk(configuration) {
 
     if (process.env.M1_M365_ONLY) {
       await microsoftForm(harness, tag);
+      await microsoftSaved(harness, tag);
       await writeFile(
         resolve(output, "report.json"),
         JSON.stringify({ browser: browser.version(), model: tag, checks, failures, passed: !failures.length }, null, 2),
@@ -348,6 +439,7 @@ async function walk(configuration) {
 
     await context.close();
     await microsoftForm(harness, tag);
+    await microsoftSaved(harness, tag);
     const report = { browser: browser.version(), model: tag, checks, failures, passed: !failures.length };
     await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
     console.log(`M1 browser evidence (${tag}): ${output}`);

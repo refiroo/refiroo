@@ -391,6 +391,10 @@ steps for the selected **Sign in with** entry. Open **Other Microsoft clouds (to
 addresses)** to set the addresses below. It opens automatically for a saved non-default address.
 **Application address** follows both sections.
 
+![The Microsoft 365 mail form showing the expanded Microsoft Entra setup steps for Managed identity – this tenant.](/docs/screens/admin-mail-microsoft365-entra.png)
+
+*Above: What to set up in Microsoft Entra is open for Managed identity – this tenant, showing the Azure host, app-role and mailbox-restriction steps. Identity client ID is empty, and Sending mailbox holds an example address. Nothing has been saved.*
+
 | Address | Global-service default | Operator action |
 | --- | --- | --- |
 | Token address | `https://login.microsoftonline.com` | Where the engine requests Microsoft’s tokens. Leave empty for the global service. |
@@ -456,7 +460,7 @@ queued messages record it under **Last problem**. Microsoft 365 uses these kinds
 | `login` — Microsoft did not issue a token, AADSTS 70025 or 700213 | For 70025, add the missing federated credential to the hosting tenant’s app registration. For 700213, check its issuer, subject and audience against the user-assigned identity, and confirm the customer administrator’s consent. Check that both tenants use the same Microsoft cloud. Correct the setup while queued messages wait. |
 | `connection` — The server could not be reached | Microsoft could not be reached, timed out, was busy (HTTP 429) or returned a server error (5xx). Check outbound HTTPS to the required Microsoft services. A busy Azure identity endpoint (HTTP 429 or 5xx) also causes this kind of failure. Queued mail retries after the usual wait of 30 seconds, doubling up to one hour, or Microsoft’s `Retry-After` if longer. |
 | `sender` — The server refused the from address | Microsoft does not know a sending mailbox that can send. Confirm a licensed user or shared mailbox in this tenant. This is not a permanent failure: the message waits and is tried again after the usual wait, exactly as with SMTP, until its 24-hour window ends. Correct **Sending mailbox**, save and test; the waiting message continues on its next try. |
-| `rejected` — The server did not accept the message | Microsoft refused the message for another reason. The queued message fails immediately except for HTTP 409, a temporary conflict, which is retried. Use the reported HTTP status and short error name when investigating. |
+| `rejected` — The server did not accept the message | Microsoft refused the message for another reason. The queued message fails immediately except for HTTP 409, which is retried. Use the reported HTTP status and short error name when investigating. |
 
 Waiting messages still have a 24-hour limit. Microsoft’s full response, the credential and the
 token are not included in the explanation, outbox or normal logs. An AADSTS code or a short Graph
