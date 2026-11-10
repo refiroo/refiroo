@@ -2453,7 +2453,9 @@ answers is checked before the first try), Claude or ChatGPT later. A 9b model is
 workbook well; the engine's side is judged with it, the quality with a stronger model. **Added 2026-10-29:**
 Claude Sonnet through the developer's Claude Code sign-in (`AI_PROVIDER=devtools.claude_code_provider:provider`,
 `backend/devtools/`, never deployed) for development tries; every try's usage goes into the
-[AI usage log](#ai-usage-log-for-hosting-cost-planning).
+[AI usage log](#ai-usage-log-for-hosting-cost-planning). **Changed 2026-11-10:** the provider is built in
+and in the image, `AI_PROVIDER=claude-code`; `backend/devtools/` is removed, and a call's cost is in
+`ai_calls.cost_usd` instead of `usage.jsonl`.
 
 **Slices, each usable end to end in the browser on a real file** *(superseded 2026-10-29: the user rejected splitting the cases; AP6a stays as delivered, AP6b–AP6e are replaced by [one package](#ap6-the-assistant-designs-and-loads-one-package-replacing-slices-ap6bap6e-planned-2026-10-29))*:
 
