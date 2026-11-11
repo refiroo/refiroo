@@ -91,3 +91,25 @@ If a group says **No collection or relation matrix in this group matches “…�
 or press Escape in that search field. This search covers collection and matrix names, not records.
 Opening a collection result uses its chosen starting view; opening a matrix result goes straight
 to that matrix. Both keep the current data context.
+
+### Find a list in the sidebar
+
+When an application has more than ten sidebar entries, **Find a list** appears under
+**Collections**. Collections and relation matrices with their own sidebar entry count together,
+including entries in folded groups. With ten entries or fewer, this search is not shown.
+
+Type part of a list's name. The search ignores upper and lower case and matches your words
+as one phrase within a name, in the order you type them. Reversing the words does not match
+the same phrase. Matching letters appear in bold. It searches entries in every group and
+those in no group, rather than the names of groups or records. The count beside **Collections**
+shows the total, such as **25 lists**, then the matching count, such as **3 of 25**, while you
+search. Screen readers announce count changes without interrupting you.
+
+Groups with matches open and show only those entries; groups without matches disappear.
+Their fold buttons are unavailable during the search. Choose a result, or press **Enter** in
+the box to open the first match. The hint **Enter opens the first match · Esc clears** reminds
+you of these keys. If **No list matches** appears, shorten or clear the text. Press **Esc** in
+the box to clear it and restore each group's previous fold choice.
+
+**Find a record**, under **Browse records**, searches records instead. The group page's
+**Find a collection or matrix** searches only that group's entries.

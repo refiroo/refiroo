@@ -67,6 +67,37 @@ Keep at least one column and one filter field. An ordinary field must allow filt
 must not hold JSON. If **Not applied** appears, read its reason, adjust the choices and apply
 again; a refused step changes nothing.
 
+## Choose how the table marks inactive records
+
+1. In the **Table** layout, choose **Inactive records…**, beside **Filters…** and
+   **Sort menu and page size…**. The dialog is titled **Inactive records of** followed by
+   the view's name.
+2. Under **A record is inactive when this is No**, select a Yes/No field of this record type.
+   Choose **None** if this table should have no inactive mark or switch. If the field you
+   need is missing, check that it belongs to this type and is Yes/No. A field of another
+   type, or a field with another kind of value, is refused for this setting.
+3. Choose **Apply**. This saves a draft step; it does not change any record's value or make
+   a read-only field editable. The field does not need to be selected in **Filters…**.
+   If **Not applied** appears, read the reason, correct the choice and apply again. Use
+   **Undo** to reverse an unwanted draft step.
+4. Review **Issues** before [installing and activating the release](/docs/guide/model/install-and-activate-a-release/).
+   In the active table, records with **No** stay in their usual order with a quieter name
+   and a grey **Inactive** pill if the field is called Active. For another field name,
+   the pill says **Not** followed by that name in lower case. Records with no value have
+   no inactive mark.
+5. Check **Hide inactive (N)** beside **Filter**. It starts off unless the page address
+   already applies its filter. Turn it on and check the added pill, such as **Active: not No**:
+   only marked records disappear, and records with no value stay visible. Turn it off or
+   remove the pill to restore the results. The number counts **No** values after the list's
+   search and other filters, including **0** when none match. Choosing **Yes** in the ordinary
+   **＋ Filter** menu instead excludes records with no value; it does not turn this switch on.
+
+The setting belongs to the selected table view. The same mark and switch use a change set's
+or publication's own values; publications remain read-only. See
+[Mark inactive records in a table](/docs/model/record-pages-and-tables/#mark-inactive-records-in-a-table)
+for the rules and [Lists, search and filters](/docs/use/lists-and-filters/#show-or-hide-inactive-records)
+for the reader's controls.
+
 ## Set the initial order and check the table
 
 1. Choose **Default sort**, whose control shows the current field and direction arrow.

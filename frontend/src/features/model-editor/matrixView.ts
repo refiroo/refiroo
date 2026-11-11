@@ -70,7 +70,9 @@ export function rowOptions(outline: ModelDraftOutline): Option[] {
 
 /** The furthest parents first: a top-level type usually gives the columns meant. */
 export function columnOptions(outline: ModelDraftOutline, value: unknown): Option[] {
-  return [...ancestorsOf(outline, parseCell(value).cell)].reverse().map((key) => ({ value: key, label: typeLabel(outline, key) }));
+  return [...ancestorsOf(outline, parseCell(value).cell)]
+    .reverse()
+    .map((key) => ({ value: key, label: typeLabel(outline, key) }));
 }
 
 const SCALAR = new Set(["text", "longText", "integer", "decimal", "boolean", "date", "dateTime"]);
@@ -92,8 +94,6 @@ export function cellFieldOptions(outline: ModelDraftOutline, value: unknown): Op
   }));
 }
 
-export function rowColumnOptions(outline: ModelDraftOutline, row: unknown): (Option & { group?: string })[] {
-  const key = String(row ?? "");
 /** The types above a type as columns (`ancestor:<type>`), shared by a matrix's rows and a mapping grid's. */
 export function ancestorColumnOptions(outline: ModelDraftOutline, key: string): (Option & { group: string })[] {
   return ancestorsOf(outline, key).map((ancestor) => ({
@@ -103,6 +103,8 @@ export function ancestorColumnOptions(outline: ModelDraftOutline, key: string): 
   }));
 }
 
+export function rowColumnOptions(outline: ModelDraftOutline, row: unknown): (Option & { group?: string })[] {
+  const key = String(row ?? "");
   return [
     { value: "name", label: "Name" },
     ...(objectTypeOf(outline, key)?.attributes ?? []).map((item) => ({ value: item.attributeType, label: item.name })),

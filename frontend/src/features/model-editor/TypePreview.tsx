@@ -68,6 +68,7 @@ import {
   removePanel,
   renamePanelSpec,
   setPanelVisible,
+  tableAvailabilitySpec,
   tableColumnsSpec,
   tableFiltersSpec,
   tableMenuSpec,
@@ -980,6 +981,13 @@ function TablePreview({
             </button>
             <button type="button" className="secondary" onClick={() => onDialog(tableFiltersSpec(model, place, view))}>
               Filters…
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onDialog(tableAvailabilitySpec(model, place, view))}
+            >
+              Inactive records…
             </button>
             <button type="button" className="secondary" onClick={() => onDialog(tableMenuSpec(model, place, view))}>
               Sort menu and page size…

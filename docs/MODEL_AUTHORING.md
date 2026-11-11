@@ -481,7 +481,8 @@ whole editor, each marked by a band of its own):
 
 - reorder panels within the `main` and `side` regions, show or hide them, choose their columns and
   default sort;
-- choose a table view's columns, filters and default sort;
+- choose a table view's columns, filters, default sort and the yes/no attribute that marks a record
+  inactive (**Inactive records…**, 0.13 LB);
 - reorder and group fields;
 - choose a field's editor among those the registry declares for its value type, when there is more
   than one (a later registry extension adds variants only after two real cases, per AGENTS.md).

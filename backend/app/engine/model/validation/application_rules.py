@@ -262,6 +262,16 @@ def _check_table_view(
             f"{view_path}/config/defaultSort",
             "Table defaultSort must name one of its sortFields",
         )
+    availability = view.config.availabilityField
+    if availability is not None:
+        bound = availability in attached
+        if not bound or index.attribute_types[availability].valueType != "boolean":
+            raise ModelReferenceError(
+                "INVALID_MODEL",
+                f"{view_path}/config/availabilityField",
+                f"View '{application.key}.{view.key}' availabilityField '{availability}' is not a boolean "
+                f"attribute attached to '{view.objectTypeKey}'",
+            )
 
 
 def _check_unique_fields(fields: tuple[str, ...], view_path: str, name: str) -> None:

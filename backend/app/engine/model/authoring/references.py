@@ -134,6 +134,7 @@ def _view(path: Path, view: dict[str, Any]) -> Iterator[Slot]:
         for name in ("columns", "filterFields", "sortFields"):
             yield from _fields(path + ["config"], config, name, (source,))
         yield from _field(path + ["config"], config, "defaultSort", (source,))
+        yield from _field(path + ["config"], config, "availabilityField", (source,))
     elif kind == "mappingGrid":
         yield Slot(path + ["config"], "relationTypeKey", "relationType")
         yield Slot(path + ["config"], "fromObjectTypeKey", "objectType")

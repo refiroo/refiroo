@@ -642,6 +642,8 @@ export interface RelationMatrixPage extends PageNavigation {
   columns: RelationMatrixColumn[];
   columnsNextCursor?: string | null;
   columnsPrevCursor?: string | null;
+  /** With `hideEmptyColumns`: how many empty columns the pages leave out; absent otherwise. */
+  emptyColumnsHidden?: number | null;
 }
 
 export interface RelationMatrixPathPart {

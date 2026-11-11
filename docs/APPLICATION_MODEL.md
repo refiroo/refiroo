@@ -352,6 +352,21 @@ declared sort fields and a `pageSize` from 1 to 100. Every column sorts regardle
 the declared fields add further fields (such as ones without a column) to the list's Sort menu. A sort
 field is a built-in (`id`, `name`, `objectType`, live timestamps) or a non-JSON attribute of the type.
 
+**Inactive records (`availabilityField`, schema 0.10, 0.13 LB).** Optional: a boolean attribute attached
+to the view's object type. Like a tree's `availabilityField` it names what makes a record available,
+but a table only marks: a record whose value is exactly `false` keeps its row, its name in the
+secondary ink with a neutral "Inactive" pill (the attribute's name in lower case after "Not" when it
+is not called Active), and the toolbar offers a switch, "Hide inactive (N)", that applies the ordinary
+filter `<field> ne false` (the records whose value is not false, so a record with no value stays, as the
+table does not mark it), which the list query takes on any yes/no attribute (`docs/API.md`). N counts the
+records the list's other search and filters leave with the field `false`, exactly those the switch hides. The switch's filter is a filter pill in the address like any other, and the field need
+not be among `filterFields`. A record with no value, and a table without the field, show as before;
+values stay editable as usual, the attribute may be read-only, and a change set or publication marks
+its own values the same way. A field that is not an attribute of the type, or not boolean, is refused
+at `…/config/availabilityField`; renaming the attribute's key follows it, and removing the attribute
+or its binding takes the setting away, as for a tree. The model editor's table settings offer it as
+**Inactive records…**, among the type's boolean attributes.
+
 **Relation columns (schema 0.9, Base 0.9 K5).** A column `related:<key>` shows each row's related
 records of one relationship as record chips in name order: as many as the column's width holds, then
 "+N more" for the rest (Base 0.9 K5b). `<key>` is a

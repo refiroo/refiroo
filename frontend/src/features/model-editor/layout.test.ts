@@ -17,6 +17,7 @@ import {
   tableColumnsSpec,
   tableFiltersSpec,
   tableMenuSpec,
+  tableAvailabilitySpec,
   tableSortSpec,
 } from "@/features/model-editor/layout";
 import type { DetailViewDefinition, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
@@ -430,5 +431,41 @@ describe("the settings of a page, a table and a panel (0.13 ED)", () => {
       ],
     );
     expect(panelSettingsSpec(model, place, panel("details", "main", 10, []))).toBeUndefined();
+  });
+
+  it("offers a table the boolean attributes of its type as the one that marks a record inactive (0.13 LB)", () => {
+    const flagged = {
+      attributeTypes: [
+        { key: "code", name: "Code", valueType: "text" },
+        { key: "live", name: "Live", valueType: "boolean" },
+        { key: "stocked", name: "Stocked", valueType: "boolean" },
+      ],
+      objectTypes: [
+        {
+          key: "item",
+          attributes: ["code", "live"].map((attributeTypeKey, order) => ({ attributeTypeKey, order })),
+        },
+      ],
+    } as unknown as EngineModel;
+    const view = {
+      key: "items",
+      name: "Items",
+      type: "table",
+      objectTypeKey: "item",
+      config: { columns: ["name"], filterFields: ["name"], sortFields: ["name"], defaultSort: "name", pageSize: 50 },
+    } as TableViewDefinition;
+    const spec = tableAvailabilitySpec(flagged, place, view);
+    const field = spec.fields?.(undefined as never, undefined as never)[0] as { options: { value: string }[] };
+    expect(field.options.map((option) => option.value)).toEqual(["", "live"]);
+    const target = { applicationKey: "catalogue", view: "items" };
+    expect(spec.build({ availability: "live" }, undefined as never, undefined as never)).toEqual([
+      { kind: "setViewProperty", ...target, property: "availabilityField", value: "live" },
+    ]);
+    // Nothing changes while it stays as it is, and None takes it away.
+    expect(spec.build({ availability: "" }, undefined as never, undefined as never)).toEqual([]);
+    const set = { ...view, config: { ...view.config, availabilityField: "live" } };
+    expect(
+      tableAvailabilitySpec(flagged, place, set).build({ availability: "" }, undefined as never, undefined as never),
+    ).toEqual([{ kind: "setViewProperty", ...target, property: "availabilityField", value: null }]);
   });
 });

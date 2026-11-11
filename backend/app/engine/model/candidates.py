@@ -18,15 +18,18 @@ from .consumer_contract import split_ancestor_reference
 from .traversal import ancestor_type_keys
 
 
-def filter_operators(value_type: str, *, attribute: bool) -> set[str]:
-    """The operators a filter on a field of ``value_type`` takes; ``isUnset`` only on an attribute."""
+def filter_operators(value_type: str, *, attribute: bool, listing: bool = False) -> set[str]:
+    """The operators a filter on a field of ``value_type`` takes; ``isUnset`` only on an attribute.
+
+    ``listing`` is a list's own filter, which also takes ``ne`` on a yes/no attribute: the records
+    whose value is not the one given, a record holding none included (0.13 LB-D9)."""
     suffix = {"isUnset"} if attribute else set()
     if value_type in {"text", "longText"}:
         return {"eq", "contains", "startsWith", "isNull"} | suffix
     if value_type in {"integer", "decimal", "date", "dateTime"}:
         return {"eq", "lt", "lte", "gt", "gte", "isNull"} | suffix
     if value_type == "boolean":
-        return {"eq", "isNull"} | suffix
+        return {"eq", "isNull"} | suffix | ({"ne"} if listing and attribute else set())
     return set()
 
 

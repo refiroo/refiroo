@@ -19,7 +19,8 @@ import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { FieldValue } from "@/ui/FieldValue";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
-import { attributeName } from "@/model/fields";
+import { attributeName, fieldValue, unavailableWord } from "@/model/fields";
+import { StatusPill } from "@/ui/StatusPill";
 import { objectTypeHue } from "@/model/hues";
 import type { TableSort } from "@/ui/TableSort";
 
@@ -56,6 +57,7 @@ export function ObjectTable({
   onColumnWidths,
   renderCell,
   fill = false,
+  availabilityField,
 }: {
   compact?: boolean;
   identityColumn?: string;
@@ -90,6 +92,11 @@ export function ObjectTable({
   renderCell?: (item: ObjectItem, column: string, shown: ReactNode) => ReactNode;
   /** The table fills its page, which does not scroll (0.12 LS1, D371). */
   fill?: boolean;
+  /**
+   * A boolean field of the records (the table view's `availabilityField`, 0.13 LB): a record whose
+   * value is exactly false keeps its row, its name in the secondary ink and a neutral state pill.
+   */
+  availabilityField?: string | null;
 }) {
   const [menuId, setMenuId] = useState<string>();
   const identity = identityColumn ?? (columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0]);
@@ -98,6 +105,25 @@ export function ObjectTable({
     handlers.current = { onOpen, selection };
   });
   const columnsKey = columns.join("\n");
+  const unavailable = useCallback(
+    (item: ObjectItem) => Boolean(availabilityField) && fieldValue(item, availabilityField ?? "", model) === false,
+    [availabilityField, model],
+  );
+  const inactiveWord = availabilityField ? unavailableWord(attributeName(model, availabilityField)) : "";
+  const identityButton = useCallback(
+    (item: ObjectItem, column: string) => (
+      <button
+        className="cell-link"
+        data-record-id={item.id}
+        data-row-focus
+        aria-current={selectedId === item.id ? "true" : undefined}
+        onClick={() => handlers.current.onOpen(item)}
+      >
+        <FieldValue item={item} field={column} model={model} />
+      </button>
+    ),
+    [selectedId, model],
+  );
   const tableColumns = useMemo<DataColumn<ObjectItem>[]>(
     () =>
       (columnsKey ? columnsKey.split("\n") : []).map((column) => ({
@@ -106,22 +132,23 @@ export function ObjectTable({
         cell: (item) => {
           const shown =
             column === identity ? (
-              <button
-                className="cell-link"
-                data-record-id={item.id}
-                data-row-focus
-                aria-current={selectedId === item.id ? "true" : undefined}
-                onClick={() => handlers.current.onOpen(item)}
-              >
-                <FieldValue item={item} field={column} model={model} />
-              </button>
+              unavailable(item) ? (
+                <span className="inactive-identity">
+                  {identityButton(item, column)}
+                  <StatusPill tone="neutral" marker={false} className="inactive-pill">
+                    {inactiveWord}
+                  </StatusPill>
+                </span>
+              ) : (
+                identityButton(item, column)
+              )
             ) : (
               <FieldValue item={item} field={column} model={model} />
             );
           return renderCell ? renderCell(item, column, shown) : shown;
         },
       })),
-    [columnsKey, model, identity, selectedId, renderCell],
+    [columnsKey, model, identity, identityButton, renderCell, unavailable, inactiveWord],
   );
   const rowHue = useCallback((item: ObjectItem) => objectTypeHue(model, item.objectTypeKey), [model]);
   const isSelected = selection?.isSelected;
@@ -130,7 +157,7 @@ export function ObjectTable({
     (item: ObjectItem): HTMLAttributes<HTMLTableRowElement> => ({
       className: `clickable-row${selectedId === item.id ? " selected-record" : ""}${
         isSelected?.(item.id) ? " checked-row" : ""
-      }`,
+      }${unavailable(item) ? " inactive-record" : ""}`,
       onClick: (event) => {
         // The identity button is the keyboard path; the row is a larger pointer target.
         const target = event.target as HTMLElement;
@@ -154,7 +181,7 @@ export function ObjectTable({
           }
         : {}),
     }),
-    [selectedId, isSelected, hasActions],
+    [selectedId, isSelected, hasActions, unavailable],
   );
   const selectable = Boolean(selection);
   const loaded = selection?.loaded;

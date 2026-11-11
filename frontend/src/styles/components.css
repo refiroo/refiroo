@@ -683,6 +683,36 @@ tbody tr:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* A record the table's availability field marks false (0.13 LB): its place kept, its name quieter, a state pill. */
+.inactive-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.inactive-identity .cell-link {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.inactive-pill {
+  flex: none;
+  white-space: nowrap;
+}
+.inactive-record .cell-link {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+/* A switch beside the filters (0.13 LB): the knob and its words, one button's width. */
+.toolbar-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
 .empty-row {
   padding: 40px 16px;
   color: var(--text-tertiary);
@@ -3679,6 +3709,18 @@ form .admin-hint {
   margin: 0;
   padding: 8px 16px;
 }
+.matrix-hidden-columns {
+  margin: 0;
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.matrix-hidden-columns .ghost {
+  padding: 0;
+  min-height: 0;
+  color: var(--action-primary);
+  font-size: inherit;
+}
 .matrix-column-paging {
   display: inline-flex;
   gap: 4px;
@@ -5429,6 +5471,7 @@ form.install-dialog .dialog-actions {
   .object-toolbar .filter-pill,
   .object-toolbar .filter-pill-open,
   .object-toolbar .filter-add,
+  .object-toolbar .toolbar-switch,
   .ask-status button {
     min-height: 44px;
   }

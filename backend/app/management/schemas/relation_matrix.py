@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .common import CollectionPage
 
@@ -86,6 +86,13 @@ class RelationMatrixPage(CollectionPage[RelationMatrixRow]):
     columns: list[RelationMatrixColumn]
     columnsNextCursor: str | None = None
     columnsPrevCursor: str | None = None
+    emptyColumnsHidden: int | None = Field(
+        default=None,
+        description=(
+            "With hideEmptyColumns and no columnIds: how many column records have no related record in "
+            "any row the search and parent scope leave, and so are not in the column pages. Absent otherwise."
+        ),
+    )
 
 
 class RelationMatrixPathPart(BaseModel):

@@ -234,6 +234,7 @@ def relation_matrix_page(
     column_cursor: str | None,
     column_page_size: int,
     state: str | None,
+    hide_empty_columns: bool = False,
 ) -> RelationMatrixPage:
     if column_ids is not None and column_cursor is not None:
         raise api_error(
@@ -250,12 +251,19 @@ def relation_matrix_page(
             {"path": "/query/columnIds"},
         )
     _validate_parent_scope(read, parent_object_id)
+    empty_hidden: int | None = None
     if column_ids:
         columns = _named_columns(read, column_ids)
         column_page: Page[Any] | None = None
     else:
-        column_page = _column_page(read, column_cursor, column_page_size)
+        # Columns with no cell under any row the search and parent scope leave are left out of the column
+        # pages themselves, so every page is full and its cursors are exact (0.13 LB-D8); naming
+        # columns wins over it.
+        nonempty = _non_empty_columns(read, parent_object_id, search) if hide_empty_columns else None
+        column_page = _column_page(read, column_cursor, column_page_size, nonempty, (parent_object_id, search))
         columns = column_page.items
+        if nonempty is not None:
+            empty_hidden = _empty_column_count(read, nonempty)
     selected = [_record_id(item) for item in columns]
 
     id_filter = _state_filter(read, selected, state) if state is not None else None
@@ -310,6 +318,7 @@ def relation_matrix_page(
         ],
         columnsNextCursor=column_page.next_cursor if column_page else None,
         columnsPrevCursor=column_page.prev_cursor if column_page else None,
+        emptyColumnsHidden=empty_hidden,
     )
 
 
@@ -396,7 +405,7 @@ def _named_columns(read: MatrixRead, column_ids: Sequence[str]) -> list[Any]:
     return [found[key] for key in column_ids]
 
 
-def _column_page(read: MatrixRead, cursor: str | None, page_size: int) -> Page[Any]:
+def _column_query(read: MatrixRead, id_filter: Callable[[Any], Any] | None = None) -> Any:
     options = {
         "object_type_key": read.config.columnObjectTypeKey,
         "application_key": None,
@@ -404,23 +413,73 @@ def _column_page(read: MatrixRead, cursor: str | None, page_size: int) -> Page[A
         "search": None,
         "sort": "name",
         "field_filters": [],
+        "id_filter": id_filter,
     }
     if read.context is None:
-        query = build_object_query(read.model, workspace_key=read.workspace_key, **options)
-    else:
-        query = build_snapshot_object_query(read.model, read.context, **options)
+        return build_object_query(read.model, workspace_key=read.workspace_key, **options)
+    return build_snapshot_object_query(read.model, read.context, **options)
+
+
+def _column_page(
+    read: MatrixRead,
+    cursor: str | None,
+    page_size: int,
+    nonempty: Select[Any] | None = None,
+    scope: tuple[str | None, str | None] = (None, None),
+) -> Page[Any]:
+    query = _column_query(read, (lambda key: key.in_(nonempty)) if nonempty is not None else None)
+    filters = read.filters()
+    if nonempty is not None:
+        # What is empty depends on the rows the scope leaves, so a cursor belongs to that scope.
+        filters = {**filters, "hideEmptyColumns": list(scope)}
     return paginate_statement(
         read.session,
         query.statement,
         keys=query.keys,
         scope="relation-matrix-columns",
-        filters=read.filters(),
+        filters=filters,
         page=PageRequest(cursor=cursor),
         page_size=page_size,
         message="Relation matrix column cursor is invalid",
         rows=read.context is not None,
         overlay=query.overlay,
     )
+
+
+def _non_empty_columns(read: MatrixRead, parent_object_id: str | None, search: str | None) -> Select[Any]:
+    """The column records with a cell record under them in some row the search and parent scope
+    leave, one aggregate statement over every such row: the binding's relations walked up to their
+    column records, as a cell's own read does."""
+    cells = cell_columns(read, cell_records(read, None, rows_of_type=True))
+    statement = select(cells.c.column_id).distinct()
+    if parent_object_id is not None or search:
+        options = {
+            "object_type_key": read.config.rowObjectTypeKey,
+            "application_key": None,
+            "parent_object_id": parent_object_id,
+            "search": search,
+            "sort": None,
+            "field_filters": [],
+            "search_fields": read.config.searchFields,
+        }
+        if read.context is None:
+            rows = build_object_query(
+                read.model, workspace_key=read.workspace_key, session=read.session, **options
+            )
+            ids = rows.statement.order_by(None).subquery().c.id
+        else:
+            rows = build_snapshot_object_query(read.model, read.context, session=read.session, **options)
+            ids = rows.statement.order_by(None).subquery().c.object_id
+        statement = statement.where(cells.c.row_id.in_(select(ids)))
+    return statement
+
+
+def _empty_column_count(read: MatrixRead, nonempty: Select[Any]) -> int:
+    """How many column records the context holds that ``nonempty`` leaves out."""
+    column = _column_query(read, lambda key: ~key.in_(nonempty))
+    return read.session.scalar(
+        select(func.count()).select_from(column.statement.order_by(None).subquery())
+    ) or 0
 
 
 def _field_values(

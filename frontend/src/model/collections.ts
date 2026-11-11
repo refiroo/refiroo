@@ -1,3 +1,4 @@
+import { objectTypeFor } from "@/model/lookup";
 import { childObjectTypeKeys } from "@/model/placements";
 import type {
   ApplicationDefinition,
@@ -87,6 +88,43 @@ export function navigationSections(application: ApplicationDefinition): {
     ),
   );
   return { ungrouped: collections.filter((item) => !grouped.has(item.objectTypeKey)), groups };
+}
+
+/** What the sidebar calls an entry: a collection's plural name, a matrix's view name. */
+export function entryLabel(model: EngineModel, entry: NavigationEntry): string {
+  return entry.kind === "collection"
+    ? (objectTypeFor(model, entry.collection.objectTypeKey)?.pluralName ?? entry.collection.objectTypeKey)
+    : entry.view.name;
+}
+
+/** The sidebar's entries as one list, in the order it shows them: those in no group, then each group's. */
+export function navigationEntries(sections: ReturnType<typeof navigationSections>): NavigationEntry[] {
+  return [
+    ...sections.ungrouped.map((collection): NavigationEntry => ({ kind: "collection", collection })),
+    ...sections.groups.flatMap((section) => section.entries),
+  ];
+}
+
+/**
+ * The sidebar narrowed to the entries whose label contains `text` (case-insensitive), in every group
+ * and among the ungrouped; a group without a match is left out (0.13 LB). `matches` counts the
+ * entries kept.
+ */
+export function narrowNavigation(
+  model: EngineModel,
+  sections: ReturnType<typeof navigationSections>,
+  text: string,
+): { sections: ReturnType<typeof navigationSections>; matches: number } {
+  const needle = text.trim().toLowerCase();
+  const matching = (entry: NavigationEntry) => entryLabel(model, entry).toLowerCase().includes(needle);
+  const groups = sections.groups
+    .map((section) => ({ ...section, entries: section.entries.filter(matching) }))
+    .filter((section) => section.entries.length > 0);
+  const ungrouped = sections.ungrouped.filter((collection) => matching({ kind: "collection", collection }));
+  return {
+    sections: { ungrouped, groups },
+    matches: ungrouped.length + groups.reduce((total, section) => total + section.entries.length, 0),
+  };
 }
 
 /** The relation matrices placed in a group of the application, by view key. */

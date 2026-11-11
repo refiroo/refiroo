@@ -383,6 +383,65 @@ def test_default_columns_page_by_name_with_their_own_cursor(client, translations
     assert error["code"] == "INVALID_CURSOR"
 
 
+def test_hide_empty_columns_skips_columns_no_matching_row_relates_and_keeps_paging_exact(client, translations):
+    """0.13 LB-D8: a column with no cell under any row the search and parent scope leave is left out
+    of the column pages themselves, so each page is full and its cursors exact; the count of what
+    was left out is stated; named columns win; a change set and a publication read their own values."""
+    everything = matrix(client, TRANSLATIONS)
+    assert [column["name"] for column in everything["columns"]] == ["Language cs", "Language de", "Language en"]
+    assert everything["emptyColumnsHidden"] is None
+
+    # Live: German's only translation was deleted, so its column is empty.
+    hidden = matrix(client, TRANSLATIONS, hideEmptyColumns=True)
+    assert [column["name"] for column in hidden["columns"]] == ["Language cs", "Language en"]
+    assert hidden["emptyColumnsHidden"] == 1
+    assert cells(hidden)["M1"] == {"Language cs": ("inactive", ["M1 cs"]), "Language en": ("one", ["M1 en"])}
+
+    # Paging over what is left stays exact: one column a page, no page for the hidden one.
+    first = matrix(client, TRANSLATIONS, hideEmptyColumns=True, columnPageSize=1)
+    assert [column["name"] for column in first["columns"]] == ["Language cs"]
+    second = matrix(
+        client, TRANSLATIONS, hideEmptyColumns=True, columnPageSize=1, columnCursor=first["columnsNextCursor"]
+    )
+    assert [column["name"] for column in second["columns"]] == ["Language en"]
+    assert second["columnsNextCursor"] is None
+    back = matrix(
+        client, TRANSLATIONS, hideEmptyColumns=True, columnPageSize=1, columnCursor=second["columnsPrevCursor"]
+    )
+    assert [column["name"] for column in back["columns"]] == ["Language cs"]
+    # A cursor is the scope's: it does not carry to a read that shows every column.
+    assert (
+        matrix(client, TRANSLATIONS, 422, columnPageSize=1, columnCursor=first["columnsNextCursor"])["code"]
+        == "INVALID_CURSOR"
+    )
+
+    # Empty is decided over every matching row, not the rows on screen: a search leaves fewer rows.
+    only_m2 = matrix(client, TRANSLATIONS, hideEmptyColumns=True, search="M2", pageSize=1)
+    assert [column["name"] for column in only_m2["columns"]] == ["Language en"]
+    assert only_m2["emptyColumnsHidden"] == 2
+    none_left = matrix(client, TRANSLATIONS, hideEmptyColumns=True, search="M4")
+    assert (none_left["columns"], none_left["emptyColumnsHidden"]) == ([], 3)
+    # A row beyond the first page still keeps its column.
+    paged = matrix(client, TRANSLATIONS, hideEmptyColumns=True, pageSize=1, search="M1")
+    assert [column["name"] for column in paged["columns"]] == ["Language cs", "Language en"]
+
+    # Named columns win; the toggle has no effect and nothing is counted.
+    named = matrix(client, TRANSLATIONS, hideEmptyColumns=True, columnIds=translations["columns"])
+    assert len(named["columns"]) == 3
+    assert named["emptyColumnsHidden"] is None
+
+    # A change set reads its own values; so does a publication (German held a translation then).
+    staged = matrix(
+        client, TRANSLATIONS, hideEmptyColumns=True, changeSetId=translations["change_set"]["id"]
+    )
+    assert [column["name"] for column in staged["columns"]] == ["Language cs", "Language en"]
+    published = matrix(
+        client, TRANSLATIONS, hideEmptyColumns=True, publicationId=translations["publication"]["id"]
+    )
+    assert [column["name"] for column in published["columns"]] == ["Language cs", "Language de", "Language en"]
+    assert published["emptyColumnsHidden"] == 0
+
+
 def test_rows_scope_search_sort_and_set_versions(client, translations):
     codelist, domain = translations["codelist"], translations["domain"]
     assert names(matrix(client, TRANSLATIONS, parentObjectId=codelist["id"])) == ["M1", "M2", "M3", "M4"]

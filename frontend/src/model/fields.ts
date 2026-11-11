@@ -16,6 +16,14 @@ import {
   relatedFieldLabel,
 } from "@/model/lookup";
 
+/**
+ * What a record whose availability field is false is called (0.13 LB): "Inactive" for an attribute
+ * named Active, else "Not" and the attribute's name in lower case, as the tree says it.
+ */
+export function unavailableWord(attributeName: string): string {
+  return attributeName.trim().toLowerCase() === "active" ? "Inactive" : `Not ${attributeName.toLowerCase()}`;
+}
+
 export function attributeName(model: EngineModel, key: string): string {
   // A relationship's attribute in a relationships grid's filters (0.13 RG).
   if (key.startsWith("relation:")) return attributeName(model, key.slice("relation:".length));

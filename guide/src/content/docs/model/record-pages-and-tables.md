@@ -156,6 +156,34 @@ Follow [Choose table columns, filters and sort](/docs/guide/model/choose-table-c
 **The draft declares no table view** means there is no table to arrange here. Add one through
 the application’s **Add a view…**; see [Add a view](/docs/guide/model/add-a-view/).
 
+## Mark inactive records in a table
+
+In the **Table** layout, **Inactive records…** sits beside **Filters…** and
+**Sort menu and page size…**. It lets this view use one of its record type's Yes/No fields
+to mark records whose value is **No**. The choice **A record is inactive when this is No**
+offers **None** and the type's Yes/No fields. **None** leaves the table without an inactive
+mark or switch. A field of another type, or one that is not Yes/No, is invalid for this
+setting; the editor offers only eligible fields.
+
+With a field selected, a record with **No** keeps its row and order. Its name is quieter,
+with a grey **Inactive** pill when the field is called Active, or **Not** followed by the
+field's name in lower case for another name. A missing value is not marked. The setting
+neither changes stored values nor grants editing rights; a read-only field may be used.
+It applies to this table view, rather than every table or panel listing the type.
+
+Readers see inactive records by default and can use **Hide inactive (N)** beside **Filter**.
+The switch hides exactly the marked records through a filter pill, such as **Active: not No**,
+that stays in the page address. Records with no value stay visible. It works even when the
+chosen field is not offered in **Filters…**. Its count is the number with **No** after the
+list's search and other filters, including **0** when none match. Choosing **Yes** in the
+ordinary **＋ Filter** menu instead excludes records with no value; the switch does not use
+that condition. The mark and switch use the values of the current Live, change-set or
+publication context; publication data remains read-only.
+
+Follow [Choose table columns, filters and sort](/docs/guide/model/choose-table-columns-filters-and-sort/#choose-how-the-table-marks-inactive-records)
+to set the field. See [Lists, search and filters](/docs/use/lists-and-filters/#show-or-hide-inactive-records)
+for the reader's controls.
+
 ## Preview and validation
 
 **Preview** draws draft definitions over live records from a chosen workspace, without changing

@@ -660,6 +660,39 @@ export function tableFiltersSpec(model: EngineModel, place: LayoutPlace, view: T
   );
 }
 
+/**
+ * A table's availability field (0.13 LB): optionally one boolean attribute of the type. A record with
+ * it set to No stays in its place, marked Inactive, and the toolbar gains a switch that hides them.
+ */
+export function tableAvailabilitySpec(
+  model: EngineModel,
+  place: LayoutPlace,
+  view: TableViewDefinition,
+): OperationSpec {
+  const booleans = (model.objectTypes.find((item) => item.key === view.objectTypeKey)?.attributes ?? [])
+    .map((item) => item.attributeTypeKey)
+    .filter((key) => model.attributeTypes.find((item) => item.key === key)?.valueType === "boolean");
+  const current = view.config.availabilityField ?? "";
+  return spec(
+    "layout-table-availability",
+    `Inactive records of ${view.name}`,
+    [
+      {
+        name: "availability",
+        label: "A record is inactive when this is No",
+        type: "select",
+        options: [{ value: "", label: "None" }, ...options(model, booleans)],
+        hint: "Inactive records keep their place with an Inactive mark, and the table offers a switch that hides them. Values stay editable as usual.",
+      },
+    ],
+    { availability: current },
+    (values) =>
+      changed(viewTarget(place, view), [
+        { property: "availabilityField", now: current || null, next: text(values.availability) || null },
+      ]),
+  );
+}
+
 /** The default sort, among the view's sort fields; a field not yet sortable joins them first. */
 export function tableSortSpec(model: EngineModel, place: LayoutPlace, view: TableViewDefinition): OperationSpec {
   return spec(

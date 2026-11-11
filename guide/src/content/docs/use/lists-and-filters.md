@@ -41,6 +41,32 @@ count. An empty result says **No results match these filters**; clear or loosen 
 An empty collection instead says there are no records in this workspace yet. A failed read
 is an error: retry it before concluding that nothing matches.
 
+## Show or hide inactive records
+
+A table can use a Yes/No field to mark inactive records. When the model chooses **Active**,
+a record with **No** keeps its place in the list, with its name in a quieter colour and a grey
+**Inactive** pill after it. If the field has another name, the pill says **Not** followed by
+that name in lower case. Only **No** gets this mark; a missing value does not.
+
+These records are shown by default. Beside **Filter**, **Hide inactive (N)** lets you narrow
+the list by hiding exactly those marked records. Records with no value stay visible.
+For another field name, the switch says **Hide not** followed by that name. The number counts records with **No** in this list after its search and other
+filters; it is not the total for the workspace. The number is shown even when it is **0**.
+The label can appear without a number while the count is loading or if that count cannot be read.
+
+Turn on the switch to add a filter pill, such as **Active: not No**. The filter stays
+in the page address, like your other conditions. Turn the switch off, or remove the pill
+with **×**, to stop applying it. Choosing **Yes** for the same field in the ordinary
+**＋ Filter** menu is different: that keeps only records with **Yes**, excluding records
+with no value. The switch does not use that condition. If a record seems missing, check
+its filter pill along with your other filters.
+
+The mark does not change editing permissions. Where you may edit, change the value in its
+cell or on the record as usual. A change set or publication uses its own values for the same
+mark and switch; a publication remains read-only. A table without this model setting has
+neither the mark nor the switch. See [Records](/docs/use/records/#edit-a-value-or-create-a-record)
+for editing and [Find records](/docs/guide/use/find-records/) for narrowing a list.
+
 ## Sort and show columns
 
 There is one sort at a time. Choose it from the sort menu or a sortable heading, then choose

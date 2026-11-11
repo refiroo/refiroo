@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
-import type { ChangeSet, Publication } from "@/types";
+import type { ChangeSet, ObjectItem, Publication } from "@/types";
 
 /** A list's cells edited in place say where a save went in a toast (0.10 A9), as the app's provider shows it. */
 const render: typeof renderBase = ((ui: Parameters<typeof renderBase>[0], options?: Parameters<typeof renderBase>[1]) =>
@@ -611,5 +611,93 @@ describe("selecting records in a collection (0.9 K1)", () => {
     rerender({ ...query, sort: "-name", filters: [{ field: "code", operator: "startsWith", value: "A" }] });
     expect(await screen.findByRole("checkbox", { name: "Select Alpha" })).not.toBeChecked();
     expect(screen.queryByRole("group", { name: "Selection" })).not.toBeInTheDocument();
+  });
+});
+
+describe("A table with an availability field (0.13 LB)", () => {
+  const withField = (field?: string) => {
+    const application = structuredClone(testModel.applications[0]);
+    const view = application.views[0];
+    if (view.type !== "table") throw new Error("Expected table fixture");
+    if (field) view.config.availabilityField = field;
+    return { application, view };
+  };
+  const asRecord = (id: string, name: string, active: boolean): ObjectItem => ({
+    ...domainObject,
+    id,
+    name,
+    attributes: domainObject.attributes.map((value) =>
+      value.attributeTypeKey === "active" ? { ...value, value: active } : value,
+    ),
+  });
+  // Delta holds no value at all: it is not marked, and the switch does not hide it.
+  const unset: ObjectItem = {
+    ...asRecord("d", "Delta", true),
+    attributes: domainObject.attributes.filter((value) => value.attributeTypeKey !== "active"),
+  };
+  const rows = [asRecord("a", "Alpha", true), asRecord("b", "Bravo", false), asRecord("c", "Charlie", true), unset];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.system).mockResolvedValue({
+      ai: { configured: false, provider: null, sendLevel: "values" },
+    } as never);
+    vi.mocked(api.objects).mockImplementation(async (_type, query) => {
+      const hidden = query.filters?.some(
+        (filter) => filter.field === "active" && filter.operator === "ne" && filter.value === "false",
+      );
+      const falseOnly = query.filters?.some((filter) => filter.operator === "eq" && filter.value === "false");
+      const items = rows.filter((row) => (hidden ? row.name !== "Bravo" : falseOnly ? row.name === "Bravo" : true));
+      return { items, nextCursor: null, totalCount: items.length };
+    });
+  });
+
+  function Host({ field }: { field?: string }) {
+    const { application, view } = withField(field);
+    const [query, setQuery] = useState<CollectionQueryState>({ search: "", sort: "name", pageSize: 20, filters: [] });
+    return (
+      <>
+        <CollectionView
+          model={testModel}
+          application={application}
+          view={view}
+          workspaceKey="west"
+          query={query}
+          onQueryChange={setQuery}
+          onOpen={vi.fn()}
+        />
+        <output data-testid="filters">{JSON.stringify(query.filters)}</output>
+      </>
+    );
+  }
+
+  it("marks a record whose value is false, counts them, and hides them with an ordinary filter", async () => {
+    render(<Host field="active" />);
+    const bravo = await screen.findByRole("button", { name: "Bravo" });
+    // Its row keeps its place; the pill names the state in words ("Active" is the field, so "Inactive").
+    expect(bravo.closest("tr")).toHaveTextContent("Inactive");
+    expect(screen.getByRole("button", { name: "Alpha" }).closest("tr")).not.toHaveTextContent("Inactive");
+    expect(screen.getAllByText("Inactive")).toHaveLength(1);
+
+    const hide = await screen.findByRole("switch", { name: "Hide inactive (1)" });
+    expect(hide).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(hide);
+    expect(screen.getByTestId("filters")).toHaveTextContent('[{"field":"active","operator":"ne","value":"false"}]');
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Bravo" })).not.toBeInTheDocument());
+    // A record with no value stays, unmarked: the switch hides exactly the ones the table marks.
+    expect(screen.getByRole("button", { name: "Delta" }).closest("tr")).not.toHaveTextContent("Inactive");
+    // The filter is a pill like any other, and turning the switch off removes it.
+    expect(screen.getByRole("button", { name: "Active: not No. Change this filter" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /Hide inactive/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("switch", { name: /Hide inactive/ }));
+    expect(screen.getByTestId("filters")).toHaveTextContent("[]");
+    expect(await screen.findByRole("button", { name: "Bravo" })).toBeInTheDocument();
+  });
+
+  it("leaves a table without the setting as it is", async () => {
+    render(<Host />);
+    await screen.findByRole("button", { name: "Bravo" });
+    expect(screen.queryByText("Inactive")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 });

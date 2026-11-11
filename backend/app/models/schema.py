@@ -178,6 +178,9 @@ class TableViewConfig(ModelDefinition):
     sortFields: tuple[str, ...] = Field(min_length=1)
     defaultSort: str
     pageSize: int = Field(ge=1, le=100)
+    # A boolean attribute of the view's type; a record whose value is false is shown as inactive (0.13
+    # LB). Left out when absent, so a model that does not use it keeps its content hash.
+    availabilityField: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class TableViewDefinition(ModelDefinition):

@@ -66,6 +66,23 @@ the view and opening the matrix, while its row type's entry stays; and a collect
 the model names for it instead of the application's default. The model editor opens a group as a panel
 with its entries, adds several at once, orders and moves them.
 
+When an application has more than ten collections and matrices, the sidebar offers **Find a list**
+above them: typing narrows the entries, across every group and those in no group, to the names that
+contain the words, with the match in bold and a count of how many of the lists match. A group with a
+match opens and shows only its matches, a group without one is hidden, **Enter** opens the first
+match and **Esc** clears the box, which returns each group to the reader's own fold. **Find a record**
+below it is unchanged.
+
+A table whose view names a yes/no attribute as its availability field marks the records where it is
+No: they keep their place, their name quieter with an **Inactive** pill, and **Hide inactive (N)**
+beside the filters hides them with an ordinary filter that is kept in the address. The model editor
+sets the field under **Inactive records…** in a table's settings.
+
+A relation matrix has **Hide empty columns** beside Filter, off by default and remembered per view in this
+browser: it leaves out the columns that have no related record in any row the search and scope leave (not
+just the rows on screen), says "N empty columns hidden · Show all", and has no effect while columns are
+chosen in Filter.
+
 Limits: dedicated form and dashboard views do not exist; structured model design is 0.10; groups
 have one level and their page shows no record counts.
 

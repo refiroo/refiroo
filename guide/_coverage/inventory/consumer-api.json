@@ -5,7 +5,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/objects/{object_id}"
   ],
-  "source": "backend/app/consumer/router.py:281",
+  "source": "backend/app/consumer/router.py:318",
   "section": "integrate",
   "generic": true
  },
@@ -15,7 +15,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/lists/{list_key}"
   ],
-  "source": "backend/app/consumer/router.py:314",
+  "source": "backend/app/consumer/router.py:351",
   "section": "integrate",
   "generic": true
  },
@@ -25,7 +25,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/xref"
   ],
-  "source": "backend/app/consumer/router.py:361",
+  "source": "backend/app/consumer/router.py:398",
   "section": "integrate",
   "generic": true
  },
@@ -35,7 +35,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/resolve"
   ],
-  "source": "backend/app/consumer/router.py:406",
+  "source": "backend/app/consumer/router.py:443",
   "section": "integrate",
   "generic": true
  },
@@ -45,7 +45,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/publications"
   ],
-  "source": "backend/app/consumer/router.py:446",
+  "source": "backend/app/consumer/router.py:483",
   "section": "integrate",
   "generic": true
  },
@@ -55,7 +55,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/events"
   ],
-  "source": "backend/app/consumer/router.py:479",
+  "source": "backend/app/consumer/router.py:516",
   "section": "integrate",
   "generic": true
  },
@@ -65,7 +65,7 @@
   "labels": [
    "/api/consumer"
   ],
-  "source": "backend/app/consumer/router.py:636",
+  "source": "backend/app/consumer/router.py:686",
   "section": "integrate",
   "generic": true
  },
@@ -75,7 +75,7 @@
   "labels": [
    "/api/consumer/{consumer_api}/v{contract_version}/openapi.json"
   ],
-  "source": "backend/app/consumer/router.py:688",
+  "source": "backend/app/consumer/router.py:745",
   "section": "integrate",
   "generic": true
  },

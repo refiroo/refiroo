@@ -334,6 +334,7 @@ export function ObjectCollectionView({
           applicationKey={application.key}
           noun={[objectType.name, objectType.pluralName]}
           countDraft={countDraft}
+          refreshToken={refreshToken}
         />
         {bulkSelection && (
           <>
@@ -401,6 +402,7 @@ export function ObjectCollectionView({
             renderActions={renderActions}
             renderCell={cells.renderCell}
             fill={fill}
+            availabilityField={view.config.availabilityField}
             label={`${view.name} table`}
             emptyIcon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
             emptyMessage={

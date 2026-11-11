@@ -17,8 +17,14 @@ For the connected records you inspect, see [Relationships](/docs/use/relationshi
    its card. The application opens with that workspace selected.
 2. Check **Workspace** in the sidebar. If it names a different workspace, select the intended
    one before searching: a record with the same name elsewhere may hold different data.
-3. Choose the collection you need under **Collections**. Its heading identifies the list.
-   The available collections and their labels depend on your workspace's model.
+3. Choose the collection you need under **Collections**. In an application with more than
+   ten sidebar entries, type part of its name in **Find a list** to narrow the entries across
+   all groups. Choose a result, or press **Enter** to open the first match. **Esc** clears
+   the box and restores the groups' previous folds. If **No list matches** appears, shorten
+   or clear the text. This finds list names, not records; see
+   [Applications](/docs/use/applications/#find-a-list-in-the-sidebar) for the sidebar's counts
+   and groups. The collection's heading identifies the list. Available collections and their
+   labels depend on your workspace's model.
 4. Choose **Live** at the top to search current data. Check the green **Live** banner. To
    inspect proposed or previously published data, open that change set or publication instead;
    check the context before interpreting the results.
@@ -61,6 +67,15 @@ The number and operator columns help distinguish similar names.*
 5. Check the results and the total at the bottom. Remove an unwanted filter with its pill's
    **×**. **Clear search and filters** clears both when search and filters are active. If no records match, remove
    conditions one at a time to find which one excludes the record.
+
+If the table offers **Hide inactive (N)** beside **Filter**, turn it on to hide the records
+marked **Inactive**, whose chosen Yes/No field is **No**. Check the added pill, such as
+**Active: not No**. Records with no value have no mark and stay visible. To bring back the
+hidden records, turn the switch off or remove the pill with **×**. Choosing **Yes** in
+**＋ Filter** instead keeps only Yes records and excludes those with no value. Other field
+names change the mark and switch wording. See
+[Show or hide inactive records](/docs/use/lists-and-filters/#show-or-hide-inactive-records)
+for the count and rules.
 
 ![The filter menu listing fields and relationships](/docs/screens/stops-filter-menu.png)
 

@@ -168,7 +168,11 @@ export function pillText(
     const word = entry.operator === "isNull" ? (negated ? "has a value" : "is empty") : negated ? "is set" : "not set";
     return { label: spec.label, value: word };
   }
-  if (spec.kind === "boolean") return { label: spec.label, value: entry.value === "true" ? "Yes" : "No" };
+  if (spec.kind === "boolean") {
+    const word = entry.value === "true" ? "Yes" : "No";
+    // `ne`: not the value, a record holding none included (the table's Hide inactive, 0.13 LB-D9).
+    return { label: spec.label, value: entry.operator === "ne" ? `not ${word}` : word };
+  }
   return { label: `${spec.label} ${conditionWord(spec.kind, entry.operator)}`, value: entry.value };
 }
 

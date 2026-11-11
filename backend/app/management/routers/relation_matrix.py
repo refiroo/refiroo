@@ -74,6 +74,14 @@ def get_relation_matrix(
         description="Only rows with a cell in this state in any of columnIds, across every row",
     ),
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
+    hide_empty_columns: bool = Query(
+        default=False,
+        alias="hideEmptyColumns",
+        description=(
+            "Skip columns with no related record in any row the search and parentObjectId leave; "
+            "column paging stays exact. Ignored when columnIds names the columns"
+        ),
+    ),
 ) -> RelationMatrixPage:
     if change_set_id and publication_id:
         raise api_error(
@@ -95,6 +103,7 @@ def get_relation_matrix(
         column_cursor=column_cursor,
         column_page_size=column_page_size,
         state=state,
+        hide_empty_columns=hide_empty_columns,
     )
 
 

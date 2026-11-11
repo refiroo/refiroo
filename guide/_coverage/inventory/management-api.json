@@ -8,7 +8,8 @@
   "source": "backend/app/main.py:586",
   "section": "run",
   "operationId": "health_health_get",
-  "summary": "Health"
+  "summary": "Health",
+  "writtenSummary": false
  },
  {
   "kind": "management-api",
@@ -19,7 +20,8 @@
   "source": "backend/app/main.py:600",
   "section": "run",
   "operationId": "live_health_live_get",
-  "summary": "Live"
+  "summary": "Live",
+  "writtenSummary": false
  },
  {
   "kind": "management-api",
@@ -31,6 +33,7 @@
   "section": "integrate",
   "operationId": "server_metadata__well_known_oauth_authorization_server_get",
   "summary": "Server Metadata",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -45,6 +48,7 @@
   "section": "integrate",
   "operationId": "protected_resource__well_known_oauth_protected_resource_get",
   "summary": "Protected Resource",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -59,6 +63,7 @@
   "section": "integrate",
   "operationId": "protected_resource_of_mcp__well_known_oauth_protected_resource_mcp_get",
   "summary": "Protected Resource Of Mcp",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -73,6 +78,7 @@
   "section": "integrate",
   "operationId": "json_web_keys_oauth_jwks_get",
   "summary": "Json Web Keys",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -87,6 +93,7 @@
   "section": "integrate",
   "operationId": "register_assistant_oauth_register_post",
   "summary": "Register Assistant",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -101,6 +108,7 @@
   "section": "integrate",
   "operationId": "token_oauth_token_post",
   "summary": "Token",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -115,6 +123,7 @@
   "section": "integrate",
   "operationId": "revoke_oauth_revoke_post",
   "summary": "Revoke",
+  "writtenSummary": false,
   "tags": [
    "oauth"
   ]
@@ -129,6 +138,7 @@
   "section": "administer",
   "operationId": "get_me_api_v1_me_get",
   "summary": "Get Me",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -143,6 +153,7 @@
   "section": "administer",
   "operationId": "list_my_sessions_api_v1_me_sessions_get",
   "summary": "List My Sessions",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -157,6 +168,7 @@
   "section": "administer",
   "operationId": "delete_my_sessions_api_v1_me_sessions_delete",
   "summary": "Delete My Sessions",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -171,6 +183,7 @@
   "section": "administer",
   "operationId": "delete_my_session_api_v1_me_sessions__session_id__delete",
   "summary": "Delete My Session",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -185,6 +198,7 @@
   "section": "administer",
   "operationId": "post_my_password_api_v1_me_password_post",
   "summary": "Post My Password",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -199,6 +213,7 @@
   "section": "administer",
   "operationId": "get_my_second_factor_api_v1_me_second_factor_get",
   "summary": "Get My Second Factor",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -213,6 +228,7 @@
   "section": "administer",
   "operationId": "post_my_second_factor_api_v1_me_second_factor_post",
   "summary": "Post My Second Factor",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -227,6 +243,7 @@
   "section": "administer",
   "operationId": "delete_my_second_factor_api_v1_me_second_factor_delete",
   "summary": "Delete My Second Factor",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -241,6 +258,7 @@
   "section": "administer",
   "operationId": "post_my_second_factor_confirmation_api_v1_me_second_factor_confirmation_post",
   "summary": "Post My Second Factor Confirmation",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -255,6 +273,7 @@
   "section": "administer",
   "operationId": "post_my_recovery_codes_api_v1_me_second_factor_recovery_codes_post",
   "summary": "Post My Recovery Codes",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -269,6 +288,7 @@
   "section": "administer",
   "operationId": "list_my_passkeys_api_v1_me_passkeys_get",
   "summary": "List My Passkeys",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -283,6 +303,7 @@
   "section": "administer",
   "operationId": "patch_my_passkey_api_v1_me_passkeys__passkey_id__patch",
   "summary": "Patch My Passkey",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -297,6 +318,7 @@
   "section": "administer",
   "operationId": "delete_my_passkey_api_v1_me_passkeys__passkey_id__delete",
   "summary": "Delete My Passkey",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -311,6 +333,7 @@
   "section": "administer",
   "operationId": "list_user_passkeys_api_v1_users__user_id__passkeys_get",
   "summary": "List User Passkeys",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -325,6 +348,7 @@
   "section": "administer",
   "operationId": "delete_user_passkey_api_v1_users__user_id__passkeys__passkey_id__delete",
   "summary": "Delete User Passkey",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -339,6 +363,7 @@
   "section": "administer",
   "operationId": "list_users_api_v1_users_get",
   "summary": "List Users",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -353,6 +378,7 @@
   "section": "administer",
   "operationId": "post_user_api_v1_users_post",
   "summary": "Post User",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -367,6 +393,7 @@
   "section": "administer",
   "operationId": "get_user_api_v1_users__user_id__get",
   "summary": "Get User",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -381,6 +408,7 @@
   "section": "administer",
   "operationId": "patch_user_api_v1_users__user_id__patch",
   "summary": "Patch User",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -395,6 +423,7 @@
   "section": "administer",
   "operationId": "post_password_reset_api_v1_users__user_id__password_reset_post",
   "summary": "Post Password Reset",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -409,6 +438,7 @@
   "section": "administer",
   "operationId": "post_user_identities_api_v1_users__user_id__identities_post",
   "summary": "Post User Identities",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -423,6 +453,7 @@
   "section": "administer",
   "operationId": "delete_user_identity_api_v1_users__user_id__identities__provider__delete",
   "summary": "Delete User Identity",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -437,6 +468,7 @@
   "section": "administer",
   "operationId": "delete_user_second_factor_api_v1_users__user_id__second_factor_delete",
   "summary": "Delete User Second Factor",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -451,6 +483,7 @@
   "section": "administer",
   "operationId": "delete_user_sessions_api_v1_users__user_id__sessions_delete",
   "summary": "Delete User Sessions",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -465,6 +498,7 @@
   "section": "administer",
   "operationId": "list_clients_api_v1_clients_get",
   "summary": "List Clients",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -479,6 +513,7 @@
   "section": "administer",
   "operationId": "post_client_api_v1_clients_post",
   "summary": "Post Client",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -493,6 +528,7 @@
   "section": "administer",
   "operationId": "get_client_api_v1_clients__client_id__get",
   "summary": "Get Client",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -507,6 +543,7 @@
   "section": "administer",
   "operationId": "patch_client_api_v1_clients__client_id__patch",
   "summary": "Patch Client",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -521,6 +558,7 @@
   "section": "administer",
   "operationId": "post_client_secret_api_v1_clients__client_id__secrets_post",
   "summary": "Post Client Secret",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -535,6 +573,7 @@
   "section": "administer",
   "operationId": "delete_client_secret_api_v1_clients__client_id__secrets__secret_id__delete",
   "summary": "Delete Client Secret",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -549,6 +588,7 @@
   "section": "administer",
   "operationId": "list_signing_keys_api_v1_token_signing_keys_get",
   "summary": "List Signing Keys",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -563,6 +603,7 @@
   "section": "administer",
   "operationId": "rotate_signing_key_api_v1_token_signing_keys_rotation_post",
   "summary": "Rotate Signing Key",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -577,6 +618,7 @@
   "section": "administer",
   "operationId": "list_security_events_api_v1_security_events_get",
   "summary": "List Security Events",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -591,6 +633,7 @@
   "section": "administer",
   "operationId": "list_sign_in_providers_api_v1_sign_in_providers_get",
   "summary": "List Sign In Providers",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -605,6 +648,7 @@
   "section": "administer",
   "operationId": "post_sign_in_provider_api_v1_sign_in_providers_post",
   "summary": "Post Sign In Provider",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -619,6 +663,7 @@
   "section": "administer",
   "operationId": "get_local_sign_in_api_v1_sign_in_providers_local_get",
   "summary": "Get Local Sign In",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -633,6 +678,7 @@
   "section": "administer",
   "operationId": "patch_local_sign_in_api_v1_sign_in_providers_local_patch",
   "summary": "Patch Local Sign In",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -647,6 +693,7 @@
   "section": "administer",
   "operationId": "get_sign_in_provider_api_v1_sign_in_providers__key__get",
   "summary": "Get Sign In Provider",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -661,6 +708,7 @@
   "section": "administer",
   "operationId": "patch_sign_in_provider_api_v1_sign_in_providers__key__patch",
   "summary": "Patch Sign In Provider",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -675,6 +723,7 @@
   "section": "administer",
   "operationId": "delete_sign_in_provider_api_v1_sign_in_providers__key__delete",
   "summary": "Delete Sign In Provider",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -689,6 +738,7 @@
   "section": "administer",
   "operationId": "get_mail_settings_api_v1_mail_settings_get",
   "summary": "Get Mail Settings",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -699,10 +749,11 @@
   "labels": [
    "/api/v1/mail-settings"
   ],
-  "source": "backend/app/management/routers/mail.py:45",
+  "source": "backend/app/management/routers/mail.py:46",
   "section": "administer",
   "operationId": "put_mail_settings_api_v1_mail_settings_put",
   "summary": "Put Mail Settings",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -713,10 +764,11 @@
   "labels": [
    "/api/v1/mail-settings"
   ],
-  "source": "backend/app/management/routers/mail.py:58",
+  "source": "backend/app/management/routers/mail.py:64",
   "section": "administer",
   "operationId": "delete_mail_settings_api_v1_mail_settings_delete",
   "summary": "Delete Mail Settings",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -727,10 +779,11 @@
   "labels": [
    "/api/v1/mail-settings/test"
   ],
-  "source": "backend/app/management/routers/mail.py:67",
+  "source": "backend/app/management/routers/mail.py:73",
   "section": "administer",
   "operationId": "post_mail_test_api_v1_mail_settings_test_post",
   "summary": "Post Mail Test",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -741,10 +794,11 @@
   "labels": [
    "/api/v1/mail-outbox/{message_id}/stop"
   ],
-  "source": "backend/app/management/routers/mail.py:92",
+  "source": "backend/app/management/routers/mail.py:98",
   "section": "administer",
   "operationId": "post_stop_mail_message_api_v1_mail_outbox__message_id__stop_post",
   "summary": "Post Stop Mail Message",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -755,10 +809,11 @@
   "labels": [
    "/api/v1/mail-outbox"
   ],
-  "source": "backend/app/management/routers/mail.py:102",
+  "source": "backend/app/management/routers/mail.py:108",
   "section": "administer",
   "operationId": "list_mail_outbox_api_v1_mail_outbox_get",
   "summary": "List Mail Outbox",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -769,10 +824,11 @@
   "labels": [
    "/api/v1/me/notification-mail"
   ],
-  "source": "backend/app/management/routers/mail.py:117",
+  "source": "backend/app/management/routers/mail.py:123",
   "section": "administer",
   "operationId": "get_my_notification_mail_api_v1_me_notification_mail_get",
   "summary": "Get My Notification Mail",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -783,10 +839,11 @@
   "labels": [
    "/api/v1/me/notification-mail"
   ],
-  "source": "backend/app/management/routers/mail.py:126",
+  "source": "backend/app/management/routers/mail.py:132",
   "section": "administer",
   "operationId": "put_my_notification_mail_api_v1_me_notification_mail_put",
   "summary": "Put My Notification Mail",
+  "writtenSummary": false,
   "tags": [
    "mail"
   ]
@@ -801,6 +858,7 @@
   "section": "administer",
   "operationId": "get_ai_status_api_v1_ai_status_get",
   "summary": "Get Ai Status",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -815,6 +873,7 @@
   "section": "administer",
   "operationId": "list_ai_calls_api_v1_ai_calls_get",
   "summary": "List Ai Calls",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -829,6 +888,7 @@
   "section": "administer",
   "operationId": "test_ai_provider_api_v1_ai_test_post",
   "summary": "Test Ai Provider",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -843,6 +903,7 @@
   "section": "administer",
   "operationId": "post_query_translation_api_v1_workspaces__workspace_key__query_translations_post",
   "summary": "Post Query Translation",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -857,6 +918,7 @@
   "section": "administer",
   "operationId": "post_release_impact_summary_api_v1_model_releases__release_id__impact_summary_post",
   "summary": "Post Release Impact Summary",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -871,6 +933,7 @@
   "section": "administer",
   "operationId": "post_workspace_history_account_api_v1_workspaces__workspace_key__history_account_post",
   "summary": "Post Workspace History Account",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -885,6 +948,7 @@
   "section": "administer",
   "operationId": "post_object_history_account_api_v1_objects__object_type_key___object_id__history_account_post",
   "summary": "Post Object History Account",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -899,6 +963,7 @@
   "section": "administer",
   "operationId": "get_agent_access_api_v1_agent_access_get",
   "summary": "Get Agent Access",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -913,6 +978,7 @@
   "section": "administer",
   "operationId": "list_agent_clients_api_v1_agent_access_clients_get",
   "summary": "List Agent Clients",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -927,6 +993,7 @@
   "section": "administer",
   "operationId": "list_agent_applications_api_v1_agent_access_applications_get",
   "summary": "List Agent Applications",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -941,6 +1008,7 @@
   "section": "administer",
   "operationId": "post_agent_application_api_v1_agent_access_applications_post",
   "summary": "Post Agent Application",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -955,6 +1023,7 @@
   "section": "administer",
   "operationId": "block_agent_application_api_v1_agent_access_applications__application_id__block_post",
   "summary": "Block Agent Application",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -969,6 +1038,7 @@
   "section": "administer",
   "operationId": "restore_agent_application_api_v1_agent_access_applications__application_id__restore_post",
   "summary": "Restore Agent Application",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -983,6 +1053,7 @@
   "section": "administer",
   "operationId": "list_agent_calls_api_v1_agent_access_calls_get",
   "summary": "List Agent Calls",
+  "writtenSummary": false,
   "tags": [
    "agent-access"
   ]
@@ -997,6 +1068,7 @@
   "section": "use",
   "operationId": "list_my_notifications_api_v1_me_notifications_get",
   "summary": "List My Notifications",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1011,6 +1083,7 @@
   "section": "use",
   "operationId": "mark_my_notifications_read_api_v1_me_notifications_read_post",
   "summary": "Mark My Notifications Read",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1025,6 +1098,7 @@
   "section": "use",
   "operationId": "remove_my_notifications_api_v1_me_notifications_removal_post",
   "summary": "Remove My Notifications",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1039,6 +1113,7 @@
   "section": "use",
   "operationId": "list_followed_workspaces_api_v1_me_followed_workspaces_get",
   "summary": "List Followed Workspaces",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1053,6 +1128,7 @@
   "section": "use",
   "operationId": "follow_workspace_api_v1_me_followed_workspaces__workspace_key__put",
   "summary": "Follow Workspace",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1067,6 +1143,7 @@
   "section": "use",
   "operationId": "unfollow_workspace_api_v1_me_followed_workspaces__workspace_key__delete",
   "summary": "Unfollow Workspace",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1081,6 +1158,7 @@
   "section": "use",
   "operationId": "my_notification_events_api_v1_me_notifications_events_get",
   "summary": "My Notification Events",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1095,6 +1173,7 @@
   "section": "use",
   "operationId": "get_my_notification_api_v1_me_notifications__notification_id__get",
   "summary": "Get My Notification",
+  "writtenSummary": false,
   "tags": [
    "notifications"
   ]
@@ -1109,6 +1188,7 @@
   "section": "administer",
   "operationId": "get_my_permissions_api_v1_me_permissions_get",
   "summary": "Get My Permissions",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1123,6 +1203,7 @@
   "section": "administer",
   "operationId": "get_my_action_groups_api_v1_me_action_groups_get",
   "summary": "Get My Action Groups",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1137,6 +1218,7 @@
   "section": "administer",
   "operationId": "list_my_grants_api_v1_me_grants_get",
   "summary": "List My Grants",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1151,6 +1233,7 @@
   "section": "administer",
   "operationId": "list_action_groups_api_v1_action_groups_get",
   "summary": "List Action Groups",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1165,6 +1248,7 @@
   "section": "administer",
   "operationId": "list_roles_api_v1_roles_get",
   "summary": "List Roles",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1179,6 +1263,7 @@
   "section": "administer",
   "operationId": "post_role_api_v1_roles_post",
   "summary": "Post Role",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1193,6 +1278,7 @@
   "section": "administer",
   "operationId": "get_role_api_v1_roles__role_key__get",
   "summary": "Get Role",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1207,6 +1293,7 @@
   "section": "administer",
   "operationId": "patch_role_api_v1_roles__role_key__patch",
   "summary": "Patch Role",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1221,6 +1308,7 @@
   "section": "administer",
   "operationId": "delete_role_api_v1_roles__role_key__delete",
   "summary": "Delete Role",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1235,6 +1323,7 @@
   "section": "administer",
   "operationId": "list_groups_api_v1_groups_get",
   "summary": "List Groups",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1249,6 +1338,7 @@
   "section": "administer",
   "operationId": "post_group_api_v1_groups_post",
   "summary": "Post Group",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1263,6 +1353,7 @@
   "section": "administer",
   "operationId": "get_group_api_v1_groups__group_id__get",
   "summary": "Get Group",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1277,6 +1368,7 @@
   "section": "administer",
   "operationId": "patch_group_api_v1_groups__group_id__patch",
   "summary": "Patch Group",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1291,6 +1383,7 @@
   "section": "administer",
   "operationId": "delete_group_api_v1_groups__group_id__delete",
   "summary": "Delete Group",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1305,6 +1398,7 @@
   "section": "administer",
   "operationId": "list_group_members_api_v1_groups__group_id__members_get",
   "summary": "List Group Members",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1319,6 +1413,7 @@
   "section": "administer",
   "operationId": "post_group_member_api_v1_groups__group_id__members_post",
   "summary": "Post Group Member",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1333,6 +1428,7 @@
   "section": "administer",
   "operationId": "post_group_members_api_v1_groups__group_id__members_batch_post",
   "summary": "Post Group Members",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1347,6 +1443,7 @@
   "section": "administer",
   "operationId": "post_group_members_removal_api_v1_groups__group_id__members_removal_post",
   "summary": "Post Group Members Removal",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1361,6 +1458,7 @@
   "section": "administer",
   "operationId": "delete_group_member_api_v1_groups__group_id__members__user_id__delete",
   "summary": "Delete Group Member",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1375,6 +1473,7 @@
   "section": "administer",
   "operationId": "list_grants_api_v1_grants_get",
   "summary": "List Grants",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1389,6 +1488,7 @@
   "section": "administer",
   "operationId": "post_grant_api_v1_grants_post",
   "summary": "Post Grant",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1403,6 +1503,7 @@
   "section": "administer",
   "operationId": "delete_grant_api_v1_grants__grant_id__delete",
   "summary": "Delete Grant",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1417,6 +1518,7 @@
   "section": "administer",
   "operationId": "list_user_grants_api_v1_users__user_id__grants_get",
   "summary": "List User Grants",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1431,6 +1533,7 @@
   "section": "administer",
   "operationId": "get_grant_options_api_v1_workspaces__workspace_key__grant_options_get",
   "summary": "Get Grant Options",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1445,6 +1548,7 @@
   "section": "administer",
   "operationId": "list_workspace_access_api_v1_workspaces__workspace_key__access_get",
   "summary": "List Workspace Access",
+  "writtenSummary": false,
   "tags": [
    "security"
   ]
@@ -1459,6 +1563,7 @@
   "section": "model",
   "operationId": "get_capabilities_api_v1_capabilities_get",
   "summary": "Get Capabilities",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1473,6 +1578,7 @@
   "section": "model",
   "operationId": "get_model_api_v1_model_get",
   "summary": "Get Model",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1487,6 +1593,7 @@
   "section": "model",
   "operationId": "get_model_placements_api_v1_model_placements_get",
   "summary": "Get Model Placements",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1501,6 +1608,7 @@
   "section": "model",
   "operationId": "get_consumer_api_definition_api_v1_model_consumer_apis__consumerApi__get",
   "summary": "Get Consumer Api Definition",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1515,6 +1623,7 @@
   "section": "model",
   "operationId": "validate_model_api_v1_model_validations_post",
   "summary": "Validate Model",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1529,6 +1638,7 @@
   "section": "model",
   "operationId": "get_applications_api_v1_applications_get",
   "summary": "Get Applications",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1543,6 +1653,7 @@
   "section": "model",
   "operationId": "get_application_detail_api_v1_applications__application_key__get",
   "summary": "Get Application Detail",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1557,6 +1668,7 @@
   "section": "model",
   "operationId": "list_attribute_types_api_v1_attribute_types_get",
   "summary": "List Attribute Types",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1571,6 +1683,7 @@
   "section": "model",
   "operationId": "get_attribute_type_api_v1_attribute_types__attribute_type_key__get",
   "summary": "Get Attribute Type",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1585,6 +1698,7 @@
   "section": "model",
   "operationId": "list_object_types_api_v1_object_types_get",
   "summary": "List Object Types",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1599,6 +1713,7 @@
   "section": "model",
   "operationId": "get_object_type_detail_api_v1_object_types__object_type_key__get",
   "summary": "Get Object Type Detail",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1613,6 +1728,7 @@
   "section": "model",
   "operationId": "list_relation_types_api_v1_relation_types_get",
   "summary": "List Relation Types",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1627,6 +1743,7 @@
   "section": "model",
   "operationId": "get_relation_type_api_v1_relation_types__relation_type_key__get",
   "summary": "Get Relation Type",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1641,6 +1758,7 @@
   "section": "model",
   "operationId": "get_object_type_relations_api_v1_object_type_relations_get",
   "summary": "Get Object Type Relations",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1651,10 +1769,11 @@
   "labels": [
    "/api/v1/system"
   ],
-  "source": "backend/app/management/routers/system.py:61",
+  "source": "backend/app/management/routers/system.py:63",
   "section": "run",
   "operationId": "get_system_api_v1_system_get",
   "summary": "Get System",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1665,10 +1784,11 @@
   "labels": [
    "/api/v1/system/configuration"
   ],
-  "source": "backend/app/management/routers/system.py:96",
+  "source": "backend/app/management/routers/system.py:100",
   "section": "run",
   "operationId": "get_configuration_api_v1_system_configuration_get",
   "summary": "Get Configuration",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1679,10 +1799,11 @@
   "labels": [
    "/api/v1/system/processes"
   ],
-  "source": "backend/app/management/routers/system.py:118",
+  "source": "backend/app/management/routers/system.py:122",
   "section": "run",
   "operationId": "list_processes_api_v1_system_processes_get",
   "summary": "List Processes",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1693,10 +1814,11 @@
   "labels": [
    "/api/v1/system/readiness"
   ],
-  "source": "backend/app/management/routers/system.py:144",
+  "source": "backend/app/management/routers/system.py:148",
   "section": "run",
   "operationId": "list_readiness_api_v1_system_readiness_get",
   "summary": "List Readiness",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1707,10 +1829,11 @@
   "labels": [
    "/api/v1/system/summary"
   ],
-  "source": "backend/app/management/routers/system.py:173",
+  "source": "backend/app/management/routers/system.py:177",
   "section": "run",
   "operationId": "get_summary_api_v1_system_summary_get",
   "summary": "Get Summary",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1721,10 +1844,11 @@
   "labels": [
    "/api/v1/system/backup-rehearsals"
   ],
-  "source": "backend/app/management/routers/system.py:183",
+  "source": "backend/app/management/routers/system.py:187",
   "section": "run",
   "operationId": "list_backup_rehearsals_api_v1_system_backup_rehearsals_get",
   "summary": "List Backup Rehearsals",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1735,10 +1859,11 @@
   "labels": [
    "/metrics"
   ],
-  "source": "backend/app/management/routers/system.py:211",
+  "source": "backend/app/management/routers/system.py:215",
   "section": "run",
   "operationId": "get_metrics_metrics_get",
   "summary": "Get Metrics",
+  "writtenSummary": false,
   "tags": [
    "system"
   ]
@@ -1753,6 +1878,7 @@
   "section": "model",
   "operationId": "list_model_releases_api_v1_model_releases_get",
   "summary": "List Model Releases",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1767,6 +1893,7 @@
   "section": "model",
   "operationId": "get_model_release_api_v1_model_releases__release_id__get",
   "summary": "Get Model Release",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1781,6 +1908,7 @@
   "section": "model",
   "operationId": "patch_model_release_api_v1_model_releases__release_id__patch",
   "summary": "Patch Model Release",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1795,6 +1923,7 @@
   "section": "model",
   "operationId": "delete_model_release_api_v1_model_releases__release_id__delete",
   "summary": "Delete Model Release",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1809,6 +1938,7 @@
   "section": "model",
   "operationId": "list_model_release_activations_api_v1_model_releases__release_id__activations_get",
   "summary": "List Model Release Activations",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1823,6 +1953,7 @@
   "section": "model",
   "operationId": "diff_model_release_api_v1_model_releases__release_id__diff_get",
   "summary": "Diff Model Release",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1837,6 +1968,7 @@
   "section": "model",
   "operationId": "raise_model_release_api_v1_model_releases__release_id__raising_post",
   "summary": "Raise Model Release",
+  "writtenSummary": false,
   "tags": [
    "model"
   ]
@@ -1851,6 +1983,7 @@
   "section": "use",
   "operationId": "list_workspaces_api_v1_workspaces_get",
   "summary": "List Workspaces",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1865,6 +1998,7 @@
   "section": "use",
   "operationId": "post_workspace_api_v1_workspaces_post",
   "summary": "Post Workspace",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1879,6 +2013,7 @@
   "section": "use",
   "operationId": "list_own_workspaces_api_v1_me_workspaces_get",
   "summary": "List Own Workspaces",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1893,6 +2028,7 @@
   "section": "use",
   "operationId": "get_workspace_api_v1_workspaces__workspace_key__get",
   "summary": "Get Workspace",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1907,6 +2043,7 @@
   "section": "use",
   "operationId": "patch_workspace_api_v1_workspaces__workspace_key__patch",
   "summary": "Patch Workspace",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1921,6 +2058,7 @@
   "section": "use",
   "operationId": "delete_workspace_route_api_v1_workspaces__workspace_key__delete",
   "summary": "Delete Workspace Route",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1935,6 +2073,7 @@
   "section": "use",
   "operationId": "get_workspace_model_api_v1_workspaces__workspace_key__model_get",
   "summary": "Get Workspace Model",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1949,6 +2088,7 @@
   "section": "use",
   "operationId": "list_workspace_models_api_v1_workspace_models_get",
   "summary": "List Workspace Models",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1963,6 +2103,7 @@
   "section": "use",
   "operationId": "get_feed_api_v1_workspaces__workspace_key__feed_get",
   "summary": "Get Feed",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1977,6 +2118,7 @@
   "section": "use",
   "operationId": "get_workspace_runtime_state_api_v1_workspace_runtime_state_get",
   "summary": "Get Workspace Runtime State",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -1991,6 +2133,7 @@
   "section": "use",
   "operationId": "patch_workspace_runtime_state_api_v1_workspace_runtime_state_patch",
   "summary": "Patch Workspace Runtime State",
+  "writtenSummary": false,
   "tags": [
    "workspaces"
   ]
@@ -2005,6 +2148,7 @@
   "section": "use",
   "operationId": "list_change_sets_api_v1_workspaces__workspace_key__change_sets_get",
   "summary": "List Change Sets",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2019,6 +2163,7 @@
   "section": "use",
   "operationId": "post_change_set_api_v1_workspaces__workspace_key__change_sets_post",
   "summary": "Post Change Set",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2033,6 +2178,7 @@
   "section": "use",
   "operationId": "list_own_change_sets_api_v1_me_change_sets_get",
   "summary": "List Own Change Sets",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2047,6 +2193,7 @@
   "section": "use",
   "operationId": "get_change_set_api_v1_change_sets__change_set_id__get",
   "summary": "Get Change Set",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2061,6 +2208,7 @@
   "section": "use",
   "operationId": "patch_change_set_api_v1_change_sets__change_set_id__patch",
   "summary": "Patch Change Set",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2075,6 +2223,7 @@
   "section": "use",
   "operationId": "delete_change_set_api_v1_change_sets__change_set_id__delete",
   "summary": "Delete Change Set",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2089,6 +2238,7 @@
   "section": "use",
   "operationId": "patch_change_set_model_release_api_v1_change_sets__change_set_id__model_release_patch",
   "summary": "Patch Change Set Model Release",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2103,6 +2253,7 @@
   "section": "use",
   "operationId": "get_object_changes_api_v1_change_sets__change_set_id__object_changes_get",
   "summary": "Get Object Changes",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2117,6 +2268,7 @@
   "section": "use",
   "operationId": "get_relation_changes_api_v1_change_sets__change_set_id__relation_changes_get",
   "summary": "Get Relation Changes",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2131,6 +2283,7 @@
   "section": "use",
   "operationId": "post_restructuring_preview_api_v1_change_sets__change_set_id__restructurings_preview_post",
   "summary": "Post Restructuring Preview",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2145,6 +2298,7 @@
   "section": "use",
   "operationId": "post_restructuring_api_v1_change_sets__change_set_id__restructurings_post",
   "summary": "Post Restructuring",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2159,6 +2313,7 @@
   "section": "use",
   "operationId": "post_change_set_validation_api_v1_change_sets__change_set_id__validation_post",
   "summary": "Post Change Set Validation",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2173,6 +2328,7 @@
   "section": "use",
   "operationId": "post_change_set_publication_api_v1_change_sets__change_set_id__publication_post",
   "summary": "Post Change Set Publication",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2187,6 +2343,7 @@
   "section": "use",
   "operationId": "post_change_set_submission_api_v1_change_sets__change_set_id__submission_post",
   "summary": "Post Change Set Submission",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2201,6 +2358,7 @@
   "section": "use",
   "operationId": "delete_change_set_submission_api_v1_change_sets__change_set_id__submission_delete",
   "summary": "Delete Change Set Submission",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2215,6 +2373,7 @@
   "section": "use",
   "operationId": "post_change_set_decision_api_v1_change_sets__change_set_id__decisions_post",
   "summary": "Post Change Set Decision",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2229,6 +2388,7 @@
   "section": "use",
   "operationId": "list_publication_requests_api_v1_workspaces__workspace_key__publication_requests_get",
   "summary": "List Publication Requests",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2243,6 +2403,7 @@
   "section": "use",
   "operationId": "get_approval_policy_api_v1_workspaces__workspace_key__approval_policy_get",
   "summary": "Get Approval Policy",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2257,6 +2418,7 @@
   "section": "use",
   "operationId": "put_approval_policy_api_v1_workspaces__workspace_key__approval_policy_put",
   "summary": "Put Approval Policy",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2271,6 +2433,7 @@
   "section": "use",
   "operationId": "list_publications_api_v1_workspaces__workspace_key__publications_get",
   "summary": "List Publications",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2285,6 +2448,7 @@
   "section": "use",
   "operationId": "get_publication_api_v1_publications__publication_id__get",
   "summary": "Get Publication",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2299,6 +2463,7 @@
   "section": "use",
   "operationId": "post_publication_withdrawal_api_v1_publications__publication_id__withdrawal_post",
   "summary": "Post Publication Withdrawal",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
   ]
@@ -2313,8 +2478,339 @@
   "section": "use",
   "operationId": "list_changes_api_v1_changes_get",
   "summary": "List Changes",
+  "writtenSummary": false,
   "tags": [
    "changes"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/model/activation",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/model/activation"
+  ],
+  "source": "backend/app/management/routers/model_management.py:125",
+  "section": "use",
+  "operationId": "activate_workspace_model_api_v1_workspaces__workspace_key__model_activation_post",
+  "summary": "Activate Workspace Model",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/model/draft",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/model/draft"
+  ],
+  "source": "backend/app/management/routers/model_management.py:308",
+  "section": "use",
+  "operationId": "open_workspace_model_draft_api_v1_workspaces__workspace_key__model_draft_post",
+  "summary": "Open Workspace Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts",
+  "labels": [
+   "/api/v1/model-drafts"
+  ],
+  "source": "backend/app/management/routers/model_management.py:328",
+  "section": "use",
+  "operationId": "list_model_drafts_api_v1_model_drafts_get",
+  "summary": "List Model Drafts",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts",
+  "labels": [
+   "/api/v1/model-drafts"
+  ],
+  "source": "backend/app/management/routers/model_management.py:357",
+  "section": "use",
+  "operationId": "save_model_draft_api_v1_model_drafts_post",
+  "summary": "Save Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}"
+  ],
+  "source": "backend/app/management/routers/model_management.py:351",
+  "section": "use",
+  "operationId": "get_model_draft_api_v1_model_drafts__draft_id__get",
+  "summary": "Get Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/model-drafts/{draft_id}",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}"
+  ],
+  "source": "backend/app/management/routers/model_management.py:374",
+  "section": "use",
+  "operationId": "patch_model_draft_api_v1_model_drafts__draft_id__patch",
+  "summary": "Patch Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/model-drafts/{draft_id}",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}"
+  ],
+  "source": "backend/app/management/routers/model_management.py:612",
+  "section": "use",
+  "operationId": "remove_model_draft_api_v1_model_drafts__draft_id__delete",
+  "summary": "Remove Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/operations",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/operations"
+  ],
+  "source": "backend/app/management/routers/model_management.py:395",
+  "section": "use",
+  "operationId": "apply_model_draft_operations_api_v1_model_drafts__draft_id__operations_post",
+  "summary": "Apply Model Draft Operations",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/operations",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/operations"
+  ],
+  "source": "backend/app/management/routers/model_management.py:414",
+  "section": "use",
+  "operationId": "list_model_draft_operations_api_v1_model_drafts__draft_id__operations_get",
+  "summary": "List Model Draft Operations",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/migration",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/migration"
+  ],
+  "source": "backend/app/management/routers/model_management.py:437",
+  "section": "use",
+  "operationId": "read_model_draft_migration_api_v1_model_drafts__draft_id__migration_get",
+  "summary": "Read Model Draft Migration",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/outline",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/outline"
+  ],
+  "source": "backend/app/management/routers/model_management.py:472",
+  "section": "use",
+  "operationId": "get_model_draft_outline_api_v1_model_drafts__draft_id__outline_get",
+  "summary": "Get Model Draft Outline",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/model",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/model"
+  ],
+  "source": "backend/app/management/routers/model_management.py:487",
+  "section": "use",
+  "operationId": "get_model_draft_model_api_v1_model_drafts__draft_id__model_get",
+  "summary": "Get Model Draft Model",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}"
+  ],
+  "source": "backend/app/management/routers/model_management.py:499",
+  "section": "use",
+  "operationId": "get_model_draft_consumer_api_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__get",
+  "summary": "Get Model Draft Consumer Api",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json"
+  ],
+  "source": "backend/app/management/routers/model_management.py:516",
+  "section": "use",
+  "operationId": "get_model_draft_consumer_api_schema_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__schema_json_get",
+  "summary": "Get Model Draft Consumer Api Schema",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json"
+  ],
+  "source": "backend/app/management/routers/model_management.py:532",
+  "section": "use",
+  "operationId": "get_model_draft_consumer_api_example_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__example_json_get",
+  "summary": "Get Model Draft Consumer Api Example",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json"
+  ],
+  "source": "backend/app/management/routers/model_management.py:548",
+  "section": "use",
+  "operationId": "get_model_draft_consumer_api_openapi_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__openapi_json_get",
+  "summary": "Get Model Draft Consumer Api Openapi",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/undo",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/undo"
+  ],
+  "source": "backend/app/management/routers/model_management.py:566",
+  "section": "use",
+  "operationId": "undo_model_draft_step_api_v1_model_drafts__draft_id__undo_post",
+  "summary": "Undo Model Draft Step",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/redo",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/redo"
+  ],
+  "source": "backend/app/management/routers/model_management.py:579",
+  "section": "use",
+  "operationId": "redo_model_draft_step_api_v1_model_drafts__draft_id__redo_post",
+  "summary": "Redo Model Draft Step",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/profile",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/profile"
+  ],
+  "source": "backend/app/management/routers/model_management.py:592",
+  "section": "use",
+  "operationId": "get_model_draft_profile_api_v1_model_drafts__draft_id__profile_get",
+  "summary": "Get Model Draft Profile",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/compile",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/compile"
+  ],
+  "source": "backend/app/management/routers/model_management.py:624",
+  "section": "use",
+  "operationId": "compile_model_draft_api_v1_model_drafts__draft_id__compile_post",
+  "summary": "Compile Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/installation",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/installation"
+  ],
+  "source": "backend/app/management/routers/model_management.py:695",
+  "section": "use",
+  "operationId": "install_model_draft_api_v1_model_drafts__draft_id__installation_post",
+  "summary": "Install Model Draft",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/impact-summary",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/impact-summary"
+  ],
+  "source": "backend/app/management/routers/ai.py:263",
+  "section": "administer",
+  "operationId": "post_draft_impact_summary_api_v1_model_drafts__draft_id__impact_summary_post",
+  "summary": "Post Draft Impact Summary",
+  "writtenSummary": false,
+  "tags": [
+   "ai"
   ]
  },
  {
@@ -2327,6 +2823,7 @@
   "section": "use",
   "operationId": "create_object_api_v1_objects_post",
   "summary": "Create Object",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2341,6 +2838,7 @@
   "section": "use",
   "operationId": "lookup_objects_api_v1_objects_get",
   "summary": "Lookup Objects",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2355,6 +2853,7 @@
   "section": "use",
   "operationId": "update_object_api_v1_objects__object_type_key___object_id__patch",
   "summary": "Update Object",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2369,6 +2868,7 @@
   "section": "use",
   "operationId": "delete_object_api_v1_objects__object_type_key___object_id__delete",
   "summary": "Delete Object",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2379,10 +2879,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:764",
+  "source": "backend/app/management/routers/objects.py:743",
   "section": "use",
   "operationId": "get_object_api_v1_objects__object_type_key___object_id__get",
   "summary": "Get Object",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2397,6 +2898,7 @@
   "section": "use",
   "operationId": "list_objects_api_v1_objects__object_type_key__get",
   "summary": "List Objects",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2407,10 +2909,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/parent-candidates"
   ],
-  "source": "backend/app/management/routers/objects.py:836",
+  "source": "backend/app/management/routers/objects.py:815",
   "section": "use",
   "operationId": "get_parent_candidates_api_v1_objects__object_type_key___object_id__parent_candidates_get",
   "summary": "Get Parent Candidates",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2421,10 +2924,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/history"
   ],
-  "source": "backend/app/management/routers/objects.py:891",
+  "source": "backend/app/management/routers/objects.py:870",
   "section": "use",
   "operationId": "get_object_history_api_v1_objects__object_type_key___object_id__history_get",
   "summary": "Get Object History",
+  "writtenSummary": false,
   "tags": [
    "objects"
   ]
@@ -2439,6 +2943,7 @@
   "section": "use",
   "operationId": "query_workspace_objects_api_v1_workspaces__workspace_key__queries_objects_post",
   "summary": "Query Workspace Objects",
+  "writtenSummary": false,
   "tags": [
    "objects",
    "queries"
@@ -2454,6 +2959,7 @@
   "section": "use",
   "operationId": "get_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__get",
   "summary": "Get Attribute Value",
+  "writtenSummary": false,
   "tags": [
    "attributes"
   ]
@@ -2468,6 +2974,7 @@
   "section": "use",
   "operationId": "create_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__post",
   "summary": "Create Attribute Value",
+  "writtenSummary": false,
   "tags": [
    "attributes"
   ]
@@ -2482,6 +2989,7 @@
   "section": "use",
   "operationId": "update_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__patch",
   "summary": "Update Attribute Value",
+  "writtenSummary": false,
   "tags": [
    "attributes"
   ]
@@ -2496,6 +3004,7 @@
   "section": "use",
   "operationId": "remove_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__delete",
   "summary": "Remove Attribute Value",
+  "writtenSummary": false,
   "tags": [
    "attributes"
   ]
@@ -2506,10 +3015,11 @@
   "labels": [
    "/api/v1/relations"
   ],
-  "source": "backend/app/management/routers/relations.py:105",
+  "source": "backend/app/management/routers/relations.py:121",
   "section": "use",
   "operationId": "create_relation_api_v1_relations_post",
   "summary": "Create Relation",
+  "writtenSummary": false,
   "tags": [
    "relations"
   ]
@@ -2520,10 +3030,41 @@
   "labels": [
    "/api/v1/relations"
   ],
-  "source": "backend/app/management/routers/relations.py:115",
+  "source": "backend/app/management/routers/relations.py:246",
   "section": "use",
   "operationId": "list_relations_api_v1_relations_get",
   "summary": "List Relations",
+  "writtenSummary": false,
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/relations/batch",
+  "labels": [
+   "/api/v1/relations/batch"
+  ],
+  "source": "backend/app/management/routers/relations.py:131",
+  "section": "use",
+  "operationId": "update_relations_api_v1_relations_batch_post",
+  "summary": "Update Relations",
+  "writtenSummary": false,
+  "tags": [
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/relations/grid-change",
+  "labels": [
+   "/api/v1/relations/grid-change"
+  ],
+  "source": "backend/app/management/routers/relations.py:174",
+  "section": "use",
+  "operationId": "change_relation_grid_api_v1_relations_grid_change_post",
+  "summary": "Change Relation Grid",
+  "writtenSummary": false,
   "tags": [
    "relations"
   ]
@@ -2534,10 +3075,11 @@
   "labels": [
    "/api/v1/relations/held"
   ],
-  "source": "backend/app/management/routers/relations.py:235",
+  "source": "backend/app/management/routers/relations.py:366",
   "section": "use",
   "operationId": "list_held_records_api_v1_relations_held_get",
   "summary": "List Held Records",
+  "writtenSummary": false,
   "tags": [
    "relations"
   ]
@@ -2548,10 +3090,11 @@
   "labels": [
    "/api/v1/relations/{relation_id}"
   ],
-  "source": "backend/app/management/routers/relations.py:299",
+  "source": "backend/app/management/routers/relations.py:430",
   "section": "use",
   "operationId": "get_relation_api_v1_relations__relation_id__get",
   "summary": "Get Relation",
+  "writtenSummary": false,
   "tags": [
    "relations"
   ]
@@ -2562,10 +3105,11 @@
   "labels": [
    "/api/v1/relations/{relation_id}"
   ],
-  "source": "backend/app/management/routers/relations.py:320",
+  "source": "backend/app/management/routers/relations.py:451",
   "section": "use",
   "operationId": "update_relation_api_v1_relations__relation_id__patch",
   "summary": "Update Relation",
+  "writtenSummary": false,
   "tags": [
    "relations"
   ]
@@ -2576,10 +3120,11 @@
   "labels": [
    "/api/v1/relations/{relation_id}"
   ],
-  "source": "backend/app/management/routers/relations.py:329",
+  "source": "backend/app/management/routers/relations.py:460",
   "section": "use",
   "operationId": "remove_relation_api_v1_relations__relation_id__delete",
   "summary": "Remove Relation",
+  "writtenSummary": false,
   "tags": [
    "relations"
   ]
@@ -2590,10 +3135,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/mapping-coverage"
   ],
-  "source": "backend/app/management/routers/mapping.py:89",
+  "source": "backend/app/management/routers/mapping.py:92",
   "section": "use",
   "operationId": "mapping_coverage_api_v1_workspaces__workspace_key__mapping_coverage_get",
   "summary": "Mapping Coverage",
+  "writtenSummary": false,
   "tags": [
    "mapping"
   ]
@@ -2604,10 +3150,27 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/relations"
   ],
-  "source": "backend/app/management/routers/mapping.py:184",
+  "source": "backend/app/management/routers/mapping.py:215",
   "section": "use",
   "operationId": "get_workspace_relations_api_v1_workspaces__workspace_key__relations_get",
   "summary": "Get Workspace Relations",
+  "writtenSummary": false,
+  "tags": [
+   "mapping",
+   "relations"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/workspaces/{workspace_key}/relation-grid",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/relation-grid"
+  ],
+  "source": "backend/app/management/routers/mapping.py:250",
+  "section": "use",
+  "operationId": "get_relation_grid_api_v1_workspaces__workspace_key__relation_grid_get",
+  "summary": "Get Relation Grid",
+  "writtenSummary": false,
   "tags": [
    "mapping",
    "relations"
@@ -2619,10 +3182,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/mapping-candidates"
   ],
-  "source": "backend/app/management/routers/mapping.py:194",
+  "source": "backend/app/management/routers/mapping.py:344",
   "section": "use",
   "operationId": "mapping_candidates_api_v1_workspaces__workspace_key__mapping_candidates_get",
   "summary": "Mapping Candidates",
+  "writtenSummary": false,
   "tags": [
    "mapping"
   ]
@@ -2633,10 +3197,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/mapping-targets"
   ],
-  "source": "backend/app/management/routers/mapping.py:252",
+  "source": "backend/app/management/routers/mapping.py:402",
   "section": "use",
   "operationId": "mapping_targets_api_v1_workspaces__workspace_key__mapping_targets_get",
   "summary": "Mapping Targets",
+  "writtenSummary": false,
   "tags": [
    "mapping"
   ]
@@ -2647,10 +3212,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/mappings"
   ],
-  "source": "backend/app/management/routers/mapping.py:264",
+  "source": "backend/app/management/routers/mapping.py:414",
   "section": "use",
   "operationId": "put_mapping_api_v1_workspaces__workspace_key__mappings_put",
   "summary": "Put Mapping",
+  "writtenSummary": false,
   "tags": [
    "mapping"
   ]
@@ -2661,10 +3227,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/mapping-proposals"
   ],
-  "source": "backend/app/management/routers/mapping.py:286",
+  "source": "backend/app/management/routers/mapping.py:436",
   "section": "use",
   "operationId": "post_mapping_proposals_api_v1_workspaces__workspace_key__mapping_proposals_post",
   "summary": "Post Mapping Proposals",
+  "writtenSummary": false,
   "tags": [
    "mapping"
   ]
@@ -2679,6 +3246,7 @@
   "section": "use",
   "operationId": "get_relation_matrix_api_v1_workspaces__workspace_key__relation_matrix_get",
   "summary": "Get Relation Matrix",
+  "writtenSummary": false,
   "tags": [
    "relation-matrix"
   ]
@@ -2693,6 +3261,7 @@
   "section": "use",
   "operationId": "get_relation_matrix_containers_api_v1_workspaces__workspace_key__relation_matrix_containers_get",
   "summary": "Get Relation Matrix Containers",
+  "writtenSummary": false,
   "tags": [
    "relation-matrix"
   ]
@@ -2707,6 +3276,7 @@
   "section": "use",
   "operationId": "get_relation_matrix_link_candidates_api_v1_workspaces__workspace_key__relation_matrix_link_candidates_get",
   "summary": "Get Relation Matrix Link Candidates",
+  "writtenSummary": false,
   "tags": [
    "relation-matrix"
   ]
@@ -2717,10 +3287,11 @@
   "labels": [
    "/api/v1/jobs"
   ],
-  "source": "backend/app/management/routers/jobs.py:245",
+  "source": "backend/app/management/routers/jobs.py:248",
   "section": "use",
   "operationId": "list_jobs_api_v1_jobs_get",
   "summary": "List Jobs",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -2731,10 +3302,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}"
   ],
-  "source": "backend/app/management/routers/jobs.py:279",
+  "source": "backend/app/management/routers/jobs.py:324",
   "section": "use",
   "operationId": "get_job_api_v1_jobs__job_id__get",
   "summary": "Get Job",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -2745,10 +3317,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/items"
   ],
-  "source": "backend/app/management/routers/jobs.py:285",
+  "source": "backend/app/management/routers/jobs.py:330",
   "section": "use",
   "operationId": "list_job_items_api_v1_jobs__job_id__items_get",
   "summary": "List Job Items",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -2759,10 +3332,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/rows"
   ],
-  "source": "backend/app/management/routers/jobs.py:304",
+  "source": "backend/app/management/routers/jobs.py:349",
   "section": "use",
   "operationId": "list_job_rows_api_v1_jobs__job_id__rows_get",
   "summary": "List Job Rows",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -2773,10 +3347,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/output"
   ],
-  "source": "backend/app/management/routers/jobs.py:355",
+  "source": "backend/app/management/routers/jobs.py:407",
   "section": "use",
   "operationId": "get_job_output_api_v1_jobs__job_id__output_get",
   "summary": "Get Job Output",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -2787,10 +3362,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/events"
   ],
-  "source": "backend/app/management/routers/jobs.py:416",
+  "source": "backend/app/management/routers/jobs.py:468",
   "section": "use",
   "operationId": "job_events_api_v1_jobs__job_id__events_get",
   "summary": "Job Events",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -2805,6 +3381,7 @@
   "section": "use",
   "operationId": "list_import_profiles_api_v1_import_profiles_get",
   "summary": "List Import Profiles",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2819,6 +3396,7 @@
   "section": "use",
   "operationId": "create_import_profile_api_v1_import_profiles_post",
   "summary": "Create Import Profile",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2833,6 +3411,7 @@
   "section": "use",
   "operationId": "get_import_profile_api_v1_import_profiles__profile_key__get",
   "summary": "Get Import Profile",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2847,6 +3426,7 @@
   "section": "use",
   "operationId": "update_import_profile_api_v1_import_profiles__profile_key__put",
   "summary": "Update Import Profile",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2861,6 +3441,7 @@
   "section": "use",
   "operationId": "delete_import_profile_api_v1_import_profiles__profile_key__delete",
   "summary": "Delete Import Profile",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2875,6 +3456,7 @@
   "section": "use",
   "operationId": "get_profile_check_api_v1_import_profiles__profile_key__check_get",
   "summary": "Get Profile Check",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2889,6 +3471,7 @@
   "section": "use",
   "operationId": "run_profile_check_api_v1_import_profiles__profile_key__check_post",
   "summary": "Run Profile Check",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2903,6 +3486,7 @@
   "section": "use",
   "operationId": "list_check_new_values_api_v1_import_profiles__profile_key__check_new_values_get",
   "summary": "List Check New Values",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2917,6 +3501,7 @@
   "section": "use",
   "operationId": "list_check_drift_api_v1_import_profiles__profile_key__check_drift_get",
   "summary": "List Check Drift",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2931,6 +3516,7 @@
   "section": "use",
   "operationId": "list_check_missing_records_api_v1_import_profiles__profile_key__check_missing_records_get",
   "summary": "List Check Missing Records",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2945,6 +3531,7 @@
   "section": "use",
   "operationId": "list_check_rows_api_v1_import_profiles__profile_key__check_rows_get",
   "summary": "List Check Rows",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -2959,6 +3546,7 @@
   "section": "administer",
   "operationId": "list_ai_tasks_api_v1_ai_tasks_get",
   "summary": "List Ai Tasks",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -2973,6 +3561,7 @@
   "section": "administer",
   "operationId": "create_ai_task_api_v1_ai_tasks_post",
   "summary": "Create Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -2987,6 +3576,7 @@
   "section": "administer",
   "operationId": "get_ai_task_api_v1_ai_tasks__task_id__get",
   "summary": "Get Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3001,6 +3591,7 @@
   "section": "administer",
   "operationId": "list_ai_task_changes_api_v1_ai_tasks__task_id__changes_get",
   "summary": "List Ai Task Changes",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3011,10 +3602,11 @@
   "labels": [
    "/api/v1/source-files"
   ],
-  "source": "backend/app/management/routers/source_files.py:135",
+  "source": "backend/app/management/routers/source_files.py:136",
   "section": "use",
   "operationId": "list_source_files_api_v1_source_files_get",
   "summary": "List Source Files",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3025,10 +3617,11 @@
   "labels": [
    "/api/v1/source-files"
   ],
-  "source": "backend/app/management/routers/source_files.py:92",
+  "source": "backend/app/management/routers/source_files.py:93",
   "section": "use",
   "operationId": "create_source_file_api_v1_source_files_post",
   "summary": "Create Source File",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3039,10 +3632,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}"
   ],
-  "source": "backend/app/management/routers/source_files.py:159",
+  "source": "backend/app/management/routers/source_files.py:160",
   "section": "use",
   "operationId": "get_source_file_api_v1_source_files__source_file_id__get",
   "summary": "Get Source File",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3053,10 +3647,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}"
   ],
-  "source": "backend/app/management/routers/source_files.py:170",
+  "source": "backend/app/management/routers/source_files.py:171",
   "section": "use",
   "operationId": "remove_source_file_api_v1_source_files__source_file_id__delete",
   "summary": "Remove Source File",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3067,10 +3662,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}/profile/sheets"
   ],
-  "source": "backend/app/management/routers/source_files.py:189",
+  "source": "backend/app/management/routers/source_files.py:188",
   "section": "use",
   "operationId": "list_source_sheets_api_v1_source_files__source_file_id__profile_sheets_get",
   "summary": "List Source Sheets",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3081,10 +3677,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns"
   ],
-  "source": "backend/app/management/routers/source_files.py:205",
+  "source": "backend/app/management/routers/source_files.py:204",
   "section": "use",
   "operationId": "list_source_columns_api_v1_source_files__source_file_id__profile_sheets__sheet__columns_get",
   "summary": "List Source Columns",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3095,10 +3692,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells"
   ],
-  "source": "backend/app/management/routers/source_files.py:225",
+  "source": "backend/app/management/routers/source_files.py:224",
   "section": "use",
   "operationId": "list_source_cells_api_v1_source_files__source_file_id__profile_sheets__sheet__cells_get",
   "summary": "List Source Cells",
+  "writtenSummary": false,
   "tags": [
    "source files"
   ]
@@ -3113,6 +3711,7 @@
   "section": "model",
   "operationId": "list_model_mappings_api_v1_model_mappings_get",
   "summary": "List Model Mappings",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3127,6 +3726,7 @@
   "section": "model",
   "operationId": "create_model_mapping_api_v1_model_mappings_post",
   "summary": "Create Model Mapping",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3141,6 +3741,7 @@
   "section": "model",
   "operationId": "get_model_mapping_api_v1_model_mappings__key__get",
   "summary": "Get Model Mapping",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3155,6 +3756,7 @@
   "section": "model",
   "operationId": "delete_model_mapping_api_v1_model_mappings__key__delete",
   "summary": "Delete Model Mapping",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3169,6 +3771,7 @@
   "section": "model",
   "operationId": "list_model_mapping_operations_api_v1_model_mappings__key__operations_get",
   "summary": "List Model Mapping Operations",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3183,6 +3786,7 @@
   "section": "model",
   "operationId": "apply_model_mapping_operations_api_v1_model_mappings__key__operations_post",
   "summary": "Apply Model Mapping Operations",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3197,6 +3801,7 @@
   "section": "model",
   "operationId": "get_mapping_inference_api_v1_model_mappings__key__inference_get",
   "summary": "Get Mapping Inference",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3211,6 +3816,7 @@
   "section": "model",
   "operationId": "run_mapping_inference_api_v1_model_mappings__key__inference_post",
   "summary": "Run Mapping Inference",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3225,6 +3831,7 @@
   "section": "model",
   "operationId": "list_mapping_proposals_api_v1_model_mappings__key__inference_proposals_get",
   "summary": "List Mapping Proposals",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3235,10 +3842,11 @@
   "labels": [
    "/api/v1/batches"
   ],
-  "source": "backend/app/management/routers/jobs.py:69",
+  "source": "backend/app/management/routers/jobs.py:72",
   "section": "use",
   "operationId": "create_batch_api_v1_batches_post",
   "summary": "Create Batch",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -3249,10 +3857,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/cancel"
   ],
-  "source": "backend/app/management/routers/jobs.py:148",
+  "source": "backend/app/management/routers/jobs.py:151",
   "section": "use",
   "operationId": "cancel_job_api_v1_jobs__job_id__cancel_post",
   "summary": "Cancel Job",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -3263,10 +3872,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/confirm"
   ],
-  "source": "backend/app/management/routers/jobs.py:166",
+  "source": "backend/app/management/routers/jobs.py:169",
   "section": "use",
   "operationId": "confirm_job_api_v1_jobs__job_id__confirm_post",
   "summary": "Confirm Job",
+  "writtenSummary": false,
   "tags": [
    "jobs"
   ]
@@ -3277,10 +3887,11 @@
   "labels": [
    "/api/v1/exports"
   ],
-  "source": "backend/app/management/routers/jobs.py:217",
+  "source": "backend/app/management/routers/jobs.py:220",
   "section": "use",
   "operationId": "create_export_api_v1_exports_post",
   "summary": "Create Export",
+  "writtenSummary": false,
   "tags": [
    "jobs",
    "exports"
@@ -3296,6 +3907,7 @@
   "section": "use",
   "operationId": "create_import_api_v1_imports_post",
   "summary": "Create Import",
+  "writtenSummary": false,
   "tags": [
    "imports"
   ]
@@ -3310,6 +3922,7 @@
   "section": "administer",
   "operationId": "run_ai_task_api_v1_ai_tasks__task_id__run_post",
   "summary": "Run Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3324,6 +3937,7 @@
   "section": "administer",
   "operationId": "answer_ai_task_api_v1_ai_tasks__task_id__answers_post",
   "summary": "Answer Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3338,6 +3952,7 @@
   "section": "administer",
   "operationId": "correct_ai_task_model_api_v1_ai_tasks__task_id__model_post",
   "summary": "Correct Ai Task Model",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3352,6 +3967,7 @@
   "section": "administer",
   "operationId": "accept_ai_task_model_api_v1_ai_tasks__task_id__accept_post",
   "summary": "Accept Ai Task Model",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3366,6 +3982,7 @@
   "section": "administer",
   "operationId": "retry_ai_task_api_v1_ai_tasks__task_id__retry_post",
   "summary": "Retry Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3380,6 +3997,7 @@
   "section": "administer",
   "operationId": "discard_ai_task_api_v1_ai_tasks__task_id__discard_post",
   "summary": "Discard Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3394,6 +4012,7 @@
   "section": "administer",
   "operationId": "reopen_ai_task_proposal_api_v1_ai_tasks__task_id__proposal_post",
   "summary": "Reopen Ai Task Proposal",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3408,6 +4027,7 @@
   "section": "administer",
   "operationId": "cancel_ai_task_api_v1_ai_tasks__task_id__cancel_post",
   "summary": "Cancel Ai Task",
+  "writtenSummary": false,
   "tags": [
    "ai"
   ]
@@ -3422,6 +4042,7 @@
   "section": "model",
   "operationId": "undo_model_mapping_step_api_v1_model_mappings__key__undo_post",
   "summary": "Undo Model Mapping Step",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3436,6 +4057,7 @@
   "section": "model",
   "operationId": "redo_model_mapping_step_api_v1_model_mappings__key__redo_post",
   "summary": "Redo Model Mapping Step",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3450,6 +4072,7 @@
   "section": "model",
   "operationId": "apply_mapping_proposals_api_v1_model_mappings__key__inference_application_post",
   "summary": "Apply Mapping Proposals",
+  "writtenSummary": false,
   "tags": [
    "model mappings"
   ]
@@ -3464,8 +4087,324 @@
   "section": "use",
   "operationId": "start_change_set_migration_api_v1_change_sets__change_set_id__model_migrations_post",
   "summary": "Start Change Set Migration",
+  "writtenSummary": false,
   "tags": [
    "change-sets"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/dry-run",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/dry-run"
+  ],
+  "source": "backend/app/management/routers/source_files.py:246",
+  "section": "use",
+  "operationId": "run_dry_run_api_v1_model_drafts__draft_id__dry_run_post",
+  "summary": "Run Dry Run",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/dry-run",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/dry-run"
+  ],
+  "source": "backend/app/management/routers/source_files.py:292",
+  "section": "use",
+  "operationId": "get_dry_run_api_v1_model_drafts__draft_id__dry_run_get",
+  "summary": "Get Dry Run",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/dry-run/rows",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/dry-run/rows"
+  ],
+  "source": "backend/app/management/routers/source_files.py:300",
+  "section": "use",
+  "operationId": "list_dry_run_rows_api_v1_model_drafts__draft_id__dry_run_rows_get",
+  "summary": "List Dry Run Rows",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/inference",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/inference"
+  ],
+  "source": "backend/app/management/routers/inference.py:42",
+  "section": "use",
+  "operationId": "run_inference_api_v1_model_drafts__draft_id__inference_post",
+  "summary": "Run Inference",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/inference",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/inference"
+  ],
+  "source": "backend/app/management/routers/inference.py:76",
+  "section": "use",
+  "operationId": "get_inference_api_v1_model_drafts__draft_id__inference_get",
+  "summary": "Get Inference",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/inference/proposals",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/inference/proposals"
+  ],
+  "source": "backend/app/management/routers/inference.py:85",
+  "section": "use",
+  "operationId": "list_proposals_api_v1_model_drafts__draft_id__inference_proposals_get",
+  "summary": "List Proposals",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/inference/application",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/inference/application"
+  ],
+  "source": "backend/app/management/routers/inference.py:120",
+  "section": "use",
+  "operationId": "apply_proposals_api_v1_model_drafts__draft_id__inference_application_post",
+  "summary": "Apply Proposals",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/inference/list",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/inference/list"
+  ],
+  "source": "backend/app/management/routers/inference.py:141",
+  "section": "use",
+  "operationId": "propose_one_list_api_v1_model_drafts__draft_id__inference_list_post",
+  "summary": "Propose One List",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/moves",
+  "labels": [
+   "/api/v1/moves"
+  ],
+  "source": "backend/app/management/routers/moves.py:25",
+  "section": "use",
+  "operationId": "start_move_api_v1_moves_post",
+  "summary": "Start Move",
+  "writtenSummary": false,
+  "tags": [
+   "moves"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/{workspace_key}/model/migrations",
+  "labels": [
+   "/api/v1/workspaces/{workspace_key}/model/migrations"
+  ],
+  "source": "backend/app/management/routers/model_management.py:239",
+  "section": "use",
+  "operationId": "start_workspace_migration_api_v1_workspaces__workspace_key__model_migrations_post",
+  "summary": "Start Workspace Migration",
+  "writtenSummary": false,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/consumer-subscriptions",
+  "labels": [
+   "/api/v1/consumer-subscriptions"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:69",
+  "section": "use",
+  "operationId": "create_api_v1_consumer_subscriptions_post",
+  "summary": "Create",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/consumer-subscriptions",
+  "labels": [
+   "/api/v1/consumer-subscriptions"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:91",
+  "section": "use",
+  "operationId": "list_subscriptions_api_v1_consumer_subscriptions_get",
+  "summary": "List Subscriptions",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/consumer-subscriptions/{subscription_id}",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:120",
+  "section": "use",
+  "operationId": "get_subscription_api_v1_consumer_subscriptions__subscription_id__get",
+  "summary": "Get Subscription",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/consumer-subscriptions/{subscription_id}",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:126",
+  "section": "use",
+  "operationId": "update_api_v1_consumer_subscriptions__subscription_id__patch",
+  "summary": "Update",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/consumer-subscriptions/{subscription_id}",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:177",
+  "section": "use",
+  "operationId": "delete_api_v1_consumer_subscriptions__subscription_id__delete",
+  "summary": "Delete",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/consumer-subscriptions/{subscription_id}/suspend",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}/suspend"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:137",
+  "section": "use",
+  "operationId": "suspend_api_v1_consumer_subscriptions__subscription_id__suspend_post",
+  "summary": "Suspend",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/consumer-subscriptions/{subscription_id}/resume",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}/resume"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:144",
+  "section": "use",
+  "operationId": "resume_api_v1_consumer_subscriptions__subscription_id__resume_post",
+  "summary": "Resume",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/consumer-subscriptions/{subscription_id}/rotate-secret",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}/rotate-secret"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:163",
+  "section": "use",
+  "operationId": "rotate_api_v1_consumer_subscriptions__subscription_id__rotate_secret_post",
+  "summary": "Rotate",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/consumer-subscriptions/{subscription_id}/deliveries",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}/deliveries"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:187",
+  "section": "use",
+  "operationId": "list_deliveries_api_v1_consumer_subscriptions__subscription_id__deliveries_get",
+  "summary": "List Deliveries",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:204",
+  "section": "use",
+  "operationId": "get_delivery_api_v1_consumer_subscriptions__subscription_id__deliveries__delivery_id__get",
+  "summary": "Get Delivery",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend",
+  "labels": [
+   "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend"
+  ],
+  "source": "backend/app/management/routers/consumer_subscriptions.py:213",
+  "section": "use",
+  "operationId": "resend_api_v1_consumer_subscriptions__subscription_id__deliveries__delivery_id__resend_post",
+  "summary": "Resend",
+  "writtenSummary": false,
+  "tags": [
+   "consumer subscriptions"
   ]
  }
 ]

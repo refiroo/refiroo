@@ -15,7 +15,9 @@ import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/worksp
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { nextGridCell } from "@/lib/gridNavigation";
 import { InlineError } from "@/ui/InlineError";
-import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
+import { DataTable, type CellAttributes, type DataColumn } from "@/ui/DataTable";
+import { readHideEmptyColumns, useTableDisplay, writeHideEmptyColumns } from "@/ui/TableDisplay";
+import { Switch } from "@/ui/Switch";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
@@ -72,7 +74,7 @@ export function RelationMatrixView({
   const [open, setOpen] = useState<{ rowId: string; columnId: string }>();
   const [active, setActive] = useState<{ rowId: string; column: number }>();
   const [patches, setPatches] = useState<{ key: string; rows: Record<string, RowPatch> }>({ key: "", rows: {} });
-  const grid = useRef<HTMLTableElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
   const restoreTo = useRef<{ rowId: string; columnId: string } | undefined>(undefined);
   // Set while a reload is in flight: its rows supersede every cell re-read since the list loaded.
   const reloadPending = useRef(false);
@@ -93,10 +95,26 @@ export function RelationMatrixView({
   const columnIds = query.matrixColumnIds;
   const state = columnIds?.length ? query.matrixState : undefined;
   const pageSize = query.pageSize || config.pageSize;
+  // Hide empty columns (0.13 LB-D8): kept per view in this browser with the other display choices.
+  // Columns named in Filter win, so the choice then has no effect.
+  const displayScope = `${application.key}:${view.key}`;
+  const [hideChoice, setHideChoice] = useState(() => ({ scope: displayScope, on: readHideEmptyColumns(displayScope) }));
+  const hideRequested = hideChoice.scope === displayScope ? hideChoice.on : readHideEmptyColumns(displayScope);
+  const hideEmpty = hideRequested && !columnIds?.length;
+  const chooseHideEmpty = (on: boolean) => {
+    setHideChoice({ scope: displayScope, on });
+    writeHideEmptyColumns(displayScope, on);
+    setColumnCursor(undefined);
+  };
 
   // The columns come with each page; they depend only on what selects them, so every page of one
   // list carries the same ones and a late page of an earlier list is ignored.
-  const columnsKey = JSON.stringify([columnIds ?? null, columnIds ? null : (columnCursor ?? null), changeSet?.id]);
+  const columnsKey = JSON.stringify([
+    columnIds ?? null,
+    columnIds ? null : (columnCursor ?? null),
+    changeSet?.id,
+    hideEmpty,
+  ]);
   const columnsKeyRef = useRef(columnsKey);
   // Declared before the list's own effects, so its first request already reads the new key.
   useEffect(() => {
@@ -107,6 +125,7 @@ export function RelationMatrixView({
     columns: RelationMatrixColumn[];
     next: string | null;
     prev: string | null;
+    emptyHidden: number;
   }>();
 
   const listDeps = [
@@ -120,6 +139,7 @@ export function RelationMatrixView({
     state ?? "",
     columnIds ? "" : (columnCursor ?? ""),
     changeSet?.id,
+    hideEmpty,
   ];
   const listKey = JSON.stringify([...listDeps, refreshToken]);
   const pages = useCursorWindow<RelationMatrixRow>(
@@ -135,6 +155,7 @@ export function RelationMatrixView({
               search: query.search || undefined,
               columnIds,
               columnCursor: columnIds ? undefined : columnCursor,
+              hideEmptyColumns: hideEmpty,
               state,
               ...selector,
               pageSize,
@@ -150,6 +171,7 @@ export function RelationMatrixView({
                   columns: page.columns,
                   next: page.columnsNextCursor ?? null,
                   prev: page.columnsPrevCursor ?? null,
+                  emptyHidden: page.emptyColumnsHidden ?? 0,
                 });
               return page;
             });
@@ -159,6 +181,8 @@ export function RelationMatrixView({
     { anchor: query.anchor, refreshToken },
   );
   const columns = useMemo(() => (columnPage?.key === columnsKey ? columnPage.columns : []), [columnPage, columnsKey]);
+  // The columns keep their widths per view on this device, as every table's do (ui/TableDisplay).
+  const display = useTableDisplay(["row", ...columns.map((column) => column.id)], displayScope);
   // Once the cell dialog has gone, focus returns to its cell unless the user already moved on.
   useEffect(() => {
     const target = restoreTo.current;
@@ -300,6 +324,87 @@ export function RelationMatrixView({
       ? "No results match this search"
       : `No ${rowsPlural} in this workspace yet`;
 
+  /** The page's row with the cells re-read since the list loaded. */
+  const current = (held: RelationMatrixRow) => patchedRows.get(held.row.id) ?? held;
+  const dataColumns: DataColumn<RelationMatrixRow>[] = [
+    {
+      key: "row",
+      label: rowType.name,
+      rowHeader: true,
+      alwaysShown: true,
+      className: "matrix-row-header",
+      headerProps: { "aria-colindex": 1 },
+      cellProps: (held) => ({
+        "aria-colindex": 1,
+        "data-grid-col": 0,
+        "data-row-focus": true,
+        tabIndex: tabRow === held.row.id && tabColumn === 0 ? 0 : -1,
+        onFocus: () => setActive({ rowId: held.row.id, column: 0 }),
+        onClick: () =>
+          onOpen({
+            id: held.row.id,
+            objectTypeKey: held.row.objectTypeKey,
+            applicationKey: application.key,
+            workspaceKey,
+          }),
+      }),
+      cell: (held) => {
+        const item = current(held);
+        return (
+          <>
+            <span className="matrix-row-name">{item.row.name}</span>
+            {rowColumns.map((field) => (
+              <span key={field} className="matrix-row-field">
+                <span className="visually-hidden">{attributeName(model, field)}: </span>
+                {formatValue(item.row.fields[field])}
+              </span>
+            ))}
+          </>
+        );
+      },
+    },
+    ...columns.map((column, position): DataColumn<RelationMatrixRow> => {
+      const place = position + 1;
+      return {
+        key: column.id,
+        label: columnLabel(column),
+        alwaysShown: true,
+        headerProps: { "aria-colindex": position + 2, title: column.name },
+        header: (
+          <>
+            <span className="matrix-column-label">{columnLabel(column)}</span>
+            {columnLabel(column) !== column.name && <span className="matrix-column-name">{column.name}</span>}
+          </>
+        ),
+        cellProps: (held) => {
+          const item = current(held);
+          const cell = item.cells.find((candidate) => candidate.columnId === column.id);
+          const attributes: CellAttributes = {
+            role: "gridcell",
+            "aria-colindex": place + 1,
+            "data-grid-col": place,
+            tabIndex: tabRow === item.row.id && tabColumn === place ? 0 : -1,
+            onFocus: () => setActive({ rowId: item.row.id, column: place }),
+          };
+          if (!cell) return { ...attributes, tabIndex: -1 };
+          return {
+            ...attributes,
+            className: `matrix-cell matrix-state-${cell.state}${cell.conflict ? " matrix-conflict" : ""}`,
+            "aria-haspopup": "dialog",
+            onClick: () => openCellAt(item.row.id, column.id),
+          };
+        },
+        cell: (held) => (
+          <MatrixCellBody
+            cell={current(held).cells.find((candidate) => candidate.columnId === column.id)}
+            cellHue={cellHue}
+            cellFields={config.cellFields}
+          />
+        ),
+      };
+    }),
+  ];
+
   return (
     <div>
       <PageHeader
@@ -344,6 +449,11 @@ export function RelationMatrixView({
               onQueryChange({ ...query, ...next, anchor: undefined });
             }}
           />
+          <label className="toolbar-switch matrix-hide-empty">
+            <Switch label="Hide empty columns" checked={hideRequested} onChange={chooseHideEmpty} />
+            <span>Hide empty columns</span>
+            {columnIds?.length ? <span className="muted">No effect while columns are chosen in Filter</span> : null}
+          </label>
           {!columnIds && (columnPage?.prev || columnPage?.next) && (
             <div className="matrix-column-paging" role="group" aria-label={`${columnType.pluralName} shown`}>
               <button
@@ -372,6 +482,14 @@ export function RelationMatrixView({
             </StatusPill>
           )}
         </div>
+        {hideEmpty && columnPage?.key === columnsKey && columnPage.emptyHidden > 0 && (
+          <p className="matrix-hidden-columns" role="status">
+            {columnPage.emptyHidden} empty {columnPage.emptyHidden === 1 ? "column" : "columns"} hidden ·{" "}
+            <button type="button" className="ghost" onClick={() => chooseHideEmpty(false)}>
+              Show all
+            </button>
+          </p>
+        )}
         <MatrixChips
           query={query}
           columns={columns}
@@ -402,128 +520,28 @@ export function RelationMatrixView({
         )}
         {pages.error && <InlineError message={pages.error} onRetry={pages.retry} />}
         {(!pages.error || rows.length > 0) && (
-          <ScrollWindow
-            list={pages}
-            label={`${view.name} matrix`}
-            noun={["row", "rows"]}
-            pageSize={pageSize}
-            onAnchorChange={onAnchorChange}
-            className="table-wrap matrix-table"
-          >
-            {(drawn) => (
-              <table
-                ref={grid}
-                role="grid"
-                aria-busy={pages.loading || undefined}
-                aria-readonly={actions.length ? undefined : true}
-                aria-rowcount={pages.totalCount !== null && rows.length > 0 ? pages.totalCount + 1 : undefined}
-                aria-colcount={columns.length + 1}
-                onKeyDown={onGridKeyDown}
-              >
-                <caption className="visually-hidden">
-                  {view.name}: {rowsPlural} by {columnType.name.toLowerCase()}
-                </caption>
-                <thead>
-                  <tr aria-rowindex={1}>
-                    <th scope="col" className="matrix-row-header" aria-colindex={1}>
-                      {rowType.name}
-                    </th>
-                    {columns.map((column, index) => (
-                      <th key={column.id} scope="col" aria-colindex={index + 2} title={column.name}>
-                        <span className="matrix-column-label">{columnLabel(column)}</span>
-                        {columnLabel(column) !== column.name && (
-                          <span className="matrix-column-name">{column.name}</span>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pages.loading && rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={columns.length + 1} className="empty-row">
-                        Loading…
-                      </td>
-                    </tr>
-                  ) : rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={columns.length + 1} className="empty-row">
-                        {emptyMessage}
-                      </td>
-                    </tr>
-                  ) : (
-                    <>
-                      <WindowSpacer as="tr" edge="before" height={drawn.before} columns={columns.length + 1} />
-                      {drawn.rows.map(({ index, item: held, size }) => {
-                        if (held === undefined)
-                          return (
-                            <WindowPlaceholder
-                              key={`placeholder-${index}`}
-                              as="tr"
-                              index={index}
-                              size={size}
-                              cells={[undefined, ...columns.map(() => undefined)]}
-                            />
-                          );
-                        const item = patchedRows.get(held.row.id) ?? held;
-                        return (
-                          <tr
-                            key={item.row.id}
-                            ref={drawn.measure}
-                            data-row-key={item.row.id}
-                            data-row-index={index}
-                            aria-rowindex={index + 2}
-                          >
-                            <th
-                              scope="row"
-                              className="matrix-row-header"
-                              aria-colindex={1}
-                              data-grid-col={0}
-                              data-row-focus
-                              tabIndex={tabRow === item.row.id && tabColumn === 0 ? 0 : -1}
-                              onFocus={() => setActive({ rowId: item.row.id, column: 0 })}
-                              onClick={() =>
-                                onOpen({
-                                  id: item.row.id,
-                                  objectTypeKey: item.row.objectTypeKey,
-                                  applicationKey: application.key,
-                                  workspaceKey,
-                                })
-                              }
-                            >
-                              <span className="matrix-row-name">{item.row.name}</span>
-                              {rowColumns.map((field) => (
-                                <span key={field} className="matrix-row-field">
-                                  <span className="visually-hidden">{attributeName(model, field)}: </span>
-                                  {formatValue(item.row.fields[field])}
-                                </span>
-                              ))}
-                            </th>
-                            {columns.map((column, index) => {
-                              const cell = item.cells.find((candidate) => candidate.columnId === column.id);
-                              return (
-                                <MatrixCell
-                                  key={column.id}
-                                  cell={cell}
-                                  cellHue={cellHue}
-                                  cellFields={config.cellFields}
-                                  column={index + 1}
-                                  tabbable={tabRow === item.row.id && tabColumn === index + 1}
-                                  onFocus={() => setActive({ rowId: item.row.id, column: index + 1 })}
-                                  onOpen={() => cell && openCellAt(item.row.id, column.id)}
-                                />
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                      <WindowSpacer as="tr" edge="after" height={drawn.after} columns={columns.length + 1} />
-                    </>
-                  )}
-                </tbody>
-              </table>
-            )}
-          </ScrollWindow>
+          <div ref={grid}>
+            <DataTable<RelationMatrixRow>
+              columns={dataColumns}
+              list={pages}
+              rowKey={(item) => item.row.id}
+              columnWidths={display.widths}
+              onColumnWidths={display.setWidths}
+              tableAttributes={{
+                role: "grid",
+                "aria-readonly": actions.length ? undefined : true,
+                "aria-colcount": columns.length + 1,
+                onKeyDown: onGridKeyDown,
+              }}
+              label={`${view.name} matrix`}
+              noun={["row", "rows"]}
+              pageSize={pageSize}
+              onAnchorChange={onAnchorChange}
+              className="matrix-table"
+              oneLine
+              emptyMessage={emptyMessage}
+            />
+          </div>
         )}
         {!pages.loading && !pages.error && rows.length > 0 && columns.length === 0 && (
           <p className="muted-text matrix-no-columns">
@@ -558,39 +576,22 @@ export function RelationMatrixView({
   );
 }
 
-function MatrixCell({
+/** What a matrix cell shows: its state and its first record, with how many more. */
+function MatrixCellBody({
   cell,
   cellHue,
   cellFields,
-  column,
-  tabbable,
-  onFocus,
-  onOpen,
 }: {
   cell: RelationMatrixCell | undefined;
   /** The cell records' type colour: a record in the matrix's data is a chip (ADR-040). */
   cellHue: Hue | undefined;
   cellFields: readonly string[];
-  column: number;
-  tabbable: boolean;
-  onFocus: () => void;
-  onOpen: () => void;
 }) {
-  if (!cell)
-    return <td role="gridcell" aria-colindex={column + 1} data-grid-col={column} tabIndex={-1} onFocus={onFocus} />;
+  if (!cell) return null;
   const summary = cell.records[0];
   const more = cell.recordCount - (summary ? 1 : 0);
   return (
-    <td
-      role="gridcell"
-      aria-colindex={column + 1}
-      data-grid-col={column}
-      tabIndex={tabbable ? 0 : -1}
-      className={`matrix-cell matrix-state-${cell.state}${cell.conflict ? " matrix-conflict" : ""}`}
-      aria-haspopup="dialog"
-      onFocus={onFocus}
-      onClick={onOpen}
-    >
+    <>
       <span className="matrix-cell-state">
         <StateMark state={cell.state} conflict={cell.conflict} />
         <span>{stateLabel(cell.state as MatrixStateKey, cell.conflict, cell.recordCount)}</span>
@@ -601,7 +602,7 @@ function MatrixCell({
           {more > 0 && <span className="muted">+{more}</span>}
         </span>
       )}
-    </td>
+    </>
   );
 }
 

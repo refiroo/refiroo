@@ -69,14 +69,29 @@ Search narrows the rows. **Filter** offers **Cell state** and a column chooser n
 column type, followed by **to show**. A state filter finds rows with that state in at least one
 chosen column across the whole list, including rows not yet scrolled into view.
 
-The matrix includes all records of its column type, even those that do not concern the rows you
-are working on. Use the column chooser on its own, with **Any state**, to show only the columns
-you need; **Show all** followed by the column type's plural name brings every column back.
+By default, the matrix includes all records of its column type, even those that do not concern
+the rows you are working on. Use the column chooser on its own, with **Any state**, to show only
+the columns you need; **Show all** followed by the column type's plural name clears that selection.
 
 The choice belongs to the page you have open, not to the view's saved settings, and does not
 change what other people see. The page's address keeps the chosen columns and cell state, so a
 bookmark or shared link opens the same selection. Opening the view again from the navigation
-shows all columns.
+clears that selection; **Hide empty columns** may still leave columns out.
+
+**Hide empty columns**, beside **Filter**, leaves out columns with no related record in any row
+left by the current search and scope. A scope limits the rows to those under one record. The check
+includes all those rows, not just the ones on screen. The column navigation skips empty columns,
+so they do not take up places on each page of columns.
+
+The switch is off by default. Like column widths, its setting is remembered for this view in
+this browser on this device, including after a reload. Another device starts with it off.
+In a change set or publication, it checks that change set's or publication's own records.
+
+When columns are left out, a line below the toolbar says **N empty columns hidden**, or
+**1 empty column hidden** for one. **Show all** on this line turns the switch off.
+If you have chosen columns in **Filter**, those columns are shown regardless of the switch.
+The switch then says **No effect while columns are chosen in Filter**. Its setting is kept
+and takes effect again when you clear the column selection.
 
 Choose the columns before interpreting results for cells in state **None**. If no columns were explicitly selected,
 choosing a state uses the columns currently shown. A result with no matching rows means no

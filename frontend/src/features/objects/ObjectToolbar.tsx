@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { FilterBar, FilterPill, filterFields, filterPills, pillText } from "@/features/objects/filters/FilterBar";
+import { attributeName, unavailableWord } from "@/model/fields";
 import { relationshipFilterFields } from "@/model/lookup";
 import { useRelationFilterNames } from "@/features/objects/RelationFilter";
 import { useQueryTranslationOffer } from "@/features/settings/useWorkspaceAiOffer";
@@ -17,6 +18,7 @@ import type {
 import { Choice } from "@/ui/Choice";
 import { Notice } from "@/ui/Notice";
 import { DebouncedSearchField, SearchField } from "@/ui/SearchField";
+import { Switch } from "@/ui/Switch";
 
 /** The stamps every record carries, filtered by on a live list without being declared (0.16 AG4). */
 const STAMPS = ["createdAt", "updatedAt"];
@@ -43,6 +45,7 @@ export function ObjectToolbar({
   applicationKey,
   noun,
   countDraft,
+  refreshToken = 0,
 }: {
   display: ReactNode;
   /** The sort menu, when a declared sort field has no visible column header. */
@@ -60,6 +63,8 @@ export function ObjectToolbar({
   noun: readonly [string, string];
   /** How many records the list shows with these filters, for the phone sheet (D163). */
   countDraft: (filters: CollectionFilter[]) => Promise<number | undefined>;
+  /** Changes when the list reads again, so the count beside "Hide inactive" does too. */
+  refreshToken?: number;
 }) {
   const objectTypeKey = view.objectTypeKey ?? "";
   const { changeSet, publication } = useWorkspaceData();
@@ -121,14 +126,27 @@ export function ObjectToolbar({
   // relationship the view does not declare is drawn as a pill while a filter on it stands or is
   // proposed, as an answer in words may use any relationship of the type (0.16 AG4).
   const used = [...query.filters, ...(proposed?.filters ?? [])].map((filter) => filter.field).join("\n");
+  const availability = view.config.availabilityField ?? undefined;
   const fields = useMemo(() => {
     const declared = view.config.filterFields;
     const stamps = live ? STAMPS.filter((stamp) => !declared.includes(stamp)) : [];
     const undeclared = relationshipFilterFields(model, objectTypeKey).filter(
       (field) => !declared.includes(field) && used.split("\n").includes(field),
     );
-    return filterFields(model, [...declared, ...stamps, ...undeclared]);
-  }, [model, objectTypeKey, view.config.filterFields, live, used]);
+    // The availability switch's filter is an ordinary pill, though the view does not declare it.
+    const switched = availability && !declared.includes(availability) && used.split("\n").includes(availability);
+    return filterFields(model, [...declared, ...stamps, ...undeclared, ...(switched ? [availability] : [])]);
+  }, [model, objectTypeKey, view.config.filterFields, live, used, availability]);
+  const hideInactive = availability ? (
+    <HideInactive
+      model={model}
+      field={availability}
+      filters={query.filters}
+      refreshToken={refreshToken}
+      countDraft={countDraft}
+      onChange={(filters) => onChange({ ...query, filters })}
+    />
+  ) : null;
   const proposedNames = useRelationFilterNames(model, objectTypeKey, proposed?.filters ?? [], workspaceKey);
   const applied =
     asked.kind === "applied" && asked.signature === signatureOf(query.filters, query.search) ? asked : undefined;
@@ -176,6 +194,7 @@ export function ObjectToolbar({
           countDraft={countDraft}
           onChange={(filters) => onChange({ ...query, filters })}
         />
+        {hideInactive}
         <div className="object-toolbar-end">
           {display}
           {sortMenu}
@@ -241,5 +260,54 @@ export function ObjectToolbar({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The table's availability switch (0.13 LB): "Hide inactive (N)" applies the ordinary filter
+ * `<field> ne false` (not false: a record with no value stays), which is a pill in the bar and in the address like any filter. N is one read of
+ * what the switch would hide: the records the list's other search and filters leave with the field
+ * false, read through the list's own count.
+ */
+function HideInactive({
+  model,
+  field,
+  filters,
+  refreshToken,
+  countDraft,
+  onChange,
+}: {
+  model: EngineModel;
+  field: string;
+  filters: readonly CollectionFilter[];
+  refreshToken: number;
+  countDraft: (filters: CollectionFilter[]) => Promise<number | undefined>;
+  onChange: (filters: CollectionFilter[]) => void;
+}) {
+  const word = unavailableWord(attributeName(model, field)).toLowerCase();
+  const others = useMemo(() => filters.filter((filter) => filter.field !== field), [filters, field]);
+  const hiding = filters.some(
+    (filter) => filter.field === field && filter.operator === "ne" && filter.value === "false",
+  );
+  const [hidden, setHidden] = useState<number>();
+  useEffect(() => {
+    let current = true;
+    countDraft([...others, { field, operator: "eq", value: "false" }])
+      .then((total) => current && setHidden(total))
+      .catch(() => current && setHidden(undefined));
+    return () => {
+      current = false;
+    };
+  }, [countDraft, field, others, refreshToken]);
+  const label = hidden === undefined ? `Hide ${word}` : `Hide ${word} (${hidden})`;
+  return (
+    <label className="toolbar-switch">
+      <Switch
+        label={label}
+        checked={hiding}
+        onChange={(on) => onChange(on ? [...others, { field, operator: "ne", value: "false" }] : others)}
+      />
+      <span>{label}</span>
+    </label>
   );
 }

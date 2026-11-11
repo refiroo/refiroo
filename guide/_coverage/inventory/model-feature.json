@@ -5,7 +5,7 @@
   "labels": [
    "applications"
   ],
-  "source": "backend/app/models/schema.py:835 (EngineModel)",
+  "source": "backend/app/models/schema.py:946 (EngineModel)",
   "section": "model",
   "types": [
    "array"
@@ -17,7 +17,7 @@
   "labels": [
    "color"
   ],
-  "source": "backend/app/models/schema.py:414 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:485 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -30,7 +30,7 @@
   "labels": [
    "defaultView"
   ],
-  "source": "backend/app/models/schema.py:417 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:488 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -42,7 +42,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:412 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:483 (ApplicationDefinition)",
   "section": "model",
   "context": [
    "applications",
@@ -60,7 +60,7 @@
   "labels": [
    "details"
   ],
-  "source": "backend/app/models/schema.py:419 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:490 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -72,7 +72,7 @@
   "labels": [
    "breadcrumbs"
   ],
-  "source": "backend/app/models/schema.py:384 (DetailViewDefinition)",
+  "source": "backend/app/models/schema.py:444 (DetailViewDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -84,7 +84,7 @@
   "labels": [
    "showAncestors"
   ],
-  "source": "backend/app/models/schema.py:280 (BreadcrumbDefinition)",
+  "source": "backend/app/models/schema.py:340 (BreadcrumbDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -96,7 +96,7 @@
   "labels": [
    "showApplication"
   ],
-  "source": "backend/app/models/schema.py:278 (BreadcrumbDefinition)",
+  "source": "backend/app/models/schema.py:338 (BreadcrumbDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -108,7 +108,7 @@
   "labels": [
    "showObjectType"
   ],
-  "source": "backend/app/models/schema.py:279 (BreadcrumbDefinition)",
+  "source": "backend/app/models/schema.py:339 (BreadcrumbDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -120,7 +120,7 @@
   "labels": [
    "header"
   ],
-  "source": "backend/app/models/schema.py:385 (DetailViewDefinition)",
+  "source": "backend/app/models/schema.py:445 (DetailViewDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -132,7 +132,7 @@
   "labels": [
    "showObjectType"
   ],
-  "source": "backend/app/models/schema.py:288 (DetailHeaderDefinition)",
+  "source": "backend/app/models/schema.py:348 (DetailHeaderDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -144,7 +144,7 @@
   "labels": [
    "subtitleField"
   ],
-  "source": "backend/app/models/schema.py:287 (DetailHeaderDefinition)",
+  "source": "backend/app/models/schema.py:347 (DetailHeaderDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -157,7 +157,7 @@
   "labels": [
    "titleField"
   ],
-  "source": "backend/app/models/schema.py:286 (DetailHeaderDefinition)",
+  "source": "backend/app/models/schema.py:346 (DetailHeaderDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -169,7 +169,7 @@
   "labels": [
    "objectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:383 (DetailViewDefinition)",
+  "source": "backend/app/models/schema.py:443 (DetailViewDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -181,7 +181,7 @@
   "labels": [
    "panels"
   ],
-  "source": "backend/app/models/schema.py:386 (DetailViewDefinition)",
+  "source": "backend/app/models/schema.py:446 (DetailViewDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -193,7 +193,7 @@
   "labels": [
    "config"
   ],
-  "source": "backend/app/models/schema.py:347 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:407 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -210,7 +210,7 @@
   "labels": [
    "columns"
   ],
-  "source": "backend/app/models/schema.py:301 (ChildrenPanelConfig)",
+  "source": "backend/app/models/schema.py:361 (ChildrenPanelConfig)",
   "section": "model",
   "types": [
    "array"
@@ -222,7 +222,7 @@
   "labels": [
    "defaultSort"
   ],
-  "source": "backend/app/models/schema.py:316 (RelationsPanelConfig)",
+  "source": "backend/app/models/schema.py:376 (RelationsPanelConfig)",
   "section": "model",
   "types": [
    "null",
@@ -235,7 +235,7 @@
   "labels": [
    "direction"
   ],
-  "source": "backend/app/models/schema.py:309 (RelationsPanelConfig)",
+  "source": "backend/app/models/schema.py:369 (RelationsPanelConfig)",
   "section": "model",
   "types": [
    "one of outgoing, incoming, both"
@@ -247,7 +247,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:294 (AttributesPanelConfig)",
+  "source": "backend/app/models/schema.py:354 (AttributesPanelConfig)",
   "section": "model",
   "context": [
    "config",
@@ -264,7 +264,7 @@
   "labels": [
    "filterByParent"
   ],
-  "source": "backend/app/models/schema.py:324 (TablePanelConfig)",
+  "source": "backend/app/models/schema.py:384 (TablePanelConfig)",
   "section": "model",
   "types": [
    "boolean"
@@ -276,7 +276,7 @@
   "labels": [
    "objectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:322 (TablePanelConfig)",
+  "source": "backend/app/models/schema.py:382 (TablePanelConfig)",
   "section": "model",
   "types": [
    "string"
@@ -288,7 +288,7 @@
   "labels": [
    "objectTypeKeys"
   ],
-  "source": "backend/app/models/schema.py:300 (ChildrenPanelConfig)",
+  "source": "backend/app/models/schema.py:360 (ChildrenPanelConfig)",
   "section": "model",
   "types": [
    "array"
@@ -300,7 +300,7 @@
   "labels": [
    "pageSize"
   ],
-  "source": "backend/app/models/schema.py:302 (ChildrenPanelConfig)",
+  "source": "backend/app/models/schema.py:362 (ChildrenPanelConfig)",
   "section": "model",
   "types": [
    "integer"
@@ -312,7 +312,7 @@
   "labels": [
    "relationTypeKeys"
   ],
-  "source": "backend/app/models/schema.py:308 (RelationsPanelConfig)",
+  "source": "backend/app/models/schema.py:368 (RelationsPanelConfig)",
   "section": "model",
   "types": [
    "array"
@@ -324,7 +324,7 @@
   "labels": [
    "showAncestors"
   ],
-  "source": "backend/app/models/schema.py:332 (HierarchyPanelConfig)",
+  "source": "backend/app/models/schema.py:392 (HierarchyPanelConfig)",
   "section": "model",
   "types": [
    "boolean"
@@ -336,7 +336,7 @@
   "labels": [
    "showParent"
   ],
-  "source": "backend/app/models/schema.py:331 (HierarchyPanelConfig)",
+  "source": "backend/app/models/schema.py:391 (HierarchyPanelConfig)",
   "section": "model",
   "types": [
    "boolean"
@@ -348,7 +348,7 @@
   "labels": [
    "showRelationshipColumn"
   ],
-  "source": "backend/app/models/schema.py:311 (RelationsPanelConfig)",
+  "source": "backend/app/models/schema.py:371 (RelationsPanelConfig)",
   "section": "model",
   "types": [
    "boolean"
@@ -360,7 +360,7 @@
   "labels": [
    "sortFields"
   ],
-  "source": "backend/app/models/schema.py:313 (RelationsPanelConfig)",
+  "source": "backend/app/models/schema.py:373 (RelationsPanelConfig)",
   "section": "model",
   "types": [
    "array",
@@ -373,7 +373,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:395 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:464 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -390,7 +390,7 @@
   "labels": [
    "order"
   ],
-  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:405 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -407,7 +407,7 @@
   "labels": [
    "region"
   ],
-  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:405 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -424,7 +424,7 @@
   "labels": [
    "title"
   ],
-  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:405 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -441,7 +441,7 @@
   "labels": [
    "type"
   ],
-  "source": "backend/app/models/schema.py:346 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:406 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -462,7 +462,7 @@
   "labels": [
    "visible"
   ],
-  "source": "backend/app/models/schema.py:345 (AttributesPanelDefinition)",
+  "source": "backend/app/models/schema.py:405 (AttributesPanelDefinition)",
   "section": "model",
   "context": [
    "panels",
@@ -479,7 +479,7 @@
   "labels": [
    "icon"
   ],
-  "source": "backend/app/models/schema.py:413 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:484 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -492,7 +492,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:410 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:481 (ApplicationDefinition)",
   "section": "model",
   "context": [
    "applications",
@@ -509,7 +509,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:411 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:482 (ApplicationDefinition)",
   "section": "model",
   "context": [
    "applications",
@@ -526,7 +526,7 @@
   "labels": [
    "navigation"
   ],
-  "source": "backend/app/models/schema.py:422 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:493 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -539,7 +539,7 @@
   "labels": [
    "groups"
   ],
-  "source": "backend/app/models/schema.py:404 (NavigationDefinition)",
+  "source": "backend/app/models/schema.py:473 (NavigationDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -551,7 +551,7 @@
   "labels": [
    "collapsed"
   ],
-  "source": "backend/app/models/schema.py:398 (NavigationGroupDefinition)",
+  "source": "backend/app/models/schema.py:467 (NavigationGroupDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -563,10 +563,22 @@
   "labels": [
    "collections"
   ],
-  "source": "backend/app/models/schema.py:397 (NavigationGroupDefinition)",
+  "source": "backend/app/models/schema.py:466 (NavigationGroupDefinition)",
   "section": "model",
   "types": [
    "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].navigation.groups[].collections[].view",
+  "labels": [
+   "view"
+  ],
+  "source": "backend/app/models/schema.py:454 (NavigationViewEntry)",
+  "section": "model",
+  "types": [
+   "string"
   ]
  },
  {
@@ -575,7 +587,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:395 (NavigationGroupDefinition)",
+  "source": "backend/app/models/schema.py:464 (NavigationGroupDefinition)",
   "section": "model",
   "context": [
    "groups",
@@ -592,7 +604,7 @@
   "labels": [
    "label"
   ],
-  "source": "backend/app/models/schema.py:396 (NavigationGroupDefinition)",
+  "source": "backend/app/models/schema.py:465 (NavigationGroupDefinition)",
   "section": "model",
   "context": [
    "groups",
@@ -605,11 +617,23 @@
  },
  {
   "kind": "model-feature",
+  "key": "applications[].navigation.opens",
+  "labels": [
+   "opens"
+  ],
+  "source": "backend/app/models/schema.py:475 (NavigationDefinition)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
   "key": "applications[].objectTypeKeys",
   "labels": [
    "objectTypeKeys"
   ],
-  "source": "backend/app/models/schema.py:416 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:487 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -621,7 +645,7 @@
   "labels": [
    "settings"
   ],
-  "source": "backend/app/models/schema.py:420 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:491 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -633,7 +657,7 @@
   "labels": [
    "state"
   ],
-  "source": "backend/app/models/schema.py:415 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:486 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "one of draft, active, retired"
@@ -645,7 +669,7 @@
   "labels": [
    "views"
   ],
-  "source": "backend/app/models/schema.py:418 (ApplicationDefinition)",
+  "source": "backend/app/models/schema.py:489 (ApplicationDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -657,7 +681,7 @@
   "labels": [
    "config"
   ],
-  "source": "backend/app/models/schema.py:181 (TableViewDefinition)",
+  "source": "backend/app/models/schema.py:193 (TableViewDefinition)",
   "section": "model",
   "context": [
    "views",
@@ -674,7 +698,19 @@
   "labels": [
    "actions"
   ],
-  "source": "backend/app/models/schema.py:251 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:310 (TreeViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.attributeColumns",
+  "labels": [
+   "attributeColumns"
+  ],
+  "source": "backend/app/models/schema.py:277 (RelationTableViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -686,7 +722,7 @@
   "labels": [
    "availabilityField"
   ],
-  "source": "backend/app/models/schema.py:252 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:183 (TableViewConfig)",
   "section": "model",
   "types": [
    "null",
@@ -699,7 +735,7 @@
   "labels": [
    "candidateSearchFields"
   ],
-  "source": "backend/app/models/schema.py:196 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:208 (MappingGridViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -711,7 +747,7 @@
   "labels": [
    "cellActions"
   ],
-  "source": "backend/app/models/schema.py:224 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:236 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -723,7 +759,7 @@
   "labels": [
    "cellFields"
   ],
-  "source": "backend/app/models/schema.py:222 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:234 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -735,7 +771,7 @@
   "labels": [
    "cellObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:219 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:231 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -747,7 +783,7 @@
   "labels": [
    "childSort"
   ],
-  "source": "backend/app/models/schema.py:249 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:308 (TreeViewConfig)",
   "section": "model",
   "types": [
    "object"
@@ -759,7 +795,7 @@
   "labels": [
    "columnLabelField"
   ],
-  "source": "backend/app/models/schema.py:221 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:233 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -771,7 +807,7 @@
   "labels": [
    "columnObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:218 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:230 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -783,7 +819,7 @@
   "labels": [
    "columns"
   ],
-  "source": "backend/app/models/schema.py:167 (TableViewConfig)",
+  "source": "backend/app/models/schema.py:176 (TableViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -795,7 +831,7 @@
   "labels": [
    "defaultSort"
   ],
-  "source": "backend/app/models/schema.py:170 (TableViewConfig)",
+  "source": "backend/app/models/schema.py:179 (TableViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -807,7 +843,7 @@
   "labels": [
    "direction"
   ],
-  "source": "backend/app/models/schema.py:193 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:205 (MappingGridViewConfig)",
   "section": "model",
   "types": [
    "one of outgoing, incoming"
@@ -819,7 +855,19 @@
   "labels": [
    "filterFields"
   ],
-  "source": "backend/app/models/schema.py:168 (TableViewConfig)",
+  "source": "backend/app/models/schema.py:177 (TableViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.fromColumns",
+  "labels": [
+   "fromColumns"
+  ],
+  "source": "backend/app/models/schema.py:275 (RelationTableViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -831,10 +879,23 @@
   "labels": [
    "fromObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:191 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:203 (MappingGridViewConfig)",
   "section": "model",
   "types": [
    "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.groupBy",
+  "labels": [
+   "groupBy"
+  ],
+  "source": "backend/app/models/schema.py:281 (RelationTableViewConfig)",
+  "section": "model",
+  "types": [
+   "null",
+   "one of from, to"
   ]
  },
  {
@@ -843,10 +904,22 @@
   "labels": [
    "labelField"
   ],
-  "source": "backend/app/models/schema.py:247 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:306 (TreeViewConfig)",
   "section": "model",
   "types": [
    "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.layout",
+  "labels": [
+   "layout"
+  ],
+  "source": "backend/app/models/schema.py:282 (RelationTableViewConfig)",
+  "section": "model",
+  "types": [
+   "one of rows, grid"
   ]
  },
  {
@@ -855,7 +928,7 @@
   "labels": [
    "objectTypeKeys"
   ],
-  "source": "backend/app/models/schema.py:246 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:305 (TreeViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -867,7 +940,7 @@
   "labels": [
    "pageSize"
   ],
-  "source": "backend/app/models/schema.py:171 (TableViewConfig)",
+  "source": "backend/app/models/schema.py:180 (TableViewConfig)",
   "section": "model",
   "types": [
    "integer"
@@ -879,7 +952,7 @@
   "labels": [
    "relationTypeKey"
   ],
-  "source": "backend/app/models/schema.py:190 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:202 (MappingGridViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -891,7 +964,7 @@
   "labels": [
    "rootObjectTypeKeys"
   ],
-  "source": "backend/app/models/schema.py:245 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:304 (TreeViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -903,7 +976,7 @@
   "labels": [
    "rowColumns"
   ],
-  "source": "backend/app/models/schema.py:220 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:232 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -915,7 +988,7 @@
   "labels": [
    "rowObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:217 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:229 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -927,7 +1000,7 @@
   "labels": [
    "searchFields"
   ],
-  "source": "backend/app/models/schema.py:223 (RelationMatrixViewConfig)",
+  "source": "backend/app/models/schema.py:235 (RelationMatrixViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -939,7 +1012,7 @@
   "labels": [
    "secondaryField"
   ],
-  "source": "backend/app/models/schema.py:248 (TreeViewConfig)",
+  "source": "backend/app/models/schema.py:307 (TreeViewConfig)",
   "section": "model",
   "types": [
    "null",
@@ -952,7 +1025,7 @@
   "labels": [
    "sortFields"
   ],
-  "source": "backend/app/models/schema.py:169 (TableViewConfig)",
+  "source": "backend/app/models/schema.py:178 (TableViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -964,7 +1037,7 @@
   "labels": [
    "sourceColumns"
   ],
-  "source": "backend/app/models/schema.py:194 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:206 (MappingGridViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -976,7 +1049,19 @@
   "labels": [
    "targetDisplayColumns"
   ],
-  "source": "backend/app/models/schema.py:195 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:207 (MappingGridViewConfig)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "applications[].views[].config.toColumns",
+  "labels": [
+   "toColumns"
+  ],
+  "source": "backend/app/models/schema.py:276 (RelationTableViewConfig)",
   "section": "model",
   "types": [
    "array"
@@ -988,7 +1073,7 @@
   "labels": [
    "toObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:192 (MappingGridViewConfig)",
+  "source": "backend/app/models/schema.py:204 (MappingGridViewConfig)",
   "section": "model",
   "types": [
    "string"
@@ -1000,7 +1085,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:177 (TableViewDefinition)",
+  "source": "backend/app/models/schema.py:189 (TableViewDefinition)",
   "section": "model",
   "context": [
    "views",
@@ -1017,7 +1102,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:178 (TableViewDefinition)",
+  "source": "backend/app/models/schema.py:190 (TableViewDefinition)",
   "section": "model",
   "context": [
    "views",
@@ -1034,7 +1119,7 @@
   "labels": [
    "objectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:180 (TableViewDefinition)",
+  "source": "backend/app/models/schema.py:192 (TableViewDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -1046,7 +1131,7 @@
   "labels": [
    "type"
   ],
-  "source": "backend/app/models/schema.py:179 (TableViewDefinition)",
+  "source": "backend/app/models/schema.py:191 (TableViewDefinition)",
   "section": "model",
   "context": [
    "views",
@@ -1056,6 +1141,7 @@
   "types": [
    "const 'mappingGrid'",
    "const 'relationMatrix'",
+   "const 'relationTable'",
    "const 'table'",
    "const 'tree'"
   ]
@@ -1066,7 +1152,7 @@
   "labels": [
    "attributeTypes"
   ],
-  "source": "backend/app/models/schema.py:831 (EngineModel)",
+  "source": "backend/app/models/schema.py:942 (EngineModel)",
   "section": "model",
   "types": [
    "array"
@@ -1078,7 +1164,7 @@
   "labels": [
    "default"
   ],
-  "source": "backend/app/models/schema.py:60 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:69 (AttributeTypeDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -1091,7 +1177,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:58 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:67 (AttributeTypeDefinition)",
   "section": "model",
   "context": [
    "attributeTypes",
@@ -1109,7 +1195,7 @@
   "labels": [
    "features"
   ],
-  "source": "backend/app/models/schema.py:61 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:70 (AttributeTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -1121,7 +1207,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:56 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:65 (AttributeTypeDefinition)",
   "section": "model",
   "context": [
    "attributeTypes",
@@ -1138,7 +1224,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:57 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:66 (AttributeTypeDefinition)",
   "section": "model",
   "context": [
    "attributeTypes",
@@ -1155,7 +1241,7 @@
   "labels": [
    "ui"
   ],
-  "source": "backend/app/models/schema.py:63 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:72 (AttributeTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -1167,7 +1253,7 @@
   "labels": [
    "validation"
   ],
-  "source": "backend/app/models/schema.py:62 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:71 (AttributeTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -1179,7 +1265,7 @@
   "labels": [
    "valueType"
   ],
-  "source": "backend/app/models/schema.py:59 (AttributeTypeDefinition)",
+  "source": "backend/app/models/schema.py:68 (AttributeTypeDefinition)",
   "section": "model",
   "types": [
    "one of text, longText, integer, decimal, boolean, date, dateTime, json"
@@ -1191,7 +1277,7 @@
   "labels": [
    "consumerApis"
   ],
-  "source": "backend/app/models/schema.py:837 (EngineModel)",
+  "source": "backend/app/models/schema.py:948 (EngineModel)",
   "section": "model",
   "types": [
    "array",
@@ -1204,7 +1290,7 @@
   "labels": [
    "contractVersion"
   ],
-  "source": "backend/app/models/schema.py:806 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:913 (ConsumerApiDocument)",
   "section": "model",
   "types": [
    "integer"
@@ -1216,7 +1302,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:912 (ConsumerApiDocument)",
   "section": "model",
   "context": [
    "consumerApis",
@@ -1230,11 +1316,938 @@
  },
  {
   "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions",
+  "labels": [
+   "earlierVersions"
+  ],
+  "source": "backend/app/models/schema.py:922 (ConsumerApiDocument)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].contractVersion",
+  "labels": [
+   "contractVersion"
+  ],
+  "source": "backend/app/models/schema.py:890 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "integer"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].deprecated",
+  "labels": [
+   "deprecated"
+  ],
+  "source": "backend/app/models/schema.py:891 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "context": [
+   "earlierVersions",
+   "earlierVersion"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].exposes",
+  "labels": [
+   "exposes"
+  ],
+  "source": "backend/app/models/schema.py:893 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters",
+  "labels": [
+   "filters"
+  ],
+  "source": "backend/app/models/schema.py:897 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.byType",
+  "labels": [
+   "byType"
+  ],
+  "source": "backend/app/models/schema.py:860 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.crosswalk",
+  "labels": [
+   "crosswalk"
+  ],
+  "source": "backend/app/models/schema.py:868 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (FilterSpec)",
+  "section": "model",
+  "context": [
+   "filters",
+   "filter"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.keepOnlyMatching",
+  "labels": [
+   "keepOnlyMatching"
+  ],
+  "source": "backend/app/models/schema.py:866 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.linkedTo",
+  "labels": [
+   "linkedTo"
+  ],
+  "source": "backend/app/models/schema.py:862 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.matchOn",
+  "labels": [
+   "matchOn"
+  ],
+  "source": "backend/app/models/schema.py:865 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.onRelated",
+  "labels": [
+   "onRelated"
+  ],
+  "source": "backend/app/models/schema.py:864 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.scoreOnlyMatching",
+  "labels": [
+   "scoreOnlyMatching"
+  ],
+  "source": "backend/app/models/schema.py:867 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.through",
+  "labels": [
+   "through"
+  ],
+  "source": "backend/app/models/schema.py:863 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].filters.{}.under",
+  "labels": [
+   "under"
+  ],
+  "source": "backend/app/models/schema.py:861 (FilterSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object",
+  "labels": [
+   "object"
+  ],
+  "source": "backend/app/models/schema.py:895 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:793 (ObjectSpec)",
+  "section": "model",
+  "context": [
+   "object",
+   "object"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.fields.{}.default",
+  "labels": [
+   "default"
+  ],
+  "source": "backend/app/models/schema.py:762 (FieldSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.fields.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (FieldSpec)",
+  "section": "model",
+  "context": [
+   "fields",
+   "field"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.fields.{}.from",
+  "labels": [
+   "from"
+  ],
+  "source": "backend/app/models/schema.py:756 (FieldSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.fields.{}.role",
+  "labels": [
+   "role"
+  ],
+  "source": "backend/app/models/schema.py:763 (FieldSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "one of id, code, name, active, validFrom, validTo"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.hierarchy",
+  "labels": [
+   "hierarchy"
+  ],
+  "source": "backend/app/models/schema.py:796 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "boolean",
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.parent",
+  "labels": [
+   "parent"
+  ],
+  "source": "backend/app/models/schema.py:794 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "array",
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.parent.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:781 (ParentSpec)",
+  "section": "model",
+  "context": [
+   "parent",
+   "parent"
+  ],
+  "weak": true,
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.parent.output",
+  "labels": [
+   "output"
+  ],
+  "source": "backend/app/models/schema.py:780 (ParentSpec)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.path",
+  "labels": [
+   "path"
+  ],
+  "source": "backend/app/models/schema.py:795 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "boolean",
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.related",
+  "labels": [
+   "related"
+  ],
+  "source": "backend/app/models/schema.py:797 (ObjectSpec)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.related.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (RelatedSpec)",
+  "section": "model",
+  "context": [
+   "related",
+   "related"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.related.{}.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:789 (RelatedSpec)",
+  "section": "model",
+  "context": [
+   "related",
+   "related"
+  ],
+  "weak": true,
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].object.related.{}.via",
+  "labels": [
+   "via"
+  ],
+  "source": "backend/app/models/schema.py:788 (RelatedSpec)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations",
+  "labels": [
+   "operations"
+  ],
+  "source": "backend/app/models/schema.py:896 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events",
+  "labels": [
+   "events"
+  ],
+  "source": "backend/app/models/schema.py:853 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom",
+  "labels": [
+   "custom"
+  ],
+  "source": "backend/app/models/schema.py:845 (EventsOperation)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom[].changes",
+  "labels": [
+   "changes"
+  ],
+  "source": "backend/app/models/schema.py:839 (EventSpec)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom[].key",
+  "labels": [
+   "key"
+  ],
+  "source": "backend/app/models/schema.py:837 (EventSpec)",
+  "section": "model",
+  "context": [
+   "custom",
+   "custom"
+  ],
+  "weak": true,
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom[].objectTypes",
+  "labels": [
+   "objectTypes"
+  ],
+  "source": "backend/app/models/schema.py:838 (EventSpec)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom[].watch",
+  "labels": [
+   "watch"
+  ],
+  "source": "backend/app/models/schema.py:840 (EventSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom[].watch.fields",
+  "labels": [
+   "fields"
+  ],
+  "source": "backend/app/models/schema.py:830 (EventWatch)",
+  "section": "model",
+  "context": [
+   "watch",
+   "watch"
+  ],
+  "weak": true,
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.custom[].watch.related",
+  "labels": [
+   "related"
+  ],
+  "source": "backend/app/models/schema.py:831 (EventWatch)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (EventsOperation)",
+  "section": "model",
+  "context": [
+   "events",
+   "event"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.events.perType",
+  "labels": [
+   "perType"
+  ],
+  "source": "backend/app/models/schema.py:844 (EventsOperation)",
+  "section": "model",
+  "types": [
+   "boolean"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists",
+  "labels": [
+   "lists"
+  ],
+  "source": "backend/app/models/schema.py:852 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists.{}.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (ListSpec)",
+  "section": "model",
+  "context": [
+   "lists",
+   "list"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists.{}.of",
+  "labels": [
+   "of"
+  ],
+  "source": "backend/app/models/schema.py:822 (ListSpec)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists.{}.sortBy",
+  "labels": [
+   "sortBy"
+  ],
+  "source": "backend/app/models/schema.py:824 (ListSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists.{}.within",
+  "labels": [
+   "within"
+  ],
+  "source": "backend/app/models/schema.py:823 (ListSpec)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists.{}.within.filter",
+  "labels": [
+   "filter"
+  ],
+  "source": "backend/app/models/schema.py:817 (Within)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.lists.{}.within.types",
+  "labels": [
+   "types"
+  ],
+  "source": "backend/app/models/schema.py:818 (Within)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.objects",
+  "labels": [
+   "objects"
+  ],
+  "source": "backend/app/models/schema.py:849 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.objects.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (Operation)",
+  "section": "model",
+  "context": [
+   "objects",
+   "object"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.resolve",
+  "labels": [
+   "resolve"
+  ],
+  "source": "backend/app/models/schema.py:851 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.resolve.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (Operation)",
+  "section": "model",
+  "context": [
+   "resolve",
+   "resolve"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref",
+  "labels": [
+   "xref"
+  ],
+  "source": "backend/app/models/schema.py:850 (Operations)",
+  "section": "model",
+  "types": [
+   "null",
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough",
+  "labels": [
+   "alsoMatchThrough"
+  ],
+  "source": "backend/app/models/schema.py:813 (XrefOperation)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough[].firstOf",
+  "labels": [
+   "firstOf"
+  ],
+  "source": "backend/app/models/schema.py:802 (AlsoMatchThrough)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough[].firstOf[].contains",
+  "labels": [
+   "contains"
+  ],
+  "source": "backend/app/models/schema.py:575 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough[].firstOf[].exact",
+  "labels": [
+   "exact"
+  ],
+  "source": "backend/app/models/schema.py:574 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough[].firstOf[].field",
+  "labels": [
+   "field"
+  ],
+  "source": "backend/app/models/schema.py:573 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough[].preferTypes",
+  "labels": [
+   "preferTypes"
+  ],
+  "source": "backend/app/models/schema.py:803 (AlsoMatchThrough)",
+  "section": "model",
+  "types": [
+   "array"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.alsoMatchThrough[].related",
+  "labels": [
+   "related"
+  ],
+  "source": "backend/app/models/schema.py:801 (AlsoMatchThrough)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.description",
+  "labels": [
+   "description"
+  ],
+  "source": "backend/app/models/schema.py:912 (XrefOperation)",
+  "section": "model",
+  "context": [
+   "xref",
+   "xref"
+  ],
+  "weak": true,
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.matchOn",
+  "labels": [
+   "matchOn"
+  ],
+  "source": "backend/app/models/schema.py:812 (XrefOperation)",
+  "section": "model",
+  "types": [
+   "array",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.matchOn[].contains",
+  "labels": [
+   "contains"
+  ],
+  "source": "backend/app/models/schema.py:575 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.matchOn[].exact",
+  "labels": [
+   "exact"
+  ],
+  "source": "backend/app/models/schema.py:574 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "integer",
+   "null"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].operations.xref.matchOn[].field",
+  "labels": [
+   "field"
+  ],
+  "source": "backend/app/models/schema.py:573 (ConsumerMatchRule)",
+  "section": "model",
+  "types": [
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].publicNames",
+  "labels": [
+   "publicNames"
+  ],
+  "source": "backend/app/models/schema.py:894 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "object"
+  ]
+ },
+ {
+  "kind": "model-feature",
+  "key": "consumerApis[].earlierVersions[].sunset",
+  "labels": [
+   "sunset"
+  ],
+  "source": "backend/app/models/schema.py:892 (ConsumerApiEarlierVersion)",
+  "section": "model",
+  "types": [
+   "null",
+   "string"
+  ]
+ },
+ {
+  "kind": "model-feature",
   "key": "consumerApis[].exposes",
   "labels": [
    "exposes"
   ],
-  "source": "backend/app/models/schema.py:807 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:914 (ConsumerApiDocument)",
   "section": "model",
   "types": [
    "array"
@@ -1246,7 +2259,7 @@
   "labels": [
    "filters"
   ],
-  "source": "backend/app/models/schema.py:811 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:918 (ConsumerApiDocument)",
   "section": "model",
   "types": [
    "object"
@@ -1258,7 +2271,7 @@
   "labels": [
    "byType"
   ],
-  "source": "backend/app/models/schema.py:789 (FilterSpec)",
+  "source": "backend/app/models/schema.py:860 (FilterSpec)",
   "section": "model",
   "types": [
    "boolean",
@@ -1271,7 +2284,7 @@
   "labels": [
    "crosswalk"
   ],
-  "source": "backend/app/models/schema.py:797 (FilterSpec)",
+  "source": "backend/app/models/schema.py:868 (FilterSpec)",
   "section": "model",
   "types": [
    "boolean"
@@ -1283,7 +2296,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (FilterSpec)",
+  "source": "backend/app/models/schema.py:912 (FilterSpec)",
   "section": "model",
   "context": [
    "filters",
@@ -1301,7 +2314,7 @@
   "labels": [
    "keepOnlyMatching"
   ],
-  "source": "backend/app/models/schema.py:795 (FilterSpec)",
+  "source": "backend/app/models/schema.py:866 (FilterSpec)",
   "section": "model",
   "types": [
    "boolean"
@@ -1313,7 +2326,7 @@
   "labels": [
    "linkedTo"
   ],
-  "source": "backend/app/models/schema.py:791 (FilterSpec)",
+  "source": "backend/app/models/schema.py:862 (FilterSpec)",
   "section": "model",
   "types": [
    "array",
@@ -1326,7 +2339,7 @@
   "labels": [
    "matchOn"
   ],
-  "source": "backend/app/models/schema.py:794 (FilterSpec)",
+  "source": "backend/app/models/schema.py:865 (FilterSpec)",
   "section": "model",
   "types": [
    "array",
@@ -1339,7 +2352,7 @@
   "labels": [
    "onRelated"
   ],
-  "source": "backend/app/models/schema.py:793 (FilterSpec)",
+  "source": "backend/app/models/schema.py:864 (FilterSpec)",
   "section": "model",
   "types": [
    "null",
@@ -1352,7 +2365,7 @@
   "labels": [
    "scoreOnlyMatching"
   ],
-  "source": "backend/app/models/schema.py:796 (FilterSpec)",
+  "source": "backend/app/models/schema.py:867 (FilterSpec)",
   "section": "model",
   "types": [
    "boolean"
@@ -1364,7 +2377,7 @@
   "labels": [
    "through"
   ],
-  "source": "backend/app/models/schema.py:792 (FilterSpec)",
+  "source": "backend/app/models/schema.py:863 (FilterSpec)",
   "section": "model",
   "types": [
    "array",
@@ -1377,7 +2390,7 @@
   "labels": [
    "under"
   ],
-  "source": "backend/app/models/schema.py:790 (FilterSpec)",
+  "source": "backend/app/models/schema.py:861 (FilterSpec)",
   "section": "model",
   "types": [
    "array",
@@ -1390,7 +2403,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:803 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:910 (ConsumerApiDocument)",
   "section": "model",
   "context": [
    "consumerApis",
@@ -1407,7 +2420,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:804 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:911 (ConsumerApiDocument)",
   "section": "model",
   "context": [
    "consumerApis",
@@ -1424,7 +2437,7 @@
   "labels": [
    "object"
   ],
-  "source": "backend/app/models/schema.py:809 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:916 (ConsumerApiDocument)",
   "section": "model",
   "types": [
    "object"
@@ -1436,7 +2449,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:722 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:793 (ObjectSpec)",
   "section": "model",
   "context": [
    "object",
@@ -1453,7 +2466,7 @@
   "labels": [
    "default"
   ],
-  "source": "backend/app/models/schema.py:691 (FieldSpec)",
+  "source": "backend/app/models/schema.py:762 (FieldSpec)",
   "section": "model",
   "types": [
    "null",
@@ -1466,7 +2479,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (FieldSpec)",
+  "source": "backend/app/models/schema.py:912 (FieldSpec)",
   "section": "model",
   "context": [
    "fields",
@@ -1484,7 +2497,7 @@
   "labels": [
    "from"
   ],
-  "source": "backend/app/models/schema.py:685 (FieldSpec)",
+  "source": "backend/app/models/schema.py:756 (FieldSpec)",
   "section": "model",
   "types": [
    "array",
@@ -1498,7 +2511,7 @@
   "labels": [
    "role"
   ],
-  "source": "backend/app/models/schema.py:692 (FieldSpec)",
+  "source": "backend/app/models/schema.py:763 (FieldSpec)",
   "section": "model",
   "types": [
    "null",
@@ -1511,7 +2524,7 @@
   "labels": [
    "hierarchy"
   ],
-  "source": "backend/app/models/schema.py:725 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:796 (ObjectSpec)",
   "section": "model",
   "types": [
    "boolean",
@@ -1525,7 +2538,7 @@
   "labels": [
    "parent"
   ],
-  "source": "backend/app/models/schema.py:723 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:794 (ObjectSpec)",
   "section": "model",
   "types": [
    "array",
@@ -1539,7 +2552,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:710 (ParentSpec)",
+  "source": "backend/app/models/schema.py:781 (ParentSpec)",
   "section": "model",
   "context": [
    "parent",
@@ -1556,7 +2569,7 @@
   "labels": [
    "output"
   ],
-  "source": "backend/app/models/schema.py:709 (ParentSpec)",
+  "source": "backend/app/models/schema.py:780 (ParentSpec)",
   "section": "model",
   "types": [
    "string"
@@ -1568,7 +2581,7 @@
   "labels": [
    "path"
   ],
-  "source": "backend/app/models/schema.py:724 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:795 (ObjectSpec)",
   "section": "model",
   "types": [
    "boolean",
@@ -1582,7 +2595,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:726 (ObjectSpec)",
+  "source": "backend/app/models/schema.py:797 (ObjectSpec)",
   "section": "model",
   "types": [
    "object"
@@ -1594,7 +2607,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:912 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -1612,7 +2625,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:718 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:789 (RelatedSpec)",
   "section": "model",
   "context": [
    "related",
@@ -1629,7 +2642,7 @@
   "labels": [
    "via"
   ],
-  "source": "backend/app/models/schema.py:717 (RelatedSpec)",
+  "source": "backend/app/models/schema.py:788 (RelatedSpec)",
   "section": "model",
   "types": [
    "string"
@@ -1641,7 +2654,7 @@
   "labels": [
    "operations"
   ],
-  "source": "backend/app/models/schema.py:810 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:917 (ConsumerApiDocument)",
   "section": "model",
   "types": [
    "object"
@@ -1653,7 +2666,7 @@
   "labels": [
    "events"
   ],
-  "source": "backend/app/models/schema.py:782 (Operations)",
+  "source": "backend/app/models/schema.py:853 (Operations)",
   "section": "model",
   "types": [
    "null",
@@ -1666,7 +2679,7 @@
   "labels": [
    "custom"
   ],
-  "source": "backend/app/models/schema.py:774 (EventsOperation)",
+  "source": "backend/app/models/schema.py:845 (EventsOperation)",
   "section": "model",
   "types": [
    "array"
@@ -1678,7 +2691,7 @@
   "labels": [
    "changes"
   ],
-  "source": "backend/app/models/schema.py:768 (EventSpec)",
+  "source": "backend/app/models/schema.py:839 (EventSpec)",
   "section": "model",
   "types": [
    "array"
@@ -1690,7 +2703,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:766 (EventSpec)",
+  "source": "backend/app/models/schema.py:837 (EventSpec)",
   "section": "model",
   "context": [
    "custom",
@@ -1707,7 +2720,7 @@
   "labels": [
    "objectTypes"
   ],
-  "source": "backend/app/models/schema.py:767 (EventSpec)",
+  "source": "backend/app/models/schema.py:838 (EventSpec)",
   "section": "model",
   "types": [
    "array"
@@ -1719,7 +2732,7 @@
   "labels": [
    "watch"
   ],
-  "source": "backend/app/models/schema.py:769 (EventSpec)",
+  "source": "backend/app/models/schema.py:840 (EventSpec)",
   "section": "model",
   "types": [
    "null",
@@ -1732,7 +2745,7 @@
   "labels": [
    "fields"
   ],
-  "source": "backend/app/models/schema.py:759 (EventWatch)",
+  "source": "backend/app/models/schema.py:830 (EventWatch)",
   "section": "model",
   "context": [
    "watch",
@@ -1749,7 +2762,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:760 (EventWatch)",
+  "source": "backend/app/models/schema.py:831 (EventWatch)",
   "section": "model",
   "types": [
    "array"
@@ -1761,7 +2774,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (EventsOperation)",
+  "source": "backend/app/models/schema.py:912 (EventsOperation)",
   "section": "model",
   "context": [
    "events",
@@ -1779,7 +2792,7 @@
   "labels": [
    "perType"
   ],
-  "source": "backend/app/models/schema.py:773 (EventsOperation)",
+  "source": "backend/app/models/schema.py:844 (EventsOperation)",
   "section": "model",
   "types": [
    "boolean"
@@ -1791,7 +2804,7 @@
   "labels": [
    "lists"
   ],
-  "source": "backend/app/models/schema.py:781 (Operations)",
+  "source": "backend/app/models/schema.py:852 (Operations)",
   "section": "model",
   "types": [
    "null",
@@ -1804,7 +2817,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (ListSpec)",
+  "source": "backend/app/models/schema.py:912 (ListSpec)",
   "section": "model",
   "context": [
    "lists",
@@ -1822,7 +2835,7 @@
   "labels": [
    "of"
   ],
-  "source": "backend/app/models/schema.py:751 (ListSpec)",
+  "source": "backend/app/models/schema.py:822 (ListSpec)",
   "section": "model",
   "types": [
    "string"
@@ -1834,7 +2847,7 @@
   "labels": [
    "sortBy"
   ],
-  "source": "backend/app/models/schema.py:753 (ListSpec)",
+  "source": "backend/app/models/schema.py:824 (ListSpec)",
   "section": "model",
   "types": [
    "null",
@@ -1847,7 +2860,7 @@
   "labels": [
    "within"
   ],
-  "source": "backend/app/models/schema.py:752 (ListSpec)",
+  "source": "backend/app/models/schema.py:823 (ListSpec)",
   "section": "model",
   "types": [
    "null",
@@ -1860,7 +2873,7 @@
   "labels": [
    "filter"
   ],
-  "source": "backend/app/models/schema.py:746 (Within)",
+  "source": "backend/app/models/schema.py:817 (Within)",
   "section": "model",
   "types": [
    "string"
@@ -1872,7 +2885,7 @@
   "labels": [
    "types"
   ],
-  "source": "backend/app/models/schema.py:747 (Within)",
+  "source": "backend/app/models/schema.py:818 (Within)",
   "section": "model",
   "types": [
    "array",
@@ -1885,7 +2898,7 @@
   "labels": [
    "objects"
   ],
-  "source": "backend/app/models/schema.py:778 (Operations)",
+  "source": "backend/app/models/schema.py:849 (Operations)",
   "section": "model",
   "types": [
    "null",
@@ -1898,7 +2911,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (Operation)",
+  "source": "backend/app/models/schema.py:912 (Operation)",
   "section": "model",
   "context": [
    "objects",
@@ -1916,7 +2929,7 @@
   "labels": [
    "resolve"
   ],
-  "source": "backend/app/models/schema.py:780 (Operations)",
+  "source": "backend/app/models/schema.py:851 (Operations)",
   "section": "model",
   "types": [
    "null",
@@ -1929,7 +2942,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (Operation)",
+  "source": "backend/app/models/schema.py:912 (Operation)",
   "section": "model",
   "context": [
    "resolve",
@@ -1947,7 +2960,7 @@
   "labels": [
    "xref"
   ],
-  "source": "backend/app/models/schema.py:779 (Operations)",
+  "source": "backend/app/models/schema.py:850 (Operations)",
   "section": "model",
   "types": [
    "null",
@@ -1960,7 +2973,7 @@
   "labels": [
    "alsoMatchThrough"
   ],
-  "source": "backend/app/models/schema.py:742 (XrefOperation)",
+  "source": "backend/app/models/schema.py:813 (XrefOperation)",
   "section": "model",
   "types": [
    "array"
@@ -1972,7 +2985,7 @@
   "labels": [
    "firstOf"
   ],
-  "source": "backend/app/models/schema.py:731 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:802 (AlsoMatchThrough)",
   "section": "model",
   "types": [
    "array"
@@ -1984,7 +2997,7 @@
   "labels": [
    "contains"
   ],
-  "source": "backend/app/models/schema.py:504 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:575 (ConsumerMatchRule)",
   "section": "model",
   "types": [
    "integer",
@@ -1997,7 +3010,7 @@
   "labels": [
    "exact"
   ],
-  "source": "backend/app/models/schema.py:503 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:574 (ConsumerMatchRule)",
   "section": "model",
   "types": [
    "integer",
@@ -2010,7 +3023,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:502 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:573 (ConsumerMatchRule)",
   "section": "model",
   "types": [
    "string"
@@ -2022,7 +3035,7 @@
   "labels": [
    "preferTypes"
   ],
-  "source": "backend/app/models/schema.py:732 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:803 (AlsoMatchThrough)",
   "section": "model",
   "types": [
    "array"
@@ -2034,7 +3047,7 @@
   "labels": [
    "related"
   ],
-  "source": "backend/app/models/schema.py:730 (AlsoMatchThrough)",
+  "source": "backend/app/models/schema.py:801 (AlsoMatchThrough)",
   "section": "model",
   "types": [
    "string"
@@ -2046,7 +3059,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:805 (XrefOperation)",
+  "source": "backend/app/models/schema.py:912 (XrefOperation)",
   "section": "model",
   "context": [
    "xref",
@@ -2064,7 +3077,7 @@
   "labels": [
    "matchOn"
   ],
-  "source": "backend/app/models/schema.py:741 (XrefOperation)",
+  "source": "backend/app/models/schema.py:812 (XrefOperation)",
   "section": "model",
   "types": [
    "array",
@@ -2077,7 +3090,7 @@
   "labels": [
    "contains"
   ],
-  "source": "backend/app/models/schema.py:504 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:575 (ConsumerMatchRule)",
   "section": "model",
   "types": [
    "integer",
@@ -2090,7 +3103,7 @@
   "labels": [
    "exact"
   ],
-  "source": "backend/app/models/schema.py:503 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:574 (ConsumerMatchRule)",
   "section": "model",
   "types": [
    "integer",
@@ -2103,7 +3116,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:502 (ConsumerMatchRule)",
+  "source": "backend/app/models/schema.py:573 (ConsumerMatchRule)",
   "section": "model",
   "types": [
    "string"
@@ -2115,7 +3128,7 @@
   "labels": [
    "publicNames"
   ],
-  "source": "backend/app/models/schema.py:808 (ConsumerApiDocument)",
+  "source": "backend/app/models/schema.py:915 (ConsumerApiDocument)",
   "section": "model",
   "types": [
    "object"
@@ -2127,7 +3140,7 @@
   "labels": [
    "objectTypeRelations"
   ],
-  "source": "backend/app/models/schema.py:834 (EngineModel)",
+  "source": "backend/app/models/schema.py:945 (EngineModel)",
   "section": "model",
   "types": [
    "array"
@@ -2139,7 +3152,7 @@
   "labels": [
    "attributeTypeKeys"
   ],
-  "source": "backend/app/models/schema.py:151 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:160 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -2151,7 +3164,7 @@
   "labels": [
    "candidates"
   ],
-  "source": "backend/app/models/schema.py:153 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:162 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -2164,7 +3177,7 @@
   "labels": [
    "from"
   ],
-  "source": "backend/app/models/schema.py:130 (BindingCandidates)",
+  "source": "backend/app/models/schema.py:139 (BindingCandidates)",
   "section": "model",
   "types": [
    "array"
@@ -2176,7 +3189,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:125 (CandidateCriterion)",
+  "source": "backend/app/models/schema.py:134 (CandidateCriterion)",
   "section": "model",
   "types": [
    "string"
@@ -2188,7 +3201,7 @@
   "labels": [
    "op"
   ],
-  "source": "backend/app/models/schema.py:126 (CandidateCriterion)",
+  "source": "backend/app/models/schema.py:135 (CandidateCriterion)",
   "section": "model",
   "types": [
    "string"
@@ -2200,7 +3213,7 @@
   "labels": [
    "value"
   ],
-  "source": "backend/app/models/schema.py:127 (CandidateCriterion)",
+  "source": "backend/app/models/schema.py:136 (CandidateCriterion)",
   "section": "model",
   "context": [
    "from",
@@ -2217,7 +3230,7 @@
   "labels": [
    "to"
   ],
-  "source": "backend/app/models/schema.py:137 (BindingCandidates)",
+  "source": "backend/app/models/schema.py:146 (BindingCandidates)",
   "section": "model",
   "types": [
    "array"
@@ -2229,7 +3242,7 @@
   "labels": [
    "field"
   ],
-  "source": "backend/app/models/schema.py:125 (CandidateCriterion)",
+  "source": "backend/app/models/schema.py:134 (CandidateCriterion)",
   "section": "model",
   "types": [
    "string"
@@ -2241,7 +3254,7 @@
   "labels": [
    "op"
   ],
-  "source": "backend/app/models/schema.py:126 (CandidateCriterion)",
+  "source": "backend/app/models/schema.py:135 (CandidateCriterion)",
   "section": "model",
   "types": [
    "string"
@@ -2253,7 +3266,7 @@
   "labels": [
    "value"
   ],
-  "source": "backend/app/models/schema.py:127 (CandidateCriterion)",
+  "source": "backend/app/models/schema.py:136 (CandidateCriterion)",
   "section": "model",
   "context": [
    "to",
@@ -2270,7 +3283,7 @@
   "labels": [
    "cardinality"
   ],
-  "source": "backend/app/models/schema.py:149 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:158 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "one of one-to-one, one-to-many, many-to-one, many-to-many"
@@ -2282,7 +3295,7 @@
   "labels": [
    "features"
   ],
-  "source": "backend/app/models/schema.py:152 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:161 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -2294,7 +3307,7 @@
   "labels": [
    "fromObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:147 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:156 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2306,7 +3319,7 @@
   "labels": [
    "relationTypeKey"
   ],
-  "source": "backend/app/models/schema.py:146 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:155 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2318,7 +3331,7 @@
   "labels": [
    "required"
   ],
-  "source": "backend/app/models/schema.py:150 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:159 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -2330,7 +3343,7 @@
   "labels": [
    "toObjectTypeKey"
   ],
-  "source": "backend/app/models/schema.py:148 (ObjectTypeRelationDefinition)",
+  "source": "backend/app/models/schema.py:157 (ObjectTypeRelationDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2342,7 +3355,7 @@
   "labels": [
    "objectTypes"
   ],
-  "source": "backend/app/models/schema.py:832 (EngineModel)",
+  "source": "backend/app/models/schema.py:943 (EngineModel)",
   "section": "model",
   "types": [
    "array"
@@ -2354,7 +3367,7 @@
   "labels": [
    "attributes"
   ],
-  "source": "backend/app/models/schema.py:98 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:107 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "array"
@@ -2366,7 +3379,7 @@
   "labels": [
    "attributeTypeKey"
   ],
-  "source": "backend/app/models/schema.py:69 (ObjectTypeAttributeDefinition)",
+  "source": "backend/app/models/schema.py:78 (ObjectTypeAttributeDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2378,7 +3391,7 @@
   "labels": [
    "order"
   ],
-  "source": "backend/app/models/schema.py:72 (ObjectTypeAttributeDefinition)",
+  "source": "backend/app/models/schema.py:81 (ObjectTypeAttributeDefinition)",
   "section": "model",
   "context": [
    "attributes",
@@ -2395,7 +3408,7 @@
   "labels": [
    "readOnly"
   ],
-  "source": "backend/app/models/schema.py:71 (ObjectTypeAttributeDefinition)",
+  "source": "backend/app/models/schema.py:80 (ObjectTypeAttributeDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -2407,7 +3420,7 @@
   "labels": [
    "required"
   ],
-  "source": "backend/app/models/schema.py:70 (ObjectTypeAttributeDefinition)",
+  "source": "backend/app/models/schema.py:79 (ObjectTypeAttributeDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -2419,7 +3432,7 @@
   "labels": [
    "ui"
   ],
-  "source": "backend/app/models/schema.py:73 (ObjectTypeAttributeDefinition)",
+  "source": "backend/app/models/schema.py:82 (ObjectTypeAttributeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -2431,7 +3444,7 @@
   "labels": [
    "behavior"
   ],
-  "source": "backend/app/models/schema.py:100 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:109 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -2443,7 +3456,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:95 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:104 (ObjectTypeDefinition)",
   "section": "model",
   "context": [
    "objectTypes",
@@ -2461,7 +3474,7 @@
   "labels": [
    "displayAttributeTypeKey"
   ],
-  "source": "backend/app/models/schema.py:97 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:106 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -2474,7 +3487,7 @@
   "labels": [
    "effectivePeriod"
   ],
-  "source": "backend/app/models/schema.py:103 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:112 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -2487,7 +3500,7 @@
   "labels": [
    "endAttributeTypeKey"
   ],
-  "source": "backend/app/models/schema.py:86 (EffectivePeriodDefinition)",
+  "source": "backend/app/models/schema.py:95 (EffectivePeriodDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2499,7 +3512,7 @@
   "labels": [
    "startAttributeTypeKey"
   ],
-  "source": "backend/app/models/schema.py:85 (EffectivePeriodDefinition)",
+  "source": "backend/app/models/schema.py:94 (EffectivePeriodDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2511,7 +3524,7 @@
   "labels": [
    "features"
   ],
-  "source": "backend/app/models/schema.py:99 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:108 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -2523,7 +3536,7 @@
   "labels": [
    "icon"
   ],
-  "source": "backend/app/models/schema.py:96 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:105 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "null",
@@ -2536,7 +3549,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:92 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:101 (ObjectTypeDefinition)",
   "section": "model",
   "context": [
    "objectTypes",
@@ -2553,7 +3566,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:93 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:102 (ObjectTypeDefinition)",
   "section": "model",
   "context": [
    "objectTypes",
@@ -2570,7 +3583,7 @@
   "labels": [
    "pluralName"
   ],
-  "source": "backend/app/models/schema.py:94 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:103 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2582,7 +3595,7 @@
   "labels": [
    "validation"
   ],
-  "source": "backend/app/models/schema.py:101 (ObjectTypeDefinition)",
+  "source": "backend/app/models/schema.py:110 (ObjectTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -2594,7 +3607,7 @@
   "labels": [
    "product"
   ],
-  "source": "backend/app/models/schema.py:830 (EngineModel)",
+  "source": "backend/app/models/schema.py:941 (EngineModel)",
   "section": "model",
   "types": [
    "object"
@@ -2606,7 +3619,7 @@
   "labels": [
    "description"
   ],
-  "source": "backend/app/models/schema.py:816 (ProductDefinition)",
+  "source": "backend/app/models/schema.py:927 (ProductDefinition)",
   "section": "model",
   "context": [
    "product",
@@ -2624,7 +3637,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:815 (ProductDefinition)",
+  "source": "backend/app/models/schema.py:926 (ProductDefinition)",
   "section": "model",
   "context": [
    "product",
@@ -2641,7 +3654,7 @@
   "labels": [
    "relationTypes"
   ],
-  "source": "backend/app/models/schema.py:833 (EngineModel)",
+  "source": "backend/app/models/schema.py:944 (EngineModel)",
   "section": "model",
   "types": [
    "array"
@@ -2653,7 +3666,7 @@
   "labels": [
    "features"
   ],
-  "source": "backend/app/models/schema.py:116 (RelationTypeDefinition)",
+  "source": "backend/app/models/schema.py:125 (RelationTypeDefinition)",
   "section": "model",
   "types": [
    "object"
@@ -2665,7 +3678,7 @@
   "labels": [
    "isOriented"
   ],
-  "source": "backend/app/models/schema.py:115 (RelationTypeDefinition)",
+  "source": "backend/app/models/schema.py:124 (RelationTypeDefinition)",
   "section": "model",
   "types": [
    "boolean"
@@ -2677,7 +3690,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:111 (RelationTypeDefinition)",
+  "source": "backend/app/models/schema.py:120 (RelationTypeDefinition)",
   "section": "model",
   "context": [
    "relationTypes",
@@ -2694,7 +3707,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:113 (RelationTypeDefinition)",
+  "source": "backend/app/models/schema.py:122 (RelationTypeDefinition)",
   "section": "model",
   "context": [
    "relationTypes",
@@ -2711,7 +3724,7 @@
   "labels": [
    "reverseKey"
   ],
-  "source": "backend/app/models/schema.py:112 (RelationTypeDefinition)",
+  "source": "backend/app/models/schema.py:121 (RelationTypeDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2723,7 +3736,7 @@
   "labels": [
    "reverseName"
   ],
-  "source": "backend/app/models/schema.py:114 (RelationTypeDefinition)",
+  "source": "backend/app/models/schema.py:123 (RelationTypeDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2735,7 +3748,7 @@
   "labels": [
    "release"
   ],
-  "source": "backend/app/models/schema.py:829 (EngineModel)",
+  "source": "backend/app/models/schema.py:940 (EngineModel)",
   "section": "model",
   "types": [
    "object"
@@ -2747,7 +3760,7 @@
   "labels": [
    "key"
   ],
-  "source": "backend/app/models/schema.py:820 (ModelReleaseDefinition)",
+  "source": "backend/app/models/schema.py:931 (ModelReleaseDefinition)",
   "section": "model",
   "context": [
    "release",
@@ -2764,7 +3777,7 @@
   "labels": [
    "name"
   ],
-  "source": "backend/app/models/schema.py:821 (ModelReleaseDefinition)",
+  "source": "backend/app/models/schema.py:932 (ModelReleaseDefinition)",
   "section": "model",
   "context": [
    "release",
@@ -2781,7 +3794,7 @@
   "labels": [
    "version"
   ],
-  "source": "backend/app/models/schema.py:822 (ModelReleaseDefinition)",
+  "source": "backend/app/models/schema.py:933 (ModelReleaseDefinition)",
   "section": "model",
   "types": [
    "string"
@@ -2793,7 +3806,7 @@
   "labels": [
    "schemaVersion"
   ],
-  "source": "backend/app/models/schema.py:828 (EngineModel)",
+  "source": "backend/app/models/schema.py:939 (EngineModel)",
   "section": "model",
   "types": [
    "const '0.10'"

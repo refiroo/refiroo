@@ -555,6 +555,10 @@ The state filter decides over every row, and only records counting as current fi
 - **J16.5 A cell filled live after it was staged** is refused at publishing.
 - **J16.6 Two relationships racing into one cell** keep its stored state right.
 - **J16.7 A related record moved to another column** is re-checked.
+- **J16.8 Hide empty columns** (0.13 LB): a toggle beside Filter leaves out the columns with no related
+  record in any row the search and parent scope leave, says how many ("2 empty columns hidden · Show all"),
+  is kept per view in the browser, has no effect while columns are chosen in Filter, and reads a change
+  set's or publication's own values; the engine skips the columns in the column pages themselves.
 
 **Refusals:** `404 RELATION_MATRIX_VIEW_NOT_FOUND`, `404 RELATION_MATRIX_ROW_NOT_FOUND`,
 `404 RELATION_MATRIX_COLUMN_NOT_FOUND`, `404 RELATION_MATRIX_PARENT_NOT_FOUND`,
@@ -910,7 +914,9 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   added in one step. A matrix entry naming no matrix of the application, a matrix in two groups, or
   an opening naming a view of another collection is refused at its pointer.
 - **J33.10 Lay out a type** in the preview: panels ordered, shown or hidden; a table view's columns,
-  filters and sort; field order. The record screen shows the same layout after activation (A4b).
+  filters, sort and the boolean attribute that marks a record inactive (0.13 LB; a field that is not
+  a boolean attribute of the type leaves the draft invalid at `…/config/availabilityField`); field
+  order. The record screen shows the same layout after activation (A4b).
 - **J33.11 Keyboard alone and 390px**: every drag has its Move to… path; the panes become tabs.
 - **J33.12 A whole-model edit** in the JSON workbench is recorded as one step, and operations continue
   on the edited model.

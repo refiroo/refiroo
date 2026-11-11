@@ -81,6 +81,8 @@ export interface TableViewDefinition {
     sortFields: string[];
     defaultSort: string;
     pageSize: number;
+    /** A boolean attribute of the type; a record whose value is false is marked inactive (0.13 LB). */
+    availabilityField?: string | null;
   };
 }
 

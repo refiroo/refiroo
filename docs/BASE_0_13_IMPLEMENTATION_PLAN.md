@@ -397,6 +397,7 @@ when both are empty but for reasoned exclusions.
 | [JG](#jg-related-jobs-grouped-on-the-jobs-page) | - | The Jobs page groups the jobs an assistant task or a model draft requested, with a trail back and the group in the address | Primary agent (plan); implementer. **Approved 2026-11-08; delivered 2026-11-08** (`0059d6a4`) |
 | [AB](#ab-the-assistant-loads-a-file-as-one-checked-batch) | AQ | The assistant loads a file as one batch the engine has previewed in full; accepting runs exactly those items with no assistant turn | Primary agent (plan); implementer. **Approved 2026-11-09; built 2026-11-09; acceptance runs 2026-11-10, accepted by the user; closed** |
 | [NG](#ng-relation-matrices-in-navigation-groups) | - | A relation matrix is an entry of a navigation group of its own, a collection has an opening view, and a group has a panel in the editor | Built by the 0.13 build, not planned beforehand; recorded 2026-11-10. **Delivered 2026-11-09** (`30d29a8d`, guide wave `NAV-GROUPS`). Narrows [0.17 NG1](BASE_0_17_IMPLEMENTATION_PLAN.md#ng1-views-in-navigation-groups) |
+| [LB](#lb-list-browsing) | - | The sidebar's collections can be searched by name when an application has more than ten, and a table can mark and hide its inactive records | Primary agent (plan); implementer. **Approved by the user 2026-11-11 with the mock-up; delivered 2026-11-11** |
 | [RV](#rv-attributes-of-the-relationship-in-views) | RA | A relationship's own attributes in a matrix cell, a relationships panel, a relationships table and a relationships grid with a bulk change | Primary agent (plan); implementer. **Approved 2026-11-09; delivered 2026-11-09** (`075675bb`, `a2a672dc`, `f9e82a2f`, `538c4b97`, `d69cb0bd`, `e696076c`); guide pages with the waves `RV-GUIDE` and `RV-GUIDE-FIX` (`0dcb0f0b`, `9a341f83`) |
 | [CL](#cl-images-built-in-ci-and-ci-as-a-quick-gate) | - | The engine and web images built once in CI and tagged only after they start; CI on GitHub a quick gate | Primary agent. **Delivered 2026-11-07 to 2026-11-08** (twelve commits, listed under CL) |
 | [MS](#ms-mail-through-microsoft-365-graph) | - | Mail sent through Microsoft 365 (Graph, client credentials) as a second method beside SMTP, set on Settings › Mail; extends 0.12's D419 | Primary agent (plan); implementer. **Approved by the user 2026-11-10 (MS-D1 to MS-D5); delivered 2026-11-10 except the real try at the organisation refiroo is deployed for** |
@@ -1864,6 +1865,70 @@ coverage change.
 **Not delivered here (stays in 0.17 NG1).** A group member that is a view of another kind (a table, a tree, a mapping grid, a
 relationships table, a record page's view); **Move to group…** on those views' rows; a sidebar that leaves a grouped view out of its
 collection's views (PP-D11); the group drop of the workbook canvas (PL3b) placing a view.
+
+## LB: List browsing
+
+**Status:** Approved by the user 2026-11-11 with its mock-up (two screens: the sidebar filter, and inactive rows). Delivered
+2026-11-11. Two items of the user's list for the reference-data model (items 10 and 9); neither names a domain, so both are
+engine capabilities that the model then configures.
+
+**What is built.**
+
+1. **Find a list in the sidebar.** In the Collections part of the application sidebar, an application with more than ten
+   entries (collections and relation matrices placed in groups, counted together) gets a labelled search box, **Find a list**,
+   with a count read politely ("3 of 25"; "25 lists" while the box is empty). Typing shows only the entries whose label contains
+   the words (case-insensitive substring; a collection's label is its type's plural name, a matrix's its view name), among the
+   ungrouped entries and in every group; the match is in bold. A group with a match is shown open with only its matches; a group
+   without one is hidden. **Enter** opens the first match in the sidebar's order, **Escape** clears. The reader's folds stay as
+   they were: nothing is written to the remembered fold state while a search stands (a group's toggle is not drawn then), so
+   clearing returns each group to the reader's own. **Browse records** and its **Find a record** are unchanged
+   (`features/objects/Explorer.tsx`, `model/collections.ts` `narrowNavigation`).
+2. **A table's availability field.** `availabilityField` is an optional setting of a table view (schema 0.10): a boolean
+   attribute attached to the view's object type. Validation refuses a field that is not an attribute of the type or not boolean
+   at `…/config/availabilityField` (`application_rules._check_table_view`). Authoring follows the tree's: the field is a slot in
+   `references.py`, so a renamed key is followed and a removed attribute or binding drops the setting through the existing
+   cascade; `setViewProperty` sets it. A model without it keeps its content hash (`exclude_if`, as other optional fields).
+3. **Where the field is set, the table says so.** A row whose value is exactly false keeps its place, its name in the secondary
+   ink with a neutral **Inactive** pill (`ObjectTable`, `StatusPill`); the toolbar gains the switch **Hide inactive (N)**
+   (`ui/Switch`), which applies the ordinary filter `<field> ne false` as a pill ("Active: not No") in the bar and in the address, so a record with no value, which the table does not mark, stays (LB-D9). N is one read of
+   the list's own count (`countDraft`) with the field false. A change set or publication marks its own values the same way; a
+   table without the field is unchanged.
+4. **The model editor** offers it in a table's settings as **Inactive records…**, a choice among the type's boolean attributes
+   or None (`tableAvailabilitySpec`).
+5. **Hide empty columns on a relation matrix** (added by the user 2026-11-11). A toggle in the matrix toolbar beside Filter,
+   off by default, kept per view in this browser in the display preference that already holds the column widths
+   (`useTableDisplay`, `readHideEmptyColumns`). With it on and something hidden, a line reads "N empty columns hidden · Show
+   all"; Show all turns it off. Columns named in Filter (`matrixColumnIds`) win: the toggle then has no effect and says so.
+   The read takes `hideEmptyColumns` and answers `emptyColumnsHidden` (`management/projections/relation_matrix.py`).
+
+**Decisions.**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| LB-D1 | When does the sidebar offer Find a list? | **Approved with the mock-up 2026-11-11: when the application's sidebar has more than ten entries,** collections and placed matrices counted together. Smaller applications look as before. Cost: an application at ten entries has no search; the figure is one constant (`FIND_LIST_AFTER`) |
+| LB-D2 | What does it match, and what happens to the groups and the reader's folds? | **Approved with the mock-up 2026-11-11: the entry's label only, across all groups and the ungrouped entries; a group with a match is open with only its matches, one without is hidden; the folds are never written while a search stands.** Cost: a group is not found by its own name (its label is not an entry) |
+| LB-D3 | Where does the table setting live, and does it need a schema version? | **No new schema version: an optional table setting inside schema 0.10** (the brief's instruction, with the precedent of other optional 0.10 settings). A model that does not declare it serialises as before, so no content hash and no released model changes |
+| LB-D4 | What may the field be, and does the table change what it marks? | **A boolean attribute attached to the view's type; it may be read-only and need not be among `filterFields`.** The table only marks; changing the value is the ordinary cell or detail edit. Cost: the switch's filter is not one the view's Filter menu lists unless the model declares it |
+| LB-D5 | What are the words? | **"Inactive" when the attribute is named Active, else "Not <attribute name in lower case>"** (the tree's wording); the switch is "Hide inactive (N)" or "Hide not <name> (N)" |
+| LB-D6 | What does N count? | **Taken in delivery: the records the list's search, scope and other filters leave with the field false,** read once through the list's own count and read again when the list reads again. Alternative: the workspace's whole count of false records, which says less about what the switch would hide in this view |
+| LB-D7 | Where does the editor offer it? | **Taken in delivery: a table's settings button "Inactive records…"** beside Filters… and Sort menu and page size…, a select of the type's boolean attributes and None |
+| LB-D8 | How is "empty" decided, and where? | **Approved by the user 2026-11-11 (the addition): a column is empty when no row the current search and parent scope leave has a related record (a cell record of the matrix relation) under it, decided over every such row and never from the rows on screen; the engine skips the empty columns in the column pages themselves.** Why that and not a count per column: with counts the browser would take empty columns out of pages of twenty, leaving short pages and a wrong "next"; skipping in the page keeps every page full and every cursor exact, for one aggregate statement (the binding's relations walked up to their column records, as a cell's own read does, restricted to the matching rows) and one count statement for N. A column cursor is bound to the search and parent it was made with. Named columns win. Cost: one more statement per column page while the toggle is on |
+| LB-D9 | What does Hide inactive hide? | **Exactly the records the table marks, those whose value is false (the user, 2026-11-11, after a first build that applied `= true` and also hid records with no value).** The list query takes `ne` on a yes/no attribute (`filter.<field>.ne=false`): not the value given, a record holding none included. It is the smallest generic operator that says it, offered on object lists only (not on candidate criteria or relationship attributes), in every context; N counts `eq false`. Cost: one new operator in the list grammar |
+
+**Composable domains (ADR-032).** Presentation and one optional model setting; no identity, attribute storage, history, bulk API,
+consumer `match` or mapping coverage change.
+
+**Checks.** `test_relation_matrix` (hideEmptyColumns: live, paging, search, named columns, change set, publication), `RelationMatrixView.test` (the toggle, its line and preference, the Filter override), `test_j33_layout` (the table's availability set to a boolean, refused for a text or a foreign boolean at the field's
+pointer, followed to the active model, taken away with its attribute), the J33 journeys, `test_model`, the OpenAPI lock (re-baselined:
+`TableViewConfig.availabilityField`), `ExplorerFind.test`, `CollectionView.test`, `layout.test`, the frontend production build, and the
+browser runner `e2e/lb-list-browsing.mjs` (screenshots of the sidebar search, a group-only match, an inactive row, the switch and a matrix with its empty columns hidden). **Not
+tried:** the stops model on the dev instance (the sign-in for it was withdrawn during the work); the user sets `availabilityField` on its
+tables. **Docs:** `APPLICATION_MODEL.md` (Table view), `MODEL_AUTHORING.md`, `CURRENT_FUNCTIONALITY.md`, `USER_JOURNEYS.md` J33.10,
+`UI_ACCEPTANCE.md`, `EXECUTION_GUIDE.md`, CHANGELOG; guide pages: Codex wrote them in the waves `LB-GUIDE`, `LB-GUIDE-MATRIX` and `LB-GUIDE-NE` (briefs in `guide/_waves/`; `use/applications`,
+`use/lists-and-filters`, `use/relation-matrices`, `model/record-pages-and-tables`, `guide/use/find-records`, `guide/use/fill-in-a-relation-matrix` and
+`guide/model/choose-table-columns-filters-and-sort`), `cd guide && npm run verify` passes. **Open:** the guide's pictures for these screens are not taken
+(the reference instance was not running; the list is in the wave reports): the sidebar search, an inactive table with the switch off and on, the
+"Inactive records…" dialog, the matrix toggle with its line and with chosen columns, and a refresh of `model-layout-table-tab.png`.
 
 ## CL: Images built in CI and CI as a quick gate
 

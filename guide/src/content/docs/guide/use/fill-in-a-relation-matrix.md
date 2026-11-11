@@ -37,21 +37,42 @@ means exactly one related record here, without the name matrix's Active conditio
 
 ## Choose which columns to show
 
-A matrix includes all records of its column type, even those that do not concern the rows you
-are working on. Choose just the columns you need without filtering by cell state.
+A matrix includes all records of its column type by default, even those that do not concern the
+rows you are working on. Hide empty columns automatically, or choose specific columns yourself.
+
+### Hide empty columns
+
+1. Set the row search and scope to the rows you want to work on, then turn on **Hide empty columns**
+   beside **Filter**. The matrix keeps columns with a related record in at least one of those rows,
+   including rows not yet on screen. Use the column navigation to reach more columns; empty columns
+   do not take up places on its pages.
+2. If the switch says **No effect while columns are chosen in Filter**, open **Filter**, choose
+   **Show all** followed by the column type's plural name, then **Done**. This clears the chosen
+   columns and any cell-state restriction, allowing the switch to take effect.
+3. When columns are hidden, read the **N empty columns hidden** line below the toolbar. Choose
+   **Show all** on that line, or turn the switch off, to bring them back.
+
+The switch is remembered for this view in this browser. Before checking for missing connections,
+turn it off or choose the columns to check explicitly, so wholly empty columns are included.
+See [Filters and coverage](/docs/use/relation-matrices/#filters-and-coverage) for how the setting
+works with search, scope, change sets and publications.
+
+### Choose specific columns
 
 1. Choose **Filter**. In the section named after the column type followed by **to show**,
    search for and select the columns you need. You can select up to 20; deselect one before
    adding another if you reach the limit.
 2. Leave **Cell state** on **Any state**, or choose it to remove an existing state restriction.
    Choose **Done**. The matrix shows only your selected columns.
-3. To bring every column back, open **Filter** and choose **Show all** followed by the column
+3. To clear your selection, open **Filter** and choose **Show all** followed by the column
    type's plural name, then **Done**. Use the column navigation if they do not all fit on one page.
-   This also clears any cell-state restriction.
+   This also clears any cell-state restriction. If **Hide empty columns** is on, it takes effect
+   again; turn it off to bring every column back.
 
 Your choice belongs to the page you have open; it is not saved as a setting for the view and
 does not change what other people see. Bookmark or share the page's address to reopen the same
-column selection. Opening the view again from the navigation shows all columns.
+column selection. Opening the view again from the navigation clears that selection, but keeps
+your **Hide empty columns** setting.
 
 ## Find empty cells across the list
 

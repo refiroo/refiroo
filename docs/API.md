@@ -1375,7 +1375,9 @@ or publications”) instead of matching nothing. Live responses always carry bot
 
 Text filters support `eq`, `contains`, `startsWith` and `isNull`; number, date and datetime filters
 support `eq`, `lt`, `lte`, `gt`, `gte` and `isNull`; booleans support `eq` and `isNull`. Attribute
-fields also support `isUnset`. `isNull` and `isUnset` take `true` or `false`; boolean values use the
+fields also support `isUnset`, and a yes/no attribute `ne` on an object list: the records whose value
+is not the one given, a record holding no value included (`filter.active.ne=false` keeps what is
+not marked inactive, 0.13 LB-D9). `isNull` and `isUnset` take `true` or `false`; boolean values use the
 same lexical form, while dates and datetimes use ISO 8601; a datetime filter also takes a date
 (`YYYY-MM-DD`), compared by that whole day in UTC: `eq` within the day, `lt` before it, `lte` up to
 its end, `gt` after it, `gte` from its start (0.9 R-F6). Exact equality is case-sensitive and the
@@ -5817,6 +5819,7 @@ record. Everything comes from the view and its binding.
 | `sort` | A row field as on an [object list](#collection-paging); name when omitted. |
 | `columnIds` | Repeated; the column records to show, in order, at most 20 (`422 TOO_MANY_COLUMNS`, `422 DUPLICATE_COLUMN_IDS`). An ID that is not a column-type record in the context is `404 RELATION_MATRIX_COLUMN_NOT_FOUND` with the IDs in `details.columnIds`. |
 | `columnCursor`, `columnPageSize` | Without `columnIds`, the columns are a name-ordered page of the column type's records (`columnPageSize` 1–20, default 20); pass `columnsNextCursor` or `columnsPrevCursor` back as `columnCursor`. Naming both `columnIds` and `columnCursor` is `422 CONFLICTING_COLUMN_PARAMETERS`. |
+| `hideEmptyColumns` | `true` leaves out of the column pages the columns with no related record in any row the `search` and `parentObjectId` leave (0.13 LB-D8). It is decided over every such row in one statement, not the rows of the page, so each column page is full and its cursors are exact (a cursor belongs to the search and parent it was made with). The response's `emptyColumnsHidden` says how many columns were left out. Ignored, with `emptyColumnsHidden` absent, when `columnIds` names the columns. A change set and a publication decide over their own values. |
 | `state` | `one`, `several`, `inactive`, `historyOnly` or `none`: only rows with a cell in that state in any of `columnIds`, decided over every row before paging, so totals count the filtered rows. Requires `columnIds` (`422 RELATION_MATRIX_STATE_REQUIRES_COLUMNS`). |
 | `pageSize`, `cursor`, `from`, `position`, `seek`, `includeTotal` | Row paging, as every [collection](#collection-paging); `pageSize` 1–100 defaults to the view's. |
 

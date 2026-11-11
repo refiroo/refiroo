@@ -252,3 +252,56 @@ def test_with_model_administration_disabled_the_drafts_model_is_absent(world):
     response = world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000/model")
     assert response.status_code == 404, response.text
     assert "MODEL_DRAFT_NOT_FOUND" not in response.text
+
+
+@pytest.mark.journey("J33.10")
+@pytest.mark.structures("R", "K")
+def test_a_table_marks_inactive_records_by_a_boolean_attribute_of_its_type(world):
+    """Given a draft with a type under R, a yes/no attribute attached to it and a text one. When the
+    table's availabilityField is set to the text attribute, then to a yes/no attribute the type does
+    not hold, then to the attached yes/no one. Then the first two leave the draft invalid at
+    ``…/config/availabilityField``, the third is valid and read back from the draft's model, the
+    attribute taken off the type takes the setting with it, and after install and activate the active
+    model serves it."""
+    draft = _draft_of_active(world)
+    app = world.app("R")
+    answer = ok(_apply(world, draft, draft["version"], *_note_under_r(world)))
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            answer["version"],
+            {"kind": "addAttributeType", "key": "j33-live", "name": "Live", "valueType": "boolean"},
+            {"kind": "addAttributeType", "key": "j33-elsewhere", "name": "Elsewhere", "valueType": "boolean"},
+            {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-live"},
+        )
+    )
+    view = {"applicationKey": app, "view": _table(_model(world, draft), app, "j33-note")["key"]}
+
+    def set_field(version: int, value: str | None) -> dict[str, Any]:
+        operation = {"kind": "setViewProperty", **view, "property": "availabilityField", "value": value}
+        return ok(_apply(world, draft, version, operation))
+
+    for wrong in ("j33-text", "j33-elsewhere"):
+        step = set_field(answer["version"], wrong)
+        assert step["valid"] is False
+        assert [d["path"].endswith("/config/availabilityField") for d in step["diagnostics"]] == [True]
+        answer = set_field(step["version"], None)
+        assert answer["valid"] is True, answer["diagnostics"]
+
+    answer = set_field(answer["version"], "j33-live")
+    assert answer["valid"] is True, answer["diagnostics"]
+    expected = _draft_model(world, draft)["model"]
+    assert _table(expected, app, "j33-note")["config"]["availabilityField"] == "j33-live"
+
+    release_version = expected["release"]["version"] + "-j33l"
+    named = ok(_apply(world, draft, answer["version"], {"kind": "setRelease", "version": release_version}))
+    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": named["version"]}), 201)
+    ok(world.activate(release["id"]))
+    assert _table(ok(world.api.get("/model")), app, "j33-note")["config"]["availabilityField"] == "j33-live"
+
+    second = _draft_of_active(world)
+    operation = {"kind": "detachAttribute", "objectType": "j33-note", "attributeType": "j33-live"}
+    detached = ok(_apply(world, second, second["version"], operation))
+    assert detached["valid"] is True, detached["diagnostics"]
+    assert _table(_draft_model(world, second)["model"], app, "j33-note")["config"].get("availabilityField") is None

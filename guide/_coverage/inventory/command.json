@@ -15,7 +15,7 @@
   "labels": [
    "--username"
   ],
-  "source": "backend/app/cli/create_admin.py:39",
+  "source": "backend/app/cli/create_admin.py:45",
   "section": "run",
   "context": [
    "create_admin",
@@ -28,7 +28,7 @@
   "labels": [
    "--name"
   ],
-  "source": "backend/app/cli/create_admin.py:40",
+  "source": "backend/app/cli/create_admin.py:46",
   "section": "run",
   "context": [
    "create_admin",
@@ -41,7 +41,7 @@
   "labels": [
    "--email"
   ],
-  "source": "backend/app/cli/create_admin.py:41",
+  "source": "backend/app/cli/create_admin.py:47",
   "section": "run",
   "context": [
    "create_admin",
@@ -54,7 +54,7 @@
   "labels": [
    "--password-stdin"
   ],
-  "source": "backend/app/cli/create_admin.py:42",
+  "source": "backend/app/cli/create_admin.py:48",
   "section": "run",
   "context": [
    "create_admin",

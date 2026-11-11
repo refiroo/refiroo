@@ -444,6 +444,8 @@ export interface RelationMatrixQuery extends RelationMatrixViewQuery, PageSelect
   columnIds?: string[];
   columnCursor?: string;
   state?: "one" | "several" | "inactive" | "historyOnly" | "none";
+  /** Skip the columns with no related record in any row the search and parent leave (0.13 LB-D8). */
+  hideEmptyColumns?: boolean;
   pageSize?: number;
 }
 
@@ -1806,6 +1808,7 @@ export const api = {
     query.columnIds?.forEach((id) => params.append("columnIds", id));
     if (query.columnCursor) params.set("columnCursor", query.columnCursor);
     if (query.state) params.set("state", query.state);
+    if (query.hideEmptyColumns && !query.columnIds?.length) params.set("hideEmptyColumns", "true");
     setPaging(params, query);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
     return request<RelationMatrixPage>(relationMatrixPath("", query, params));

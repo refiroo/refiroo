@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { holds } from "@/features/security/permissions";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
@@ -7,6 +7,8 @@ import { AnchoredMenu } from "@/ui/AnchoredMenu";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import {
+  narrowNavigation,
+  navigationEntries,
   navigationEntryKey,
   navigationSections,
   placedMatrixKeys,
@@ -19,6 +21,7 @@ import { objectTypeHue } from "@/model/hues";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RelationMatrixViewDefinition } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { RecordTree, type TreeConfiguration } from "@/features/objects/RecordTree";
 
 export function Explorer({
@@ -55,7 +58,15 @@ export function Explorer({
 }) {
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
-  const sections = navigationSections(application);
+  const allSections = navigationSections(application);
+  // Past this many entries the collections can be searched (0.13 LB-D1).
+  const [find, setFind] = useState("");
+  const total = navigationEntries(allSections).length;
+  const searchable = total > FIND_LIST_AFTER;
+  const finding = searchable && find.trim() !== "";
+  const narrowed = finding ? narrowNavigation(model, allSections, find) : undefined;
+  const sections = narrowed?.sections ?? allSections;
+  const highlight = finding ? find.trim() : "";
   const placed = useMemo(() => placedMatrixKeys(application), [application]);
   const [folded, toggleFolded] = useFoldedGroups(application);
 
@@ -122,9 +133,37 @@ export function Explorer({
 
   return (
     <section className="explorer" aria-label={`${application.name} explorer`}>
-      {(sections.ungrouped.length > 0 || sections.groups.length > 0) && (
+      {(searchable || sections.ungrouped.length > 0 || sections.groups.length > 0) && (
         <nav className="collection-tree" aria-label={`${application.name} collections`}>
-          <p className="nav-label">Collections</p>
+          {searchable ? (
+            <>
+              <div className="nav-label-row">
+                <p className="nav-label">Collections</p>
+                <span className="nav-count" role="status">
+                  {narrowed ? `${narrowed.matches} of ${total}` : `${total} lists`}
+                </span>
+              </div>
+              <SearchField
+                className="compact nav-find"
+                value={find}
+                onChange={setFind}
+                label="Find a list"
+                placeholder="Find a list"
+                clearOnEscape
+                onSubmit={() => {
+                  const first = narrowed && navigationEntries(narrowed.sections)[0];
+                  if (first) onOpenCollection?.(entryOpens(first));
+                }}
+              />
+              {finding && (
+                <p className="nav-hint">
+                  {narrowed?.matches ? "Enter opens the first match · Esc clears" : "No list matches"}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="nav-label">Collections</p>
+          )}
           {sections.ungrouped.map((group) => (
             <CollectionEntry
               key={group.objectTypeKey}
@@ -132,26 +171,34 @@ export function Explorer({
               group={group}
               placed={placed}
               activeViewKey={activeViewKey}
+              highlight={highlight}
               onOpen={onOpenCollection}
             />
           ))}
           {sections.groups.map(({ group, entries }) => {
-            const isFolded = folded(group.key, group.collapsed === true);
+            // A search opens every group that has a match; the reader's own folds are left as they are.
+            const isFolded = !finding && folded(group.key, group.collapsed === true);
             const holdsCurrent = entries.some((entry) => entryViews(entry).some((view) => view.key === activeViewKey));
             const bodyId = `${application.key}-navigation-group-${group.key}`;
             return (
               <div key={group.key} className="nav-group">
                 <div className={`nav-group-header${isFolded && holdsCurrent ? " holds-current" : ""}`}>
-                  <button
-                    type="button"
-                    className="nav-group-toggle"
-                    aria-expanded={!isFolded}
-                    aria-controls={bodyId}
-                    aria-label={`${isFolded ? "Show" : "Hide"} ${group.label}`}
-                    onClick={() => toggleFolded(group.key, !isFolded)}
-                  >
-                    <Icon name={isFolded ? "chevron-right" : "chevron-down"} size={14} />
-                  </button>
+                  {finding ? (
+                    <span className="nav-group-toggle" aria-hidden="true">
+                      <Icon name="chevron-down" size={14} />
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="nav-group-toggle"
+                      aria-expanded={!isFolded}
+                      aria-controls={bodyId}
+                      aria-label={`${isFolded ? "Show" : "Hide"} ${group.label}`}
+                      onClick={() => toggleFolded(group.key, !isFolded)}
+                    >
+                      <Icon name={isFolded ? "chevron-right" : "chevron-down"} size={14} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={`nav-group-label${activeGroupKey === group.key ? " active" : ""}`}
@@ -171,6 +218,7 @@ export function Explorer({
                         group={entry.collection}
                         placed={placed}
                         activeViewKey={activeViewKey}
+                        highlight={highlight}
                         onOpen={onOpenCollection}
                       />
                     ) : (
@@ -179,6 +227,7 @@ export function Explorer({
                         model={model}
                         view={entry.view}
                         activeViewKey={activeViewKey}
+                        highlight={highlight}
                         onOpen={onOpenCollection}
                       />
                     ),
@@ -268,6 +317,7 @@ function CollectionEntry({
   group,
   placed,
   activeViewKey,
+  highlight = "",
   onOpen,
 }: {
   model: EngineModel;
@@ -275,6 +325,8 @@ function CollectionEntry({
   /** Matrices that have an entry of their own. */
   placed: ReadonlySet<string>;
   activeViewKey?: string;
+  /** The words of the sidebar's search, shown in bold where the name holds them. */
+  highlight?: string;
   onOpen?: (viewKey: string) => void;
 }) {
   const type = objectTypeFor(model, group.objectTypeKey);
@@ -287,7 +339,9 @@ function CollectionEntry({
       onClick={() => onOpen?.(group.defaultView.key)}
     >
       <HueTile hue={objectTypeHue(model, group.objectTypeKey)} icon={type?.icon} />
-      <span className="collection-name">{type?.pluralName ?? group.objectTypeKey}</span>
+      <span className="collection-name">
+        <Highlighted text={type?.pluralName ?? group.objectTypeKey} words={highlight} />
+      </span>
       {group.views.some((view) => view.type === "mappingGrid") && (
         <span className="collection-hint" title="Includes a mapping view">
           <Icon name="mapping" size={13} label="Includes a mapping view" />
@@ -302,11 +356,13 @@ function MatrixEntry({
   model,
   view,
   activeViewKey,
+  highlight = "",
   onOpen,
 }: {
   model: EngineModel;
   view: RelationMatrixViewDefinition;
   activeViewKey?: string;
+  highlight?: string;
   onOpen?: (viewKey: string) => void;
 }) {
   const active = view.key === activeViewKey;
@@ -318,9 +374,34 @@ function MatrixEntry({
       onClick={() => onOpen?.(view.key)}
     >
       <HueTile hue={objectTypeHue(model, view.config.rowObjectTypeKey)} glyph="matrix" />
-      <span className="collection-name">{view.name}</span>
+      <span className="collection-name">
+        <Highlighted text={view.name} words={highlight} />
+      </span>
     </button>
   );
+}
+
+/** More entries than this and the sidebar offers Find a list. */
+const FIND_LIST_AFTER = 10;
+
+/** The view an entry opens: a collection's opening view, a matrix itself. */
+const entryOpens = (entry: NavigationEntry) =>
+  entry.kind === "collection" ? entry.collection.defaultView.key : entry.view.key;
+
+/** `text` with each occurrence of `words` (case-insensitive) in bold. */
+function Highlighted({ text, words }: { text: string; words: string }) {
+  if (!words) return <>{text}</>;
+  const needle = words.toLowerCase();
+  const parts: ReactNode[] = [];
+  const lower = text.toLowerCase();
+  let from = 0;
+  for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, from)) {
+    if (at > from) parts.push(text.slice(from, at));
+    parts.push(<b key={at}>{text.slice(at, at + needle.length)}</b>);
+    from = at + needle.length;
+  }
+  parts.push(text.slice(from));
+  return <>{parts}</>;
 }
 
 const isFoldMap = (value: unknown): value is Record<string, boolean> =>

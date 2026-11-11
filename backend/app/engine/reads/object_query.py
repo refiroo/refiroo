@@ -913,7 +913,7 @@ def typed_filter_predicates(
             if is_attribute
             else columns.builtin[field]
         )
-        if operator not in filter_operators(value_type, attribute=is_attribute):
+        if operator not in filter_operators(value_type, attribute=is_attribute, listing=True):
             query_error(
                 "INVALID_FILTER",
                 f"Operator '{operator}' is not supported for field '{field}'",
@@ -985,6 +985,9 @@ def _filter_predicate(
             "gt": column >= end,
             "gte": column >= start,
         }[operator]
+    elif operator == "ne":
+        # Not the value, or no value at all: no row of the attribute holds it (yes/no attributes only).
+        return not_(exists(select(columns.values.sequence_id).where(*base, column == value)))
     elif operator == "eq":
         comparison = column == value
     elif operator == "contains":

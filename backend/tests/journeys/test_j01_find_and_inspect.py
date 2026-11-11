@@ -145,6 +145,31 @@ def test_typed_filters_keep_zero_false_and_unset_apart(world):
     refused(world.api.get(f"/objects/{r_type}", sort="no-such-field"), 422, "INVALID_SORT")
 
 
+@pytest.mark.journey("J01.3")
+@pytest.mark.structures("R", "R.b")
+def test_a_not_false_filter_keeps_the_records_holding_no_value(world):
+    """Given R records with a yes/no value of false, true and none. When listed with ``ne=false``
+    (a table's Hide inactive, 0.13 LB-D9). Then the true one and the one with no value are kept and
+    only the false one is left out; ``ne`` on a field that is not a yes/no
+    attribute is refused."""
+    ids = {
+        name: world.made("R", f"NotFalse {name}", values=values)["id"]
+        for name, values in {"off": {"R.b": False}, "on": {"R.b": True}, "none": {}}.items()
+    }
+    r_type, b = world.key("R"), world.key("R.b")
+
+    def matching(**params):
+        page = ok(world.api.get(f"/objects/{r_type}", search="NotFalse", **params))
+        return {item["id"] for item in page["items"]}
+
+    assert matching(**{f"filter.{b}.ne": "false"}) == {ids["on"], ids["none"]}
+    # A configuration whose yes/no attribute has a default gives the third record that value.
+    not_true = matching(**{f"filter.{b}.ne": "true"})
+    assert ids["off"] in not_true and ids["on"] not in not_true
+    error = refused(world.api.get(f"/objects/{r_type}", **{"filter.name.ne": "x"}), 422, "INVALID_FILTER")
+    assert error["details"]["path"].endswith("filter.name.ne")
+
+
 @pytest.mark.journey("J01.4")
 @pytest.mark.structures("R", "H", "K")
 def test_one_search_across_types(world):

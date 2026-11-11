@@ -14,6 +14,8 @@ interface TablePreference {
   /** Absent: the default density. */
   density?: TableDensity;
   widths: Record<string, number>;
+  /** A relation matrix's Hide empty columns (0.13 LB-D8); absent: off. */
+  hideEmptyColumns?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ function isStoredPreference(value: unknown): value is StoredPreference {
     item.hidden.every((key) => typeof key === "string") &&
     (item.density === undefined || isTableDensity(item.density)) &&
     (item.compact === undefined || typeof item.compact === "boolean") &&
+    (item.hideEmptyColumns === undefined || typeof item.hideEmptyColumns === "boolean") &&
     !!item.widths &&
     typeof item.widths === "object" &&
     Object.values(item.widths).every((width) => typeof width === "number" && Number.isFinite(width))
@@ -44,7 +47,23 @@ function isStoredPreference(value: unknown): value is StoredPreference {
 function readPreference(scope: string): TablePreference {
   const stored = readLocalPreference<StoredPreference>(keyFor(scope), defaults, isStoredPreference);
   const density = isTableDensity(stored.density) ? stored.density : stored.compact === true ? "compact" : undefined;
-  return { hidden: stored.hidden, widths: stored.widths, ...(density ? { density } : {}) };
+  return {
+    hidden: stored.hidden,
+    widths: stored.widths,
+    ...(density ? { density } : {}),
+    ...(stored.hideEmptyColumns ? { hideEmptyColumns: true } : {}),
+  };
+}
+
+/** Whether this view hides its empty matrix columns on this device. */
+export const readHideEmptyColumns = (scope: string) => readPreference(scope).hideEmptyColumns === true;
+
+/** Keeps the view's other display choices as they are. */
+export function writeHideEmptyColumns(scope: string, on: boolean) {
+  const stored = { ...readPreference(scope) };
+  if (on) stored.hideEmptyColumns = true;
+  else delete stored.hideEmptyColumns;
+  writeLocalPreference(keyFor(scope), stored);
 }
 
 /**
@@ -58,8 +77,12 @@ export function useTableDisplay(columns: string[], scope: string, otherColumns: 
   const current = settings.scope === scope ? settings.value : load();
   const identity = columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0];
   const update = (value: TablePreference) => {
-    setSettings({ scope, value });
-    writeLocalPreference(keyFor(scope), value);
+    // A matrix's Hide empty columns lives in the same entry and is its own to change.
+    const stored = { ...value };
+    if (readHideEmptyColumns(scope)) stored.hideEmptyColumns = true;
+    else delete stored.hideEmptyColumns;
+    setSettings({ scope, value: stored });
+    writeLocalPreference(keyFor(scope), stored);
   };
   return {
     columns: columns.filter((column) => column === identity || !current.hidden.includes(column)),
@@ -94,8 +117,10 @@ export function useTableDisplay(columns: string[], scope: string, otherColumns: 
     preset: (width: number) =>
       update({ ...current, widths: Object.fromEntries(columns.map((column) => [column, width])) }),
     reset: () => {
+      const kept = readHideEmptyColumns(scope);
       removeLocalPreference(keyFor(scope));
-      setSettings({ scope, value: defaults });
+      if (kept) writeHideEmptyColumns(scope, true);
+      setSettings({ scope, value: readPreference(scope) });
     },
   };
 }

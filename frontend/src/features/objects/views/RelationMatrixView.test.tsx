@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { domainObject, testModel } from "@/test/fixtures";
@@ -290,6 +290,13 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(api.relationMatrix).toHaveBeenCalledWith(
       expect.objectContaining({ applicationKey: "test-app", viewKey: "domain-notes", columnIds: undefined }),
     );
+  });
+
+  it("sizes the row and column headers, as every table's columns are", async () => {
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    expect(screen.getByRole("separator", { name: "Resize Domain column" })).toBeInTheDocument();
+    expect(screen.getAllByRole("separator", { name: /^Resize .* column$/ })).toHaveLength(3);
   });
 
   it.each([
@@ -883,5 +890,76 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     expect(within(dialog).getByText("This cell is read-only here.")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /Create|Link|Edit/ })).toBeNull();
+  });
+});
+
+describe("Hide empty columns (0.13 LB-D8)", () => {
+  const stored = new Map<string, string>();
+  beforeEach(() => {
+    stored.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+      removeItem: (key: string) => stored.delete(key),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const preference = () => JSON.parse(stored.get("rdm:table-display:v1:test-app:domain-notes") ?? "{}");
+
+  it("asks the engine to skip empty columns, says how many it left out and shows all again on Show all", async () => {
+    vi.mocked(api.relationMatrix).mockImplementation(async (query) =>
+      query.hideEmptyColumns
+        ? { ...notesPage, columns: notesPage.columns.slice(0, 1), emptyColumnsHidden: 1 }
+        : notesPage,
+    );
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    const toggle = screen.getByRole("switch", { name: "Hide empty columns" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText(/empty column.* hidden/)).not.toBeInTheDocument();
+    expect(vi.mocked(api.relationMatrix).mock.calls.at(-1)?.[0].hideEmptyColumns).toBeFalsy();
+
+    fireEvent.click(toggle);
+    expect(await screen.findByText(/1 empty column hidden/)).toBeInTheDocument();
+    expect(screen.getByRole("grid")).toHaveAttribute("aria-colcount", "2");
+    expect(vi.mocked(api.relationMatrix).mock.calls.at(-1)?.[0].hideEmptyColumns).toBe(true);
+    // Kept for this view in this browser, beside the other display choices.
+    expect(preference().hideEmptyColumns).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    await waitFor(() => expect(screen.getByRole("grid")).toHaveAttribute("aria-colcount", "3"));
+    expect(screen.getByRole("switch", { name: "Hide empty columns" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText(/empty column.* hidden/)).not.toBeInTheDocument();
+    expect(preference().hideEmptyColumns).toBeUndefined();
+  });
+
+  it("starts as the reader left it, and a column resize keeps the choice", async () => {
+    stored.set(
+      "rdm:table-display:v1:test-app:domain-notes",
+      JSON.stringify({ hidden: [], widths: {}, hideEmptyColumns: true }),
+    );
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    expect(screen.getByRole("switch", { name: "Hide empty columns" })).toHaveAttribute("aria-checked", "true");
+    expect(vi.mocked(api.relationMatrix).mock.calls[0][0].hideEmptyColumns).toBe(true);
+    const handle = screen.getByRole("separator", { name: "Resize Domain column" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    expect(preference().hideEmptyColumns).toBe(true);
+    expect(Object.keys(preference().widths).length).toBeGreaterThan(0);
+  });
+
+  it("has no effect while columns are chosen in Filter, and says so", async () => {
+    stored.set(
+      "rdm:table-display:v1:test-app:domain-notes",
+      JSON.stringify({ hidden: [], widths: {}, hideEmptyColumns: true }),
+    );
+    renderMatrix(notesView, { query: { matrixColumnIds: ["c-east"] } });
+    await screen.findByRole("grid");
+    expect(screen.getByText("No effect while columns are chosen in Filter")).toBeInTheDocument();
+    expect(vi.mocked(api.relationMatrix).mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ columnIds: ["c-east"], hideEmptyColumns: false }),
+    );
+    expect(screen.queryByText(/empty column.* hidden/)).not.toBeInTheDocument();
   });
 });
