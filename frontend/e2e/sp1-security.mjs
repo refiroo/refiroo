@@ -199,9 +199,7 @@ async function walk(configuration) {
     await memberDialog.getByRole("checkbox", { name: `Add ${lena.name}` }).check();
     await shot(page, "add-members-search");
     await memberDialog.getByRole("tab", { name: "Paste a list" }).click();
-    await memberDialog
-      .getByLabel("E-mail addresses")
-      .fill(`${lena.email.toUpperCase()}\nnobody-${tag}@example.org`);
+    await memberDialog.getByLabel("E-mail addresses").fill(`${lena.email.toUpperCase()}\nnobody-${tag}@example.org`);
     await memberDialog.getByRole("button", { name: "Check 2 lines" }).click();
     const checkedLines = memberDialog.getByRole("list", { name: "Lines checked" });
     await checkedLines.getByText("Added to the people to add").waitFor();
@@ -403,6 +401,54 @@ async function walk(configuration) {
     );
     await shot(page, "restored");
     checks.push(`${tag}: Restore asks a person without an address for one, refuses a missing and a taken one in place`);
+
+    // 8d. A person whose sign-in an administrator manages (0.17 SA1): New person's checkbox, ticked by
+    // keyboard at 390px; the engine holds the switch; Edit shows it on and unticking it saves.
+    const managedContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const managedPage = await managedContext.newPage();
+    managedPage.setDefaultTimeout(15000);
+    managedPage.on("pageerror", (error) => failures.push(`${tag} (managed): ${error.message}`));
+    const kioskEmail = `kiosk-${tag}@example.org`;
+    await managedPage.goto(`${uiUrl}/settings/people`);
+    await managedPage.getByRole("heading", { level: 1, name: "People" }).waitFor();
+    await managedPage.getByRole("button", { name: "New person" }).click();
+    const kioskDialog = managedPage.getByRole("dialog", { name: "New person" });
+    await kioskDialog.getByLabel("Name", { exact: true }).fill("Kiosk Account");
+    await kioskDialog.getByLabel("E-mail", { exact: true }).fill(kioskEmail);
+    await kioskDialog.getByLabel("E-mail", { exact: true }).focus();
+    await managedPage.keyboard.press("Tab");
+    expect(
+      await managedPage.evaluate(() => document.activeElement?.type === "checkbox"),
+      `${tag}: Tab from E-mail reaches the managed-sign-in checkbox`,
+    );
+    await managedPage.keyboard.press("Space");
+    expect(await kioskDialog.getByRole("checkbox").isChecked(), `${tag}: Space ticks the managed-sign-in checkbox`);
+    await managedPage.waitForTimeout(700); // the dialog's opening animation
+    await shot(managedPage, "new-person-managed-narrow");
+    await axe(managedPage, `${tag}-new-person-managed`);
+    await kioskDialog.getByRole("button", { name: "Create and make a password link" }).click();
+    await managedPage
+      .getByRole("dialog", { name: "Pass on the password link" })
+      .getByRole("button", { name: "I have copied it" })
+      .click();
+    await managedPage.getByRole("heading", { level: 2, name: "Kiosk Account" }).waitFor();
+    const [kioskPerson] = (await api(`/users?q=${encodeURIComponent(kioskEmail)}`)).items;
+    expect(kioskPerson?.signInManaged === true, `${tag}: the engine holds signInManaged for the new person`);
+    await managedPage.getByRole("button", { name: /^Edit/ }).first().click();
+    const kioskEdit = managedPage.getByRole("dialog", { name: /^Edit Kiosk Account/ });
+    await kioskEdit.waitFor();
+    expect(await kioskEdit.getByRole("checkbox").isChecked(), `${tag}: Edit shows the switch on`);
+    await managedPage.waitForTimeout(700);
+    await shot(managedPage, "edit-person-managed-narrow");
+    await kioskEdit.getByRole("checkbox").uncheck();
+    await kioskEdit.getByRole("button", { name: "Save" }).click();
+    await kioskEdit.waitFor({ state: "detached" });
+    expect(
+      (await api(`/users/${kioskPerson.id}`)).signInManaged === false,
+      `${tag}: unticking the switch in Edit saves it`,
+    );
+    await managedContext.close();
+    checks.push(`${tag}: New person's checkbox by keyboard, the person managed, unticked in Edit (390px)`);
 
     // 9. Dark at 1440px; People, a person and Roles at 390px without a horizontal page scroll.
     const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });

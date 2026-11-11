@@ -27,6 +27,7 @@ from ...engine.agent_access import applications
 from ...engine.identity import (
     browser_sign_in,
     keys,
+    managed,
     passkeys,
     provider_sign_in,
     providers,
@@ -749,6 +750,14 @@ def passkey_add_page(
             redirect_origins=_origins(settings),
             status=401,
         )
+    if user.sign_in_managed:
+        return pages.problem(
+            _product(session),
+            f"{managed.MESSAGE}, so a passkey cannot be added here.",
+            issuer=settings.issuer,
+            redirect_origins=_origins(settings),
+            status=403,
+        )
     return pages.passkey_add(
         _product(session),
         user.email,
@@ -814,6 +823,8 @@ def passkey_registration_verify(
         )  # fmt: skip
     except passkeys.PasskeyRefused as failure:
         return _passkey_error(failure.message, failure.status)
+    except ApiError as failure:
+        return _passkey_error(failure.message, failure.status, 0, failure.code)
     return JSONResponse({"id": passkey.public_id, "name": passkey.name}, headers=_NO_STORE)
 
 

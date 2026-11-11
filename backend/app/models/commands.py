@@ -726,6 +726,11 @@ class UserCreate(BaseModel):
 
     name: PrincipalName
     email: Email
+    signInManaged: bool = Field(
+        default=False,
+        description="An administrator manages the person's sign-in: they cannot change their own "
+        "password, second factor, passkeys or other sessions (0.17 SA1)",
+    )
 
 
 class PasswordResetRequest(BaseModel):
@@ -750,6 +755,10 @@ class UserUpdate(BaseModel):
         default=None,
         description="Whether the person keeps signing in with a password while local sign-in is "
         "off (0.12 I3, D365)",
+    )
+    signInManaged: bool | None = Field(
+        default=None,
+        description="Whether an administrator manages the person's sign-in (0.17 SA1)",
     )
 
 

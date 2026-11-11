@@ -71,10 +71,18 @@ export const security = {
       })}`,
     ),
   user: (userId: string) => request<User>(`/api/v1/users/${id(userId)}`),
-  createUser: (body: { name: string; email: string }) => request<User>("/api/v1/users", json("POST", body)),
+  createUser: (body: { name: string; email: string; signInManaged?: boolean }) =>
+    request<User>("/api/v1/users", json("POST", body)),
   updateUser: (
     userId: string,
-    body: { expectedVersion: number; name?: string; email?: string | null; active?: boolean; localKept?: boolean },
+    body: {
+      expectedVersion: number;
+      name?: string;
+      email?: string | null;
+      active?: boolean;
+      localKept?: boolean;
+      signInManaged?: boolean;
+    },
   ) => request<User>(`/api/v1/users/${id(userId)}`, json("PATCH", body)),
   /** Move the provider identities and provider-group memberships of `fromUserId` onto this person;
    * the other person is deactivated (I4a, D377, D378). */

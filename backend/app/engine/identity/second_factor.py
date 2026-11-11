@@ -34,7 +34,7 @@ from ...models.database import (
     UserSecondFactor,
 )
 from ..model.registry import resolve_model_snapshot
-from . import passkeys, providers, security_events, sign_in
+from . import managed, passkeys, providers, security_events, sign_in
 from .passwords import digest, new_token, verify_secret
 from .settings import IdentitySettings
 
@@ -199,7 +199,9 @@ def begin(
 ) -> Enrolment:
     """A secret for the person to set up, replacing one not yet confirmed (a new one unless
     ``restart`` is false, which re-reads it for a page shown again). ``409 SECOND_FACTOR_EXISTS``
-    when they have one. Commits."""
+    when they have one; ``403 SIGN_IN_MANAGED`` for a person an administrator manages (SA1).
+    Commits."""
+    managed.refuse(user)
     if user.password_hash is None:
         raise api_error(
             409,
@@ -353,7 +355,9 @@ def confirm(
     api: bool = True,
 ) -> list[str]:
     """The person proved the app works: the factor is on and ten recovery codes are made, answered
-    once. ``404 SECOND_FACTOR_NOT_FOUND`` without a secret to confirm. Commits."""
+    once. ``404 SECOND_FACTOR_NOT_FOUND`` without a secret to confirm. ``403 SIGN_IN_MANAGED``
+    for a person an administrator manages. Commits."""
+    managed.refuse(user)
     row = _row(session, user)
     if row is None or row.confirmed_at is not None:
         raise api_error(404, "SECOND_FACTOR_NOT_FOUND", "No second factor is being set up")
@@ -384,7 +388,9 @@ def new_recovery_codes(
     now: datetime,
     address: str | None,
 ) -> list[str]:
-    """Ten new recovery codes, the old ones void, on a code from the app or a recovery code."""
+    """Ten new recovery codes, the old ones void, on a code from the app or a recovery code;
+    ``403 SIGN_IN_MANAGED`` for a person an administrator manages."""
+    managed.refuse(user)
     _confirmed(session, user)
     try:
         check(session, settings, user, code, now=now, address=address)
@@ -416,7 +422,9 @@ def remove(
     address: str | None,
 ) -> None:
     """The person removes their own factor with a code, unless the instance requires one
-    (``409 SECOND_FACTOR_REQUIRED``)."""
+    (``409 SECOND_FACTOR_REQUIRED``); ``403 SIGN_IN_MANAGED`` for a person an administrator
+    manages, whose factor only an administrator removes."""
+    managed.refuse(user)
     _confirmed(session, user)
     if providers.local_state(session).second_factor_required and not passkeys.has_any(
         session, user
@@ -447,7 +455,10 @@ def prove(
     """Ask a signed-in person to prove it is them again before something that lowers their
     protection (removing a passkey): their password, or a code from the app or a recovery code.
     A wrong proof is counted like a wrong password (D271); ``422 PROOF_REQUIRED`` without one.
-    Nothing is asked of a person who has neither a password nor an app."""
+    Nothing is asked of a person who has neither a password nor an app. A person an
+    administrator manages is refused first (``403 SIGN_IN_MANAGED``, SA1): every own passkey
+    change asks for the proof."""
+    managed.refuse(user)
     has_app = summary(session, user) is not None
     if user.password_hash is None and not has_app:
         return
@@ -500,6 +511,9 @@ def required_step(session: Session, user: User) -> str | None:
     row = _row(session, user)
     if (row is not None and row.confirmed_at is not None) or passkeys.has_any(session, user):
         return "code"
+    # A person an administrator manages cannot set one up (SA1): the requirement does not stop them.
+    if user.sign_in_managed:
+        return None
     return "setup" if providers.local_state(session).second_factor_required else None
 
 

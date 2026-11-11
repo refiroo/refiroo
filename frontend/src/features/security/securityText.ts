@@ -317,6 +317,8 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
         if (changed.includes("active")) return details.active ? "Restored" : "Deactivated";
         if (changed.length === 1 && changed[0] === "localKept")
           return details.localKept ? "Keeps local sign-in" : "No longer keeps local sign-in";
+        if (changed.length === 1 && changed[0] === "signInManaged")
+          return details.signInManaged ? "Sign-in managed by an administrator" : "Sign-in no longer managed";
         return changed.length ? `Changed ${changed.join(", ")}` : "Details saved";
       }
       if (event.action === "created" && details.provider)

@@ -114,6 +114,7 @@ describe("Settings › Account (0.12 I2)", () => {
       lastSignInAt: "2026-10-23T08:12:00Z",
       signedInWith: "password",
       sessionId: "s1",
+      signInManaged: false,
     });
     vi.mocked(api.mySessions).mockResolvedValue([session("s1", true, firefox), session("s2", false, iphone)]);
     vi.mocked(api.myGrants).mockResolvedValue([]);
@@ -153,6 +154,28 @@ describe("Settings › Account (0.12 I2)", () => {
     );
     fireEvent.click(within(table).getByRole("button", { name: "Sign out Firefox on macOS, this browser" }));
     expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the password, passkeys, second factor and other browsers when an administrator manages the sign-in", async () => {
+    vi.mocked(api.me).mockResolvedValue({
+      id: "u1",
+      kind: "user",
+      name: "Ana Ferreira",
+      email: "ana@example.org",
+      lastSignInAt: null,
+      signedInWith: "password",
+      sessionId: "s1",
+      signInManaged: true,
+    });
+    renderPage();
+    expect(await screen.findByText("An administrator manages the sign-in of this account.")).toBeInTheDocument();
+    for (const name of ["Change password", "Sign out everywhere", "Set up an authenticator app", "Add a passkey"])
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Where you’re signed in" })).toBeNull();
+    expect(api.mySessions).not.toHaveBeenCalled();
+    expect(api.myPasskeys).not.toHaveBeenCalled();
+    expect(api.mySecondFactor).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
   });
 
   it("names the assistant a session was opened for", async () => {

@@ -78,6 +78,7 @@ def create_user(
             password_hash=hash_secret(password) if password is not None else None,
             active=True,
             local_kept=local_kept,
+            sign_in_managed=payload.signInManaged,
         )
         session.add(user)
         session.flush()
@@ -85,7 +86,10 @@ def create_user(
             grant_roles(session, "user", user.id, roles)
         security_events.record(
             session, "user", user.public_id, "created", about=[user.public_id],
-            details={"email": user.email, "name": user.name, "roles": list(roles)},
+            details={
+                "email": user.email, "name": user.name, "roles": list(roles),
+                "signInManaged": user.sign_in_managed,
+            },
         )  # fmt: skip
         return user
 
@@ -123,6 +127,8 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
             if not payload.localKept:
                 providers.refuse_last_kept(session, user)
             user.local_kept = payload.localKept
+        if "signInManaged" in fields and payload.signInManaged is not None:
+            user.sign_in_managed = payload.signInManaged
         now = datetime.now(UTC)
         if "active" in fields and payload.active is not None:
             if user.active and not payload.active:
@@ -142,7 +148,11 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
             session, "user", user.public_id, "updated", about=[user.public_id],
             version=user.version,
             details=security_events.changed(
-                changed, name=user.name, active=user.active, localKept=user.local_kept
+                changed,
+                name=user.name,
+                active=user.active,
+                localKept=user.local_kept,
+                signInManaged=user.sign_in_managed,
             ),
         )  # fmt: skip
         return user

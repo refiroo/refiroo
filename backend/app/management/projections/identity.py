@@ -3,6 +3,7 @@ I3)."""
 
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
@@ -87,6 +88,8 @@ def me_response(session: Session, principal: Principal) -> MeResponse:
         signedInWith=principal.signed_in_with,
         signInProvider=provider,
         sessionId=principal.session_id,
+        signInManaged=principal.kind == "user"
+        and bool(session.scalar(select(User.sign_in_managed).where(User.id == principal.row_id))),
     )
 
 
@@ -144,6 +147,7 @@ def user_response(
             for key, name, subject in identities
         ],
         localKept=user.local_kept,
+        signInManaged=user.sign_in_managed,
         passkeys=passkey_counts.get(user.id, 0),
         secondFactor=(
             SecondFactorSummary(

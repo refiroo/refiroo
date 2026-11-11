@@ -476,9 +476,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `derivedPlace.applicationKey`, and each container's `applicationKey`. The set of
     # fields an export may list a cell by (`ExportView.cellField`) widens to every text field, a rule, not
     # a schema change.
+    # Re-baselined for 0.17 SA1 (additive, pre-1.0): `MeResponse.signInManaged` and
+    # `UserResponse.signInManaged` (required booleans in responses), the optional
+    # `UserCreate.signInManaged` (default false) and `UserUpdate.signInManaged`; the description of the
+    # own-account routes naming `403 SIGN_IN_MANAGED`. No path, no request field that was required and
+    # no response field is removed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "01e21ab16c5b6d591dbf65cf620c4d2cce0296e782d6225e11690190c9c37287"
+        "76571e3b3fc3759cdb7ab90165d56cbae0576fa365d724135cffa506a6d98dac"
     )
 
 

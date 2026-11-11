@@ -63,7 +63,8 @@ def request_reset(
     Returns the seconds still to wait, 0 when the request was taken. Taking it says nothing about
     whether anyone was written to: the ask is counted against the typed name and the address
     (slowed like sign-ins, D271) whatever it matches, and a link is sent only to an active person
-    with a local password, a kept local sign-in and an address, one link each. ``409
+    with a local password, a kept local sign-in and an address whose sign-in no administrator
+    manages (SA1), one link each. ``409
     MAIL_NOT_SET_UP`` when mail is not set up (it says nothing of any account). Commits."""
     mail_settings.require(session)
     wait = sign_in.seconds_to_wait(session, email, address, now, sign_in.RESET)
@@ -76,6 +77,7 @@ def request_reset(
         select(User.public_id).where(
             User.active.is_(True),
             User.password_hash.is_not(None),
+            User.sign_in_managed.is_(False),
             func.lower(User.email) == typed,
         )
     ).all()

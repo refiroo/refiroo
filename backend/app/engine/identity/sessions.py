@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import SessionRefreshToken, User, UserSession
-from . import security_events
+from . import managed, security_events
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 
@@ -308,10 +308,46 @@ def end_sessions_of(
     session.commit()
 
 
-def session_page(
-    session: Session, user_public_id: str, *, page: PageRequest, page_size: int
+def end_own_session(
+    session: Session, user_public_id: str, session_public_id: str, current: str | None
+) -> None:
+    """A signed-in person ends one of their own sessions. A person an administrator manages ends
+    only the one they hold (signing out); another is ``403 SIGN_IN_MANAGED`` (SA1)."""
+    if session_public_id != current:
+        managed.refuse_for(session, user_public_id)
+    end_session_of(session, user_public_id, session_public_id)
+
+
+def end_own_sessions(session: Session, user_public_id: str) -> None:
+    """A signed-in person signs out everywhere, this session included (J39.3); ``403
+    SIGN_IN_MANAGED`` for a person an administrator manages (SA1)."""
+    managed.refuse_for(session, user_public_id)
+    end_sessions_of(session, user_public_id, "signedOutEverywhere")
+
+
+def own_session_page(
+    session: Session,
+    user_public_id: str,
+    current: str | None,
+    *,
+    page: PageRequest,
+    page_size: int,
 ) -> Page[UserSession]:
-    """A person's open sessions in the order they started."""
+    """A signed-in person's open sessions; a person an administrator manages sees only the one
+    they hold (SA1)."""
+    only = (current or "") if managed.is_managed(session, user_public_id) else None
+    return session_page(session, user_public_id, page=page, page_size=page_size, only=only)
+
+
+def session_page(
+    session: Session,
+    user_public_id: str,
+    *,
+    page: PageRequest,
+    page_size: int,
+    only: str | None = None,
+) -> Page[UserSession]:
+    """A person's open sessions in the order they started; ``only`` keeps the one with that ID."""
     now = datetime.now(UTC)
     statement = (
         select(UserSession)
@@ -323,12 +359,14 @@ def session_page(
             UserSession.ends_at > now,
         )
     )
+    if only is not None:
+        statement = statement.where(UserSession.public_id == only)
     return paginate_statement(
         session,
         statement,
         keys=_KEYS,
         scope="sessions",
-        filters={"user": user_public_id},
+        filters={"user": user_public_id, "only": only},
         page=page,
         page_size=page_size,
         message="Session list cursor is invalid",

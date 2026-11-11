@@ -32,7 +32,7 @@ from .announcements import APPROVED as ANNOUNCE_APPROVED
 from .announcements import SENT_BACK as ANNOUNCE_SENT_BACK
 from .announcements import SUBMITTED as ANNOUNCE_SUBMITTED
 from .announcements import announce
-from .publish import apply_publication
+from .publish import apply_publication, lock_workspace_for_publication
 from .submissions import (
     APPROVED,
     SENT_BACK,
@@ -274,6 +274,9 @@ def decide(
             "Sending a change set back needs a comment",
             {"field": "comment"},
         )
+    if outcome != "sendBack":
+        # A decision that publishes locks as a publication does: workspace, then change set.
+        lock_workspace_for_publication(session, change_set_id)
     change_set = load_change_set(session, change_set_id, for_update=True)
     submission = _require_submitted(session, change_set_id)
     _require_second_person(session, submission)

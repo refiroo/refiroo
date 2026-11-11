@@ -10,6 +10,7 @@ interrupted migrations are not tested before 1.0: no instance runs an older vers
 
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
+from types import SimpleNamespace
 from unittest.mock import patch as mock_patch
 
 import pytest
@@ -24,7 +25,7 @@ from app.db import DatabaseStartupError, get_engine
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261128_01"
+HEAD = "20261129_01"
 LIMITED_ROLE = "rdm_startup_limited"
 LIMITED_PASSWORD = "limited-role-pass"
 
@@ -39,7 +40,9 @@ def databases() -> Iterator[list[URL]]:
 
 
 @contextmanager
-def serve(monkeypatch: pytest.MonkeyPatch, url: str | None) -> Iterator[tuple[TestClient, list[str]]]:
+def serve(
+    monkeypatch: pytest.MonkeyPatch, url: str | None
+) -> Iterator[tuple[TestClient, list[str]]]:
     """Start the application on ``url`` and yield its client with the errors its startup logged."""
     with monkeypatch.context() as patch:
         if url is None:
@@ -49,9 +52,10 @@ def serve(monkeypatch: pytest.MonkeyPatch, url: str | None) -> Iterator[tuple[Te
         reload_settings()
         model_registry.clear()
         try:
-            with mock_patch.object(main_module.logger, "error") as log_error, TestClient(
-                create_app()
-            ) as client:
+            with (
+                mock_patch.object(main_module.logger, "error") as log_error,
+                TestClient(create_app()) as client,
+            ):
                 yield client, [str(call.args[-1]) for call in log_error.call_args_list]
         finally:
             with suppress(DatabaseStartupError):  # no engine for a refused URL
@@ -79,7 +83,10 @@ def _assert_refused(client: TestClient, errors: list[str], *phrases: str) -> str
     # did before tokens, never an internal error (0.12 I1; the identity tables may not exist yet).
     for response in (
         client.get("/api/v1/workspaces", headers={"Authorization": "Bearer any"}),
-        client.post("/oauth/token", data={"grant_type": "client_credentials", "client_id": "a", "client_secret": "b"}),
+        client.post(
+            "/oauth/token",
+            data={"grant_type": "client_credentials", "client_id": "a", "client_secret": "b"},
+        ),
         # The application's JSON sign-in routes (I5) are guarded the same way (0.12 R).
         client.get("/oauth/sign-in/options"),
         client.post("/oauth/sign-in/password", json={"email": "a@example.org", "password": "b"}),
@@ -105,7 +112,13 @@ def test_a_clean_database_boots_and_restarts(monkeypatch, databases):
             assert client.get("/api/v1/model").status_code == 200
             assert client.get("/api/v1/workspaces/default").status_code == 200
         assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
-        assert _scalar(url, "SELECT count(*) FROM pg_extension WHERE extname IN ('pg_trgm', 'btree_gin', 'pgcrypto')") == 3
+        assert (
+            _scalar(
+                url,
+                "SELECT count(*) FROM pg_extension WHERE extname IN ('pg_trgm', 'btree_gin', 'pgcrypto')",
+            )
+            == 3
+        )
         assert _scalar(url, "SELECT count(*) FROM model_releases") == 1
 
 
@@ -139,7 +152,11 @@ def test_a_database_with_another_collation_is_refused(monkeypatch, databases):
     databases.append(url)
     with serve(monkeypatch, _render(url)) as (client, errors):
         _assert_refused(
-            client, errors, "default collation libc 'C'", "ICU root collation 'und'", "CREATE DATABASE"
+            client,
+            errors,
+            "default collation libc 'C'",
+            "ICU root collation 'und'",
+            "CREATE DATABASE",
         )
     assert _scalar(url, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'") == 0
 
@@ -205,6 +222,47 @@ def test_a_job_file_directory_that_cannot_be_written_refuses_to_start(monkeypatc
     finally:
         monkeypatch.undo()
         reload_settings()
+
+
+def test_a_failed_job_file_cleanup_does_not_keep_the_background_work_off(caplog):
+    """0.17 RF1-F3: the cleanup of the files a stopped process left behind fails (a transient
+    database error). The failure is logged with its cause, every thread still starts, and a second
+    start starts nothing twice."""
+
+    class Thread:
+        def __init__(self) -> None:
+            self.starts = 0
+
+        def start(self) -> None:
+            self.starts += 1
+
+    class Files:
+        def reconcile(self, session) -> None:
+            raise RuntimeError("database went away")
+
+    threads = {name: Thread() for name in ("worker", "exporter", "assistant", "listener")}
+    threads |= {"deriver": Thread(), "dispatcher": Thread()}
+    state = SimpleNamespace(
+        job_files=Files(),
+        job_worker=threads["worker"],
+        export_worker=threads["exporter"],
+        assistant_worker=threads["assistant"],
+        job_listener=threads["listener"],
+        event_deriver=threads["deriver"],
+        consumer_dispatcher=threads["dispatcher"],
+        run_job_worker=True,
+        run_job_listener=True,
+        run_event_deriver=True,
+        run_consumer_dispatcher=True,
+    )
+    model_threads = main_module.ModelThreads(SimpleNamespace(state=state))  # type: ignore[arg-type]
+    with caplog.at_level("ERROR", logger="app.main"):
+        model_threads.start()
+        model_threads.start()
+    assert {name: thread.starts for name, thread in threads.items()} == dict.fromkeys(threads, 1)
+    [record] = [r for r in caplog.records if "background work starts anyway" in r.getMessage()]
+    assert "again at the next start" in record.getMessage()
+    assert record.exc_info is not None and "database went away" in str(record.exc_info[1])
 
 
 @pytest.mark.parametrize(

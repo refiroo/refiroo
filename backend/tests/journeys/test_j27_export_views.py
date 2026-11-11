@@ -1294,6 +1294,31 @@ def test_a_file_that_records_no_reading_is_guessed_and_the_person_can_choose_ano
         "INVALID_IMPORT_READING",
     )
     assert _linked(world, row["id"], relation) == {booked["id"]: "Booked"}
+    # 0.17 RF1-F2: a preview confirmed is no longer replaced. The re-read is refused, creates no
+    # preview and leaves the confirmed import without a cancel request.
+    ok(world.api.post(f"/jobs/{again['id']}/confirm", {}), 202)
+    before = ok(world.api.get("/jobs", pageSize=100))["items"]
+    refused(
+        world.api.post(
+            f"/jobs/{again['id']}/reread",
+            {
+                "readings": [
+                    {
+                        "source": _reading_at(again, "System A")[0],
+                        "column": "System A",
+                        "field": code,
+                    }
+                ]
+            },
+        ),
+        409,
+        "JOB_NOT_AWAITING_CONFIRMATION",
+    )
+    after = ok(world.api.get("/jobs", pageSize=100))["items"]
+    assert len(after) == len(before)
+    confirmed = ok(world.api.get(f"/jobs/{again['id']}"))
+    assert confirmed["state"] in ("queued", "running", "completed")
+    assert not confirmed.get("cancelRequestedAt")
 
 
 @pytest.mark.journey("J27.26")

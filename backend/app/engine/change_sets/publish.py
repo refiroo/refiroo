@@ -221,7 +221,9 @@ def _relation_entry(
         relation.version,
         changes,
         (relation.from_object_id, relation.to_object_id),
-        relation_subject(relation.relation_type_key, relation.from_object_id, relation.to_object_id),
+        relation_subject(
+            relation.relation_type_key, relation.from_object_id, relation.to_object_id
+        ),
     )
 
 
@@ -244,17 +246,13 @@ def _publication_snapshot_maps(
             {
                 item.object_id: item
                 for item in session.scalars(
-                    select(ChangeSetBaseObject).where(
-                        ChangeSetBaseObject.base_id == base.id
-                    )
+                    select(ChangeSetBaseObject).where(ChangeSetBaseObject.base_id == base.id)
                 )
             },
             {
                 item.relation_id: item
                 for item in session.scalars(
-                    select(ChangeSetBaseRelation).where(
-                        ChangeSetBaseRelation.base_id == base.id
-                    )
+                    select(ChangeSetBaseRelation).where(ChangeSetBaseRelation.base_id == base.id)
                 )
             },
         )
@@ -416,6 +414,7 @@ def _merge_change_set_over_live(
             version=live.version,
         )
     live_relations: dict[str, ObjectRelation] = {}
+
     # One primary-key probe per end. ``IN (subquery) OR IN (subquery)`` cannot be hashed, and
     # PostgreSQL re-ran the subquery per relationship: 30 minutes at 258,000 records (0.9 T1).
     def in_workspace(end: Any) -> Any:
@@ -682,6 +681,29 @@ def publication_findings(
     return conflicts + graph_diagnostics(merged.membership, model)
 
 
+def lock_workspace_for_publication(session: Session, change_set_id: str) -> Workspace:
+    """Lock the change set's workspace row ``NO KEY UPDATE`` and answer it. Every path that
+    publishes takes it before it locks the change set (ARCHITECTURE, lock order): the workspace
+    row first, so live writes wait for the publication transaction (PG-D5), then the change set,
+    claimed before the merge population is read. ``NO KEY UPDATE`` leaves other change sets'
+    writes, which hold the workspace's key share lock, free to run beside the publication. Taking
+    it again in the same transaction is harmless."""
+    workspace_key = session.scalar(
+        select(ChangeSet.workspace_key).where(ChangeSet.id == change_set_id)
+    )
+    if workspace_key is None:
+        load_change_set(session, change_set_id)  # 404 change_set_not_found
+    workspace = session.scalar(
+        select(Workspace)
+        .where(Workspace.key == workspace_key)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if workspace is None:
+        raise api_error(404, "WORKSPACE_NOT_FOUND", "Workspace not found")
+    return workspace
+
+
 def apply_publication(
     session: Session,
     change_set_id: str,
@@ -692,20 +714,7 @@ def apply_publication(
 ) -> Publication:
     """Publish the change set in the caller's transaction, which commits it: a publication, and a
     migration that publishes the change set after switching its workspace's release (0.11 V2)."""
-    # Lock order (ARCHITECTURE): the workspace row first, so live writes wait for the
-    # publication transaction (PG-D5), then the change set, claimed before the merge population
-    # is read. ``NO KEY UPDATE`` leaves other change sets' writes, which hold the workspace's key
-    # share lock, free to run beside the publication.
-    workspace_key = session.scalar(
-        select(ChangeSet.workspace_key).where(ChangeSet.id == change_set_id)
-    )
-    if workspace_key is None:
-        load_change_set(session, change_set_id)  # 404 change_set_not_found
-    workspace = session.scalar(
-        select(Workspace).where(Workspace.key == workspace_key).with_for_update(key_share=True)
-    )
-    if workspace is None:
-        raise api_error(404, "WORKSPACE_NOT_FOUND", "Workspace not found")
+    workspace = lock_workspace_for_publication(session, change_set_id)
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     if change_set.model_release_id != active_release_id:

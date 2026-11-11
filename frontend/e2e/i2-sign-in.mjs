@@ -95,7 +95,10 @@ async function walk(configuration) {
         console.error((await page.locator("body").innerText()).slice(0, 800));
         throw error;
       });
-    expect((await page.getByLabel("E-mail address").inputValue()) === person.email, `${tag}: the e-mail address is kept`);
+    expect(
+      (await page.getByLabel("E-mail address").inputValue()) === person.email,
+      `${tag}: the e-mail address is kept`,
+    );
     expect(await focused("Password"), `${tag}: the password has focus after a refusal`);
     await shot(page, "sign-in-wrong");
     checks.push(`${tag}: a wrong password is refused without saying which part`);
@@ -248,6 +251,65 @@ async function walk(configuration) {
     await shot(rhea, "reader-account-narrow");
     await readers.close();
     checks.push(`${tag}: a reader's menu and Account name their roles, the narrowing by name`);
+
+    // 7c. A person whose sign-in an administrator manages (0.17 SA1): Account says so in one line and
+    // hides the password, passkeys, second factor and sessions; Sign out stays. 1440px, 390px and dark.
+    const managed = { email: `kiosk-${tag}@example.org`, password: "a passphrase for the kiosk" };
+    const kiosk = await api("/users", { email: managed.email, name: "Kiosk Account" }, "POST");
+    const kioskLink = await api(`/users/${kiosk.id}/password-reset`, {}, "POST");
+    const setup = await signedOutContext({ viewport: { width: 1440, height: 900 } });
+    const setupPage = await setup.newPage();
+    setupPage.setDefaultTimeout(15000);
+    await setupPage.goto(kioskLink.url);
+    await setupPage.getByLabel("New password", { exact: true }).fill(managed.password);
+    await setupPage.getByLabel(/again|Repeat/i).fill(managed.password);
+    await setupPage.getByRole("button", { name: /Set password/i }).click();
+    await setupPage.getByText(/Your password is set/).waitFor();
+    await setup.close();
+    const kioskNow = await api(`/users/${kiosk.id}`);
+    await api(`/users/${kiosk.id}`, { expectedVersion: kioskNow.version, signInManaged: true }, "PATCH");
+    for (const [label, options] of [
+      ["1440", { viewport: { width: 1440, height: 900 } }],
+      ["390", { viewport: { width: 390, height: 844 }, hasTouch: true }],
+      ["dark", { viewport: { width: 1440, height: 900 }, colorScheme: "dark" }],
+    ]) {
+      const managedContext = await signedOutContext(options);
+      const managedPage = await managedContext.newPage();
+      managedPage.setDefaultTimeout(15000);
+      managedPage.on("pageerror", (error) => failures.push(`${tag} (managed): ${error.message}`));
+      await managedPage.goto(`${uiUrl}/settings/account`);
+      await onSignInPage(managedPage);
+      await managedPage.getByLabel("E-mail address").fill(managed.email);
+      await managedPage.getByLabel("Password").fill(managed.password);
+      await managedPage.getByRole("button", { name: "Sign in" }).click();
+      await managedPage.getByRole("heading", { level: 1, name: "Account" }).waitFor();
+      await managedPage.getByText("An administrator manages the sign-in of this account.").waitFor();
+      for (const name of ["Change password", "Add a passkey", "Sign out everywhere"])
+        expect(
+          (await managedPage.getByRole("button", { name }).count()) === 0,
+          `${tag}: a managed person's Account has no "${name}" (${label})`,
+        );
+      for (const name of ["Password", "Passkeys", "Second factor", "Where you’re signed in"])
+        expect(
+          (await managedPage.getByRole("heading", { name, exact: true }).count()) === 0,
+          `${tag}: a managed person's Account has no ${name} part (${label})`,
+        );
+      expect(
+        await managedPage.getByRole("button", { name: "Sign out", exact: true }).isEnabled(),
+        `${tag}: a managed person can still sign out (${label})`,
+      );
+      expect((await overflow(managedPage)) <= 0, `${tag}: a managed person's Account scrolls sideways (${label})`);
+      await shot(managedPage, `account-managed-${label}`);
+      await axe(managedPage, `${tag}-account-managed-${label}`);
+      if (label === "1440") {
+        await managedPage.getByRole("button", { name: "Sign out", exact: true }).click();
+        await onSignInPage(managedPage);
+      }
+      await managedContext.close();
+    }
+    checks.push(
+      `${tag}: a managed person's Account: the one line, none of the four parts, Sign out works (1440, 390, dark)`,
+    );
 
     // 8. At 390px: one column, no horizontal scroll, on the sign-in page and on Account.
     const narrow = await signedOutContext({ viewport: { width: 390, height: 844 }, hasTouch: true });

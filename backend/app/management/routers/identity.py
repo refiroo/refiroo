@@ -109,7 +109,9 @@ def list_my_sessions(
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> SessionPage:
     """Where the caller is signed in: their open sessions, ``current`` marking this one."""
-    page = sessions.session_page(session, _person(principal), page=paging, page_size=page_size)
+    page = sessions.own_session_page(
+        session, _person(principal), principal.session_id, page=paging, page_size=page_size
+    )
     names = applications.names(
         session, {i.agent_application_id for i in page.items if i.agent_application_id}
     )
@@ -120,16 +122,18 @@ def list_my_sessions(
 @requires("signed-in", at=SIGNED_IN)
 def delete_my_session(session_id: str, principal: CurrentPrincipal, session: DbSession) -> Response:
     """Sign out one of the caller's sessions; its tokens are refused from the next request and it
-    renews no more."""
-    sessions.end_session_of(session, _person(principal), session_id)
+    renews no more. A person whose sign-in an administrator manages ends only the one they hold
+    (``403 SIGN_IN_MANAGED``)."""
+    sessions.end_own_session(session, _person(principal), session_id, principal.session_id)
     return Response(status_code=204)
 
 
 @router.delete("/me/sessions", status_code=204)
 @requires("signed-in", at=SIGNED_IN)
 def delete_my_sessions(principal: CurrentPrincipal, session: DbSession) -> Response:
-    """Sign out everywhere, this session included (J39.3)."""
-    sessions.end_sessions_of(session, _person(principal), "signedOutEverywhere")
+    """Sign out everywhere, this session included (J39.3); ``403 SIGN_IN_MANAGED`` for a person
+    whose sign-in an administrator manages."""
+    sessions.end_own_sessions(session, _person(principal))
     return Response(status_code=204)
 
 
@@ -140,7 +144,8 @@ def post_my_password(
 ) -> Response:
     """Change the caller's password: the current one must be right (``422 PASSWORD_INCORRECT``,
     counted like a wrong sign-in: ``429 SIGN_IN_SLOWED`` while a wait runs) and the new one meet the
-    rules (``422 PASSWORD_REJECTED``). Every other session ends (J39.6)."""
+    rules (``422 PASSWORD_REJECTED``). Every other session ends (J39.6). ``403 SIGN_IN_MANAGED`` for
+    a person whose sign-in an administrator manages."""
     resets.change_password(
         session,
         request.app.state.identity_settings,
@@ -188,7 +193,8 @@ def post_my_second_factor(
 ) -> SecondFactorEnrolment:
     """Start setting up an authenticator app: a new secret, answered once as a key, an
     ``otpauth://`` address and a QR code drawn as an SVG (D386); a secret not yet confirmed is
-    replaced. ``409 SECOND_FACTOR_EXISTS`` when one is set up. It works once confirmed."""
+    replaced. ``409 SECOND_FACTOR_EXISTS`` when one is set up. It works once confirmed. ``403
+    SIGN_IN_MANAGED`` for a person whose sign-in an administrator manages."""
     user = _caller(principal, session)
     made = second_factor.begin(
         session,
@@ -207,7 +213,8 @@ def post_my_second_factor_confirmation(
 ) -> RecoveryCodesResponse:
     """Confirm the app with a code it shows: the second factor is on and ten recovery codes are
     answered, once (D385). ``422 CODE_INCORRECT``, ``404 SECOND_FACTOR_NOT_FOUND`` without a secret
-    made, ``429 SIGN_IN_SLOWED`` after repeated wrong codes (D271)."""
+    made, ``429 SIGN_IN_SLOWED`` after repeated wrong codes (D271), ``403 SIGN_IN_MANAGED`` for a
+    person whose sign-in an administrator manages."""
     codes = second_factor.confirm(
         session,
         request.app.state.identity_settings,
@@ -225,7 +232,8 @@ def post_my_recovery_codes(
     payload: SecondFactorCode, request: Request, principal: CurrentPrincipal, session: DbSession
 ) -> RecoveryCodesResponse:
     """Ten new recovery codes, answered once; the old ones stop working. The body's ``code`` is one
-    from the app or an unused recovery code."""
+    from the app or an unused recovery code. ``403 SIGN_IN_MANAGED`` for a person whose sign-in an
+    administrator manages."""
     codes = second_factor.new_recovery_codes(
         session,
         request.app.state.identity_settings,
@@ -243,7 +251,8 @@ def delete_my_second_factor(
     payload: SecondFactorCode, request: Request, principal: CurrentPrincipal, session: DbSession
 ) -> Response:
     """Remove the caller's second factor with a code from the app or a recovery code; refused
-    while the instance requires one (``409 SECOND_FACTOR_REQUIRED``)."""
+    while the instance requires one (``409 SECOND_FACTOR_REQUIRED``); ``403 SIGN_IN_MANAGED`` for a
+    person whose sign-in an administrator manages (an administrator removes it)."""
     second_factor.remove(
         session,
         request.app.state.identity_settings,
@@ -276,7 +285,8 @@ def list_my_passkeys(
 def patch_my_passkey(
     passkey_id: str, payload: PasskeyRename, principal: CurrentPrincipal, session: DbSession
 ) -> PasskeyResponse:
-    """Rename one of the caller's passkeys. `404 PASSKEY_NOT_FOUND` for another person's."""
+    """Rename one of the caller's passkeys. `404 PASSKEY_NOT_FOUND` for another person's; `403
+    SIGN_IN_MANAGED` for a person whose sign-in an administrator manages."""
     user = _caller(principal, session)
     return present.passkey_response(passkeys.rename(session, user, passkey_id, payload.name))
 
@@ -294,7 +304,8 @@ def delete_my_passkey(
     the app or a recovery code (`422 PROOF_REQUIRED`, `422 CODE_INCORRECT`, `429 SIGN_IN_SLOWED`),
     so a stolen session cannot strip a person's passkeys; their last one is refused while the
     instance requires a second factor and they have no authenticator app
-    (`409 SECOND_FACTOR_REQUIRED`)."""
+    (`409 SECOND_FACTOR_REQUIRED`); `403 SIGN_IN_MANAGED` for a person whose sign-in an
+    administrator manages."""
     user = _caller(principal, session)
     second_factor.prove(
         session,
@@ -352,7 +363,8 @@ def list_users(
 @requires("security.manage", at=INSTANCE)
 def post_user(payload: UserCreate, session: DbSession) -> UserResponse:
     """A person, without a password until they set one; the e-mail address, the name they
-    sign in with, is unique ignoring case (``409 EMAIL_TAKEN``)."""
+    sign in with, is unique ignoring case (``409 EMAIL_TAKEN``). ``signInManaged: true`` takes the
+    person's own credentials and other sessions out of their hands (SA1)."""
     return present.user_response(session, create_user(session, payload))
 
 
@@ -369,7 +381,9 @@ def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserRes
     refused from the next request and their sessions end. A person is never deleted (D237).
     ``localKept`` says whether they sign in with a password while local sign-in is off (D365); while
     it is off, the last active person who keeps it can neither lose it nor be deactivated
-    (``409 LAST_LOCAL_ADMINISTRATOR``, D381)."""
+    (``409 LAST_LOCAL_ADMINISTRATOR``, D381). ``signInManaged`` says whether an administrator
+    manages the person's sign-in: they then cannot change their own password, second factor,
+    passkeys or other sessions (``403 SIGN_IN_MANAGED``, SA1)."""
     return present.user_response(session, update_user(session, user_id, payload))
 
 

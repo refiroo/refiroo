@@ -11,6 +11,7 @@ answers with the first job, another file under the same key is refused.
 
 import hashlib
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -89,9 +90,11 @@ def submit_import(
     idempotency_key: str | None,
     retention_days: int,
     origin: dict[str, Any] | None = None,
+    before_commit: Callable[[], None] | None = None,
 ) -> tuple[Job, bool]:
     """Queue the import with its file and commit; or, for a key seen before, the job it queued.
-    ``True`` marks a replayed job."""
+    ``True`` marks a replayed job. ``before_commit`` runs just before the commit, in the same
+    transaction, so a change it makes lands with the new job or not at all."""
     fingerprint = request_fingerprint(
         {"request": request.model_dump(mode="json", exclude_unset=True), "file": upload.sha256}
     )
@@ -178,6 +181,8 @@ def submit_import(
                 if replayed is None:
                     raise
                 return replayed, True
+        if before_commit is not None:
+            before_commit()
         session.commit()
     except BaseException:
         target.unlink(missing_ok=True)

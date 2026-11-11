@@ -20,9 +20,9 @@ from ...models.imports import (
     InlineProfile,
     MatchBy,
 )
-from ..jobs.background import open_job_context, request_cancel
+from ..jobs.background import open_job_context
 from ..jobs.files import JobFiles
-from ..jobs.store import AWAITING, load_job
+from ..jobs.store import AWAITING, cancel_waiting, load_job
 from ..model.candidate_places import identifying_fields
 from .profiles import source_order
 from .submit import Upload, submit_import
@@ -39,6 +39,9 @@ def reread_import(
 ) -> Job:
     """The new preview of the waiting import ``job_id`` with ``readings`` applied."""
     job = load_job(session, job_id)
+    # The job row is locked from here to the commit, so a confirmation waits behind this read and
+    # is then refused, and the state checked is the state replaced: never a confirmed job.
+    session.refresh(job, with_for_update=True)
     if job.kind != "import" or job.state != AWAITING:
         raise api_error(
             409,
@@ -108,8 +111,11 @@ def reread_import(
             idempotency_key=None,
             retention_days=retention_days,
             origin=origin,
+            # The first preview ends in the transaction that commits the new one.
+            before_commit=lambda: cancel_waiting(session, job, retention_days=retention_days),
         )
-    request_cancel(session, job.id, files=files, retention_days=retention_days)
+    # Its file was read to build the new upload, so it goes only after the commit.
+    files.remove(job.id)
     return found
 
 

@@ -2341,6 +2341,9 @@ class User(Base):
     )
     last_sign_in_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     local_kept: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # An administrator manages the person's sign-in: they change no own credential or other
+    # session (0.17 SA1).
+    sign_in_managed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # When the person switched on mail for their inbox; none: off (0.12 M2, D432).
     notice_mail_since: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # The notice kinds the person does not want mailed; all others are (0.12 M2 follow-up, D435).

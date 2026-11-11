@@ -2265,10 +2265,16 @@ C1 (2026-10-26): J39.11, the API reference signed in.
   last minute, never by using the session's refresh cookie, so the application's tabs keep their
   session; a token pasted over theirs, a client's, is sent as it is; with no session, after signing
   out, or from another site there is no token and the console starts empty (0.12 C1, D240).
+- **J39.12 Sign-in managed by an administrator**: a person whose `signInManaged` an administrator set
+  cannot change the own password, enrol, confirm or remove a second factor, make new recovery codes, or
+  register, rename or remove a passkey (`403 SIGN_IN_MANAGED`); they list only the session of the request and
+  cannot end another or all, but sign out of the own; a forgotten-password request for their address is
+  answered as for any address and sends nothing; an administrator's reset link still sets their password and an
+  administrator still removes a second factor; only who may administer people sets the switch (0.17 SA1).
 
 **Refusals:** `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID` (`expired`, `revoked`), the token
 endpoint's `invalid_grant`, `422 PASSWORD_REJECTED`, `422 PASSWORD_INCORRECT`, `404
-SESSION_NOT_FOUND`, `403 NOT_A_PERSON`; on the sign-in page `401` (wrong credentials) and `429`
+SESSION_NOT_FOUND`, `403 NOT_A_PERSON`, `403 SIGN_IN_MANAGED`; on the sign-in page `401` (wrong credentials) and `429`
 (slowed, with `Retry-After`).
 
 ### J40 — Manage who can do what

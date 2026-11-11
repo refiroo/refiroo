@@ -217,7 +217,9 @@ def created(response: httpx.Response) -> dict:
 
 
 def domain(client, workspace_key: str, code: str | None = None) -> dict:
-    return created(post_object(client, workspace_key, "domain", domain_code=code or unique_key("d")))
+    return created(
+        post_object(client, workspace_key, "domain", domain_code=code or unique_key("d"))
+    )
 
 
 def master_value(client, workspace_key: str, parent: str) -> dict:
@@ -303,7 +305,10 @@ def test_two_creates_racing_for_one_unique_value(client, workspace, at_commit):
 
 def test_two_moves_racing_into_a_parent_cycle(client, workspace, at_commit):
     owner = codelist(client, workspace)
-    one, two = master_value(client, workspace, owner["id"]), master_value(client, workspace, owner["id"])
+    one, two = (
+        master_value(client, workspace, owner["id"]),
+        master_value(client, workspace, owner["id"]),
+    )
     first, second = race(at_commit, lambda: move(client, one, two), lambda: move(client, two, one))
     assert first.status_code == 200, first.text
     refused(second, 422, "PARENT_CYCLE")
@@ -326,13 +331,9 @@ def test_a_required_relation_racing_with_the_deletion_of_its_source(client, work
     """A translation needs its incoming ``object-has-translation``; its source cannot be deleted
     from under it."""
     source = domain(client, workspace)
-    language = created(
-        post_object(client, workspace, "language", language_code=unique_key("l"))
-    )
+    language = created(post_object(client, workspace, "language", language_code=unique_key("l")))
     group = created(
-        post_object(
-            client, workspace, "translation-group", parent=language["id"], group_code="g"
-        )
+        post_object(client, workspace, "translation-group", parent=language["id"], group_code="g")
     )
     translation = {
         "relationTypeKey": "object-has-translation",
@@ -374,7 +375,10 @@ def mapping(client, workspace_key: str, source: dict, target: dict) -> httpx.Res
 
 def test_two_mapping_saves_racing_for_one_relation_set_version(client, workspace, at_commit):
     owner = codelist(client, workspace)
-    one, two = master_value(client, workspace, owner["id"]), master_value(client, workspace, owner["id"])
+    one, two = (
+        master_value(client, workspace, owner["id"]),
+        master_value(client, workspace, owner["id"]),
+    )
     source = system_value(client, workspace, system(client, workspace)["id"])
     first, second = race(
         at_commit,
@@ -410,7 +414,10 @@ def test_two_relations_racing_into_one_matrix_cell_keep_its_stored_state(
     owner = codelist(client, workspace)
     row = master_value(client, workspace, owner["id"])
     column = system(client, workspace)
-    one, two = system_value(client, workspace, column["id"]), system_value(client, workspace, column["id"])
+    one, two = (
+        system_value(client, workspace, column["id"]),
+        system_value(client, workspace, column["id"]),
+    )
     first, second = race(
         at_commit,
         lambda: relate(client, "system-value-maps-to-master", one, row),
@@ -436,7 +443,9 @@ def test_two_workspaces_write_in_parallel(client, workspace, at_commit):
         try:
             assert at_commit.reached.wait(HOLD_TIMEOUT)
             elsewhere = post_object(client, other, "domain", domain_code=unique_key("b"))
-            same = pool.submit(post_object, client, workspace, "domain", domain_code=unique_key("c"))
+            same = pool.submit(
+                post_object, client, workspace, "domain", domain_code=unique_key("c")
+            )
             assert waiting_on(WORKSPACE_LOCK)
             assert not held.done() and not same.done()
         finally:
@@ -654,6 +663,58 @@ def test_a_publication_leaves_another_change_sets_writes_free(client, workspace,
         assert response.status_code == 200, response.text
 
 
+def test_an_approval_takes_the_workspace_lock_before_the_change_set_lock(client, workspace):
+    """0.17 RF1-F1: a decision that publishes locks as a publication does, workspace then change
+    set. While another transaction holds the workspace's lock, the approval waits without holding
+    the change set, so a publication or a move of it cannot deadlock with the approval."""
+    change_set = create_change_set(client, workspace).json()
+    staged = created(
+        client.post(
+            "/api/v1/objects",
+            json={
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": unique_key("domain"),
+                "attributes": [{"attributeTypeKey": "domain-code", "value": unique_key("a")}],
+            },
+        )
+    )
+    version = staged["changeSetVersion"]
+    submitted = client.post(
+        f"/api/v1/change-sets/{change_set['id']}/submission",
+        json={"expectedChangeSetVersion": version},
+    )
+    assert submitted.status_code == 201, submitted.text
+    with get_engine().connect() as holder, ThreadPoolExecutor(max_workers=1) as pool:
+        holder.execute(
+            text("SELECT key FROM workspaces WHERE key = :key FOR NO KEY UPDATE"),
+            {"key": workspace},
+        )
+        approval = pool.submit(
+            client.post,
+            f"/api/v1/change-sets/{change_set['id']}/decisions",
+            json={
+                "outcome": "approve",
+                "expectedChangeSetVersion": version,
+                "expectedActivePublicationId": None,
+            },
+        )
+        try:
+            assert waiting_on("%FROM workspaces%FOR NO KEY UPDATE%")
+            with get_engine().connect() as third:
+                # Before the fix the approval already held the change set here.
+                third.execute(
+                    text("SELECT id FROM change_sets WHERE id = :id FOR UPDATE NOWAIT"),
+                    {"id": change_set["id"]},
+                )
+        finally:
+            holder.rollback()
+        response = approval.result(HOLD_TIMEOUT)
+    assert response.status_code == 200, response.text
+
+
 # --- feed positions (Base 0.9 F1) -----------------------------------------------------------------
 
 
@@ -791,9 +852,7 @@ def test_a_cancel_request_is_answered_while_a_chunk_runs(client, workspace, at_l
     assert job_domains(workspace) == CHUNK
 
 
-def test_an_atomic_job_cancelled_between_items_rolls_back(
-    client, workspace, at_lock, monkeypatch
-):
+def test_an_atomic_job_cancelled_between_items_rolls_back(client, workspace, at_lock, monkeypatch):
     """Held while it decides its second item, after the first (PG3b: the items are decided, then
     written together): the cancel request answered meanwhile stops the job before it writes, and
     nothing it applied stays."""
@@ -865,7 +924,9 @@ def test_a_live_write_beside_a_background_job_waits_for_one_chunk_at_most(
         running = in_chunk(pool, at_lock, runner)
         try:
             created(post_object(client, other, "domain", domain_code=unique_key("o")))
-            beside = pool.submit(post_object, client, workspace, "domain", domain_code=unique_key("b"))
+            beside = pool.submit(
+                post_object, client, workspace, "domain", domain_code=unique_key("b")
+            )
             assert waiting_on(WORKSPACE_LOCK)
         finally:
             at_lock.release()

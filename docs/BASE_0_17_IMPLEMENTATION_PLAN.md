@@ -50,6 +50,8 @@ corrects that result, and the way to import when no provider is configured.
 | [EX1](#ex1-export-says-what-it-exports) | — | Export follows what is exported: a view gives a workbook shaped as the view, a type, an application or a workspace a sheet per type; every file says what it holds and imports back. Takes over PL6's "Export for people" |
 | [MC1](#mc1-reuse-or-create-in-any-matrix-cell) | — | A filled matrix cell offers Link existing and Create wherever the model allows more than one record per cell; a user guide page with examples |
 | [CA1](#ca1-the-parent-carries-fields-and-related-blocks) | — | A consumer API's parent serves any field and related blocks of its own, a related block may be served only on request (`include`), and an On related filter may narrow a parent block |
+| [RF1](#rf1-review-findings) | — | Three engine defects from the project review of 2026-11-11: approve and publish lock in one order, a re-read never cancels a confirmed import, a failed file cleanup no longer keeps background work off |
+| [SA1](#sa1-sign-in-managed-by-an-administrator) | EM1 | A person whose sign-in an administrator manages cannot change their own password, second factor or passkeys, and sees and ends only their own session |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
 **Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
@@ -475,6 +477,92 @@ the integrator needed the parent's master ID and its external ID in one system. 
 - **Tests and docs:** journey tests through the consumer API (a parent field, an on-request parent block with
   and without `include`, its filter, `keepOnlyMatching`, an unknown `include`); editor unit tests; API.md,
   CONSUMER_API.md, the API reference text, the guide pages on consumer APIs (a Codex wave), CHANGELOG.
+
+## RF1: Review findings
+
+_Added by the user on 2026-11-11,_ after a review of the whole project (backend, frontend, website, deployment)
+that read the code and ran nothing. The user chose three confirmed engine defects for this package. Nothing
+else depends on it.
+
+- **RF1-F1, approve and publish lock in one order.** `change_sets/approvals.decide` locked the change set and
+  then the workspace, while `apply_publication` locks the workspace and then the change set (ARCHITECTURE,
+  publishing). An approval beside a publish or a change-set move of the same change set could end in
+  PostgreSQL's deadlock error, which nothing handles. A decision that publishes takes the workspace's lock
+  first, through the one function publishing uses.
+- **RF1-F2, a re-read never touches a confirmed import.** `imports/reread.reread_import` checked the waiting
+  preview without a lock and cancelled it after the new preview was committed, so an import confirmed in
+  between was cancelled partway, or a finished one left a stray preview. The re-read replaces a preview that
+  still waits in one transaction, or is refused with `JOB_NOT_AWAITING_CONFIRMATION` and creates nothing.
+- **RF1-F3, a failed file cleanup does not keep background work off.** `ModelThreads.start` marked itself
+  started before the job-file cleanup; a failure there left the job worker, exporter, assistant, listener,
+  deriver and dispatcher unstarted until a restart. The failure is logged and the threads start; the cleanup
+  runs again at the next start.
+- **Tests and docs:** one regression test per finding; CHANGELOG. No guide page describes these behaviours.
+- **Delivered 2026-11-11.** Checks run: `tests/test_pg3_concurrency.py`, `tests/test_startup.py`,
+  `tests/journeys/test_j42_approvals.py` and `tests/journeys/test_j27_export_views.py`, 88 passed; Ruff on the
+  changed files. The F1 test fails without the fix. The F2 test covers the refusal and that a confirmed job
+  gets no cancel request; the two requests racing each other are not exercised by a test.
+
+**Found by the same review, not in this package and not scheduled** (the user decides whether and where each
+goes):
+
+- Engine: an assistant session in a container can read other tasks' folders and transcripts on its requester's
+  plain request, not only when steered by a workbook (the limit recorded in OPERATIONS, `AI_AGENT_SANDBOX`);
+  the provider's credentials reach the session's environment; webhook addresses may name loopback and private
+  ranges; a CSV export writes values a spreadsheet reads as formulas; placing new matrix cells in an import
+  reads whole record sets once per column; two first sign-ins through a provider at once give an internal
+  error.
+- Deployment: the engine image installs Claude Code without a version, base images are pinned by tag, the
+  backend has no lock file; the content security policy holds only `frame-ancestors`; `ci.yml` has no
+  `permissions` block; `AI_AGENT_SANDBOX=container` is not set in the image or the compose file.
+- Frontend: the reset token stays in the address bar; search boxes copied beside `ui/SearchField`; the event
+  stream loses events during a reconnect; no code splitting.
+- Website (its own repository): the public demo account can change its own password and owns its workspaces;
+  the demo's deploy still creates people by username; the early-access form and the sign-up lookups have no
+  rate limit.
+
+## SA1: Sign-in managed by an administrator
+
+_Added by the user on 2026-11-11,_ from the project review (RF1): an account several people share by a known
+password can be taken from all of them by one, who changes the password, enrols a second factor or signs the
+others out. Plan approved by the user the same day, with the session limits included.
+
+- **The switch:** a person has `signInManaged` (default off), read on `GET /me` and on the person, set only
+  by who may administer people, through the API and the person form on the People page. Any shared, kiosk or
+  training account uses it; nothing names a use.
+- **While it is on, for that person:** changing the own password, enrolling, confirming or removing a second
+  factor, new recovery codes, and registering, renaming or removing a passkey are refused with
+  `403 SIGN_IN_MANAGED`. A forgotten-password request for the address answers as for any address and sends
+  nothing. `GET /me/sessions` lists only the session of the request; ending another session or all sessions is
+  refused with the same code; ending the own session (signing out) works. An administrator's reset link still
+  sets the password, and an administrator still removes a second factor.
+- **UI:** the account page hides the password, second factor, passkey and other-session parts for such a
+  person and says in one line that an administrator manages the sign-in (hidden, not disabled: Z5 D323). The
+  person form gets one checkbox in its existing pattern. No new surface.
+- **Not covered:** wrong passwords sent for the account's name still slow its sign-in for everyone
+  (`SIGN_IN_SLOWED` counts per account name for every account); changing that weakens the protection against
+  guessing and is left as it is.
+- **Journey cases (given / when / then):**
+  1. A managed person signed in / changes the own password with the right current one / `403 SIGN_IN_MANAGED`,
+     and the old password still signs in.
+  2. A managed person / starts a second factor or a passkey registration / `403 SIGN_IN_MANAGED`, nothing enrolled.
+  3. A managed person with two sessions / lists sessions from one / only that one; ending the other or all is
+     refused and the other session still works; signing out the own one works.
+  4. A forgotten-password request for a managed person's address / the public answer / the same as for any
+     address, and no mail is queued.
+  5. An administrator / switches it on and off, and sets a managed person's password by a reset link / allowed;
+     a person without the right to administer people cannot set the switch.
+  6. A person without the switch / the same own-account actions / as before.
+- **Docs:** API.md, CURRENT_FUNCTIONALITY, the journey catalogue and API inventory, CHANGELOG; the guide pages
+  on the account and on People (a Codex wave).
+- **Delivered 2026-11-11.** One rule in `engine/identity/managed.py`; migration `20261129_01`; the person form's
+  checkbox and the account page's one line; six journey cases in `tests/journeys/test_j39_managed_sign_in.py`
+  (J39.12), 12 passed on two configurations. Checks run: the identity, sign-in, second-factor, passkey, reset-by-mail
+  and startup tests and the contract group's modules (224 passed; `test_api_journeys` lists no
+  `hideEmptyColumns`, from the list browsing work, not this package); two Vitest files; the frontend build; the Account and People browser runners. The
+  guide pages on the account and on People still describe the earlier behaviour (a Codex wave).
+  **Decision, confirmed 2026-11-11:** a managed person without a second factor is not asked to set one up, even
+  where the instance requires one, because enrolling is refused.
 
 ## R: Build acceptance and release
 

@@ -47,10 +47,16 @@ export function AccountPage({ onNavigate }: { onNavigate?: Navigate }) {
       ) : (
         <div className="account-page">
           <Profile me={me} />
-          {me.signedInWith === "password" && <PasswordPanel />}
-          {(me.signedInWith === "password" || me.signedInWith === "passkey") && <PasskeysPanel />}
-          {(me.signedInWith === "password" || me.signedInWith === "passkey") && <SecondFactorPanel />}
-          <Sessions />
+          {me.signInManaged ? (
+            <ManagedSignIn />
+          ) : (
+            <>
+              {me.signedInWith === "password" && <PasswordPanel />}
+              {(me.signedInWith === "password" || me.signedInWith === "passkey") && <PasskeysPanel />}
+              {(me.signedInWith === "password" || me.signedInWith === "passkey") && <SecondFactorPanel />}
+              <Sessions />
+            </>
+          )}
           <Permissions onNavigate={onNavigate} />
         </div>
       )}
@@ -81,6 +87,25 @@ function Profile({ me }: { me: Me }) {
         Sign out
       </button>
     </section>
+  );
+}
+
+/** Stands where the password, passkeys, second factor and other sessions would be: an administrator
+ * keeps them (0.17 SA1). Hidden, not disabled (Z5, D323). */
+function ManagedSignIn() {
+  return (
+    <Section title="Sign-in">
+      <div className="account-panel">
+        <div className="account-row">
+          <span className="account-tile current" aria-hidden="true">
+            <Icon name="lock" size={20} />
+          </span>
+          <div className="account-row-text">
+            <span className="account-muted">An administrator manages the sign-in of this account.</span>
+          </div>
+        </div>
+      </div>
+    </Section>
   );
 }
 

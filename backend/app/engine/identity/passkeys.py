@@ -40,7 +40,7 @@ from webauthn.helpers.structs import (
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import SignInStep, User, UserPasskey, UserSecondFactor
-from . import providers, security_events, sign_in
+from . import managed, providers, security_events, sign_in
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 
@@ -146,6 +146,9 @@ def _clean(name: str | None) -> str:
 
 
 def rename(session: Session, user: User, public_id: str, name: str) -> UserPasskey:
+    """Rename the person's own passkey; ``403 SIGN_IN_MANAGED`` when an administrator manages
+    their sign-in (SA1)."""
+    managed.refuse(user)
     row = _load(session, user, public_id)
     row.name = _clean(name)
     security_events.record(
@@ -158,7 +161,10 @@ def rename(session: Session, user: User, public_id: str, name: str) -> UserPassk
 
 def remove(session: Session, user: User, public_id: str, *, by: str) -> None:
     """Remove a passkey: the person's own (refused while the instance requires a second factor and
-    it is their last one, ``409 SECOND_FACTOR_REQUIRED``) or an administrator's (D394)."""
+    it is their last one, ``409 SECOND_FACTOR_REQUIRED``; ``403 SIGN_IN_MANAGED`` when an
+    administrator manages their sign-in, SA1) or an administrator's (D394)."""
+    if by == "self":
+        managed.refuse(user)
     row = _load(session, user, public_id)
     has_app = session.scalar(
         select(UserSecondFactor.id).where(
@@ -233,7 +239,9 @@ def _ceremony(session: Session, token: str, stages: tuple[str, ...], now: dateti
 def begin_registration(
     session: Session, settings: IdentitySettings, user: User, product: str, now: datetime
 ) -> tuple[str, dict[str, Any]]:
-    """The browser's creation options for a new passkey of ``user``, with the ceremony's token."""
+    """The browser's creation options for a new passkey of ``user``, with the ceremony's token;
+    ``403 SIGN_IN_MANAGED`` when an administrator manages their sign-in (SA1)."""
+    managed.refuse(user)
     if user.password_hash is None:
         raise api_error(
             409,
@@ -270,7 +278,9 @@ def finish_registration(
     name: str | None,
     now: datetime,
 ) -> UserPasskey:
-    """Check the browser's new credential and keep it as ``user``'s passkey. Commits."""
+    """Check the browser's new credential and keep it as ``user``'s passkey; ``403
+    SIGN_IN_MANAGED`` when the switch was turned on since the ceremony began. Commits."""
+    managed.refuse(user)
     row = _ceremony(session, token, (ADD,), now)
     if row.user_id != user.id:
         raise PasskeyRefused("This passkey was started for another person.", status=403)

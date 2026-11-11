@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import PasswordResetLink, User, UserSession
-from . import providers, security_events, sessions, sign_in
+from . import managed, providers, security_events, sessions, sign_in
 from .passwords import check_password, digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
 from .users import load_user
@@ -118,8 +118,10 @@ def change_password(
     """A signed-in person's new password: the current one must match (``422
     PASSWORD_INCORRECT``), the new one meet the rules; every other session ends. A wrong current
     password is counted like a wrong sign-in (D271, ``429 SIGN_IN_SLOWED`` while a wait runs), so
-    a stolen session cannot guess it. Commits."""
+    a stolen session cannot guess it. Refused ``403 SIGN_IN_MANAGED`` for a person an
+    administrator manages (SA1). Commits."""
     user = load_user(session, user_public_id, for_update=True)
+    managed.refuse(user)
     now = datetime.now(UTC)
     wait = sign_in.seconds_to_wait(session, user.email, address, now)
     if wait > 0:

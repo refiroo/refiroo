@@ -1441,6 +1441,17 @@ organisation's own multi-factor sign-in. A person can also add passkeys on Accou
 engine's own page, which sign them in alone or after a password; they lose their use if the engine's
 address changes host.
 
+An administrator can take a person's own sign-in out of their hands, for an account several people share
+or one on a kiosk or a training machine: ticking "An administrator manages this person's sign-in" on the
+person's form, when creating or editing them. That person cannot change their password, set up or remove a
+second factor or recovery codes, add, rename or remove a passkey, or sign out any browser but the one they
+are in; their Account page hides those parts and says an administrator manages the sign-in, and the engine
+refuses the same requests from a client with `SIGN_IN_MANAGED`. Asking for a new password by their e-mail
+address is answered as for anyone and sends nothing. An administrator still sets their password with a link,
+removes a second factor or a passkey and signs them out. Wrong passwords typed for the account's name still
+slow its sign-in for everyone who uses it. An instance that requires a second factor does not ask such a
+person to set one up.
+
 Evidence: [authentication contract](../API.md#authentication), [OPERATIONS](../OPERATIONS.md#signing-in-from-the-browser),
 [provider sign-in](../../backend/app/engine/identity/provider_sign_in.py),
 [sign-in](../../backend/app/engine/identity/sign_in.py), [sessions](../../backend/app/engine/identity/sessions.py),

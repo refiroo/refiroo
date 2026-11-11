@@ -14,6 +14,9 @@ export interface Me {
   /** The provider this session came from; null for a password. */
   signInProvider?: SignInProviderRef | null;
   sessionId: string | null;
+  /** An administrator manages this person's sign-in: they change no own password, second factor,
+   * passkey or other session (`403 SIGN_IN_MANAGED`, 0.17 SA1). Always false for a client. */
+  signInManaged: boolean;
 }
 
 /** A sign-in provider as other reads name it (0.12 I3). */
@@ -148,6 +151,8 @@ export interface User {
   secondFactor: { method: "authenticator-app"; confirmedAt: string; recoveryCodesLeft: number } | null;
   /** How many passkeys they have (I4c). */
   passkeys: number;
+  /** An administrator manages their sign-in (0.17 SA1); see `Me.signInManaged`. */
+  signInManaged: boolean;
 }
 
 /** A passkey by the name its person gave it; never the credential (0.12 I4c, D394). */

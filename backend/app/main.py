@@ -174,8 +174,15 @@ class ModelThreads:
             self.exporter = state.export_worker if state.run_job_worker else None
             if self.worker is not None:
                 # Files a stopped process left behind: partial ones, or a finished job's (D55).
-                with SessionLocal() as session:
-                    state.job_files.reconcile(session)
+                try:
+                    with SessionLocal() as session:
+                        state.job_files.reconcile(session)
+                except Exception:
+                    # A failed cleanup must not keep the background work off (it runs once).
+                    logger.exception(
+                        "Cleaning up the job files a stopped process left behind failed; the "
+                        "background work starts anyway and the cleanup runs again at the next start"
+                    )
                 self.worker.start()
             if self.exporter is not None:
                 self.exporter.start()

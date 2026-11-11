@@ -6922,6 +6922,23 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   /users/{id}/passkeys/{passkeyId}` are the same for a Security administrator (D394), a security
   event records the removal. `passkeys` counts them on a person and on `/me/second-factor`. A
   sign-in provider's key is never `local`, `password` or `passkey`.
+- **Sign-in managed by an administrator** (0.17 SA1): `signInManaged` (boolean, default false) is read on
+  `GET /me` (always false for a client) and on every read of a person; `POST /users` accepts it and
+  `PATCH /users/{id}` changes it with the person's `expectedVersion`, as any other field, by who holds
+  Security administration; `signInManaged` is among a change's `changedFields` in the person's `updated`
+  security event. While it is true for a person, these are `403 SIGN_IN_MANAGED`: `POST /me/password`,
+  `POST /me/second-factor`, `POST /me/second-factor/confirmation`, `POST /me/second-factor/recovery-codes`,
+  `DELETE /me/second-factor`, `PATCH` and `DELETE /me/passkeys/{id}`, the engine's passkey registration
+  (`POST /oauth/passkeys/registration/options` answers `{error, code}`; `GET /oauth/passkeys/new` shows a
+  page), and `DELETE /me/sessions` and `DELETE /me/sessions/{id}` for any session but the caller's own. The
+  refusal comes before the password, a proof or a code is checked, so it is not counted as a wrong attempt.
+  `GET /me/sessions` lists only the session of the request. Signing out the own session
+  (`DELETE /me/sessions/{id}` of `current`) works; the other `GET`s of the own account answer as before.
+  The anonymous forgotten-password request answers as for any address and queues no mail for such a person.
+  What an administrator does for the person is not refused: `POST /users/{id}/password-reset` and its
+  link's page, `DELETE /users/{id}/second-factor`, `DELETE /users/{id}/passkeys/{passkeyId}` and `DELETE
+  /users/{id}/sessions`. An instance that requires a second factor does not ask a managed person without
+  one to set it up at sign-in.
 - **The caller's second factor** (delivered, I4b, D383–D388): `GET /me/second-factor` answers
   `{enabled, confirmedAt, recoveryCodesLeft, passkeys, required}`. `POST /me/second-factor` (`201`) makes a
   secret, answered once: `secret` (base32), `otpauthUri` (the Key URI Format address) and `qrSvg`

@@ -32,6 +32,11 @@ class MeResponse(BaseModel):
         default=None, description="The sign-in provider of this session; null for a password"
     )
     sessionId: str | None = Field(description="A person's session; null for a client")
+    signInManaged: bool = Field(
+        description="An administrator manages the person's sign-in: they cannot change their own "
+        "password, second factor, passkeys or other sessions (`403 SIGN_IN_MANAGED`); always false "
+        "for a client"
+    )
 
 
 class SessionResponse(BaseModel):
@@ -138,6 +143,10 @@ class UserResponse(BaseModel):
         "one (0.12 I4b, D383)"
     )
     passkeys: int = Field(description="How many passkeys they have (0.12 I4c, D389)")
+    signInManaged: bool = Field(
+        description="An administrator manages the person's sign-in: they cannot change their own "
+        "password, second factor, passkeys or other sessions (`403 SIGN_IN_MANAGED`, 0.17 SA1)"
+    )
 
 
 class UserPage(CollectionPage[UserResponse]):

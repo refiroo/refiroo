@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.17 SA1: sign-in managed by an administrator)
+
+- **A person's sign-in can be managed by an administrator** (`signInManaged`, default false). It is read on `GET /me` and on every read of a person, accepted by `POST /users` and changed by `PATCH /users/{id}` with the person's `expectedVersion`, and shown as one checkbox on the person's form (new and edit). Migration `20261129_01` adds `users.sign_in_managed`.
+- **While it is on, the person's own credentials are out of their hands** (`403 SIGN_IN_MANAGED`, one rule in `engine/identity/managed.py` that each own-credential operation calls before it checks anything else): changing the password, starting, confirming or removing a second factor, new recovery codes, and registering, renaming or removing a passkey (the engine's registration page too). `GET /me/sessions` lists only the session of the request, and ending another session or all of them is refused; signing out the own session works.
+- **A forgotten-password request for a managed address answers as for any address and queues nothing.** An administrator's reset link and its page, removing a second factor or a passkey, and signing a person out are not refused. An instance that requires a second factor no longer asks a managed person without one to set it up at sign-in.
+- **The account page hides the password, passkeys, second factor and other-session parts for such a person** and says in one line that an administrator manages the sign-in. The security log words the change as "Sign-in managed by an administrator" or "Sign-in no longer managed". The OpenAPI lock is re-baselined (additive).
+
+### Fixed (0.17 RF1: review findings)
+
+- **Approving a change set no longer risks a deadlock with publishing it** (RF1-F1). A decision that publishes now takes the workspace's lock before the change set's, through the one function publishing uses (`lock_workspace_for_publication`), so an approval beside a direct publication or a change-set move of the same change set waits instead of ending in PostgreSQL's deadlock error. Sending a change set back keeps its lighter lock.
+- **Reading an import preview again never touches a confirmed import** (RF1-F2). The re-read locks the waiting preview, replaces it in the transaction that commits the new one, and removes the old file only after that commit. A preview confirmed meanwhile is refused with `409 JOB_NOT_AWAITING_CONFIRMATION`: nothing is created and the confirmed import is not cancelled.
+- **A failed file cleanup no longer keeps background work off** (RF1-F3). When clearing the job files a stopped process left behind fails at start, the failure is logged with its cause, the job worker, exporter, assistant, listener, deriver and dispatcher start anyway, and the cleanup runs again at the next start.
+
 ### Fixed (0.17 CA1: the Apply dialog names a consumer API's changes)
 
 - **A change to a consumer API shows in "What changes in the model".** Renaming or re-sourcing a field of a released related block (the parent's or the object's) is a breaking change that needs a higher contract version, but the Apply and Install dialogs listed no difference for consumer APIs and said "Nothing new", which read as the edit having done nothing. The model diff now names the consumer API by its key, and the dialogs list "Consumer APIs changed: <name>" beside the contract notice that offers the version raise.

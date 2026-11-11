@@ -54,6 +54,30 @@ describe("New person (0.12 SP1: a refusal said only 'Request validation failed')
   });
 });
 
+describe("A person whose sign-in an administrator manages (0.17 SA1)", () => {
+  it("is one checkbox on the form, sent only when ticked", async () => {
+    vi.mocked(security.createUser).mockResolvedValue({
+      id: "u9",
+      name: "Kiosk",
+      email: "k@example.org",
+      roles: [],
+    } as never);
+    vi.mocked(security.passwordLink).mockResolvedValue({
+      url: "https://x/oauth/password?token=t",
+      expiresAt: "2026-11-01T00:00:00Z",
+    });
+    const dialog = openNewPerson();
+    fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Kiosk" } });
+    fireEvent.change(within(dialog).getByLabelText("E-mail"), { target: { value: "k@example.org" } });
+    const box = within(dialog).getByRole("checkbox", { name: /An administrator manages this person’s sign-in/ });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create and make a password link" }));
+    await screen.findByText(/sets a password with this link/);
+    expect(security.createUser).toHaveBeenCalledWith({ name: "Kiosk", email: "k@example.org", signInManaged: true });
+  });
+});
+
 describe("A new person's link by mail (0.12 SP3)", () => {
   const user = { id: "u1", name: "Ada", email: "ada@example.org", roles: [] };
   const link = { url: "https://x/oauth/password?token=t", expiresAt: "2026-11-01T00:00:00Z" };

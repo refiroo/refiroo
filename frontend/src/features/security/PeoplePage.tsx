@@ -309,6 +309,22 @@ function refusedFields(cause: unknown): Record<string, string> {
   return Object.fromEntries(Object.keys(fields).map((key) => [key, PERSON_FIELDS[key] ?? fields[key]]));
 }
 
+/** The person form's one checkbox: an administrator keeps the person's own credentials (0.17 SA1). */
+function SignInManagedField({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="checkbox">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span>
+        An administrator manages this person’s sign-in
+        <small>
+          They cannot change their own password, second factor or passkeys, or sign out their other browsers. An
+          administrator still sets their password with a link.
+        </small>
+      </span>
+    </label>
+  );
+}
+
 function NewPersonDialog({
   onClose,
   onCreated,
@@ -318,6 +334,7 @@ function NewPersonDialog({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [managed, setManaged] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [refused, setRefused] = useState<Record<string, string>>({});
@@ -328,7 +345,11 @@ function NewPersonDialog({
     setRefused({});
     let user: User;
     try {
-      user = await security.createUser({ name: name.trim(), email: email.trim() });
+      user = await security.createUser({
+        name: name.trim(),
+        email: email.trim(),
+        ...(managed ? { signInManaged: true } : {}),
+      });
     } catch (cause) {
       const fields = refusedFields(cause);
       setRefused(fields);
@@ -348,7 +369,7 @@ function NewPersonDialog({
       eyebrow="Security"
       size="compact"
       busy={pending}
-      dirty={!!(name || email)}
+      dirty={!!(name || email || managed)}
       onClose={onClose}
     >
       <form
@@ -390,6 +411,7 @@ function NewPersonDialog({
             />
           )}
         </FormField>
+        <SignInManagedField checked={managed} onChange={setManaged} />
         {error && (
           <Notice tone="error" title="The person was not created">
             {error}
@@ -932,11 +954,13 @@ function EditPersonDialog({
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email ?? "");
+  const [managed, setManaged] = useState(user.signInManaged);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState("");
   const [refused, setRefused] = useState<Record<string, string>>({});
-  const changed = restoring || name.trim() !== user.name || email.trim() !== (user.email ?? "");
+  const changed =
+    restoring || name.trim() !== user.name || email.trim() !== (user.email ?? "") || managed !== user.signInManaged;
 
   async function save() {
     setPending(true);
@@ -950,6 +974,7 @@ function EditPersonDialog({
           name: name.trim(),
           email: email.trim() || null,
           ...(restoring ? { active: true } : {}),
+          ...(managed !== user.signInManaged ? { signInManaged: managed } : {}),
         }),
       );
     } catch (cause) {
@@ -1018,6 +1043,7 @@ function EditPersonDialog({
             />
           )}
         </FormField>
+        <SignInManagedField checked={managed} onChange={setManaged} />
         {conflict && (
           <Notice tone="warning" title="Not saved">
             {conflict}
