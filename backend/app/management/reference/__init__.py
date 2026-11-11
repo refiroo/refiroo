@@ -177,24 +177,37 @@ _THEME_WIRING = """
 # carry its own ``authentication`` over the page's (its ``sources`` are merged as ``{...page, ...source}``,
 # and ``updateConfiguration`` replaces the whole configuration, which the page reads again). The
 # management document declares ``engineOAuth`` (scopes management, consumer); the consumer documents
-# declare ``oauth2`` (client credentials, scope consumer). The session token is always for the
-# management API, so only the management source is given it; a consumer source shows Client ID,
-# Client Secret and the ticked ``consumer`` scope, for a consumer client's own token.
+# declare ``oauth2`` (client credentials, scope consumer). Every source shows Client ID, Client Secret
+# and the ticked scope, for a client's own token. The session token is always for the management API, so
+# only the management source is given it, as a bearer scheme of its own (``signedInSession``) beside
+# ``engineOAuth``, preferred while signed in; it never sits in the client-credentials flow.
 _SIGN_IN = """
 (function () {
   var reference = window.rdmReference;
   var token = null;
   var expiresAt = 0;
+  var session = "signedInSession";
   // The Token URL field shows this engine's own token endpoint, as the browser reaches it.
   var tokenUrl = location.origin + __ROOT__ + "/oauth/token";
   function authentication(source) {
     var management = source.slug === "management";
     var name = management ? "engineOAuth" : "oauth2";
     var flow = { tokenUrl: tokenUrl, selectedScopes: [management ? "management" : "consumer"] };
-    if (management && token) flow.token = token;
     var securitySchemes = {};
     securitySchemes[name] = { flows: { clientCredentials: flow } };
-    return { preferredSecurityScheme: name, securitySchemes: securitySchemes };
+    var preferred = name;
+    // The session token is a scheme of its own, never inside the client-credentials flow (which would
+    // show its token view instead of Client ID and Secret). Signed in, it is the one shown first.
+    if (management && token) {
+      securitySchemes[session] = {
+        type: "http",
+        scheme: "bearer",
+        description: "The token of the person signed in at this browser. Sign out to stop using it.",
+        token: token,
+      };
+      preferred = session;
+    }
+    return { preferredSecurityScheme: preferred, securitySchemes: securitySchemes };
   }
   function configure(extra) {
     var current = reference.getConfiguration();

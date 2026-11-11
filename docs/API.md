@@ -775,11 +775,13 @@ the OpenAPI document; the session's `oauth_refresh` cookie, read without renewin
 engine's own address only) and answers `{access_token, expires_in}` for the `management` audience;
 `401 not_signed_in` without a session, `403 access_denied` from another site. The console renews the
 token in its last minute; a token pasted over it, such as a client's, is sent as it is. Without a
-session the console starts empty. Each source offers only its own scheme: the Management API source
-`engineOAuth` (scope `management` ticked, the session token prefilled), every consumer source `oauth2`
+session the console starts empty. Each source offers a client's own scheme: the Management API source
+`engineOAuth` (Token URL prefilled, Client ID and Secret, scope `management` ticked), every consumer source `oauth2`
 (Token URL prefilled, scope `consumer` ticked, no token: the session token is a `management` token and
 a consumer data route refuses it, so a consumer client's Client ID and Secret are entered and Authorize
-issues a `consumer` token). Because the page can mint that token, it carries a
+issues a `consumer` token). Signed in, the Management API page also lists the session token as a scheme of its
+own, `signedInSession`, selected first; `engineOAuth` is added in the same list (the list is a multi-select: untick the session scheme to send
+with the client's token only), so a client's credentials work signed in or not. Because the page can mint that token, it carries a
 `Content-Security-Policy` (0.12 E1): scripts only from the engine (the bundled file, or the pinned CDN
 host with `RDM_API_REFERENCE_SCRIPT=cdn`) and the page's own two inline scripts, each named by its hash;
 no `unsafe-eval`; requests only to the engine; no plugins, no framing (`X-Frame-Options: DENY`), no form

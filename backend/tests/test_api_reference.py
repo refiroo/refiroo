@@ -346,19 +346,21 @@ def test_a_source_gets_only_its_own_scheme_and_only_management_gets_the_session_
                 }
             },
         }
-        management = result[stage]["management"]
-        assert management["preferredSecurityScheme"] == "engineOAuth"
-        assert list(management["securitySchemes"]) == ["engineOAuth"]
+        management = result[stage]["management"]["securitySchemes"]["engineOAuth"]
+        # Client ID, Secret and the ticked scope, never a token, signed in or not.
+        assert management == {
+            "flows": {
+                "clientCredentials": {"tokenUrl": token_url, "selectedScopes": ["management"]}
+            }
+        }
 
-    def management_flow(stage):
-        return result[stage]["management"]["securitySchemes"]["engineOAuth"]["flows"][
-            "clientCredentials"
-        ]
-
-    assert management_flow("before") == {"tokenUrl": token_url, "selectedScopes": ["management"]}
-    assert management_flow("after") == {
-        "tokenUrl": token_url,
-        "selectedScopes": ["management"],
-        "token": "session",
-    }
+    before, after = result["before"]["management"], result["after"]["management"]
+    assert before["preferredSecurityScheme"] == "engineOAuth"
+    assert list(before["securitySchemes"]) == ["engineOAuth"]
+    # Signed in: the session token is a bearer scheme of its own, shown first.
+    assert after["preferredSecurityScheme"] == "signedInSession"
+    assert list(after["securitySchemes"]) == ["engineOAuth", "signedInSession"]
+    assert after["securitySchemes"]["signedInSession"]["type"] == "http"
+    assert after["securitySchemes"]["signedInSession"]["scheme"] == "bearer"
+    assert after["securitySchemes"]["signedInSession"]["token"] == "session"
     assert result["top"] is None

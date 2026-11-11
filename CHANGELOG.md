@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file. The format foll
 ### Fixed
 
 - **Moving a submitted change set to a new model release keeps it submitted.** Confirming the move used to answer `409 CHANGE_SET_SUBMITTED`. The move now completes and the request stays submitted; approvers decide it on the moved version. Only the submitter or a holder of Approve publications may move it. The request's history shows the step.
+- **The Management API page in the API reference offers a client's credentials while signed in.** R13-F35 gave the signed-in person's session token to `engineOAuth`'s client-credentials flow, so the page showed only that token and no Token URL, Client ID, Client Secret or scope. The session token is now a scheme of its own, `signedInSession` (a bearer token, preferred while signed in, renewed as before), and `engineOAuth` always shows the client form with `management` ticked. The auth type list is a multi-select: tick `engineOAuth` and untick `signedInSession` to send with the client's token only. Signed out, only `engineOAuth` is offered. Consumer API pages are unchanged (`oauth2` only, `consumer` ticked, no session token).
 
 ### Fixed (wide screens)
 
