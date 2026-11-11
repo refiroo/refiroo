@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ...models.database import AuditEvent
-from ...models.schema import ConsumerApiDefinition, ConsumerEvent, EngineModel
+from ...models.schema import PARENT_BUILT_IN, ConsumerApiDefinition, ConsumerEvent, EngineModel
 from ..model.consumer_contract import (
     OBJECT_ROLES,
     PROJECTION_TYPE_SOURCE,
@@ -126,6 +126,9 @@ class Reach:
     relation: str | None
     direction: str | None
     outputs: tuple[str, ...]
+    # Go on from the owners found to their children: a change to a block of the parent reaches the
+    # records that show that parent (CA1).
+    children: bool = False
 
 
 @dataclass(frozen=True)
@@ -177,12 +180,24 @@ class EventPlan:
             output for output in (shape.parent.output if shape.parent else None, shape.path, shape.hierarchy) if output
         )
         self.parent_output = shape.parent.output if shape.parent else None
-        parent_fields = set(shape.parent.fields) if shape.parent else set()
+        parent_sources = {
+            name for field in (shape.parent.fields.values() if shape.parent else ()) for name in field.source
+        }
         self.parent_names = frozenset(
-            (shown_name if "name" in parent_fields else set())
-            | (set(code_sources) if "code" in parent_fields else set())
+            (shown_name if "name" in parent_sources else set())
+            | (set(code_sources) if "code" in parent_sources else set())
         ) - {"id"}
-        self.parent_type = OBJECT_TYPE in parent_fields
+        self.parent_type = OBJECT_TYPE in parent_sources
+        # What else the parent shows: attributes it reads (a change to one reaches its children), the
+        # fields of its ancestors, and its own related blocks (CA1).
+        parent_ancestors: dict[str, set[str]] = {}
+        for name in sorted(parent_sources - set(PARENT_BUILT_IN)):
+            reference = split_ancestor_reference(name)
+            if reference is None:
+                self.parent_names |= {name}
+            elif reference[1] != "id":
+                parent_ancestors.setdefault(reference[0], set()).add(reference[1])
+        self.parent_ancestors = {key: frozenset(names) for key, names in parent_ancestors.items()}
         self.path_outputs = tuple(output for output in (shape.path, shape.hierarchy) if output)
         self.path_names = shown_name if self.path_outputs else frozenset()
         containment = frozenset(
@@ -191,6 +206,10 @@ class EventPlan:
         self.projections = [
             _projection(name, item.from_.relation, item.from_.direction, item.fields, containment)
             for name, item in definition.projections.items()
+        ]
+        self.parent_projections = [
+            _projection(name, item.from_.relation, item.from_.direction, item.fields, containment)
+            for name, item in (shape.parent.projections.items() if shape.parent else ())
         ]
         self._containment_of = model.containment_relation_keys
 
@@ -230,6 +249,16 @@ class EventPlan:
             owner = change.from_id if projection.direction == "outgoing" else change.to_id
             if owner is not None:
                 found.append(Reach(change.position, owner, SELF, None, None, (projection.output,)))
+        for projection in self.parent_projections:
+            if projection.relation != change.relation_type_key or not self.parent_output:
+                continue
+            if change.action not in ("created", "deleted") and not (
+                change.action == "updated" and projection.reads_relation
+            ):
+                continue
+            owner = change.from_id if projection.direction == "outgoing" else change.to_id
+            if owner is not None:
+                found.append(Reach(change.position, owner, CHILDREN, None, None, (self.parent_output,)))
         return found
 
     def _object(self, change: FeedChange) -> tuple[list[Own], list[Reach]]:
@@ -241,7 +270,13 @@ class EventPlan:
         owns: list[Own] = []
         reaches: list[Reach] = []
 
-        def reach(base: str, outputs: Sequence[str], projection: _Projection | None = None, at: str | None = None) -> None:
+        def reach(
+            base: str,
+            outputs: Sequence[str],
+            projection: _Projection | None = None,
+            at: str | None = None,
+            children: bool = False,
+        ) -> None:
             if outputs:
                 reaches.append(
                     Reach(
@@ -251,6 +286,7 @@ class EventPlan:
                         projection.relation if projection else None,
                         projection.direction if projection else None,
                         tuple(sorted(outputs)),
+                        children,
                     )
                 )
 
@@ -264,6 +300,17 @@ class EventPlan:
             ):
                 for parent in holders:
                     reach(SELF, (projection.output,), at=parent)
+
+        for projection in self.parent_projections:
+            if (
+                projection.containment
+                and projection.direction == "outgoing"
+                and self._contains(projection.relation, type_key, previous)
+                and self.parent_output
+            ):
+                # The record joined or left a parent's items: that parent's children show it.
+                for parent in holders:
+                    reach(CHILDREN, (self.parent_output,), at=parent)
 
         if change.action in ("created", "deleted"):
             if type_key in self.types:
@@ -288,6 +335,29 @@ class EventPlan:
         # 2, children showing it as their parent.
         if self.parent_output and (names & self.parent_names or (retyped and self.parent_type)):
             reach(CHILDREN, (self.parent_output,))
+        # 2b, the descendants whose parent reads an ancestor field of it, or whose parent's chain it moved.
+        if self.parent_output:
+            for ancestor, read in self.parent_ancestors.items():
+                if ancestor in (type_key, previous) and (names & read or retyped):
+                    reach(DESCENDANTS, (self.parent_output,))
+            if change.moved and self.parent_ancestors:
+                reach(DESCENDANTS, (self.parent_output,))
+            # 2c, the children of the parents that hold it as an item of a block of theirs.
+            for projection in self.parent_projections:
+                if names & projection.item_names or (retyped and projection.reads_item_type):
+                    reach(SELF, (self.parent_output,), projection, children=True)
+                for ancestor, read in projection.ancestors.items():
+                    if ancestor in (type_key, previous) and (names & read or retyped):
+                        reach(DESCENDANTS, (self.parent_output,), projection, children=True)
+                if change.moved and projection.ancestors:
+                    reach(SELF_AND_DESCENDANTS, (self.parent_output,), projection, children=True)
+                if (
+                    change.moved
+                    and projection.containment
+                    and projection.direction == "incoming"
+                    and self._contains(projection.relation, type_key, previous)
+                ):
+                    reach(CHILDREN, (self.parent_output,))
         # 3, descendants showing it in their path, or whose chain it moved.
         if self.path_outputs and (names & self.path_names or change.moved):
             reach(DESCENDANTS, self.path_outputs)

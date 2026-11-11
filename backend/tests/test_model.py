@@ -106,6 +106,23 @@ def test_semantic_diff_uses_stable_nested_keys():
     ]
 
 
+def test_semantic_diff_names_the_consumer_api_a_change_is_inside():
+    before = {
+        "consumerApis": [
+            {"key": "a", "object": {"parent": {"related": {"b": {"fields": {"x": "y"}}}}}}
+        ]
+    }
+    after = deepcopy(before)
+    after["consumerApis"][0]["object"]["parent"]["related"]["b"]["fields"] = {"z": "y"}
+
+    changes = semantic_diff(before, after)
+
+    assert [item.path for item in changes] == [
+        "/consumerApis/a/object/parent/related/b/fields/x",
+        "/consumerApis/a/object/parent/related/b/fields/z",
+    ]
+
+
 def test_semantic_diff_treats_key_membership_arrays_as_unordered():
     before = {
         "objectTypeRelations": [

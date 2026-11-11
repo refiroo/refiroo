@@ -163,3 +163,29 @@ def test_a_feed_entry_is_read_by_name():
     assert FeedChange.of(published).names == frozenset({k("R.n")})
     withdrawal = AuditEvent(aggregate_type="workspace", aggregate_id="w", action="publication-withdrawn", feed_position=5)
     assert FeedChange.of(withdrawal) is None
+
+
+def _shown_parent(document, definition):
+    """Capi's parent also shows ``R.u`` and a block over ``B11`` (its items read by name)."""
+    parent = definition["object"]["parent"]
+    parent["fields"] = {"kind": "objectType", "parentId": "id", "parentRef": k("R.u")}
+    parent["related"] = {"token": {"via": k("B11"), "fields": {"tokenName": "name"}}}
+
+
+def test_what_the_parent_shows_reaches_its_children():
+    """An attribute the parent shows, an item of one of its blocks and a relationship it gains or
+    loses each reach the children of the owner, naming the parent output; a record's own attribute
+    changes only its own outputs."""
+    plan = _plan(_shown_parent)
+    parent = k("Capi.parent")
+    _owns, reaches = plan.seeds([_object(names=frozenset({k("R.u")}))])
+    assert Reach(7, "x", CHILDREN, None, None, (parent,)) in reaches
+    _owns, reaches = plan.seeds([_object(type_key="K", names=frozenset({"name"}))])
+    assert Reach(7, "x", SELF, k("B11"), "outgoing", (parent,), True) in reaches
+    relation = FeedChange(
+        position=7, kind="relation", action="created", record_id="r", relation_type_key=k("B11"), from_id="o", to_id="t"
+    )
+    _owns, reaches = plan.seeds([relation])
+    assert Reach(7, "o", CHILDREN, None, None, (parent,)) in reaches
+    _owns, reaches = plan.seeds([_object(names=frozenset({k("R.n")}))])
+    assert all(not item.children for item in reaches)

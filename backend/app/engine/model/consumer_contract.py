@@ -18,15 +18,18 @@ from typing import Any
 from ...common.json_pointer import pointer_segment
 from ...models.schema import (
     OBJECT_ROLES,
+    PARENT_BLOCK_PREFIX,
+    PARENT_BUILT_IN,
     ConsumerApiDefinition,
     ConsumerField,
+    ConsumerProjection,
     EngineModel,
     ObjectTypeDefinition,
     ProjectionParameter,
 )
 from .consumer_definitions import authored_pointer, consumer_apis, served_versions
 from .diagnostics import ModelDiagnostic
-from .traversal import ancestor_type_keys, related_object_types
+from .traversal import ancestor_type_keys, parent_type_keys, related_object_types
 
 # Built-in fields a source, projection field or match rule may name, and their value types.
 BUILT_IN_FIELDS = {"id": "text", "name": "text"}
@@ -91,10 +94,15 @@ def split_relation_reference(field: str) -> str | None:
 
 
 def relation_attribute_keys(
-    model: EngineModel, definition: ConsumerApiDefinition, relation: str, direction: str
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    relation: str,
+    direction: str,
+    owners: Sequence[ObjectTypeDefinition] | None = None,
 ) -> set[str]:
-    """The relation attributes the bindings of the route carry, from an exposed type's end."""
-    exposed = set(definition.objectTypes)
+    """The relation attributes the bindings of the route carry, from an owner type's end (an exposed
+    type's by default)."""
+    exposed = set(definition.objectTypes) if owners is None else {item.key for item in owners}
     return {
         key
         for binding in model.objectTypeRelations
@@ -128,6 +136,7 @@ def projection_field_type(
     targets: Sequence[ObjectTypeDefinition],
     source: str,
     route: tuple[str, str] | None = None,
+    owners: Sequence[ObjectTypeDefinition] | None = None,
 ) -> str | None:
     """The output type of a projection field's source, or ``None`` when it does not resolve.
 
@@ -140,7 +149,7 @@ def projection_field_type(
     if attribute is not None:
         definition_ = model.attribute_type(attribute)
         if route is None or definition_ is None or attribute not in relation_attribute_keys(
-            model, definition, *route
+            model, definition, *route, owners=owners
         ):
             return None
         return output_type(definition_.valueType)
@@ -154,47 +163,95 @@ def exposed_types(model: EngineModel, definition: ConsumerApiDefinition) -> list
     return [item for key in definition.objectTypes if (item := model.object_type(key)) is not None]
 
 
-def projection_targets(
-    model: EngineModel, definition: ConsumerApiDefinition, relation: str, direction: str
+def parent_types(model: EngineModel, definition: ConsumerApiDefinition) -> list[ObjectTypeDefinition]:
+    """The types that can directly contain an exposed type: the ones a record's parent may be, whether
+    or not the definition exposes them (CA1)."""
+    keys = {key for item in exposed_types(model, definition) for key in parent_type_keys(model, item.key)}
+    return [item for key in sorted(keys) if (item := model.object_type(key)) is not None]
+
+
+def block_owners(
+    model: EngineModel, definition: ConsumerApiDefinition, name: str
 ) -> list[ObjectTypeDefinition]:
-    """The types at the other end of the route from any exposed type."""
+    """The types whose records carry the related block ``name``: the exposed types for the object's
+    blocks, the parent types for ``parent.<block>``."""
+    if name.startswith(PARENT_BLOCK_PREFIX):
+        return parent_types(model, definition)
+    return exposed_types(model, definition)
+
+
+def block_route(definition: ConsumerApiDefinition, name: str) -> ConsumerProjection:
+    """The related block ``name`` as the object or ``parent.<block>`` names it."""
+    return definition.blocks()[name]
+
+
+def projection_targets(
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    relation: str,
+    direction: str,
+    owners: Sequence[ObjectTypeDefinition] | None = None,
+) -> list[ObjectTypeDefinition]:
+    """The types at the other end of the route from any owner type (the exposed types by default)."""
     found: dict[str, ObjectTypeDefinition] = {}
-    for item in exposed_types(model, definition):
+    for item in exposed_types(model, definition) if owners is None else owners:
         for target in related_object_types(model, item.key, direction, [relation]):
             found.setdefault(target.key, target)
     return list(found.values())
 
 
+def block_targets(model: EngineModel, definition: ConsumerApiDefinition, name: str) -> list[ObjectTypeDefinition]:
+    """The types at the other end of the related block ``name`` from its owners."""
+    route = block_route(definition, name).from_
+    return projection_targets(model, definition, route.relation, route.direction, block_owners(model, definition, name))
+
+
 def projection_shape(
-    model: EngineModel, definition: ConsumerApiDefinition, relation: str, direction: str
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    relation: str,
+    direction: str,
+    owners: Sequence[ObjectTypeDefinition] | None = None,
 ) -> str:
     """``one`` when every binding of the route allows at most one related object, else ``many``.
 
     Derived, never declared, so a cardinality change in the model is a contract change the check sees.
     """
-    exposed = set(definition.objectTypes)
+    owning = {item.key for item in (exposed_types(model, definition) if owners is None else owners)}
     single = True
     for binding in model.objectTypeRelations:
         if binding.relationTypeKey != relation:
             continue
         own = binding.fromObjectTypeKey if direction == "outgoing" else binding.toObjectTypeKey
-        if own not in exposed:
+        if own not in owning:
             continue
         single = single and binding.holds_one("from" if direction == "outgoing" else "to")
     return "one" if single else "many"
 
 
-def parent_keys(definition: ConsumerApiDefinition) -> dict[str, str]:
-    """Each field the ``parent`` lists, by the key it has in the answer: a role's output name, as
-    the object's own field has it (C-D75), and ``objectType`` as itself. A role the object does not
-    declare keeps its role name."""
-    shape = definition.object
-    assert shape.parent is not None
-    keys = {}
-    for name in shape.parent.fields:
-        role: ConsumerField | None = None if name == "objectType" else getattr(shape, name)
-        keys[name] = name if role is None else role.output
-    return keys
+def block_shape(model: EngineModel, definition: ConsumerApiDefinition, name: str) -> str:
+    route = block_route(definition, name).from_
+    return projection_shape(
+        model, definition, route.relation, route.direction, block_owners(model, definition, name)
+    )
+
+
+def parent_source_type(
+    model: EngineModel,
+    parents: Sequence[ObjectTypeDefinition],
+    role_types: dict[str, str | None],
+    sources: Sequence[str],
+) -> str | None:
+    """The output type of a parent field's sources, or ``None`` when one does not resolve or they differ."""
+    found = set()
+    for source in sources:
+        if source == "objectType":
+            found.add("text")
+        elif source in PARENT_BUILT_IN:
+            found.add(role_types.get(source, "text"))
+        else:
+            found.add(reference_value_type(model, parents, source))
+    return found.pop() if len(found) == 1 and None not in found else None
 
 
 def source_type(
@@ -252,14 +309,12 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
     for name, attribute in shape.attributes.items():
         fields[name] = source_type(model, types, attribute.source)
     if shape.parent is not None:
-        parent_types = {
-            "objectType": "text",
-            "id": role_types.get("id"),
-            "code": role_types.get("code"),
-            "name": role_types.get("name", "text"),
-        }
+        parents = parent_types(model, definition)
         fields[shape.parent.output] = {
-            "object": {key: parent_types[name] for name, key in parent_keys(definition).items()}
+            "object": {
+                output: parent_source_type(model, parents, role_types, field.source)
+                for output, field in shape.parent.fields.items()
+            }
         }
     if shape.path is not None:
         fields[shape.path] = "text"
@@ -267,13 +322,19 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
         fields[shape.hierarchy] = "text[]"
 
     projections = {}
-    for name, projection in definition.projections.items():
+    for name, projection in definition.blocks().items():
         route = projection.from_
-        targets = projection_targets(model, definition, route.relation, route.direction)
+        targets = block_targets(model, definition, name)
         projections[name] = {
-            "shape": projection_shape(model, definition, route.relation, route.direction),
+            "shape": block_shape(model, definition, name),
+            # Only a block served on request says so: the contract of a definition that serves every
+            # block in every answer is unchanged.
+            **({"served": projection.served} if projection.served != "always" else {}),
             "fields": {
-                output: projection_field_type(model, definition, targets, source, (route.relation, route.direction))
+                output: projection_field_type(
+                    model, definition, targets, source, (route.relation, route.direction),
+                    block_owners(model, definition, name),
+                )
                 for output, source in projection.fields.items()
             },
         }
@@ -461,13 +522,19 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
             )
     changes += _field_changes("/object", "output field", old.fields, new.fields)
     for name, projection in old.projections.items():
-        path = f"/projections/{pointer_segment(name)}"
+        path = _block_path(name)
         if name not in new.projections:
-            changes.append(("/projections", f"removes related block '{name}'"))
+            changes.append((path.rsplit("/", 1)[0], f"removes related block '{name}'"))
             continue
         if new.projections[name]["shape"] != projection["shape"]:
             before, after = _shape(projection["shape"]), _shape(new.projections[name]["shape"])
             changes.append((path, f"changes related block '{name}' from {before} to {after}"))
+        # A block that was in every answer and is now served on request leaves the default answer;
+        # the other way adds to it (CA1, PP-D30).
+        if "served" not in projection and new.projections[name].get("served") == "onRequest":
+            changes.append(
+                (f"{path}/served", f"serves related block '{name}' only on request, so it leaves the default answer")
+            )
         changes += _field_changes(
             f"{path}/fields", f"field of related block '{name}'", projection["fields"],
             new.projections[name]["fields"],
@@ -520,6 +587,13 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
             )
     changes += _event_changes(old.events, new.events)
     return changes
+
+
+def _block_path(name: str) -> str:
+    """The internal pointer of a related block: the object's, or the parent's (``parent.<name>``)."""
+    if name.startswith(PARENT_BLOCK_PREFIX):
+        return f"/object/parent/projections/{pointer_segment(name.removeprefix(PARENT_BLOCK_PREFIX))}"
+    return f"/projections/{pointer_segment(name)}"
 
 
 def _event_changes(old: dict[str, EventContract], new: dict[str, EventContract]) -> list[tuple[str, str]]:

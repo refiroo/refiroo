@@ -327,6 +327,8 @@ this one at the end of the section._
       "description":  "description"
     },
     "parent": ["objectType", "id", "code", "name"],         // output parent, keyed masterId, code, name (C-D75)
+    // Or written out: "parent": { "output": "parent", "fields": ["objectType", "id", "code", "name",
+    //   "value-name"], "related": { "systemVariants": { "via": "…", "fields": { … }, "served": "onRequest" } } }
     "path": true, "hierarchy": true,
     // Related records, by a relation's key (outgoing) or reverseKey (incoming).
     "related": {
@@ -493,6 +495,22 @@ below (C-D141):
   refused at `/consumerApis/<key>/object/fields/<field>/from`. A former system's ID is published as a
   field of its own and found with XREF. A migration that wants to keep a former ID as the object ID
   assigns it as the object ID when it creates the record (a UUID).
+- **The parent (CA1, PP-D29):** `parent` is the short list of fields or `{output, fields, related}`. Its
+  `fields` are written as the object's `fields` are, an output name to its sources (`"masterId": "master-id"`, or
+  `{"from": [...], "default": …}`, no `role`), so every output has a name the author chose. A source is
+  `objectType`, `id`, `code` or `name` (served as the object's roles are, C-D75), an attribute a parent type
+  binds, or `ancestor:<type>.<field>` of an ancestor the parent types can sit under; the sources share one
+  type and a record whose parent lacks them is `null`. The short list names sources only: a built-in name is
+  served under its role's output name, any other under its words in camelCase (`master-id` is `masterId`).
+  Its `related` blocks are written as the object's, one level only: the parent has no `parent`, `path` or
+  `hierarchy`. A source no parent type can read, a block over a relation no parent type has and an
+  output name used twice are refused at the pointer the author wrote (`/object/parent/fields/<output>/source/<n>`,
+  `/object/parent/related/<block>/via`). A block of the object may not be named `parent.…`; that is how
+  filters and `include` name the parent's blocks.
+- **Served (CA1, PP-D30):** every related block, the object's and the parent's, says `served`: `always`
+  (the default) or `onRequest`. A block served on request is in an answer only when the request names it in
+  `include` (see "Reads"); it is an optional property in the OpenAPI document. Serving a block only on
+  request that was served always is a breaking change; the other way is not.
 - **Output names** are unique across fields, `parent`, `path`, `hierarchy` and related blocks, and
   `objectType`, `matchScore` and `target` are reserved for the engine. A `parent` field `code` needs
   a field with role `code`.
@@ -562,7 +580,14 @@ GET /api/consumer?workspace=…
   live from the active release's definition (C-D6; `publication` arrives in C6). `workspace` selects
   the workspace, defaulting to the deployment's default; an unknown or retired one is
   `404 WORKSPACE_NOT_FOUND`, and every response names the workspace in `RDM-Workspace` (C-D23).
-  `parent` is an object or `null`; its `objectType` is `null` when its type is not exposed (C-D22).
+  `parent` is an object or `null`; its `objectType` is `null` when its type is not exposed (C-D22). Beside
+  its built-in fields it carries the attributes and related blocks its definition names (CA1, PP-D29), read
+  in the same statements as the object's blocks, however many records the read holds. A related block
+  served `onRequest` (the object's, or the parent's as `parent.<block>`) is read and served only when the
+  request names it in `include`, repeated or comma-separated; get by ID, lists and XREF take it, batch resolve
+  takes it in each item and in `defaults`. A name that is not an on-request block is
+  `400 UNKNOWN_INCLUDE` naming the valid ones; events and deliveries leave on-request blocks out (PP-D30,
+  PP-D32).
   `hierarchy` and `path` hold the ancestors from the top down, without the object (C-D21). A field
   with no value from any source takes its `default`, then `null`; empty text is no value (C-D26).
   Projection arrays are ordered by the related record's name, then ID.
@@ -789,6 +814,9 @@ exposed type (`<type>-changed`, every change, no watch) and `custom` for its own
   name in `path` or `hierarchy`, a projected record's declared fields (and its ancestors' through
   `ancestor:`), a projection gaining or losing an item, also when the relation itself was deleted, and a
   change to the values of a relationship a `relation:` field reads (any update of that relationship).
+  What the parent shows counts too: an attribute or an ancestor's field it reads, or an item of one of its
+  related blocks or a relationship it gains or loses, makes `updated` for each child of that parent that
+  watches `parent` (CA1).
   Renaming a codelist makes `updated` for each of its values that watches `path` or `parent`. A period
   starting or ending with no write is no change (C-D82).
 - **A type change** (ADR-034) uses the same three kinds, seen from the event: an object moving out of

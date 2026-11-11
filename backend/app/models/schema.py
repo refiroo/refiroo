@@ -527,11 +527,49 @@ class ConsumerAttributeField(ModelDefinition):
     default: Any | None = _omitted()
 
 
+
+
+class ConsumerRelationRoute(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    relation: str
+    direction: Literal["outgoing", "incoming"]
+
+
+# How a related block is served (CA1, PP-D30): in every answer, or only when a read names it in ``include``.
+Served = Literal["always", "onRequest"]
+
+
+class ConsumerProjection(ModelDefinition):
+    """A named block of related objects: output field name to a field of the related object."""
+
+    model_config = ConfigDict(extra="forbid", serialize_by_alias=True, validate_by_name=True)
+
+    from_: ConsumerRelationRoute = Field(alias="from")
+    fields: Mapping[str, str] = Field(min_length=1)
+    served: Served = Field(default="always", exclude_if=lambda value: value == "always")
+
+
+# The prefix a related block of the parent has in ``include`` and in an ``onRelated`` filter (CA1, PP-D31).
+PARENT_BLOCK_PREFIX = "parent."
+# The built-in names a parent field may read besides attributes and ``ancestor:`` sources (CA1).
+PARENT_BUILT_IN = ("objectType", "id", "code", "name")
+
+
 class ConsumerParentField(ModelDefinition):
+    """The parent a record shows: ``fields`` are the built-in names ``objectType``, ``id``, ``code`` and
+    ``name``, or any source an object field takes (an attribute, ``ancestor:<type>.<field>``), and
+    ``projections`` are related blocks of the parent's own (CA1, PP-D29)."""
+
     model_config = ConfigDict(extra="forbid")
 
     output: str = Field(min_length=1)
-    fields: tuple[Literal["objectType", "id", "code", "name"], ...] = Field(min_length=1)
+    # Output name to its sources (``objectType``, ``id``, ``code``, ``name``, an attribute or
+    # ``ancestor:<type>.<field>``, the first non-empty) and default, as the object's attributes are.
+    fields: Mapping[str, ConsumerAttributeField] = Field(min_length=1)
+    projections: Mapping[str, ConsumerProjection] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
 
 
 class ConsumerObjectDefinition(ModelDefinition):
@@ -549,22 +587,6 @@ class ConsumerObjectDefinition(ModelDefinition):
     parent: ConsumerParentField | None = _omitted()
     path: str | None = _omitted()
     hierarchy: str | None = _omitted()
-
-
-class ConsumerRelationRoute(ModelDefinition):
-    model_config = ConfigDict(extra="forbid")
-
-    relation: str
-    direction: Literal["outgoing", "incoming"]
-
-
-class ConsumerProjection(ModelDefinition):
-    """A named block of related objects: output field name to a field of the related object."""
-
-    model_config = ConfigDict(extra="forbid", serialize_by_alias=True, validate_by_name=True)
-
-    from_: ConsumerRelationRoute = Field(alias="from")
-    fields: Mapping[str, str] = Field(min_length=1)
 
 
 class ConsumerMatchRule(ModelDefinition):
@@ -715,6 +737,19 @@ class ConsumerApiDefinition(ModelDefinition):
     # ``filter:<name>``, ``related:<name>`` and ``field:<output>``.
     _descriptions: Mapping[str, str] = FrozenDict()
 
+    def blocks(self) -> dict[str, ConsumerProjection]:
+        """Every related block by the name filters and ``include`` give it: the object's, then the
+        parent's as ``parent.<name>`` (CA1)."""
+        found = dict(self.projections)
+        parent = self.object.parent
+        if parent is not None:
+            found.update({f"{PARENT_BLOCK_PREFIX}{name}": item for name, item in parent.projections.items()})
+        return found
+
+    def on_request(self) -> tuple[str, ...]:
+        """The blocks served only when a read names them in ``include`` (PP-D30)."""
+        return tuple(name for name, item in self.blocks().items() if item.served == "onRequest")
+
     def offers(self, operation: str) -> bool:
         if operation == "lists":
             return bool(self.lists)
@@ -736,7 +771,6 @@ class ConsumerApiDefinition(ModelDefinition):
 FieldRole = Literal["id", "code", "name", "active", "validFrom", "validTo"]
 # The roles of the shared object, in output order: role fields come first, in this order (C-D140).
 OBJECT_ROLES: tuple[str, ...] = ("id", "code", "name", "active", "validFrom", "validTo")
-ParentFieldName = Literal["objectType", "id", "code", "name"]
 def _omitted_false() -> Any:
     return Field(default=False, exclude_if=lambda value: value is False)
 
@@ -776,22 +810,30 @@ ObjectField = Annotated[
 ]
 
 
-class ParentSpec(_Strict):
-    output: str = Field(min_length=1)
-    fields: tuple[ParentFieldName, ...] = Field(min_length=1)
-
-
 class RelatedSpec(_Described):
     """Related records under one output name, reached by a relation's ``key`` (outgoing) or
-    ``reverseKey`` (incoming)."""
+    ``reverseKey`` (incoming). ``served``: in every answer (the default) or only when a read names it in
+    ``include`` (CA1, PP-D30)."""
 
     via: str = Field(min_length=1)
     fields: Mapping[str, str] = Field(min_length=1)
+    served: Served = Field(default="always", exclude_if=lambda value: value == "always")
+
+
+class ParentSpec(_Strict):
+    """The parent as a record shows it (CA1, PP-D29): ``fields`` are ``objectType``, ``id``, ``code`` and
+    ``name`` or any source an object field takes, and ``related`` blocks are written as the object's.
+    The parent has no parent of its own."""
+
+    output: str = Field(min_length=1)
+    # The built-in names as a list, or output names as the object's ``fields`` are written.
+    fields: tuple[str, ...] | Mapping[str, ObjectField] = Field(min_length=1)
+    related: Mapping[str, RelatedSpec] = Field(default_factory=dict, exclude_if=lambda value: not value)
 
 
 class ObjectSpec(_Strict):
     fields: Mapping[str, ObjectField] = Field(min_length=1)
-    parent: tuple[ParentFieldName, ...] | ParentSpec | None = _omitted()
+    parent: tuple[str, ...] | ParentSpec | None = _omitted()
     path: bool | str | None = _omitted()
     hierarchy: bool | str | None = _omitted()
     related: Mapping[str, RelatedSpec] = Field(default_factory=dict, exclude_if=lambda value: not value)

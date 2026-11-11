@@ -56,7 +56,70 @@ an integer and validTo can be null.
 
 **Reference-data example:** Chur’s stop is named Chur, has stop number 8509000 and abbreviation CH. Its operator is Schweizerische Bundesbahnen SBB and its mode is Train. The containment path names Graubünden, Plessur and Chur, excluding the stop itself.
 
-A field does not inherit a parent’s or operator’s value automatically. Publish that information through an explicit related block. A single-valued relationship gives one related object or an empty value; a many-valued relationship gives a list, which can be empty. This shape follows the relationship’s cardinality and is part of the contract. Decimal values retain precision; integers, booleans and dates keep their declared types.
+A field does not inherit a parent’s or related record’s value automatically. Choose the parent’s fields in **Parent**, or publish related values through an explicit related block. A single-valued relationship gives one related object or an empty value; a many-valued relationship gives a list, which can be empty. This shape follows the relationship’s cardinality and is part of the contract. Decimal values retain precision; integers, booleans and dates keep their declared types.
+
+### The parent can carry its own values
+
+Serve the parent when consumers need the containing record's identity and values in the same
+answer as the child. On **Fields**, choose **Parent, path and hierarchy…** and turn on
+**Serve the parent (objectType, id, code, name)**. Below the object's fields, **Parent** then shows **Output name** and
+**Fields**. The field picker offers the built-in type, identity, code and name choices, plus
+attributes attached to the types that can directly contain an exposed type. Those parent types
+do not have to be exposed as business objects themselves.
+
+Each parent field has a public output name you choose and a source it reads. In
+**Parent fields…**, review the rows pairing a name with its source. The editor proposes
+camelCase words for the name; you can change it. The Parent table shows name=source when
+they differ. For example, a category's approval flag can be published as isApproved.
+
+A parent field keeps its declared type. Without a default, it answers null if this parent's
+type does not bind its source or the record has no value. With no parent, the whole parent
+output is null. An unexposed parent's public type is null. A specialist can also give a field
+ordered sources and a default, as for the object's fields. Sources must share a value type.
+
+An existing short list of parent sources remains valid. Built-in fields keep their role's
+public output name; other sources use their words in camelCase. For example, a category-code
+source is served as categoryCode. Editing the parent writes out the explicit names.
+
+Under **Parent's related records**, use **Add related**, then choose **Output name**, **Via**
+and **Fields**. The relationship starts from the parent, rather than the child. The block
+appears beside the parent's selected fields, as an object or list according to cardinality.
+There is one parent level: it has no nested parent, path or hierarchy. The main object's path
+and hierarchy remain available for ancestor names. A specialist can also select a value from
+the parent's own ancestors; the field picker does not offer new ancestor sources.
+
+**Example:** a catalogue item can carry its category's identity, an approval flag and related
+external codes. The consuming system can read them together without fetching the category
+separately. On a list, the category's block repeats on every child row. Consider serving a
+large or rarely used block only on request.
+
+### Serve related records always or on request
+
+In **Types and related**, each related block has a **Served** column. The same column appears
+under **Parent's related records** on **Fields**. Choose **Always** for a block in every answer,
+or **On request** when consumers should explicitly ask for it. Always is the default for an
+existing block and for a new one.
+
+An on-request block is absent from an ordinary answer. When requested, it has its usual object
+or list shape, including null or an empty list when there is no related record. This keeps the
+default answer small without losing its declared types. On **Operations**, **Include** lists
+the accepted choices automatically; edit **Served** to change that list. Parent choices have
+a parent prefix there, even when you choose a different output name for the parent itself.
+
+A filter can still use an on-request block without returning it. On **Filters**, **On related**
+offers both the object's blocks and the parent's. **Keep only matching records** removes a
+child if its parent's selected block has no matching item. Without that option, the filter
+only trims the block. **Crosswalk** applies to the object's own blocks, not the parent's.
+The filter's Name belongs to the contract; the Include parameter's name is reserved.
+
+Turning an always-served block into an on-request block removes it from existing consumers'
+ordinary answers. Review the compatibility warning and raise the contract version. Adding
+parent fields or blocks, or adding filters, does not by itself require a higher version.
+
+![Consumer API Fields tab showing Parent fields and a related block served on request](/docs/screens/model-consumer-parent-fields.png)
+
+The Parent section shows the selected parent attributes and **Parent's related records**,
+including **Via**, **Fields** and **Served**.
 
 ### Sources and defaults
 
@@ -144,6 +207,10 @@ and declares only its custom `stops-changed` event.
 **Reference-data example:** Stops API watches code, name and validity dates. Renaming Chur to Chur Bahnhof produces an update notification naming the name output. Changing latitude alone does not trigger that event. This is an example change, not a record of a change in the reference snapshot.
 
 A related record’s edit or a relationship joining or leaving a watched block can also trigger an update.
+Changes to a parent's selected attributes, values read from its ancestors or items in its
+related blocks can report an update for each child showing that parent. Watch the parent
+output, or leave Watches empty, to cover those changes. Events and webhook deliveries have
+no Include choice: their full objects leave on-request blocks out.
 If a block exposes connection values, an update of that relationship can report the block as
 changed too. Add the block to **Watches**, or leave Watches empty to include all output changes.
 A notification watching only unrelated main fields does not report that edit. Watched source changes can be reported even if a fallback leaves the displayed answer equal. A validity date passing without a write produces no notification. Moving a record into an event’s types counts as creation, moving it out as deletion, and moving between included types as an update to its type.

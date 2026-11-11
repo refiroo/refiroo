@@ -23,7 +23,7 @@ examples below use the reference Stops API. They explain the result of your choi
    another type. Consumers receive that public name as the object's type. Choose only the
    types they need as business objects; related blocks can carry information from other
    types without exposing those records as business objects in their own right.
-3. Open **Parent, path and hierarchy…** if consumers need containment information. The
+3. On **Fields**, open **Parent, path and hierarchy…** if consumers need containment information. The
    parent is the immediate containing record; a path or hierarchy names ancestors from
    the root down, excluding the current record. Review those outputs as part of the contract.
 4. Use **Add related…** to include information reached through a relationship. Set
@@ -47,7 +47,7 @@ Above: creating a consumer API in the reference model.
 **Example result.** Stops API exposes Stop, Municipality, Operator and Mode. Its Stop
 object includes an `operator` object and a `modes` array. The parent names the municipality;
 the path is `Graubünden/Plessur/Chur` for the Chur stop. These are outputs chosen in
-**Types and related**, not extra records copied into the stop. Compare the
+**Types and related** and **Fields**, not extra records copied into the stop. Compare the
 [complete business object](/docs/model/consumer-apis/#the-business-object-consumers-read).
 
 ![Related-block field picker with the Attributes of the relationship group and selected outputs](/docs/screens/model-consumer-relationship-field-picker.png)
@@ -57,6 +57,61 @@ and Operated by (forward), from Stop to Operator. The fields are name, localName
 The open source list for isPrimary separates Built in, Attributes of the exposed types and
 Attributes of the relationship. Primary contact is selected beside the Local name and
 Inspected on choices. This dialog has not been applied.*
+
+## Add values and related records to the parent
+
+Use this when a consumer needs the containing record's values alongside each child. For
+example, a catalogue item can return its category's approval flag and external codes. This
+avoids a second read, but a parent's related block repeats for every child in a list.
+
+1. On **Fields**, choose **Parent, path and hierarchy…**, select **Serve the parent
+   (objectType, id, code, name)** and apply the choice. The **Parent** section appears below
+   the object's fields. If it is already served, open that section directly.
+2. Review the parent's **Output name**. Select **Fields**, or choose **Parent fields…**,
+   to open **Fields of the parent**. Each row pairs a public name with the source it reads.
+   Choose built-in values or attributes from **Attributes of the parent types** and review
+   the proposed camelCase name. Edit that name if consumers need another one, then apply.
+   The Parent table shows name=source where they differ. These sources belong to types that
+   directly contain exposed records, rather than to the child. A missing or unbound value
+   answers null unless a default supplies a value; with no parent, the whole output is null.
+   Existing short lists remain valid: built-in fields keep their role's output name, and
+   other sources become camelCase words, such as categoryCode for category-code. Editing
+   writes the parent fields out with explicit output names.
+3. Under **Parent's related records**, choose **Add related**, or open the consumer API's
+   ⋯ menu and choose **Add related to the parent…** to open the same dialog. Give the block an **Output
+   name**, choose **Via**, and select **Fields**, including their public output names.
+   The offered relationships start from the possible parent types. Apply and inspect the
+   new row. Its block sits inside the parent's answer; do not add a parent prefix to its
+   output name here.
+4. In **Served**, choose **Always** to return that block in ordinary answers, or **On request**
+   to return it only when a consumer asks. You can also set Served in the add dialog.
+   The related table on **Types and related** has the same choices for the object's blocks.
+   Use **Fields** on a parent block to adjust what it shows.
+5. Open **Operations**. If any block is on request, **Include** shows the accepted choices,
+   with the parent's blocks distinguished by a parent prefix. This list is generated from
+   Served; there is nothing to enter here. Share it with the consuming team. An omitted
+   block is absent, rather than null or an empty list; when requested it uses the usual
+   object-or-list shape.
+6. To filter through the parent's block, open **Filters**, choose **Add filter…**, set
+   **Verb** to **On related**, and select the parent's entry in **Related block**. Choose
+   **Name** and **Matches on**. Select **Keep only matching records** if children whose
+   parent has no matching item should disappear. Leave it clear to trim only the block.
+   The filter still works when the block is not requested. Leave **Crosswalk** clear:
+   a parent's block cannot be a crosswalk target. The parameter used by Include is
+   reserved for requesting blocks; choose a different filter name.
+7. Review **Issues**, **Schema**, **Message example** and compatibility. The parent has
+   one level; another parent, path or hierarchy cannot be added inside it. Values from the
+   parent's ancestors are supported through specialist editing, rather than new choices
+   in the parent field picker. An invalid field or relationship must be corrected before
+   activation. Changing **Always** to **On request** on a released block needs a higher
+   contract version because the block leaves the ordinary answer.
+
+![Consumer API Operations tab with Include choices for an object block and a parent block](/docs/screens/model-consumer-include.png)
+
+The Include list is generated from the two related tables' **Served** choices.
+See [the parent's rules](/docs/model/consumer-apis/#the-parent-can-carry-its-own-values) and
+[requests with optional blocks](/docs/integrate/reading-business-objects/#ask-for-a-related-block)
+when reviewing the contract with integrators.
 
 ## Choose the fields and fallbacks
 
@@ -129,6 +184,9 @@ The stop number Exact rule scores Chur at 900 for its number 8509000. Matching Q
    consumers read, including related blocks. To report edits of carried values, include their
    related block in Watches and expose those values in the block. The reference event watches
    only main fields; it needs this extra choice to report connection-value changes.
+   To report changes to the parent's selected values or related items, watch the parent
+   output or leave Watches empty. One parent edit can update every child that shows it.
+   Full event and webhook objects omit on-request blocks; notifications have no Include choice.
    This defines an event, not a delivery subscription.
 2. Use **Describe…** to explain the API's purpose to consuming teams. Review **Issues**,
    **Schema**, **Message example** and the compatibility result. A **Not applied** notice

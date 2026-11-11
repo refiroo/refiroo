@@ -196,6 +196,15 @@ describe("the install dialog's differences", () => {
       { label: "Attribute types removed", names: ["Colour"] },
     ]);
   });
+
+  it("names the consumer API whose definition changed, as a change to a field of a parent block is", () => {
+    expect(
+      summarizeChanges(
+        [{ kind: "changed", path: "/consumerApis/shop-feed/object/parent/related/areaBins/fields" }],
+        outline,
+      ),
+    ).toEqual([{ label: "Consumer APIs changed", names: [expect.any(String)] }]);
+  });
 });
 
 describe("the consumer API steps in words (0.10 A4c)", () => {

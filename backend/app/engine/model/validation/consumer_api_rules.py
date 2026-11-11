@@ -20,6 +20,7 @@ from typing import Any, NoReturn
 
 from ....common.json_pointer import pointer_segment
 from ....models.schema import (
+    PARENT_BLOCK_PREFIX,
     AncestorParameter,
     ConsumerApiDefinition,
     ConsumerMatchRule,
@@ -31,9 +32,14 @@ from ....models.schema import (
 from ..consumer_contract import (
     BUILT_IN_FIELDS,
     OBJECT_ROLES,
+    PARENT_BUILT_IN,
     binding_types,
+    block_owners,
+    block_targets,
     exposed_types,
     field_value_type,
+    parent_source_type,
+    parent_types,
     projection_field_type,
     projection_targets,
     reference_value_type,
@@ -65,6 +71,8 @@ RESERVED_PARAMETERS = frozenset(
         "workspace",
         "ref",
         "id",
+        # The related blocks served on request (CA1).
+        "include",
         # The pull feed's own names, beside a definition's parameters (C-D86, and C-D7 revised).
         "event",
         "after",
@@ -204,15 +212,52 @@ class _Definition:
             self._check_sources(attribute.source, attribute.default, path)
         if shape.parent is not None:
             claim(shape.parent.output, "/object/parent/output")
-            if "code" in shape.parent.fields and shape.code is None:
-                self._fail("INVALID_MODEL", "/object/parent/fields", "parent field 'code' needs a field with role 'code'")
-            if len(set(shape.parent.fields)) != len(shape.parent.fields):
-                self._fail("DUPLICATE_KEY", "/object/parent/fields", "parent fields repeat")
+            self._check_parent_fields(shape)
+        for name in self.definition.projections:
+            if name.startswith(PARENT_BLOCK_PREFIX):
+                self._fail(
+                    "INVALID_MODEL",
+                    f"/projections/{pointer_segment(name)}",
+                    f"related block '{name}' starts with '{PARENT_BLOCK_PREFIX}', which names the parent's blocks",
+                )
         for role in ("path", "hierarchy"):
             output = getattr(shape, role)
             if output is not None:
                 claim(output, f"/object/{role}")
         return set(outputs)
+
+    def _check_parent_fields(self, shape: Any) -> None:
+        """A parent field reads the built-in names or, as an object field does, sources read from the
+        parent types (CA1, PP-D29): an attribute one binds or ``ancestor:<type>.<field>``; its sources
+        share one type and its default has it. A source a parent type does not bind is refused here; a
+        record whose parent lacks it serves ``null``."""
+        parents = parent_types(self.model, self.definition)
+        role_types = {
+            role: source_type(self.model, self.types, getattr(shape, role).source)
+            for role in OBJECT_ROLES
+            if getattr(shape, role) is not None
+        }
+        for output, field in shape.parent.fields.items():
+            at = f"/object/parent/fields/{pointer_segment(output)}"
+            for index, name in enumerate(field.source):
+                if name == "code" and shape.code is None:
+                    self._fail("INVALID_MODEL", f"{at}/source/{index}", "parent field 'code' needs a field with role 'code'")
+                if name in PARENT_BUILT_IN:
+                    continue
+                self._refuse_relation_source(name, f"{at}/source/{index}")
+                if reference_value_type(self.model, parents, name) is None:
+                    self._fail(
+                        "INVALID_REFERENCE",
+                        f"{at}/source/{index}",
+                        f"parent field '{name}' is neither 'objectType', 'id', 'code', 'name', an attribute a"
+                        " parent type binds, nor 'ancestor:<type>.<field>' of an ancestor they can sit under"
+                        + ("" if parents else " (no exposed type can have a parent)"),
+                    )
+            value_type = parent_source_type(self.model, parents, role_types, field.source)
+            if value_type is None:
+                self._fail("INVALID_MODEL", f"{at}/source", "the sources in 'from' have different value types")
+            if field.default is not None and not _matches_type(field.default, value_type):
+                self._fail("INVALID_MODEL", f"{at}/default", f"default must be a {value_type} value")
 
     def _refuse_relation_source(self, field: str, path: str) -> None:
         """``relation:<attribute>`` reads the relationship of a related block's item; no other field
@@ -226,11 +271,17 @@ class _Definition:
             )
 
     def _require_relation_attribute(
-        self, field: str, route: tuple[str, str], path: str, *, text_only: bool = False
+        self,
+        field: str,
+        route: tuple[str, str],
+        path: str,
+        *,
+        text_only: bool = False,
+        owners: Sequence[ObjectTypeDefinition] | None = None,
     ) -> None:
         """``relation:<attribute>`` of a related block's route: an attribute a binding of the relation
         carries, in that direction, from an exposed type. A scored (``firstOf``) rule reads text."""
-        value_type = projection_field_type(self.model, self.definition, [], field, route)
+        value_type = projection_field_type(self.model, self.definition, [], field, route, owners)
         if value_type is None:
             self._fail(
                 "INVALID_REFERENCE",
@@ -264,23 +315,33 @@ class _Definition:
             self._fail("INVALID_MODEL", f"{path}/default", f"default must be a {value_type} value")
 
     def _check_projections(self, outputs: set[str]) -> None:
-        for name, projection in self.definition.projections.items():
-            path = f"/projections/{pointer_segment(name)}"
-            if name in outputs or name in RESERVED_OUTPUTS:
+        parent = self.definition.object.parent
+        taken = set() if parent is None else set(parent.fields)
+        for name, projection in self.definition.blocks().items():
+            of_parent = name.startswith(PARENT_BLOCK_PREFIX)
+            block = name.removeprefix(PARENT_BLOCK_PREFIX)
+            path = (
+                f"/object/parent/projections/{pointer_segment(block)}"
+                if of_parent
+                else f"/projections/{pointer_segment(name)}"
+            )
+            if (block in taken) if of_parent else (name in outputs or name in RESERVED_OUTPUTS):
                 self._fail("DUPLICATE_KEY", path, f"related block '{name}' has the name of an output field")
             route = projection.from_
             if self.model.relation_type(route.relation) is None:
                 self._fail("INVALID_REFERENCE", f"{path}/from/relation", f"'via' names unknown relation type '{route.relation}'")
-            targets = projection_targets(self.model, self.definition, route.relation, route.direction)
+            targets = block_targets(self.model, self.definition, name)
             if not targets:
+                owners = "parent type" if of_parent else "exposed type"
                 self._fail(
                     "INVALID_REFERENCE",
                     f"{path}/from",
-                    f"no exposed type has a {route.direction} binding of relation '{route.relation}'",
+                    f"no {owners} has a {route.direction} binding of relation '{route.relation}'",
                 )
             for output, source in projection.fields.items():
                 resolved = projection_field_type(
-                    self.model, self.definition, targets, source, (route.relation, route.direction)
+                    self.model, self.definition, targets, source, (route.relation, route.direction),
+                    block_owners(self.model, self.definition, name),
                 )
                 reads = split_relation_reference(source)
                 if resolved is None and reads is not None:
@@ -384,15 +445,16 @@ class _Definition:
                             " 'sharedWith:<related>'",
                         )
             elif isinstance(parameter, ProjectionParameter):
-                projection = self.definition.projections.get(parameter.projection)
+                projection = self.definition.blocks().get(parameter.projection)
                 if projection is None:
                     self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown related block '{parameter.projection}'")
                 route = projection.from_
-                targets = projection_targets(self.model, self.definition, route.relation, route.direction)
+                targets = block_targets(self.model, self.definition, parameter.projection)
+                owners = block_owners(self.model, self.definition, parameter.projection)
                 for field_index, field in enumerate(parameter.matchFields):
                     if split_relation_reference(field) is not None:
                         self._require_relation_attribute(
-                            field, (route.relation, route.direction), f"{path}/matchFields/{field_index}"
+                            field, (route.relation, route.direction), f"{path}/matchFields/{field_index}", owners=owners
                         )
                         continue
                     if reference_value_type(self.model, targets, field) is None:
@@ -401,6 +463,13 @@ class _Definition:
                             f"{path}/matchFields/{field_index}",
                             f"'matchOn' field '{field}' is not a field of related block '{parameter.projection}'",
                         )
+                if parameter.targetable and parameter.projection.startswith(PARENT_BLOCK_PREFIX):
+                    self._fail(
+                        "INVALID_MODEL",
+                        f"{path}/targetable",
+                        f"'crosswalk' shows the object's own related block as 'target', and"
+                        f" '{parameter.projection}' is the parent's",
+                    )
                 if parameter.scoresFrom and not self._promotes(parameter.projection):
                     self._fail(
                         "INVALID_MODEL",

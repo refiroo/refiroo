@@ -20,7 +20,9 @@ _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PAGING_NAMES = frozenset({"pageSize", "cursor", "position", "from", "seek", "includeTotal"})
 # The names each route serves besides the definition's parameters. XREF pages by score, which no
 # caller seeks, and always counts its total (C-D39); with expect=one it reads no page (C-D40).
-OBJECT_NAMES = frozenset({"workspace", "publication", "asOf"})
+# ``include`` names the related blocks served on request (CA1, PP-D30); batch resolve takes it per item.
+INCLUDE_NAME = "include"
+OBJECT_NAMES = frozenset({"workspace", "publication", "asOf", INCLUDE_NAME})
 LIST_NAMES = OBJECT_NAMES | PAGING_NAMES
 XREF_ONE_NAMES = OBJECT_NAMES | {"query", "expect"}
 XREF_NAMES = XREF_ONE_NAMES | (PAGING_NAMES - {"seek", "includeTotal"})
@@ -72,6 +74,8 @@ class ReadParameters:
     parents: list[str]
     # The business date of ``asOf``, on a route that serves it (C16).
     as_of: date | None = None
+    # The related blocks served on request that the read names (CA1, PP-D30).
+    include: frozenset[str] = frozenset()
 
     @classmethod
     def check(
@@ -141,11 +145,32 @@ class ReadParameters:
             },
             parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
             as_of=_as_of(raw.get("asOf"), listed.get("asOf")) if "asOf" in raw else None,
+            include=included(definition, listed[INCLUDE_NAME], "/query/include")
+            if INCLUDE_NAME in raw
+            else frozenset(),
         )
 
     def single(self, name: str) -> str | None:
         values = self.raw.get(name)
         return values[-1] if values else None
+
+
+def included(definition: ConsumerApiDefinition, names: list[str], pointer: str) -> frozenset[str]:
+    """The blocks ``names`` ask for: each is a related block the definition serves on request, else
+    ``400 UNKNOWN_INCLUDE`` naming the valid ones (PP-D30)."""
+    valid = definition.on_request()
+    unknown = [name for name in names if name and name not in valid]
+    if unknown:
+        listed = (
+            ", ".join(valid) if valid else "none: every related block is served in every answer"
+        )
+        raise api_error(
+            400,
+            "UNKNOWN_INCLUDE",
+            f"'{unknown[0]}' is not a related block served on request; this API serves on request: {listed}",
+            {"include": unknown, "valid": list(valid), "path": pointer},
+        )
+    return frozenset(name for name in names if name)
 
 
 def _as_of(raw: list[str] | None, listed: list[str] | None) -> date:

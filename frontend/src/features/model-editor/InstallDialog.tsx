@@ -50,6 +50,7 @@ const COLLECTIONS: Record<string, string> = {
   relationTypes: "Relation types",
   objectTypeRelations: "Allowed relations",
   applications: "Applications",
+  consumerApis: "Consumer APIs",
 };
 
 /** The differences in a line per collection and kind: "Object types added: Unit, Pack". */
@@ -76,9 +77,11 @@ export function summarizeChanges(
           ? `${typeName(outline, parts[2])} → ${typeName(outline, parts[3])}`
           : collection === "applications"
             ? (outline.applications.find((a) => a.key === parts[1])?.name ?? parts[1])
-            : collection === "attributeTypes"
-              ? (outline.attributeTypes.find((a) => a.key === parts[1])?.name ?? parts[1])
-              : (outline.relationTypes.find((r) => r.key === parts[1])?.name ?? parts[1]);
+            : collection === "consumerApis"
+              ? (outline.consumerApis.find((a) => a.key === parts[1])?.name ?? parts[1])
+              : collection === "attributeTypes"
+                ? (outline.attributeTypes.find((a) => a.key === parts[1])?.name ?? parts[1])
+                : (outline.relationTypes.find((r) => r.key === parts[1])?.name ?? parts[1]);
     const label = `${COLLECTIONS[collection]} ${kind}`;
     lines.set(label, (lines.get(label) ?? new Set()).add(name));
   }

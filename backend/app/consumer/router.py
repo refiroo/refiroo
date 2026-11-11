@@ -55,6 +55,7 @@ from ..engine.reads.consumer_publications import read_publications
 from ..engine.reads.consumer_request import (
     DEFAULT_PAGE_SIZE,
     EVENTS_NAMES,
+    INCLUDE_NAME,
     LIST_NAMES,
     OBJECT_NAMES,
     PUBLICATIONS_NAMES,
@@ -225,6 +226,7 @@ class _Read:
                 self.source,
                 self.parameters.definition,
                 self.parameters.as_of,
+                self.parameters.include,
             )
         return self.built["filter"]
 
@@ -459,7 +461,10 @@ def post_resolve(
     _offered(definition, "resolve")
 
     def check(declared: ConsumerApiDefinition) -> ReadParameters:
-        return _checked(request, declared, serves=OBJECT_NAMES, applies_definition=False)
+        # Batch resolve takes ``include`` per item and in ``defaults``, not in the query.
+        return _checked(
+            request, declared, serves=OBJECT_NAMES - {INCLUDE_NAME}, applies_definition=False
+        )
 
     parameters = check(definition)
     workspace = _workspace(session, parameters.single("workspace"))
@@ -885,7 +890,7 @@ def _resolve_items(
             if item.parentParameter is not None
         }
     )
-    applied = set(definition.parameters) | set(targets)
+    applied = set(definition.parameters) | set(targets) | {INCLUDE_NAME}
     refused = _names_refused(list(default_values), known, applied, "/defaults", targets)
     if refused is not None:
         raise refused

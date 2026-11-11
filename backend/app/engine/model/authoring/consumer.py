@@ -15,13 +15,13 @@ base release declares is not refused; the contract check at activation protects 
 """
 
 import copy
-import re
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
 
 from ....models.schema import ConsumerApiDocument
+from ..consumer_expansion import camel_case
 from .document import Path, Refusal, identity
 from .keys import key_from_label
 from .kinds import Applied, Context, Params, atom, kind
@@ -468,15 +468,6 @@ def starting_definition(context: Context, key: str, name: str, exposes: list[str
         "object": {"fields": fields},
         "operations": {"objects": {}, "lists": lists},
     }
-
-
-def camel_case(key: str) -> str:
-    parts = [part for part in re.split(r"[^0-9A-Za-z]+", key) if part]
-    if not parts:
-        return "field"
-    head, *rest = parts
-    text = head[:1].lower() + head[1:] + "".join(part[:1].upper() + part[1:] for part in rest)
-    return text if text[:1].isalpha() else f"f{text}"
 
 
 def _free(name: str, taken: set[str]) -> str:

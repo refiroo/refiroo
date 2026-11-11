@@ -15,6 +15,7 @@ type Json = Record<string, unknown>;
 const record = (value: unknown): Json =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Json) : {};
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+const str = (value: unknown) => (typeof value === "string" ? value : "");
 const strings = (value: unknown): string[] =>
   typeof value === "string" ? [value] : list(value).filter((item): item is string => typeof item === "string");
 
@@ -190,25 +191,177 @@ export function renameMember(api: string, container: string, from: string, to: s
   ];
 }
 
+/** How a related block is served (CA1, PP-D30): in every answer, or only when a read names it in `include`. */
+export type Served = "always" | "onRequest";
+
+export const SERVED_OPTIONS: { value: Served; label: string }[] = [
+  { value: "always", label: "Always" },
+  { value: "onRequest", label: "On request" },
+];
+
 export interface RelatedRow {
   output: string;
   via: string;
   fields: Record<string, string>;
+  served: Served;
   index: number;
   value: unknown;
 }
 
-export function relatedOf(definition: ConsumerDefinition): RelatedRow[] {
-  return Object.entries(record(record(definition.object).related)).map(([output, value], index) => {
+/** The prefix a block of the parent has in `include` and in an On related filter (PP-D31). */
+export const PARENT_BLOCK_PREFIX = "parent.";
+
+function relatedBlocks(related: unknown): RelatedRow[] {
+  return Object.entries(record(related)).map(([output, value], index) => {
     const block = record(value);
     return {
       output,
       via: typeof block.via === "string" ? block.via : "",
       fields: Object.fromEntries(Object.entries(record(block.fields)).map(([k, v]) => [k, String(v)])),
+      served: block.served === "onRequest" ? "onRequest" : "always",
       index,
       value,
     };
   });
+}
+
+/** The related blocks of the object, or with `scope` `parent` those of its parent (CA1). */
+export function relatedOf(definition: ConsumerDefinition, scope: "object" | "parent" = "object"): RelatedRow[] {
+  const object = record(definition.object);
+  return relatedBlocks(scope === "parent" ? record(object.parent).related : object.related);
+}
+
+/** One field of the parent: the output name consumers read, the sources it reads and its written form. */
+export interface ParentFieldRow {
+  output: string;
+  sources: string[];
+  value: unknown;
+}
+
+/** The parent as the definition writes it: the short list form has no place for related blocks. */
+export interface ParentRow {
+  output: string;
+  fields: ParentFieldRow[];
+  /** Written as a list of fields (it is rewritten out in full on a change). */
+  short: boolean;
+}
+
+/** The output name a role field has, as a built-in parent field of the list form is served under. */
+function roleOutput(definition: ConsumerDefinition, name: string): string {
+  if (name === "objectType") return name;
+  return fieldsOf(definition).find((field) => field.role === name)?.output ?? name;
+}
+
+/** The parent a definition serves, or `undefined` when it serves none. */
+export function parentSpecOf(definition: ConsumerDefinition): ParentRow | undefined {
+  const parent = record(definition.object).parent;
+  if (!parent || typeof parent !== "object") return undefined;
+  const spec = Array.isArray(parent) ? { fields: parent } : record(parent);
+  const written = spec.fields;
+  // A list names sources; a built-in one is served under its role's output name, any other under its words in camelCase.
+  const fields: ParentFieldRow[] = Array.isArray(written)
+    ? strings(written).map((name) => {
+        const builtIn = PARENT_BUILT_IN_FIELDS.some((item) => item.value === name);
+        return { output: builtIn ? roleOutput(definition, name) : outputFor(name), sources: [name], value: name };
+      })
+    : Object.entries(record(written)).map(([output, value], index) => {
+        const row = fieldRow(output, value, index);
+        return { output, sources: row.sources, value };
+      });
+  return {
+    output: Array.isArray(parent) ? "parent" : str(spec.output) || "parent",
+    fields,
+    short: Array.isArray(parent),
+  };
+}
+
+/** The parent written out in full, with `change` applied: what a step sets at `/object/parent`. */
+export function writeParent(
+  definition: ConsumerDefinition,
+  change: { output?: string; fields?: Record<string, unknown> } = {},
+): Json | undefined {
+  const parent = parentSpecOf(definition);
+  if (!parent) return undefined;
+  const related = record(record(record(definition.object).parent).related);
+  return {
+    output: change.output ?? parent.output,
+    fields: change.fields ?? Object.fromEntries(parent.fields.map((field) => [field.output, field.value])),
+    ...(Object.keys(related).length ? { related } : {}),
+  };
+}
+
+/** The steps that make the parent a full object before a part inside it is changed (none when it is one). */
+export function ensureParentObject(api: string, definition: ConsumerDefinition): DraftOperation[] {
+  const parent = parentSpecOf(definition);
+  return parent?.short
+    ? [
+        {
+          kind: "setConsumerApiPart",
+          consumerApi: api,
+          pointer: pointer("object", "parent"),
+          value: writeParent(definition),
+        },
+      ]
+    : [];
+}
+
+/** The types a record's parent may be: the types directly above the exposed ones. */
+export function parentTypesOf(outline: ModelDraftOutline, exposes: string[]): string[] {
+  const found: string[] = [];
+  for (const key of exposes)
+    for (const parent of outline.objectTypes.find((item) => item.key === key)?.parents ?? [])
+      if (!found.includes(parent)) found.push(parent);
+  return found;
+}
+
+export const PARENT_BUILT_IN_FIELDS = [
+  { value: "objectType", label: "Public type name", group: "Built in" },
+  { value: "id", label: "ID", group: "Built in" },
+  { value: "code", label: "Code", group: "Built in" },
+  { value: "name", label: "Name", group: "Built in" },
+];
+
+/** What the parent may show: its four built-in fields and the attributes of the parent types. */
+export function parentFieldOptions(
+  outline: ModelDraftOutline,
+  exposes: string[],
+  current: string[] = [],
+): SourceOption[] {
+  const options = new Map<string, SourceOption>(PARENT_BUILT_IN_FIELDS.map((item) => [item.value, item]));
+  for (const key of parentTypesOf(outline, exposes))
+    for (const attribute of outline.objectTypes.find((item) => item.key === key)?.attributes ?? [])
+      if (!options.has(attribute.attributeType))
+        options.set(attribute.attributeType, {
+          value: attribute.attributeType,
+          label: `${attribute.name}${attribute.valueType ? ` · ${attribute.valueType}` : ""}`,
+          group: "Attributes of the parent types",
+        });
+  for (const value of current)
+    if (!options.has(value)) options.set(value, { value, label: value, group: "Written by hand" });
+  return [...options.values()];
+}
+
+/** The related blocks a filter may be On: the object's, then the parent's as `parent.<block>`. */
+export function blockNames(definition: ConsumerDefinition): { value: string; label: string }[] {
+  return [
+    ...relatedOf(definition).map((row) => ({ value: row.output, label: row.output })),
+    ...relatedOf(definition, "parent").map((row) => ({
+      value: `${PARENT_BLOCK_PREFIX}${row.output}`,
+      label: `${PARENT_BLOCK_PREFIX}${row.output}`,
+    })),
+  ];
+}
+
+/** The blocks `include` accepts: those served on request, by the name a read gives (PP-D30). */
+export function includeNames(definition: ConsumerDefinition): string[] {
+  return [
+    ...relatedOf(definition)
+      .filter((row) => row.served === "onRequest")
+      .map((row) => row.output),
+    ...relatedOf(definition, "parent")
+      .filter((row) => row.served === "onRequest")
+      .map((row) => `${PARENT_BLOCK_PREFIX}${row.output}`),
+  ];
 }
 
 /** A `via` in words: the relation's name, forward by its key or reverse by its reverse key. */
@@ -513,13 +666,21 @@ export function matchOptions(
       }
     }
   } else if (reads.verb === "onRelated" && reads.related) {
-    const block = relatedOf(definition).find((row) => row.output === reads.related);
+    const ofParent = reads.related.startsWith(PARENT_BLOCK_PREFIX);
+    const block = relatedOf(definition, ofParent ? "parent" : "object").find(
+      (row) => row.output === (ofParent ? reads.related?.slice(PARENT_BLOCK_PREFIX.length) : reads.related),
+    );
     for (const [output, source] of Object.entries(block?.fields ?? {}))
       add(source, source === output ? output : `${output} (${source})`, `Fields of ${reads.related}`);
-    // The relationship's own text values match too, whichever the block shows.
-    if (block)
-      for (const item of relationAttributeOptions(outline, block.via, exposesOf(definition)))
-        add(item.value, item.label, item.group);
+    // Any field of the records the block reaches matches too, as its Fields… picker lists them: their
+    // attributes, the fields of the types above them (the system a value sits under) and the
+    // relationship's own values; a block of the parent starts from the parent types.
+    if (block) {
+      const owners = ofParent ? parentTypesOf(outline, exposesOf(definition)) : exposesOf(definition);
+      const reached = relatedTypesOf(outline, block.via, owners);
+      for (const item of relatedFieldOptions(outline, reached, [], { via: block.via, exposes: owners }))
+        if (item.value !== "objectType") add(item.value, item.label, item.group);
+    }
   }
   for (const value of current) add(value, value, "Written by hand");
   return [...options.values()];
@@ -681,6 +842,10 @@ function partWords(path: string): string {
   const [head, second, third, fourth] = parts;
   if (head === "object" && second === "fields") return third ? `field ${third}` : "the fields";
   if (head === "object" && second === "related") return third ? `related block ${third}` : "the related blocks";
+  if (head === "object" && second === "parent") {
+    if (third === "related") return fourth ? `the parent's related block ${fourth}` : "the parent's related blocks";
+    return third === "fields" ? "the parent's fields" : "the parent";
+  }
   if (head === "object") return second ?? "the object";
   if (head === "operations" && second === "lists") return third ? `list ${third}` : "the lists";
   if (head === "operations" && second === "xref") {
@@ -697,8 +862,6 @@ function partWords(path: string): string {
   if (head === "contractVersion") return "the contract version";
   return head ?? "the definition";
 }
-
-const str = (value: unknown) => (typeof value === "string" ? value : "");
 
 /** An earlier contract version a definition keeps (DF3), newest first as written. */
 export interface EarlierVersionRow {

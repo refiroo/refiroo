@@ -65,7 +65,15 @@ def _list_identity(field_name: str | None, before: Any, after: Any):
         return lambda item: (item,)
 
     fields: tuple[str, ...] | None = None
-    if field_name in {"attributeTypes", "objectTypes", "relationTypes", "applications", "views", "panels"}:
+    if field_name in {
+        "attributeTypes",
+        "objectTypes",
+        "relationTypes",
+        "applications",
+        "views",
+        "panels",
+        "consumerApis",
+    }:
         fields = ("key",)
     elif field_name == "attributes":
         fields = ("attributeTypeKey",)

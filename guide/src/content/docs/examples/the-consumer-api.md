@@ -327,6 +327,12 @@ identifiers. The stop number is an integer; decimal coordinates and height use d
 retain precision. Null fields have no applicable value here. The parent is one object, modes and
 system codes are arrays, and an empty translations array is a complete answer.
 
+This declaration selects only the parent's type, identity, code and name, and serves its
+related blocks always. Other declarations can add typed parent attributes and the parent's
+own related blocks, or serve a block only when requested. See
+[parent values and optional blocks](/docs/integrate/consumer-apis/#parent-values-and-blocks-served-on-request)
+for the declaration and request rules; the captured answer above is unchanged.
+
 ### Read a list, then narrow it
 
 This first-page request asks for one stop and an exact total:

@@ -3391,7 +3391,19 @@ Returns the definition's shared object for the record whose **object ID** is `{i
 - `parent` holds the fields its declaration lists, each keyed as the object's own field is: the
   `id`, `code` and `name` roles by their output names (`ledgerId` above), and `objectType`. A
   consumer reading a field from an object or its parent uses one name (C-D75).
-  `parent.objectType` is `null` when the parent's type is not exposed.
+  `parent.objectType` is `null` when the parent's type is not exposed. A definition may also list
+  attributes of the parent types under output names it chooses (`null` where the record's parent has no
+  value or its type does not bind it) and give the parent related blocks of its own, written as the
+  object's; they are in the parent's object beside its fields (CA1).
+- A related block, the object's or the parent's, is served `always` (the default) or `onRequest`. An
+  on-request block is read and served only when the request names it in **`include`**: the block's name,
+  and `parent.<block>` for the parent's, repeated or comma-separated
+  (`?include=translations&include=parent.systemVariants`). Get by ID, lists and XREF take it; batch resolve
+  takes `include` in each item and in `defaults`. A name that is not an on-request block of the
+  definition is `400 UNKNOWN_INCLUDE`, naming the valid ones in `details.valid`. A filter on an on-request
+  block still narrows the results without `include`, and the block is then not in the answer; events and
+  deliveries never carry an on-request block. The OpenAPI document lists the names as an enum on the
+  operations that take `include`, and types an on-request block as an optional property.
 - A projection field with the source `objectType` gives each item's public type name, as the
   object's own `objectType` does. It is allowed where the definition exposes every type the
   projection reaches (C-D73).
@@ -3584,7 +3596,7 @@ to every list (C-D31), to [XREF](#xref) and to [batch resolve](#batch-resolve)'s
 | `byType` | Keeps records of the named public types; an unknown name is `400 UNKNOWN_OBJECT_TYPE` |
 | `under` | Keeps records below a matching record of its types, at any depth |
 | `linkedTo` | Keeps records linked to a matching record of its types through its `through` routes: a related block, `itself` (the record itself matches), or `sharedWith:<related>` (both relate to one related record; the matching record itself is kept only by `itself`) |
-| `onRelated` | Limits the related block's items to those matching on `matchOn` (`ancestor:<type>.<field>` included); `keepOnlyMatching` also drops records left with none; on XREF, `scoreOnlyMatching` also limits which related records pass scores through the block |
+| `onRelated` | Limits the related block's items to those matching on `matchOn` (`ancestor:<type>.<field>` included); `keepOnlyMatching` also drops records left with none; on XREF, `scoreOnlyMatching` also limits which related records pass scores through the block. It may name a block of the parent as `parent.<block>`: that block is limited as the object's is, and `keepOnlyMatching` drops the records whose parent has no matching item (`crosswalk` is for the object's own blocks) |
 
 - A value matches a field when it equals it: text ignoring case, typed values by their type. A value
   that does not parse for a typed field does not match that field.
@@ -3609,6 +3621,7 @@ to every list (C-D31), to [XREF](#xref) and to [batch resolve](#batch-resolve)'s
 | 400 | `UNKNOWN_PARAMETER` | A name the API does not know; `details.parameters` names them |
 | 400 | `PARAMETER_NOT_SUPPORTED` | A name the API knows that this read does not apply: a paging name on get by ID, `query` or `expect` off XREF, or a list's parent parameter on get by ID or another list |
 | 400 | `UNKNOWN_OBJECT_TYPE` | An `objectType` value that is not an exposed public name; `details.publicNames` lists them, `details.path` names the parameter |
+| 400 | `UNKNOWN_INCLUDE` | An `include` name that is no related block served on request; `details.valid` lists them, `details.path` (or a batch item's `details.pointer`) points at it |
 | 400 | `MULTIPLE_TARGETS` | Two `to.` names; `details.parameters` names them |
 | 404 | `TARGET_NOT_FOUND` | Get by ID or XREF `expect=one` with a `to.` name its object has no matching item for |
 | 409 | `AMBIGUOUS_TARGET` | Get by ID or XREF `expect=one` with a `to.` name its object has several matching items for |

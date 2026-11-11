@@ -49,6 +49,7 @@ corrects that result, and the way to import when no provider is configured.
 | [EM1](#em1-the-e-mail-is-the-sign-in-name) | — | The e-mail address is required, unique and the name a person signs in with; the separate username is gone |
 | [EX1](#ex1-export-says-what-it-exports) | — | Export follows what is exported: a view gives a workbook shaped as the view, a type, an application or a workspace a sheet per type; every file says what it holds and imports back. Takes over PL6's "Export for people" |
 | [MC1](#mc1-reuse-or-create-in-any-matrix-cell) | — | A filled matrix cell offers Link existing and Create wherever the model allows more than one record per cell; a user guide page with examples |
+| [CA1](#ca1-the-parent-carries-fields-and-related-blocks) | — | A consumer API's parent serves any field and related blocks of its own, a related block may be served only on request (`include`), and an On related filter may narrow a parent block |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
 **Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
@@ -90,6 +91,10 @@ plan for one approval and is then delivered whole.
 | PP-D26 | **An import guesses how a matrix or relationship column is read, without AI, and shows it before anything is written** (EX1). For a file that does not record its reading, each column is compared with each identifying field of that column's existing records; the field matching every non-empty cell, each to one record, is chosen. The preview gets a section "How the file is read": per column the field chosen, the cells matched, a choice to change it (the preview runs again), and where new records go, marked "will be created" when PP-D24 creates the place. The choice can be saved into the profile. Nothing is written before the person confirms | **Approved by the user 2026-11-11** |
 | PP-D27 | **A link matrix export has a value sheet per column** (EX1). Each column's records (those the column offers: its place and the records linked in it) are listed as full rows, every field plus the group and a hidden ID; edits there load back as updates by ID, a new row creates a record in the column's place. The main sheet's cells list the field chosen in "What each cell lists", which offers every text field (default Name); its dropdowns read the value sheet's column, so a renamed or added row shows in them. A spreadsheet cannot sync two ways without macros, so the import does it: a main-sheet value naming a value-sheet row (by its name in the file) is that record, the same name typed in both is one record, and a name found in neither is a new record in the column's place with only that field. A value-sheet row picked nowhere is still created. A create matrix (cells hold the record's own fields) has no value sheet. Checked in Excel and Numbers before it is built further | **Approved by the user 2026-11-11** |
 | PP-D28 | **No container in use: refiroo proposes one and asks** (MC1, EX1). Where neither the model's rules nor the data give a column's place (PP-D24), the place proposed is a new container under the column, of the type other columns use, named as the containers this view uses in other columns are named (the most common name). The cell dialog says so and creates the container and the record on one OK, the name editable; the import preview shows "will create group … under …" and confirming the import is the OK. No model rule is added for it | **Approved by the user 2026-11-11** |
+| PP-D29 | **The parent serves what the object can** (CA1): its `fields` take any source `object.fields` takes (attributes, `ancestor:`), beside the four built-in ones, and it has `related` blocks of its own, written like the object's. One level: the parent has no parent. Why: an integrator needs the parent's IDs and its system values in one answer. Cost: a parent block repeats on every child row | **Approved by the user 2026-11-11** |
+| PP-D30 | **A related block is served always or on request** (CA1), on the object and on the parent alike. An on-request block is served only when the request names it in `include` (`include=parent.systemVariants`, repeated or comma-separated); OpenAPI lists the names as an enum and the block as an optional property; an unknown name is `400` naming the valid ones. Default: always, so every existing definition answers as before. Why: default answers stay small; the shape stays typed | **Approved by the user 2026-11-11** |
+| PP-D31 | **An On related filter may name a parent block** (`onRelated: "parent.systemVariants"`) and narrows it as it narrows the object's; `keepOnlyMatching` drops the results whose parent has no match. Its parameter name is the author's, as for every filter. Why: one filtering mechanism, no query language inside `include` | **Approved by the user 2026-11-11** |
+| PP-D32 | **A filter on an on-request block is accepted without `include`:** `keepOnlyMatching` still narrows the results; the block is not served. Surfaces without a request (events, deliveries) leave on-request blocks out. | Planning default (recommended in the discussion, 2026-11-11) |
 
 ## PL3b: The workbook canvas
 
@@ -445,6 +450,31 @@ other value, live data untouched. A create-and-edit matrix whose column had one 
 as theirs, `proposed` and `willBeCreated`; the dialog's batch created the group and the cell (applied, the group then offered with one cell); an import of a typed
 value previewed "will create … under …" and created it on confirm. The dialog creates the cell in its parent's application: a type
 that several applications list was refused (`PARENT_WRONG_SCOPE`) when the dialog took the first application listing it, for a new group and for
+
+## CA1: The parent carries fields and related blocks
+
+_Added by the user on 2026-11-11,_ after an XREF answer gave the parent only its type, ID, code and name, while
+the integrator needed the parent's master ID and its external ID in one system. Mock-up approved the same day
+(the consumer API editor with a Parent section, a Served column and a parent block in the On related filter):
+
+- **Model:** `object.parent` (the `ParentSpec` form) takes `fields` as `object.fields` does, the four built-in
+  names still allowed, and `related` as `object.related` does; a parent of the parent is refused. Every related
+  block, on the object and on the parent, takes `served`: `always` (default) or `onRequest`. An `onRelated`
+  filter may name `parent.<block>`. Validation names the authored pointer on every refusal; the short tuple form
+  of `parent` stays.
+- **Reads:** get by ID, lists, XREF, resolve and batch items serve the parent's fields and its always-blocks, and
+  the on-request blocks the request names in `include`; filters narrow parent blocks as object blocks (PP-D31,
+  PP-D32). The work is set-based in PostgreSQL, as the object's blocks are; no per-row queries.
+- **Contract:** the OpenAPI document gives the parent's schema its fields and blocks, `include` as an enum per
+  endpoint, and the new filter parameters; the contract check classifies adding them as compatible.
+- **Editor:** per the mock-up. Fields tab: a Parent section (output name, fields from the parent types'
+  attributes, the parent's related table with the Served column, Add related). Types and related: the Served
+  column on the object's blocks. Filters: the On related block picker lists the parent's blocks. Existing
+  editor components are reused (EditorTable, the field and via pickers), never copied.
+- **Decisions:** PP-D29 to PP-D31 approved by the user on 2026-11-11; PP-D32 is a planning default.
+- **Tests and docs:** journey tests through the consumer API (a parent field, an on-request parent block with
+  and without `include`, its filter, `keepOnlyMatching`, an unknown `include`); editor unit tests; API.md,
+  CONSUMER_API.md, the API reference text, the guide pages on consumer APIs (a Codex wave), CHANGELOG.
 
 ## R: Build acceptance and release
 

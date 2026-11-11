@@ -206,3 +206,58 @@ def test_an_event_watches_related_blocks_by_name():
     (declared,) = definition.events
     assert (declared.watch.fields, declared.watch.projections) == (("code",), ("variants",))
     assert pointers.authored("/events/values-changed/watch/projections/0") == "/operations/events/custom/0/watch/related/0"
+
+
+# --- the parent's fields and related blocks (0.17 CA1) ----------------------------------------------
+
+
+def _parent_document(**parent: Any) -> dict[str, Any]:
+    document = _document()
+    document["object"]["parent"] = {
+        "output": "category",
+        "fields": {"kind": "objectType", "parentId": "id", "listCode": "codelist-code"},
+        "related": {
+            "variants": {
+                "via": "reference-has-system-representation",
+                "fields": {"value": "name"},
+                "served": "onRequest",
+            }
+        },
+        **parent,
+    }
+    return document
+
+
+def test_the_parent_expands_with_its_blocks_and_their_pointers():
+    """The parent's fields take any source and its blocks are written as the object's, ``served``
+    included; a filter names one as ``parent.<block>``, and a rule's pointer is taken back to the
+    parent's ``related``."""
+    definition, pointers = _expanded(_parent_document())
+    parent = definition.object.parent
+    assert {name: field.source for name, field in parent.fields.items()} == {
+        "kind": ("objectType",),
+        "parentId": ("id",),
+        "listCode": ("codelist-code",),
+    }
+    assert parent.projections["variants"].served == "onRequest"
+    assert definition.projections["variants"].served == "always"
+    assert set(definition.blocks()) == {"variants", "translations", "parent.variants"}
+    assert definition.on_request() == ("parent.variants",)
+    assert pointers.authored("/object/parent/projections/variants/from") == "/object/parent/related/variants/via"
+
+
+def test_the_parent_has_no_parent_of_its_own():
+    """One level: a ``parent`` inside the parent is no part of the syntax."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ConsumerApiDocument.model_validate(_parent_document(parent=["id"]))
+
+
+def test_the_short_parent_list_names_a_source_by_its_camel_case_words():
+    """The list form keys a built-in name by the output its role has on the object and any other
+    source by its words in camelCase (``master-id`` is ``masterId``), as the editor proposes."""
+    document = _parent_document(fields=["objectType", "id", "name", "codelist-code", "ancestor:domain.domain-code"])
+    definition, _pointers = _expanded(document)
+    assert list(definition.object.parent.fields) == ["objectType", "id", "name", "codelistCode", "domainCode"]
+    assert definition.object.parent.fields["codelistCode"].source == ("codelist-code",)

@@ -35,6 +35,11 @@ import {
   customEventsOf,
   earlierVersionsOf,
   exposesOf,
+  includeNames,
+  parentSpecOf,
+  parentTypesOf,
+  SERVED_OPTIONS,
+  writeParent,
   FILTER_OPTION_LABELS,
   FILTER_VERBS,
   fieldsOf,
@@ -49,6 +54,7 @@ import {
   pointer,
   publicNamesOf,
   relatedOf,
+  type RelatedRow,
   renameMember,
   ROLE_OPTIONS,
   schemaTypeLabel,
@@ -265,6 +271,25 @@ export function ConsumerApiPanel({
       {children}
     </OperationButton>
   );
+  /** The Served column of a related table: Always or On request, changed in place (CA1, PP-D30). */
+  const servedColumn = (container: string) => ({
+    key: "served",
+    label: "Served",
+    cell: (row: RelatedRow) => SERVED_OPTIONS.find((option) => option.value === row.served)?.label ?? row.served,
+    edit: (row: RelatedRow) => ({
+      label: "Served",
+      value: row.served,
+      options: [...SERVED_OPTIONS],
+      operations: (value: string) => [
+        {
+          kind: "setConsumerApiPart",
+          consumerApi: key,
+          pointer: `${container}${pointer(row.output, "served")}`,
+          value: value === "onRequest" ? "onRequest" : null,
+        },
+      ],
+    }),
+  });
   const properties = (read.schema?.properties ?? {}) as Record<string, Record<string, unknown>>;
   const defs = (read.schema?.$defs ?? {}) as Record<string, Record<string, unknown>>;
   const contract = item.contract;
@@ -508,6 +533,7 @@ export function ConsumerApiPanel({
                   <code>{formatPairs(row.fields)}</code>,
                 ),
             },
+            servedColumn(pointer("object", "related")),
           ]}
         />
         <div className="element-tab-actions">
@@ -518,6 +544,9 @@ export function ConsumerApiPanel({
             </>,
           )}
         </div>
+        <p className="muted">
+          An on-request block is served only when the request names it in <code>include</code>.
+        </p>
       </div>
     );
   };
@@ -526,6 +555,7 @@ export function ConsumerApiPanel({
     const fields = fieldsOf(definition);
     const shape = (definition.object ?? {}) as Record<string, unknown>;
     const extras = ["parent", "path", "hierarchy"].filter((name) => shape[name]);
+    const parent = parentSpecOf(definition);
     return (
       <div className="element-tab">
         {contractNotice}
@@ -621,7 +651,132 @@ export function ConsumerApiPanel({
           {extras.length ? `Also served: ${extras.join(", ")}.` : "Parent, path and hierarchy are not served."} Role
           fields are served first, in role order; the others in this order.
         </p>
+        {parent && parentSection(parent)}
       </div>
+    );
+  };
+
+  /** The parent a record shows: its fields, which take the attributes of the parent types, and the
+   * related blocks of its own, served as the object's are (CA1). */
+  const parentSection = (parent: NonNullable<ReturnType<typeof parentSpecOf>>) => {
+    const owners = parentTypesOf(outline, exposesOf(definition));
+    const blocks = relatedOf(definition, "parent");
+    const container = pointer("object", "parent", "related");
+    return (
+      <section aria-labelledby="consumer-parent" className="consumer-parent">
+        <h3 id="consumer-parent" className="element-subheading">
+          Parent
+        </h3>
+        <EditorTable
+          editing={editing}
+          scope="consumer-parent"
+          label={`Parent of ${item.name}`}
+          noun={["parent", "parents"]}
+          rows={[parent]}
+          rowKey={() => "parent"}
+          emptyMessage=""
+          columns={[
+            {
+              key: "output",
+              label: "Output name",
+              cell: (row) => <strong>{row.output}</strong>,
+              edit: (row) => ({
+                label: "Output name",
+                value: row.output,
+                operations: (value) => [
+                  {
+                    kind: "setConsumerApiPart",
+                    consumerApi: key,
+                    pointer: pointer("object", "parent"),
+                    value: writeParent(definition, { output: value }),
+                  },
+                ],
+              }),
+            },
+            {
+              key: "fields",
+              label: "Fields",
+              cell: (row) =>
+                chooserCell(
+                  "consumer-parent-fields",
+                  "Fields",
+                  target,
+                  <code>
+                    {formatPairs(
+                      Object.fromEntries(row.fields.map((field) => [field.output, field.sources.join(" or ")])),
+                    )}
+                  </code>,
+                ),
+            },
+          ]}
+        />
+        <p className="muted">
+          Fields offered: the attributes of the parent types
+          {owners.length ? ` (${owners.map((type) => typeName(outline, type)).join(", ")})` : ""}. A source a parent
+          type doesn&apos;t have is served as <code>null</code>.
+        </p>
+        <h4 className="element-subheading">Parent&apos;s related records</h4>
+        <EditorTable
+          editing={editing}
+          scope="consumer-parent-related"
+          label={`Related records of the parent of ${item.name}`}
+          noun={["related block", "related blocks"]}
+          rows={blocks}
+          rowKey={(row) => row.output}
+          menu={(row) =>
+            itemMenu(
+              pointer("object", "parent", "related", row.output),
+              `the parent's related block ${row.output}`,
+              row.index,
+              blocks.length,
+              row.value,
+            )
+          }
+          emptyMessage="No related records on the parent."
+          columns={[
+            {
+              key: "output",
+              label: "Output name",
+              cell: (row) => <strong>{row.output}</strong>,
+              edit: (row) => ({
+                label: "Output name",
+                value: row.output,
+                operations: (value) => renameMember(key, container, row.output, value, row.value, row.index),
+              }),
+            },
+            { key: "via", label: "Via", cell: (row) => viaLabel(outline, row.via) },
+            {
+              key: "fields",
+              label: "Fields",
+              cell: (row) =>
+                chooserCell(
+                  "consumer-related-fields",
+                  "Fields",
+                  itemTarget(
+                    pointer("object", "parent", "related", row.output),
+                    `the parent's related block ${row.output}`,
+                    row.index,
+                    blocks.length,
+                    row.value,
+                  ),
+                  <code>{formatPairs(row.fields)}</code>,
+                ),
+            },
+            servedColumn(container),
+          ]}
+        />
+        <div className="element-tab-actions">
+          {add(
+            "consumer-add-parent-related",
+            <>
+              <Icon name="plus" /> Add related
+            </>,
+          )}
+        </div>
+        <p className="muted">
+          One level: the parent has no parent of its own. Use path and hierarchy for the ancestor names.
+        </p>
+      </section>
     );
   };
 
@@ -686,6 +841,24 @@ export function ConsumerApiPanel({
             No longer offering an operation needs a higher contract version; offering one more does not.
           </p>
         </fieldset>
+        {includeNames(definition).length > 0 && (
+          <section aria-labelledby="consumer-include" className="consumer-include">
+            <h3 id="consumer-include" className="element-subheading">
+              Include
+            </h3>
+            <p className="muted">
+              Written by the engine from the Served column, nothing to edit here. The <code>include</code> parameter
+              accepts:
+            </p>
+            <ul>
+              {includeNames(definition).map((name) => (
+                <li key={name}>
+                  <code>{name}</code>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {confirmXref && (
           <ConfirmDialog
             title="Stop offering XREF?"

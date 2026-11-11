@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
 from ...models.schema import (
+    PARENT_BLOCK_PREFIX,
     AncestorParameter,
     ConsumerApiDefinition,
     EngineModel,
@@ -56,7 +57,8 @@ from ...models.schema import (
     RelatedParameter,
 )
 from ..model.consumer_contract import (
-    projection_targets,
+    block_route,
+    block_targets,
     split_ancestor_reference,
     split_relation_reference,
 )
@@ -102,6 +104,8 @@ class ConsumerFilter:
     dated: frozenset[str] = frozenset()
     returnable: frozenset[str] = frozenset()
     as_of_applied: tuple[str, ...] = ()
+    # The related blocks served on request that the read names in ``include`` (CA1, PP-D30).
+    include: frozenset[str] = frozenset()
 
     def on(self, entity: Any) -> list[Any]:
         return [predicate(entity) for predicate in self.records]
@@ -152,6 +156,7 @@ def consumer_filter(
     source: ConsumerSource,
     values: Mapping[str, Sequence[str]],
     as_of: date | None = None,
+    include: frozenset[str] = frozenset(),
 ) -> ConsumerFilter:
     """The predicates of the definition parameters in ``values`` (name to its split values), of
     at most one ``to.`` name the route has checked names a targetable parameter, and of ``as_of``.
@@ -209,6 +214,7 @@ def consumer_filter(
         dated=dated,
         returnable=frozenset(returnable),
         as_of_applied=tuple(sorted(definition.objectTypes[key].publicName for key in dated & returnable)),
+        include=include,
     )
 
 
@@ -248,10 +254,8 @@ def _candidates(builder: _Builder, parameter: Any, value: str) -> Select[Any]:
     """The records a parameter's value names, the way the parameter finds its candidates."""
     if isinstance(parameter, (AncestorParameter, RelatedParameter)):
         return builder.candidates(parameter.objectTypes, parameter.matchFields, [value])
-    route = builder.definition.projections[parameter.projection].from_
-    targets = [
-        item.key for item in projection_targets(builder.model, builder.definition, route.relation, route.direction)
-    ]
+    route = block_route(builder.definition, parameter.projection).from_
+    targets = [item.key for item in block_targets(builder.model, builder.definition, parameter.projection)]
     selects = []
     for match_field in parameter.matchFields:
         reference = split_ancestor_reference(match_field)
@@ -339,7 +343,7 @@ class _Builder:
                 elif via.startswith(VIA_SHARED):
                     routes.append(self._shared(entity, via.removeprefix(VIA_SHARED), candidates))
                 else:
-                    routes.append(self._linked(entity, via, entity_ids=candidates))
+                    routes.append(self._linked(entity.id, via, entity_ids=candidates))
             return or_(*routes)
 
         return predicate
@@ -348,8 +352,7 @@ class _Builder:
         self, parameter: ProjectionParameter, values: Sequence[str]
     ) -> tuple[ItemPredicate, Predicate | None]:
         """The condition on the projection's items, and on the record when ``requireMatch``."""
-        route = self.definition.projections[parameter.projection].from_
-        targets = [item.key for item in projection_targets(self.model, self.definition, route.relation, route.direction)]
+        targets = [item.key for item in block_targets(self.model, self.definition, parameter.projection)]
         matches: list[ItemPredicate] = []
         by_relation = False
         for match_field in parameter.matchFields:
@@ -375,12 +378,18 @@ class _Builder:
 
         if not parameter.requireMatch:
             return item, None
+        # A block of the parent keeps the record whose parent has the match (CA1, PP-D31).
+        owner = (
+            (lambda entity: entity.parent_object_id)
+            if parameter.projection.startswith(PARENT_BLOCK_PREFIX)
+            else (lambda entity: entity.id)
+        )
         if by_relation:
             # Some match reads the relationship, so the record needs a relationship whose item matches.
-            return item, lambda entity: self._linked_item(entity, parameter.projection, item)
+            return item, lambda entity: self._linked_item(owner(entity), parameter.projection, item)
         related = self.source.object_alias()
         matching = select(related.id).where(item(related, None))
-        return item, lambda entity: self._linked(entity, parameter.projection, entity_ids=matching)
+        return item, lambda entity: self._linked(owner(entity), parameter.projection, entity_ids=matching)
 
     def _relation_match(self, relation: Any, key: str, values: Sequence[str]) -> Any:
         """The relationship's attribute ``key`` equals a value (text ignoring case, a typed value by
@@ -399,14 +408,15 @@ class _Builder:
             comparisons.append(stored == ("true" if parsed is True else "false" if parsed is False else str(parsed)))
         return or_(*comparisons) if comparisons else false()
 
-    def _linked_item(self, entity: Any, projection: str, item: ItemPredicate) -> Any:
-        """``entity`` relates through the projection to a record whose item ``item`` holds for."""
+    def _linked_item(self, owner: Any, projection: str, item: ItemPredicate) -> Any:
+        """The record ``owner`` (an ID expression) relates through the projection to a record whose
+        item ``item`` holds for."""
         relation, related = self.source.relation_alias(), self.source.object_alias()
         key, own, other = self._ends(relation, projection)
         return exists(
             select(relation.sequence_id)
             .join(related, related.id == other)
-            .where(relation.relation_type_key == key, own == entity.id, item(related, relation))
+            .where(relation.relation_type_key == key, own == owner, item(related, relation))
         )
 
     def candidates(self, type_keys: Sequence[str], fields: Sequence[str], values: Sequence[str]) -> Select[Any]:
@@ -443,19 +453,20 @@ class _Builder:
         )
 
     def _ends(self, relation: Any, projection: str) -> tuple[str, Any, Any]:
-        route = self.definition.projections[projection].from_
+        route = block_route(self.definition, projection).from_
         outgoing = route.direction == "outgoing"
         own = relation.from_object_id if outgoing else relation.to_object_id
         other = relation.to_object_id if outgoing else relation.from_object_id
         return route.relation, own, other
 
-    def _linked(self, entity: Any, projection: str, *, entity_ids: Select[Any]) -> Any:
-        """``entity`` relates through the projection to a record of ``entity_ids``."""
+    def _linked(self, owner: Any, projection: str, *, entity_ids: Select[Any]) -> Any:
+        """The record ``owner`` (an ID expression) relates through the projection to a record of
+        ``entity_ids``."""
         relation = self.source.relation_alias()
         key, own, other = self._ends(relation, projection)
         return exists(
             select(relation.sequence_id).where(
-                relation.relation_type_key == key, own == entity.id, other.in_(entity_ids)
+                relation.relation_type_key == key, own == owner, other.in_(entity_ids)
             )
         )
 

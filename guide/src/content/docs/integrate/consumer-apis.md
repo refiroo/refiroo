@@ -101,7 +101,7 @@ The paths below are the shared route patterns. Replace `{consumer_api}` with the
 
 ## Understand the shared object
 
-Reads by ID, lists and lookups use the same declared business representation. Values retain their types. Declared fields use their configured sources, defaults or an empty value. Parent fields use the object's declared output names; an unexposed parent's public type is empty. The declaration can include the parent, ancestor path and hierarchy as part of that representation. Related blocks follow cardinality: a single object or an ordered list. A projected public type is available only when the definition exposes all reachable types.
+Reads by ID, lists and lookups use the same declared business representation. Values retain their types. Declared fields use their configured sources, defaults or an empty value. The parent's fields use author-chosen output names; in the short list form, built-in fields keep their role's output name and other sources become camelCase words. An unexposed parent's public type is null. The declaration can include the parent, ancestor path and hierarchy as part of that representation. Related blocks follow cardinality: a single object or an ordered list. A projected public type is available only when the definition exposes all reachable types.
 
 The object's identity is its public record ID. Other codes are lookup inputs, not substitutes for that identity. Parameters can narrow which objects are visible and which related records appear. A target representation can translate a code or name through a declared relationship; see [Looking up and resolving](/docs/integrate/looking-up-and-resolving/).
 
@@ -215,7 +215,7 @@ The identity role reads the built-in UUID, never a former system's identifier. P
 
 Related `via` names are the relation's forward key or reverse key. The selected direction must be bound to at least one exposed type. Its cardinality determines object-or-null versus array; arrays order by related record name, then ID. Fields may read the related record's ID, name, attributes or `ancestor:<type>.<field>`, or `relation:<attribute>`, the value stored on the relationship the item was reached through (`null` when it has none; the attribute must be one the relation's binding carries, and a filter's `matchOn` or an XREF rule may match on it, through that relationship only; the source is refused anywhere else). An ancestor projection reads the ancestor of that type nearest the root. An ancestor criterion in a filter can match any ancestor of that type. A related `objectType` output is allowed only when all reachable types have public names in this API.
 
-The parent block uses the role fields' public output names. A parent can be present even when its type is not exposed: its public `objectType` is then null. Paths and hierarchies walk ancestors from the root, excluding the record itself. Ancestor labels use the declared name role and fall back to the ancestor’s built-in name. A name containing a slash remains one hierarchy element; do not reconstruct the hierarchy by splitting the path.
+The full parent form declares each field's output name and sources. In the short list form, built-in fields keep the role fields' public output names, while other sources use camelCase words. A parent can be present even when its type is not exposed: its public `objectType` is then null. Paths and hierarchies walk ancestors from the root, excluding the record itself. Ancestor labels use the declared name role and fall back to the ancestor’s built-in name. A name containing a slash remains one hierarchy element; do not reconstruct the hierarchy by splitting the path.
 
 Public type names default to the type key in PascalCase and must be unique. Output names must be unique across fields, parent, path, hierarchy and related blocks. The names `objectType`, `matchScore` and `target` are reserved. Asking for a parent code needs a field with the code role.
 
@@ -240,9 +240,133 @@ Each filter has exactly one verb and only that verb's options:
 
 Under and Linked to default to matching ID, applicable code sources and name. Code shorthand expands to the sources bound by the relevant types. On related reads fields of its block, including ancestor references. `keepOnlyMatching` also drops objects with no remaining related item; `scoreOnlyMatching` limits promoted scores; `crosswalk` enables `to.<filter>`. These three flags default to false. Only On related can enable crosswalks. `scoreOnlyMatching` requires an XREF promotion rule through that block; otherwise validation refuses a restriction that could never affect a score.
 
-Filter names cannot shadow `query`, `expect`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`, `workspace`, `ref`, `id`, `event`, `after` or `payload`, or start with `to.`. Every source, type, relation and ancestor reference is checked against the release. Invalid definitions report the authored path and reason; repair the definition rather than removing a restriction from a client's request.
+Filter names cannot shadow `query`, `expect`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `include`, `publication`, `asOf`, `workspace`, `ref`, `id`, `event`, `after` or `payload`, or start with `to.`. Every source, type, relation and ancestor reference is checked against the release. Invalid definitions report the authored path and reason; repair the definition rather than removing a restriction from a client's request.
 
 Descriptions on fields, related blocks, operations, lists and filters appear in generated OpenAPI. They explain a contract without changing stored records. Review the expanded definition, schema and OpenAPI together before activating it.
+
+## Parent values and blocks served on request
+
+A parent can carry more than its identity, code and name. Its `fields` are written as the
+object's `fields`: each output name maps to a source or a field definition with `from` and
+an optional `default`, without a `role`. For example, `"isApproved": "approved"` publishes
+the parent's approval flag under an author-chosen name. A source can be a built-in field,
+an attribute bound by a type that directly contains an exposed type, or
+`ancestor:<type>.<field>` read from the parent's own ancestors. Ancestor sources also have
+an author-chosen output name.
+
+Sources are tried in order and must share one value type. For example,
+`"isApproved": {"from": ["approved"], "default": false}` supplies false when the parent has
+no approval value. Without a default, missing or unbound values return null. With no
+containing record, the entire parent output is null.
+
+Use the full parent form to add named fields and `related` blocks. The short list form
+remains valid and outputs a block named `parent`. It names sources only: built-in fields
+keep their role's output name, and any other source uses its words in camelCase. For example,
+`"category-code"` becomes `categoryCode`. In the full form, you choose the parent block's
+output name and every field's output name. Its related blocks use the same `via` and `fields`
+rules as the object's, starting from parent types. There is one level: a parent cannot
+declare another parent, path or hierarchy inside itself.
+
+**Illustrative catalogue declaration:** this is a consumer API definition for a model with
+items contained by categories. The category binds a boolean `approved` attribute. The two
+named relationships each allow many code records with a text `external-code` attribute.
+These names and data are illustrative, not part of the reference instance.
+
+```json
+{
+  "key": "catalog",
+  "name": "Catalogue API",
+  "contractVersion": 1,
+  "exposes": ["item", "category"],
+  "publicNames": {"item": "Item", "category": "Category"},
+  "object": {
+    "fields": {
+      "id": {"role": "id"},
+      "name": {"role": "name", "from": "name"}
+    },
+    "parent": {
+      "output": "parent",
+      "fields": {
+        "objectType": "objectType",
+        "id": "id",
+        "name": "name",
+        "isApproved": "approved"
+      },
+      "related": {
+        "codes": {
+          "via": "category-has-code",
+          "fields": {"code": "external-code"},
+          "served": "onRequest"
+        }
+      }
+    },
+    "related": {
+      "codes": {
+        "via": "item-has-code",
+        "fields": {"code": "external-code"},
+        "served": "onRequest"
+      }
+    }
+  },
+  "operations": {
+    "objects": {},
+    "xref": {"matchOn": [{"field": "name", "exact": 100}]},
+    "resolve": {},
+    "lists": {"items": {"of": "item"}}
+  },
+  "filters": {
+    "categoryCode": {
+      "onRelated": "parent.codes",
+      "matchOn": ["external-code"],
+      "keepOnlyMatching": true
+    }
+  }
+}
+```
+
+Each related block has `served`: `always`, the default, or `onRequest`. Always-served blocks
+are present in ordinary answers. On-request blocks are absent unless named in `include`:
+`codes` asks for the object's block, and `parent.codes` asks for the parent's. Repeat the
+parameter or separate names with commas. These names work on Get by ID, lists and XREF;
+Resolve accepts them in each item's `include` or in `defaults.include`.
+
+The `parent.` prefix is fixed for includes and filters, even if `parent.output` is renamed.
+Inside `parent.related`, declare the block simply as `codes`, not `parent.codes`. An object's
+own related block cannot have a name starting with `parent.`. Output names must not collide
+with fields at the same level. An unreadable parent field or invalid relationship is refused
+at its authored location, such as `/object/parent/fields/isApproved/source/0` or
+`/object/parent/related/codes/via`.
+
+The `categoryCode` filter's name is the author's choice. It narrows the parent's codes and,
+with `keepOnlyMatching`, removes children whose parent has no matching code. It works even
+when `include` is absent: selecting records does not request the block in the answer. Without
+`keepOnlyMatching`, only that block is trimmed. A parent block cannot enable `crosswalk`;
+crosswalk targets come from the object's own blocks. The name `include` is reserved and
+cannot be used for a filter.
+
+A parent block repeats in each child's answer, so on-request serving can keep lists small.
+The generated OpenAPI document lists the accepted include names as an enum on the applicable
+GET operations and marks these blocks as optional properties, at both object and parent level.
+An included block retains its normal cardinality and field types. Unknown names, including an
+always-served block's name, return `400 UNKNOWN_INCLUDE`; `details.valid` lists the valid choices.
+
+In the generated OpenAPI, a parent attribute has its own declared value type and can be
+`null` where the record's parent has no value or its type does not bind the attribute.
+For example, the catalogue's `isApproved` output reads the `approved` attribute and is a boolean or null.
+
+See [complete reads with and without includes](/docs/integrate/reading-business-objects/#ask-for-a-related-block)
+and [includes in batch resolution](/docs/integrate/looking-up-and-resolving/#choose-blocks-for-each-resolved-object).
+
+Events and webhook deliveries have no include request, so their full object payloads omit
+on-request blocks. A write to an attribute or ancestor value the parent reads, an item in its
+related block, or a relationship joining or leaving it can produce `updated` for each child.
+The affected output is the parent's output name. The event must watch that output or leave
+its watch list empty. The notification does not imply that an optional block appears in its
+payload; read the child with include if you need that block's current contents.
+
+Adding parent fields or blocks, include support or filters is compatible by itself. Changing
+an always-served block to `onRequest` removes it from the default answer and needs a higher
+contract version. Review that change before activation, just as you would a removed field.
 
 ## Publish values of the connection
 

@@ -754,9 +754,12 @@ are fixed or undone.
 
 **Consumer APIs**, the second tab of the editor's left pane, lists the draft's consumer APIs. A new
 one starts from the types it exposes, with their fields, Get by ID and a list per type. Each opens with
-its tabs: the exposed types and their public names and the related records it serves; its fields,
+its tabs: the exposed types and their public names and the related records it serves, each served
+always or only on request; its fields,
 with their sources (picked in order from what the exposed types and the types above them hold), role
-and default, edited in place; which operations it offers, its lists, its
+and default, edited in place, and the parent a record shows (its fields from the attributes of the
+parent types, and related records of its own); which operations it offers, with the blocks a read may
+ask for in `include`, its lists, its
 XREF match rules and its custom events; its filters. Two documents an integration takes from it are
 shown with Copy and Download: the **Schema** of the message consumers receive and a **Message
 example**. Every change is a step with undo. A change the consumers of the active release would
@@ -1281,7 +1284,9 @@ A consuming system reads one business object through a declared API by its recor
 API's contract version: exactly the fields the definition declares, values in their declared types,
 the parent and the path of ancestors, and the related records each projection names (one object or
 a list, by the relationship's cardinality). The parent's fields have the same names as the object's
-own, and a projection can name each related record's type. It reads live, published data in the default workspace
+own, a definition may show more of the parent (its attributes, related records of its own), and a
+projection can name each related record's type. A related block the definition serves on request comes
+only when the read names it in `include`, and a filter may narrow a parent's block. It reads live, published data in the default workspace
 or the one it names, and every answer says which workspace it read. Work in a change set is never
 visible until it is published.
 

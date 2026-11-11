@@ -175,7 +175,13 @@ def read(session: Session, lookup: Lookup, arguments: dict[str, Any]) -> dict[st
 
     def narrowed(parameters: ReadParameters) -> Any:
         return consumer_filter(
-            session, model, definition, source, parameters.definition, parameters.as_of
+            session,
+            model,
+            definition,
+            source,
+            parameters.definition,
+            parameters.as_of,
+            parameters.include,
         )
 
     if operation == "objects":

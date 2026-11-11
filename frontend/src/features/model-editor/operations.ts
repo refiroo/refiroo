@@ -48,6 +48,8 @@ import {
   newTableValues,
 } from "@/features/model-editor/relationTableView";
 import {
+  blockNames,
+  ensureParentObject,
   exposesOf,
   FILTER_VERBS,
   filtersOf,
@@ -55,6 +57,9 @@ import {
   filterReads,
   matchOptions,
   offers,
+  parentFieldOptions,
+  parentSpecOf,
+  parentTypesOf,
   parseList,
   parsePairs,
   pointer,
@@ -62,6 +67,7 @@ import {
   ROLE_OPTIONS,
   relatedFieldOptions,
   relatedTypesOf,
+  SERVED_OPTIONS,
   setField,
   sortOptions,
   sourceOptions,
@@ -69,6 +75,7 @@ import {
   viaOptions,
   watchOptions,
   writeField,
+  writeParent,
 } from "@/features/model-editor/consumer";
 import {
   addView,
@@ -2299,16 +2306,89 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
               exposes: exposesOf(t.definition),
             }),
         },
+        servedField,
       ],
-      initial: () => ({ fields: ["name=name"] }),
+      initial: () => ({ fields: ["name=name"], served: "always" }),
       build: (values, t) => [
         insert(
           t,
           pointer("object", "related"),
-          { via: text(values, "via"), fields: pairsOf(values, "fields") },
+          { via: text(values, "via"), fields: pairsOf(values, "fields"), ...servedOf(values) },
           text(values, "output"),
         ),
       ],
+    }),
+    spec<Api>({
+      id: "consumer-add-parent-related",
+      on: "consumerApi",
+      label: "Add related to the parent…",
+      available: (t, o) =>
+        parentSpecOf(t.definition) !== undefined && viaOptions(o, parentTypesOf(o, exposesOf(t.definition))).length > 0,
+      fields: (t, o) => {
+        const owners = parentTypesOf(o, exposesOf(t.definition));
+        return [
+          { name: "output", label: "Output name", type: "text", required: true },
+          { name: "via", label: "Via", type: "select", required: true, options: viaOptions(o, owners) },
+          {
+            name: "fields",
+            label: "Fields",
+            type: "pairs",
+            required: true,
+            hint: "Each field's name for consumers and what it reads from the related record.",
+            options: (v) =>
+              relatedFieldOptions(o, relatedTypesOf(o, text(v, "via"), owners), [], {
+                via: text(v, "via"),
+                exposes: owners,
+              }),
+          },
+          servedField,
+        ];
+      },
+      initial: () => ({ fields: ["name=name"], served: "always" }),
+      build: (values, t) => [
+        ...ensureParentObject(t.consumerApi, t.definition),
+        insert(
+          t,
+          pointer("object", "parent", "related"),
+          { via: text(values, "via"), fields: pairsOf(values, "fields"), ...servedOf(values) },
+          text(values, "output"),
+        ),
+      ],
+    }),
+    spec<Api>({
+      id: "consumer-parent-fields",
+      on: "consumerApi",
+      label: "Parent fields…",
+      title: () => "Fields of the parent",
+      available: (t) => parentSpecOf(t.definition) !== undefined,
+      fields: (t, o) => [
+        {
+          name: "fields",
+          label: "Fields",
+          type: "pairs",
+          required: true,
+          options: parentFieldOptions(
+            o,
+            exposesOf(t.definition),
+            parentSpecOf(t.definition)?.fields.flatMap((field) => field.sources),
+          ),
+          hint: "Each field's name for consumers and what it reads from the parent. A source a parent type does not have is served as null.",
+        },
+      ],
+      initial: (t) => ({
+        fields: (parentSpecOf(t.definition)?.fields ?? []).map((field) => `${field.output}=${field.sources[0] ?? ""}`),
+      }),
+      build: (values, t) => {
+        const existing = new Map(parentSpecOf(t.definition)?.fields.map((field) => [field.output, field]));
+        // A field with several sources or a default keeps its written form while its first source is unchanged.
+        const fields = Object.fromEntries(
+          Object.entries(pairsOf(values, "fields")).map(([output, source]) => {
+            const kept = existing.get(output);
+            return [output, kept && kept.sources[0] === source && typeof kept.value !== "string" ? kept.value : source];
+          }),
+        );
+        return [set(t, pointer("object", "parent"), writeParent(t.definition, { fields }))];
+      },
     }),
     spec<Api>({
       id: "consumer-add-list",
@@ -2479,7 +2559,8 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
           label: "Related block",
           type: "select",
           when: (v) => v.verb === "onRelated",
-          options: relatedOf(t.definition).map((row) => ({ value: row.output, label: row.output })),
+          // The object's blocks and the parent's, as `parent.<block>` (PP-D31).
+          options: blockNames(t.definition),
         },
         {
           name: "matchOn",
@@ -2495,8 +2576,13 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
           label: "Options",
           type: "checkboxes",
           when: (v) => v.verb === "onRelated",
-          options: [
-            { value: "keepOnlyMatching", label: "Keep only matching records" },
+          options: (v) => [
+            {
+              value: "keepOnlyMatching",
+              label: text(v, "related").startsWith("parent.")
+                ? "Keep only matching: drop results whose parent has no matching item"
+                : "Keep only matching records",
+            },
             { value: "scoreOnlyMatching", label: "Score only matching items" },
             { value: "crosswalk", label: "Crosswalk (to.<name>)" },
           ],
@@ -2655,10 +2741,12 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
       on: "consumerItem",
       label: "Fields…",
       title: (t) => `Fields of ${t.label}`,
-      available: (t) => /^\/object\/related\/[^/]+$/.test(t.pointer),
+      available: (t) => RELATED_POINTER.test(t.pointer),
       fields: (t, o) => {
         const via = String((t.value as { via?: unknown } | null)?.via ?? "");
         const exposes = consumerApiOf(o, t.consumerApi)?.exposes.map((item) => item.objectType) ?? [];
+        // A block of the parent starts from the parent types (CA1).
+        const owners = t.pointer.startsWith("/object/parent/") ? parentTypesOf(o, exposes) : exposes;
         const current = Object.values(fieldsMapOf(t.value));
         return [
           {
@@ -2667,7 +2755,7 @@ function CONSUMER_OPERATIONS(): OperationSpec[] {
             type: "pairs",
             required: true,
             hint: "Each field's name for consumers and what it reads from the related record.",
-            options: relatedFieldOptions(o, relatedTypesOf(o, via, exposes), current, { via, exposes }),
+            options: relatedFieldOptions(o, relatedTypesOf(o, via, owners), current, { via, exposes: owners }),
           },
         ];
       },
@@ -2746,6 +2834,18 @@ function chosen(values: FieldValues, name: string): string[] {
   const value = values[name];
   return Array.isArray(value) ? value : parseList(text(values, name));
 }
+
+const RELATED_POINTER = /^\/object\/(parent\/)?related\/[^/]+$/;
+
+/** How a related block is served, as the Add related dialogs ask it (CA1, PP-D30). */
+const servedField: OperationField = {
+  name: "served",
+  label: "Served",
+  type: "select",
+  options: SERVED_OPTIONS,
+  hint: "On request: only when a read names the block in include.",
+};
+const servedOf = (values: FieldValues) => (text(values, "served") === "onRequest" ? { served: "onRequest" } : {});
 
 const FIELD_POINTER = /^\/object\/fields\/([^/]+)$/;
 const isField = (t: On<"consumerItem">) => FIELD_POINTER.test(t.pointer);
@@ -3018,6 +3118,7 @@ present("Add", "plus", [
   "consumer-expose",
   "consumer-add-field",
   "consumer-add-related",
+  "consumer-add-parent-related",
   "consumer-add-list",
   "consumer-add-rule",
   "consumer-add-through",
@@ -3028,6 +3129,7 @@ present("Change", "pencil", [
   "consumer-rename",
   "consumer-describe",
   "consumer-object-extras",
+  "consumer-parent-fields",
   "consumer-field-sources",
   "consumer-filter-match",
   "consumer-related-fields",

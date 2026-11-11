@@ -840,6 +840,12 @@ their events produced from C10 (J30); written in schema 0.9 since C18.
   version's pointer, naming the version; it must also read as it did in the active release, or
   activation is refused. The notice period is the author's: the engine serves the version until it is
   removed.
+- **J25.10 The parent and served-on-request blocks (0.17 CA1)**: a definition's `parent` takes
+  the fields an object field takes and related blocks of its own (one level: the parent has no parent),
+  and every related block says `served`: `always` or `onRequest`. A parent field no parent type can
+  read, a parent block over a relation no parent type has, and an object block named `parent.…` are
+  refused at the pointer the author wrote; serving a block that was in every answer only on request is
+  a breaking change, adding parent fields and blocks is not.
 
 The identity (the field with role `id`) reads the object ID, and any other source is refused at
 `/consumerApis/<key>/object/fields/<field>/from` (C-D24). Another identifier, such as a former
@@ -1865,13 +1871,25 @@ C6a); XREF is J29 (0.9 C4); the rest follows in C6b and C16 ([CONSUMER_API.md](.
   header (RFC 9745) and, when the author set a day, a `Sunset` header (RFC 8594). The index lists it
   as deprecated. A version the model does not serve is `404 CONTRACT_VERSION_NOT_FOUND`, naming the
   versions it serves.
+- **J28.16 The parent carries fields and blocks, and a block can wait for `include` (0.17 CA1)**: a
+  record's `parent` serves the attributes and related blocks its definition names beside the four
+  built-in fields; a parent that lacks an attribute serves `null` for it. A block served `onRequest`
+  (the object's or the parent's, `parent.<block>`) is in an answer only when the read names it in
+  `include`, repeated or comma-separated, on get by ID, lists, XREF and, per item or in `defaults`,
+  batch resolve; a name that is no on-request block is `400 UNKNOWN_INCLUDE` naming the valid ones.
+  Events and deliveries leave on-request blocks out. The OpenAPI document lists the names as an enum
+  and types the blocks as optional properties.
+- **J28.17 A filter on a parent's block (0.17 CA1)**: an On related filter naming `parent.<block>`
+  limits that block as it limits the object's, and with keep-only-matching drops the results whose
+  parent has no match; a filter on an on-request block narrows the results with no `include`, and the
+  block is then not served.
 
 **Refusals:** `404 CONSUMER_API_NOT_FOUND`, `404 CONTRACT_VERSION_NOT_FOUND`,
 `404 OBJECT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND` (unknown or retired), `404 LIST_NOT_FOUND`,
 `404 PARENT_NOT_FOUND`, `400 UNKNOWN_PARAMETER`, `400 PARAMETER_NOT_SUPPORTED`,
 `400 UNKNOWN_OBJECT_TYPE`, `400 INVALID_PAGE_SIZE`, `400 INVALID_CURSOR`,
 `400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`,
-`404 PUBLICATION_NOT_FOUND`, `409 PUBLICATION_CONTRACT_MISMATCH`.
+`404 PUBLICATION_NOT_FOUND`, `409 PUBLICATION_CONTRACT_MISMATCH`, `400 UNKNOWN_INCLUDE`.
 
 **Evidence today:** the J28 journey tests; on a model shaped like the reference deployment's, the
 parity tests (`test_j28_j29_parity`, 0.9 C8).
@@ -1984,7 +2002,9 @@ from C12; the events accepted end to end in C13 ([CONSUMER_API.md](../CONSUMER_A
   is its raw feed entry's.
 - **J30.2 What an object shows**: changing a record the object shows makes `updated` for the object:
   its parent (`parent`), an ancestor's name (`path`, `hierarchy`), a projected record or its ancestor
-  (the projection), a projection gaining or losing an item, also when the relationship is deleted.
+  (the projection), a projection gaining or losing an item, also when the relationship is deleted;
+  since 0.17 CA1 also what the parent shows: an attribute it reads or one of its related blocks
+  changing makes `updated` for each of its children.
 - **J30.3 Batches, publishes and type changes**: a batch's applied items are told with the job as
   cause, a publish's changes with the publication as cause, at or below its `eventSequence`;
   change-set work, refused writes and failed items make none. A type change is `deleted`, `created`

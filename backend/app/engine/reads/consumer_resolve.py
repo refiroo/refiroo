@@ -24,6 +24,7 @@ from ...errors import ApiError
 from ...models.schema import ConsumerApiDefinition, EngineModel
 from .consumer_objects import ConsumerObjects, object_not_found, one_target, undated_refusal
 from .consumer_parameters import ConsumerFilter, Target, as_of_not_supported, consumer_filter
+from .consumer_request import INCLUDE_NAME, included
 from .consumer_source import ConsumerSource
 from .consumer_xref import Found, resolve_lookups
 
@@ -83,7 +84,17 @@ def read_resolve(
     composer = ConsumerObjects(model, definition)
     for members in groups.values():
         try:
-            narrowed = consumer_filter(session, model, definition, source, members[0].parameters, as_of)
+            parameters = members[0].parameters
+            # ``include`` names blocks to serve; it is no filter (CA1).
+            narrowed = consumer_filter(
+                session,
+                model,
+                definition,
+                source,
+                {name: values for name, values in parameters.items() if name != INCLUDE_NAME},
+                as_of,
+                included(definition, parameters.get(INCLUDE_NAME, []), f"/query/{INCLUDE_NAME}"),
+            )
         except ApiError as error:
             for item in members:
                 outcomes[item.index] = _failed(item, item_error(error, item.pointer((error.details or {}).get("path"))))

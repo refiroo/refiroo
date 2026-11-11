@@ -13,6 +13,7 @@ apply.
 from typing import Any
 
 from ...models.schema import (
+    PARENT_BLOCK_PREFIX,
     AncestorParameter,
     ConsumerApiDefinition,
     EngineModel,
@@ -21,7 +22,7 @@ from ...models.schema import (
     RelatedParameter,
 )
 from ...models.search_index import MIN_INDEXED_LENGTH
-from ..model.consumer_contract import OutputContract, output_contract, parent_keys
+from ..model.consumer_contract import OutputContract, output_contract
 from ..model.consumer_definitions import consumer_api, served_versions
 from ..reads.consumer_events import FULL, IDENTITY
 from ..reads.consumer_events import PAGE_SIZES as EVENT_PAGE_SIZES
@@ -209,6 +210,30 @@ class _Document:
             dated = bool(self.contract.as_of)
         return [_WORKSPACE, _PUBLICATION, *([_as_of(self._dated_names())] if dated else [])]
 
+    def _include_description(self) -> str:
+        names = ", ".join(f"`{name}`" for name in self.definition.on_request())
+        return (
+            f"Related blocks served on request: {names}. A block is in the answer only when the read names"
+            " it here; a filter on it narrows the records either way. An unknown name is"
+            " `400 UNKNOWN_INCLUDE`."
+        )
+
+    def _include(self) -> list[dict[str, Any]]:
+        """The ``include`` parameter, listed where the definition has a block served on request (PP-D30)."""
+        names = list(self.definition.on_request())
+        if not names:
+            return []
+        return [
+            {
+                "name": "include",
+                "in": "query",
+                "description": f"{self._include_description()} Repeated or comma-separated.",
+                "style": "form",
+                "explode": True,
+                "schema": {"type": "array", "items": {"type": "string", "enum": names}},
+            }
+        ]
+
     def _dated_names(self) -> str:
         return ", ".join(sorted(self.contract.types[key] for key in self.contract.as_of))
 
@@ -216,6 +241,13 @@ class _Document:
         if dated is None:
             dated = bool(self.contract.as_of)
         return "INVALID_AS_OF, AS_OF_NOT_SUPPORTED" if dated else None
+
+    def _include_code(self) -> str | None:
+        return "UNKNOWN_INCLUDE" if self.definition.on_request() else None
+
+    def _bad(self, *codes: str | None) -> str | None:
+        """The request errors a read adds: its own codes, then ``UNKNOWN_INCLUDE`` where ``include`` is listed."""
+        return ", ".join(filter(None, [*codes, self._include_code()])) or None
 
     def _described(self, part: str, text: str) -> str:
         """``text`` after the author's description of ``part``, when there is one (C-D139)."""
@@ -238,13 +270,14 @@ class _Document:
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
                 *self._reads(),
+                *self._include(),
                 *self._definition_parameters(),
             ],
             "responses": _responses(
                 _ref("Object"),
                 "OBJECT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, TARGET_NOT_FOUND",
                 conflict="AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH",
-                bad=self._dated_codes(),
+                bad=self._bad(self._dated_codes()),
             ),
         }
 
@@ -277,6 +310,7 @@ class _Document:
             "parameters": [
                 *parent,
                 *self._reads(dated),
+                *self._include(),
                 *self._definition_parameters(
                     declared.parentParameter.name if declared.parentParameter is not None else None
                 ),
@@ -288,7 +322,7 @@ class _Document:
                 _ref("ListPage"),
                 "LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND",
                 conflict="PUBLICATION_CONTRACT_MISMATCH",
-                bad=self._dated_codes(dated),
+                bad=self._bad(self._dated_codes(dated)),
             ),
         }
 
@@ -320,6 +354,7 @@ class _Document:
                     "schema": {"type": "string", "enum": ["any", "one"], "default": "any"},
                 },
                 *self._reads(),
+                *self._include(),
                 *self._definition_parameters(),
                 *_PAGING,
             ],
@@ -327,9 +362,7 @@ class _Document:
                 {"oneOf": [_ref("XrefPage"), _ref("ScoredObject")]},
                 "NO_MATCH, TARGET_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND",
                 conflict="AMBIGUOUS_MATCH, AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH",
-                bad=", ".join(
-                    filter(None, ["QUERY_REQUIRED, TOO_MANY_TERMS, QUERY_TOO_BROAD, INVALID_EXPECT", self._dated_codes()])
-                ),
+                bad=self._bad("QUERY_REQUIRED, TOO_MANY_TERMS, QUERY_TOO_BROAD, INVALID_EXPECT", self._dated_codes()),
             ),
         }
 
@@ -338,7 +371,7 @@ class _Document:
             _ref("ResolveAnswer"),
             "WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND",
             conflict="PUBLICATION_CONTRACT_MISMATCH",
-            bad=", ".join(filter(None, ["REQUEST_VALIDATION_ERROR", self._dated_codes()])),
+            bad=self._bad("REQUEST_VALIDATION_ERROR", self._dated_codes()),
             tagged=False,
         )
         responses["413"] = {
@@ -408,20 +441,22 @@ class _Document:
     def _schemas(self) -> dict[str, Any]:
         items = {name: self._projection_item(name) for name in self.contract.projections}
         schemas: dict[str, Any] = {f"Projection_{name}": item for name, item in items.items()}
+        blocks = {
+            name: _with_description(self._projection(name), self.definition.described(f"related:{name}"))
+            for name in self.contract.projections
+            if not name.startswith(PARENT_BLOCK_PREFIX)
+        }
         properties = {
             "objectType": {"type": "string", "enum": sorted(set(self.contract.types.values()))},
             **self._fields(),
-            **{
-                name: _with_description(self._projection(name), self.definition.described(f"related:{name}"))
-                for name in self.contract.projections
-            },
+            **blocks,
         }
+        # A block served on request is an optional property: present when the read names it (PP-D30).
+        required = [name for name in properties if self.contract.projections.get(name, {}).get("served") != "onRequest"]
         target = self._target()
         shared = {**properties, **({"target": target} if target else {})}
-        schemas["Object"] = _object(shared, list(properties))
-        schemas["ScoredObject"] = _object(
-            {**shared, "matchScore": {"type": "integer"}}, [*properties, "matchScore"]
-        )
+        schemas["Object"] = _object(shared, required)
+        schemas["ScoredObject"] = _object({**shared, "matchScore": {"type": "integer"}}, [*required, "matchScore"])
         page = {
             "workspace": {"type": "string"},
             "publication": {"type": ["string", "null"]},
@@ -467,6 +502,8 @@ class _Document:
             for name, item in self.definition.parameters.items()
         }
         names.update({f"to.{name}": _STRINGS for name in self.targets})
+        if self.definition.on_request():
+            names["include"] = {**_STRINGS, "description": self._include_description()}
         schemas["ResolveDefaults"] = {"type": "object", "properties": names, "additionalProperties": False}
         schemas["ResolveItem"] = {
             "type": "object",
@@ -572,14 +609,33 @@ class _Document:
         found: dict[str, Any] = {}
         for name, value_type in self.contract.fields.items():
             if isinstance(value_type, dict):
-                # A parent's type is null when not exposed (C-D22), its code when it has none.
-                keys = parent_keys(self.definition)
-                nullable = {keys[name] for name in ("objectType", "code") if name in keys}
-                properties = {
-                    field: {"type": ["string", "null"]} if field in nullable else _value(kind)
-                    for field, kind in value_type["object"].items()
+                fields = self.definition.object.parent.fields
+                properties = {}
+                for field, kind in value_type["object"].items():
+                    sources = fields[field].source
+                    if set(sources) <= {"id", "name"} and fields[field].default is None:
+                        properties[field] = _value(kind)  # built in and never null
+                    elif set(sources) <= {"objectType", "code"}:
+                        properties[field] = {"type": ["string", "null"]}
+                    else:
+                        # A source the parent has no value for, or no binding, is null (CA1).
+                        properties[field] = _value(kind) if fields[field].default is not None else _nullable(_value(kind))
+                parent_blocks = {
+                    block: _with_description(
+                        self._projection(f"{PARENT_BLOCK_PREFIX}{block}"),
+                        self.definition.described(f"related:{PARENT_BLOCK_PREFIX}{block}"),
+                    )
+                    for block in self.definition.object.parent.projections
                 }
-                found[name] = _nullable(_object(properties))
+                required = [
+                    *properties,
+                    *(
+                        block
+                        for block in parent_blocks
+                        if self.contract.projections[f"{PARENT_BLOCK_PREFIX}{block}"].get("served") != "onRequest"
+                    ),
+                ]
+                found[name] = _nullable(_object({**properties, **parent_blocks}, required))
                 continue
             schema = _value(value_type)
             if shape.path == name or shape.hierarchy == name or name in fixed or name in defaults:

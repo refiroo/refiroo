@@ -195,6 +195,7 @@ def _event_rows(workspace_key: str, owns: Sequence[Own], reaches: Sequence[Reach
             ("base", String, [row.base for row in reaches]),
             ("relation", String, [row.relation for row in reaches]),
             ("direction", String, [row.direction for row in reaches]),
+            ("then_children", Integer, [int(row.children) for row in reaches]),
         ],
     )
     outputs = _rows(
@@ -238,6 +239,18 @@ def _event_rows(workspace_key: str, owns: Sequence[Own], reaches: Sequence[Reach
             and_(related.relation_type_key == seeds.c.relation, related.from_object_id == items.c.item),
         )
         .where(seeds.c.direction == "incoming"),
+    ).cte("reach_found")
+    # A reach of the parent's related blocks (CA1) goes on to the owners' children, whose ``parent``
+    # shows them.
+    below_owner = aliased(RdmObject)
+    owners = union_all(
+        select(owners.c.idx, owners.c.owner)
+        .join(seeds, seeds.c.idx == owners.c.idx)
+        .where(seeds.c.then_children == 0),
+        select(owners.c.idx, below_owner.id)
+        .join(seeds, seeds.c.idx == owners.c.idx)
+        .join(below_owner, below_owner.parent_object_id == owners.c.owner)
+        .where(seeds.c.then_children == 1),
     ).cte("reach_owners")
     reached = aliased(RdmObject)
     return union_all(

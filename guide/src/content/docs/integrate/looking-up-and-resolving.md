@@ -24,9 +24,117 @@ Batch resolve is a read. Each item asks by query or by ID, exactly one of them. 
 
 The default maximum is 1,000 items (`CONSUMER_RESOLVE_MAX_ITEMS`), reported by the [capabilities operation](/docs/api/?api=management#tag/model). `BATCH_TOO_LARGE` requires smaller batches. Malformed bodies and unknown defaults refuse the request as a whole; an item-specific failure is reported with that item's outcome. `QUERY_OR_ID_REQUIRED` requires one input form. Keep a source-row reference so a refusal can be returned to the right row.
 
+## Choose blocks for each resolved object
+
+XREF returns the same parent fields and always-served blocks as Get by ID. Add `include`
+to request optional related blocks on its scored page or its `expect=one` answer. A parent's
+block is named `parent.<block>`. Includes change the returned blocks, not match weights or
+the rule requiring an untied best result.
+
+**Illustrative catalogue example:** the
+[catalogue declaration](/docs/integrate/consumer-apis/#parent-values-and-blocks-served-on-request)
+allows this lookup, with both sets of codes included:
+
+```http
+GET /api/consumer/catalog/v1/xref?workspace=catalogue&query=Notebook&expect=one&include=codes,parent.codes HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+With one Notebook matching exactly, this returns the
+[included business object](/docs/integrate/reading-business-objects/#ask-for-a-related-block)
+plus `matchScore: 100`. The parent's codes do not contribute a match rule in this declaration.
+A declared filter such as `categoryCode=CAT-01` still narrows candidates when no include is
+sent, but the optional codes remain absent from the answer.
+
+For Resolve, put include in `defaults` or the item body, rather than the request URL. An
+item's value replaces that default; `[]` requests none of the optional blocks for that item.
+Use a JSON array for several names; commas in a JSON string are literal characters, not
+separators. Here the query item inherits the parent's codes, while the by-ID item overrides
+that choice:
+
+```http
+POST /api/consumer/catalog/v1/resolve?workspace=catalogue HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+Content-Type: application/json
+
+{
+  "defaults": {"include": ["parent.codes"]},
+  "items": [
+    {"ref": "with-category-codes", "query": "Notebook"},
+    {
+      "ref": "without-optional-blocks",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "include": []
+    }
+  ]
+}
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+RDM-Workspace: catalogue
+```
+
+```json
+{
+  "items": [
+    {
+      "index": 0,
+      "ref": "with-category-codes",
+      "status": "found",
+      "object": {
+        "objectType": "Item",
+        "id": "11111111-1111-4111-8111-111111111111",
+        "name": "Notebook",
+        "parent": {
+          "objectType": "Category",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "Stationery",
+          "isApproved": true,
+          "codes": [{"code": "CAT-01"}]
+        },
+        "matchScore": 100
+      }
+    },
+    {
+      "index": 1,
+      "ref": "without-optional-blocks",
+      "status": "found",
+      "object": {
+        "objectType": "Item",
+        "id": "11111111-1111-4111-8111-111111111111",
+        "name": "Notebook",
+        "parent": {
+          "objectType": "Category",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "Stationery",
+          "isApproved": true
+        }
+      }
+    }
+  ],
+  "workspace": "catalogue",
+  "publication": null,
+  "counts": {"found": 2, "notFound": 0, "ambiguous": 0, "rejected": 0}
+}
+```
+
+The parent's `isApproved` output reads the stored `approved` attribute under the declared
+public name. These are illustrative data, not captured responses. The by-ID answer has no match score.
+In either form, an unknown include name produces `UNKNOWN_INCLUDE`; on a GET this is HTTP
+400, while Resolve reports the affected item as `rejected`. `error.details.valid` lists the
+accepted names. Its `details.pointer` identifies the item include or inherited default to
+correct. A bad include value inherited from defaults can therefore reject multiple items;
+inspect each outcome even after HTTP 200.
+
 ## Translate to another representation
 
-A crosswalk asks for a target through a parameter declared as target-capable. Source matching and scoring stay unchanged; the target selects the corresponding related representation. It can translate codes between systems or names between languages only where the model declares that relationship.
+A crosswalk asks for a target through a parameter declared as target-capable. The target must be one of the object's own related blocks; a parent's block cannot enable crosswalks. Source matching and scoring stay unchanged; the target selects the corresponding related representation. It can translate codes between systems or names between languages only where the model declares that relationship.
 
 One read names one target parameter (`MULTIPLE_TARGETS` otherwise). The target's selection replaces that parameter's ordinary projection restriction; other restrictions on the same projection still apply. An unknown or non-target-capable name is `UNKNOWN_PARAMETER`. Several values for the one target parameter are alternatives. Targets do not affect score, order, totals or ties and are not bound into the paging cursor. A page keeps the related block’s declared shape in `target`; a single-object answer requires exactly one related target. `AMBIGUOUS_TARGET` details include the count and up to ten targets, together with the source object ID, public type and parameter.
 

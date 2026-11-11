@@ -160,6 +160,51 @@ async function journey(label, source) {
     await output("a4cRelated").waitFor();
     checks.push(`${label}: a related block added over a relation the exposed types take part in`);
 
+    // The parent (0.17 CA1): turned on where the definition does not serve it, a related block of its
+    // own added, served on request in place; the Operations tab then names it for include, and the
+    // Add filter dialog offers it as parent.<block>.
+    await tab("Fields").click();
+    if (!(await centre.getByRole("region", { name: "Parent", exact: true }).count())) {
+      await oneStep(async () => {
+        await centre.getByRole("button", { name: "Parent, path and hierarchy…" }).click();
+        await dialog().getByLabel(/^Serve the parent/).check();
+        await apply();
+      });
+    }
+    const parentSection = centre.getByRole("region", { name: "Parent", exact: true });
+    await parentSection.waitFor();
+    await assertAccessible(page, `a4c-${label}-parent`);
+    await oneStep(async () => {
+      await parentSection.getByRole("button", { name: "Add related" }).click();
+      await dialog().getByLabel("Output name", { exact: true }).fill("a4cParentBlock");
+      await apply();
+    });
+    const parentRow = parentSection.getByRole("row", { name: /a4cParentBlock/ });
+    await parentRow.waitFor();
+    await oneStep(async () => {
+      await parentRow.getByRole("button", { name: /^Edit Served/ }).click();
+      await parentSection.locator("select[name=value]").selectOption("onRequest");
+      await parentSection.getByRole("button", { name: "Save", exact: true }).click();
+    });
+    await parentRow.getByText("On request").waitFor();
+    // Its fields changed in the chooser: one step, and the row shows them (the parent's block is edited as the object's is).
+    await oneStep(async () => {
+      await parentRow.getByRole("button", { name: /^Edit Fields/ }).click();
+      const source = dialog().locator(".pairs-field-row select").first();
+      const other = await source.locator("option").evaluateAll(
+        (options, now) => options.find((option) => option.value !== now)?.value,
+        await source.inputValue(),
+      );
+      await source.selectOption(other);
+      await apply();
+    });
+    await shot("parent-1440");
+    await tab("Operations").click();
+    await centre.getByRole("region", { name: "Include", exact: true }).getByText("parent.a4cParentBlock").waitFor();
+    checks.push(
+      `${label}: the parent served with a related block of its own, served on request in place; the Operations tab lists parent.a4cParentBlock for include`,
+    );
+
     // Operations: events per type switched off and on; XREF switched off after its question, which
     // stops Resolve too, and put back by Undo with its rules; a list added.
     await tab("Operations").click();
@@ -213,6 +258,10 @@ async function journey(label, source) {
       await apply();
     });
     await centre.getByRole("cell", { name: "a4c-kind", exact: true }).waitFor();
+    await centre.getByRole("button", { name: "Add filter" }).click();
+    await dialog().getByLabel("Verb").selectOption("onRelated");
+    await dialog().getByLabel("Related block").locator("option", { hasText: "parent.a4cParentBlock" }).waitFor({ state: "attached" });
+    await dialog().getByRole("button", { name: "Cancel" }).click();
     await oneStep(() => page.getByRole("button", { name: "Undo", exact: true }).click());
     await centre.getByRole("cell", { name: "a4c-kind", exact: true }).waitFor({ state: "detached" });
     await page.getByRole("button", { name: /^Issues and history/ }).click();

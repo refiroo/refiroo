@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from ...common.json_pointer import pointer_segment as seg
 from ...models.schema import (
+    PARENT_BUILT_IN,
     ConsumerApiDefinition,
     ConsumerApiDocument,
     EngineModel,
@@ -47,6 +48,23 @@ def public_name(type_key: str) -> str:
     """The default public name of a type: its key in PascalCase (``order-line`` →
     ``OrderLine``)."""
     return "".join(part[:1].upper() + part[1:] for part in re.split(r"[^0-9A-Za-z]+", type_key) if part)
+
+
+def camel_case(key: str) -> str:
+    """An output name for a source: its words in camelCase (``master-id`` becomes ``masterId``); the
+    editor proposes the same name (``outputFor``)."""
+    parts = [part for part in re.split(r"[^0-9A-Za-z]+", key) if part]
+    if not parts:
+        return "field"
+    head, *rest = parts
+    text = head[:1].lower() + head[1:] + "".join(part[:1].upper() + part[1:] for part in rest)
+    return text if text[:1].isalpha() else f"f{text}"
+
+
+def output_for(source: str) -> str:
+    """The output name a parent field written as a bare source takes: the tail of an
+    ``ancestor:<type>.<field>``, in camelCase."""
+    return camel_case(source.rsplit(".", 1)[-1])
 
 
 class PointerMap:
@@ -188,9 +206,16 @@ class _Expansion:
         # are output first, in role order, and written order orders the other fields (C-D140).
         result["attributes"] = attributes
         if isinstance(shape.parent, ParentSpec):
-            result["parent"] = {"output": shape.parent.output, "fields": list(shape.parent.fields)}
+            result["parent"] = {
+                "output": shape.parent.output,
+                "fields": self._parent_fields(shape.parent.fields),
+                "projections": self._blocks(
+                    shape.parent.related, "/object/parent/related", "/object/parent/projections", "parent."
+                ),
+            }
+            self.pointers.add("/object/parent/projections", "/object/parent/related", absorb=True)
         elif shape.parent is not None:
-            result["parent"] = {"output": "parent", "fields": list(shape.parent)}
+            result["parent"] = {"output": "parent", "fields": self._parent_fields(shape.parent, "/object/parent")}
             self.pointers.add("/object/parent", "/object/parent", absorb=True)
         for part in ("path", "hierarchy"):
             value = getattr(shape, part)
@@ -200,7 +225,45 @@ class _Expansion:
                 result[part] = value
         return result
 
-    def _field(self, output: str, spec: Any, path: str) -> tuple[str | None, tuple[str, ...], Any, Any]:
+    def _parent_fields(self, fields: Any, base: str = "/object/parent/fields") -> dict[str, Any]:
+        """The parent's fields as output name to sources (CA1, PP-D29): the short list names sources,
+        a built-in one under the output name its role has on the object; otherwise the fields are
+        written as the object's are, with no role. A list entry that is no built-in name is
+        served under its camelCase name."""
+        result: dict[str, Any] = {}
+        internal = "/object/parent/fields"
+        if not isinstance(fields, dict):
+            for index, name in enumerate(fields):
+                path = f"{base}/{index}" if base.endswith("/fields") else base
+                if name in PARENT_BUILT_IN:
+                    output = name if name == "objectType" else self.roles.get(name, name)
+                else:
+                    output = output_for(name)
+                if output in result:
+                    self.fail(path, f"parent fields '{name}' and another are both served as '{output}': write the fields with output names", "DUPLICATE_KEY")
+                result[output] = {"source": [name]}
+                self.pointers.add(f"{internal}/{seg(output)}", path, absorb=True)
+            return result
+        for output, spec in fields.items():
+            path = f"{base}/{seg(output)}"
+            if isinstance(spec, FieldSpec) and spec.role is not None:
+                self.fail(f"{path}/role", f"parent field '{output}' has no role: only the object's fields do")
+            _role, sources, default, from_path = self._field(output, spec, path, describe=False)
+            entry: dict[str, Any] = {"source": sources}
+            if default is not None:
+                entry["default"] = default
+            result[output] = entry
+            at = f"{internal}/{seg(output)}"
+            self.pointers.add(at, path, absorb=True)
+            self.pointers.add(f"{at}/default", f"{path}/default" if isinstance(spec, FieldSpec) else path, absorb=True)
+            self.pointers.add(f"{at}/source", from_path(None), absorb=True)
+            for index in range(len(sources)):
+                self.pointers.add(f"{at}/source/{index}", from_path(index), absorb=True)
+        return result
+
+    def _field(
+        self, output: str, spec: Any, path: str, describe: bool = True
+    ) -> tuple[str | None, tuple[str, ...], Any, Any]:
         """A field's role, sources, default and the authored pointer of its sources."""
         if isinstance(spec, str):
             return None, (spec,), None, lambda _index: path
@@ -208,7 +271,8 @@ class _Expansion:
             if not spec:
                 self.fail(path, f"field '{output}' names no source")
             return None, spec, None, lambda index: path if index is None else f"{path}/{index}"
-        self.describe(f"field:{output}", spec.description)
+        if describe:
+            self.describe(f"field:{output}", spec.description)
         sources = spec.from_
         if sources is None:
             if spec.role != "id":
@@ -221,9 +285,16 @@ class _Expansion:
         return spec.role, sources, spec.default, lambda index: f"{path}/from" if index is None else f"{path}/from/{index}"
 
     def _related(self) -> dict[str, Any]:
+        projections = self._blocks(self.document.object.related, "/object/related", "/projections", "")
+        self.pointers.add("/projections", "/object/related", absorb=True)
+        return projections
+
+    def _blocks(self, related: Any, authored: str, internal: str, prefix: str) -> dict[str, Any]:
+        """The related blocks written at ``authored`` (the object's, or the parent's with ``prefix``)
+        as the internal ones at ``internal``."""
         projections: dict[str, Any] = {}
-        for name, spec in self.document.object.related.items():
-            path = f"/object/related/{seg(name)}"
+        for name, spec in related.items():
+            path = f"{authored}/{seg(name)}"
             route = self._route(spec.via)
             if route is None:
                 self.fail(
@@ -231,12 +302,11 @@ class _Expansion:
                     f"'{spec.via}' is neither a relation type's key (outgoing) nor its reverseKey (incoming)",
                     "INVALID_REFERENCE",
                 )
-            projections[name] = {"from": route, "fields": dict(spec.fields)}
-            internal = f"/projections/{seg(name)}"
-            self.pointers.add(internal, f"/object/related/{seg(name)}")
-            self.pointers.add(f"{internal}/from", f"{path}/via", absorb=True)
-            self.describe(f"related:{name}", spec.description)
-        self.pointers.add("/projections", "/object/related", absorb=True)
+            projections[name] = {"from": route, "fields": dict(spec.fields), "served": spec.served}
+            at = f"{internal}/{seg(name)}"
+            self.pointers.add(at, path)
+            self.pointers.add(f"{at}/from", f"{path}/via", absorb=True)
+            self.describe(f"related:{prefix}{name}", spec.description)
         return projections
 
     def _route(self, via: str) -> dict[str, str] | None:

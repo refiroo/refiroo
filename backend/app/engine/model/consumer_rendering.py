@@ -82,19 +82,34 @@ def _object(model: EngineModel, definition: ConsumerApiDefinition) -> dict[str, 
         fields[name] = _sources(definition, name, attribute.source, attribute.default)
     result: dict[str, Any] = {"fields": fields}
     if shape.parent is not None:
-        result["parent"] = {"output": shape.parent.output, "fields": list(shape.parent.fields)}
+        result["parent"] = {
+            "output": shape.parent.output,
+            "fields": {
+                output: {"from": list(field.source), **({"default": field.default} if field.default is not None else {})}
+                for output, field in shape.parent.fields.items()
+            },
+        }
+        if shape.parent.projections:
+            result["parent"]["related"] = _related(model, definition, shape.parent.projections, "parent.")
     for part in ("path", "hierarchy"):
         if getattr(shape, part) is not None:
             result[part] = getattr(shape, part)
-    result["related"] = {
+    result["related"] = _related(model, definition, definition.projections, "")
+    return result
+
+
+def _related(
+    model: EngineModel, definition: ConsumerApiDefinition, projections: Any, prefix: str
+) -> dict[str, Any]:
+    return {
         name: {
             "via": _via(model, projection.from_.relation, projection.from_.direction),
             "fields": dict(projection.fields),
-            **_with(definition.described(f"related:{name}")),
+            **({"served": projection.served} if projection.served != "always" else {}),
+            **_with(definition.described(f"related:{prefix}{name}")),
         }
-        for name, projection in definition.projections.items()
+        for name, projection in projections.items()
     }
-    return result
 
 
 def _sources(definition: ConsumerApiDefinition, output: str, sources: tuple[str, ...], default: Any) -> dict[str, Any]:

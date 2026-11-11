@@ -1,0 +1,33 @@
+{
+  "wave": "CA1",
+  "note": "CA1 screens on the reference instance: the Stops API in a disposable draft (graubuenden workspace's model) where the parent also shows a municipality attribute and a translations block served on request, and the stop's own translations block is served on request too. Nothing is installed or activated.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "model-consumer-parent-fields",
+      "shows": "The Stops API, Fields tab, Parent section: output name parent, its fields (objectType, id, code, name, fso-number), the Fields offered note, and Parent's related records with a translations block whose Served is On request.",
+      "height": 720,
+      "actions": [
+        { "goto": "/settings/model/drafts/ba983754-3e81-46d0-84d3-eb6033961f6e/editor?show=consumerApi&key=stops&tab=fields" },
+        { "waitFor": { "text": "Saved as you go", "exact": false } },
+        { "waitFor": { "role": "region", "name": "Parent", "exact": true } },
+        { "scrollTo": { "role": "region", "name": "Parent", "exact": true }, "offset": 200 },
+        { "wait": 800 }
+      ],
+      "expect": ["Parent", "fso-number", "Parent's related records", "On request"]
+    },
+    {
+      "name": "model-consumer-include",
+      "shows": "The Stops API, Operations tab, Include: the names the include parameter accepts, translations and parent.translations, written from the Served column.",
+      "height": 900,
+      "actions": [
+        { "goto": "/settings/model/drafts/ba983754-3e81-46d0-84d3-eb6033961f6e/editor?show=consumerApi&key=stops&tab=operations" },
+        { "waitFor": { "text": "Saved as you go", "exact": false } },
+        { "waitFor": { "role": "region", "name": "Include", "exact": true } },
+        { "scrollTo": { "role": "region", "name": "Include", "exact": true }, "offset": 300 },
+        { "wait": 800 }
+      ],
+      "expect": ["Include", "parent.translations", "nothing to edit here"]
+    }
+  ]
+}

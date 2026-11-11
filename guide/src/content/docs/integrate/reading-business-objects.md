@@ -7,7 +7,7 @@ reader: integrator
 Read through a [consumer API](/docs/integrate/consumer-apis/) when another system needs the model's declared business representation. Use an object ID already held, or page a list declared by the contract. Follow [Read through a consumer API](/docs/guide/integrate/read-through-a-consumer-api/) for a complete sequence.
 
 Values carried by a connection can appear inside a declared related block, with their own types
-and nulls. They are included in the same object in single reads, lists, XREF and Resolve; see
+and nulls. When the block is served, they use the same object shape in single reads, lists, XREF and Resolve; see
 [Publish values of the connection](/docs/integrate/consumer-apis/#publish-values-of-the-connection).
 To read or maintain the underlying connections through the management API, use
 [Relationships and their values](/docs/integrate/relationships-and-their-values/).
@@ -20,9 +20,109 @@ The get-by-ID operation reads a public record ID. A code from another system bel
 
 Parameters are declared by the contract. Values within one parameter are alternatives; different parameters combine to narrow the result. They may select a public type, an ancestor, a related record or records inside a projected block. Some projection parameters remove objects left with no matching related records; others only trim that block. On a single read, filtering the object out is `OBJECT_NOT_FOUND`, not an empty object.
 
+## Ask for a related block
+
+The contract can serve related blocks always or only on request. This applies both to the
+object's blocks and to blocks nested inside its parent. Get by ID and lists accept `include`;
+XREF uses the same choice. The generated contract lists the valid names. Name only blocks
+served on request; always-served blocks are already present.
+
+**Illustrative catalogue example:** these requests use the
+[catalogue declaration](/docs/integrate/consumer-apis/#parent-values-and-blocks-served-on-request),
+not the reference instance. An item has a category with an approval flag. Both the item's
+codes and its category's codes are served on request. Start without include:
+
+```http
+GET /api/consumer/catalog/v1/objects/11111111-1111-4111-8111-111111111111?workspace=catalogue HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+RDM-Workspace: catalogue
+```
+
+```json
+{
+  "objectType": "Item",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Notebook",
+  "parent": {
+    "objectType": "Category",
+    "id": "22222222-2222-4222-8222-222222222222",
+    "name": "Stationery",
+    "isApproved": true
+  }
+}
+```
+
+The parent's `isApproved` output reads the `approved` attribute as a boolean; its name comes
+from the declaration, not the attribute key. Its extra attributes keep their declared types; a missing
+value or an attribute not bound by this parent's type is null. The two codes blocks are absent,
+not empty. To read both, repeat include:
+
+```http
+GET /api/consumer/catalog/v1/objects/11111111-1111-4111-8111-111111111111?workspace=catalogue&include=codes&include=parent.codes HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+RDM-Workspace: catalogue
+```
+
+```json
+{
+  "objectType": "Item",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Notebook",
+  "parent": {
+    "objectType": "Category",
+    "id": "22222222-2222-4222-8222-222222222222",
+    "name": "Stationery",
+    "isApproved": true,
+    "codes": [{"code": "CAT-01"}]
+  },
+  "codes": [{"code": "ITEM-01"}]
+}
+```
+
+`include=codes,parent.codes` is equivalent. The parent prefix is used in the request, not
+as a key inside the returned parent. It stays `parent.` even if the parent output is renamed.
+An included many-valued block with no related records is `[]`; a single-valued block is null.
+If the record has no parent, the entire parent output remains null even with an include.
+
+A list can select children by a parent's code and ask to see the matching codes:
+
+```http
+GET /api/consumer/catalog/v1/lists/items?workspace=catalogue&categoryCode=CAT-01&include=parent.codes HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+```
+
+Here `categoryCode` is the declared filter name; `parent.codes` is the block name. The
+filter keeps items whose parent has a matching code and trims that parent's codes to
+matches. With no matching parent item, a child is removed because the filter declares
+`keepOnlyMatching`. Omitting include still selects the same children, but their parent
+codes are absent. A filter without keep-only-matching trims the block without removing
+children. On Get by ID, a child removed by a filter gives `OBJECT_NOT_FOUND`.
+
+An include name outside the on-request list gives `400 UNKNOWN_INCLUDE`, even if it names
+an always-served block. Read `error.details.valid`, correct the name against the contract,
+and retry the intended request. Adding a parent field or serving a new block always does
+not make it a valid include name. Events and webhook deliveries do not accept includes and
+leave on-request blocks out of their full objects.
+
 ## Page and cache
 
-Consumer list pages hold 1–100 objects, default 20. Follow opaque cursors for traversal, or use supported position, end and seek navigation for a jump. Do not combine selectors. Totals are opt-in for lists; XREF lookup always provides them. Keep workspace, filters and selected publication with the checkpoint.
+Consumer list pages hold 1–100 objects, default 20. Follow opaque cursors for traversal, or use supported position, end and seek navigation for a jump. Do not combine selectors. Totals are opt-in for lists; XREF lookup always provides them. Keep workspace, filters, requested includes and selected publication with the checkpoint.
 
 For a fixed extract, choose a publication. Selecting the current one resolves a concrete snapshot that its cursors keep using. A conditional GET lets the server return `304 Not Modified` while the cached answer remains valid. Keep the opaque ETag with the exact request, and retain the cached body on an unchanged response.
 

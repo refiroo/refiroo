@@ -818,6 +818,7 @@ describe("the consumer API descriptors (0.10 A4c, D51)", () => {
         "consumer-add-field.output",
         "consumer-add-filter.name",
         "consumer-add-list.key",
+        "consumer-add-parent-related.output",
         "consumer-add-related.output",
         "consumer-add-rule.contains",
         "consumer-add-rule.exact",
@@ -854,6 +855,87 @@ describe("the consumer API descriptors (0.10 A4c, D51)", () => {
         pointer: "/object/related",
         key: "bins",
         value: { via: "stores", fields: { binName: "name", binId: "id" } },
+      },
+    ]);
+  });
+
+  it("adds a block to the parent, written out in full first when the parent is the short form, and offers it to filters (CA1)", () => {
+    const withParent = (parent: unknown) =>
+      ({
+        ...TARGETS.consumerApi,
+        definition: {
+          ...consumerDefinitionFixture(),
+          object: { ...(consumerDefinitionFixture().object as object), parent },
+        },
+      }) as never;
+    const operation = operationById("consumer-add-parent-related")!;
+    expect(operationsFor(TARGETS.consumerApi, outline)).not.toContain(operation);
+    expect(operationsFor(withParent(["objectType", "id", "code", "name"]), outline)).toContain(operation);
+    const [written, insert] = operation.build(
+      { output: "areaBins", via: "stores", fields: ["binName=name"], served: "onRequest" },
+      withParent(["objectType", "id", "code", "name"]),
+      outline,
+    );
+    expect(written).toEqual({
+      kind: "setConsumerApiPart",
+      consumerApi: "shop-feed",
+      pointer: "/object/parent",
+      value: {
+        output: "parent",
+        fields: { objectType: "objectType", id: "id", code: "code", name: "name" },
+      },
+    });
+    expect(insert).toEqual({
+      kind: "insertConsumerApiPart",
+      consumerApi: "shop-feed",
+      pointer: "/object/parent/related",
+      key: "areaBins",
+      value: { via: "stores", fields: { binName: "name" }, served: "onRequest" },
+    });
+    // An object parent needs no rewriting, and a block served always writes no `served`.
+    expect(
+      operation.build(
+        { output: "areaBins", via: "stores", fields: ["binName=name"], served: "always" },
+        withParent({ output: "category", fields: { id: "id" } }),
+        outline,
+      ),
+    ).toHaveLength(1);
+    const withBlock = withParent({
+      output: "parent",
+      fields: { id: "id" },
+      related: { areaBins: { via: "stores", fields: { binName: "name" } } },
+    });
+    const filter = visibleFields(operationById("consumer-add-filter")!, withBlock, outline, { verb: "onRelated" }).find(
+      (field) => field.name === "related",
+    );
+    expect(filter?.type === "select" && fieldOptions(filter, {}).map((option) => option.value)).toEqual([
+      "bins",
+      "parent.areaBins",
+    ]);
+  });
+
+  it("chooses the parent's fields as output names, proposing none from a dashed source itself, and keeps a written form (CA1)", () => {
+    const target = {
+      ...TARGETS.consumerApi,
+      definition: {
+        ...consumerDefinitionFixture(),
+        object: {
+          ...(consumerDefinitionFixture().object as object),
+          parent: { output: "parent", fields: { masterId: { from: ["master-id"], default: "x" }, kind: "objectType" } },
+        },
+      },
+    } as never;
+    const operation = operationById("consumer-parent-fields")!;
+    expect(initialValues(operation, target, outline)).toEqual({ fields: ["masterId=master-id", "kind=objectType"] });
+    expect(operation.build({ fields: ["masterId=master-id", "fsoNumber=fso-number"] }, target, outline)).toEqual([
+      {
+        kind: "setConsumerApiPart",
+        consumerApi: "shop-feed",
+        pointer: "/object/parent",
+        value: {
+          output: "parent",
+          fields: { masterId: { from: ["master-id"], default: "x" }, fsoNumber: "fso-number" },
+        },
       },
     ]);
   });
