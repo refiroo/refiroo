@@ -79,7 +79,7 @@ def test_link_local_is_refused_whatever_the_setting_says(address):
     assert address_refusal(address, private_allowed=True) is not None
 
 
-@pytest.mark.parametrize("address", ["8.8.8.8", "8.8.8.8", "2606:4700::1111", "::ffff:8.8.8.8"])
+@pytest.mark.parametrize("address", ["8.8.8.8", "1.1.1.1", "2606:4700::1111", "::ffff:8.8.8.8"])
 def test_a_public_address_is_accepted(address):
     assert address_refusal(address, private_allowed=False) is None
 

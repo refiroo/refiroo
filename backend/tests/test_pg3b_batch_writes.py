@@ -89,10 +89,10 @@ def domains_named(workspace_key: str, prefix: str) -> int:
 
 @pytest.mark.parametrize("first", ["chunk", "single write"])
 def test_a_unique_value_raced_by_a_chunk_and_a_single_write_is_given_once(
-    client,
-    workspace,
+    client,  # noqa: F811
+    workspace,  # noqa: F811
     request,
-    first,  # noqa: F811
+    first,
 ):
     """The chunk takes the workspace lock before it reads; whichever writer holds it first gives
     the value, and the other is refused with its single write's code."""
@@ -193,9 +193,9 @@ def _without_matrices(source: dict) -> None:
 
 
 def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
-    client,
-    workspace,
-    monkeypatch,  # noqa: F811
+    client,  # noqa: F811
+    workspace,  # noqa: F811
+    monkeypatch,
 ):
     """The chunk's translations change a stored cell of the codelist translation matrix. Held at
     its release check, before it rewrites that cell's state row, the chunk holds nothing the
