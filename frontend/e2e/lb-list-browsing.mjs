@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { seedTranslationMatrix } from "./helpers/acceptance-data.mjs";
+import { assertFillsMainColumn } from "./helpers/layout-checks.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 
 const checks = [];
@@ -125,6 +126,12 @@ try {
   const hide = page.getByRole("switch", { name: /^Hide inactive \((\d+)\)$/ });
   assert.equal(await hide.getAttribute("aria-checked"), "false");
   await page.screenshot({ path: resolve(harness.output, "lb-table-inactive-1440.png") });
+  for (const [width, height] of [[1920, 1080], [2560, 1440]]) {
+    await page.setViewportSize({ width, height });
+    await assertFillsMainColumn(page, ".collection-surface", `list card at ${width}`);
+    await page.screenshot({ path: resolve(harness.output, `wide-list-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await hide.press("Space");
   await retired.waitFor({ state: "detached" });
   assert.match(page.url(), /filter/);
@@ -133,6 +140,7 @@ try {
   await assertAccessible(page, "lb-table-hidden");
   await page.getByRole("switch", { name: /^Hide inactive/ }).click();
   await retired.waitFor();
+  checks.push("at 1920 and 2560 the list card spans the main column");
   checks.push("a table marks an inactive record in place, the switch hides them with an ordinary filter pill kept in the address, and shows them again");
 
   // The relation matrix's Hide empty columns: three languages, one with a translation (the others
@@ -145,6 +153,12 @@ try {
   assert.ok(before >= 3, `${before} columns`);
   const emptyToggle = page.getByRole("switch", { name: "Hide empty columns" });
   await page.screenshot({ path: resolve(harness.output, "lb-matrix-all-1440.png") });
+  for (const [width, height] of [[1920, 1080], [2560, 1440]]) {
+    await page.setViewportSize({ width, height });
+    await assertFillsMainColumn(page, ".collection-surface", `relation matrix at ${width}`);
+    await page.screenshot({ path: resolve(harness.output, `wide-matrix-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await emptyToggle.press("Space");
   await page.getByText(/\d+ empty columns? hidden/).waitFor();
   assert.ok((await columnHeads.count()) < before);
@@ -158,6 +172,7 @@ try {
     (n) => document.querySelectorAll('[role="grid"] thead th .matrix-column-label').length === n,
     before,
   );
+  checks.push("at 1920 and 2560 the relation matrix spans the main column");
   checks.push("a relation matrix's Hide empty columns leaves out the columns no row relates, says how many, survives a reload and Show all returns them");
 
   // 390px.

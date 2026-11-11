@@ -33,6 +33,7 @@ to fit a new control.
 | Notice | `ui/Notice` tones `info`/`warning`/`error` | Title plus a sentence stating what happened and the safe next action; `focusOnMount` for a failure the user must act on. |
 | Disclosure | `<details>` in `ChangeSets` (More change set actions) and `ModelReleaseDetail` (Technical details); `ui/Tabs`; `ui/NavigationDrawer` | Native keyboard operation; identifiers and technical metadata stay collapsed by default. |
 | Narrow layout | `styles/responsive.css` at ≤ 720px; 390×844 is the checked phone width | No page-level horizontal scroll; wide tables scroll inside their labelled region; dialogs fit the viewport. |
+| Wide layout | `.workspace-main` in `styles/layout.css`; 1920×1080 and 2560×1440 are the checked wide widths (0.13 LB, found 2026-11-11) | Application pages (lists, matrices, mapping grids, relationship tables, trees, record and group pages) span the main column; its side padding grows from 32px at a 1440px window to at most 64px; only reading pages (Home, Changes, Notifications, Account) keep a capped width, centred. A UI package that changes an application page's layout checks it at one wide width as well as 1440 and 390px (`layout-checks.mjs`, `assertFillsMainColumn`). |
 
 ## 2. Surfaces added or materially changed in 0.7
 

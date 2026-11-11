@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (wide screens)
+
+- **Application pages fill a wide window.** Lists, relation matrices, mapping grids, relationship tables, trees, record pages, group pages and change-set pages stopped at 1440px with empty margins either side on a wide display; they now span the main column, whose side padding grows with the window from 32px at 1440px to at most 64px (about 49px at 2000px). Home, Changes, Notifications and Account keep their reading widths. The browser runner `lb-list-browsing` checks the list card and a relation matrix at 1920 and 2560px, and UI acceptance now names a wide layout (1920 and 2560px) beside the narrow one.
+
 ### Added (list browsing: Find a list, a table's inactive records and a matrix's empty columns, 0.13 LB)
 
 - **The sidebar's Collections have a Find a list box once an application has more than ten entries.** Why: with many lists the way to one was scrolling. Typing narrows the collections and placed matrices across every group and those in no group to the names that contain the words (case-insensitive, the match in bold, "N of M" announced politely); a group with a match opens with only its matches, a group without is hidden; Enter opens the first match, Escape clears. The reader's own folds are never written while a search stands, so clearing returns them. `features/objects/Explorer.tsx`, `model/collections.ts` (`narrowNavigation`).

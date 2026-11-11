@@ -74,7 +74,7 @@ nav.settings-rail {
   font-weight: 600;
 }
 
-/* Page: as wide as the application pages (the main column's 1440px). */
+/* Page: as wide as the application pages (the main column). */
 .settings-page {
   display: grid;
   gap: var(--space-6);
@@ -1227,6 +1227,7 @@ tr.openable-row:hover > * {
 /* A workspace the engine cannot serve (0.12 UW1): two cards side by side, stacked on a phone. */
 .unavailable-workspace {
   max-width: 960px;
+  margin-inline: auto;
 }
 .unavailable-cards {
   display: grid;
@@ -2052,6 +2053,7 @@ tr.openable-row:hover > * {
   display: grid;
   gap: var(--space-6);
   max-width: 1180px;
+  margin-inline: auto;
 }
 .account-panel {
   overflow: hidden;

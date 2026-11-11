@@ -95,3 +95,29 @@ export async function assertFullSurface(page, selector, paneSelectors, name) {
   assert.equal(result.pageScrolls, false, `${name}: the page scrolls`);
   assert.equal(new Set(result.bottoms).size, 1, `${name}: panes end at different lines (${result.bottoms.join(", ")})`);
 }
+
+/**
+ * An application page fills the main column (within its padding) at a wide window, not a fixed
+ * width: `selector`'s box spans `.workspace-main`'s content box, to the pixel.
+ */
+export async function assertFillsMainColumn(page, selector, name) {
+  const result = await page.evaluate((selector) => {
+    const main = document.querySelector(".workspace-main");
+    const style = getComputedStyle(main);
+    const box = main.getBoundingClientRect();
+    const inner = box.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return {
+      width: document.querySelector(selector)?.getBoundingClientRect().width ?? 0,
+      inner,
+      window: window.innerWidth,
+    };
+  }, selector);
+  assert.ok(
+    result.inner > 1440,
+    `${name}: the main column is only ${Math.round(result.inner)}px in a ${result.window}px window`,
+  );
+  assert.ok(
+    Math.abs(result.width - result.inner) <= 1,
+    `${name}: ${Math.round(result.width)}px wide, the main column's content is ${Math.round(result.inner)}px`,
+  );
+}

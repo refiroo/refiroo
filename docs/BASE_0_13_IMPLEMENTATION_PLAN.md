@@ -1930,6 +1930,8 @@ tables. **Docs:** `APPLICATION_MODEL.md` (Table view), `MODEL_AUTHORING.md`, `CU
 (the reference instance was not running; the list is in the wave reports): the sidebar search, an inactive table with the switch off and on, the
 "Inactive records…" dialog, the matrix toggle with its line and with chosen columns, and a refresh of `model-layout-table-tab.png`.
 
+**Found in review, fixed in LB (2026-11-11).** The user, reviewing LB on a 2000px display, found that application pages stopped at 1440px with empty margins either side (`.workspace-main > *` in `layout.css` capped every page, and the fitted-to-window layout capped its content again). Both caps are removed; Home, Changes, Notifications and Account centre themselves in their own rules. `lb-list-browsing.mjs` checks at 1920 and 2560px that the list card and a relation matrix span the main column. At the user's request the main column's side padding then grows with the window (32px up to a 1440px window, about 49px at 2000px, at most 64px), so no 1440px baseline changes; UI_ACCEPTANCE gains a wide-layout row (1920 and 2560px) beside the narrow one, since no rule had named a width above 1440px.
+
 ## CL: Images built in CI and CI as a quick gate
 
 **Status:** Built 2026-11-07 and 2026-11-08 by the primary agent without a plan section; recorded 2026-11-10. The CHANGELOG

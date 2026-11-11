@@ -87,11 +87,15 @@ The switch is off by default. Like column widths, its setting is remembered for 
 this browser on this device, including after a reload. Another device starts with it off.
 In a change set or publication, it checks that change set's or publication's own records.
 
+![A matrix with Hide empty columns on: only the French and German columns remain and a line says three empty columns are hidden, with Show all](/docs/screens/matrix-hide-empty-columns.png)
+
 When columns are left out, a line below the toolbar says **N empty columns hidden**, or
 **1 empty column hidden** for one. **Show all** on this line turns the switch off.
 If you have chosen columns in **Filter**, those columns are shown regardless of the switch.
 The switch then says **No effect while columns are chosen in Filter**. Its setting is kept
 and takes effect again when you clear the column selection.
+
+![The same matrix with the English column chosen in Filter: the switch stays on and says it has no effect while columns are chosen](/docs/screens/matrix-hide-empty-columns-chosen.png)
 
 Choose the columns before interpreting results for cells in state **None**. If no columns were explicitly selected,
 choosing a state uses the columns currently shown. A result with no matching rows means no

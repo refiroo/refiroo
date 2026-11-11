@@ -339,6 +339,7 @@
 }
 .changes-page {
   max-width: 1040px;
+  margin-inline: auto;
 }
 .changes-hero {
   padding: var(--space-6) var(--space-7);
@@ -364,6 +365,7 @@
 /* The Notifications page (0.12 NT1): the bell's rows (`layout.css`) with a tick and a workspace. */
 .notifications-page {
   max-width: 1280px;
+  margin-inline: auto;
   gap: var(--space-5);
 }
 .notifications-head {

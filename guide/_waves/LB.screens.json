@@ -1,0 +1,159 @@
+{
+ "wave": "LB",
+ "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the LB additions (0.13 LB), light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file LB.screens.json) into guide/public/screens/<name>.png. 'model-layout-table-tab' retakes the existing picture so it shows the Inactive records… button, on the type Stop of the model draft 'Guide draft for the LB pictures' (id 9d3cedd9-9f0b-46b0-971d-8addd66c5a68, made through New draft from 1.8.2 on the model's page, recreate it and put its id in the URL to retake; the layout tab only changes the draft when a dialog is applied, and none is). The two matrix screens use the Operators by language matrix of Names: Hide empty columns is a per-browser setting, so each run starts with it off. Nothing is saved. NOT taken, because the reference model has nothing for them (no yes/no attribute on any listed type, no application with more than ten sidebar entries): the sidebar Find a list, an inactive table with Hide inactive, and the Inactive records… dialog with a field chosen.",
+ "base": "http://localhost:8480",
+ "screens": [
+  {
+   "name": "model-layout-table-tab",
+   "shows": "The model editor's Layout editor for the type Stop, Table tab: the Columns…, Filters…, Inactive records…, Sort menu and page size… and Default sort controls above the column frames.",
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/9d3cedd9-9f0b-46b0-971d-8addd66c5a68/editor?show=type&key=stop&mode=layout"
+    },
+    {
+     "waitFor": {
+      "text": "Layout editor",
+      "exact": false
+     }
+    },
+    {
+     "click": {
+      "role": "tab",
+      "name": "Table",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "button",
+      "name": "Inactive records…",
+      "exact": true
+     }
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Columns…",
+    "Filters…",
+    "Inactive records…",
+    "Sort menu and page size…",
+    "Default sort"
+   ]
+  },
+  {
+   "name": "matrix-hide-empty-columns",
+   "shows": "The Operators by language matrix of Names with Hide empty columns on: only the French and German columns remain, and the line '3 empty columns hidden · Show all' stands under the toolbar.",
+   "actions": [
+    {
+     "goto": "/apps/names/views/operator-names?workspaceKey=graubuenden"
+    },
+    {
+     "waitFor": {
+      "text": "Aelplibahn Malans Genossenschaft",
+      "exact": true
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "check": {
+      "role": "switch",
+      "name": "Hide empty columns",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "empty columns hidden",
+      "exact": false
+     }
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Hide empty columns",
+    "3 empty columns hidden",
+    "Show all",
+    "French",
+    "German"
+   ]
+  },
+  {
+   "name": "matrix-hide-empty-columns-chosen",
+   "shows": "The same matrix with Hide empty columns on and the English column chosen in Filter: the chosen column is shown and the switch says 'No effect while columns are chosen in Filter'.",
+   "actions": [
+    {
+     "goto": "/apps/names/views/operator-names?workspaceKey=graubuenden"
+    },
+    {
+     "waitFor": {
+      "text": "Aelplibahn Malans Genossenschaft",
+      "exact": true
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "check": {
+      "role": "switch",
+      "name": "Hide empty columns",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "empty columns hidden",
+      "exact": false
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Filter",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Languages to show",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "checkbox",
+      "name": "English",
+      "exact": false
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Done",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "No effect while columns are chosen in Filter",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1000
+    }
+   ],
+   "expect": [
+    "Hide empty columns",
+    "No effect while columns are chosen in Filter",
+    "English"
+   ]
+  }
+ ]
+}
