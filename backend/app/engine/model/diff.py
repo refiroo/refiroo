@@ -84,8 +84,7 @@ def _list_identity(field_name: str | None, before: Any, after: Any):
     if fields is None:
         return None
     if not all(
-        isinstance(item, dict) and all(field in item for field in fields)
-        for item in before + after
+        isinstance(item, dict) and all(field in item for field in fields) for item in before + after
     ):
         return None
     return lambda item: tuple(str(item[field]) for field in fields)

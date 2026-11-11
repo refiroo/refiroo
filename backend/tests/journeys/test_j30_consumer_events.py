@@ -31,7 +31,11 @@ def _events(world):
             "objectTypes": [world.key("R"), world.key("R2")],
             "changes": ["created", "updated", "deleted"],
             "watch": {
-                "fields": [world.key("Capi.code"), world.key("Capi.name"), world.key("Capi.parent")],
+                "fields": [
+                    world.key("Capi.code"),
+                    world.key("Capi.name"),
+                    world.key("Capi.parent"),
+                ],
                 "related": [world.key("Capi.B11")],
             },
         },
@@ -265,7 +269,12 @@ def test_batches_and_publishes_are_told_with_their_cause(world):
                     for key, value in world.required_values("R").items()
                 ],
             },
-            {"op": "update", "target": {"id": r["id"]}, "expectedVersion": stale, "name": "Renamed"},
+            {
+                "op": "update",
+                "target": {"id": r["id"]},
+                "expectedVersion": stale,
+                "name": "Renamed",
+            },
             {"op": "update", "target": {"id": r["id"]}, "expectedVersion": stale, "name": "Stale"},
         ],
     }
@@ -323,8 +332,16 @@ def test_a_type_change_is_told_as_the_three_kinds(world):
         definition["publicNames"].update({world.key("L1"): "Top", world.key("L2"): "Middle"})
 
     events = [
-        {"key": "tops", "objectTypes": [world.key("L1")], "changes": ["created", "updated", "deleted"]},
-        {"key": "middles", "objectTypes": [world.key("L2")], "changes": ["created", "updated", "deleted"]},
+        {
+            "key": "tops",
+            "objectTypes": [world.key("L1")],
+            "changes": ["created", "updated", "deleted"],
+        },
+        {
+            "key": "middles",
+            "objectTypes": [world.key("L2")],
+            "changes": ["created", "updated", "deleted"],
+        },
         {
             "key": "ladder",
             "objectTypes": [world.key("L1"), world.key("L2")],
@@ -405,7 +422,9 @@ def test_read_filter_page_and_shape_the_events(world):
     # An event whose object no longer exists passes, its creation as well as its deletion (C-D90).
     related = _follow(world, ws, **{token: k["name"]})
     assert {e["id"] for e in related} == {r["id"], gone["id"]}
-    assert {("created", gone["id"]), ("deleted", gone["id"])} <= {(e["change"], e["id"]) for e in related}
+    assert {("created", gone["id"]), ("deleted", gone["id"])} <= {
+        (e["change"], e["id"]) for e in related
+    }
 
     first = _page(world, ws, after=head, event=EVERY, pageSize=2)
     pages, read = [first], list(first["items"])
@@ -425,7 +444,9 @@ def test_read_filter_page_and_shape_the_events(world):
     full = _follow(world, ws, **{permit: region})
     assert {e["id"] for e in full} >= {r["id"]}
     current = next(e for e in reversed(full) if e["id"] == r["id"])
-    assert current["object"] == ok(consumer_object(world, r["id"], workspace=ws, **{permit: region}))
+    assert current["object"] == ok(
+        consumer_object(world, r["id"], workspace=ws, **{permit: region})
+    )
     assert current["stateAt"] >= current["position"]
     assert current["code"] == current["object"][world.key("Capi.code")]
     assert current["name"] == current["object"][world.key("Capi.name")]
@@ -463,7 +484,9 @@ def test_read_filter_page_and_shape_the_events(world):
         refused(consumer_events(world, workspace=ws, **params), status, code)
     refused(consumer_events(world, workspace="no-such-site"), 404, "WORKSPACE_NOT_FOUND")
     elsewhere = _workspace(world)
-    refused(consumer_events(world, workspace=elsewhere, cursor=first["cursor"]), 400, "INVALID_CURSOR")
+    refused(
+        consumer_events(world, workspace=elsewhere, cursor=first["cursor"]), 400, "INVALID_CURSOR"
+    )
 
 
 def _age(world, workspace, days, through):
@@ -484,7 +507,9 @@ def _count(world, workspace, through):
     engine = create_engine(world.database, poolclass=NullPool)
     with engine.connect() as connection:
         found = connection.scalar(
-            text("SELECT count(*) FROM consumer_events WHERE workspace_key = :w AND position <= :p"),
+            text(
+                "SELECT count(*) FROM consumer_events WHERE workspace_key = :w AND position <= :p"
+            ),
             {"w": workspace, "p": through},
         )
     engine.dispose()
@@ -542,7 +567,9 @@ def test_an_expired_position_names_the_publication_to_resync_from(world):
         }
 
     listed = ok(
-        consumer_list(world, world.key("Capi.all"), workspace=ws, publication=publication["id"], pageSize=100)
+        consumer_list(
+            world, world.key("Capi.all"), workspace=ws, publication=publication["id"], pageSize=100
+        )
     )
     held = {item[world.key("Capi.id")] for item in listed["items"]}
     kind = world.key("Capi.kind")
@@ -570,7 +597,9 @@ def _reset(world, workspace):
     """Forget the workspace's events and start its derivation again from the first position."""
     engine = create_engine(world.database, poolclass=NullPool)
     with engine.begin() as connection:
-        connection.execute(text("DELETE FROM consumer_events WHERE workspace_key = :w"), {"w": workspace})
+        connection.execute(
+            text("DELETE FROM consumer_events WHERE workspace_key = :w"), {"w": workspace}
+        )
         connection.execute(
             text("UPDATE consumer_event_checkpoints SET position = 0 WHERE workspace_key = :w"),
             {"w": workspace},

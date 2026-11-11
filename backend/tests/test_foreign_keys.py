@@ -49,8 +49,14 @@ RULES = {
     # A workspace with subscriptions cannot be deleted (C11, C-D99).
     ("consumer_subscriptions", "workspace_key"): ("workspaces", "RESTRICT"),
     # The delivery log goes with its subscription, and a request's events and attempts with it (U5a).
-    ("consumer_webhook_requests", "subscription_sequence_id"): ("consumer_subscriptions", "CASCADE"),
-    ("consumer_webhook_request_events", "request_sequence_id"): ("consumer_webhook_requests", "CASCADE"),
+    ("consumer_webhook_requests", "subscription_sequence_id"): (
+        "consumer_subscriptions",
+        "CASCADE",
+    ),
+    ("consumer_webhook_request_events", "request_sequence_id"): (
+        "consumer_webhook_requests",
+        "CASCADE",
+    ),
     ("consumer_webhook_attempts", "request_sequence_id"): ("consumer_webhook_requests", "CASCADE"),
     # Publications are history and never deleted; withdrawal changes a status. Their rows would go
     # with them.
@@ -198,7 +204,13 @@ RULES = {
     ("audit_event_subjects", "audit_event_id"): ("audit_events", "CASCADE"),
 }
 
-_CONFDELTYPE = {"a": "NO ACTION", "r": "RESTRICT", "c": "CASCADE", "n": "SET NULL", "d": "SET DEFAULT"}
+_CONFDELTYPE = {
+    "a": "NO ACTION",
+    "r": "RESTRICT",
+    "c": "CASCADE",
+    "n": "SET NULL",
+    "d": "SET DEFAULT",
+}
 
 
 def test_the_orm_declares_the_reviewed_rules():
@@ -227,5 +239,7 @@ def test_a_migrated_database_enforces_the_reviewed_rules(migrated_database):
             ).all()
     finally:
         engine.dispose()
-    enforced = {(table, column): (target, _CONFDELTYPE[rule]) for table, column, target, rule in rows}
+    enforced = {
+        (table, column): (target, _CONFDELTYPE[rule]) for table, column, target, rule in rows
+    }
     assert enforced == RULES

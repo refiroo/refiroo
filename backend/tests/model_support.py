@@ -7,6 +7,7 @@ from typing import Any
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
+
 def without_relation_columns(model: dict[str, Any]) -> dict[str, Any]:
     """``model`` without its table views' ``related:<key>`` columns and filters (schema 0.9, K5,
     K6), in place."""

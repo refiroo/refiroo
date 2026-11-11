@@ -226,9 +226,7 @@ def test_presentation_change_and_unused_addition_are_compatible(session: Session
             "RELATION_PAIR_IN_USE",
         ),
         (
-            lambda source: source["objectTypeRelations"][0].update(
-                {"attributeTypeKeys": []}
-            ),
+            lambda source: source["objectTypeRelations"][0].update({"attributeTypeKeys": []}),
             lambda session: _seed_link(session, attributes={"relation-note": "used"}),
             "RELATION_ATTRIBUTE_IN_USE",
         ),
@@ -243,9 +241,7 @@ def test_presentation_change_and_unused_addition_are_compatible(session: Session
             "PARENT_RELATION_SEMANTICS_CHANGED",
         ),
         (
-            lambda source: source["objectTypes"][0]["attributes"][0].update(
-                {"required": True}
-            ),
+            lambda source: source["objectTypes"][0]["attributes"][0].update({"required": True}),
             lambda session: _object(session, "source"),
             "REQUIRED_ATTRIBUTE_MISSING",
         ),
@@ -255,16 +251,12 @@ def test_presentation_change_and_unused_addition_are_compatible(session: Session
             "REQUIRED_RELATION_MISSING",
         ),
         (
-            lambda source: source["attributeTypes"][0].update(
-                {"features": {"unique": True}}
-            ),
+            lambda source: source["attributeTypes"][0].update({"features": {"unique": True}}),
             lambda session: _seed_duplicate_attributes(session),
             "ATTRIBUTE_UNIQUENESS_VIOLATED",
         ),
         (
-            lambda source: source["objectTypeRelations"][0].update(
-                {"cardinality": "one-to-many"}
-            ),
+            lambda source: source["objectTypeRelations"][0].update({"cardinality": "one-to-many"}),
             lambda session: _seed_duplicate_target_relations(session),
             "RELATION_CARDINALITY_VIOLATED",
         ),
@@ -305,9 +297,7 @@ def test_scoped_relation_uniqueness_is_checked_against_containment_ancestors(ses
         )
     session.flush()
     candidate = deepcopy(_source())
-    candidate["objectTypeRelations"][0]["features"] = {
-        "uniqueToAncestorTypeKey": "source"
-    }
+    candidate["objectTypeRelations"][0]["features"] = {"uniqueToAncestorTypeKey": "source"}
 
     result = _compatibility(session, candidate)
 

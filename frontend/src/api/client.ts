@@ -695,10 +695,11 @@ export const api = {
   /** A consumer API definition of the active model, expanded with every default (C18). */
   consumerApiDefinition: (consumerApi: string) =>
     request<ConsumerApiDefinition>(`/api/v1/model/consumer-apis/${encodeURIComponent(consumerApi)}`),
-  /** The consumer API index (`GET /api/consumer`), one page. */
-  consumerApis: (cursor?: string) => {
+  /** The consumer API index (`GET /api/consumer`), one page, of the default workspace or of `workspaceKey`. */
+  consumerApis: (cursor?: string, workspaceKey?: string) => {
     const params = new URLSearchParams({ pageSize: "100" });
     if (cursor) params.set("cursor", cursor);
+    if (workspaceKey) params.set("workspace", workspaceKey);
     return request<ConsumerApiIndexPage>(`/api/consumer?${params}`);
   },
   /** A consumer API's OpenAPI document, at the address its index entry names (resolved whole). */

@@ -122,9 +122,7 @@ def test_a_model_change_that_changes_a_projection_needs_a_new_version(world):
     binding["cardinality"] = "many-to-many"
     draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "version_required"
-    assert any(
-        "related/ledger" in d["path"] for d in compiled["consumerContracts"]["diagnostics"]
-    )
+    assert any("related/ledger" in d["path"] for d in compiled["consumerContracts"]["diagnostics"])
     release = ok(_install(world, draft), 201)
     diff = ok(world.api.get(f"/model-releases/{release['id']}/diff", againstReleaseId=active["id"]))
     assert diff["consumerContracts"]["classification"] == "version_required"
@@ -246,9 +244,9 @@ def test_scores_from_needs_a_promoted_entry_and_is_contract(world):
     assert compiled["valid"] is True
     assert compiled["consumerContracts"]["classification"] == "version_required"
     changed = f"/consumerApis/{world.key('Capi')}/filters/{watch}/scoreOnlyMatching"
-    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
-        "consumerContracts"
-    ]["diagnostics"]
+    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), (
+        compiled["consumerContracts"]["diagnostics"]
+    )
 
 
 @pytest.mark.journey("J25")
@@ -264,9 +262,9 @@ def test_targetable_is_contract(world):
     draft, compiled = _compile(world, model)
     assert compiled["valid"] is True
     assert compiled["consumerContracts"]["classification"] == "version_required"
-    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
-        "consumerContracts"
-    ]["diagnostics"]
+    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), (
+        compiled["consumerContracts"]["diagnostics"]
+    )
 
     definition["contractVersion"] = 2
     model["release"]["version"] += "-v2"
@@ -315,9 +313,9 @@ def test_a_projection_names_its_items_type_where_the_types_are_exposed(world):
     _draft, compiled = _compile(world, model)
     assert compiled["consumerContracts"]["classification"] == "version_required"
     changed = f"/consumerApis/{key}/object/related/{permits}/fields"
-    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), compiled[
-        "consumerContracts"
-    ]["diagnostics"]
+    assert any(d["path"] == changed for d in compiled["consumerContracts"]["diagnostics"]), (
+        compiled["consumerContracts"]["diagnostics"]
+    )
 
 
 def _events(world):
@@ -329,7 +327,11 @@ def _events(world):
             "objectTypes": [world.key("R"), world.key("R2")],
             "changes": ["created", "updated", "deleted"],
             "watch": {
-                "fields": [world.key("Capi.code"), world.key("Capi.name"), world.key("Capi.parent")],
+                "fields": [
+                    world.key("Capi.code"),
+                    world.key("Capi.name"),
+                    world.key("Capi.parent"),
+                ],
                 "related": [world.key("Capi.B11")],
             },
         },
@@ -378,15 +380,36 @@ def test_event_mistakes_are_refused_at_their_pointer(world):
         return mutate
 
     cases = {
-        "not-exposed": (first_event(lambda e: e["objectTypes"].append(world.key("K"))), f"{first}/objectTypes"),
-        "unknown-type": (first_event(lambda e: e["objectTypes"].append("no-such-type")), f"{first}/objectTypes"),
-        "repeated-type": (first_event(lambda e: e["objectTypes"].append(world.key("R"))), f"{first}/objectTypes"),
-        "repeated-key": (lambda events: events + [copy.deepcopy(events[0])], f"{base}/operations/events/custom/2"),
+        "not-exposed": (
+            first_event(lambda e: e["objectTypes"].append(world.key("K"))),
+            f"{first}/objectTypes",
+        ),
+        "unknown-type": (
+            first_event(lambda e: e["objectTypes"].append("no-such-type")),
+            f"{first}/objectTypes",
+        ),
+        "repeated-type": (
+            first_event(lambda e: e["objectTypes"].append(world.key("R"))),
+            f"{first}/objectTypes",
+        ),
+        "repeated-key": (
+            lambda events: events + [copy.deepcopy(events[0])],
+            f"{base}/operations/events/custom/2",
+        ),
         "upper-key": (first_event(lambda e: e.update(key="Ledger-changed")), f"{first}/key"),
         "no-change": (first_event(lambda e: e.update(changes=[])), f"{first}/changes"),
-        "repeated-change": (first_event(lambda e: e["changes"].append("deleted")), f"{first}/changes"),
-        "role-name": (first_event(lambda e: e["watch"]["fields"].append("active")), f"{first}/watch/fields"),
-        "unknown-output": (first_event(lambda e: e["watch"]["fields"].append("no-such-output")), f"{first}/watch/fields"),
+        "repeated-change": (
+            first_event(lambda e: e["changes"].append("deleted")),
+            f"{first}/changes",
+        ),
+        "role-name": (
+            first_event(lambda e: e["watch"]["fields"].append("active")),
+            f"{first}/watch/fields",
+        ),
+        "unknown-output": (
+            first_event(lambda e: e["watch"]["fields"].append("no-such-output")),
+            f"{first}/watch/fields",
+        ),
         "unknown-projection": (
             first_event(lambda e: e["watch"]["related"].append("noSuchBlock")),
             f"{first}/watch/related",
@@ -401,7 +424,10 @@ def test_event_mistakes_are_refused_at_their_pointer(world):
         model, _definition = _with_events(world, f"event-{name}", mutate(_events(world)))
         draft, compiled = _compile(world, model)
         assert compiled["valid"] is False, name
-        assert any(d["path"].startswith(pointer) for d in compiled["diagnostics"]), (name, compiled["diagnostics"])
+        assert any(d["path"].startswith(pointer) for d in compiled["diagnostics"]), (
+            name,
+            compiled["diagnostics"],
+        )
         error = refused(_install(world, draft), 422, "INVALID_MODEL")
         assert pointer in json.dumps(error["details"]), name
 
@@ -410,7 +436,9 @@ def test_event_mistakes_are_refused_at_their_pointer(world):
     model, _definition = _with_events(world, "event-renamed", events)
     _draft, compiled = _compile(world, model)
     assert compiled["valid"] is False
-    assert any(d["path"].endswith("/operations/events/custom/0/changes/3") for d in compiled["diagnostics"]), compiled["diagnostics"]
+    assert any(
+        d["path"].endswith("/operations/events/custom/0/changes/3") for d in compiled["diagnostics"]
+    ), compiled["diagnostics"]
 
     for name in ("event", "after"):
         model, definition = _capi_model(world, f"reserved-{name}")
@@ -475,7 +503,11 @@ def test_events_are_contract(world):
     drop_parent(changed)
     model, _definition = _with_events(world, "less", changed)
     draft, _compiled = _compile(world, model)
-    refused(world.activate(ok(_install(world, draft), 201)["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
+    refused(
+        world.activate(ok(_install(world, draft), 201)["id"]),
+        409,
+        "CONSUMER_CONTRACT_VERSION_REQUIRED",
+    )
     model, _definition = _with_events(world, "less-v2", changed)
     _capi(model, world)["contractVersion"] = 2
     draft, _compiled = _compile(world, model)
@@ -538,7 +570,11 @@ def test_a_definition_offers_the_operations_it_lists(world):
     assert compiled["consumerContracts"]["classification"] == "version_required"
     paths = [d["path"] for d in compiled["consumerContracts"]["diagnostics"]]
     assert f"/consumerApis/{world.key('Capi')}/operations" in paths, paths
-    refused(world.activate(ok(_install(world, draft), 201)["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
+    refused(
+        world.activate(ok(_install(world, draft), 201)["id"]),
+        409,
+        "CONSUMER_CONTRACT_VERSION_REQUIRED",
+    )
 
     definition["contractVersion"] = 2
     model["release"]["version"] += "-v2"
@@ -560,13 +596,17 @@ def test_a_definition_offers_the_operations_it_lists(world):
     del definition["filters"][world.key("Capi.watch")]["scoreOnlyMatching"]
     del definition["filters"][world.key("Capi.score")]["scoreOnlyMatching"]
     _draft, compiled = _compile(world, model)
-    assert compiled["consumerContracts"]["classification"] == "compatible", compiled["consumerContracts"]
+    assert compiled["consumerContracts"]["classification"] == "compatible", compiled[
+        "consumerContracts"
+    ]
 
     model, definition = _capi_model(world, "resolve-alone")
     del definition["operations"]["xref"]
     _draft, compiled = _compile(world, model)
     assert compiled["valid"] is False
-    assert [d["path"] for d in compiled["diagnostics"]] == [f"/consumerApis/{world.key('Capi')}/operations/resolve"]
+    assert [d["path"] for d in compiled["diagnostics"]] == [
+        f"/consumerApis/{world.key('Capi')}/operations/resolve"
+    ]
 
 
 @pytest.mark.journey("J25.8")
@@ -600,6 +640,8 @@ def test_mistakes_are_refused_at_the_authors_pointers(world):
         pointer, code = mistake(definition)
         draft, compiled = _compile(world, model)
         assert compiled["valid"] is False, mistake.__name__
-        assert [(d["code"], d["path"]) for d in compiled["diagnostics"]] == [(code, pointer)], compiled["diagnostics"]
+        assert [(d["code"], d["path"]) for d in compiled["diagnostics"]] == [(code, pointer)], (
+            compiled["diagnostics"]
+        )
         error = refused(_install(world, draft), 422, "INVALID_MODEL")
         assert pointer in json.dumps(error["details"]), mistake.__name__

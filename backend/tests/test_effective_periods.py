@@ -66,10 +66,15 @@ def test_the_starter_declares_its_period(renamed):
     source, k = starter_source(renamed)
     model = parse_model(source)
     assert (model.schemaVersion, model.release.version) == ("0.10", "0.10.1")
-    declared = {item.key: item.effectivePeriod for item in model.objectTypes if item.effectivePeriod}
+    declared = {
+        item.key: item.effectivePeriod for item in model.objectTypes if item.effectivePeriod
+    }
     assert list(declared) == [k("master-value")]
     period = declared[k("master-value")]
-    assert (period.startAttributeTypeKey, period.endAttributeTypeKey) == (k("valid-from"), k("valid-to"))
+    assert (period.startAttributeTypeKey, period.endAttributeTypeKey) == (
+        k("valid-from"),
+        k("valid-to"),
+    )
 
 
 @pytest.mark.parametrize("renamed", [False, True], ids=["starter", "renamed"])
@@ -82,9 +87,13 @@ def test_a_period_is_refused_at_its_path(renamed):
         _object_type(result, k("master-value"))["effectivePeriod"] = period
         return result
 
-    unbound = with_period(startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("domain-code"))
+    unbound = with_period(
+        startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("domain-code")
+    )
     assert _diagnostic(unbound) == ("UNKNOWN_ATTRIBUTE_TYPE", f"{path}/endAttributeTypeKey")
-    not_a_date = with_period(startAttributeTypeKey=k("value-code"), endAttributeTypeKey=k("valid-to"))
+    not_a_date = with_period(
+        startAttributeTypeKey=k("value-code"), endAttributeTypeKey=k("valid-to")
+    )
     assert _diagnostic(not_a_date) == ("INVALID_MODEL", f"{path}/startAttributeTypeKey")
     same = with_period(startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("valid-from"))
     assert _diagnostic(same) == ("INVALID_MODEL", f"{path}/endAttributeTypeKey")
@@ -92,11 +101,17 @@ def test_a_period_is_refused_at_its_path(renamed):
         startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("valid-to"), timeZone="UTC"
     )
     # Shape errors point by position, as every Pydantic error in a model does.
-    position = next(index for index, item in enumerate(source["objectTypes"]) if item["key"] == k("master-value"))
+    position = next(
+        index
+        for index, item in enumerate(source["objectTypes"])
+        if item["key"] == k("master-value")
+    )
     shape_path = f"/objectTypes/{position}/effectivePeriod"
     assert _diagnostic(extra) == ("unknown_field", f"{shape_path}/timeZone")
     missing = copy.deepcopy(source)
-    _object_type(missing, k("master-value"))["effectivePeriod"] = {"startAttributeTypeKey": k("valid-from")}
+    _object_type(missing, k("master-value"))["effectivePeriod"] = {
+        "startAttributeTypeKey": k("valid-from")
+    }
     assert _diagnostic(missing) == ("missing_field", f"{shape_path}/endAttributeTypeKey")
 
 
@@ -134,7 +149,12 @@ def period_model() -> dict[str, Any]:
     source["release"]["version"] = "0.9.0-q4"
     for key in (START, END):
         source["attributeTypes"].append(
-            {"key": key, "name": key, "valueType": "date", "features": {"filterable": True, "sortable": True}}
+            {
+                "key": key,
+                "name": key,
+                "valueType": "date",
+                "features": {"filterable": True, "sortable": True},
+            }
         )
     entry = _object_type(source, ENTRY)
     entry["attributes"] += [
@@ -146,7 +166,9 @@ def period_model() -> dict[str, Any]:
 
 
 @pytest.fixture(params=["generated", "renamed"])
-def periods(request, tmp_path, monkeypatch, migrated_database) -> Iterator[tuple[TestClient, Keys, dict]]:
+def periods(
+    request, tmp_path, monkeypatch, migrated_database
+) -> Iterator[tuple[TestClient, Keys, dict]]:
     source = period_model()
     names: dict[str, str] = {}
     if request.param == "renamed":
@@ -184,7 +206,9 @@ def _version(client, change_set_id: str) -> int:
     return _ok(client.get(f"/api/v1/change-sets/{change_set_id}"))["version"]
 
 
-def _create(client, k: Keys, object_type: str, name: str, parent: str | None, values: dict, **context):
+def _create(
+    client, k: Keys, object_type: str, name: str, parent: str | None, values: dict, **context
+):
     return client.post(
         "/api/v1/objects",
         json={
@@ -192,7 +216,9 @@ def _create(client, k: Keys, object_type: str, name: str, parent: str | None, va
             "objectTypeKey": k(object_type),
             "name": name,
             "parentObjectId": parent,
-            "attributes": [{"attributeTypeKey": k(key), "value": value} for key, value in values.items()],
+            "attributes": [
+                {"attributeTypeKey": k(key), "value": value} for key, value in values.items()
+            ],
             **context,
         },
     )
@@ -214,27 +240,48 @@ def _seed(client, k: Keys) -> dict[str, Any]:
     """Dated entries live; a publication of them; a change set that ends Future before it starts
     by moving its start, and makes Always end at the boundary."""
     live = {"workspaceKey": WORKSPACE}
-    folder = _ok(_create(client, k, FOLDER, "F", None, {"par-code": "F-1", "par-due": "2026-07-01"}, **live), 201)
+    folder = _ok(
+        _create(client, k, FOLDER, "F", None, {"par-code": "F-1", "par-due": "2026-07-01"}, **live),
+        201,
+    )
     entries = {}
     for name, (start, end) in DATED.items():
-        values = {"par-code": name, **({START: start} if start else {}), **({END: end} if end else {})}
+        values = {
+            "par-code": name,
+            **({START: start} if start else {}),
+            **({END: end} if end else {}),
+        }
         entries[name] = _ok(_create(client, k, ENTRY, name, folder["id"], values, **live), 201)
 
-    publish = _ok(client.post(f"/api/v1/workspaces/{WORKSPACE}/change-sets", json={"source": "currentLive"}), 201)
+    publish = _ok(
+        client.post(f"/api/v1/workspaces/{WORKSPACE}/change-sets", json={"source": "currentLive"}),
+        201,
+    )
     publication = _ok(
         client.post(
             f"/api/v1/change-sets/{publish['id']}/publication",
             json={"expectedChangeSetVersion": publish["version"]},
         )
     )
-    change_set = _ok(client.post(f"/api/v1/workspaces/{WORKSPACE}/change-sets", json={"source": "currentLive"}), 201)["id"]
+    change_set = _ok(
+        client.post(f"/api/v1/workspaces/{WORKSPACE}/change-sets", json={"source": "currentLive"}),
+        201,
+    )["id"]
     for name, values in (("Future", {START: "2026-05-01"}), ("Always", {END: "2026-07-01"})):
-        record = _ok(client.get(f"/api/v1/objects/{k(ENTRY)}/{entries[name]['id']}", params={"changeSetId": change_set}))
+        record = _ok(
+            client.get(
+                f"/api/v1/objects/{k(ENTRY)}/{entries[name]['id']}",
+                params={"changeSetId": change_set},
+            )
+        )
         _ok(
             client.patch(
                 f"/api/v1/objects/{k(ENTRY)}/{entries[name]['id']}",
                 json={
-                    "attributes": [{"attributeTypeKey": k(key), "value": value} for key, value in values.items()],
+                    "attributes": [
+                        {"attributeTypeKey": k(key), "value": value}
+                        for key, value in values.items()
+                    ],
                     "expectedVersion": record["version"],
                     "changeSetId": change_set,
                     "expectedChangeSetVersion": _version(client, change_set),
@@ -248,7 +295,10 @@ def _seed(client, k: Keys) -> dict[str, Any]:
         "contexts": {
             "live": ({"workspaceKey": WORKSPACE}, {}),
             "change set": ({"changeSetId": change_set}, {"changeSetId": change_set}),
-            "publication": ({"publicationId": publication["id"]}, {"publicationId": publication["id"]}),
+            "publication": (
+                {"publicationId": publication["id"]},
+                {"publicationId": publication["id"]},
+            ),
         },
     }
 
@@ -260,7 +310,11 @@ def _names(items: list[dict[str, Any]]) -> list[str]:
 def _walk_list(client, path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
     items, cursor = [], None
     while True:
-        page = _ok(client.get(path, params={**params, "pageSize": 2, **({"cursor": cursor} if cursor else {})}))
+        page = _ok(
+            client.get(
+                path, params={**params, "pageSize": 2, **({"cursor": cursor} if cursor else {})}
+            )
+        )
         items.extend(page["items"])
         cursor = page["nextCursor"]
         if cursor is None:
@@ -270,7 +324,11 @@ def _walk_list(client, path: str, params: dict[str, Any]) -> list[dict[str, Any]
 def _walk_query(client, body: dict[str, Any]) -> list[dict[str, Any]]:
     items, cursor = [], None
     while True:
-        page = _ok(client.post(QUERY, json={**body, "pageSize": 2, **({"cursor": cursor} if cursor else {})}))
+        page = _ok(
+            client.post(
+                QUERY, json={**body, "pageSize": 2, **({"cursor": cursor} if cursor else {})}
+            )
+        )
         items.extend(page["items"])
         cursor = page["nextCursor"]
         if cursor is None:
@@ -301,13 +359,20 @@ def test_as_of_follows_the_boundary_in_every_context_and_page(periods):
     seeded = _seed(client, k)
     for label, (list_context, query_context) in seeded["contexts"].items():
         for as_of, expected in EXPECTED[label].items():
-            listed = _walk_list(client, f"/api/v1/objects/{k(ENTRY)}", {**list_context, "asOf": as_of})
+            listed = _walk_list(
+                client, f"/api/v1/objects/{k(ENTRY)}", {**list_context, "asOf": as_of}
+            )
             assert _names(listed) == expected, (label, as_of)
             body = {"objectTypeKey": k(ENTRY), "asOf": as_of, "context": query_context}
             assert _names(_walk_query(client, body)) == expected, (label, as_of)
             # Combined with a criterion and a sort, the date still decides.
             narrowed = _walk_query(
-                client, {**body, "where": [{"field": k(START), "op": "isUnset", "value": True}], "sort": "-name"}
+                client,
+                {
+                    **body,
+                    "where": [{"field": k(START), "op": "isUnset", "value": True}],
+                    "sort": "-name",
+                },
             )
             open_start = sorted((name for name in expected if DATED[name][0] is None), reverse=True)
             assert _names(narrowed) == open_start, (label, as_of)
@@ -319,19 +384,34 @@ def test_as_of_is_bound_into_cursors(periods):
     client, k, _source = periods
     _seed(client, k)
     path = f"/api/v1/objects/{k(ENTRY)}"
-    dated = _ok(client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-06-30", "pageSize": 2}))
+    dated = _ok(
+        client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-06-30", "pageSize": 2})
+    )
     _refused(
-        client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01", "cursor": dated["nextCursor"]}),
+        client.get(
+            path,
+            params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01", "cursor": dated["nextCursor"]},
+        ),
         "INVALID_CURSOR",
     )
     undated = _ok(client.get(path, params={"workspaceKey": WORKSPACE, "pageSize": 2}))
     _refused(
-        client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-06-30", "cursor": undated["nextCursor"]}),
+        client.get(
+            path,
+            params={
+                "workspaceKey": WORKSPACE,
+                "asOf": "2026-06-30",
+                "cursor": undated["nextCursor"],
+            },
+        ),
         "INVALID_CURSOR",
     )
     body = {"objectTypeKey": k(ENTRY), "asOf": "2026-06-30", "pageSize": 2}
     first = _ok(client.post(QUERY, json=body))
-    _refused(client.post(QUERY, json={**body, "asOf": "2026-07-01", "cursor": first["nextCursor"]}), "INVALID_CURSOR")
+    _refused(
+        client.post(QUERY, json={**body, "asOf": "2026-07-01", "cursor": first["nextCursor"]}),
+        "INVALID_CURSOR",
+    )
 
 
 def test_as_of_is_refused_where_no_period_applies(periods):
@@ -339,28 +419,44 @@ def test_as_of_is_refused_where_no_period_applies(periods):
     _seed(client, k)
     # Folders bind a date field but declare no period: nothing is inferred from it (SC-11).
     error = _refused(
-        client.get(f"/api/v1/objects/{k(FOLDER)}", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01"}),
+        client.get(
+            f"/api/v1/objects/{k(FOLDER)}", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01"}
+        ),
         "AS_OF_NOT_SUPPORTED",
         "/query/asOf",
     )
     assert error["details"]["objectTypeKey"] == k(FOLDER)
     _refused(
-        client.post(QUERY, json={"objectTypeKey": k(FOLDER), "asOf": "2026-07-01"}), "AS_OF_NOT_SUPPORTED", "/asOf"
+        client.post(QUERY, json={"objectTypeKey": k(FOLDER), "asOf": "2026-07-01"}),
+        "AS_OF_NOT_SUPPORTED",
+        "/asOf",
     )
     for value in ("tomorrow", "20260701", "2026-07-01T00:00:00"):
-        _refused(client.post(QUERY, json={"objectTypeKey": k(ENTRY), "asOf": value}), "INVALID_QUERY", "/asOf")
+        _refused(
+            client.post(QUERY, json={"objectTypeKey": k(ENTRY), "asOf": value}),
+            "INVALID_QUERY",
+            "/asOf",
+        )
     for value in ("tomorrow", "2026-07-01T00:00:00", "1782864000", "2026-02-30"):
-        bad = client.get(f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "asOf": value})
+        bad = client.get(
+            f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "asOf": value}
+        )
         _refused(bad, "REQUEST_VALIDATION_ERROR")
     # The lookup lists several types: asOf is refused with the route that answers it (D21).
     for params in ({}, {"objectTypeKey": k(ENTRY)}):
         error = _refused(
-            client.get("/api/v1/objects", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01", **params}),
+            client.get(
+                "/api/v1/objects",
+                params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01", **params},
+            ),
             "AS_OF_NOT_SUPPORTED",
             "/query/asOf",
         )
         assert error["details"]["route"] == "GET /api/v1/objects/{objectTypeKey}"
-    assert len(_ok(client.get("/api/v1/objects", params={"workspaceKey": WORKSPACE}))["items"]) == len(DATED) + 1
+    assert (
+        len(_ok(client.get("/api/v1/objects", params={"workspaceKey": WORKSPACE}))["items"])
+        == len(DATED) + 1
+    )
 
 
 def test_writes_refuse_a_period_that_does_not_end_after_it_starts(periods):
@@ -388,7 +484,18 @@ def test_writes_refuse_a_period_that_does_not_end_after_it_starts(periods):
             }
         # Open on either side is always valid.
         for values in ({START: "2026-07-01"}, {END: "2026-07-01"}, {}):
-            _ok(_create(client, k, ENTRY, "Open", folder, {"par-code": "Open", **values}, **(context or claims())), 201)
+            _ok(
+                _create(
+                    client,
+                    k,
+                    ENTRY,
+                    "Open",
+                    folder,
+                    {"par-code": "Open", **values},
+                    **(context or claims()),
+                ),
+                201,
+            )
 
     overlap = seeded["entries"]["Overlap"]["id"]
     path = f"/api/v1/objects/{k(ENTRY)}/{overlap}"
@@ -410,7 +517,11 @@ def test_writes_refuse_a_period_that_does_not_end_after_it_starts(periods):
         _refused(
             client.patch(
                 f"{path}/attributes/{k(START)}",
-                json={"value": "2026-08-01", "expectedVersion": record["version"], **({} if context else claims())},
+                json={
+                    "value": "2026-08-01",
+                    "expectedVersion": record["version"],
+                    **({} if context else claims()),
+                },
             ),
             "INVALID_EFFECTIVE_PERIOD",
         )
@@ -446,7 +557,9 @@ def test_change_set_validation_reports_an_invalid_period(periods):
         session.commit()
     validation = _ok(client.post(f"/api/v1/change-sets/{change_set}/validation"))
     assert validation["valid"] is False
-    found = [item for item in validation["diagnostics"] if item["code"] == "INVALID_EFFECTIVE_PERIOD"]
+    found = [
+        item for item in validation["diagnostics"] if item["code"] == "INVALID_EFFECTIVE_PERIOD"
+    ]
     assert len(found) == 1 and found[0]["details"]["objectId"] == future, validation
 
 
@@ -480,13 +593,20 @@ def test_releases_remove_and_add_a_period(periods):
     del _object_type(without, k(ENTRY))["effectivePeriod"]
     _ok(_activate(client, _install(without, "0.9.0-q4-without")))
     _refused(
-        client.get(f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01"}),
+        client.get(
+            f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01"}
+        ),
         "AS_OF_NOT_SUPPORTED",
     )
     inverted = _ok(
         _create(
-            client, k, ENTRY, "Inverted", seeded["folder"]["id"],
-            {"par-code": "Inverted", START: "2026-09-01", END: "2026-08-01"}, workspaceKey=WORKSPACE,
+            client,
+            k,
+            ENTRY,
+            "Inverted",
+            seeded["folder"]["id"],
+            {"par-code": "Inverted", START: "2026-09-01", END: "2026-08-01"},
+            workspaceKey=WORKSPACE,
         ),
         201,
     )
@@ -495,7 +615,11 @@ def test_releases_remove_and_add_a_period(periods):
     refused = _activate(client, with_period)
     assert refused.status_code == 409, refused.text
     diagnostics = refused.json()["error"]["details"]
-    diagnostics = diagnostics.get("diagnostics", diagnostics) if isinstance(diagnostics, dict) else diagnostics
+    diagnostics = (
+        diagnostics.get("diagnostics", diagnostics)
+        if isinstance(diagnostics, dict)
+        else diagnostics
+    )
     assert [(item["code"], item["path"], item["count"]) for item in diagnostics] == [
         ("INVALID_EFFECTIVE_PERIOD", PERIOD_PATH.format(type=k(ENTRY)), 1)
     ]
@@ -504,12 +628,17 @@ def test_releases_remove_and_add_a_period(periods):
     _ok(
         client.patch(
             f"/api/v1/objects/{k(ENTRY)}/{inverted['id']}",
-            json={"attributes": [{"attributeTypeKey": k(END), "value": "2026-10-01"}], "expectedVersion": record["version"]},
+            json={
+                "attributes": [{"attributeTypeKey": k(END), "value": "2026-10-01"}],
+                "expectedVersion": record["version"],
+            },
         )
     )
     _ok(_activate(client, with_period))
     assert _names(
-        _walk_list(client, f"/api/v1/objects/{k(ENTRY)}", {"workspaceKey": WORKSPACE, "asOf": "2026-09-15"})
+        _walk_list(
+            client, f"/api/v1/objects/{k(ENTRY)}", {"workspaceKey": WORKSPACE, "asOf": "2026-09-15"}
+        )
     ) == ["Always", "Inverted", "Late", "New"]
 
 
@@ -524,7 +653,9 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
     workspace = STARTER_WORKSPACE
     app = k("rdm-master")
 
-    def made(type_key: str, name: str, parent: str | None, values: dict[str, Any]) -> dict[str, Any]:
+    def made(
+        type_key: str, name: str, parent: str | None, values: dict[str, Any]
+    ) -> dict[str, Any]:
         response = client.post(
             "/api/v1/objects",
             json={
@@ -533,7 +664,9 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
                 "name": name,
                 "parentObjectId": parent,
                 "workspaceKey": workspace,
-                "attributes": [{"attributeTypeKey": k(key), "value": value} for key, value in values.items()],
+                "attributes": [
+                    {"attributeTypeKey": k(key), "value": value} for key, value in values.items()
+                ],
             },
         )
         return _ok(response, 201)
@@ -549,8 +682,16 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
         "USD": {},
     }
     for code, dates in dated.items():
-        made("master-value", code, codelist["id"], {"master-id": f"M-{code}", "value-code": code, "value-name": code, **dates})
-    publish = _ok(client.post(f"/api/v1/workspaces/{workspace}/change-sets", json={"source": "currentLive"}), 201)
+        made(
+            "master-value",
+            code,
+            codelist["id"],
+            {"master-id": f"M-{code}", "value-code": code, "value-name": code, **dates},
+        )
+    publish = _ok(
+        client.post(f"/api/v1/workspaces/{workspace}/change-sets", json={"source": "currentLive"}),
+        201,
+    )
     publication = _ok(
         client.post(
             f"/api/v1/change-sets/{publish['id']}/publication",
@@ -562,7 +703,11 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
     after = ["CHF", "EUR", "GBP", "USD", "XEU"]
     path = f"/api/v1/objects/{k('master-value')}"
     for context in ({"workspaceKey": workspace}, {"publicationId": publication["id"]}):
-        for as_of, expected in (("2001-12-31", before), ("2002-01-01", after), ("2002-03-01", ["CHF", "EUR", "GBP", "USD"])):
+        for as_of, expected in (
+            ("2001-12-31", before),
+            ("2002-01-01", after),
+            ("2002-03-01", ["CHF", "EUR", "GBP", "USD"]),
+        ):
             params = {**context, "parentObjectId": codelist["id"], "asOf": as_of}
             assert _names(_walk_list(client, path, params)) == expected, (context, as_of)
             query_context = {} if "workspaceKey" in context else context
@@ -570,7 +715,9 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
                 "objectTypeKey": k("master-value"),
                 "asOf": as_of,
                 "context": query_context,
-                "where": [{"field": f"ancestor:{k('codelist')}", "op": "eq", "value": codelist["id"]}],
+                "where": [
+                    {"field": f"ancestor:{k('codelist')}", "op": "eq", "value": codelist["id"]}
+                ],
             }
             items, cursor = [], None
             while True:
@@ -587,7 +734,10 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
             assert _names(items) == expected, (context, as_of)
     # A codelist declares no period; the asOf is refused, not ignored.
     _refused(
-        client.get(f"/api/v1/objects/{k('codelist')}", params={"workspaceKey": workspace, "asOf": "2002-01-01"}),
+        client.get(
+            f"/api/v1/objects/{k('codelist')}",
+            params={"workspaceKey": workspace, "asOf": "2002-01-01"},
+        ),
         "AS_OF_NOT_SUPPORTED",
     )
     # Dates have no time zone: asOf is a date, not a time.

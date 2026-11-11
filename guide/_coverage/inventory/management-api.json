@@ -5,11 +5,11 @@
   "labels": [
    "/health"
   ],
-  "source": "backend/app/main.py:586",
+  "source": "backend/app/main.py:594",
   "section": "run",
   "operationId": "health_health_get",
-  "summary": "Health",
-  "writtenSummary": false
+  "summary": "Check readiness",
+  "writtenSummary": true
  },
  {
   "kind": "management-api",
@@ -17,11 +17,11 @@
   "labels": [
    "/health/live"
   ],
-  "source": "backend/app/main.py:600",
+  "source": "backend/app/main.py:608",
   "section": "run",
   "operationId": "live_health_live_get",
-  "summary": "Live",
-  "writtenSummary": false
+  "summary": "Check liveness",
+  "writtenSummary": true
  },
  {
   "kind": "management-api",
@@ -29,11 +29,11 @@
   "labels": [
    "/.well-known/oauth-authorization-server"
   ],
-  "source": "backend/app/management/routers/oauth.py:87",
+  "source": "backend/app/management/routers/oauth.py:93",
   "section": "integrate",
   "operationId": "server_metadata__well_known_oauth_authorization_server_get",
-  "summary": "Server Metadata",
-  "writtenSummary": false,
+  "summary": "Read the authorization server's metadata",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -44,11 +44,11 @@
   "labels": [
    "/.well-known/oauth-protected-resource"
   ],
-  "source": "backend/app/management/routers/oauth.py:130",
+  "source": "backend/app/management/routers/oauth.py:136",
   "section": "integrate",
   "operationId": "protected_resource__well_known_oauth_protected_resource_get",
-  "summary": "Protected Resource",
-  "writtenSummary": false,
+  "summary": "Read the MCP resource's metadata",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -59,11 +59,11 @@
   "labels": [
    "/.well-known/oauth-protected-resource/mcp"
   ],
-  "source": "backend/app/management/routers/oauth.py:137",
+  "source": "backend/app/management/routers/oauth.py:143",
   "section": "integrate",
   "operationId": "protected_resource_of_mcp__well_known_oauth_protected_resource_mcp_get",
-  "summary": "Protected Resource Of Mcp",
-  "writtenSummary": false,
+  "summary": "Read the MCP resource's metadata at its derived address",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -74,11 +74,11 @@
   "labels": [
    "/oauth/jwks"
   ],
-  "source": "backend/app/management/routers/oauth.py:147",
+  "source": "backend/app/management/routers/oauth.py:153",
   "section": "integrate",
   "operationId": "json_web_keys_oauth_jwks_get",
-  "summary": "Json Web Keys",
-  "writtenSummary": false,
+  "summary": "Read the keys that verify tokens",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -89,11 +89,11 @@
   "labels": [
    "/oauth/register"
   ],
-  "source": "backend/app/management/routers/oauth.py:967",
+  "source": "backend/app/management/routers/oauth.py:983",
   "section": "integrate",
   "operationId": "register_assistant_oauth_register_post",
-  "summary": "Register Assistant",
-  "writtenSummary": false,
+  "summary": "Register an assistant",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -104,11 +104,11 @@
   "labels": [
    "/oauth/token"
   ],
-  "source": "backend/app/management/routers/oauth.py:1040",
+  "source": "backend/app/management/routers/oauth.py:1056",
   "section": "integrate",
   "operationId": "token_oauth_token_post",
-  "summary": "Token",
-  "writtenSummary": false,
+  "summary": "Get an access token",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -119,11 +119,11 @@
   "labels": [
    "/oauth/revoke"
   ],
-  "source": "backend/app/management/routers/oauth.py:1212",
+  "source": "backend/app/management/routers/oauth.py:1228",
   "section": "integrate",
   "operationId": "revoke_oauth_revoke_post",
-  "summary": "Revoke",
-  "writtenSummary": false,
+  "summary": "Sign out a session",
+  "writtenSummary": true,
   "tags": [
    "oauth"
   ]
@@ -137,8 +137,8 @@
   "source": "backend/app/management/routers/identity.py:89",
   "section": "administer",
   "operationId": "get_me_api_v1_me_get",
-  "summary": "Get Me",
-  "writtenSummary": false,
+  "summary": "Read who I am",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -152,8 +152,8 @@
   "source": "backend/app/management/routers/identity.py:103",
   "section": "administer",
   "operationId": "list_my_sessions_api_v1_me_sessions_get",
-  "summary": "List My Sessions",
-  "writtenSummary": false,
+  "summary": "List my sessions",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -164,11 +164,11 @@
   "labels": [
    "/api/v1/me/sessions"
   ],
-  "source": "backend/app/management/routers/identity.py:128",
+  "source": "backend/app/management/routers/identity.py:131",
   "section": "administer",
   "operationId": "delete_my_sessions_api_v1_me_sessions_delete",
-  "summary": "Delete My Sessions",
-  "writtenSummary": false,
+  "summary": "Sign out everywhere",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -179,11 +179,11 @@
   "labels": [
    "/api/v1/me/sessions/{session_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:119",
+  "source": "backend/app/management/routers/identity.py:121",
   "section": "administer",
   "operationId": "delete_my_session_api_v1_me_sessions__session_id__delete",
-  "summary": "Delete My Session",
-  "writtenSummary": false,
+  "summary": "Sign out one of my sessions",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -194,11 +194,11 @@
   "labels": [
    "/api/v1/me/password"
   ],
-  "source": "backend/app/management/routers/identity.py:136",
+  "source": "backend/app/management/routers/identity.py:140",
   "section": "administer",
   "operationId": "post_my_password_api_v1_me_password_post",
-  "summary": "Post My Password",
-  "writtenSummary": false,
+  "summary": "Change my password",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -209,11 +209,11 @@
   "labels": [
    "/api/v1/me/second-factor"
   ],
-  "source": "backend/app/management/routers/identity.py:176",
+  "source": "backend/app/management/routers/identity.py:181",
   "section": "administer",
   "operationId": "get_my_second_factor_api_v1_me_second_factor_get",
-  "summary": "Get My Second Factor",
-  "writtenSummary": false,
+  "summary": "Read my second factor",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -224,11 +224,11 @@
   "labels": [
    "/api/v1/me/second-factor"
   ],
-  "source": "backend/app/management/routers/identity.py:184",
+  "source": "backend/app/management/routers/identity.py:189",
   "section": "administer",
   "operationId": "post_my_second_factor_api_v1_me_second_factor_post",
-  "summary": "Post My Second Factor",
-  "writtenSummary": false,
+  "summary": "Start setting up an authenticator app",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -239,11 +239,11 @@
   "labels": [
    "/api/v1/me/second-factor"
   ],
-  "source": "backend/app/management/routers/identity.py:240",
+  "source": "backend/app/management/routers/identity.py:248",
   "section": "administer",
   "operationId": "delete_my_second_factor_api_v1_me_second_factor_delete",
-  "summary": "Delete My Second Factor",
-  "writtenSummary": false,
+  "summary": "Remove my authenticator app",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -254,11 +254,11 @@
   "labels": [
    "/api/v1/me/second-factor/confirmation"
   ],
-  "source": "backend/app/management/routers/identity.py:203",
+  "source": "backend/app/management/routers/identity.py:209",
   "section": "administer",
   "operationId": "post_my_second_factor_confirmation_api_v1_me_second_factor_confirmation_post",
-  "summary": "Post My Second Factor Confirmation",
-  "writtenSummary": false,
+  "summary": "Confirm the authenticator app",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -269,11 +269,11 @@
   "labels": [
    "/api/v1/me/second-factor/recovery-codes"
   ],
-  "source": "backend/app/management/routers/identity.py:222",
+  "source": "backend/app/management/routers/identity.py:229",
   "section": "administer",
   "operationId": "post_my_recovery_codes_api_v1_me_second_factor_recovery_codes_post",
-  "summary": "Post My Recovery Codes",
-  "writtenSummary": false,
+  "summary": "Make new recovery codes",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -284,11 +284,11 @@
   "labels": [
    "/api/v1/me/passkeys"
   ],
-  "source": "backend/app/management/routers/identity.py:258",
+  "source": "backend/app/management/routers/identity.py:267",
   "section": "administer",
   "operationId": "list_my_passkeys_api_v1_me_passkeys_get",
-  "summary": "List My Passkeys",
-  "writtenSummary": false,
+  "summary": "List my passkeys",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -299,11 +299,11 @@
   "labels": [
    "/api/v1/me/passkeys/{passkey_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:274",
+  "source": "backend/app/management/routers/identity.py:283",
   "section": "administer",
   "operationId": "patch_my_passkey_api_v1_me_passkeys__passkey_id__patch",
-  "summary": "Patch My Passkey",
-  "writtenSummary": false,
+  "summary": "Rename my passkey",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -314,11 +314,11 @@
   "labels": [
    "/api/v1/me/passkeys/{passkey_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:284",
+  "source": "backend/app/management/routers/identity.py:294",
   "section": "administer",
   "operationId": "delete_my_passkey_api_v1_me_passkeys__passkey_id__delete",
-  "summary": "Delete My Passkey",
-  "writtenSummary": false,
+  "summary": "Remove my passkey",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -329,11 +329,11 @@
   "labels": [
    "/api/v1/users/{user_id}/passkeys"
   ],
-  "source": "backend/app/management/routers/identity.py:311",
+  "source": "backend/app/management/routers/identity.py:322",
   "section": "administer",
   "operationId": "list_user_passkeys_api_v1_users__user_id__passkeys_get",
-  "summary": "List User Passkeys",
-  "writtenSummary": false,
+  "summary": "List a person's passkeys",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -344,11 +344,11 @@
   "labels": [
    "/api/v1/users/{user_id}/passkeys/{passkey_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:326",
+  "source": "backend/app/management/routers/identity.py:337",
   "section": "administer",
   "operationId": "delete_user_passkey_api_v1_users__user_id__passkeys__passkey_id__delete",
-  "summary": "Delete User Passkey",
-  "writtenSummary": false,
+  "summary": "Remove a person's passkey",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -359,11 +359,11 @@
   "labels": [
    "/api/v1/users"
   ],
-  "source": "backend/app/management/routers/identity.py:335",
+  "source": "backend/app/management/routers/identity.py:346",
   "section": "administer",
   "operationId": "list_users_api_v1_users_get",
-  "summary": "List Users",
-  "writtenSummary": false,
+  "summary": "List people",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -374,11 +374,11 @@
   "labels": [
    "/api/v1/users"
   ],
-  "source": "backend/app/management/routers/identity.py:351",
+  "source": "backend/app/management/routers/identity.py:362",
   "section": "administer",
   "operationId": "post_user_api_v1_users_post",
-  "summary": "Post User",
-  "writtenSummary": false,
+  "summary": "Create a person",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -389,11 +389,11 @@
   "labels": [
    "/api/v1/users/{user_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:359",
+  "source": "backend/app/management/routers/identity.py:371",
   "section": "administer",
   "operationId": "get_user_api_v1_users__user_id__get",
-  "summary": "Get User",
-  "writtenSummary": false,
+  "summary": "Get a person",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -404,11 +404,11 @@
   "labels": [
    "/api/v1/users/{user_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:365",
+  "source": "backend/app/management/routers/identity.py:377",
   "section": "administer",
   "operationId": "patch_user_api_v1_users__user_id__patch",
-  "summary": "Patch User",
-  "writtenSummary": false,
+  "summary": "Change a person",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -419,11 +419,11 @@
   "labels": [
    "/api/v1/users/{user_id}/password-reset"
   ],
-  "source": "backend/app/management/routers/identity.py:376",
+  "source": "backend/app/management/routers/identity.py:390",
   "section": "administer",
   "operationId": "post_password_reset_api_v1_users__user_id__password_reset_post",
-  "summary": "Post Password Reset",
-  "writtenSummary": false,
+  "summary": "Make a password link",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -434,11 +434,11 @@
   "labels": [
    "/api/v1/users/{user_id}/identities"
   ],
-  "source": "backend/app/management/routers/identity.py:401",
+  "source": "backend/app/management/routers/identity.py:416",
   "section": "administer",
   "operationId": "post_user_identities_api_v1_users__user_id__identities_post",
-  "summary": "Post User Identities",
-  "writtenSummary": false,
+  "summary": "Link a provider identity to a person",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -449,11 +449,11 @@
   "labels": [
    "/api/v1/users/{user_id}/identities/{provider}"
   ],
-  "source": "backend/app/management/routers/identity.py:412",
+  "source": "backend/app/management/routers/identity.py:427",
   "section": "administer",
   "operationId": "delete_user_identity_api_v1_users__user_id__identities__provider__delete",
-  "summary": "Delete User Identity",
-  "writtenSummary": false,
+  "summary": "Unlink a provider identity",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -464,11 +464,11 @@
   "labels": [
    "/api/v1/users/{user_id}/second-factor"
   ],
-  "source": "backend/app/management/routers/identity.py:421",
+  "source": "backend/app/management/routers/identity.py:436",
   "section": "administer",
   "operationId": "delete_user_second_factor_api_v1_users__user_id__second_factor_delete",
-  "summary": "Delete User Second Factor",
-  "writtenSummary": false,
+  "summary": "Remove a person's second factor",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -479,11 +479,11 @@
   "labels": [
    "/api/v1/users/{user_id}/sessions"
   ],
-  "source": "backend/app/management/routers/identity.py:431",
+  "source": "backend/app/management/routers/identity.py:446",
   "section": "administer",
   "operationId": "delete_user_sessions_api_v1_users__user_id__sessions_delete",
-  "summary": "Delete User Sessions",
-  "writtenSummary": false,
+  "summary": "Sign a person out everywhere",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -494,11 +494,11 @@
   "labels": [
    "/api/v1/clients"
   ],
-  "source": "backend/app/management/routers/identity.py:439",
+  "source": "backend/app/management/routers/identity.py:454",
   "section": "administer",
   "operationId": "list_clients_api_v1_clients_get",
-  "summary": "List Clients",
-  "writtenSummary": false,
+  "summary": "List clients",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -509,11 +509,11 @@
   "labels": [
    "/api/v1/clients"
   ],
-  "source": "backend/app/management/routers/identity.py:457",
+  "source": "backend/app/management/routers/identity.py:472",
   "section": "administer",
   "operationId": "post_client_api_v1_clients_post",
-  "summary": "Post Client",
-  "writtenSummary": false,
+  "summary": "Create a client",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -524,11 +524,11 @@
   "labels": [
    "/api/v1/clients/{client_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:467",
+  "source": "backend/app/management/routers/identity.py:482",
   "section": "administer",
   "operationId": "get_client_api_v1_clients__client_id__get",
-  "summary": "Get Client",
-  "writtenSummary": false,
+  "summary": "Get a client",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -539,11 +539,11 @@
   "labels": [
    "/api/v1/clients/{client_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:473",
+  "source": "backend/app/management/routers/identity.py:488",
   "section": "administer",
   "operationId": "patch_client_api_v1_clients__client_id__patch",
-  "summary": "Patch Client",
-  "writtenSummary": false,
+  "summary": "Change a client",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -554,11 +554,11 @@
   "labels": [
    "/api/v1/clients/{client_id}/secrets"
   ],
-  "source": "backend/app/management/routers/identity.py:481",
+  "source": "backend/app/management/routers/identity.py:496",
   "section": "administer",
   "operationId": "post_client_secret_api_v1_clients__client_id__secrets_post",
-  "summary": "Post Client Secret",
-  "writtenSummary": false,
+  "summary": "Add a client secret",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -569,11 +569,11 @@
   "labels": [
    "/api/v1/clients/{client_id}/secrets/{secret_id}"
   ],
-  "source": "backend/app/management/routers/identity.py:492",
+  "source": "backend/app/management/routers/identity.py:507",
   "section": "administer",
   "operationId": "delete_client_secret_api_v1_clients__client_id__secrets__secret_id__delete",
-  "summary": "Delete Client Secret",
-  "writtenSummary": false,
+  "summary": "Stop a client secret",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -584,11 +584,11 @@
   "labels": [
    "/api/v1/token-signing-keys"
   ],
-  "source": "backend/app/management/routers/identity.py:499",
+  "source": "backend/app/management/routers/identity.py:514",
   "section": "administer",
   "operationId": "list_signing_keys_api_v1_token_signing_keys_get",
-  "summary": "List Signing Keys",
-  "writtenSummary": false,
+  "summary": "List token signing keys",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -599,11 +599,11 @@
   "labels": [
    "/api/v1/token-signing-keys/rotation"
   ],
-  "source": "backend/app/management/routers/identity.py:510",
+  "source": "backend/app/management/routers/identity.py:525",
   "section": "administer",
   "operationId": "rotate_signing_key_api_v1_token_signing_keys_rotation_post",
-  "summary": "Rotate Signing Key",
-  "writtenSummary": false,
+  "summary": "Rotate the token signing key",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -614,11 +614,11 @@
   "labels": [
    "/api/v1/security-events"
   ],
-  "source": "backend/app/management/routers/identity.py:526",
+  "source": "backend/app/management/routers/identity.py:541",
   "section": "administer",
   "operationId": "list_security_events_api_v1_security_events_get",
-  "summary": "List Security Events",
-  "writtenSummary": false,
+  "summary": "List security events",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -629,11 +629,11 @@
   "labels": [
    "/api/v1/sign-in-providers"
   ],
-  "source": "backend/app/management/routers/identity.py:550",
+  "source": "backend/app/management/routers/identity.py:565",
   "section": "administer",
   "operationId": "list_sign_in_providers_api_v1_sign_in_providers_get",
-  "summary": "List Sign In Providers",
-  "writtenSummary": false,
+  "summary": "List sign-in providers",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -644,11 +644,11 @@
   "labels": [
    "/api/v1/sign-in-providers"
   ],
-  "source": "backend/app/management/routers/identity.py:566",
+  "source": "backend/app/management/routers/identity.py:581",
   "section": "administer",
   "operationId": "post_sign_in_provider_api_v1_sign_in_providers_post",
-  "summary": "Post Sign In Provider",
-  "writtenSummary": false,
+  "summary": "Connect a sign-in provider",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -659,11 +659,11 @@
   "labels": [
    "/api/v1/sign-in-providers/local"
   ],
-  "source": "backend/app/management/routers/identity.py:579",
+  "source": "backend/app/management/routers/identity.py:594",
   "section": "administer",
   "operationId": "get_local_sign_in_api_v1_sign_in_providers_local_get",
-  "summary": "Get Local Sign In",
-  "writtenSummary": false,
+  "summary": "Read local sign-in",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -674,11 +674,11 @@
   "labels": [
    "/api/v1/sign-in-providers/local"
   ],
-  "source": "backend/app/management/routers/identity.py:586",
+  "source": "backend/app/management/routers/identity.py:601",
   "section": "administer",
   "operationId": "patch_local_sign_in_api_v1_sign_in_providers_local_patch",
-  "summary": "Patch Local Sign In",
-  "writtenSummary": false,
+  "summary": "Change local sign-in",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -689,11 +689,11 @@
   "labels": [
    "/api/v1/sign-in-providers/{key}"
   ],
-  "source": "backend/app/management/routers/identity.py:598",
+  "source": "backend/app/management/routers/identity.py:613",
   "section": "administer",
   "operationId": "get_sign_in_provider_api_v1_sign_in_providers__key__get",
-  "summary": "Get Sign In Provider",
-  "writtenSummary": false,
+  "summary": "Get a sign-in provider",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -704,11 +704,11 @@
   "labels": [
    "/api/v1/sign-in-providers/{key}"
   ],
-  "source": "backend/app/management/routers/identity.py:606",
+  "source": "backend/app/management/routers/identity.py:621",
   "section": "administer",
   "operationId": "patch_sign_in_provider_api_v1_sign_in_providers__key__patch",
-  "summary": "Patch Sign In Provider",
-  "writtenSummary": false,
+  "summary": "Change a sign-in provider",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -719,11 +719,11 @@
   "labels": [
    "/api/v1/sign-in-providers/{key}"
   ],
-  "source": "backend/app/management/routers/identity.py:618",
+  "source": "backend/app/management/routers/identity.py:633",
   "section": "administer",
   "operationId": "delete_sign_in_provider_api_v1_sign_in_providers__key__delete",
-  "summary": "Delete Sign In Provider",
-  "writtenSummary": false,
+  "summary": "Delete a sign-in provider",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -737,8 +737,8 @@
   "source": "backend/app/management/routers/mail.py:37",
   "section": "administer",
   "operationId": "get_mail_settings_api_v1_mail_settings_get",
-  "summary": "Get Mail Settings",
-  "writtenSummary": false,
+  "summary": "Read the mail settings",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -752,8 +752,8 @@
   "source": "backend/app/management/routers/mail.py:46",
   "section": "administer",
   "operationId": "put_mail_settings_api_v1_mail_settings_put",
-  "summary": "Put Mail Settings",
-  "writtenSummary": false,
+  "summary": "Save the mail settings",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -767,8 +767,8 @@
   "source": "backend/app/management/routers/mail.py:64",
   "section": "administer",
   "operationId": "delete_mail_settings_api_v1_mail_settings_delete",
-  "summary": "Delete Mail Settings",
-  "writtenSummary": false,
+  "summary": "Remove the mail settings",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -782,8 +782,8 @@
   "source": "backend/app/management/routers/mail.py:73",
   "section": "administer",
   "operationId": "post_mail_test_api_v1_mail_settings_test_post",
-  "summary": "Post Mail Test",
-  "writtenSummary": false,
+  "summary": "Send a test message",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -797,8 +797,8 @@
   "source": "backend/app/management/routers/mail.py:98",
   "section": "administer",
   "operationId": "post_stop_mail_message_api_v1_mail_outbox__message_id__stop_post",
-  "summary": "Post Stop Mail Message",
-  "writtenSummary": false,
+  "summary": "Stop a message",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -812,8 +812,8 @@
   "source": "backend/app/management/routers/mail.py:108",
   "section": "administer",
   "operationId": "list_mail_outbox_api_v1_mail_outbox_get",
-  "summary": "List Mail Outbox",
-  "writtenSummary": false,
+  "summary": "List the messages in the outbox",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -827,8 +827,8 @@
   "source": "backend/app/management/routers/mail.py:123",
   "section": "administer",
   "operationId": "get_my_notification_mail_api_v1_me_notification_mail_get",
-  "summary": "Get My Notification Mail",
-  "writtenSummary": false,
+  "summary": "Read my notice mail",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -842,8 +842,8 @@
   "source": "backend/app/management/routers/mail.py:132",
   "section": "administer",
   "operationId": "put_my_notification_mail_api_v1_me_notification_mail_put",
-  "summary": "Put My Notification Mail",
-  "writtenSummary": false,
+  "summary": "Change my notice mail",
+  "writtenSummary": true,
   "tags": [
    "mail"
   ]
@@ -857,8 +857,8 @@
   "source": "backend/app/management/routers/ai.py:65",
   "section": "administer",
   "operationId": "get_ai_status_api_v1_ai_status_get",
-  "summary": "Get Ai Status",
-  "writtenSummary": false,
+  "summary": "Read how the provider is set up",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -872,8 +872,8 @@
   "source": "backend/app/management/routers/ai.py:74",
   "section": "administer",
   "operationId": "list_ai_calls_api_v1_ai_calls_get",
-  "summary": "List Ai Calls",
-  "writtenSummary": false,
+  "summary": "List the calls to the provider",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -887,8 +887,8 @@
   "source": "backend/app/management/routers/ai.py:86",
   "section": "administer",
   "operationId": "test_ai_provider_api_v1_ai_test_post",
-  "summary": "Test Ai Provider",
-  "writtenSummary": false,
+  "summary": "Test the provider",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -902,8 +902,8 @@
   "source": "backend/app/management/routers/ai.py:125",
   "section": "administer",
   "operationId": "post_query_translation_api_v1_workspaces__workspace_key__query_translations_post",
-  "summary": "Post Query Translation",
-  "writtenSummary": false,
+  "summary": "Turn a question into filters",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -917,8 +917,8 @@
   "source": "backend/app/management/routers/ai.py:236",
   "section": "administer",
   "operationId": "post_release_impact_summary_api_v1_model_releases__release_id__impact_summary_post",
-  "summary": "Post Release Impact Summary",
-  "writtenSummary": false,
+  "summary": "Describe what activating a release does",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -932,8 +932,8 @@
   "source": "backend/app/management/routers/ai.py:290",
   "section": "administer",
   "operationId": "post_workspace_history_account_api_v1_workspaces__workspace_key__history_account_post",
-  "summary": "Post Workspace History Account",
-  "writtenSummary": false,
+  "summary": "Describe what changed in a workspace",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -947,8 +947,8 @@
   "source": "backend/app/management/routers/ai.py:334",
   "section": "administer",
   "operationId": "post_object_history_account_api_v1_objects__object_type_key___object_id__history_account_post",
-  "summary": "Post Object History Account",
-  "writtenSummary": false,
+  "summary": "Describe what changed in a record",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -962,8 +962,8 @@
   "source": "backend/app/management/routers/agent_access.py:31",
   "section": "administer",
   "operationId": "get_agent_access_api_v1_agent_access_get",
-  "summary": "Get Agent Access",
-  "writtenSummary": false,
+  "summary": "Read agent access",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -977,8 +977,8 @@
   "source": "backend/app/management/routers/agent_access.py:51",
   "section": "administer",
   "operationId": "list_agent_clients_api_v1_agent_access_clients_get",
-  "summary": "List Agent Clients",
-  "writtenSummary": false,
+  "summary": "List agent clients",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -989,11 +989,11 @@
   "labels": [
    "/api/v1/agent-access/applications"
   ],
-  "source": "backend/app/management/routers/agent_access.py:89",
+  "source": "backend/app/management/routers/agent_access.py:94",
   "section": "administer",
   "operationId": "list_agent_applications_api_v1_agent_access_applications_get",
-  "summary": "List Agent Applications",
-  "writtenSummary": false,
+  "summary": "List assistants",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -1004,11 +1004,11 @@
   "labels": [
    "/api/v1/agent-access/applications"
   ],
-  "source": "backend/app/management/routers/agent_access.py:105",
+  "source": "backend/app/management/routers/agent_access.py:110",
   "section": "administer",
   "operationId": "post_agent_application_api_v1_agent_access_applications_post",
-  "summary": "Post Agent Application",
-  "writtenSummary": false,
+  "summary": "Register an assistant",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -1019,11 +1019,11 @@
   "labels": [
    "/api/v1/agent-access/applications/{application_id}/block"
   ],
-  "source": "backend/app/management/routers/agent_access.py:117",
+  "source": "backend/app/management/routers/agent_access.py:122",
   "section": "administer",
   "operationId": "block_agent_application_api_v1_agent_access_applications__application_id__block_post",
-  "summary": "Block Agent Application",
-  "writtenSummary": false,
+  "summary": "Block an assistant",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -1034,11 +1034,11 @@
   "labels": [
    "/api/v1/agent-access/applications/{application_id}/restore"
   ],
-  "source": "backend/app/management/routers/agent_access.py:125",
+  "source": "backend/app/management/routers/agent_access.py:131",
   "section": "administer",
   "operationId": "restore_agent_application_api_v1_agent_access_applications__application_id__restore_post",
-  "summary": "Restore Agent Application",
-  "writtenSummary": false,
+  "summary": "Restore an assistant",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -1049,11 +1049,11 @@
   "labels": [
    "/api/v1/agent-access/calls"
   ],
-  "source": "backend/app/management/routers/agent_access.py:133",
+  "source": "backend/app/management/routers/agent_access.py:139",
   "section": "administer",
   "operationId": "list_agent_calls_api_v1_agent_access_calls_get",
-  "summary": "List Agent Calls",
-  "writtenSummary": false,
+  "summary": "List agent calls",
+  "writtenSummary": true,
   "tags": [
    "agent-access"
   ]
@@ -1067,8 +1067,8 @@
   "source": "backend/app/management/routers/notifications.py:47",
   "section": "use",
   "operationId": "list_my_notifications_api_v1_me_notifications_get",
-  "summary": "List My Notifications",
-  "writtenSummary": false,
+  "summary": "List my notices",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1082,8 +1082,8 @@
   "source": "backend/app/management/routers/notifications.py:84",
   "section": "use",
   "operationId": "mark_my_notifications_read_api_v1_me_notifications_read_post",
-  "summary": "Mark My Notifications Read",
-  "writtenSummary": false,
+  "summary": "Mark notices read",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1097,8 +1097,8 @@
   "source": "backend/app/management/routers/notifications.py:102",
   "section": "use",
   "operationId": "remove_my_notifications_api_v1_me_notifications_removal_post",
-  "summary": "Remove My Notifications",
-  "writtenSummary": false,
+  "summary": "Remove notices",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1112,8 +1112,8 @@
   "source": "backend/app/management/routers/notifications.py:139",
   "section": "use",
   "operationId": "list_followed_workspaces_api_v1_me_followed_workspaces_get",
-  "summary": "List Followed Workspaces",
-  "writtenSummary": false,
+  "summary": "List the workspaces I follow",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1127,8 +1127,8 @@
   "source": "backend/app/management/routers/notifications.py:190",
   "section": "use",
   "operationId": "follow_workspace_api_v1_me_followed_workspaces__workspace_key__put",
-  "summary": "Follow Workspace",
-  "writtenSummary": false,
+  "summary": "Follow a workspace",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1142,8 +1142,8 @@
   "source": "backend/app/management/routers/notifications.py:207",
   "section": "use",
   "operationId": "unfollow_workspace_api_v1_me_followed_workspaces__workspace_key__delete",
-  "summary": "Unfollow Workspace",
-  "writtenSummary": false,
+  "summary": "Stop following a workspace",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1157,8 +1157,8 @@
   "source": "backend/app/management/routers/notifications.py:224",
   "section": "use",
   "operationId": "my_notification_events_api_v1_me_notifications_events_get",
-  "summary": "My Notification Events",
-  "writtenSummary": false,
+  "summary": "Follow my notices live",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1172,8 +1172,8 @@
   "source": "backend/app/management/routers/notifications.py:284",
   "section": "use",
   "operationId": "get_my_notification_api_v1_me_notifications__notification_id__get",
-  "summary": "Get My Notification",
-  "writtenSummary": false,
+  "summary": "Get a notice",
+  "writtenSummary": true,
   "tags": [
    "notifications"
   ]
@@ -1187,8 +1187,8 @@
   "source": "backend/app/management/routers/authorization.py:48",
   "section": "administer",
   "operationId": "get_my_permissions_api_v1_me_permissions_get",
-  "summary": "Get My Permissions",
-  "writtenSummary": false,
+  "summary": "Read what I may do in a workspace",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1202,8 +1202,8 @@
   "source": "backend/app/management/routers/authorization.py:61",
   "section": "administer",
   "operationId": "get_my_action_groups_api_v1_me_action_groups_get",
-  "summary": "Get My Action Groups",
-  "writtenSummary": false,
+  "summary": "List the action groups I hold anywhere",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1217,8 +1217,8 @@
   "source": "backend/app/management/routers/authorization.py:69",
   "section": "administer",
   "operationId": "list_my_grants_api_v1_me_grants_get",
-  "summary": "List My Grants",
-  "writtenSummary": false,
+  "summary": "List my grants",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1232,8 +1232,8 @@
   "source": "backend/app/management/routers/authorization.py:84",
   "section": "administer",
   "operationId": "list_action_groups_api_v1_action_groups_get",
-  "summary": "List Action Groups",
-  "writtenSummary": false,
+  "summary": "List the action groups",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1247,8 +1247,8 @@
   "source": "backend/app/management/routers/authorization.py:92",
   "section": "administer",
   "operationId": "list_roles_api_v1_roles_get",
-  "summary": "List Roles",
-  "writtenSummary": false,
+  "summary": "List roles",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1262,8 +1262,8 @@
   "source": "backend/app/management/routers/authorization.py:101",
   "section": "administer",
   "operationId": "post_role_api_v1_roles_post",
-  "summary": "Post Role",
-  "writtenSummary": false,
+  "summary": "Create a role",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1277,8 +1277,8 @@
   "source": "backend/app/management/routers/authorization.py:109",
   "section": "administer",
   "operationId": "get_role_api_v1_roles__role_key__get",
-  "summary": "Get Role",
-  "writtenSummary": false,
+  "summary": "Get a role",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1292,8 +1292,8 @@
   "source": "backend/app/management/routers/authorization.py:115",
   "section": "administer",
   "operationId": "patch_role_api_v1_roles__role_key__patch",
-  "summary": "Patch Role",
-  "writtenSummary": false,
+  "summary": "Change a role",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1307,8 +1307,8 @@
   "source": "backend/app/management/routers/authorization.py:123",
   "section": "administer",
   "operationId": "delete_role_api_v1_roles__role_key__delete",
-  "summary": "Delete Role",
-  "writtenSummary": false,
+  "summary": "Delete a role",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1322,8 +1322,8 @@
   "source": "backend/app/management/routers/authorization.py:131",
   "section": "administer",
   "operationId": "list_groups_api_v1_groups_get",
-  "summary": "List Groups",
-  "writtenSummary": false,
+  "summary": "List groups",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1337,8 +1337,8 @@
   "source": "backend/app/management/routers/authorization.py:149",
   "section": "administer",
   "operationId": "post_group_api_v1_groups_post",
-  "summary": "Post Group",
-  "writtenSummary": false,
+  "summary": "Create a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1352,8 +1352,8 @@
   "source": "backend/app/management/routers/authorization.py:158",
   "section": "administer",
   "operationId": "get_group_api_v1_groups__group_id__get",
-  "summary": "Get Group",
-  "writtenSummary": false,
+  "summary": "Get a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1367,8 +1367,8 @@
   "source": "backend/app/management/routers/authorization.py:164",
   "section": "administer",
   "operationId": "patch_group_api_v1_groups__group_id__patch",
-  "summary": "Patch Group",
-  "writtenSummary": false,
+  "summary": "Change a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1382,8 +1382,8 @@
   "source": "backend/app/management/routers/authorization.py:170",
   "section": "administer",
   "operationId": "delete_group_api_v1_groups__group_id__delete",
-  "summary": "Delete Group",
-  "writtenSummary": false,
+  "summary": "Delete a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1397,8 +1397,8 @@
   "source": "backend/app/management/routers/authorization.py:178",
   "section": "administer",
   "operationId": "list_group_members_api_v1_groups__group_id__members_get",
-  "summary": "List Group Members",
-  "writtenSummary": false,
+  "summary": "List a group's members",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1412,8 +1412,8 @@
   "source": "backend/app/management/routers/authorization.py:190",
   "section": "administer",
   "operationId": "post_group_member_api_v1_groups__group_id__members_post",
-  "summary": "Post Group Member",
-  "writtenSummary": false,
+  "summary": "Add a person to a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1427,8 +1427,8 @@
   "source": "backend/app/management/routers/authorization.py:200",
   "section": "administer",
   "operationId": "post_group_members_api_v1_groups__group_id__members_batch_post",
-  "summary": "Post Group Members",
-  "writtenSummary": false,
+  "summary": "Add several people to a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1442,8 +1442,8 @@
   "source": "backend/app/management/routers/authorization.py:221",
   "section": "administer",
   "operationId": "post_group_members_removal_api_v1_groups__group_id__members_removal_post",
-  "summary": "Post Group Members Removal",
-  "writtenSummary": false,
+  "summary": "Remove several people from a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1457,8 +1457,8 @@
   "source": "backend/app/management/routers/authorization.py:232",
   "section": "administer",
   "operationId": "delete_group_member_api_v1_groups__group_id__members__user_id__delete",
-  "summary": "Delete Group Member",
-  "writtenSummary": false,
+  "summary": "Remove a person from a group",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1472,8 +1472,8 @@
   "source": "backend/app/management/routers/authorization.py:240",
   "section": "administer",
   "operationId": "list_grants_api_v1_grants_get",
-  "summary": "List Grants",
-  "writtenSummary": false,
+  "summary": "List grants",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1487,8 +1487,8 @@
   "source": "backend/app/management/routers/authorization.py:267",
   "section": "administer",
   "operationId": "post_grant_api_v1_grants_post",
-  "summary": "Post Grant",
-  "writtenSummary": false,
+  "summary": "Create a grant",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1502,8 +1502,8 @@
   "source": "backend/app/management/routers/authorization.py:279",
   "section": "administer",
   "operationId": "delete_grant_api_v1_grants__grant_id__delete",
-  "summary": "Delete Grant",
-  "writtenSummary": false,
+  "summary": "Remove a grant",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1517,8 +1517,8 @@
   "source": "backend/app/management/routers/authorization.py:288",
   "section": "administer",
   "operationId": "list_user_grants_api_v1_users__user_id__grants_get",
-  "summary": "List User Grants",
-  "writtenSummary": false,
+  "summary": "List a person's grants",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1532,8 +1532,8 @@
   "source": "backend/app/management/routers/authorization.py:301",
   "section": "administer",
   "operationId": "get_grant_options_api_v1_workspaces__workspace_key__grant_options_get",
-  "summary": "Get Grant Options",
-  "writtenSummary": false,
+  "summary": "List what a grant in a workspace can name",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1547,8 +1547,8 @@
   "source": "backend/app/management/routers/authorization.py:318",
   "section": "administer",
   "operationId": "list_workspace_access_api_v1_workspaces__workspace_key__access_get",
-  "summary": "List Workspace Access",
-  "writtenSummary": false,
+  "summary": "List who has access to a workspace",
+  "writtenSummary": true,
   "tags": [
    "security"
   ]
@@ -1562,8 +1562,8 @@
   "source": "backend/app/management/routers/model.py:57",
   "section": "model",
   "operationId": "get_capabilities_api_v1_capabilities_get",
-  "summary": "Get Capabilities",
-  "writtenSummary": false,
+  "summary": "Read what this instance offers",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1577,8 +1577,8 @@
   "source": "backend/app/management/routers/model.py:112",
   "section": "model",
   "operationId": "get_model_api_v1_model_get",
-  "summary": "Get Model",
-  "writtenSummary": false,
+  "summary": "Read the model",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1592,8 +1592,8 @@
   "source": "backend/app/management/routers/model.py:144",
   "section": "model",
   "operationId": "get_model_placements_api_v1_model_placements_get",
-  "summary": "Get Model Placements",
-  "writtenSummary": false,
+  "summary": "Read where records may stand",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1607,8 +1607,8 @@
   "source": "backend/app/management/routers/model.py:154",
   "section": "model",
   "operationId": "get_consumer_api_definition_api_v1_model_consumer_apis__consumerApi__get",
-  "summary": "Get Consumer Api Definition",
-  "writtenSummary": false,
+  "summary": "Read a consumer API definition in full",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1622,8 +1622,8 @@
   "source": "backend/app/management/routers/model.py:187",
   "section": "model",
   "operationId": "validate_model_api_v1_model_validations_post",
-  "summary": "Validate Model",
-  "writtenSummary": false,
+  "summary": "Validate a model document",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1637,8 +1637,8 @@
   "source": "backend/app/management/routers/model.py:201",
   "section": "model",
   "operationId": "get_applications_api_v1_applications_get",
-  "summary": "Get Applications",
-  "writtenSummary": false,
+  "summary": "List applications",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1652,8 +1652,8 @@
   "source": "backend/app/management/routers/model.py:223",
   "section": "model",
   "operationId": "get_application_detail_api_v1_applications__application_key__get",
-  "summary": "Get Application Detail",
-  "writtenSummary": false,
+  "summary": "Get an application",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1667,8 +1667,8 @@
   "source": "backend/app/management/routers/model.py:232",
   "section": "model",
   "operationId": "list_attribute_types_api_v1_attribute_types_get",
-  "summary": "List Attribute Types",
-  "writtenSummary": false,
+  "summary": "List attribute types",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1682,8 +1682,8 @@
   "source": "backend/app/management/routers/model.py:254",
   "section": "model",
   "operationId": "get_attribute_type_api_v1_attribute_types__attribute_type_key__get",
-  "summary": "Get Attribute Type",
-  "writtenSummary": false,
+  "summary": "Get an attribute type",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1697,8 +1697,8 @@
   "source": "backend/app/management/routers/model.py:267",
   "section": "model",
   "operationId": "list_object_types_api_v1_object_types_get",
-  "summary": "List Object Types",
-  "writtenSummary": false,
+  "summary": "List object types",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1712,8 +1712,8 @@
   "source": "backend/app/management/routers/model.py:289",
   "section": "model",
   "operationId": "get_object_type_detail_api_v1_object_types__object_type_key__get",
-  "summary": "Get Object Type Detail",
-  "writtenSummary": false,
+  "summary": "Get an object type",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1727,8 +1727,8 @@
   "source": "backend/app/management/routers/model.py:298",
   "section": "model",
   "operationId": "list_relation_types_api_v1_relation_types_get",
-  "summary": "List Relation Types",
-  "writtenSummary": false,
+  "summary": "List relation types",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1742,8 +1742,8 @@
   "source": "backend/app/management/routers/model.py:320",
   "section": "model",
   "operationId": "get_relation_type_api_v1_relation_types__relation_type_key__get",
-  "summary": "Get Relation Type",
-  "writtenSummary": false,
+  "summary": "Get a relation type",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1757,8 +1757,8 @@
   "source": "backend/app/management/routers/model.py:333",
   "section": "model",
   "operationId": "get_object_type_relations_api_v1_object_type_relations_get",
-  "summary": "Get Object Type Relations",
-  "writtenSummary": false,
+  "summary": "List permitted relationships",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1772,8 +1772,8 @@
   "source": "backend/app/management/routers/system.py:63",
   "section": "run",
   "operationId": "get_system_api_v1_system_get",
-  "summary": "Get System",
-  "writtenSummary": false,
+  "summary": "Get the system",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1787,8 +1787,8 @@
   "source": "backend/app/management/routers/system.py:100",
   "section": "run",
   "operationId": "get_configuration_api_v1_system_configuration_get",
-  "summary": "Get Configuration",
-  "writtenSummary": false,
+  "summary": "Get the configuration",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1802,8 +1802,8 @@
   "source": "backend/app/management/routers/system.py:122",
   "section": "run",
   "operationId": "list_processes_api_v1_system_processes_get",
-  "summary": "List Processes",
-  "writtenSummary": false,
+  "summary": "List the engine processes",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1817,8 +1817,8 @@
   "source": "backend/app/management/routers/system.py:148",
   "section": "run",
   "operationId": "list_readiness_api_v1_system_readiness_get",
-  "summary": "List Readiness",
-  "writtenSummary": false,
+  "summary": "List workspace readiness",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1832,8 +1832,8 @@
   "source": "backend/app/management/routers/system.py:177",
   "section": "run",
   "operationId": "get_summary_api_v1_system_summary_get",
-  "summary": "Get Summary",
-  "writtenSummary": false,
+  "summary": "Get the instance summary",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1847,8 +1847,8 @@
   "source": "backend/app/management/routers/system.py:187",
   "section": "run",
   "operationId": "list_backup_rehearsals_api_v1_system_backup_rehearsals_get",
-  "summary": "List Backup Rehearsals",
-  "writtenSummary": false,
+  "summary": "List backup rehearsals",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1862,8 +1862,8 @@
   "source": "backend/app/management/routers/system.py:215",
   "section": "run",
   "operationId": "get_metrics_metrics_get",
-  "summary": "Get Metrics",
-  "writtenSummary": false,
+  "summary": "Scrape the metrics",
+  "writtenSummary": true,
   "tags": [
    "system"
   ]
@@ -1877,8 +1877,8 @@
   "source": "backend/app/management/routers/model_releases.py:60",
   "section": "model",
   "operationId": "list_model_releases_api_v1_model_releases_get",
-  "summary": "List Model Releases",
-  "writtenSummary": false,
+  "summary": "List model releases",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1892,8 +1892,8 @@
   "source": "backend/app/management/routers/model_releases.py:111",
   "section": "model",
   "operationId": "get_model_release_api_v1_model_releases__release_id__get",
-  "summary": "Get Model Release",
-  "writtenSummary": false,
+  "summary": "Get a model release",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1907,8 +1907,8 @@
   "source": "backend/app/management/routers/model_releases.py:126",
   "section": "model",
   "operationId": "patch_model_release_api_v1_model_releases__release_id__patch",
-  "summary": "Patch Model Release",
-  "writtenSummary": false,
+  "summary": "Retire or restore a model release",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1922,8 +1922,8 @@
   "source": "backend/app/management/routers/model_releases.py:146",
   "section": "model",
   "operationId": "delete_model_release_api_v1_model_releases__release_id__delete",
-  "summary": "Delete Model Release",
-  "writtenSummary": false,
+  "summary": "Delete a model release",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1937,8 +1937,8 @@
   "source": "backend/app/management/routers/model_releases.py:161",
   "section": "model",
   "operationId": "list_model_release_activations_api_v1_model_releases__release_id__activations_get",
-  "summary": "List Model Release Activations",
-  "writtenSummary": false,
+  "summary": "List a release's activations",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1952,8 +1952,8 @@
   "source": "backend/app/management/routers/model_releases.py:212",
   "section": "model",
   "operationId": "diff_model_release_api_v1_model_releases__release_id__diff_get",
-  "summary": "Diff Model Release",
-  "writtenSummary": false,
+  "summary": "Compare two model releases",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1967,8 +1967,8 @@
   "source": "backend/app/management/routers/model_releases.py:293",
   "section": "model",
   "operationId": "raise_model_release_api_v1_model_releases__release_id__raising_post",
-  "summary": "Raise Model Release",
-  "writtenSummary": false,
+  "summary": "Raise a release's schema",
+  "writtenSummary": true,
   "tags": [
    "model"
   ]
@@ -1982,8 +1982,8 @@
   "source": "backend/app/management/routers/workspaces.py:90",
   "section": "use",
   "operationId": "list_workspaces_api_v1_workspaces_get",
-  "summary": "List Workspaces",
-  "writtenSummary": false,
+  "summary": "List workspaces",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -1997,8 +1997,8 @@
   "source": "backend/app/management/routers/workspaces.py:254",
   "section": "use",
   "operationId": "post_workspace_api_v1_workspaces_post",
-  "summary": "Post Workspace",
-  "writtenSummary": false,
+  "summary": "Create a workspace",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2012,8 +2012,8 @@
   "source": "backend/app/management/routers/workspaces.py:115",
   "section": "use",
   "operationId": "list_own_workspaces_api_v1_me_workspaces_get",
-  "summary": "List Own Workspaces",
-  "writtenSummary": false,
+  "summary": "List my workspaces",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2027,8 +2027,8 @@
   "source": "backend/app/management/routers/workspaces.py:155",
   "section": "use",
   "operationId": "get_workspace_api_v1_workspaces__workspace_key__get",
-  "summary": "Get Workspace",
-  "writtenSummary": false,
+  "summary": "Get a workspace",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2042,8 +2042,8 @@
   "source": "backend/app/management/routers/workspaces.py:262",
   "section": "use",
   "operationId": "patch_workspace_api_v1_workspaces__workspace_key__patch",
-  "summary": "Patch Workspace",
-  "writtenSummary": false,
+  "summary": "Rename, retire or reactivate a workspace",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2057,8 +2057,8 @@
   "source": "backend/app/management/routers/workspaces.py:270",
   "section": "use",
   "operationId": "delete_workspace_route_api_v1_workspaces__workspace_key__delete",
-  "summary": "Delete Workspace Route",
-  "writtenSummary": false,
+  "summary": "Delete a workspace",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2072,8 +2072,8 @@
   "source": "backend/app/management/routers/workspaces.py:161",
   "section": "use",
   "operationId": "get_workspace_model_api_v1_workspaces__workspace_key__model_get",
-  "summary": "Get Workspace Model",
-  "writtenSummary": false,
+  "summary": "Get the release a workspace runs",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2087,8 +2087,8 @@
   "source": "backend/app/management/routers/workspaces.py:168",
   "section": "use",
   "operationId": "list_workspace_models_api_v1_workspace_models_get",
-  "summary": "List Workspace Models",
-  "writtenSummary": false,
+  "summary": "List the release each workspace runs",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2102,8 +2102,8 @@
   "source": "backend/app/management/routers/workspaces.py:219",
   "section": "use",
   "operationId": "get_feed_api_v1_workspaces__workspace_key__feed_get",
-  "summary": "Get Feed",
-  "writtenSummary": false,
+  "summary": "Read a workspace's change feed",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2117,8 +2117,8 @@
   "source": "backend/app/management/routers/workspaces.py:248",
   "section": "use",
   "operationId": "get_workspace_runtime_state_api_v1_workspace_runtime_state_get",
-  "summary": "Get Workspace Runtime State",
-  "writtenSummary": false,
+  "summary": "Get the default workspace",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2132,8 +2132,8 @@
   "source": "backend/app/management/routers/workspaces.py:280",
   "section": "use",
   "operationId": "patch_workspace_runtime_state_api_v1_workspace_runtime_state_patch",
-  "summary": "Patch Workspace Runtime State",
-  "writtenSummary": false,
+  "summary": "Set the default workspace",
+  "writtenSummary": true,
   "tags": [
    "workspaces"
   ]
@@ -2147,8 +2147,8 @@
   "source": "backend/app/management/routers/change_sets.py:185",
   "section": "use",
   "operationId": "list_change_sets_api_v1_workspaces__workspace_key__change_sets_get",
-  "summary": "List Change Sets",
-  "writtenSummary": false,
+  "summary": "List a workspace's change sets",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2162,8 +2162,8 @@
   "source": "backend/app/management/routers/change_sets.py:307",
   "section": "use",
   "operationId": "post_change_set_api_v1_workspaces__workspace_key__change_sets_post",
-  "summary": "Post Change Set",
-  "writtenSummary": false,
+  "summary": "Start a change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2177,8 +2177,8 @@
   "source": "backend/app/management/routers/change_sets.py:222",
   "section": "use",
   "operationId": "list_own_change_sets_api_v1_me_change_sets_get",
-  "summary": "List Own Change Sets",
-  "writtenSummary": false,
+  "summary": "List my change sets",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2192,8 +2192,8 @@
   "source": "backend/app/management/routers/change_sets.py:361",
   "section": "use",
   "operationId": "get_change_set_api_v1_change_sets__change_set_id__get",
-  "summary": "Get Change Set",
-  "writtenSummary": false,
+  "summary": "Get a change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2207,8 +2207,8 @@
   "source": "backend/app/management/routers/change_sets.py:372",
   "section": "use",
   "operationId": "patch_change_set_api_v1_change_sets__change_set_id__patch",
-  "summary": "Patch Change Set",
-  "writtenSummary": false,
+  "summary": "Rename a change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2222,8 +2222,8 @@
   "source": "backend/app/management/routers/change_sets.py:436",
   "section": "use",
   "operationId": "delete_change_set_api_v1_change_sets__change_set_id__delete",
-  "summary": "Delete Change Set",
-  "writtenSummary": false,
+  "summary": "Discard a change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2237,8 +2237,8 @@
   "source": "backend/app/management/routers/change_sets.py:382",
   "section": "use",
   "operationId": "patch_change_set_model_release_api_v1_change_sets__change_set_id__model_release_patch",
-  "summary": "Patch Change Set Model Release",
-  "writtenSummary": false,
+  "summary": "Move a change set to another release",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2252,8 +2252,8 @@
   "source": "backend/app/management/routers/change_sets.py:527",
   "section": "use",
   "operationId": "get_object_changes_api_v1_change_sets__change_set_id__object_changes_get",
-  "summary": "Get Object Changes",
-  "writtenSummary": false,
+  "summary": "List the records a change set changes",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2267,8 +2267,8 @@
   "source": "backend/app/management/routers/change_sets.py:569",
   "section": "use",
   "operationId": "get_relation_changes_api_v1_change_sets__change_set_id__relation_changes_get",
-  "summary": "Get Relation Changes",
-  "writtenSummary": false,
+  "summary": "List the relationships a change set changes",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2282,8 +2282,8 @@
   "source": "backend/app/management/routers/change_sets.py:681",
   "section": "use",
   "operationId": "post_restructuring_preview_api_v1_change_sets__change_set_id__restructurings_preview_post",
-  "summary": "Post Restructuring Preview",
-  "writtenSummary": false,
+  "summary": "Plan a restructuring",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2297,8 +2297,8 @@
   "source": "backend/app/management/routers/change_sets.py:708",
   "section": "use",
   "operationId": "post_restructuring_api_v1_change_sets__change_set_id__restructurings_post",
-  "summary": "Post Restructuring",
-  "writtenSummary": false,
+  "summary": "Apply a restructuring",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2312,8 +2312,8 @@
   "source": "backend/app/management/routers/change_sets.py:731",
   "section": "use",
   "operationId": "post_change_set_validation_api_v1_change_sets__change_set_id__validation_post",
-  "summary": "Post Change Set Validation",
-  "writtenSummary": false,
+  "summary": "Check a change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2327,8 +2327,8 @@
   "source": "backend/app/management/routers/change_sets.py:768",
   "section": "use",
   "operationId": "post_change_set_publication_api_v1_change_sets__change_set_id__publication_post",
-  "summary": "Post Change Set Publication",
-  "writtenSummary": false,
+  "summary": "Publish a change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2342,8 +2342,8 @@
   "source": "backend/app/management/routers/change_sets.py:793",
   "section": "use",
   "operationId": "post_change_set_submission_api_v1_change_sets__change_set_id__submission_post",
-  "summary": "Post Change Set Submission",
-  "writtenSummary": false,
+  "summary": "Submit a change set for approval",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2357,8 +2357,8 @@
   "source": "backend/app/management/routers/change_sets.py:812",
   "section": "use",
   "operationId": "delete_change_set_submission_api_v1_change_sets__change_set_id__submission_delete",
-  "summary": "Delete Change Set Submission",
-  "writtenSummary": false,
+  "summary": "Withdraw a submission",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2372,8 +2372,8 @@
   "source": "backend/app/management/routers/change_sets.py:820",
   "section": "use",
   "operationId": "post_change_set_decision_api_v1_change_sets__change_set_id__decisions_post",
-  "summary": "Post Change Set Decision",
-  "writtenSummary": false,
+  "summary": "Decide a submitted change set",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2387,8 +2387,8 @@
   "source": "backend/app/management/routers/change_sets.py:851",
   "section": "use",
   "operationId": "list_publication_requests_api_v1_workspaces__workspace_key__publication_requests_get",
-  "summary": "List Publication Requests",
-  "writtenSummary": false,
+  "summary": "List publication requests",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2402,8 +2402,8 @@
   "source": "backend/app/management/routers/change_sets.py:888",
   "section": "use",
   "operationId": "get_approval_policy_api_v1_workspaces__workspace_key__approval_policy_get",
-  "summary": "Get Approval Policy",
-  "writtenSummary": false,
+  "summary": "Get the approval policy",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2417,8 +2417,8 @@
   "source": "backend/app/management/routers/change_sets.py:904",
   "section": "use",
   "operationId": "put_approval_policy_api_v1_workspaces__workspace_key__approval_policy_put",
-  "summary": "Put Approval Policy",
-  "writtenSummary": false,
+  "summary": "Set the approval policy",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2432,8 +2432,8 @@
   "source": "backend/app/management/routers/change_sets.py:927",
   "section": "use",
   "operationId": "list_publications_api_v1_workspaces__workspace_key__publications_get",
-  "summary": "List Publications",
-  "writtenSummary": false,
+  "summary": "List a workspace's publications",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2447,8 +2447,8 @@
   "source": "backend/app/management/routers/change_sets.py:959",
   "section": "use",
   "operationId": "get_publication_api_v1_publications__publication_id__get",
-  "summary": "Get Publication",
-  "writtenSummary": false,
+  "summary": "Get a publication",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2462,8 +2462,8 @@
   "source": "backend/app/management/routers/change_sets.py:968",
   "section": "use",
   "operationId": "post_publication_withdrawal_api_v1_publications__publication_id__withdrawal_post",
-  "summary": "Post Publication Withdrawal",
-  "writtenSummary": false,
+  "summary": "Withdraw a publication",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -2477,8 +2477,8 @@
   "source": "backend/app/management/routers/changes.py:21",
   "section": "use",
   "operationId": "list_changes_api_v1_changes_get",
-  "summary": "List Changes",
-  "writtenSummary": false,
+  "summary": "List changes",
+  "writtenSummary": true,
   "tags": [
    "changes"
   ]
@@ -2492,8 +2492,8 @@
   "source": "backend/app/management/routers/model_management.py:125",
   "section": "use",
   "operationId": "activate_workspace_model_api_v1_workspaces__workspace_key__model_activation_post",
-  "summary": "Activate Workspace Model",
-  "writtenSummary": false,
+  "summary": "Run a release in a workspace",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2507,8 +2507,8 @@
   "source": "backend/app/management/routers/model_management.py:308",
   "section": "use",
   "operationId": "open_workspace_model_draft_api_v1_workspaces__workspace_key__model_draft_post",
-  "summary": "Open Workspace Model Draft",
-  "writtenSummary": false,
+  "summary": "Open a workspace's model draft",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2522,8 +2522,8 @@
   "source": "backend/app/management/routers/model_management.py:328",
   "section": "use",
   "operationId": "list_model_drafts_api_v1_model_drafts_get",
-  "summary": "List Model Drafts",
-  "writtenSummary": false,
+  "summary": "List model drafts",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2537,8 +2537,8 @@
   "source": "backend/app/management/routers/model_management.py:357",
   "section": "use",
   "operationId": "save_model_draft_api_v1_model_drafts_post",
-  "summary": "Save Model Draft",
-  "writtenSummary": false,
+  "summary": "Create a model draft",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2552,8 +2552,8 @@
   "source": "backend/app/management/routers/model_management.py:351",
   "section": "use",
   "operationId": "get_model_draft_api_v1_model_drafts__draft_id__get",
-  "summary": "Get Model Draft",
-  "writtenSummary": false,
+  "summary": "Get a model draft",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2567,8 +2567,8 @@
   "source": "backend/app/management/routers/model_management.py:374",
   "section": "use",
   "operationId": "patch_model_draft_api_v1_model_drafts__draft_id__patch",
-  "summary": "Patch Model Draft",
-  "writtenSummary": false,
+  "summary": "Rename a draft or replace its model",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2582,8 +2582,8 @@
   "source": "backend/app/management/routers/model_management.py:612",
   "section": "use",
   "operationId": "remove_model_draft_api_v1_model_drafts__draft_id__delete",
-  "summary": "Remove Model Draft",
-  "writtenSummary": false,
+  "summary": "Delete a model draft",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2597,8 +2597,8 @@
   "source": "backend/app/management/routers/model_management.py:395",
   "section": "use",
   "operationId": "apply_model_draft_operations_api_v1_model_drafts__draft_id__operations_post",
-  "summary": "Apply Model Draft Operations",
-  "writtenSummary": false,
+  "summary": "Change a draft with a step",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2612,8 +2612,8 @@
   "source": "backend/app/management/routers/model_management.py:414",
   "section": "use",
   "operationId": "list_model_draft_operations_api_v1_model_drafts__draft_id__operations_get",
-  "summary": "List Model Draft Operations",
-  "writtenSummary": false,
+  "summary": "Read a draft's history",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2627,8 +2627,8 @@
   "source": "backend/app/management/routers/model_management.py:437",
   "section": "use",
   "operationId": "read_model_draft_migration_api_v1_model_drafts__draft_id__migration_get",
-  "summary": "Read Model Draft Migration",
-  "writtenSummary": false,
+  "summary": "Read the migration a draft states",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2642,8 +2642,8 @@
   "source": "backend/app/management/routers/model_management.py:472",
   "section": "use",
   "operationId": "get_model_draft_outline_api_v1_model_drafts__draft_id__outline_get",
-  "summary": "Get Model Draft Outline",
-  "writtenSummary": false,
+  "summary": "Read a draft's outline",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2657,8 +2657,8 @@
   "source": "backend/app/management/routers/model_management.py:487",
   "section": "use",
   "operationId": "get_model_draft_model_api_v1_model_drafts__draft_id__model_get",
-  "summary": "Get Model Draft Model",
-  "writtenSummary": false,
+  "summary": "Preview a draft's compiled model",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2672,8 +2672,8 @@
   "source": "backend/app/management/routers/model_management.py:499",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__get",
-  "summary": "Get Model Draft Consumer Api",
-  "writtenSummary": false,
+  "summary": "Read a draft's consumer API",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2687,8 +2687,8 @@
   "source": "backend/app/management/routers/model_management.py:516",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_schema_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__schema_json_get",
-  "summary": "Get Model Draft Consumer Api Schema",
-  "writtenSummary": false,
+  "summary": "Get a draft consumer API's message schema",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2702,8 +2702,8 @@
   "source": "backend/app/management/routers/model_management.py:532",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_example_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__example_json_get",
-  "summary": "Get Model Draft Consumer Api Example",
-  "writtenSummary": false,
+  "summary": "Get a draft consumer API's example message",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2717,8 +2717,8 @@
   "source": "backend/app/management/routers/model_management.py:548",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_openapi_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__openapi_json_get",
-  "summary": "Get Model Draft Consumer Api Openapi",
-  "writtenSummary": false,
+  "summary": "Get a draft consumer API's OpenAPI document",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2732,8 +2732,8 @@
   "source": "backend/app/management/routers/model_management.py:566",
   "section": "use",
   "operationId": "undo_model_draft_step_api_v1_model_drafts__draft_id__undo_post",
-  "summary": "Undo Model Draft Step",
-  "writtenSummary": false,
+  "summary": "Undo a step",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2747,8 +2747,8 @@
   "source": "backend/app/management/routers/model_management.py:579",
   "section": "use",
   "operationId": "redo_model_draft_step_api_v1_model_drafts__draft_id__redo_post",
-  "summary": "Redo Model Draft Step",
-  "writtenSummary": false,
+  "summary": "Redo a step",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2762,8 +2762,8 @@
   "source": "backend/app/management/routers/model_management.py:592",
   "section": "use",
   "operationId": "get_model_draft_profile_api_v1_model_drafts__draft_id__profile_get",
-  "summary": "Get Model Draft Profile",
-  "writtenSummary": false,
+  "summary": "Read a draft's import profile",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2777,8 +2777,8 @@
   "source": "backend/app/management/routers/model_management.py:624",
   "section": "use",
   "operationId": "compile_model_draft_api_v1_model_drafts__draft_id__compile_post",
-  "summary": "Compile Model Draft",
-  "writtenSummary": false,
+  "summary": "Compile a draft",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2792,8 +2792,8 @@
   "source": "backend/app/management/routers/model_management.py:695",
   "section": "use",
   "operationId": "install_model_draft_api_v1_model_drafts__draft_id__installation_post",
-  "summary": "Install Model Draft",
-  "writtenSummary": false,
+  "summary": "Install a draft as a release",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -2807,8 +2807,8 @@
   "source": "backend/app/management/routers/ai.py:263",
   "section": "administer",
   "operationId": "post_draft_impact_summary_api_v1_model_drafts__draft_id__impact_summary_post",
-  "summary": "Post Draft Impact Summary",
-  "writtenSummary": false,
+  "summary": "Describe what activating a draft does",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -2819,11 +2819,11 @@
   "labels": [
    "/api/v1/objects"
   ],
-  "source": "backend/app/management/routers/objects.py:184",
+  "source": "backend/app/management/routers/objects.py:185",
   "section": "use",
   "operationId": "create_object_api_v1_objects_post",
-  "summary": "Create Object",
-  "writtenSummary": false,
+  "summary": "Create a record",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2834,11 +2834,11 @@
   "labels": [
    "/api/v1/objects"
   ],
-  "source": "backend/app/management/routers/objects.py:533",
+  "source": "backend/app/management/routers/objects.py:534",
   "section": "use",
   "operationId": "lookup_objects_api_v1_objects_get",
-  "summary": "Lookup Objects",
-  "writtenSummary": false,
+  "summary": "Find records of any type",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2849,11 +2849,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:205",
+  "source": "backend/app/management/routers/objects.py:206",
   "section": "use",
   "operationId": "update_object_api_v1_objects__object_type_key___object_id__patch",
-  "summary": "Update Object",
-  "writtenSummary": false,
+  "summary": "Update or move a record",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2864,11 +2864,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:221",
+  "source": "backend/app/management/routers/objects.py:222",
   "section": "use",
   "operationId": "delete_object_api_v1_objects__object_type_key___object_id__delete",
-  "summary": "Delete Object",
-  "writtenSummary": false,
+  "summary": "Delete a record",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2879,11 +2879,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:743",
+  "source": "backend/app/management/routers/objects.py:744",
   "section": "use",
   "operationId": "get_object_api_v1_objects__object_type_key___object_id__get",
-  "summary": "Get Object",
-  "writtenSummary": false,
+  "summary": "Get a record",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2894,11 +2894,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}"
   ],
-  "source": "backend/app/management/routers/objects.py:285",
+  "source": "backend/app/management/routers/objects.py:286",
   "section": "use",
   "operationId": "list_objects_api_v1_objects__object_type_key__get",
-  "summary": "List Objects",
-  "writtenSummary": false,
+  "summary": "List records of a type",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2909,11 +2909,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/parent-candidates"
   ],
-  "source": "backend/app/management/routers/objects.py:815",
+  "source": "backend/app/management/routers/objects.py:816",
   "section": "use",
   "operationId": "get_parent_candidates_api_v1_objects__object_type_key___object_id__parent_candidates_get",
-  "summary": "Get Parent Candidates",
-  "writtenSummary": false,
+  "summary": "List parent candidates",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2924,11 +2924,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/history"
   ],
-  "source": "backend/app/management/routers/objects.py:870",
+  "source": "backend/app/management/routers/objects.py:871",
   "section": "use",
   "operationId": "get_object_history_api_v1_objects__object_type_key___object_id__history_get",
-  "summary": "Get Object History",
-  "writtenSummary": false,
+  "summary": "Get a record's history",
+  "writtenSummary": true,
   "tags": [
    "objects"
   ]
@@ -2942,8 +2942,8 @@
   "source": "backend/app/management/routers/queries.py:20",
   "section": "use",
   "operationId": "query_workspace_objects_api_v1_workspaces__workspace_key__queries_objects_post",
-  "summary": "Query Workspace Objects",
-  "writtenSummary": false,
+  "summary": "Query records",
+  "writtenSummary": true,
   "tags": [
    "objects",
    "queries"
@@ -2955,11 +2955,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
   ],
-  "source": "backend/app/management/routers/attributes.py:31",
+  "source": "backend/app/management/routers/attributes.py:36",
   "section": "use",
   "operationId": "get_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__get",
-  "summary": "Get Attribute Value",
-  "writtenSummary": false,
+  "summary": "Get an attribute value",
+  "writtenSummary": true,
   "tags": [
    "attributes"
   ]
@@ -2970,11 +2970,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
   ],
-  "source": "backend/app/management/routers/attributes.py:110",
+  "source": "backend/app/management/routers/attributes.py:120",
   "section": "use",
   "operationId": "create_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__post",
-  "summary": "Create Attribute Value",
-  "writtenSummary": false,
+  "summary": "Set an attribute value",
+  "writtenSummary": true,
   "tags": [
    "attributes"
   ]
@@ -2985,11 +2985,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
   ],
-  "source": "backend/app/management/routers/attributes.py:117",
+  "source": "backend/app/management/routers/attributes.py:127",
   "section": "use",
   "operationId": "update_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__patch",
-  "summary": "Update Attribute Value",
-  "writtenSummary": false,
+  "summary": "Change an attribute value",
+  "writtenSummary": true,
   "tags": [
    "attributes"
   ]
@@ -3000,11 +3000,11 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
   ],
-  "source": "backend/app/management/routers/attributes.py:124",
+  "source": "backend/app/management/routers/attributes.py:134",
   "section": "use",
   "operationId": "remove_attribute_value_api_v1_objects__object_type_key___object_id__attributes__attribute_type_key__delete",
-  "summary": "Remove Attribute Value",
-  "writtenSummary": false,
+  "summary": "Remove an attribute value",
+  "writtenSummary": true,
   "tags": [
    "attributes"
   ]
@@ -3018,8 +3018,8 @@
   "source": "backend/app/management/routers/relations.py:121",
   "section": "use",
   "operationId": "create_relation_api_v1_relations_post",
-  "summary": "Create Relation",
-  "writtenSummary": false,
+  "summary": "Add a relationship",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3033,8 +3033,8 @@
   "source": "backend/app/management/routers/relations.py:246",
   "section": "use",
   "operationId": "list_relations_api_v1_relations_get",
-  "summary": "List Relations",
-  "writtenSummary": false,
+  "summary": "List a record's relationships",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3048,8 +3048,8 @@
   "source": "backend/app/management/routers/relations.py:131",
   "section": "use",
   "operationId": "update_relations_api_v1_relations_batch_post",
-  "summary": "Update Relations",
-  "writtenSummary": false,
+  "summary": "Set values on many relationships",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3063,8 +3063,8 @@
   "source": "backend/app/management/routers/relations.py:174",
   "section": "use",
   "operationId": "change_relation_grid_api_v1_relations_grid_change_post",
-  "summary": "Change Relation Grid",
-  "writtenSummary": false,
+  "summary": "Set a value across a relationships grid",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3078,8 +3078,8 @@
   "source": "backend/app/management/routers/relations.py:366",
   "section": "use",
   "operationId": "list_held_records_api_v1_relations_held_get",
-  "summary": "List Held Records",
-  "writtenSummary": false,
+  "summary": "List what records hold through a relationship",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3093,8 +3093,8 @@
   "source": "backend/app/management/routers/relations.py:430",
   "section": "use",
   "operationId": "get_relation_api_v1_relations__relation_id__get",
-  "summary": "Get Relation",
-  "writtenSummary": false,
+  "summary": "Get a relationship",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3108,8 +3108,8 @@
   "source": "backend/app/management/routers/relations.py:451",
   "section": "use",
   "operationId": "update_relation_api_v1_relations__relation_id__patch",
-  "summary": "Update Relation",
-  "writtenSummary": false,
+  "summary": "Change a relationship's values",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3123,8 +3123,8 @@
   "source": "backend/app/management/routers/relations.py:460",
   "section": "use",
   "operationId": "remove_relation_api_v1_relations__relation_id__delete",
-  "summary": "Remove Relation",
-  "writtenSummary": false,
+  "summary": "Remove a relationship",
+  "writtenSummary": true,
   "tags": [
    "relations"
   ]
@@ -3138,8 +3138,8 @@
   "source": "backend/app/management/routers/mapping.py:92",
   "section": "use",
   "operationId": "mapping_coverage_api_v1_workspaces__workspace_key__mapping_coverage_get",
-  "summary": "Mapping Coverage",
-  "writtenSummary": false,
+  "summary": "Read mapping coverage",
+  "writtenSummary": true,
   "tags": [
    "mapping"
   ]
@@ -3153,8 +3153,8 @@
   "source": "backend/app/management/routers/mapping.py:215",
   "section": "use",
   "operationId": "get_workspace_relations_api_v1_workspaces__workspace_key__relations_get",
-  "summary": "Get Workspace Relations",
-  "writtenSummary": false,
+  "summary": "List the relationships of a workspace",
+  "writtenSummary": true,
   "tags": [
    "mapping",
    "relations"
@@ -3169,8 +3169,8 @@
   "source": "backend/app/management/routers/mapping.py:250",
   "section": "use",
   "operationId": "get_relation_grid_api_v1_workspaces__workspace_key__relation_grid_get",
-  "summary": "Get Relation Grid",
-  "writtenSummary": false,
+  "summary": "Read a relationships grid",
+  "writtenSummary": true,
   "tags": [
    "mapping",
    "relations"
@@ -3185,8 +3185,8 @@
   "source": "backend/app/management/routers/mapping.py:344",
   "section": "use",
   "operationId": "mapping_candidates_api_v1_workspaces__workspace_key__mapping_candidates_get",
-  "summary": "Mapping Candidates",
-  "writtenSummary": false,
+  "summary": "Find target candidates",
+  "writtenSummary": true,
   "tags": [
    "mapping"
   ]
@@ -3200,8 +3200,8 @@
   "source": "backend/app/management/routers/mapping.py:402",
   "section": "use",
   "operationId": "mapping_targets_api_v1_workspaces__workspace_key__mapping_targets_get",
-  "summary": "Mapping Targets",
-  "writtenSummary": false,
+  "summary": "Read a source's targets",
+  "writtenSummary": true,
   "tags": [
    "mapping"
   ]
@@ -3215,8 +3215,8 @@
   "source": "backend/app/management/routers/mapping.py:414",
   "section": "use",
   "operationId": "put_mapping_api_v1_workspaces__workspace_key__mappings_put",
-  "summary": "Put Mapping",
-  "writtenSummary": false,
+  "summary": "Replace a source's mapping",
+  "writtenSummary": true,
   "tags": [
    "mapping"
   ]
@@ -3230,8 +3230,8 @@
   "source": "backend/app/management/routers/mapping.py:436",
   "section": "use",
   "operationId": "post_mapping_proposals_api_v1_workspaces__workspace_key__mapping_proposals_post",
-  "summary": "Post Mapping Proposals",
-  "writtenSummary": false,
+  "summary": "Ask the AI for mapping targets",
+  "writtenSummary": true,
   "tags": [
    "mapping"
   ]
@@ -3245,8 +3245,8 @@
   "source": "backend/app/management/routers/relation_matrix.py:45",
   "section": "use",
   "operationId": "get_relation_matrix_api_v1_workspaces__workspace_key__relation_matrix_get",
-  "summary": "Get Relation Matrix",
-  "writtenSummary": false,
+  "summary": "Read a relation matrix",
+  "writtenSummary": true,
   "tags": [
    "relation-matrix"
   ]
@@ -3257,11 +3257,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/relation-matrix/containers"
   ],
-  "source": "backend/app/management/routers/relation_matrix.py:110",
+  "source": "backend/app/management/routers/relation_matrix.py:112",
   "section": "use",
   "operationId": "get_relation_matrix_containers_api_v1_workspaces__workspace_key__relation_matrix_containers_get",
-  "summary": "Get Relation Matrix Containers",
-  "writtenSummary": false,
+  "summary": "List where a cell record can be created",
+  "writtenSummary": true,
   "tags": [
    "relation-matrix"
   ]
@@ -3272,11 +3272,11 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates"
   ],
-  "source": "backend/app/management/routers/relation_matrix.py:129",
+  "source": "backend/app/management/routers/relation_matrix.py:131",
   "section": "use",
   "operationId": "get_relation_matrix_link_candidates_api_v1_workspaces__workspace_key__relation_matrix_link_candidates_get",
-  "summary": "Get Relation Matrix Link Candidates",
-  "writtenSummary": false,
+  "summary": "List records a row could be linked to",
+  "writtenSummary": true,
   "tags": [
    "relation-matrix"
   ]
@@ -3287,11 +3287,11 @@
   "labels": [
    "/api/v1/jobs"
   ],
-  "source": "backend/app/management/routers/jobs.py:248",
+  "source": "backend/app/management/routers/jobs.py:278",
   "section": "use",
   "operationId": "list_jobs_api_v1_jobs_get",
-  "summary": "List Jobs",
-  "writtenSummary": false,
+  "summary": "List jobs",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3302,11 +3302,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}"
   ],
-  "source": "backend/app/management/routers/jobs.py:324",
+  "source": "backend/app/management/routers/jobs.py:354",
   "section": "use",
   "operationId": "get_job_api_v1_jobs__job_id__get",
-  "summary": "Get Job",
-  "writtenSummary": false,
+  "summary": "Get a job",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3317,11 +3317,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/items"
   ],
-  "source": "backend/app/management/routers/jobs.py:330",
+  "source": "backend/app/management/routers/jobs.py:360",
   "section": "use",
   "operationId": "list_job_items_api_v1_jobs__job_id__items_get",
-  "summary": "List Job Items",
-  "writtenSummary": false,
+  "summary": "Read a job's outcomes",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3332,11 +3332,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/rows"
   ],
-  "source": "backend/app/management/routers/jobs.py:349",
+  "source": "backend/app/management/routers/jobs.py:379",
   "section": "use",
   "operationId": "list_job_rows_api_v1_jobs__job_id__rows_get",
-  "summary": "List Job Rows",
-  "writtenSummary": false,
+  "summary": "Read an import's outcomes by row",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3347,11 +3347,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/output"
   ],
-  "source": "backend/app/management/routers/jobs.py:407",
+  "source": "backend/app/management/routers/jobs.py:437",
   "section": "use",
   "operationId": "get_job_output_api_v1_jobs__job_id__output_get",
-  "summary": "Get Job Output",
-  "writtenSummary": false,
+  "summary": "Download an export's file",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3362,11 +3362,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/events"
   ],
-  "source": "backend/app/management/routers/jobs.py:468",
+  "source": "backend/app/management/routers/jobs.py:498",
   "section": "use",
   "operationId": "job_events_api_v1_jobs__job_id__events_get",
-  "summary": "Job Events",
-  "writtenSummary": false,
+  "summary": "Follow a job",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3377,11 +3377,11 @@
   "labels": [
    "/api/v1/import-profiles"
   ],
-  "source": "backend/app/management/routers/imports.py:58",
+  "source": "backend/app/management/routers/imports.py:60",
   "section": "use",
   "operationId": "list_import_profiles_api_v1_import_profiles_get",
-  "summary": "List Import Profiles",
-  "writtenSummary": false,
+  "summary": "List import profiles",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3392,11 +3392,11 @@
   "labels": [
    "/api/v1/import-profiles"
   ],
-  "source": "backend/app/management/routers/imports.py:88",
+  "source": "backend/app/management/routers/imports.py:90",
   "section": "use",
   "operationId": "create_import_profile_api_v1_import_profiles_post",
-  "summary": "Create Import Profile",
-  "writtenSummary": false,
+  "summary": "Save an import profile",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3407,11 +3407,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}"
   ],
-  "source": "backend/app/management/routers/imports.py:74",
+  "source": "backend/app/management/routers/imports.py:76",
   "section": "use",
   "operationId": "get_import_profile_api_v1_import_profiles__profile_key__get",
-  "summary": "Get Import Profile",
-  "writtenSummary": false,
+  "summary": "Get an import profile",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3422,11 +3422,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}"
   ],
-  "source": "backend/app/management/routers/imports.py:100",
+  "source": "backend/app/management/routers/imports.py:102",
   "section": "use",
   "operationId": "update_import_profile_api_v1_import_profiles__profile_key__put",
-  "summary": "Update Import Profile",
-  "writtenSummary": false,
+  "summary": "Replace an import profile",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3437,11 +3437,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}"
   ],
-  "source": "backend/app/management/routers/imports.py:112",
+  "source": "backend/app/management/routers/imports.py:114",
   "section": "use",
   "operationId": "delete_import_profile_api_v1_import_profiles__profile_key__delete",
-  "summary": "Delete Import Profile",
-  "writtenSummary": false,
+  "summary": "Delete an import profile",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3452,11 +3452,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}/check"
   ],
-  "source": "backend/app/management/routers/imports.py:228",
+  "source": "backend/app/management/routers/imports.py:236",
   "section": "use",
   "operationId": "get_profile_check_api_v1_import_profiles__profile_key__check_get",
-  "summary": "Get Profile Check",
-  "writtenSummary": false,
+  "summary": "Read a profile's check",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3467,11 +3467,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}/check"
   ],
-  "source": "backend/app/management/routers/imports.py:240",
+  "source": "backend/app/management/routers/imports.py:248",
   "section": "use",
   "operationId": "run_profile_check_api_v1_import_profiles__profile_key__check_post",
-  "summary": "Run Profile Check",
-  "writtenSummary": false,
+  "summary": "Check a profile's file",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3482,11 +3482,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}/check/new-values"
   ],
-  "source": "backend/app/management/routers/imports.py:259",
+  "source": "backend/app/management/routers/imports.py:267",
   "section": "use",
   "operationId": "list_check_new_values_api_v1_import_profiles__profile_key__check_new_values_get",
-  "summary": "List Check New Values",
-  "writtenSummary": false,
+  "summary": "List a check's new values",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3497,11 +3497,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}/check/drift"
   ],
-  "source": "backend/app/management/routers/imports.py:282",
+  "source": "backend/app/management/routers/imports.py:290",
   "section": "use",
   "operationId": "list_check_drift_api_v1_import_profiles__profile_key__check_drift_get",
-  "summary": "List Check Drift",
-  "writtenSummary": false,
+  "summary": "List a check's renamed records",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3512,11 +3512,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}/check/missing-records"
   ],
-  "source": "backend/app/management/routers/imports.py:304",
+  "source": "backend/app/management/routers/imports.py:312",
   "section": "use",
   "operationId": "list_check_missing_records_api_v1_import_profiles__profile_key__check_missing_records_get",
-  "summary": "List Check Missing Records",
-  "writtenSummary": false,
+  "summary": "List the records a file leaves out",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3527,11 +3527,11 @@
   "labels": [
    "/api/v1/import-profiles/{profile_key}/check/rows"
   ],
-  "source": "backend/app/management/routers/imports.py:329",
+  "source": "backend/app/management/routers/imports.py:337",
   "section": "use",
   "operationId": "list_check_rows_api_v1_import_profiles__profile_key__check_rows_get",
-  "summary": "List Check Rows",
-  "writtenSummary": false,
+  "summary": "List a check's rows",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3545,8 +3545,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:135",
   "section": "administer",
   "operationId": "list_ai_tasks_api_v1_ai_tasks_get",
-  "summary": "List Ai Tasks",
-  "writtenSummary": false,
+  "summary": "List assistant tasks",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3560,8 +3560,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:73",
   "section": "administer",
   "operationId": "create_ai_task_api_v1_ai_tasks_post",
-  "summary": "Create Ai Task",
-  "writtenSummary": false,
+  "summary": "Give the assistant work",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3575,8 +3575,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:160",
   "section": "administer",
   "operationId": "get_ai_task_api_v1_ai_tasks__task_id__get",
-  "summary": "Get Ai Task",
-  "writtenSummary": false,
+  "summary": "Get an assistant task",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3590,8 +3590,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:169",
   "section": "administer",
   "operationId": "list_ai_task_changes_api_v1_ai_tasks__task_id__changes_get",
-  "summary": "List Ai Task Changes",
-  "writtenSummary": false,
+  "summary": "List the records a check would change",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3602,11 +3602,11 @@
   "labels": [
    "/api/v1/source-files"
   ],
-  "source": "backend/app/management/routers/source_files.py:136",
+  "source": "backend/app/management/routers/source_files.py:116",
   "section": "use",
   "operationId": "list_source_files_api_v1_source_files_get",
-  "summary": "List Source Files",
-  "writtenSummary": false,
+  "summary": "List source files",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3617,11 +3617,11 @@
   "labels": [
    "/api/v1/source-files"
   ],
-  "source": "backend/app/management/routers/source_files.py:93",
+  "source": "backend/app/management/routers/source_files.py:73",
   "section": "use",
   "operationId": "create_source_file_api_v1_source_files_post",
-  "summary": "Create Source File",
-  "writtenSummary": false,
+  "summary": "Store a source file",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3632,11 +3632,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}"
   ],
-  "source": "backend/app/management/routers/source_files.py:160",
+  "source": "backend/app/management/routers/source_files.py:140",
   "section": "use",
   "operationId": "get_source_file_api_v1_source_files__source_file_id__get",
-  "summary": "Get Source File",
-  "writtenSummary": false,
+  "summary": "Get a source file",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3647,11 +3647,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}"
   ],
-  "source": "backend/app/management/routers/source_files.py:171",
+  "source": "backend/app/management/routers/source_files.py:151",
   "section": "use",
   "operationId": "remove_source_file_api_v1_source_files__source_file_id__delete",
-  "summary": "Remove Source File",
-  "writtenSummary": false,
+  "summary": "Delete a source file",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3662,11 +3662,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}/profile/sheets"
   ],
-  "source": "backend/app/management/routers/source_files.py:188",
+  "source": "backend/app/management/routers/source_files.py:168",
   "section": "use",
   "operationId": "list_source_sheets_api_v1_source_files__source_file_id__profile_sheets_get",
-  "summary": "List Source Sheets",
-  "writtenSummary": false,
+  "summary": "List a file's sheets",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3677,11 +3677,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns"
   ],
-  "source": "backend/app/management/routers/source_files.py:204",
+  "source": "backend/app/management/routers/source_files.py:184",
   "section": "use",
   "operationId": "list_source_columns_api_v1_source_files__source_file_id__profile_sheets__sheet__columns_get",
-  "summary": "List Source Columns",
-  "writtenSummary": false,
+  "summary": "List a sheet's columns",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3692,11 +3692,11 @@
   "labels": [
    "/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells"
   ],
-  "source": "backend/app/management/routers/source_files.py:224",
+  "source": "backend/app/management/routers/source_files.py:204",
   "section": "use",
   "operationId": "list_source_cells_api_v1_source_files__source_file_id__profile_sheets__sheet__cells_get",
-  "summary": "List Source Cells",
-  "writtenSummary": false,
+  "summary": "Read a range of a sheet",
+  "writtenSummary": true,
   "tags": [
    "source files"
   ]
@@ -3710,8 +3710,8 @@
   "source": "backend/app/management/routers/model_mappings.py:102",
   "section": "model",
   "operationId": "list_model_mappings_api_v1_model_mappings_get",
-  "summary": "List Model Mappings",
-  "writtenSummary": false,
+  "summary": "List model mappings",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3725,8 +3725,8 @@
   "source": "backend/app/management/routers/model_mappings.py:219",
   "section": "model",
   "operationId": "create_model_mapping_api_v1_model_mappings_post",
-  "summary": "Create Model Mapping",
-  "writtenSummary": false,
+  "summary": "Create a model mapping",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3740,8 +3740,8 @@
   "source": "backend/app/management/routers/model_mappings.py:124",
   "section": "model",
   "operationId": "get_model_mapping_api_v1_model_mappings__key__get",
-  "summary": "Get Model Mapping",
-  "writtenSummary": false,
+  "summary": "Get a model mapping",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3755,8 +3755,8 @@
   "source": "backend/app/management/routers/model_mappings.py:238",
   "section": "model",
   "operationId": "delete_model_mapping_api_v1_model_mappings__key__delete",
-  "summary": "Delete Model Mapping",
-  "writtenSummary": false,
+  "summary": "Delete a model mapping",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3770,8 +3770,8 @@
   "source": "backend/app/management/routers/model_mappings.py:144",
   "section": "model",
   "operationId": "list_model_mapping_operations_api_v1_model_mappings__key__operations_get",
-  "summary": "List Model Mapping Operations",
-  "writtenSummary": false,
+  "summary": "Read a mapping's history",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3785,8 +3785,8 @@
   "source": "backend/app/management/routers/model_mappings.py:248",
   "section": "model",
   "operationId": "apply_model_mapping_operations_api_v1_model_mappings__key__operations_post",
-  "summary": "Apply Model Mapping Operations",
-  "writtenSummary": false,
+  "summary": "Change a model mapping",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3800,8 +3800,8 @@
   "source": "backend/app/management/routers/model_mappings.py:167",
   "section": "model",
   "operationId": "get_mapping_inference_api_v1_model_mappings__key__inference_get",
-  "summary": "Get Mapping Inference",
-  "writtenSummary": false,
+  "summary": "Read the latest inference",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3815,8 +3815,8 @@
   "source": "backend/app/management/routers/model_mappings.py:289",
   "section": "model",
   "operationId": "run_mapping_inference_api_v1_model_mappings__key__inference_post",
-  "summary": "Run Mapping Inference",
-  "writtenSummary": false,
+  "summary": "Propose a mapping",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3830,8 +3830,8 @@
   "source": "backend/app/management/routers/model_mappings.py:178",
   "section": "model",
   "operationId": "list_mapping_proposals_api_v1_model_mappings__key__inference_proposals_get",
-  "summary": "List Mapping Proposals",
-  "writtenSummary": false,
+  "summary": "List proposals",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -3842,11 +3842,11 @@
   "labels": [
    "/api/v1/batches"
   ],
-  "source": "backend/app/management/routers/jobs.py:72",
+  "source": "backend/app/management/routers/jobs.py:74",
   "section": "use",
   "operationId": "create_batch_api_v1_batches_post",
-  "summary": "Create Batch",
-  "writtenSummary": false,
+  "summary": "Run a batch of writes",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3857,11 +3857,11 @@
   "labels": [
    "/api/v1/jobs/{job_id}/cancel"
   ],
-  "source": "backend/app/management/routers/jobs.py:151",
+  "source": "backend/app/management/routers/jobs.py:153",
   "section": "use",
   "operationId": "cancel_job_api_v1_jobs__job_id__cancel_post",
-  "summary": "Cancel Job",
-  "writtenSummary": false,
+  "summary": "Cancel a job",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3872,11 +3872,26 @@
   "labels": [
    "/api/v1/jobs/{job_id}/confirm"
   ],
-  "source": "backend/app/management/routers/jobs.py:169",
+  "source": "backend/app/management/routers/jobs.py:171",
   "section": "use",
   "operationId": "confirm_job_api_v1_jobs__job_id__confirm_post",
-  "summary": "Confirm Job",
-  "writtenSummary": false,
+  "summary": "Confirm a preview",
+  "writtenSummary": true,
+  "tags": [
+   "jobs"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/jobs/{job_id}/reread",
+  "labels": [
+   "/api/v1/jobs/{job_id}/reread"
+  ],
+  "source": "backend/app/management/routers/jobs.py:222",
+  "section": "use",
+  "operationId": "reread_job_api_v1_jobs__job_id__reread_post",
+  "summary": "Read an import preview again",
+  "writtenSummary": true,
   "tags": [
    "jobs"
   ]
@@ -3887,11 +3902,11 @@
   "labels": [
    "/api/v1/exports"
   ],
-  "source": "backend/app/management/routers/jobs.py:220",
+  "source": "backend/app/management/routers/jobs.py:250",
   "section": "use",
   "operationId": "create_export_api_v1_exports_post",
-  "summary": "Create Export",
-  "writtenSummary": false,
+  "summary": "Export records to a file",
+  "writtenSummary": true,
   "tags": [
    "jobs",
    "exports"
@@ -3903,11 +3918,11 @@
   "labels": [
    "/api/v1/imports"
   ],
-  "source": "backend/app/management/routers/imports.py:123",
+  "source": "backend/app/management/routers/imports.py:125",
   "section": "use",
   "operationId": "create_import_api_v1_imports_post",
-  "summary": "Create Import",
-  "writtenSummary": false,
+  "summary": "Import a file",
+  "writtenSummary": true,
   "tags": [
    "imports"
   ]
@@ -3921,8 +3936,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:192",
   "section": "administer",
   "operationId": "run_ai_task_api_v1_ai_tasks__task_id__run_post",
-  "summary": "Run Ai Task",
-  "writtenSummary": false,
+  "summary": "Load a saved layout's plan",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3936,8 +3951,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:236",
   "section": "administer",
   "operationId": "answer_ai_task_api_v1_ai_tasks__task_id__answers_post",
-  "summary": "Answer Ai Task",
-  "writtenSummary": false,
+  "summary": "Answer the assistant's questions",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3951,8 +3966,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:263",
   "section": "administer",
   "operationId": "correct_ai_task_model_api_v1_ai_tasks__task_id__model_post",
-  "summary": "Correct Ai Task Model",
-  "writtenSummary": false,
+  "summary": "Tell the assistant something",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3966,8 +3981,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:296",
   "section": "administer",
   "operationId": "accept_ai_task_model_api_v1_ai_tasks__task_id__accept_post",
-  "summary": "Accept Ai Task Model",
-  "writtenSummary": false,
+  "summary": "Accept the proposal",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3981,8 +3996,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:328",
   "section": "administer",
   "operationId": "retry_ai_task_api_v1_ai_tasks__task_id__retry_post",
-  "summary": "Retry Ai Task",
-  "writtenSummary": false,
+  "summary": "Go on with a task that stopped",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -3996,8 +4011,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:356",
   "section": "administer",
   "operationId": "discard_ai_task_api_v1_ai_tasks__task_id__discard_post",
-  "summary": "Discard Ai Task",
-  "writtenSummary": false,
+  "summary": "Discard a task",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -4011,8 +4026,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:382",
   "section": "administer",
   "operationId": "reopen_ai_task_proposal_api_v1_ai_tasks__task_id__proposal_post",
-  "summary": "Reopen Ai Task Proposal",
-  "writtenSummary": false,
+  "summary": "Go back to the proposal",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -4026,8 +4041,8 @@
   "source": "backend/app/management/routers/ai_tasks.py:403",
   "section": "administer",
   "operationId": "cancel_ai_task_api_v1_ai_tasks__task_id__cancel_post",
-  "summary": "Cancel Ai Task",
-  "writtenSummary": false,
+  "summary": "Stop what the assistant is doing",
+  "writtenSummary": true,
   "tags": [
    "ai"
   ]
@@ -4041,8 +4056,8 @@
   "source": "backend/app/management/routers/model_mappings.py:268",
   "section": "model",
   "operationId": "undo_model_mapping_step_api_v1_model_mappings__key__undo_post",
-  "summary": "Undo Model Mapping Step",
-  "writtenSummary": false,
+  "summary": "Undo a mapping step",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -4056,8 +4071,8 @@
   "source": "backend/app/management/routers/model_mappings.py:280",
   "section": "model",
   "operationId": "redo_model_mapping_step_api_v1_model_mappings__key__redo_post",
-  "summary": "Redo Model Mapping Step",
-  "writtenSummary": false,
+  "summary": "Redo a mapping step",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -4071,8 +4086,8 @@
   "source": "backend/app/management/routers/model_mappings.py:315",
   "section": "model",
   "operationId": "apply_mapping_proposals_api_v1_model_mappings__key__inference_application_post",
-  "summary": "Apply Mapping Proposals",
-  "writtenSummary": false,
+  "summary": "Apply proposals",
+  "writtenSummary": true,
   "tags": [
    "model mappings"
   ]
@@ -4086,8 +4101,8 @@
   "source": "backend/app/management/routers/change_sets.py:398",
   "section": "use",
   "operationId": "start_change_set_migration_api_v1_change_sets__change_set_id__model_migrations_post",
-  "summary": "Start Change Set Migration",
-  "writtenSummary": false,
+  "summary": "Move a change set onto the workspace's release",
+  "writtenSummary": true,
   "tags": [
    "change-sets"
   ]
@@ -4098,11 +4113,11 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/dry-run"
   ],
-  "source": "backend/app/management/routers/source_files.py:246",
+  "source": "backend/app/management/routers/source_files.py:226",
   "section": "use",
   "operationId": "run_dry_run_api_v1_model_drafts__draft_id__dry_run_post",
-  "summary": "Run Dry Run",
-  "writtenSummary": false,
+  "summary": "Dry-run a draft against a file or items",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4113,11 +4128,11 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/dry-run"
   ],
-  "source": "backend/app/management/routers/source_files.py:292",
+  "source": "backend/app/management/routers/source_files.py:272",
   "section": "use",
   "operationId": "get_dry_run_api_v1_model_drafts__draft_id__dry_run_get",
-  "summary": "Get Dry Run",
-  "writtenSummary": false,
+  "summary": "Get a draft's latest dry run",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4128,11 +4143,11 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/dry-run/rows"
   ],
-  "source": "backend/app/management/routers/source_files.py:300",
+  "source": "backend/app/management/routers/source_files.py:280",
   "section": "use",
   "operationId": "list_dry_run_rows_api_v1_model_drafts__draft_id__dry_run_rows_get",
-  "summary": "List Dry Run Rows",
-  "writtenSummary": false,
+  "summary": "List a dry run's rows",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4146,8 +4161,8 @@
   "source": "backend/app/management/routers/inference.py:42",
   "section": "use",
   "operationId": "run_inference_api_v1_model_drafts__draft_id__inference_post",
-  "summary": "Run Inference",
-  "writtenSummary": false,
+  "summary": "Propose a model from the draft's file",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4161,8 +4176,8 @@
   "source": "backend/app/management/routers/inference.py:76",
   "section": "use",
   "operationId": "get_inference_api_v1_model_drafts__draft_id__inference_get",
-  "summary": "Get Inference",
-  "writtenSummary": false,
+  "summary": "Get a draft's latest inference",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4176,8 +4191,8 @@
   "source": "backend/app/management/routers/inference.py:85",
   "section": "use",
   "operationId": "list_proposals_api_v1_model_drafts__draft_id__inference_proposals_get",
-  "summary": "List Proposals",
-  "writtenSummary": false,
+  "summary": "List an inference's proposals",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4191,8 +4206,8 @@
   "source": "backend/app/management/routers/inference.py:120",
   "section": "use",
   "operationId": "apply_proposals_api_v1_model_drafts__draft_id__inference_application_post",
-  "summary": "Apply Proposals",
-  "writtenSummary": false,
+  "summary": "Apply an inference's proposals",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4206,8 +4221,8 @@
   "source": "backend/app/management/routers/inference.py:141",
   "section": "use",
   "operationId": "propose_one_list_api_v1_model_drafts__draft_id__inference_list_post",
-  "summary": "Propose One List",
-  "writtenSummary": false,
+  "summary": "Read a rectangle as a list",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4221,8 +4236,8 @@
   "source": "backend/app/management/routers/moves.py:25",
   "section": "use",
   "operationId": "start_move_api_v1_moves_post",
-  "summary": "Start Move",
-  "writtenSummary": false,
+  "summary": "Start a move",
+  "writtenSummary": true,
   "tags": [
    "moves"
   ]
@@ -4236,8 +4251,8 @@
   "source": "backend/app/management/routers/model_management.py:239",
   "section": "use",
   "operationId": "start_workspace_migration_api_v1_workspaces__workspace_key__model_migrations_post",
-  "summary": "Start Workspace Migration",
-  "writtenSummary": false,
+  "summary": "Preview a workspace migration",
+  "writtenSummary": true,
   "tags": [
    "model administration"
   ]
@@ -4251,8 +4266,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:69",
   "section": "use",
   "operationId": "create_api_v1_consumer_subscriptions_post",
-  "summary": "Create",
-  "writtenSummary": false,
+  "summary": "Create a subscription",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4266,8 +4281,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:91",
   "section": "use",
   "operationId": "list_subscriptions_api_v1_consumer_subscriptions_get",
-  "summary": "List Subscriptions",
-  "writtenSummary": false,
+  "summary": "List subscriptions",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4281,8 +4296,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:120",
   "section": "use",
   "operationId": "get_subscription_api_v1_consumer_subscriptions__subscription_id__get",
-  "summary": "Get Subscription",
-  "writtenSummary": false,
+  "summary": "Read a subscription",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4296,8 +4311,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:126",
   "section": "use",
   "operationId": "update_api_v1_consumer_subscriptions__subscription_id__patch",
-  "summary": "Update",
-  "writtenSummary": false,
+  "summary": "Edit a subscription",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4311,8 +4326,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:177",
   "section": "use",
   "operationId": "delete_api_v1_consumer_subscriptions__subscription_id__delete",
-  "summary": "Delete",
-  "writtenSummary": false,
+  "summary": "Delete a subscription",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4326,8 +4341,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:137",
   "section": "use",
   "operationId": "suspend_api_v1_consumer_subscriptions__subscription_id__suspend_post",
-  "summary": "Suspend",
-  "writtenSummary": false,
+  "summary": "Suspend a subscription",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4341,8 +4356,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:144",
   "section": "use",
   "operationId": "resume_api_v1_consumer_subscriptions__subscription_id__resume_post",
-  "summary": "Resume",
-  "writtenSummary": false,
+  "summary": "Resume a subscription",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4356,8 +4371,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:163",
   "section": "use",
   "operationId": "rotate_api_v1_consumer_subscriptions__subscription_id__rotate_secret_post",
-  "summary": "Rotate",
-  "writtenSummary": false,
+  "summary": "Rotate the signing key",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4371,8 +4386,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:187",
   "section": "use",
   "operationId": "list_deliveries_api_v1_consumer_subscriptions__subscription_id__deliveries_get",
-  "summary": "List Deliveries",
-  "writtenSummary": false,
+  "summary": "List the deliveries",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4386,8 +4401,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:204",
   "section": "use",
   "operationId": "get_delivery_api_v1_consumer_subscriptions__subscription_id__deliveries__delivery_id__get",
-  "summary": "Get Delivery",
-  "writtenSummary": false,
+  "summary": "Read a delivery",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]
@@ -4401,8 +4416,8 @@
   "source": "backend/app/management/routers/consumer_subscriptions.py:213",
   "section": "use",
   "operationId": "resend_api_v1_consumer_subscriptions__subscription_id__deliveries__delivery_id__resend_post",
-  "summary": "Resend",
-  "writtenSummary": false,
+  "summary": "Resend an event",
+  "writtenSummary": true,
   "tags": [
    "consumer subscriptions"
   ]

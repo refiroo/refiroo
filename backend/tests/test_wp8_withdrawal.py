@@ -296,9 +296,7 @@ def test_publishing_from_a_retained_publication_after_withdrawal():
         # Published reads return the reactivated graph: the retained records, the renamed language
         # and the newly added domain are all visible together.
         assert (
-            published_object(
-                client, workspace_key, "language", graph["language"]["id"]
-            )["name"]
+            published_object(client, workspace_key, "language", graph["language"]["id"])["name"]
             == renamed_value
         )
         assert (
@@ -337,7 +335,9 @@ def test_catalogue_retirement_remains_distinct_from_publication_withdrawal():
         assert workspace_active_publication_id(published_key) is None
         assert client.get(f"/api/v1/workspaces/{published_key}").json()["status"] == "active"
 
-        fresh = create_change_set(client, published_key, name="fresh after publication withdrawal").json()
+        fresh = create_change_set(
+            client, published_key, name="fresh after publication withdrawal"
+        ).json()
         language = _add_language(client, published_key, fresh, "fresh")
         assert language["workspaceKey"] == published_key
 
@@ -359,7 +359,10 @@ def test_catalogue_retirement_remains_distinct_from_publication_withdrawal():
         assert workspace_active_publication_id(admin_key) == publication["id"]
         assert publication_status(publication["id"]) == "active"
         # Published reads keep serving the last active publication.
-        assert published_object(client, admin_key, "language", publication["language"]["id"]) is not None
+        assert (
+            published_object(client, admin_key, "language", publication["language"]["id"])
+            is not None
+        )
         # Record writes into a fresh change set are blocked because the CATALOGUE record is retired.
         blocked = create_change_set(client, admin_key, name="blocked", expected_status=409)
         assert blocked.json()["error"]["code"] == "WORKSPACE_RETIRED"
@@ -466,8 +469,12 @@ def test_restart_after_publish_and_withdrawal_persists_state(migrated_database, 
             with TestClient(create_app()) as first_client:
                 assert first_client.get("/health").json() == {"status": "ok"}
                 create_workspace(first_client, workspace_key)
-                change_set = create_change_set(first_client, workspace_key, name="restart seed").json()
-                language = _add_language(first_client, workspace_key, change_set, unique_key("restart"))
+                change_set = create_change_set(
+                    first_client, workspace_key, name="restart seed"
+                ).json()
+                language = _add_language(
+                    first_client, workspace_key, change_set, unique_key("restart")
+                )
                 publication = publish_change_set(
                     first_client,
                     change_set["id"],
@@ -478,8 +485,7 @@ def test_restart_after_publish_and_withdrawal_persists_state(migrated_database, 
                 language_id = language["id"]
                 assert workspace_active_publication_id(workspace_key) == withdrawn_publication_id
                 assert (
-                    withdraw_publication(first_client, withdrawn_publication_id).status_code
-                    == 204
+                    withdraw_publication(first_client, withdrawn_publication_id).status_code == 204
                 )
                 assert workspace_active_publication_id(workspace_key) is None
 
@@ -544,7 +550,9 @@ def test_restart_after_publish_and_withdrawal_persists_state(migrated_database, 
 
 def _audit_aggregate_id_column_length() -> int:
     """Reflect the live ``audit_events.aggregate_id`` declared column width."""
-    columns = {column["name"]: column for column in inspect(get_engine()).get_columns("audit_events")}
+    columns = {
+        column["name"]: column for column in inspect(get_engine()).get_columns("audit_events")
+    }
     length = columns["aggregate_id"]["type"].length
     assert isinstance(length, int)
     return length

@@ -67,6 +67,8 @@ describe("routes", () => {
     ["/settings/deployment", { kind: "settings", page: "deployment" }],
     ["/settings/operations", { kind: "settings", page: "operations" }],
     ["/settings/consumer-apis", { kind: "settings", page: "consumer-apis" }],
+    ["/settings/consumer-apis?workspace=stops", { kind: "settings", page: "consumer-apis", workspaceKey: "stops" }],
+    ["/settings/api-reference?workspace=stops", { kind: "settings", page: "api-reference", workspaceKey: "stops" }],
     ["/settings/jobs", { kind: "settings", page: "jobs" }],
     ["/settings/jobs/j-1", { kind: "settings", page: "jobs", jobId: "j-1" }],
     ["/settings/jobs/groups/aiTask/t-1", { kind: "settings", page: "jobs", group: { kind: "aiTask", id: "t-1" } }],

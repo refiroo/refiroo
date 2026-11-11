@@ -181,8 +181,23 @@ def test_read_the_releases(world):
 # --- the consumer APIs' documents (C6b) ----------------------------------------------------------
 
 CAPI = (
-    "Capi", "R", "R2", "R.u", "R2.u", "R.b", "R.n", "R.dt", "K", "K.code", "B11", "Bown", "Bscope",
-    "G", "M", "D", "B1n",
+    "Capi",
+    "R",
+    "R2",
+    "R.u",
+    "R2.u",
+    "R.b",
+    "R.n",
+    "R.dt",
+    "K",
+    "K.code",
+    "B11",
+    "Bown",
+    "Bscope",
+    "G",
+    "M",
+    "D",
+    "B1n",
 )
 
 
@@ -222,7 +237,9 @@ def test_the_consumer_api_index(world):
         "openapi": f"/api/consumer/{capi}/v1/openapi.json",
     }
     assert ok(world.api.get(entry["openapi"]))["info"]["version"] == "1"
-    unchanged = world.api.client.get("/api/consumer", headers={"If-None-Match": response.headers["ETag"]})
+    unchanged = world.api.client.get(
+        "/api/consumer", headers={"If-None-Match": response.headers["ETag"]}
+    )
     assert unchanged.status_code == 304
 
     _activate(world, world.with_consumer_api(copy.deepcopy(world.configuration.model)), "second")
@@ -240,7 +257,9 @@ def test_the_consumer_api_index(world):
 
 def _conforms(document, path, method, answer):
     """``answer`` validates against the document's ``200`` schema of the operation."""
-    schema = document["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+    schema = document["paths"][path][method]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
     OAS31Validator({**schema, "components": document["components"]}).validate(answer)
 
 
@@ -269,7 +288,9 @@ def test_a_consumer_apis_document(world):
         f"{base}/publications",
         *(f"{base}/lists/{key}" for key in lists),
     }
-    assert not any("{consumerApi}" in path or "{contractVersion}" in path for path in document["paths"])
+    assert not any(
+        "{consumerApi}" in path or "{contractVersion}" in path for path in document["paths"]
+    )
 
     xref = document["paths"][f"{base}/xref"]["get"]
     parameters = {item["name"]: item for item in xref["parameters"]}
@@ -285,10 +306,15 @@ def test_a_consumer_apis_document(world):
     assert "pageSize" not in {item["name"] for item in by_id["parameters"]}
 
     north = world.made("G", "Region north", values={"K.code": "GN"})
-    ledger = world.made("R", "Documented ledger", values={"R.u": "DOC-1", "R.n": 7, "R.dt": "2026-01-02"})
+    ledger = world.made(
+        "R", "Documented ledger", values={"R.u": "DOC-1", "R.n": 7, "R.dt": "2026-01-02"}
+    )
     other = world.made("R", "Desk owner", values={"R.u": "OWN-1"})
     desk = world.made(
-        "D", "North desk", parent=world.dependant_parent(north["id"]), relations=[world.owner("Bown", other["id"])]
+        "D",
+        "North desk",
+        parent=world.dependant_parent(north["id"]),
+        relations=[world.owner("Bown", other["id"])],
     )
     ok(world.relate("Bscope", ledger["id"], desk["id"]), 201)
     token_record = world.made("K", "Documented token", values={"K.code": "TK-D"})
@@ -298,12 +324,36 @@ def test_a_consumer_apis_document(world):
 
     to = f"to.{watch}"
     _conforms(document, f"{base}/objects/{{id}}", "get", ok(consumer_object(world, ledger["id"])))
-    _conforms(document, f"{base}/objects/{{id}}", "get", ok(consumer_object(world, ledger["id"], **{to: "Region north"})))
-    _conforms(document, f"{base}/lists/{lists[0]}", "get", ok(consumer_list(world, lists[0], includeTotal="true")))
-    _conforms(document, f"{base}/lists/{lists[1]}", "get", ok(consumer_list(world, lists[1], **{to: "Region north"})))
+    _conforms(
+        document,
+        f"{base}/objects/{{id}}",
+        "get",
+        ok(consumer_object(world, ledger["id"], **{to: "Region north"})),
+    )
+    _conforms(
+        document,
+        f"{base}/lists/{lists[0]}",
+        "get",
+        ok(consumer_list(world, lists[0], includeTotal="true")),
+    )
+    _conforms(
+        document,
+        f"{base}/lists/{lists[1]}",
+        "get",
+        ok(consumer_list(world, lists[1], **{to: "Region north"})),
+    )
     _conforms(document, f"{base}/xref", "get", ok(consumer_xref(world, query="Documented")))
-    _conforms(document, f"{base}/xref", "get", ok(consumer_xref(world, query="DOC-1", expect="one", **{to: "Region north"})))
-    answer = ok(consumer_resolve(world, {"items": [{"query": "DOC-1"}, {"query": "nothing-like-it"}, {"id": "x"}]}))
+    _conforms(
+        document,
+        f"{base}/xref",
+        "get",
+        ok(consumer_xref(world, query="DOC-1", expect="one", **{to: "Region north"})),
+    )
+    answer = ok(
+        consumer_resolve(
+            world, {"items": [{"query": "DOC-1"}, {"query": "nothing-like-it"}, {"id": "x"}]}
+        )
+    )
     _conforms(document, f"{base}/resolve", "post", answer)
     _conforms(document, f"{base}/publications", "get", ok(consumer_publications(world)))
 
@@ -338,7 +388,12 @@ def test_the_api_reference_lists_the_consumer_apis(world):
     info.version, and the v1 document answers 404."""
     capi = world.key("Capi")
     management, consumer = _reference_sources(world)
-    assert management == {"title": "Management API", "slug": "management", "url": "/openapi.json", "default": True}
+    assert management == {
+        "title": "Management API",
+        "slug": "management",
+        "url": "/openapi.json",
+        "default": True,
+    }
     assert consumer == {
         "title": "Capi · v1",
         "slug": f"consumer-{capi}-v1",
@@ -350,7 +405,9 @@ def test_the_api_reference_lists_the_consumer_apis(world):
 
     _activate(world, world.with_consumer_api(copy.deepcopy(world.configuration.model)), "second")
     sources = _reference_sources(world)[1:]
-    assert [source["url"] for source in sources] == [entry["openapi"] for entry in _every_entry(world)]
+    assert [source["url"] for source in sources] == [
+        entry["openapi"] for entry in _every_entry(world)
+    ]
     assert {source["title"] for source in sources} == {"Capi · v1", "Journey API · v1"}
     for source in sources:
         ok(world.api.get(source["url"]))
@@ -365,7 +422,9 @@ def test_the_api_reference_lists_the_consumer_apis(world):
     document = ok(world.api.get(raised["url"]))
     assert document["info"]["version"] == "2"
     assert all(path.startswith(f"/api/consumer/{capi}/v2/") for path in document["paths"])
-    refused(world.api.get(f"/api/consumer/{capi}/v1/openapi.json"), 404, "CONTRACT_VERSION_NOT_FOUND")
+    refused(
+        world.api.get(f"/api/consumer/{capi}/v1/openapi.json"), 404, "CONTRACT_VERSION_NOT_FOUND"
+    )
 
 
 @pytest.mark.journey("J20.6")
@@ -387,9 +446,19 @@ def test_a_consumer_api_definition_expanded(world):
     url_keys = all(re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", key) for key in definition["exposes"])
     if not url_keys:
         draft = ok(world.api.post("/model-drafts", {"name": "Expanded", "model": model}), 201)
-        compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}))
-        assert [d["path"] for d in compiled["diagnostics"]] == [f"/consumerApis/{capi}/operations/events/perType"]
-        definition["operations"]["events"] = {"custom": [{"key": "every", "objectTypes": definition["exposes"], "changes": ["created"]}]}
+        compiled = ok(
+            world.api.post(
+                f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}
+            )
+        )
+        assert [d["path"] for d in compiled["diagnostics"]] == [
+            f"/consumerApis/{capi}/operations/events/perType"
+        ]
+        definition["operations"]["events"] = {
+            "custom": [
+                {"key": "every", "objectTypes": definition["exposes"], "changes": ["created"]}
+            ]
+        }
     ok(world.activate(world.install(model)["id"]))
 
     response = world.api.get(f"/model/consumer-apis/{capi}")
@@ -402,12 +471,20 @@ def test_a_consumer_api_definition_expanded(world):
     assert events["perType"] is False
     if url_keys:
         assert events["custom"] == [
-            {"key": f"{key}-changed", "objectTypes": [key], "changes": ["created", "updated", "deleted"]}
+            {
+                "key": f"{key}-changed",
+                "objectTypes": [key],
+                "changes": ["created", "updated", "deleted"],
+            }
             for key in definition["exposes"]
         ]
     filters = expanded["filters"]
     assert filters[container] == {"under": [world.key("M")], "matchOn": ["id", "name"]}
     assert all("matchOn" in item for item in filters.values() if "byType" not in item)
-    assert all("types" in item["within"] for item in expanded["operations"]["lists"].values() if "within" in item)
+    assert all(
+        "types" in item["within"]
+        for item in expanded["operations"]["lists"].values()
+        if "within" in item
+    )
     assert expanded["object"]["fields"][world.key("Capi.id")] == {"role": "id", "from": ["id"]}
     refused(world.api.get("/model/consumer-apis/no-such-api"), 404, "CONSUMER_API_NOT_FOUND")

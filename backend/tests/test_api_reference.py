@@ -108,8 +108,8 @@ def test_the_page_runs_only_the_scripts_it_ships_and_cannot_be_framed(monkeypatc
     response = client.get("/docs/api")
     policy = _directives(response.headers["content-security-policy"])
     scripts = re.findall(r"<script>(.*?)</script>", response.text, flags=re.DOTALL)
-    # theme, the catalogue link, the reference, the console sign-in, the theme wiring
-    assert len(scripts) == 5
+    # theme, the workspace redirect, the catalogue link, the reference, the console sign-in, the theme wiring
+    assert len(scripts) == 6
     hashes = [
         "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
         for text in scripts
@@ -182,7 +182,7 @@ def test_the_header_is_the_shared_one_and_the_theme_is_the_applications_choice(m
     client = _client(monkeypatch, None)
 
     page = client.get("/docs/api").text
-    assert '<link rel="stylesheet" href="/brand/refiroo-header.css" />' in page
+    assert '<link rel="stylesheet" href="/operator/refiroo-header.css" />' in page
     assert _configuration(page)["hideDarkModeToggle"] is True
     assert "rdm:theme:v1" in page and "forceDarkModeState" in page and '"storage"' in page
     # TH: the colour theme is a second, independent key; Website purple sets data-scheme, Normal sets nothing.
@@ -191,10 +191,10 @@ def test_the_header_is_the_shared_one_and_the_theme_is_the_applications_choice(m
         and 'dataset.scheme = "purple"' in page
         and "theme.schemeKey" in page
     )
-    css = client.get("/brand/refiroo-header.css")
+    css = client.get("/operator/refiroo-header.css")
     assert css.status_code == 200 and css.headers["content-type"].startswith("text/css")
     shared = (
-        Path(__file__).resolve().parents[2] / "frontend" / "public" / "brand" / "refiroo-header.css"
+        Path(__file__).resolve().parents[2] / "frontend" / "public" / "operator" / "refiroo-header.css"
     )
     assert css.content == shared.read_bytes()
 
@@ -204,11 +204,11 @@ def test_docs_page_carries_the_refiroo_mark_from_the_engine(monkeypatch):
 
     page = client.get("/docs/api")
     assert "<title>refiroo API reference</title>" in page.text
-    assert "/brand/refiroo-mascot.png" in page.text and "/brand/favicon.png" in page.text
+    assert "/operator/refiroo-mascot.png" in page.text and "/operator/favicon.png" in page.text
     for name in ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png"):
-        image = client.get(f"/brand/{name}")
+        image = client.get(f"/operator/{name}")
         assert image.status_code == 200 and image.headers["content-type"] == "image/png"
-    assert client.get("/brand/secret.png").status_code == 404
+    assert client.get("/operator/secret.png").status_code == 404
 
 
 def test_the_public_build_page_leads_home_flies_and_names_its_version():
@@ -365,3 +365,20 @@ def test_a_source_gets_only_its_own_scheme_and_only_management_gets_the_session_
     assert after["securitySchemes"]["signedInSession"]["scheme"] == "bearer"
     assert after["securitySchemes"]["signedInSession"]["token"] == "session"
     assert result["top"] is None
+
+
+def test_the_page_names_its_workspace_and_follows_the_one_the_application_remembers(monkeypatch):
+    client = _client(monkeypatch, None)
+    page = client.get("/docs/api").text
+    inline = re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL)
+    redirect = next(text for text in inline if "refiroo.workspace" in text)
+    assert "var RENDERED = " in redirect
+    assert 'searchParams.has("workspace")' in redirect and "location.replace" in redirect
+    # The rendered workspace is the one asked for, else the default's; the script is covered by the policy.
+    asked = client.get("/docs/api?workspace=stops").text
+    assert 'var RENDERED = "stops";' in asked
+    digest = base64.b64encode(hashlib.sha256(redirect.encode()).digest()).decode()
+    assert f"'sha256-{digest}'" in client.get("/docs/api").headers["content-security-policy"]
+    # The public site has no engine to ask and no workspace.
+    site = render_page("bundled", "", _SOURCES, static=StaticSite(version="0.13"))
+    assert "refiroo.workspace" not in site

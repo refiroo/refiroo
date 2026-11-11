@@ -16,7 +16,13 @@ APP = Path(__file__).resolve().parents[1] / "app"
 CODE = re.compile(r"[A-Z][A-Z0-9]*(_[A-Z0-9]+)*")
 SNAKE = re.compile(r"[a-z][a-z0-9]*(_[a-z0-9]+)+")
 # The position of the code among a call's arguments.
-CODE_ARGUMENT = {"api_error": 1, "ApiError": 1, "ModelReferenceError": 0, "_fail": 0, "_append_counted": 2}
+CODE_ARGUMENT = {
+    "api_error": 1,
+    "ApiError": 1,
+    "ModelReferenceError": 0,
+    "_fail": 0,
+    "_append_counted": 2,
+}
 
 
 def _name(call: ast.Call) -> str:
@@ -38,7 +44,9 @@ def _codes(tree: ast.AST) -> list[tuple[ast.AST, str]]:
             index = CODE_ARGUMENT.get(_name(node))
             if index is not None and len(node.args) > index:
                 found.append((node.args[index], _text(node.args[index])))
-            found += [(item.value, _text(item.value)) for item in node.keywords if item.arg == "code"]
+            found += [
+                (item.value, _text(item.value)) for item in node.keywords if item.arg == "code"
+            ]
         elif isinstance(node, ast.Dict):
             found += [
                 (value, _text(value))

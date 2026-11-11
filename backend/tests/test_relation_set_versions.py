@@ -42,30 +42,70 @@ def _obj(client, suffix, app_key, type_key, name, attrs, *, ws=WS, parent=None):
 
 
 def _create_domain(client, suffix, *, ws=WS):
-    return _obj(client, suffix, "rdm-master", "domain", f"Domain {suffix}",
-                [_attr("domain-code", f"DOM_{suffix}")], ws=ws)
+    return _obj(
+        client,
+        suffix,
+        "rdm-master",
+        "domain",
+        f"Domain {suffix}",
+        [_attr("domain-code", f"DOM_{suffix}")],
+        ws=ws,
+    )
 
 
 def _create_codelist(client, suffix, parent_id, *, ws=WS):
-    return _obj(client, suffix, "rdm-master", "codelist", f"Codelist {suffix}",
-                [_attr("codelist-code", f"CL_{suffix}")], ws=ws, parent=parent_id)
+    return _obj(
+        client,
+        suffix,
+        "rdm-master",
+        "codelist",
+        f"Codelist {suffix}",
+        [_attr("codelist-code", f"CL_{suffix}")],
+        ws=ws,
+        parent=parent_id,
+    )
 
 
 def _create_master_value(client, suffix, codelist_id, *, ws=WS):
-    return _obj(client, suffix, "rdm-master", "master-value", f"Master {suffix}", [
-        _attr("master-id", f"MID_{suffix}"),
-        _attr("value-code", f"VC_{suffix}"),
-        _attr("value-name", f"Value {suffix}"),
-    ], ws=ws, parent=codelist_id)
+    return _obj(
+        client,
+        suffix,
+        "rdm-master",
+        "master-value",
+        f"Master {suffix}",
+        [
+            _attr("master-id", f"MID_{suffix}"),
+            _attr("value-code", f"VC_{suffix}"),
+            _attr("value-name", f"Value {suffix}"),
+        ],
+        ws=ws,
+        parent=codelist_id,
+    )
 
 
 def _create_system_value(client, suffix, *, ws=WS):
-    system = _obj(client, suffix, "rdm-systems", "system", f"System {suffix}",
-                  [_attr("system-code", f"SYS_{suffix}")], ws=ws)
-    return _obj(client, suffix, "rdm-systems", "system-value", f"SysVal {suffix}", [
-        _attr("value-code", f"SVC_{suffix}"),
-        _attr("value-name", f"SysVal {suffix}"),
-    ], ws=ws, parent=system["id"])
+    system = _obj(
+        client,
+        suffix,
+        "rdm-systems",
+        "system",
+        f"System {suffix}",
+        [_attr("system-code", f"SYS_{suffix}")],
+        ws=ws,
+    )
+    return _obj(
+        client,
+        suffix,
+        "rdm-systems",
+        "system-value",
+        f"SysVal {suffix}",
+        [
+            _attr("value-code", f"SVC_{suffix}"),
+            _attr("value-name", f"SysVal {suffix}"),
+        ],
+        ws=ws,
+        parent=system["id"],
+    )
 
 
 def _mapping_endpoints(client, suffix, *, ws=WS):

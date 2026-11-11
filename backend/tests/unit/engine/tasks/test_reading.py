@@ -37,5 +37,7 @@ def test_one_and_several_are_said_in_their_own_words():
 
 
 def test_a_key_moved_to_the_names_says_names():
-    table = _table(key={"field": "name"}, keyKind="code", columns=[{"column": "A", "header": "Name"}])
+    table = _table(
+        key={"field": "name"}, keyKind="code", columns=[{"column": "A", "header": "Name"}]
+    )
     assert evidence(table).startswith("Its 'Name' column holds the records' names:")

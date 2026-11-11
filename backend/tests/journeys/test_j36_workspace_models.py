@@ -105,7 +105,9 @@ def test_each_workspace_reads_and_writes_by_its_own_model(world):
     plain = world.api.get("/model")
     assert plain.headers["X-Model-Release-Id"] == x["releaseId"]
     assert plain.headers["RDM-Workspace"] == W1
-    refused(world.api.get("/model", workspaceKey=f"none-{uuid4().hex[:6]}"), 404, "WORKSPACE_NOT_FOUND")
+    refused(
+        world.api.get("/model", workspaceKey=f"none-{uuid4().hex[:6]}"), 404, "WORKSPACE_NOT_FOUND"
+    )
 
 
 @pytest.mark.journey("J36.3")
@@ -212,11 +214,15 @@ def test_activation_into_one_workspace_leaves_the_others_alone(world):
     error = refused(world.activate(x2, second), 409, "MODEL_MIGRATION_REQUIRED")
     assert sum(item.get("count", 0) for item in error["details"]) == 1
     stale = {"releaseId": x1, "expectedVersion": before["version"], "expectedReleaseId": x1}
-    error = refused(world.api.post(f"/workspaces/{W1}/model/activation", stale), 409, "ACTIVATION_CONFLICT")
+    error = refused(
+        world.api.post(f"/workspaces/{W1}/model/activation", stale), 409, "ACTIVATION_CONFLICT"
+    )
     assert error["details"]["workspaceKey"] == W1
     assert error["details"]["currentReleaseId"] == x2
 
-    listed = ok(world.api.get("/workspace-models", releaseKey=world.configuration.model["release"]["key"]))
+    listed = ok(
+        world.api.get("/workspace-models", releaseKey=world.configuration.model["release"]["key"])
+    )
     releases = {item["workspaceKey"]: item["releaseId"] for item in listed["items"]}
     assert releases[W1] == x2 and releases[second] == x1 and releases[W2] != x2
     assert third not in releases
@@ -267,10 +273,15 @@ def test_one_workspaces_release_cannot_be_loaded(world):
     engine.dispose()
 
     with application(world.configuration, world.database) as restarted:
-        error = refused(restarted.api.get("/model", workspaceKey=key), 503, "MODEL_REGISTRY_UNAVAILABLE")
+        error = refused(
+            restarted.api.get("/model", workspaceKey=key), 503, "MODEL_REGISTRY_UNAVAILABLE"
+        )
         assert error["details"]["workspaceKey"] == key
         assert error["details"]["releaseId"] == y["id"]
         assert error["details"]["schemaVersion"] == "0.4"
-        assert ok(restarted.api.get("/model"))["release"]["key"] == world.configuration.model["release"]["key"]
+        assert (
+            ok(restarted.api.get("/model"))["release"]["key"]
+            == world.configuration.model["release"]["key"]
+        )
         restarted.made("R", "Still served")
         assert restarted.api.get("/health").status_code == 200

@@ -63,12 +63,15 @@ def test_the_migrations_install_the_required_extensions(migrated):
     engine = create_engine(migrated)
     try:
         with engine.connect() as connection:
-            assert connection.scalar(
-                text(
-                    "SELECT count(*) FROM pg_extension"
-                    " WHERE extname IN ('pg_trgm', 'btree_gin', 'pgcrypto')"
+            assert (
+                connection.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_extension"
+                        " WHERE extname IN ('pg_trgm', 'btree_gin', 'pgcrypto')"
+                    )
                 )
-            ) == 3
+                == 3
+            )
     finally:
         engine.dispose()
 

@@ -104,9 +104,7 @@ def update_object(
         "changeSetId": change_set["id"],
         "expectedChangeSetVersion": change_set["version"],
     }
-    response = client.patch(
-        f"/api/v1/objects/{object_type_key}/{object_id}", json=body
-    )
+    response = client.patch(f"/api/v1/objects/{object_type_key}/{object_id}", json=body)
     assert response.status_code == expected_status, response.text
     if response.status_code == 200:
         change_set["version"] = response.json()["changeSetVersion"]
@@ -206,9 +204,7 @@ def change_sets(workspace_key: str) -> list[Publication]:
 
 def publication_status(publication_id: str) -> str:
     with SessionLocal() as session:
-        publication = session.scalar(
-            select(Publication).where(Publication.id == publication_id)
-        )
+        publication = session.scalar(select(Publication).where(Publication.id == publication_id))
         assert publication is not None, f"Publication '{publication_id}' not found"
         return publication.status
 
@@ -274,7 +270,10 @@ def _graph_snapshot(client, context_params: dict, object_types) -> str:
                     item["name"],
                     item["parentObjectId"],
                     tuple(
-                        sorted((attribute["attributeTypeKey"], attribute["value"]) for attribute in item["attributes"])
+                        sorted(
+                            (attribute["attributeTypeKey"], attribute["value"])
+                            for attribute in item["attributes"]
+                        )
                     ),
                 )
             )
@@ -525,7 +524,9 @@ def inject_change_set_relation(
         session.commit()
 
 
-def delete_change_set_relation(change_set_id: str, *, relation_type_key: str, to_object_id: str) -> None:
+def delete_change_set_relation(
+    change_set_id: str, *, relation_type_key: str, to_object_id: str
+) -> None:
     with SessionLocal() as session:
         rows = list(
             session.scalars(

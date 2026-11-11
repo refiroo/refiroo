@@ -59,7 +59,12 @@ def _apply(profile: dict[str, Any], **change: Any) -> tuple[dict[str, Any], dict
     model = copy.deepcopy(MODEL)
     document = Document(model)
     sheet = Sheet("S", 3, ("Name", "Name de", "Name fr"), lambda row: dict(GRID.get(row, {})))
-    context = Context(document, lambda _atom: False, Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log), {"S": sheet})
+    context = Context(
+        document,
+        lambda _atom: False,
+        Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log),
+        {"S": sheet},
+    )
     applied = apply_operation(context, {"kind": "setSource", "source": "s", **change})
     return profile, applied.inverse
 
@@ -78,7 +83,12 @@ def _unmapped(profile: dict[str, Any]) -> list[str]:
         pytest.param({"headerRow": 5}, ["Second", "Zweite", "Deuxième"], [], id="moved-down"),
         pytest.param({"headerRow": 2}, ["Title", "Title de", "Title fr"], [], id="moved-up"),
         pytest.param({"headerRow": 4}, ["First", "Erste"], ["Name fr"], id="empty-new-header-cell"),
-        pytest.param({"block": {"firstColumn": "A", "lastColumn": "B", "lastRow": 6}}, ["Name", "Name de"], ["Name fr"], id="narrowed"),
+        pytest.param(
+            {"block": {"firstColumn": "A", "lastColumn": "B", "lastRow": 6}},
+            ["Name", "Name de"],
+            ["Name fr"],
+            id="narrowed",
+        ),
         pytest.param(
             {"headerRow": 5, "block": {"firstColumn": "B", "lastColumn": "C", "lastRow": 6}},
             ["Zweite", "Deuxième"],
@@ -95,14 +105,23 @@ def test_bindings_follow_their_letter_and_the_inverse_restores_them(change, colu
     assert _unmapped(profile) == unmapped
     model = copy.deepcopy(MODEL)
     document = Document(model)
-    apply_operation(Context(document, lambda _atom: False, Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log)), inverse)
+    apply_operation(
+        Context(
+            document,
+            lambda _atom: False,
+            Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log),
+        ),
+        inverse,
+    )
     assert profile == original
 
 
 def test_a_key_column_follows_its_letter_or_is_unmapped():
     moved, _ = _apply(_profile({"column": "Name de"}), headerRow=5)
     assert moved["sources"][0]["key"] == {"column": "Zweite"}
-    narrowed, _ = _apply(_profile({"column": "Name fr"}), block={"firstColumn": "A", "lastColumn": "B", "lastRow": 6})
+    narrowed, _ = _apply(
+        _profile({"column": "Name fr"}), block={"firstColumn": "A", "lastColumn": "B", "lastRow": 6}
+    )
     assert narrowed["sources"][0].get("key") is None
     assert "key" in _unmapped(narrowed)
 

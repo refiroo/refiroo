@@ -74,7 +74,11 @@ def _redo(world, draft: dict[str, Any], version: int):
 
 
 def _application_of_r(world) -> str:
-    return next(a["key"] for a in _active_release(world)["model"]["applications"] if world.key("R") in a["objectTypeKeys"])
+    return next(
+        a["key"]
+        for a in _active_release(world)["model"]["applications"]
+        if world.key("R") in a["objectTypeKeys"]
+    )
 
 
 def _attribute(key: str, name: str) -> dict[str, Any]:
@@ -115,14 +119,38 @@ def test_an_application_built_from_an_empty_draft_by_operations_installs(world):
             "valueType": "text",
             "features": {"searchable": True, "filterable": True, "sortable": True},
         },
-        {"kind": "attachAttribute", "objectType": "j33-shelf", "attributeType": "j33-shelf-codigo", "required": True},
+        {
+            "kind": "attachAttribute",
+            "objectType": "j33-shelf",
+            "attributeType": "j33-shelf-codigo",
+            "required": True,
+        },
         {"kind": "addAttributeType", "name": "J33 Weight", "valueType": "decimal"},
         {"kind": "attachAttribute", "objectType": "j33-item", "attributeType": "j33-weight"},
         {"kind": "addRelationType", "name": "J33 Replaces", "reverseName": "J33 Replaced by"},
-        {"kind": "allowRelation", "relationType": "j33-replaces", "from": "j33-item", "to": "j33-item"},
-        {"kind": "addNavigationGroup", "applicationKey": "j33-storage-rooms", "label": "J33 Storage"},
-        {"kind": "placeCollection", "applicationKey": "j33-storage-rooms", "collection": "j33-shelf", "group": "j33-storage"},
-        {"kind": "placeCollection", "applicationKey": "j33-storage-rooms", "collection": "j33-item", "group": "j33-storage"},
+        {
+            "kind": "allowRelation",
+            "relationType": "j33-replaces",
+            "from": "j33-item",
+            "to": "j33-item",
+        },
+        {
+            "kind": "addNavigationGroup",
+            "applicationKey": "j33-storage-rooms",
+            "label": "J33 Storage",
+        },
+        {
+            "kind": "placeCollection",
+            "applicationKey": "j33-storage-rooms",
+            "collection": "j33-shelf",
+            "group": "j33-storage",
+        },
+        {
+            "kind": "placeCollection",
+            "applicationKey": "j33-storage-rooms",
+            "collection": "j33-item",
+            "group": "j33-storage",
+        },
     ]
     answer = ok(_apply(world, draft, draft["version"], *operations))
     assert answer["valid"] is True, answer["diagnostics"]
@@ -134,7 +162,10 @@ def test_an_application_built_from_an_empty_draft_by_operations_installs(world):
     assert {entry["step"] for entry in history} == {history[0]["step"]}
     assert all(entry["inverse"]["kind"] for entry in history)
     assert all(entry["origin"] == {"type": "request"} for entry in history)
-    assert history[0]["inverse"] == {"kind": "removeApplication", "applicationKey": "j33-storage-rooms"}
+    assert history[0]["inverse"] == {
+        "kind": "removeApplication",
+        "applicationKey": "j33-storage-rooms",
+    }
 
     model = _model(world, draft)
     application = _application(model, "j33-storage-rooms")
@@ -148,9 +179,17 @@ def test_an_application_built_from_an_empty_draft_by_operations_installs(world):
     assert "j33-shelf-codigo" in shelf_view["config"]["columns"]
     assert "j33-shelf-codigo" in shelf_view["config"]["filterFields"]
     shelf_page = _by_key(application["details"], "j33-shelf", "objectTypeKey")
-    assert any(p["type"] == "children" and "j33-item" in p["config"]["objectTypeKeys"] for p in shelf_page["panels"])
+    assert any(
+        p["type"] == "children" and "j33-item" in p["config"]["objectTypeKeys"]
+        for p in shelf_page["panels"]
+    )
     assert application["navigation"]["groups"] == [
-        {"key": "j33-storage", "label": "J33 Storage", "collections": ["j33-shelf", "j33-item"], "collapsed": False}
+        {
+            "key": "j33-storage",
+            "label": "J33 Storage",
+            "collections": ["j33-shelf", "j33-item"],
+            "collapsed": False,
+        }
     ]
 
     installed = world.api.post(
@@ -183,13 +222,27 @@ def test_the_active_model_extended_by_operations_activates_and_holds_records(wor
                 "pluralName": "Notes",
                 "parent": {
                     "objectTypes": [world.key("R")],
-                    "relationType": {"key": "j33-has-note", "name": "Has note", "reverseName": "Note of"},
+                    "relationType": {
+                        "key": "j33-has-note",
+                        "name": "Has note",
+                        "reverseName": "Note of",
+                    },
                 },
             },
             _attribute("j33-text", "Note text"),
             {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-text"},
-            {"kind": "addRelationType", "key": "j33-cites", "name": "Cites", "reverseName": "Cited by"},
-            {"kind": "allowRelation", "relationType": "j33-cites", "from": "j33-note", "to": world.key("K")},
+            {
+                "kind": "addRelationType",
+                "key": "j33-cites",
+                "name": "Cites",
+                "reverseName": "Cited by",
+            },
+            {
+                "kind": "allowRelation",
+                "relationType": "j33-cites",
+                "from": "j33-note",
+                "to": world.key("K"),
+            },
             {
                 "kind": "setRelease",
                 "key": model["release"]["key"],
@@ -210,11 +263,16 @@ def test_the_active_model_extended_by_operations_activates_and_holds_records(wor
     # detail page for a released type that has none (the configurations' generated models declare
     # none; J33.1 checks the panel on a parent's generated page).
     r_pages = [d for d in application["details"] if d["objectTypeKey"] == world.key("R")]
-    before = [d for d in _application(_active_release(world)["model"], r_app)["details"] if d["objectTypeKey"] == world.key("R")]
+    before = [
+        d
+        for d in _application(_active_release(world)["model"], r_app)["details"]
+        if d["objectTypeKey"] == world.key("R")
+    ]
     assert len(r_pages) == len(before)
     for r_page in r_pages:
         assert any(
-            p["type"] == "children" and "j33-note" in p["config"]["objectTypeKeys"] for p in r_page["panels"]
+            p["type"] == "children" and "j33-note" in p["config"]["objectTypeKeys"]
+            for p in r_page["panels"]
         )
 
     release = ok(
@@ -348,6 +406,7 @@ def test_a_draft_only_operation_on_a_released_element_applies_and_is_marked_with
     removal is marked as needing a migration, naming R with its records counted (one more the second
     time). A key change of R.u is marked the same way with its values counted, and an undo takes the
     request back."""
+
     def removal() -> dict[str, Any]:
         draft = _draft_of_active(world)
         answer = ok(
@@ -370,7 +429,11 @@ def test_a_draft_only_operation_on_a_released_element_applies_and_is_marked_with
                 world,
                 draft,
                 draft["version"],
-                {"kind": "setKey", "element": {"attributeType": world.key("R.u")}, "key": "j33-renamed"},
+                {
+                    "kind": "setKey",
+                    "element": {"attributeType": world.key("R.u")},
+                    "key": "j33-renamed",
+                },
             )
         )
         undone = ok(_undo(world, draft, answer["version"]))
@@ -402,17 +465,43 @@ def test_a_released_element_no_data_holds_is_removed_and_activation_checks_the_d
             world,
             draft,
             draft["version"],
-            {"kind": "addObjectType", "applicationKey": r_app, "key": "j33-empty", "name": "Empty", "pluralName": "Empties", "parent": None},
-            {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"], "version": model["release"]["version"] + "-empty"},
+            {
+                "kind": "addObjectType",
+                "applicationKey": r_app,
+                "key": "j33-empty",
+                "name": "Empty",
+                "pluralName": "Empties",
+                "parent": None,
+            },
+            {
+                "kind": "setRelease",
+                "key": model["release"]["key"],
+                "name": model["release"]["name"],
+                "version": model["release"]["version"] + "-empty",
+            },
         )
     )
-    ok(world.activate(ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)["id"]))
+    ok(
+        world.activate(
+            ok(
+                world.api.post(
+                    f"/model-drafts/{draft['id']}/installation",
+                    {"expectedVersion": answer["version"]},
+                ),
+                201,
+            )["id"]
+        )
+    )
 
     current = _draft(world, draft)
     rekey = {"kind": "setKey", "element": {"objectType": "j33-empty"}, "key": "j33-renamed"}
     renamed = ok(_apply(world, draft, current["version"], rekey))
     (marked,) = renamed["entries"][0]["migration"]
-    assert marked["keyChange"] is True and marked["impact"] == {"records": 0, "values": 0, "relationships": 0}
+    assert marked["keyChange"] is True and marked["impact"] == {
+        "records": 0,
+        "values": 0,
+        "relationships": 0,
+    }
     current = ok(_undo(world, draft, renamed["version"]))
     removed = ok(
         _apply(
@@ -420,18 +509,43 @@ def test_a_released_element_no_data_holds_is_removed_and_activation_checks_the_d
             draft,
             current["version"],
             {"kind": "removeObjectType", "objectType": "j33-empty"},
-            {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"], "version": model["release"]["version"] + "-gone"},
+            {
+                "kind": "setRelease",
+                "key": model["release"]["key"],
+                "name": model["release"]["name"],
+                "version": model["release"]["version"] + "-gone",
+            },
         )
     )
     assert removed["valid"] is True, removed["diagnostics"]
     assert not [t for t in _model(world, draft)["objectTypes"] if t["key"] == "j33-empty"]
 
-    ok(world.api.post("/objects", {"applicationKey": r_app, "objectTypeKey": "j33-empty", "name": "Arrived", "workspaceKey": "default"}), 201)
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": removed["version"]}), 201)
+    ok(
+        world.api.post(
+            "/objects",
+            {
+                "applicationKey": r_app,
+                "objectTypeKey": "j33-empty",
+                "name": "Arrived",
+                "workspaceKey": "default",
+            },
+        ),
+        201,
+    )
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": removed["version"]}
+        ),
+        201,
+    )
     refused(world.activate(release["id"]), 409, "MODEL_MIGRATION_REQUIRED")
 
     later = _draft_of_active(world, "Too late")
-    gone = ok(_apply(world, later, later["version"], {"kind": "removeObjectType", "objectType": "j33-empty"}))
+    gone = ok(
+        _apply(
+            world, later, later["version"], {"kind": "removeObjectType", "objectType": "j33-empty"}
+        )
+    )
     assert gone["entries"][0]["migration"][0]["impact"]["records"] == 1
 
 
@@ -451,7 +565,13 @@ def test_a_required_relationship_to_a_released_type_is_marked_as_a_required_attr
     }
 
     def allow(required: bool) -> dict[str, Any]:
-        return {"kind": "allowRelation", "relationType": "j33-needs", "from": world.key("R"), "to": world.key("R"), "required": required}
+        return {
+            "kind": "allowRelation",
+            "relationType": "j33-needs",
+            "from": world.key("R"),
+            "to": world.key("R"),
+            "required": required,
+        }
 
     required = ok(_apply(world, draft, draft["version"], relation, allow(True)))
     (marked,) = required["entries"][1]["migration"]
@@ -475,7 +595,11 @@ def test_a_request_that_cannot_apply_applies_nothing(world):
             draft,
             draft["version"],
             _attribute("j33-ok", "Fine"),
-            {"kind": "attachAttribute", "objectType": "j33-no-such-type", "attributeType": "j33-ok"},
+            {
+                "kind": "attachAttribute",
+                "objectType": "j33-no-such-type",
+                "attributeType": "j33-ok",
+            },
         ),
         422,
         "INVALID_OPERATION",
@@ -517,7 +641,9 @@ def test_a_draft_left_invalid_between_steps_reports_the_compilers_diagnostics(wo
     applies, the answer is invalid with the diagnostics whole-model validation gives for the draft's
     model, and installation is refused INVALID_MODEL."""
     draft = _draft_of_active(world)
-    answer = ok(_apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"}))
+    answer = ok(
+        _apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"})
+    )
     assert answer["valid"] is False
     validation = ok(world.api.post("/model-validations", {"model": _model(world, draft)}))
     assert answer["diagnostics"] == validation["diagnostics"]
@@ -545,20 +671,47 @@ def _hub_model_operations() -> list[dict[str, Any]]:
             "region": "main",
             "order": 9,
             "visible": True,
-            "config": {"relationTypeKeys": relations, "direction": "incoming", "columns": ["name", "objectType"]},
+            "config": {
+                "relationTypeKeys": relations,
+                "direction": "incoming",
+                "columns": ["name", "objectType"],
+            },
         },
     }
     top = {"parent": None}
     return [
         {"kind": "addApplication", "name": "J33 Core"},
         {"kind": "addApplication", "name": "J33 Extra"},
-        {"kind": "addObjectType", "applicationKey": "j33-core", "name": "J33 Hub", "pluralName": "J33 Hubs", **top},
-        {"kind": "addObjectType", "applicationKey": "j33-extra", "name": "J33 Left", "pluralName": "J33 Lefts", **top},
-        {"kind": "addObjectType", "applicationKey": "j33-extra", "name": "J33 Right", "pluralName": "J33 Rights", **top},
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-core",
+            "name": "J33 Hub",
+            "pluralName": "J33 Hubs",
+            **top,
+        },
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-extra",
+            "name": "J33 Left",
+            "pluralName": "J33 Lefts",
+            **top,
+        },
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-extra",
+            "name": "J33 Right",
+            "pluralName": "J33 Rights",
+            **top,
+        },
         {"kind": "addRelationType", "name": "J33 Feeds", "reverseName": "J33 Fed by"},
         {"kind": "addRelationType", "name": "J33 Serves", "reverseName": "J33 Served by"},
         {"kind": "allowRelation", "relationType": "j33-feeds", "from": "j33-left", "to": "j33-hub"},
-        {"kind": "allowRelation", "relationType": "j33-serves", "from": "j33-right", "to": "j33-hub"},
+        {
+            "kind": "allowRelation",
+            "relationType": "j33-serves",
+            "from": "j33-right",
+            "to": "j33-hub",
+        },
         panel("j33-both", "Both", ["j33-feeds", "j33-serves"]),
         panel("j33-serving", "Serving", ["j33-serves"]),
     ]
@@ -577,9 +730,15 @@ def test_a_removal_takes_the_panels_of_other_pages_that_depended_on_it_and_undoe
     assert answer["valid"] is True, answer["diagnostics"]
     before = _model(world, draft)
 
-    removed = ok(_apply(world, draft, answer["version"], {"kind": "removeObjectType", "objectType": "j33-right"}))
+    removed = ok(
+        _apply(
+            world, draft, answer["version"], {"kind": "removeObjectType", "objectType": "j33-right"}
+        )
+    )
     assert removed["valid"] is True, removed["diagnostics"]
-    page = _by_key(_application(_model(world, draft), "j33-core")["details"], "j33-hub", "objectTypeKey")
+    page = _by_key(
+        _application(_model(world, draft), "j33-core")["details"], "j33-hub", "objectTypeKey"
+    )
     panels = {p["key"]: p for p in page["panels"] if p["type"] == "relations"}
     assert panels["j33-both"]["config"]["relationTypeKeys"] == ["j33-feeds"]
     assert "j33-serving" not in panels
@@ -589,9 +748,18 @@ def test_a_removal_takes_the_panels_of_other_pages_that_depended_on_it_and_undoe
     undone = ok(_undo(world, draft, removed["version"]))
     assert _model(world, draft) == before
 
-    removed = ok(_apply(world, draft, undone["version"], {"kind": "removeApplication", "applicationKey": "j33-extra"}))
+    removed = ok(
+        _apply(
+            world,
+            draft,
+            undone["version"],
+            {"kind": "removeApplication", "applicationKey": "j33-extra"},
+        )
+    )
     assert removed["valid"] is True, removed["diagnostics"]
-    page = _by_key(_application(_model(world, draft), "j33-core")["details"], "j33-hub", "objectTypeKey")
+    page = _by_key(
+        _application(_model(world, draft), "j33-core")["details"], "j33-hub", "objectTypeKey"
+    )
     assert [p for p in page["panels"] if p["type"] == "relations"] == []
     assert _model(world, draft)["relationTypes"] == []
     ok(_undo(world, draft, removed["version"]))
@@ -600,7 +768,9 @@ def test_a_removal_takes_the_panels_of_other_pages_that_depended_on_it_and_undoe
 
 @pytest.mark.journey("J33.17")
 @pytest.mark.structures("A1")
-def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from_the_invalid_draft(world):
+def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from_the_invalid_draft(
+    world,
+):
     """Given a draft whose pages list a relation their type no longer has in several panels (a binding
     removed by a whole-model edit). Then its diagnostics name every panel in plain words, each tied to
     its page and panel; and while the draft is invalid a panel is removed from its page by the
@@ -608,8 +778,15 @@ def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from
     draft = _empty_draft(world)
     answer = ok(_apply(world, draft, draft["version"], *_hub_model_operations()))
     broken = copy.deepcopy(_model(world, draft))
-    broken["objectTypeRelations"] = [b for b in broken["objectTypeRelations"] if b["relationTypeKey"] != "j33-serves"]
-    patched = ok(world.api.patch(f"/model-drafts/{draft['id']}", {"expectedVersion": answer["version"], "model": broken}))
+    broken["objectTypeRelations"] = [
+        b for b in broken["objectTypeRelations"] if b["relationTypeKey"] != "j33-serves"
+    ]
+    patched = ok(
+        world.api.patch(
+            f"/model-drafts/{draft['id']}", {"expectedVersion": answer["version"], "model": broken}
+        )
+    )
+
     def hub_issues() -> list[dict[str, Any]]:
         found = ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))["diagnostics"]
         # The generated pages and tables of the far types break too (the relationship's own panel and
@@ -618,13 +795,25 @@ def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from
 
     issues = hub_issues()
     # The panel the hub got for the removed binding (generated when it was allowed) breaks with them.
-    assert sorted(i["element"]["panel"] for i in issues) == ["j33-both", "j33-served-by", "j33-serving"]
+    assert sorted(i["element"]["panel"] for i in issues) == [
+        "j33-both",
+        "j33-served-by",
+        "j33-serving",
+    ]
     assert all(i["element"]["applicationKey"] == "j33-core" for i in issues)
     serving = next(i for i in issues if i["element"]["panel"] == "j33-serving")
-    assert serving["message"].startswith("The Serving panel on the J33 Hub page lists a relation J33 Hub no longer has")
+    assert serving["message"].startswith(
+        "The Serving panel on the J33 Hub page lists a relation J33 Hub no longer has"
+    )
     assert serving["message"].endswith("Remove the panel or restore the relation.")
 
-    remove = {"kind": "removeViewItem", "applicationKey": "j33-core", "detail": "j33-hub", "list": "panels", "item": "j33-serving"}
+    remove = {
+        "kind": "removeViewItem",
+        "applicationKey": "j33-core",
+        "detail": "j33-hub",
+        "list": "panels",
+        "item": "j33-serving",
+    }
     removed = ok(_apply(world, draft, patched["version"], remove))
     assert removed["valid"] is False
     assert sorted(i["element"]["panel"] for i in hub_issues()) == ["j33-both", "j33-served-by"]
@@ -642,7 +831,9 @@ def test_a_whole_model_edit_is_one_step_and_operations_continue_on_it(world):
     draft = _draft_of_active(world)
     start = _model(world, draft)
     edited = copy.deepcopy(start)
-    edited["attributeTypes"].append({"key": "j33-patched", "name": "Patched in", "valueType": "text"})
+    edited["attributeTypes"].append(
+        {"key": "j33-patched", "name": "Patched in", "valueType": "text"}
+    )
     patched = ok(
         world.api.patch(
             f"/model-drafts/{draft['id']}", {"expectedVersion": draft["version"], "model": edited}
@@ -653,10 +844,16 @@ def test_a_whole_model_edit_is_one_step_and_operations_continue_on_it(world):
             world,
             draft,
             patched["version"],
-            {"kind": "setLabel", "element": {"attributeType": "j33-patched"}, "name": "Patched, renamed"},
+            {
+                "kind": "setLabel",
+                "element": {"attributeType": "j33-patched"},
+                "name": "Patched, renamed",
+            },
         )
     )
-    assert _by_key(_model(world, draft)["attributeTypes"], "j33-patched")["name"] == "Patched, renamed"
+    assert (
+        _by_key(_model(world, draft)["attributeTypes"], "j33-patched")["name"] == "Patched, renamed"
+    )
 
     undone = ok(_undo(world, draft, answer["version"]))
     undone = ok(_undo(world, draft, undone["version"]))
@@ -680,8 +877,31 @@ def test_a_relation_types_reverse_name_is_edited_in_place_by_set_label(world):
     shows the new reverse name and the name is untouched (R13-F40: `setLabel` refused `reverseName`
     as an unknown parameter)."""
     draft = _empty_draft(world)
-    made = ok(_apply(world, draft, draft["version"], {"kind": "addRelationType", "key": "j33-holds", "name": "Holds", "reverseName": "Held by"}))
-    answer = ok(_apply(world, draft, made["version"], {"kind": "setLabel", "element": {"relationType": "j33-holds"}, "reverseName": "Kept on"}))
+    made = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "addRelationType",
+                "key": "j33-holds",
+                "name": "Holds",
+                "reverseName": "Held by",
+            },
+        )
+    )
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            made["version"],
+            {
+                "kind": "setLabel",
+                "element": {"relationType": "j33-holds"},
+                "reverseName": "Kept on",
+            },
+        )
+    )
     relation = _by_key(_model(world, draft)["relationTypes"], "j33-holds")
     assert (relation["name"], relation["reverseName"]) == ("Holds", "Kept on")
     assert answer["version"] > made["version"]
@@ -712,11 +932,41 @@ def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in
     steps = [
         {"kind": "addApplication", "key": "j33-from", "name": "From"},
         {"kind": "addApplication", "key": "j33-to", "name": "To"},
-        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-top", "name": "Top", "parent": None},
-        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-mid", "name": "Mid", "parent": {**parent, "objectTypes": ["j33-top"]}},
-        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-leaf", "name": "Leaf", "parent": {**parent, "objectTypes": ["j33-mid"]}},
-        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-stays", "name": "Stays", "parent": None},
-        {"kind": "addObjectType", "applicationKey": "j33-to", "key": "j33-holder", "name": "Holder", "parent": None},
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-from",
+            "key": "j33-top",
+            "name": "Top",
+            "parent": None,
+        },
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-from",
+            "key": "j33-mid",
+            "name": "Mid",
+            "parent": {**parent, "objectTypes": ["j33-top"]},
+        },
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-from",
+            "key": "j33-leaf",
+            "name": "Leaf",
+            "parent": {**parent, "objectTypes": ["j33-mid"]},
+        },
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-from",
+            "key": "j33-stays",
+            "name": "Stays",
+            "parent": None,
+        },
+        {
+            "kind": "addObjectType",
+            "applicationKey": "j33-to",
+            "key": "j33-holder",
+            "name": "Holder",
+            "parent": None,
+        },
         {
             "kind": "addView",
             "applicationKey": "j33-from",
@@ -724,7 +974,13 @@ def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in
                 "key": "j33-hierarchy",
                 "name": "Hierarchy",
                 "type": "tree",
-                "config": {"rootObjectTypeKeys": ["j33-top"], "objectTypeKeys": ["j33-top", "j33-mid", "j33-leaf"], "labelField": "name", "pageSize": 50, "actions": ["createChild", "move"]},
+                "config": {
+                    "rootObjectTypeKeys": ["j33-top"],
+                    "objectTypeKeys": ["j33-top", "j33-mid", "j33-leaf"],
+                    "labelField": "name",
+                    "pageSize": 50,
+                    "actions": ["createChild", "move"],
+                },
             },
         },
     ]
@@ -732,16 +988,36 @@ def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in
     before = _model(world, draft)
     assert _outline(world, draft)["valid"]
 
-    moved = ok(_apply(world, draft, built["version"], {"kind": "setContainment", "objectType": "j33-top", "parent": None, "application": "j33-to"}))
+    moved = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            {
+                "kind": "setContainment",
+                "objectType": "j33-top",
+                "parent": None,
+                "application": "j33-to",
+            },
+        )
+    )
     model, outline = _model(world, draft), _outline(world, draft)
     assert outline["valid"], outline["diagnostics"]
     source, target = _application(model, "j33-from"), _application(model, "j33-to")
     assert source["objectTypeKeys"] == ["j33-stays"]
     assert target["objectTypeKeys"] == ["j33-holder", "j33-top", "j33-mid", "j33-leaf"]
-    assert {d["objectTypeKey"] for d in target["details"]} == {"j33-holder", "j33-top", "j33-mid", "j33-leaf"}
+    assert {d["objectTypeKey"] for d in target["details"]} == {
+        "j33-holder",
+        "j33-top",
+        "j33-mid",
+        "j33-leaf",
+    }
     assert "j33-hierarchy" in {v["key"] for v in target["views"]}
     assert not {"j33-top", "j33-mid", "j33-leaf"} & {d["objectTypeKey"] for d in source["details"]}
-    assert _tree_of(outline, "j33-to") == [("j33-holder", []), ("j33-top", [("j33-mid", [("j33-leaf", [])])])]
+    assert _tree_of(outline, "j33-to") == [
+        ("j33-holder", []),
+        ("j33-top", [("j33-mid", [("j33-leaf", [])])]),
+    ]
     assert _tree_of(outline, "j33-from") == [("j33-stays", [])]
 
     under = ok(
@@ -749,12 +1025,18 @@ def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in
             world,
             draft,
             moved["version"],
-            {"kind": "setContainment", "objectType": "j33-top", "parent": {**parent, "objectTypes": ["j33-holder"]}},
+            {
+                "kind": "setContainment",
+                "objectType": "j33-top",
+                "parent": {**parent, "objectTypes": ["j33-holder"]},
+            },
         )
     )
     outline = _outline(world, draft)
     assert outline["valid"], outline["diagnostics"]
-    assert _tree_of(outline, "j33-to") == [("j33-holder", [("j33-top", [("j33-mid", [("j33-leaf", [])])])])]
+    assert _tree_of(outline, "j33-to") == [
+        ("j33-holder", [("j33-top", [("j33-mid", [("j33-leaf", [])])])])
+    ]
     tree = _by_key(_application(_model(world, draft), "j33-to")["views"], "j33-hierarchy")["config"]
     assert tree["rootObjectTypeKeys"] == ["j33-holder"]
 
@@ -764,9 +1046,18 @@ def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in
     assert moved["entries"][0]["removed"] == []
 
     # A middle type moved alone leaves its parent's children panel nothing to list: the answer says so.
-    alone = ok(_apply(world, draft, _draft(world, draft)["version"], {"kind": "setContainment", "objectType": "j33-mid", "application": "j33-to"}))
+    alone = ok(
+        _apply(
+            world,
+            draft,
+            _draft(world, draft)["version"],
+            {"kind": "setContainment", "objectType": "j33-mid", "application": "j33-to"},
+        )
+    )
     removed = alone["entries"][0]["removed"]
-    assert [(r["kind"], r["applicationKey"], r["detail"]) for r in removed] == [("panel", "j33-from", "j33-top")], removed
+    assert [(r["kind"], r["applicationKey"], r["detail"]) for r in removed] == [
+        ("panel", "j33-from", "j33-top")
+    ], removed
     assert removed[0]["name"]
     listed = _history(world, draft, pageSize=1, **{"from": "end"})["items"][0]
     assert listed["removed"] == removed
@@ -783,11 +1074,32 @@ def test_a_move_between_applications_that_cannot_apply_says_why(world):
     key = world.key("R")
     start = _model(world, draft)
     for operation, parameter in (
-        ({"kind": "setContainment", "objectType": key, "application": app, "fromApplication": app}, "fromApplication"),
-        ({"kind": "setContainment", "objectType": key, "application": "j33-nowhere"}, "application"),
-        ({"kind": "setContainment", "objectType": key, "application": "j33-nowhere-else", "fromApplication": app}, "application"),
+        (
+            {
+                "kind": "setContainment",
+                "objectType": key,
+                "application": app,
+                "fromApplication": app,
+            },
+            "fromApplication",
+        ),
+        (
+            {"kind": "setContainment", "objectType": key, "application": "j33-nowhere"},
+            "application",
+        ),
+        (
+            {
+                "kind": "setContainment",
+                "objectType": key,
+                "application": "j33-nowhere-else",
+                "fromApplication": app,
+            },
+            "application",
+        ),
     ):
-        answer = refused(_apply(world, draft, draft["version"], operation), 422, "INVALID_OPERATION")
+        answer = refused(
+            _apply(world, draft, draft["version"], operation), 422, "INVALID_OPERATION"
+        )
         assert parameter in str(answer), answer
     assert _model(world, draft) == start
 
@@ -810,12 +1122,35 @@ def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand
             draft,
             draft["version"],
             {"kind": "addApplication", "key": "j33-words", "name": "Words"},
-            {"kind": "addObjectType", "applicationKey": "j33-words", "key": "j33-tongue", "name": "Tongue", "parent": None},
-            {"kind": "addObjectType", "applicationKey": "j33-words", "key": "j33-word", "name": "Word", "parent": {**parent, "objectTypes": ["j33-tongue"]}},
+            {
+                "kind": "addObjectType",
+                "applicationKey": "j33-words",
+                "key": "j33-tongue",
+                "name": "Tongue",
+                "parent": None,
+            },
+            {
+                "kind": "addObjectType",
+                "applicationKey": "j33-words",
+                "key": "j33-word",
+                "name": "Word",
+                "parent": {**parent, "objectTypes": ["j33-tongue"]},
+            },
             _attribute("j33-text", "Text"),
             {"kind": "attachAttribute", "objectType": "j33-word", "attributeType": "j33-text"},
-            {"kind": "addRelationType", "key": "j33-worded", "name": "Worded", "reverseName": "Words of"},
-            {"kind": "allowRelation", "relationType": "j33-worded", "from": r_key, "to": "j33-word", "cardinality": "one-to-many"},
+            {
+                "kind": "addRelationType",
+                "key": "j33-worded",
+                "name": "Worded",
+                "reverseName": "Words of",
+            },
+            {
+                "kind": "allowRelation",
+                "relationType": "j33-worded",
+                "from": r_key,
+                "to": "j33-word",
+                "cardinality": "one-to-many",
+            },
         )
     )
     matrix = {
@@ -837,28 +1172,94 @@ def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand
         },
     }
     listed = {"kind": "listObjectType", "applicationKey": "j33-words", "objectType": r_key}
-    added = ok(_apply(world, draft, built["version"], listed, {"kind": "addView", "applicationKey": "j33-words", "view": matrix}))
+    added = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            listed,
+            {"kind": "addView", "applicationKey": "j33-words", "view": matrix},
+        )
+    )
     assert added["valid"] is True, added["diagnostics"]
     outline = _outline(world, draft)
     words = next(a for a in outline["applications"] if a["key"] == "j33-words")
-    assert next(v for v in words["views"] if v["key"] == matrix["key"])["shows"] == [r_key, "j33-tongue", "j33-word"]
+    assert next(v for v in words["views"] if v["key"] == matrix["key"])["shows"] == [
+        r_key,
+        "j33-tongue",
+        "j33-word",
+    ]
     assert r_key not in words["unlistable"]
 
-    refused(_apply(world, draft, added["version"], {"kind": "unlistObjectType", "applicationKey": "j33-words", "objectType": r_key}), 422, "INVALID_OPERATION")
-    removed = ok(_apply(world, draft, added["version"], {"kind": "removeView", "applicationKey": "j33-words", "view": matrix["key"], "unlist": True}))
+    refused(
+        _apply(
+            world,
+            draft,
+            added["version"],
+            {"kind": "unlistObjectType", "applicationKey": "j33-words", "objectType": r_key},
+        ),
+        422,
+        "INVALID_OPERATION",
+    )
+    removed = ok(
+        _apply(
+            world,
+            draft,
+            added["version"],
+            {
+                "kind": "removeView",
+                "applicationKey": "j33-words",
+                "view": matrix["key"],
+                "unlist": True,
+            },
+        )
+    )
     assert r_key not in _application(_model(world, draft), "j33-words")["objectTypeKeys"]
     undone = ok(_undo(world, draft, removed["version"]))
     assert r_key in _application(_model(world, draft), "j33-words")["objectTypeKeys"]
 
     versioned = ok(
-        _apply(world, draft, undone["version"], {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"], "version": model["release"]["version"] + "-j33m"})
+        _apply(
+            world,
+            draft,
+            undone["version"],
+            {
+                "kind": "setRelease",
+                "key": model["release"]["key"],
+                "name": model["release"]["name"],
+                "version": model["release"]["version"] + "-j33m",
+            },
+        )
     )
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": versioned["version"]}), 201)
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": versioned["version"]}
+        ),
+        201,
+    )
     ok(world.activate(release["id"]))
 
     row = world.made("R", "Row standing elsewhere")
-    tongue = ok(world.api.post("/objects", {"applicationKey": "j33-words", "objectTypeKey": "j33-tongue", "name": "First tongue", "workspaceKey": "default"}), 201)
-    page = ok(world.api.get("/workspaces/default/relation-matrix", applicationKey="j33-words", viewKey=matrix["key"], search="Row standing elsewhere"))
+    tongue = ok(
+        world.api.post(
+            "/objects",
+            {
+                "applicationKey": "j33-words",
+                "objectTypeKey": "j33-tongue",
+                "name": "First tongue",
+                "workspaceKey": "default",
+            },
+        ),
+        201,
+    )
+    page = ok(
+        world.api.get(
+            "/workspaces/default/relation-matrix",
+            applicationKey="j33-words",
+            viewKey=matrix["key"],
+            search="Row standing elsewhere",
+        )
+    )
     assert [item["row"]["id"] for item in page["items"]] == [row["id"]]
     assert row["applicationKey"] == r_app
     assert [column["id"] for column in page["columns"]] == [tongue["id"]]
@@ -876,13 +1277,35 @@ def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand
         ),
         201,
     )
-    ok(world.api.post("/relations", {"relationTypeKey": "j33-worded", "fromObjectId": row["id"], "toObjectId": word["id"]}), 201)
-    (read,) = ok(world.api.get("/workspaces/default/relation-matrix", applicationKey="j33-words", viewKey=matrix["key"], search="Row standing elsewhere"))["items"]
+    ok(
+        world.api.post(
+            "/relations",
+            {"relationTypeKey": "j33-worded", "fromObjectId": row["id"], "toObjectId": word["id"]},
+        ),
+        201,
+    )
+    (read,) = ok(
+        world.api.get(
+            "/workspaces/default/relation-matrix",
+            applicationKey="j33-words",
+            viewKey=matrix["key"],
+            search="Row standing elsewhere",
+        )
+    )["items"]
     assert [cell["state"] for cell in read["cells"]] == ["one"]
 
     current = _draft(world, draft)
     # The matrix still needs the listing, so it is refused as invalid, not as needing a migration.
-    refused(_apply(world, draft, current["version"], {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key}), 422, "INVALID_OPERATION")
+    refused(
+        _apply(
+            world,
+            draft,
+            current["version"],
+            {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key},
+        ),
+        422,
+        "INVALID_OPERATION",
+    )
 
 
 @pytest.mark.journey("J33.1", "J33.5")
@@ -1440,13 +1863,33 @@ def test_a_relationships_table_is_added_to_a_draft_and_checked(world):
             "pageSize": 20,
         },
     }
-    added = ok(_apply(world, draft, draft["version"], {"kind": "addView", "applicationKey": application, "view": table}))
+    added = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {"kind": "addView", "applicationKey": application, "view": table},
+        )
+    )
     assert added["valid"] is True, added["diagnostics"]
     outline = _outline(world, draft)
     view = _by_key(_by_key(outline["applications"], application)["views"], table["key"])
     assert view["type"] == "relationTable" and view["collection"] == world.key("H")
 
-    broken = {**table, "key": "j33-broken-rows", "config": {**table["config"], "attributeColumns": [world.key("R.u")]}}
-    refusal = ok(_apply(world, draft, added["version"], {"kind": "addView", "applicationKey": application, "view": broken}))
+    broken = {
+        **table,
+        "key": "j33-broken-rows",
+        "config": {**table["config"], "attributeColumns": [world.key("R.u")]},
+    }
+    refusal = ok(
+        _apply(
+            world,
+            draft,
+            added["version"],
+            {"kind": "addView", "applicationKey": application, "view": broken},
+        )
+    )
     assert refusal["valid"] is False
-    assert any("attributeColumns/0" in item["path"] for item in refusal["diagnostics"]), refusal["diagnostics"]
+    assert any("attributeColumns/0" in item["path"] for item in refusal["diagnostics"]), refusal[
+        "diagnostics"
+    ]

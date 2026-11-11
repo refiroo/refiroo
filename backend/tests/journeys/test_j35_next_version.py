@@ -56,7 +56,9 @@ def _colours(world, draft: dict[str, Any], book: workbooks.W1) -> None:
     )
 
 
-def _load(world, workspace: str, profile_key: str, source_id: str, change_set: dict[str, Any] | None):
+def _load(
+    world, workspace: str, profile_key: str, source_id: str, change_set: dict[str, Any] | None
+):
     """An import of a stored file through the stored profile, live or into a change set."""
     context = (
         {"changeSetId": change_set["id"], "expectedChangeSetVersion": change_set["version"]}
@@ -95,7 +97,11 @@ def _next_version(world, workspace: str, profile_key: str) -> tuple[workbooks.W1
     """W1′ uploaded to the profile and checked: the workbook and the check."""
     following = workbooks.w1_next(rows=200)
     source = _profiled(
-        world, {"profileKey": profile_key}, "catalogue-v2.xlsx", following.content, workspaceKey=workspace
+        world,
+        {"profileKey": profile_key},
+        "catalogue-v2.xlsx",
+        following.content,
+        workspaceKey=workspace,
     )
     check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert (check["state"], check["sourceFileId"]) == ("completed", source["id"]), check
@@ -116,7 +122,9 @@ def _run_within(world, seconds: float) -> None:
 
 
 def _items(world, workspace: str) -> int:
-    return ok(world.api.get("/objects/j34-item", workspaceKey=workspace, includeTotal=True))["totalCount"]
+    return ok(world.api.get("/objects/j34-item", workspaceKey=workspace, includeTotal=True))[
+        "totalCount"
+    ]
 
 
 @pytest.mark.journey("J35.1")
@@ -133,11 +141,21 @@ def test_the_next_version_is_checked_before_anything_loads(world, monkeypatch):
     workspace, profile_key, book = _loaded(world)
     # The profile's last load is W1's, into a change set since published.
     last = ok(world.api.get(f"/import-profiles/{profile_key}"))["lastLoad"]
-    assert (last["outcome"], last["counts"]["created"] > 0, last["publicationId"] is not None) == ("published", True, True)
+    assert (last["outcome"], last["counts"]["created"] > 0, last["publicationId"] is not None) == (
+        "published",
+        True,
+        True,
+    )
     monkeypatch.setattr(import_binding, "CHECK_ROWS", 50)
     following = workbooks.w1_next(rows=200)
     ok(
-        _upload(world, {"profileKey": profile_key}, "catalogue-v2.xlsx", following.content, workspaceKey=workspace),
+        _upload(
+            world,
+            {"profileKey": profile_key},
+            "catalogue-v2.xlsx",
+            following.content,
+            workspaceKey=workspace,
+        ),
         201,
     )
     _run_within(world, 60)
@@ -150,14 +168,23 @@ def test_the_next_version_is_checked_before_anything_loads(world, monkeypatch):
         "new": [{"column": following.header("Y"), "letter": following.column("Y")}],
         "missing": [],
         "renamed": [
-            {"from": book.header("Ln"), "to": following.header("Ln"), "letter": book.column("Ln"), "shared": 1.0}
+            {
+                "from": book.header("Ln"),
+                "to": following.header("Ln"),
+                "letter": book.column("Ln"),
+                "shared": 1.0,
+            }
         ],
     }
     assert (source["newValues"], source["drift"], source["missingRecords"]) == (1, 5, 2)
 
     path = f"/import-profiles/{profile_key}/check"
     (new_value,) = _all(world, f"{path}/new-values", workspaceKey=workspace)
-    assert (new_value["column"], new_value["value"], new_value["created"]) == (book.header("T"), "Bamboo", True)
+    assert (new_value["column"], new_value["value"], new_value["created"]) == (
+        book.header("T"),
+        "Bamboo",
+        True,
+    )
     drift = _all(world, f"{path}/drift", workspaceKey=workspace)
     assert {item["name"] for item in drift} == {row["N"] for row in following.rows[:5]}
     assert all(item["recordName"] == item["name"].removesuffix(" (new)") for item in drift)
@@ -165,18 +192,27 @@ def test_the_next_version_is_checked_before_anything_loads(world, monkeypatch):
     assert sorted(item["key"] for item in missing) == [row["K"] for row in book.rows[:2]]
 
     (figures,) = check["dryRun"]["sources"]
-    assert figures["records"] | {"unchanged": 0} == {"created": 3, "updated": 5, "unchanged": 0, "deleted": 0}
+    assert figures["records"] | {"unchanged": 0} == {
+        "created": 3,
+        "updated": 5,
+        "unchanged": 0,
+        "deleted": 0,
+    }
     assert (figures["missingRecords"], figures["rejections"]) == (2, [])
     rows = _all(world, f"{path}/rows", source=0, status="rejected", workspaceKey=workspace)
     assert rows == []
 
     assert _items(world, workspace) == len(book.rows)
-    materials = ok(world.api.get("/objects/j34-material", workspaceKey=workspace, includeTotal=True))
+    materials = ok(
+        world.api.get("/objects/j34-material", workspaceKey=workspace, includeTotal=True)
+    )
     # W1's load created its materials (its placeholders too, D77); the new one is not among them.
     assert materials["totalCount"] == len(book.distinct("T"))
 
 
-def _accept_rename(world, profile_key: str, before: str, after: str, **source_changes: Any) -> dict[str, Any]:
+def _accept_rename(
+    world, profile_key: str, before: str, after: str, **source_changes: Any
+) -> dict[str, Any]:
     """The profile with the renamed column under its new header (what Accept does), and any other
     change to its source."""
     stored = ok(world.api.get(f"/import-profiles/{profile_key}"))
@@ -185,7 +221,12 @@ def _accept_rename(world, profile_key: str, before: str, after: str, **source_ch
         if binding.get("column") == before:
             binding["column"] = after
     sources[0].update(source_changes)
-    body = {"name": stored["name"], "sources": sources, "valueMaps": stored["valueMaps"], "expectedVersion": stored["version"]}
+    body = {
+        "name": stored["name"],
+        "sources": sources,
+        "valueMaps": stored["valueMaps"],
+        "expectedVersion": stored["version"],
+    }
     return ok(world.api.put(f"/import-profiles/{profile_key}", body))
 
 
@@ -200,7 +241,9 @@ def test_records_missing_from_the_next_version_are_kept_or_deleted_in_a_change_s
     following, check = _next_version(world, workspace, profile_key)
     _accept_rename(world, profile_key, book.header("Ln"), following.header("Ln"))
     source_id = check["sourceFileId"]
-    again = ok(world.api.post(f"/import-profiles/{profile_key}/check", {}, workspaceKey=workspace), 202)
+    again = ok(
+        world.api.post(f"/import-profiles/{profile_key}/check", {}, workspaceKey=workspace), 202
+    )
     assert again["state"] == "checking" and again["jobId"] != check["jobId"]
     _run(world)
     again = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
@@ -215,17 +258,27 @@ def test_records_missing_from_the_next_version_are_kept_or_deleted_in_a_change_s
     assert {item["kind"] for item in review} == {"added", "changed"}
     assert sum(item["kind"] == "added" for item in review) == 3
     last = ok(world.api.get(f"/import-profiles/{profile_key}"))["lastLoad"]
-    assert (last["outcome"], last["changeSetId"], last["sourceFileId"]) == ("inChangeSet", kept["id"], source_id)
+    assert (last["outcome"], last["changeSetId"], last["sourceFileId"]) == (
+        "inChangeSet",
+        kept["id"],
+        source_id,
+    )
 
     _accept_rename(world, profile_key, book.header("Ln"), following.header("Ln"), missing="delete")
-    refused(_load(world, workspace, profile_key, source_id, None), 422, "MISSING_DELETE_NEEDS_CHANGE_SET")
+    refused(
+        _load(world, workspace, profile_key, source_id, None),
+        422,
+        "MISSING_DELETE_NEEDS_CHANGE_SET",
+    )
     deleting = world.change_set(workspace, name="Delete missing")
     job = ok(_load(world, workspace, profile_key, source_id, deleting), 202)
     _run(world)
     assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
     review = _all(world, f"/change-sets/{deleting['id']}/object-changes", objectTypeKey="j34-item")
     removed = [item for item in review if item["kind"] == "removed"]
-    assert sorted(item["before"]["name"] for item in removed) == sorted(row["N"] for row in book.rows[:2])
+    assert sorted(item["before"]["name"] for item in removed) == sorted(
+        row["N"] for row in book.rows[:2]
+    )
     # Discarded, its load is gone: the profile says so rather than showing it as pending.
     version = ok(world.api.get(f"/change-sets/{deleting['id']}"))["version"]
     ok(world.api.delete(f"/change-sets/{deleting['id']}", expectedVersion=version), 204)
@@ -256,28 +309,49 @@ def test_a_profile_a_newer_release_broke_is_listed_at_its_binding_and_refused(wo
     the profile is refused INVALID_IMPORT_PROFILE."""
     draft, book, _source, workspace = _onboarding(world)
     _map_by_hand(world, draft, book)
-    _step(world, draft, {"kind": "mapColumn", "source": "items", "column": book.header("X"), "binding": {"attributeTypeKey": "j34-supplier"}})
+    _step(
+        world,
+        draft,
+        {
+            "kind": "mapColumn",
+            "source": "items",
+            "column": book.header("X"),
+            "binding": {"attributeTypeKey": "j34-supplier"},
+        },
+    )
     release = _install(world, draft)
     ok(world.activate_everywhere(release["id"]))
     profile_key = release["importProfile"]["key"]
 
-    model = copy.deepcopy(ok(world.api.get(f"/model-releases/{release['id']}", includeModel=True))["model"])
+    model = copy.deepcopy(
+        ok(world.api.get(f"/model-releases/{release['id']}", includeModel=True))["model"]
+    )
     item = next(t for t in model["objectTypes"] if t["key"] == "j34-item")
     item["attributes"] = [b for b in item["attributes"] if b["attributeTypeKey"] != "j34-supplier"]
     model["applications"] = _without(model["applications"], "j34-supplier")
     model["release"]["version"] = "1.2.0"
     ok(world.activate_everywhere(world.install(model)["id"]))
 
-    source = _profiled(world, {"profileKey": profile_key}, "catalogue.xlsx", book.content, workspaceKey=workspace)
+    source = _profiled(
+        world, {"profileKey": profile_key}, "catalogue.xlsx", book.content, workspaceKey=workspace
+    )
     check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert check["state"] == "completed" and check["valid"] is False
     stored = ok(world.api.get(f"/import-profiles/{profile_key}"))
-    at = next(i for i, b in enumerate(stored["sources"][0]["columns"]) if b.get("attributeTypeKey") == "j34-supplier")
+    at = next(
+        i
+        for i, b in enumerate(stored["sources"][0]["columns"])
+        if b.get("attributeTypeKey") == "j34-supplier"
+    )
     assert {"path": f"/sources/0/columns/{at}/attributeTypeKey", "code": "ATTRIBUTE_NOT_BOUND"} in [
         {"path": p["path"], "code": p["code"]} for p in check["problems"]
     ]
     assert check["dryRun"] is None and check["sources"][0]["source"] is None
-    refused(_load(world, workspace, profile_key, source["id"], world.change_set(workspace)), 422, "INVALID_IMPORT_PROFILE")
+    refused(
+        _load(world, workspace, profile_key, source["id"], world.change_set(workspace)),
+        422,
+        "INVALID_IMPORT_PROFILE",
+    )
 
 
 @pytest.mark.journey("J35.2")
@@ -310,7 +384,10 @@ def test_a_draft_source_says_what_a_load_does_with_records_missing_from_the_file
     version = ok(world.api.get(f"/model-drafts/{draft['id']}"))["version"]
     answer = world.api.post(
         f"/model-drafts/{draft['id']}/operations",
-        {"expectedVersion": version, "operations": [{"kind": "setMissing", "source": "items", "missing": "delete"}]},
+        {
+            "expectedVersion": version,
+            "operations": [{"kind": "setMissing", "source": "items", "missing": "delete"}],
+        },
     )
     assert refused(answer, 422, "INVALID_OPERATION")["details"]["reason"] == "invalidValue"
 
@@ -323,7 +400,12 @@ def test_the_next_version_of_an_inferred_workbook_is_checked_in_seconds(world):
     saved profile. Then its check ends within 20 s: finding each row's stored translation compared
     every candidate with every relationship, 53 s of a 56 s check."""
     draft, _book, source, workspace = _inferred(world)
-    ok(world.api.post(f"/model-drafts/{draft['id']}/inference/application", {"expectedVersion": _version(world, draft)}))
+    ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/inference/application",
+            {"expectedVersion": _version(world, draft)},
+        )
+    )
     _run(world)
     release = _install(world, draft)
     ok(world.activate_everywhere(release["id"]))
@@ -333,7 +415,16 @@ def test_the_next_version_of_an_inferred_workbook_is_checked_in_seconds(world):
     _run(world)
     world.publish(change_set, workspace)
     following = workbooks.w1_next(rows=200)
-    ok(_upload(world, {"profileKey": profile_key}, "catalogue-v2.xlsx", following.content, workspaceKey=workspace), 201)
+    ok(
+        _upload(
+            world,
+            {"profileKey": profile_key},
+            "catalogue-v2.xlsx",
+            following.content,
+            workspaceKey=workspace,
+        ),
+        201,
+    )
     _run_within(world, 20)
     check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert check["state"] == "completed", check

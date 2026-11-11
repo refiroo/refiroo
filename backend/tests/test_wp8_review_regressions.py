@@ -205,8 +205,12 @@ def test_activation_reparents_survivor_before_deleting_old_parent(review_client)
     change_set = create_change_set(client, "default").json()
     old_parent = _create(client, "default", change_set=change_set)
     child = _create(client, "default", "codelist", change_set=change_set, parent=old_parent["id"])
-    first = publish_change_set(client, change_set["id"], expected_change_set_version=change_set["version"]).json()
-    change_set = create_change_set(client, "default", derived_from_publication_id=first["id"]).json()
+    first = publish_change_set(
+        client, change_set["id"], expected_change_set_version=change_set["version"]
+    ).json()
+    change_set = create_change_set(
+        client, "default", derived_from_publication_id=first["id"]
+    ).json()
     new_parent = _create(client, "default", change_set=change_set)
     moved = client.patch(
         f"/api/v1/objects/codelist/{child['id']}",
@@ -262,7 +266,9 @@ def test_retired_catalogue_rejects_publication_withdrawal(review_client):
     create_workspace(client, workspace)
     change_set = create_change_set(client, workspace).json()
     _create(client, workspace, change_set=change_set)
-    publication = publish_change_set(client, change_set["id"], expected_change_set_version=change_set["version"]).json()
+    publication = publish_change_set(
+        client, change_set["id"], expected_change_set_version=change_set["version"]
+    ).json()
     retired = client.patch(
         f"/api/v1/workspaces/{workspace}", json={"status": "retired", "expectedVersion": 1}
     )
@@ -295,7 +301,8 @@ def test_change_set_read_only_attribute_delete_preserves_value_and_versions(revi
     value = client.get(path, params={"changeSetId": change_set["id"]}).json()
     assert value["value"] == "locked" and value["objectVersion"] == 1
     assert (
-        client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == change_set["version"]
+        client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+        == change_set["version"]
     )
     assert _audit_count() == events
 
@@ -308,9 +315,7 @@ def test_stale_loaded_change_set_cannot_overwrite_a_committed_rename(review_clie
     with SessionLocal() as first, SessionLocal() as second:
         # Keep both ORM instances alive to reproduce two concurrent requests' reads.
         loaded_first = first.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
-        loaded_second = second.scalar(
-            select(ChangeSet).where(ChangeSet.id == change_set["id"])
-        )
+        loaded_second = second.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
         assert loaded_first.version == loaded_second.version == 1
         update_change_set(first, change_set["id"], 1, "winner")
         with pytest.raises(ApiError) as error:
@@ -358,11 +363,15 @@ def test_change_set_requires_parent_on_create_update_and_activation(review_clien
         row.parent_object_id = None
         session.commit()
     invalid = publish_change_set(
-        client, change_set["id"], expected_change_set_version=change_set["version"], expected_status=422
+        client,
+        change_set["id"],
+        expected_change_set_version=change_set["version"],
+        expected_status=422,
     )
     assert "PARENT_REQUIRED" in {item["code"] for item in invalid.json()["error"]["details"]}
     assert (
-        client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == change_set["version"]
+        client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+        == change_set["version"]
     )
     assert client.get("/api/v1/workspaces/default/publications").json()["items"] == []
 
@@ -385,7 +394,10 @@ def test_activation_reports_id_collision_in_another_workspace(review_client):
     assert live.status_code == 201, live.text
     events = _audit_count()
     conflict = publish_change_set(
-        client, change_set["id"], expected_change_set_version=change_set["version"], expected_status=409
+        client,
+        change_set["id"],
+        expected_change_set_version=change_set["version"],
+        expected_status=409,
     )
     assert conflict.json()["error"]["code"] == "VERSION_CONFLICT"
     assert any(
@@ -394,7 +406,8 @@ def test_activation_reports_id_collision_in_another_workspace(review_client):
     )
     assert _audit_count() == events
     assert (
-        client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == change_set["version"]
+        client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+        == change_set["version"]
     )
     fresh = create_change_set(client, "default").json()
     duplicate = client.post(
@@ -430,7 +443,9 @@ def test_cascade_confirmation_rejects_hierarchy_changed_after_preview(review_cli
     preview_change_set_version = change_set["version"] if change_set else None
 
     # Another session adds a descendant without changing the parent's record version.
-    second_child = _create(client, workspace, "codelist", change_set=change_set, parent=parent["id"])
+    second_child = _create(
+        client, workspace, "codelist", change_set=change_set, parent=parent["id"]
+    )
     events = _audit_count()
     confirmation = {
         "expectedVersion": parent["version"],

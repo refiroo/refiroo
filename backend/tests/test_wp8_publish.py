@@ -146,7 +146,9 @@ def _relation_type_keys(client, workspace_key: str, object_id: str) -> set[str]:
     }
 
 
-def _assert_change_set_unchanged(client, change_set_id: str, expected_version: int, expected_membership: tuple[int, int]) -> None:
+def _assert_change_set_unchanged(
+    client, change_set_id: str, expected_version: int, expected_membership: tuple[int, int]
+) -> None:
     detail = client.get(f"/api/v1/change-sets/{change_set_id}")
     assert detail.status_code == 200
     assert detail.json()["version"] == expected_version
@@ -205,8 +207,18 @@ def test_successful_publish_publishes_complete_graph_and_records_publish_audit()
             assert published is not None, f"{object_type} {expected['id']} not published"
             assert published["name"] == expected["name"]
             assert published["version"] == expected["version"]
-        assert published_object(client, workspace_key, "translation-group", graph["group"]["id"])["parentObjectId"] == graph["language"]["id"]
-        assert published_object(client, workspace_key, "codelist", graph["codelist"]["id"])["parentObjectId"] == graph["domain"]["id"]
+        assert (
+            published_object(client, workspace_key, "translation-group", graph["group"]["id"])[
+                "parentObjectId"
+            ]
+            == graph["language"]["id"]
+        )
+        assert (
+            published_object(client, workspace_key, "codelist", graph["codelist"]["id"])[
+                "parentObjectId"
+            ]
+            == graph["domain"]["id"]
+        )
 
         # Containment and the independent relation appear together on the domain's published edges.
         keys = _relation_type_keys(client, workspace_key, graph["domain"]["id"])
@@ -276,8 +288,16 @@ def test_atomic_translation_publication():
         ).json()
 
         # The translation records publish atomically with their cross-application owner graph.
-        assert published_object(client, workspace_key, "translation", translation["id"])["version"] == translation["version"]
-        assert published_object(client, workspace_key, "translation-group", group["id"])["parentObjectId"] == language["id"]
+        assert (
+            published_object(client, workspace_key, "translation", translation["id"])["version"]
+            == translation["version"]
+        )
+        assert (
+            published_object(client, workspace_key, "translation-group", group["id"])[
+                "parentObjectId"
+            ]
+            == language["id"]
+        )
         assert published_object(client, workspace_key, "domain", domain["id"])["id"] == domain["id"]
         domain_keys = _relation_type_keys(client, workspace_key, domain["id"])
         assert "object-has-translation" in domain_keys
@@ -343,7 +363,9 @@ def test_publish_supersedes_an_active_publication_and_retires_it_in_the_same_tra
         assert client.get(f"/api/v1/publications/{first['id']}").json()["withdrawnAt"] is not None
 
         # The derived change set carried the first publication's language forward and added the domain.
-        assert published_object(client, workspace_key, "language", first["language"]["id"]) is not None
+        assert (
+            published_object(client, workspace_key, "language", first["language"]["id"]) is not None
+        )
         assert published_object(client, workspace_key, "domain", added_domain["id"]) is not None
 
     events = _publish_events(second["id"])
@@ -379,10 +401,15 @@ def test_publish_change_set_version_conflict_publishes_nothing():
         assert response.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
 
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=baseline["id"], before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=baseline["id"],
+            before_publication_count=before_publications,
         )
-        _assert_change_set_unchanged(client, change_set["id"], change_set["version"], expected_membership)
+        _assert_change_set_unchanged(
+            client, change_set["id"], change_set["version"], expected_membership
+        )
 
 
 def test_publish_active_publication_conflict_publishes_nothing():
@@ -408,10 +435,15 @@ def test_publish_active_publication_conflict_publishes_nothing():
         assert response.json()["error"]["code"] == "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT"
 
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=baseline["id"], before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=baseline["id"],
+            before_publication_count=before_publications,
         )
-        _assert_change_set_unchanged(client, change_set["id"], change_set["version"], expected_membership)
+        _assert_change_set_unchanged(
+            client, change_set["id"], change_set["version"], expected_membership
+        )
 
 
 def test_publish_model_release_conflict_publishes_nothing():
@@ -438,10 +470,15 @@ def test_publish_model_release_conflict_publishes_nothing():
         assert response.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
 
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=baseline["id"], before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=baseline["id"],
+            before_publication_count=before_publications,
         )
-        _assert_change_set_unchanged(client, change_set["id"], change_set["version"], expected_membership)
+        _assert_change_set_unchanged(
+            client, change_set["id"], change_set["version"], expected_membership
+        )
 
 
 def test_publish_invalid_graph_publishes_nothing():
@@ -454,7 +491,9 @@ def test_publish_invalid_graph_publishes_nothing():
 
         change_set = create_change_set(client, workspace_key).json()
         _domain(client, change_set, unique_key("gc"))
-        inject_change_set_object(change_set["id"], str(uuid4()), "rdm-translations", "not-a-type", "Ghost")
+        inject_change_set_object(
+            change_set["id"], str(uuid4()), "rdm-translations", "not-a-type", "Ghost"
+        )
         expected_membership = change_set_membership_counts(change_set["id"])
 
         response = publish_change_set(
@@ -469,10 +508,15 @@ def test_publish_invalid_graph_publishes_nothing():
         assert "UNKNOWN_OBJECT_TYPE" in [item["code"] for item in body["details"]]
 
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=baseline["id"], before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=baseline["id"],
+            before_publication_count=before_publications,
         )
-        _assert_change_set_unchanged(client, change_set["id"], change_set["version"], expected_membership)
+        _assert_change_set_unchanged(
+            client, change_set["id"], change_set["version"], expected_membership
+        )
 
 
 # --------------------------------------------------------------------------- no partial publication sweep
@@ -492,36 +536,56 @@ def test_no_partial_publication_after_every_failure_class():
         _domain(client, change_set, unique_key("np"))
         membership = change_set_membership_counts(change_set["id"])
         response = publish_change_set(
-            client, change_set["id"], expected_change_set_version=change_set["version"] - 1,
-            expected_active_publication_id=before_active, expected_status=409,
+            client,
+            change_set["id"],
+            expected_change_set_version=change_set["version"] - 1,
+            expected_active_publication_id=before_active,
+            expected_status=409,
         )
         assert response.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=before_active, before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=before_active,
+            before_publication_count=before_publications,
         )
         _assert_change_set_unchanged(client, change_set["id"], change_set["version"], membership)
-        assert client.delete(
-            f"/api/v1/change-sets/{change_set['id']}", params={"expectedVersion": change_set["version"]}
-        ).status_code == 204
+        assert (
+            client.delete(
+                f"/api/v1/change-sets/{change_set['id']}",
+                params={"expectedVersion": change_set["version"]},
+            ).status_code
+            == 204
+        )
 
         # Active-publication conflict.
         change_set = create_change_set(client, workspace_key).json()
         _domain(client, change_set, unique_key("np"))
         membership = change_set_membership_counts(change_set["id"])
         response = publish_change_set(
-            client, change_set["id"], expected_change_set_version=change_set["version"],
-            explicit_null_active_publication=True, expected_status=409,
+            client,
+            change_set["id"],
+            expected_change_set_version=change_set["version"],
+            explicit_null_active_publication=True,
+            expected_status=409,
         )
         assert response.json()["error"]["code"] == "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT"
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=before_active, before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=before_active,
+            before_publication_count=before_publications,
         )
         _assert_change_set_unchanged(client, change_set["id"], change_set["version"], membership)
-        assert client.delete(
-            f"/api/v1/change-sets/{change_set['id']}", params={"expectedVersion": change_set["version"]}
-        ).status_code == 204
+        assert (
+            client.delete(
+                f"/api/v1/change-sets/{change_set['id']}",
+                params={"expectedVersion": change_set["version"]},
+            ).status_code
+            == 204
+        )
 
         # Pinned-model-release conflict.
         change_set = create_change_set(client, workspace_key).json()
@@ -530,39 +594,60 @@ def test_no_partial_publication_after_every_failure_class():
         twin = copy_active_model_release_as_unused()
         rewire_change_set_to_release(change_set["id"], twin)
         response = publish_change_set(
-            client, change_set["id"], expected_change_set_version=change_set["version"],
-            expected_active_publication_id=before_active, expected_status=409,
+            client,
+            change_set["id"],
+            expected_change_set_version=change_set["version"],
+            expected_active_publication_id=before_active,
+            expected_status=409,
         )
         assert response.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=before_active, before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=before_active,
+            before_publication_count=before_publications,
         )
         _assert_change_set_unchanged(client, change_set["id"], change_set["version"], membership)
-        assert client.delete(
-            f"/api/v1/change-sets/{change_set['id']}", params={"expectedVersion": change_set["version"]}
-        ).status_code == 204
+        assert (
+            client.delete(
+                f"/api/v1/change-sets/{change_set['id']}",
+                params={"expectedVersion": change_set["version"]},
+            ).status_code
+            == 204
+        )
 
         # Invalid effective graph.
         change_set = create_change_set(client, workspace_key).json()
         _domain(client, change_set, unique_key("np"))
-        inject_change_set_object(change_set["id"], str(uuid4()), "rdm-translations", "not-a-type", "Ghost")
+        inject_change_set_object(
+            change_set["id"], str(uuid4()), "rdm-translations", "not-a-type", "Ghost"
+        )
         membership = change_set_membership_counts(change_set["id"])
         response = publish_change_set(
-            client, change_set["id"], expected_change_set_version=change_set["version"],
-            expected_active_publication_id=before_active, expected_status=422,
+            client,
+            change_set["id"],
+            expected_change_set_version=change_set["version"],
+            expected_active_publication_id=before_active,
+            expected_status=422,
         )
         assert response.json()["error"]["code"] == "WORKSPACE_GRAPH_INVALID"
         _assert_publication_state_unchanged(
-            client, workspace_key, before_snapshot=before_snapshot,
-            before_active_publication=before_active, before_publication_count=before_publications,
+            client,
+            workspace_key,
+            before_snapshot=before_snapshot,
+            before_active_publication=before_active,
+            before_publication_count=before_publications,
         )
         _assert_change_set_unchanged(client, change_set["id"], change_set["version"], membership)
 
         # The baseline remains fully readable after every failed activation.
         assert publication_status(before_active) == "active"
         assert workspace_active_publication_id(workspace_key) == before_active
-        assert published_object(client, workspace_key, "language", baseline["language"]["id"]) is not None
+        assert (
+            published_object(client, workspace_key, "language", baseline["language"]["id"])
+            is not None
+        )
 
 
 # --------------------------------------------------------------------------- effective membership snapshots
@@ -579,7 +664,9 @@ def test_activated_publication_snapshot_preserves_stable_public_uuids_and_member
         expected_relation_ids = sorted(item.relation_id for item in membership.relations)
 
         publication = publish_change_set(
-            client, change_set["id"], expected_change_set_version=change_set["version"],
+            client,
+            change_set["id"],
+            expected_change_set_version=change_set["version"],
             explicit_null_active_publication=True,
         ).json()
 
@@ -610,4 +697,7 @@ def test_activated_publication_snapshot_preserves_stable_public_uuids_and_member
             ("domain", graph["domain"]),
             ("codelist", graph["codelist"]),
         ):
-            assert published_object(client, workspace_key, object_type, expected["id"])["id"] == expected["id"]
+            assert (
+                published_object(client, workspace_key, object_type, expected["id"])["id"]
+                == expected["id"]
+            )

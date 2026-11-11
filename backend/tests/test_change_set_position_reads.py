@@ -24,13 +24,19 @@ PAGE = 7
 @pytest.fixture(scope="module")
 def change_sets(tmp_path_factory):
     """The fixture's publication-based change set and a current-live change set, both with rows moved."""
-    with volume_app(tmp_path_factory.mktemp("change-set-positions"), scaled_shape(0.01)
-    ) as (client, dataset):
+    with volume_app(tmp_path_factory.mktemp("change-set-positions"), scaled_shape(0.01)) as (
+        client,
+        dataset,
+    ):
         current_live = create_change_set(client, WORKSPACE, source="currentLive").json()
         publication_based = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()
         for change_set in (publication_based, current_live):
             _move_rows(client, change_set, dataset.heavy_group_id)
-        yield client, dataset, {"publication": publication_based["id"], "currentLive": current_live["id"]}
+        yield (
+            client,
+            dataset,
+            {"publication": publication_based["id"], "currentLive": current_live["id"]},
+        )
 
 
 def _move_rows(client, change_set: dict[str, Any], parent_id: str) -> None:
@@ -83,7 +89,9 @@ def _reference(client, params: dict[str, Any]) -> list[str]:
 @pytest.mark.parametrize("source", ["publication", "currentLive"])
 @pytest.mark.parametrize("sort", ["name", "-name", RANK])
 @pytest.mark.parametrize("scope", ["type", "parent"])
-def test_change_set_position_reads_land_on_the_row_a_walk_reaches(change_sets, monkeypatch, source, sort, scope):
+def test_change_set_position_reads_land_on_the_row_a_walk_reaches(
+    change_sets, monkeypatch, source, sort, scope
+):
     client, dataset, change_set_ids = change_sets
     params = {"changeSetId": change_set_ids[source], "sort": sort}
     if scope == "parent":
@@ -101,18 +109,30 @@ def test_change_set_position_reads_land_on_the_row_a_walk_reaches(change_sets, m
 
     monkeypatch.setattr(pagination, "_locate", spy)
     size = len(reference)
-    positions = sorted({0, 1, 2, 3, 4, 5, size // 2, size - PAGE, size - 1, size, size + 3, *range(0, size, 23)})
+    positions = sorted(
+        {0, 1, 2, 3, 4, 5, size // 2, size - PAGE, size - 1, size, size + 3, *range(0, size, 23)}
+    )
     for position in positions:
-        body = _get(client, {**params, "pageSize": PAGE, "position": position, "includeTotal": True})
+        body = _get(
+            client, {**params, "pageSize": PAGE, "position": position, "includeTotal": True}
+        )
         landed = [item["id"] for item in body["items"]]
         assert landed == reference[position : position + PAGE], position
         assert (body["startIndex"], body["totalCount"]) == (min(position, size), size)
         if position < size:
-            after = _get(client, {**params, "pageSize": PAGE, "cursor": body["nextCursor"]}) if body["nextCursor"] else None
-            assert [item["id"] for item in (after or {"items": []})["items"]] == reference[position + PAGE : position + 2 * PAGE]
+            after = (
+                _get(client, {**params, "pageSize": PAGE, "cursor": body["nextCursor"]})
+                if body["nextCursor"]
+                else None
+            )
+            assert [item["id"] for item in (after or {"items": []})["items"]] == reference[
+                position + PAGE : position + 2 * PAGE
+            ]
         if 0 < position <= size:
             before = _get(client, {**params, "pageSize": PAGE, "cursor": body["prevCursor"]})
-            assert [item["id"] for item in before["items"]] == reference[max(0, position - PAGE) : position]
+            assert [item["id"] for item in before["items"]] == reference[
+                max(0, position - PAGE) : position
+            ]
     if sort == RANK:
         # An attribute sort reads in value order through its parts, which a position skips by their
         # counts; the overlay's base sorted every base row by its value (0.11 Q3, D205).

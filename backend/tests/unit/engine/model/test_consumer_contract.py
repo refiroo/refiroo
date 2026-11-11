@@ -19,7 +19,12 @@ def _model(cardinality: str):
     """The starter with one more binding between two types its consumer API exposes."""
     source = json.loads(STARTER.read_text())
     source["relationTypes"].append(
-        {"key": RELATION, "reverseKey": "files-value", "name": "Filed under", "reverseName": "Files"}
+        {
+            "key": RELATION,
+            "reverseKey": "files-value",
+            "name": "Filed under",
+            "reverseName": "Files",
+        }
     )
     source["objectTypeRelations"].append(
         {
@@ -53,7 +58,9 @@ def test_arity_from_the_exposed_records_end(cardinality, outgoing, incoming):
 CARRIED = "relation:is-primary"
 
 
-def _carrying(*, via: str = RELATION, source: str = CARRIED, bound: bool = True, elsewhere: dict | None = None):
+def _carrying(
+    *, via: str = RELATION, source: str = CARRIED, bound: bool = True, elsewhere: dict | None = None
+):
     """The starter with a relation whose binding carries a boolean and a text attribute of its own, and a
     consumer API related block over ``via`` reading ``source``; ``elsewhere`` edits the definition."""
     document = json.loads(STARTER.read_text())
@@ -62,7 +69,12 @@ def _carrying(*, via: str = RELATION, source: str = CARRIED, bound: bool = True,
         {"key": "local-label", "name": "Local label"},
     ]
     document["relationTypes"].append(
-        {"key": RELATION, "reverseKey": "files-value", "name": "Filed under", "reverseName": "Files"}
+        {
+            "key": RELATION,
+            "reverseKey": "files-value",
+            "name": "Filed under",
+            "reverseName": "Files",
+        }
     )
     document["objectTypeRelations"].append(
         {
@@ -94,7 +106,10 @@ def _refused(**options):
 
 def test_a_relation_attribute_is_typed_as_its_value_type():
     assert _contract().projections["filedUnder"]["fields"] == {"id": "text", "flag": "boolean"}
-    assert _contract(source="relation:local-label").projections["filedUnder"]["fields"]["flag"] == "text"
+    assert (
+        _contract(source="relation:local-label").projections["filedUnder"]["fields"]["flag"]
+        == "text"
+    )
 
 
 def test_the_reverse_key_reads_the_same_binding_from_its_other_end():
@@ -114,7 +129,9 @@ def test_the_reverse_route_needs_the_binding_end_to_be_exposed():
     assert error.path.startswith("/consumerApis/rdm")
 
 
-@pytest.mark.parametrize("source", ["relation:no-such-attribute", "relation:value-code", "relation:"])
+@pytest.mark.parametrize(
+    "source", ["relation:no-such-attribute", "relation:value-code", "relation:"]
+)
 def test_an_attribute_the_binding_does_not_carry_is_refused_at_the_field(source):
     error = _refused(source=source)
     assert error.code == "INVALID_REFERENCE"
@@ -143,7 +160,9 @@ def test_a_filter_may_match_the_relationship_but_the_object_may_not():
 
     def filter_on_related(api):
         api["filters"]["label"] = {
-            "onRelated": "filedUnder", "matchOn": ["relation:local-label"], "keepOnlyMatching": True
+            "onRelated": "filedUnder",
+            "matchOn": ["relation:local-label"],
+            "keepOnlyMatching": True,
         }
 
     model = parse_model(_carrying(elsewhere=filter_on_related))
@@ -158,7 +177,9 @@ def test_a_filter_may_match_the_relationship_but_the_object_may_not():
 
     def unbound(api):
         api["filters"]["label"] = {
-            "onRelated": "filedUnder", "matchOn": ["relation:no-such-attribute"], "keepOnlyMatching": True
+            "onRelated": "filedUnder",
+            "matchOn": ["relation:no-such-attribute"],
+            "keepOnlyMatching": True,
         }
 
     assert _refused(elsewhere=unbound).path == "/consumerApis/rdm/filters/label/matchOn/0"

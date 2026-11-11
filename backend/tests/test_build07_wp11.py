@@ -78,9 +78,7 @@ def test_diff_unsupported_baseline_returns_422():
 def test_diff_reports_schema_from_json_when_release_metadata_disagrees():
     with TestClient(app) as client:
         active_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
-        historical_id = _install_historical(
-            schema_version="0.4", stored_schema_version="0.10"
-        )
+        historical_id = _install_historical(schema_version="0.4", stored_schema_version="0.10")
 
         response = client.get(
             f"/api/v1/model-releases/{historical_id}/diff",
@@ -141,7 +139,11 @@ def test_activation_unsupported_schema_retains_422(monkeypatch):
 
         response = client.post(
             DEFAULT_ACTIVATION,
-            json={"releaseId": historical_id, "expectedVersion": version, "expectedReleaseId": active_id},
+            json={
+                "releaseId": historical_id,
+                "expectedVersion": version,
+                "expectedReleaseId": active_id,
+            },
         )
 
     assert response.status_code == 422
@@ -159,16 +161,18 @@ def test_activation_reports_unsupported_schema_from_json_without_mutation(monkey
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     with TestClient(create_app()) as client:
         active_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
-        historical_id = _install_historical(
-            schema_version="0.4", stored_schema_version="0.10"
-        )
+        historical_id = _install_historical(schema_version="0.4", stored_schema_version="0.10")
         with SessionLocal() as session:
             state = default_model(session)
             version = state.version
 
         response = client.post(
             DEFAULT_ACTIVATION,
-            json={"releaseId": historical_id, "expectedVersion": version, "expectedReleaseId": active_id},
+            json={
+                "releaseId": historical_id,
+                "expectedVersion": version,
+                "expectedReleaseId": active_id,
+            },
         )
 
     assert response.status_code == 422
@@ -211,9 +215,9 @@ def test_compile_model_draft_unsupported_baseline(monkeypatch):
         historical_id = _install_historical(schema_version="0.4")
         with SessionLocal() as session:
             db_draft = session.query(ModelDraft).filter_by(public_id=draft["id"]).first()
-            db_draft.base_model_release_id = session.query(ModelRelease.id).filter_by(
-                public_id=historical_id
-            ).scalar()
+            db_draft.base_model_release_id = (
+                session.query(ModelRelease.id).filter_by(public_id=historical_id).scalar()
+            )
             session.commit()
 
         response = client.post(

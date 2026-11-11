@@ -154,13 +154,16 @@ def test_change_set_search_counts_a_change_set_match_and_not_a_hidden_base_match
         204,
     )
     added = _create(
-        client, ENTRY, "Needle five", folder["id"], {"par-code": "A-5"},
-        changeSetId=change_set, expectedChangeSetVersion=_change_set_version(client, change_set),
+        client,
+        ENTRY,
+        "Needle five",
+        folder["id"],
+        {"par-code": "A-5"},
+        changeSetId=change_set,
+        expectedChangeSetVersion=_change_set_version(client, change_set),
     )
 
-    assert set(_ids(client, live, "needle")) == {
-        renamed["id"], recoded["id"], deleted["id"]
-    }
+    assert set(_ids(client, live, "needle")) == {renamed["id"], recoded["id"], deleted["id"]}
     assert set(_ids(client, context, "needle")) == {gained["id"], added["id"]}
     page = _ok(
         client.get(
@@ -169,12 +172,15 @@ def test_change_set_search_counts_a_change_set_match_and_not_a_hidden_base_match
         )
     )
     assert page["totalCount"] == 2
-    assert _ok(
-        client.get(
-            f"/api/v1/objects/{ENTRY}",
-            params={**context, "search": "needle", "includeTotal": "true"},
-        )
-    )["totalCount"] == 2
+    assert (
+        _ok(
+            client.get(
+                f"/api/v1/objects/{ENTRY}",
+                params={**context, "search": "needle", "includeTotal": "true"},
+            )
+        )["totalCount"]
+        == 2
+    )
 
 
 def test_every_write_path_keeps_the_indexes_equal_to_the_values(client, monkeypatch):
@@ -214,7 +220,11 @@ def test_every_write_path_keeps_the_indexes_equal_to_the_values(client, monkeypa
         ),
         204,
     )
-    contexts = {name: context for name, context in seeded["contexts"].items() if name != "overlay change set"}
+    contexts = {
+        name: context
+        for name, context in seeded["contexts"].items()
+        if name != "overlay change set"
+    }
     _assert_index_answers_as_values(client, contexts, monkeypatch)
     with get_engine().connect() as connection:
         stale = connection.scalar(

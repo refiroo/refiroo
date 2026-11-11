@@ -160,7 +160,14 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_change_set_write_lookups.py": ("change_sets",),
     "test_search_index.py": ("queries", "change_sets"),
     "test_w5_activation_write_race.py": ("model_admin", "records"),
-    "test_pg3_concurrency.py": ("records", "mapping", "matrix", "jobs", "model_admin", "workspaces"),
+    "test_pg3_concurrency.py": (
+        "records",
+        "mapping",
+        "matrix",
+        "jobs",
+        "model_admin",
+        "workspaces",
+    ),
     "test_pg3b_batch_writes.py": ("records", "jobs", "matrix"),
     "test_relation_matrix.py": ("matrix", "queries", "change_sets"),
     "test_relation_matrix_volume.py": ("matrix", "volume"),
@@ -209,6 +216,7 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "engine/sources/": ("authoring", "jobs"),
     "engine/records/test_audit.py": ("records", "jobs"),
     "engine/records/test_relation_set_versions.py": ("records", "jobs"),
+    "management/reference/test_content.py": ("reference",),
     "management/test_guide_site.py": ("docs",),
     "models/test_commands.py": ("jobs",),
     "models/test_database.py": ("startup", "jobs"),
@@ -216,7 +224,6 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "test_main.py": ("startup", "jobs"),
 }
 JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
-    "management/reference/test_content.py": ("reference",),
     "J01": ("records", "queries"),
     "J02": ("records",),
     "J03": ("records",),
@@ -261,14 +268,13 @@ def _moved_groups(item: pytest.Item, kind: str) -> set[str]:
     prefixes = [prefix for prefix in UNIT_GROUPS if where.startswith(prefix)]
     return set(UNIT_GROUPS[max(prefixes, key=len)]) if prefixes else set()
 
+
 # Timing-based checks (H2, narrowed in H3): only a test whose outcome depends on wall time, which other
 # processes' load would distort. An entry is a module or one test (`module::test`); a check that
 # counts statements or rows runs in the parallel part, however large its data.
 TIMED: dict[str, str] = {
-    "test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget":
-        "validating and publishing the large workspace against seconds",
-    "test_wp81b_current_live_bases.py::test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry":
-        "the capture must reach its lock wait before a 0.3 s timer commits",
+    "test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget": "validating and publishing the large workspace against seconds",
+    "test_wp81b_current_live_bases.py::test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry": "the capture must reach its lock wait before a 0.3 s timer commits",
 }
 SERIAL_DESCRIPTION = "timing-based check: left out of a parallel run, run with `pytest -m serial`"
 
@@ -283,7 +289,9 @@ BUDGET_MODULES = (
     # Seconds per dry run, a budget measured on a developer's machine (CI's runner is slower).
     "test_move_step_time.py",
 )
-BUDGET_DESCRIPTION = "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
+BUDGET_DESCRIPTION = (
+    "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
+)
 SLOW_SECONDS = 10.0
 JOURNEY_DESCRIPTION = (
     "journey(*ids): the user journeys and variants of USER_JOURNEYS.md this test walks"
@@ -380,7 +388,9 @@ def _check_layout(items: list[pytest.Item]) -> list[pytest.Item]:
             problems.add(f"{where}: unknown journey {', '.join(unknown)} (not in USER_JOURNEYS.md)")
         kind = layout.kind(item.path)
         if kind == "journey" and not _journey_ids(item):
-            problems.add(f"{where}::{item.name}: a journey test names no journey (@pytest.mark.journey)")
+            problems.add(
+                f"{where}::{item.name}: a journey test names no journey (@pytest.mark.journey)"
+            )
         elif kind == "unit":
             if layout.unit_target(item.path) is None:
                 problems.add(
@@ -425,7 +435,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker("budget")
             item.add_marker("serial")
         name = item.path.name
-        if name in TIMED or f"{name}::{item.name}" in TIMED or f"{name}::{item.originalname}" in TIMED:
+        if (
+            name in TIMED
+            or f"{name}::{item.name}" in TIMED
+            or f"{name}::{item.originalname}" in TIMED
+        ):
             item.add_marker("serial")
     if unclassified:
         raise pytest.UsageError(
@@ -474,7 +488,9 @@ def pytest_terminal_summary(terminalreporter, config: pytest.Config) -> None:
         used: dict[str, str] = {}
         for name, outcome, seconds in seeds.ACTIVITY:
             if outcome == "built" or name not in used:
-                used[name] = f"{name}: {outcome}" + (f" in {seconds:.1f} s" if outcome == "built" else "")
+                used[name] = f"{name}: {outcome}" + (
+                    f" in {seconds:.1f} s" if outcome == "built" else ""
+                )
         lines = list(used.values())
         terminalreporter.write_sep("-", "seeded databases")
         terminalreporter.write_line("; ".join(lines))
@@ -534,4 +550,3 @@ def migrated_database():
     # Dropped WITH (FORCE), which also closes connections the application's pool kept open.
     for database in created:
         seeds.drop(database)
-

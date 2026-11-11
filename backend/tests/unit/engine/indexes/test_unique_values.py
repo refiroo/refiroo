@@ -181,7 +181,9 @@ def test_the_rows_follow_the_active_release(seeded):
         def activate(release_id, active_id) -> set[str]:
             # Into every active workspace running it: each keeps its own rows (0.11 D28). A retired
             # workspace refuses, keeps its release and so its rows.
-            running = session.scalar(select(ModelRelease.id).where(ModelRelease.public_id == active_id))
+            running = session.scalar(
+                select(ModelRelease.id).where(ModelRelease.public_id == active_id)
+            )
             reached = set()
             for workspace_key in workspaces_running(session, running):
                 state = session.get(WorkspaceModel, workspace_key)

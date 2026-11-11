@@ -473,7 +473,11 @@ def test_typed_values_moves_and_relationships_survive_capture_and_publish(world)
     publication = world.publish(cs)
     check({})
     # Live moves past the publication's feed position; the publication keeps what live held there.
-    ok(world.update("V", item["id"], world.record("V", item["id"])["version"], values={"V.rank": 9}))
+    ok(
+        world.update(
+            "V", item["id"], world.record("V", item["id"])["version"], values={"V.rank": 9}
+        )
+    )
     later = ok(world.api.get(f"/workspaces/{W1}/feed", after=publication["feedPosition"]))["items"]
     assert [(e["kind"], e["action"], e["id"]) for e in later] == [("object", "updated", item["id"])]
     assert world.value(world.record("V", item["id"]), "V.rank") == 9

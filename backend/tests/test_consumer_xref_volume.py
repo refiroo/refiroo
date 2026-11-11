@@ -55,10 +55,19 @@ def measured(tmp_path_factory) -> dict[str, dict]:
 def _broad(client) -> dict:
     """An item's exact code beside a term in every item, and that term alone: as one XREF
     ``expect=one``, and as two batch items."""
-    code = client.get(CONSUMER_XREF, params={"workspace": WORKSPACE, "query": "item", "pageSize": 1})
+    code = client.get(
+        CONSUMER_XREF, params={"workspace": WORKSPACE, "query": "item", "pageSize": 1}
+    )
     assert code.status_code == 400, code.text
-    first = client.post(CONSUMER_RESOLVE, params={"workspace": WORKSPACE}, json={"items": [{"query": "ITEM-000001"}]})
-    one = client.get(CONSUMER_XREF, params={"workspace": WORKSPACE, "query": ["ITEM-000001", "item"], "expect": "one"})
+    first = client.post(
+        CONSUMER_RESOLVE,
+        params={"workspace": WORKSPACE},
+        json={"items": [{"query": "ITEM-000001"}]},
+    )
+    one = client.get(
+        CONSUMER_XREF,
+        params={"workspace": WORKSPACE, "query": ["ITEM-000001", "item"], "expect": "one"},
+    )
     batch = client.post(
         CONSUMER_RESOLVE,
         params={"workspace": WORKSPACE},
@@ -84,7 +93,16 @@ def _compare(small: list, large: list, rows_per: int) -> list[str]:
 
 def test_xref_holds_the_budgets_as_the_data_grows(measured):
     assert not _compare(measured["small"]["xref"], measured["large"]["xref"], PAGE_SIZE)
-    assert [item.status for item in measured["small"]["xref"]] == [200, 200, 200, 200, 200, 200, 200, 400] * 2
+    assert [item.status for item in measured["small"]["xref"]] == [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        400,
+    ] * 2
 
 
 def test_batch_resolve_statements_follow_the_parameter_sets_not_the_items(measured):

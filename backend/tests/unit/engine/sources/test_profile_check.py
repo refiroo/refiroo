@@ -13,8 +13,15 @@ SOURCE = {
     "columns": [
         {"column": "Code", "attributeTypeKey": "code"},
         {"column": "Name", "field": "name"},
-        {"columns": ["Cold", "Dry"], "relationFlags": {"relationTypeKey": "kept", "objectTypeKey": "zone", "matchBy": {"field": "name"},
-                                                         "targets": {"Cold": "Cold", "Dry": "Dry"}}},
+        {
+            "columns": ["Cold", "Dry"],
+            "relationFlags": {
+                "relationTypeKey": "kept",
+                "objectTypeKey": "zone",
+                "matchBy": {"field": "name"},
+                "targets": {"Cold": "Cold", "Dry": "Dry"},
+            },
+        },
         {"column": "Notes", "ignore": True},
     ],
 }
@@ -30,7 +37,11 @@ def test_a_renamed_column_is_read_under_its_new_header_everywhere():
 
 def test_a_missing_column_is_left_out_and_a_missing_key_column_drops_the_key_and_its_deletes():
     followed = _follow(SOURCE, {}, {"Dry", "Code"})
-    assert [b.get("column") or b.get("columns") for b in followed["columns"]] == ["Name", ["Cold"], "Notes"]
+    assert [b.get("column") or b.get("columns") for b in followed["columns"]] == [
+        "Name",
+        ["Cold"],
+        "Notes",
+    ]
     assert "key" not in followed and "missing" not in followed
 
 

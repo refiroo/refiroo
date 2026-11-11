@@ -19,7 +19,9 @@ _PLACEHOLDER = re.compile(r"\{[^}]*\}")
 # An error code as the backend raises it: `ApiError(409, "code"`, `api_error(422, "code"`, a
 # `code="…"` argument, or a refusal table entry `"code": (422, …`.
 _RAISED = (
-    re.compile(r"(?:[Ee]rror|[Rr]efusal|_refuse)\(\s*(?:status_code=)?\d{3}\s*,\s*(?:code=)?[\"']([A-Z][A-Z_]+)[\"']"),
+    re.compile(
+        r"(?:[Ee]rror|[Rr]efusal|_refuse)\(\s*(?:status_code=)?\d{3}\s*,\s*(?:code=)?[\"']([A-Z][A-Z_]+)[\"']"
+    ),
     re.compile(r"\bcode=[\"']([A-Z][A-Z_]+)[\"']"),
     re.compile(r"^\s*[\"']([A-Z][A-Z_]+)[\"']\s*:\s*\(\s*\d{3}", re.MULTILINE),
 )
@@ -91,7 +93,9 @@ def test_every_error_code_is_listed(inventory):
     codes = raised_codes()
     assert len(codes) > 100  # the extraction still finds the backend's codes
     missing = sorted(code for code in codes if f"`{code}`" not in inventory)
-    assert not missing, "Add to API_JOURNEYS.md's error codes, with their journeys:\n" + "\n".join(missing)
+    assert not missing, "Add to API_JOURNEYS.md's error codes, with their journeys:\n" + "\n".join(
+        missing
+    )
 
 
 def test_every_setting_is_listed(inventory):

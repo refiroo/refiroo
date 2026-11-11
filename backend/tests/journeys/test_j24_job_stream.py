@@ -29,7 +29,14 @@ def served(world):
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     server = uvicorn.Server(
-        uvicorn.Config(world.api.client.app, host="127.0.0.1", port=port, lifespan="off", log_level="warning", timeout_graceful_shutdown=2)
+        uvicorn.Config(
+            world.api.client.app,
+            host="127.0.0.1",
+            port=port,
+            lifespan="off",
+            log_level="warning",
+            timeout_graceful_shutdown=2,
+        )
     )
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -93,7 +100,11 @@ def _workspace(world):
 
 def _export(world, workspace):
     world.made("H", "Streamed", workspace=workspace, values={"H.code": f"S{uuid4().hex[:4]}"})
-    body = {"workspaceKey": workspace, "scope": {"types": [{"objectTypeKey": world.key("H")}]}, "format": "jsonl"}
+    body = {
+        "workspaceKey": workspace,
+        "scope": {"types": [{"objectTypeKey": world.key("H")}]},
+        "format": "jsonl",
+    }
     return ok(world.api.post("/exports", body), 202)
 
 
@@ -109,7 +120,8 @@ def _create(world, name, **values):
         "objectTypeKey": world.key("R"),
         "name": name,
         "attributes": [
-            {"attributeTypeKey": k, "value": v} for k, v in {**world.required_values("R"), **values}.items()
+            {"attributeTypeKey": k, "value": v}
+            for k, v in {**world.required_values("R"), **values}.items()
         ],
     }
 
@@ -131,7 +143,14 @@ def test_the_stream_follows_a_job_to_its_end(world, served):
     assert jobs[-1]["output"]["counts"]["records"] == {world.key("H"): 1}
     assert all(job["id"] == export["id"] for job in jobs)
 
-    batch = _batch(world, ws, [_create(world, f"Streamed {n}", **{world.key("R.u"): f"ST-{uuid4().hex[:6]}"}) for n in range(3)])
+    batch = _batch(
+        world,
+        ws,
+        [
+            _create(world, f"Streamed {n}", **{world.key("R.u"): f"ST-{uuid4().hex[:6]}"})
+            for n in range(3)
+        ],
+    )
     follower = Follower(served, batch["id"])
     state.job_worker.run_until_idle()
     jobs = follower.finish()

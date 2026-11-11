@@ -137,8 +137,16 @@ def test_a_listed_block_and_a_csv_file_are_described_as_the_import_reads_them():
 
 
 def test_a_note_row_is_mapped_to_nothing_on_the_key_and_name_columns_and_its_rows_skipped():
-    table = _table(place={"sheetIndex": 0, "headerRow": 1, "lastRow": 9, "block": None,
-                          "note": 2, "noteText": "(Multiple answer)"})
+    table = _table(
+        place={
+            "sheetIndex": 0,
+            "headerRow": 1,
+            "lastRow": 9,
+            "block": None,
+            "note": 2,
+            "noteText": "(Multiple answer)",
+        }
+    )
     built = _built(table)
     (source,) = built.profile["sources"]
     assert source["rowsWithoutKey"] == "skip"
@@ -150,8 +158,12 @@ def test_a_note_row_is_mapped_to_nothing_on_the_key_and_name_columns_and_its_row
 
 
 def test_a_fixed_parent_of_the_reading_is_the_sources_without_the_note_of_where_it_came_from():
-    parent = {"objectTypeKey": "region", "matchBy": {"field": "name"}, "value": "North",
-              "source": "records"}
+    parent = {
+        "objectTypeKey": "region",
+        "matchBy": {"field": "name"},
+        "value": "North",
+        "source": "records",
+    }
     (source,) = _built(_table(parent=parent)).profile["sources"]
     assert source["parent"] == {k: v for k, v in parent.items() if k != "source"}
 
@@ -167,8 +179,14 @@ def _followed(**changes):
         "columns": [
             {"column": "Number", "attributeTypeKey": "number", "valueMap": "blank"},
             {"column": "Name", "field": "name"},
-            {"column": "Token", "relation": {"relationTypeKey": "pairs", "objectTypeKey": "token",
-                                              "matchBy": {"field": "name"}}},
+            {
+                "column": "Token",
+                "relation": {
+                    "relationTypeKey": "pairs",
+                    "objectTypeKey": "token",
+                    "matchBy": {"field": "name"},
+                },
+            },
         ],
         "valueMaps": {},
     }
@@ -178,7 +196,12 @@ def _followed(**changes):
         owner="profile",
         profileSource=stored,
         columns=[
-            {"column": "A", "header": "Number", "binding": {"attributeTypeKey": "number"}, "owner": "profile"},
+            {
+                "column": "A",
+                "header": "Number",
+                "binding": {"attributeTypeKey": "number"},
+                "owner": "profile",
+            },
             {"column": "B", "header": "Name", "binding": {"field": "name"}, "owner": "profile"},
             {"column": "C", "header": "Token", "binding": {"relation": {}}, "owner": "profile"},
         ],
@@ -189,8 +212,14 @@ def _followed(**changes):
 
 def test_a_table_that_followed_a_profile_is_the_source_as_stored_and_names_the_profile():
     maps = {"blank": {"N/A": None}}
-    built = plan.build([_followed()], {}, [], csv_delimiter=None,
-                       profile={"key": "layout", "name": "Layout", "sources": 1}, profile_maps=maps)
+    built = plan.build(
+        [_followed()],
+        {},
+        [],
+        csv_delimiter=None,
+        profile={"key": "layout", "name": "Layout", "sources": 1},
+        profile_maps=maps,
+    )
     assert built is not None and built.profile_key == "layout"
     (source,) = built.profile["sources"]
     assert source["columns"][2]["relation"]["relationTypeKey"] == "pairs"
@@ -201,10 +230,19 @@ def test_choices_added_to_a_followed_profile_extend_its_value_maps_and_it_is_no_
     table = _followed()
     table["choices"]["newRecords"] = {"value": "leaveOut", "owner": "person"}
     maps = {"blank": {"N/A": None}}
-    built = plan.build([table], {"t1": plan.Computed(new_keys=["N-1"])}, [], csv_delimiter=None,
-                       profile={"key": "layout", "name": "Layout", "sources": 1}, profile_maps=maps)
+    built = plan.build(
+        [table],
+        {"t1": plan.Computed(new_keys=["N-1"])},
+        [],
+        csv_delimiter=None,
+        profile={"key": "layout", "name": "Layout", "sources": 1},
+        profile_maps=maps,
+    )
     assert built is not None and built.profile_key is None
     (source,) = built.profile["sources"]
     assert source["rowsWithoutKey"] == "skip"
     # The profile's own entries stay in the map the binding now names.
-    assert built.profile["valueMaps"][source["columns"][0]["valueMap"]] == {"N/A": None, "N-1": None}
+    assert built.profile["valueMaps"][source["columns"][0]["valueMap"]] == {
+        "N/A": None,
+        "N-1": None,
+    }

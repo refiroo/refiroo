@@ -33,17 +33,51 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         app = application["key"]
         yield {"kind": "setLabel", "element": {"applicationKey": app}, "name": "Renamed"}
         yield {"kind": "setKey", "element": {"applicationKey": app}, "key": "zz-app"}
-        yield {"kind": "addNavigationGroup", "applicationKey": app, "label": "Group", "collections": []}
-        yield {"kind": "addObjectType", "applicationKey": app, "name": "Zz", "pluralName": "Zzs", "parent": None}
+        yield {
+            "kind": "addNavigationGroup",
+            "applicationKey": app,
+            "label": "Group",
+            "collections": [],
+        }
+        yield {
+            "kind": "addObjectType",
+            "applicationKey": app,
+            "name": "Zz",
+            "pluralName": "Zzs",
+            "parent": None,
+        }
         for view in application["views"]:
             yield {"kind": "removeView", "applicationKey": app, "view": view["key"]}
-            yield {"kind": "setKey", "element": {"applicationKey": app, "view": view["key"]}, "key": "zz-view"}
-            yield {"kind": "setViewProperty", "applicationKey": app, "view": view["key"], "property": "pageSize", "value": 7}
+            yield {
+                "kind": "setKey",
+                "element": {"applicationKey": app, "view": view["key"]},
+                "key": "zz-view",
+            }
+            yield {
+                "kind": "setViewProperty",
+                "applicationKey": app,
+                "view": view["key"],
+                "property": "pageSize",
+                "value": 7,
+            }
             if view["type"] == "table":
                 columns = view["config"]["columns"]
-                yield {"kind": "removeViewItem", "applicationKey": app, "view": view["key"], "list": "columns", "item": columns[-1]}
+                yield {
+                    "kind": "removeViewItem",
+                    "applicationKey": app,
+                    "view": view["key"],
+                    "list": "columns",
+                    "item": columns[-1],
+                }
                 if len(columns) > 1:
-                    yield {"kind": "moveViewItem", "applicationKey": app, "view": view["key"], "list": "columns", "item": columns[-1], "position": 0}
+                    yield {
+                        "kind": "moveViewItem",
+                        "applicationKey": app,
+                        "view": view["key"],
+                        "list": "columns",
+                        "item": columns[-1],
+                        "position": 0,
+                    }
             yield {"kind": "removeView", "applicationKey": app, "view": view["key"], "unlist": True}
             if view["type"] in ("table", "relationMatrix"):
                 source = (
@@ -88,8 +122,21 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
                     "show": {"relations": {"relation": relation_key, "direction": direction}},
                 }
             for panel in detail["panels"]:
-                yield {"kind": "removeViewItem", "applicationKey": app, "detail": detail["objectTypeKey"], "list": "panels", "item": panel["key"]}
-                yield {"kind": "setViewProperty", "applicationKey": app, "detail": detail["objectTypeKey"], "panel": panel["key"], "property": "visible", "value": False}
+                yield {
+                    "kind": "removeViewItem",
+                    "applicationKey": app,
+                    "detail": detail["objectTypeKey"],
+                    "list": "panels",
+                    "item": panel["key"],
+                }
+                yield {
+                    "kind": "setViewProperty",
+                    "applicationKey": app,
+                    "detail": detail["objectTypeKey"],
+                    "panel": panel["key"],
+                    "property": "visible",
+                    "value": False,
+                }
     for type_key in types:
         yield {"kind": "setLabel", "element": {"objectType": type_key}, "pluralName": "Others"}
         yield {"kind": "setKey", "element": {"objectType": type_key}, "key": "zz-type"}
@@ -97,12 +144,32 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         yield {"kind": "setContainment", "objectType": type_key, "parent": None}
         for application in model["applications"]:
             if type_key not in application["objectTypeKeys"]:
-                yield {"kind": "setContainment", "objectType": type_key, "application": application["key"]}
-        yield {"kind": "allowRelation", "relationType": model["relationTypes"][0]["key"], "from": type_key, "to": types[0]}
-        bindings = [b["attributeTypeKey"] for b in next(t for t in model["objectTypes"] if t["key"] == type_key).get("attributes", [])]
+                yield {
+                    "kind": "setContainment",
+                    "objectType": type_key,
+                    "application": application["key"],
+                }
+        yield {
+            "kind": "allowRelation",
+            "relationType": model["relationTypes"][0]["key"],
+            "from": type_key,
+            "to": types[0],
+        }
+        bindings = [
+            b["attributeTypeKey"]
+            for b in next(t for t in model["objectTypes"] if t["key"] == type_key).get(
+                "attributes", []
+            )
+        ]
         for attribute in bindings:
             yield {"kind": "detachAttribute", "objectType": type_key, "attributeType": attribute}
-            yield {"kind": "setAttributeBinding", "objectType": type_key, "attributeType": attribute, "required": True, "position": 0}
+            yield {
+                "kind": "setAttributeBinding",
+                "objectType": type_key,
+                "attributeType": attribute,
+                "required": True,
+                "position": 0,
+            }
             yield {
                 "kind": "convertAttributeToListType",
                 "objectType": type_key,
@@ -112,7 +179,12 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
             }
             other = next((t for t in types if t != type_key), None)
             if other:
-                yield {"kind": "moveAttribute", "attributeType": attribute, "from": type_key, "to": other}
+                yield {
+                    "kind": "moveAttribute",
+                    "attributeType": attribute,
+                    "from": type_key,
+                    "to": other,
+                }
         if bindings:
             yield {
                 "kind": "splitObjectType",
@@ -121,25 +193,67 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
                 "attributes": bindings[:1],
                 "relationType": {"name": "Has part", "reverseName": "Part of"},
             }
-        yield {"kind": "addObjectType", "applicationKey": model["applications"][0]["key"], "name": "Zz child", "pluralName": "Zz children", "parent": {"objectTypes": [type_key], "relationType": {"name": "Holds", "reverseName": "Held by"}}}
+        yield {
+            "kind": "addObjectType",
+            "applicationKey": model["applications"][0]["key"],
+            "name": "Zz child",
+            "pluralName": "Zz children",
+            "parent": {
+                "objectTypes": [type_key],
+                "relationType": {"name": "Holds", "reverseName": "Held by"},
+            },
+        }
         # A parent a record may also do without (0.10 A6b, D99).
-        yield {"kind": "setContainment", "objectType": type_key, "parent": {"objectTypes": [types[0]], "relationType": {"name": "Holds", "reverseName": "Held by"}, "optional": True}}
+        yield {
+            "kind": "setContainment",
+            "objectType": type_key,
+            "parent": {
+                "objectTypes": [types[0]],
+                "relationType": {"name": "Holds", "reverseName": "Held by"},
+                "optional": True,
+            },
+        }
     for first, second in pairwise(types):
         yield {"kind": "mergeObjectTypes", "into": first, "from": second}
     yield from _property_operations(model)
     for attribute in model["attributeTypes"]:
         yield {"kind": "setLabel", "element": {"attributeType": attribute["key"]}, "name": "Other"}
-        yield {"kind": "setKey", "element": {"attributeType": attribute["key"]}, "key": "zz-attribute"}
-        yield {"kind": "setAttributeTypeFeatures", "attributeType": attribute["key"], "features": {"searchable": True, "unique": None}}
+        yield {
+            "kind": "setKey",
+            "element": {"attributeType": attribute["key"]},
+            "key": "zz-attribute",
+        }
+        yield {
+            "kind": "setAttributeTypeFeatures",
+            "attributeType": attribute["key"],
+            "features": {"searchable": True, "unique": None},
+        }
         yield {"kind": "setValueType", "attributeType": attribute["key"], "valueType": "longText"}
         for type_key in types[:2]:
-            yield {"kind": "attachAttribute", "objectType": type_key, "attributeType": attribute["key"]}
+            yield {
+                "kind": "attachAttribute",
+                "objectType": type_key,
+                "attributeType": attribute["key"],
+            }
     for relation in model["relationTypes"]:
         if relation.get("reverseName"):
-            yield {"kind": "setLabel", "element": {"relationType": relation["key"]}, "reverseName": "Zz back"}
-        yield {"kind": "setKey", "element": {"relationType": relation["key"]}, "key": "zz-rel", "reverseKey": "zz-rel-back"}
+            yield {
+                "kind": "setLabel",
+                "element": {"relationType": relation["key"]},
+                "reverseName": "Zz back",
+            }
+        yield {
+            "kind": "setKey",
+            "element": {"relationType": relation["key"]},
+            "key": "zz-rel",
+            "reverseKey": "zz-rel-back",
+        }
     for binding in model["objectTypeRelations"]:
-        triple = {"relationType": binding["relationTypeKey"], "from": binding["fromObjectTypeKey"], "to": binding["toObjectTypeKey"]}
+        triple = {
+            "relationType": binding["relationTypeKey"],
+            "from": binding["fromObjectTypeKey"],
+            "to": binding["toObjectTypeKey"],
+        }
         yield {"kind": "disallowRelation", **triple}
         yield {"kind": "setRelationRule", **triple, "required": not binding.get("required", False)}
     yield {"kind": "addAttributeType", "name": "Zz attribute", "valueType": "integer"}
@@ -242,17 +356,50 @@ def _consumer_operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         api = definition["key"]
         yield {"kind": "removeConsumerApi", "consumerApi": api}
         yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "", "value": definition}
-        yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "/contractVersion", "value": 9}
-        yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "/key", "value": "zz-api"}
+        yield {
+            "kind": "setConsumerApiPart",
+            "consumerApi": api,
+            "pointer": "/contractVersion",
+            "value": 9,
+        }
+        yield {
+            "kind": "setConsumerApiPart",
+            "consumerApi": api,
+            "pointer": "/key",
+            "value": "zz-api",
+        }
         for pointer, node in _parts(definition, ""):
-            yield {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": pointer, "value": node}
+            yield {
+                "kind": "setConsumerApiPart",
+                "consumerApi": api,
+                "pointer": pointer,
+                "value": node,
+            }
             yield {"kind": "removeConsumerApiPart", "consumerApi": api, "pointer": pointer}
-            yield {"kind": "moveConsumerApiPart", "consumerApi": api, "pointer": pointer, "position": 0}
+            yield {
+                "kind": "moveConsumerApiPart",
+                "consumerApi": api,
+                "pointer": pointer,
+                "position": 0,
+            }
             container, _, last = pointer.rpartition("/")
             if last.isdigit():
-                yield {"kind": "insertConsumerApiPart", "consumerApi": api, "pointer": container, "value": node, "position": 0}
+                yield {
+                    "kind": "insertConsumerApiPart",
+                    "consumerApi": api,
+                    "pointer": container,
+                    "value": node,
+                    "position": 0,
+                }
             else:
-                yield {"kind": "insertConsumerApiPart", "consumerApi": api, "pointer": container, "key": f"zz{last}", "value": node, "position": 0}
+                yield {
+                    "kind": "insertConsumerApiPart",
+                    "consumerApi": api,
+                    "pointer": container,
+                    "key": f"zz{last}",
+                    "value": node,
+                    "position": 0,
+                }
 
 
 def _parts(node: Any, pointer: str) -> Iterator[tuple[str, Any]]:
@@ -281,7 +428,9 @@ def _apply(data: dict[str, Any], operation: dict[str, Any]) -> Any:
 
 
 @pytest.mark.parametrize(("model_name", "operation"), list(_cases()))
-def test_an_operation_and_then_its_inverse_return_the_document(model_name: str, operation: dict[str, Any]):
+def test_an_operation_and_then_its_inverse_return_the_document(
+    model_name: str, operation: dict[str, Any]
+):
     original = MODELS[model_name]
     data = copy.deepcopy(original)
     try:
@@ -320,13 +469,19 @@ def test_a_removal_drops_the_relation_types_left_unbound_and_keeps_the_bound_one
         kept = {r["key"] for r in data["relationTypes"]}
         before = {b["relationTypeKey"] for b in original["objectTypeRelations"]}
         assert bound <= kept
-        assert kept == {r["key"] for r in original["relationTypes"] if r["key"] in bound or r["key"] not in before}
+        assert kept == {
+            r["key"]
+            for r in original["relationTypes"]
+            if r["key"] in bound or r["key"] not in before
+        }
         held = copy.deepcopy(original)
         apply_operation(
             Context(Document(held), released, in_use=lambda atom: atom.startswith("relationType:")),
             {"kind": "removeObjectType", "objectType": type_key},
         )
-        assert {r["key"] for r in held["relationTypes"]} == {r["key"] for r in original["relationTypes"]}
+        assert {r["key"] for r in held["relationTypes"]} == {
+            r["key"] for r in original["relationTypes"]
+        }
 
 
 def test_a_released_element_data_does_not_hold_changes_unmarked_but_its_key_change_is_always_marked():
@@ -334,7 +489,9 @@ def test_a_released_element_data_does_not_hold_changes_unmarked_but_its_key_chan
     released = lambda atom: atom == f"objectType:{type_key}"
     unheld = lambda _atom: False
     renaming = Context(Document(copy.deepcopy(MODELS["example"])), released, in_use=unheld)
-    apply_operation(renaming, {"kind": "setKey", "element": {"objectType": type_key}, "key": "renamed"})
+    apply_operation(
+        renaming, {"kind": "setKey", "element": {"objectType": type_key}, "key": "renamed"}
+    )
     assert renaming.take_marks() == [(f"objectType:{type_key}", True)]
     data = copy.deepcopy(MODELS["example"])
     removing = Context(Document(data), released, in_use=unheld)
@@ -348,31 +505,55 @@ def test_which_records_a_released_relationship_may_choose_changes_without_a_migr
     its cardinality on the same binding still needs a migration (found in A4a)."""
     data = copy.deepcopy(MODELS["example"])
     binding = data["objectTypeRelations"][0]
-    triple = {"relationType": binding["relationTypeKey"], "from": binding["fromObjectTypeKey"], "to": binding["toObjectTypeKey"]}
+    triple = {
+        "relationType": binding["relationTypeKey"],
+        "from": binding["fromObjectTypeKey"],
+        "to": binding["toObjectTypeKey"],
+    }
     released = lambda atom: atom.startswith("relationBinding:")
     criteria = {"to": [{"field": "name", "op": "startsWith", "value": "A"}]}
     before = copy.deepcopy(binding.get("candidates"))
-    applied = apply_operation(Context(Document(data), released), {"kind": "setRelationRule", **triple, "candidates": criteria})
+    applied = apply_operation(
+        Context(Document(data), released),
+        {"kind": "setRelationRule", **triple, "candidates": criteria},
+    )
     assert data["objectTypeRelations"][0]["candidates"] == criteria
     assert applied.inverse["candidates"] == before
     tightening = Context(Document(data), released)
     apply_operation(tightening, {"kind": "setRelationRule", **triple, "cardinality": "one-to-one"})
-    assert [mark for mark, _key in tightening.take_marks()] == [f"relationBinding:{triple['relationType']}/{triple['from']}/{triple['to']}"]
+    assert [mark for mark, _key in tightening.take_marks()] == [
+        f"relationBinding:{triple['relationType']}/{triple['from']}/{triple['to']}"
+    ]
 
 
 def test_every_key_of_the_example_renamed_keeps_it_valid_and_leaves_no_old_reference():
     data = copy.deepcopy(MODELS["example"])
     renamed: list[tuple[str, str]] = []
-    for kind, collection in (("objectType", "objectTypes"), ("attributeType", "attributeTypes"), ("relationType", "relationTypes")):
+    for kind, collection in (
+        ("objectType", "objectTypes"),
+        ("attributeType", "attributeTypes"),
+        ("relationType", "relationTypes"),
+    ):
         for key, reverse in [(item["key"], item.get("reverseKey")) for item in data[collection]]:
-            operation: dict[str, Any] = {"kind": "setKey", "element": {kind: key}, "key": f"zq-{key}"}
+            operation: dict[str, Any] = {
+                "kind": "setKey",
+                "element": {kind: key},
+                "key": f"zq-{key}",
+            }
             if kind == "relationType":
                 operation["reverseKey"] = f"zq-{reverse}"
                 renamed.append(("relationKey", reverse))
             _apply(data, operation)
             renamed.append((kind if kind != "relationType" else "relationKey", key))
     for application in list(data["applications"]):
-        _apply(data, {"kind": "setKey", "element": {"applicationKey": application["key"]}, "key": f"zq-{application['key']}"})
+        _apply(
+            data,
+            {
+                "kind": "setKey",
+                "element": {"applicationKey": application["key"]},
+                "key": f"zq-{application['key']}",
+            },
+        )
     compiled = compile_model(data)
     assert compiled.valid, compiled.diagnostics
     for kind, old in renamed:
@@ -385,7 +566,14 @@ def test_a_consumer_api_started_for_any_type_compiles(model_name: str):
     """D53: the definition ``addConsumerApi`` writes is valid for every type of both models."""
     for object_type in MODELS[model_name]["objectTypes"]:
         data = copy.deepcopy(MODELS[model_name])
-        _apply(data, {"kind": "addConsumerApi", "name": f"Feed of {object_type['name']}", "exposes": [object_type["key"]]})
+        _apply(
+            data,
+            {
+                "kind": "addConsumerApi",
+                "name": f"Feed of {object_type['name']}",
+                "exposes": [object_type["key"]],
+            },
+        )
         compiled = compile_model(data)
         assert compiled.valid, (object_type["key"], compiled.diagnostics)
 
@@ -393,7 +581,9 @@ def test_a_consumer_api_started_for_any_type_compiles(model_name: str):
 def _moves(model: dict[str, Any]) -> Iterator[tuple[str, str, str]]:
     """Every type with the one application listing it and each application that does not."""
     for object_type in model["objectTypes"]:
-        listed = [a["key"] for a in model["applications"] if object_type["key"] in a["objectTypeKeys"]]
+        listed = [
+            a["key"] for a in model["applications"] if object_type["key"] in a["objectTypeKeys"]
+        ]
         if len(listed) == 1:
             for application in model["applications"]:
                 if application["key"] not in listed:
@@ -412,20 +602,31 @@ def _contained(model: dict[str, Any], parent: str) -> list[str]:
 
 
 @pytest.mark.parametrize("model_name", list(MODELS))
-def test_a_type_moved_to_another_application_takes_its_branch_and_keeps_the_draft_valid(model_name: str):
+def test_a_type_moved_to_another_application_takes_its_branch_and_keeps_the_draft_valid(
+    model_name: str,
+):
     """Moving a type between applications was missing (found 2026-10-19): the type and every type
     under it leave the application with their views and detail pages, and the draft stays valid. An
     application left with no type has no default view, as a new empty one."""
     original = MODELS[model_name]
     for type_key, source, target in _moves(original):
         data = copy.deepcopy(original)
-        applied = _apply(data, {"kind": "setContainment", "objectType": type_key, "application": target})
+        applied = _apply(
+            data, {"kind": "setContainment", "objectType": type_key, "application": target}
+        )
         apps = {a["key"]: a for a in data["applications"]}
-        named = {(r["applicationKey"], r.get("view") or (r["detail"], r["panel"])) for r in applied.removed}
+        named = {
+            (r["applicationKey"], r.get("view") or (r["detail"], r["panel"]))
+            for r in applied.removed
+        }
         branch, pending = [], [type_key]
         while pending:
             current = pending.pop()
-            if current not in branch and current in next(a for a in original["applications"] if a["key"] == source)["objectTypeKeys"]:
+            if (
+                current not in branch
+                and current
+                in next(a for a in original["applications"] if a["key"] == source)["objectTypeKeys"]
+            ):
                 branch.append(current)
                 pending.extend(_contained(original, current))
         assert set(branch) <= set(apps[target]["objectTypeKeys"]), (type_key, target)
@@ -433,49 +634,89 @@ def test_a_type_moved_to_another_application_takes_its_branch_and_keeps_the_draf
         # A type's lists go with it, relation columns naming another application's types and all
         # (a list was lost so, found 2026-10-19).
         before = next(a for a in original["applications"] if a["key"] == source)
-        arriving = set(branch) - set(next(a for a in original["applications"] if a["key"] == target)["objectTypeKeys"])
+        arriving = set(branch) - set(
+            next(a for a in original["applications"] if a["key"] == target)["objectTypeKeys"]
+        )
         for view in before["views"]:
             if view["type"] == "table" and view["objectTypeKey"] in arriving:
-                assert any(v == {**view, "key": v["key"]} for v in apps[target]["views"]), (type_key, view["key"])
+                assert any(v == {**view, "key": v["key"]} for v in apps[target]["views"]), (
+                    type_key,
+                    view["key"],
+                )
         # Nothing is lost that can stand somewhere (lists were, found 2026-10-19): a view is kept,
         # perhaps re-keyed, unless it is a matrix whose three types no application lists together.
         members = [set(a["objectTypeKeys"]) for a in data["applications"]]
-        kept_views = [json.dumps({**v, "key": ""}, sort_keys=True) for a in data["applications"] for v in a["views"]]
+        kept_views = [
+            json.dumps({**v, "key": ""}, sort_keys=True)
+            for a in data["applications"]
+            for v in a["views"]
+        ]
         for view in before["views"]:
             if json.dumps({**view, "key": ""}, sort_keys=True) in kept_views:
                 continue
             if view["type"] == "tree":
                 # A tree staying behind loses the nodes that moved away, and keeps its top.
                 trimmed = next((v for v in apps[source]["views"] if v["key"] == view["key"]), None)
-                assert trimmed and set(trimmed["config"]["objectTypeKeys"]) == set(view["config"]["objectTypeKeys"]) - set(branch), (type_key, view["key"])
+                assert trimmed and set(trimmed["config"]["objectTypeKeys"]) == set(
+                    view["config"]["objectTypeKeys"]
+                ) - set(branch), (type_key, view["key"])
                 continue
             assert view["type"] == "relationMatrix", (type_key, target, view["key"])
             config = view["config"]
-            need = {config["rowObjectTypeKey"], config["columnObjectTypeKey"], config["cellObjectTypeKey"]}
+            need = {
+                config["rowObjectTypeKey"],
+                config["columnObjectTypeKey"],
+                config["cellObjectTypeKey"],
+            }
             assert not any(need <= m for m in members), (type_key, target, view["key"])
             # What could not be kept is said, not dropped in silence.
             assert (source, view["key"]) in named, (type_key, target, view["key"], named)
         for detail in before.get("details", []):
             for panel in detail["panels"]:
                 if not any(
-                    p["key"] == panel["key"] for a in data["applications"] for d in a.get("details", []) if d["objectTypeKey"] == detail["objectTypeKey"] for p in d["panels"]
+                    p["key"] == panel["key"]
+                    for a in data["applications"]
+                    for d in a.get("details", [])
+                    if d["objectTypeKey"] == detail["objectTypeKey"]
+                    for p in d["panels"]
                 ):
-                    assert (source, (detail["objectTypeKey"], panel["key"])) in named, (type_key, target, panel["key"], named)
+                    assert (source, (detail["objectTypeKey"], panel["key"])) in named, (
+                        type_key,
+                        target,
+                        panel["key"],
+                        named,
+                    )
         # What stays behind keeps its columns and fields (a panel lost two, found 2026-10-19).
         for detail in before.get("details", []):
             if detail["objectTypeKey"] in branch:
                 continue
-            kept = {p["key"]: p for p in next(d for d in apps[source]["details"] if d["objectTypeKey"] == detail["objectTypeKey"])["panels"]}
+            kept = {
+                p["key"]: p
+                for p in next(
+                    d
+                    for d in apps[source]["details"]
+                    if d["objectTypeKey"] == detail["objectTypeKey"]
+                )["panels"]
+            }
             for panel in detail["panels"]:
                 for part in ("columns", "fields", "sortFields"):
                     if panel["key"] in kept and part in (panel.get("config") or {}):
-                        assert kept[panel["key"]]["config"].get(part) == panel["config"][part], (type_key, detail["objectTypeKey"], panel["key"], part)
+                        assert kept[panel["key"]]["config"].get(part) == panel["config"][part], (
+                            type_key,
+                            detail["objectTypeKey"],
+                            panel["key"],
+                            part,
+                        )
         compiled = compile_model(data)
         problems = [d for d in compiled.diagnostics if d.severity == "error"]
         if apps[source]["objectTypeKeys"]:
             assert not problems, (type_key, source, target, problems[:2])
         else:
-            assert [d.path for d in problems] == [f"/applications/{source}/defaultView"], (type_key, target, problems[:2])
+            assert [d.path for d in problems] == [f"/applications/{source}/defaultView"], (
+                type_key,
+                target,
+                problems[:2],
+            )
 
 
 @pytest.mark.parametrize("model_name", list(MODELS))
@@ -488,15 +729,32 @@ def test_a_tree_s_top_given_a_parent_keeps_its_tree_valid(model_name: str):
             if view["type"] != "tree":
                 continue
             root = view["config"]["rootObjectTypeKeys"][0]
-            parent = next((t for t in application["objectTypeKeys"] if t not in view["config"]["objectTypeKeys"]), None)
+            parent = next(
+                (
+                    t
+                    for t in application["objectTypeKeys"]
+                    if t not in view["config"]["objectTypeKeys"]
+                ),
+                None,
+            )
             if parent is None:
                 continue
             data = copy.deepcopy(original)
             relation = {"name": "Holds", "reverseName": "Held by"}
-            _apply(data, {"kind": "setContainment", "objectType": root, "parent": {"objectTypes": [parent], "relationType": relation}})
+            _apply(
+                data,
+                {
+                    "kind": "setContainment",
+                    "objectType": root,
+                    "parent": {"objectTypes": [parent], "relationType": relation},
+                },
+            )
             tree = f"/applications/{application['key']}/views/{view['key']}"
             compiled = compile_model(data)
-            assert not [d for d in compiled.diagnostics if d.path.startswith(tree)], (tree, compiled.diagnostics[:2])
+            assert not [d for d in compiled.diagnostics if d.path.startswith(tree)], (
+                tree,
+                compiled.diagnostics[:2],
+            )
 
 
 @pytest.mark.parametrize("model_name", list(MODELS))
@@ -504,7 +762,11 @@ def test_a_type_merged_into_its_parent_does_not_contain_itself(model_name: str):
     """A merge turned the containment between the two types into the survivor containing itself, and
     left consumer APIs naming the merged-away type (found 2026-10-19)."""
     original = MODELS[model_name]
-    own_hierarchies = {b["relationTypeKey"] for b in original["objectTypeRelations"] if b["fromObjectTypeKey"] == b["toObjectTypeKey"]}
+    own_hierarchies = {
+        b["relationTypeKey"]
+        for b in original["objectTypeRelations"]
+        if b["fromObjectTypeKey"] == b["toObjectTypeKey"]
+    }
     for parent in [t["key"] for t in original["objectTypes"]]:
         for child in [c for c in _contained(original, parent) if c != parent]:
             data = copy.deepcopy(original)
@@ -519,7 +781,6 @@ def test_a_type_merged_into_its_parent_does_not_contain_itself(model_name: str):
                 and b["relationTypeKey"] not in own_hierarchies
             ], (parent, child)
             assert references(data, "objectType", child) == [], (parent, child)
-
 
 
 CONFIGURATIONS = {"example": example(), "generated-b": generated("b")}
@@ -537,17 +798,47 @@ def test_a_list_whose_column_reaches_another_application_moves_with_its_type(mod
     listed = [a for a in data["applications"] if type_key in a["objectTypeKeys"]]
     source = listed[0]
     target = next(a["key"] for a in data["applications"] if type_key not in a["objectTypeKeys"])
-    view = next(v for v in source["views"] if v["type"] == "table" and v["objectTypeKey"] == type_key)
+    view = next(
+        v for v in source["views"] if v["type"] == "table" and v["objectTypeKey"] == type_key
+    )
     column = f"related:{configuration.key('Bown')}.ancestor:{ancestor}.name"
-    _apply(data, {"kind": "insertViewItem", "applicationKey": source["key"], "view": view["key"], "list": "columns", "item": column})
-    _apply(data, {"kind": "setViewProperty", "applicationKey": source["key"], "view": view["key"], "property": "pageSize", "value": 7})
+    _apply(
+        data,
+        {
+            "kind": "insertViewItem",
+            "applicationKey": source["key"],
+            "view": view["key"],
+            "list": "columns",
+            "item": column,
+        },
+    )
+    _apply(
+        data,
+        {
+            "kind": "setViewProperty",
+            "applicationKey": source["key"],
+            "view": view["key"],
+            "property": "pageSize",
+            "value": 7,
+        },
+    )
     assert compile_model(data).valid, compile_model(data).diagnostics[:2]
-    authored = copy.deepcopy(next(v for v in next(a for a in data["applications"] if a["key"] == source["key"])["views"] if v["key"] == view["key"]))
+    authored = copy.deepcopy(
+        next(
+            v
+            for v in next(a for a in data["applications"] if a["key"] == source["key"])["views"]
+            if v["key"] == view["key"]
+        )
+    )
     move = {"kind": "setContainment", "objectType": type_key, "application": target}
     if len(listed) > 1:
         move["fromApplication"] = source["key"]
     _apply(data, move)
-    arrived = [v for v in next(a for a in data["applications"] if a["key"] == target)["views"] if v.get("objectTypeKey") == type_key]
+    arrived = [
+        v
+        for v in next(a for a in data["applications"] if a["key"] == target)["views"]
+        if v.get("objectTypeKey") == type_key
+    ]
     assert any(v == {**authored, "key": v["key"]} for v in arrived), arrived
     compiled = compile_model(data)
     assert not [

@@ -115,7 +115,9 @@ def start() -> bool:
             f"The test harness needs PostgreSQL {MAJOR_VERSION}, but pg_ctl reports "
             f"'{version.strip()}'. Set RDM_POSTGRES_BIN to the PostgreSQL {MAJOR_VERSION} binaries."
         )
-    if (DATA / "PG_VERSION").exists() and (DATA / "PG_VERSION").read_text().strip() != MAJOR_VERSION:
+    if (DATA / "PG_VERSION").exists() and (
+        DATA / "PG_VERSION"
+    ).read_text().strip() != MAJOR_VERSION:
         raise ServerUnavailable(
             f"{DATA} was created by another PostgreSQL version. Delete {ROOT}; the next run "
             "creates it again and rebuilds the seeds."

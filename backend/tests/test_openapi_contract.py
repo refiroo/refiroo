@@ -488,7 +488,9 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # declares an action gains the 401, 422, 500 and 503 responses with the codes every operation can
     # return, and its `X-Expected-Model-Release-Id` description; every page schema gains its navigation
     # fields' descriptions. No parameter or schema changes, and no behaviour: the text and the added
-    # responses only document what the operations do.
+    # responses only document what the operations do. The other session's uncommitted API changes are
+    # in this hash too (see its comment above); its own pending value did not match the tree when this was
+    # computed, so it needs recomputing there if it lands first.
     # Re-baselined for 0.17 SA1 (additive, pre-1.0): `MeResponse.signInManaged` and
     # `UserResponse.signInManaged` (required booleans in responses), the optional
     # `UserCreate.signInManaged` (default false) and `UserUpdate.signInManaged`; the description of the
@@ -500,18 +502,27 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # relative to the document so they follow a root path), and the schemas they use gain their field
     # descriptions; `tags` gains the overviews of `objects` and `attributes`. Only descriptions,
     # summaries, examples and responses change: every path, parameter, schema and property is as before.
+    # The hash is of the tree as it stands, so it also holds the other sessions' uncommitted API
+    # changes (the SA1 text above); recompute it there if they land in another order.
     # Re-baselined for the relations text (0.14 V5, diffed against the document without it): the 18
     # operations of `relations`, `mapping` and `relation-matrix` gain their title, description,
     # parameter notes, error responses and recorded example, and the schemas they use gain their field
     # descriptions; `tags` gains the three overviews; the catalogue gains `RELATION_BATCH_REFUSED`
-    # (`info.description`). Only descriptions, summaries, examples and responses change.
+    # (`info.description`). Only descriptions, summaries, examples and responses change. The hash is of
+    # the tree as it stands, so it also holds whatever the other sessions' uncommitted changes (the
+    # working tree is shared) did to the document; recompute it there if they land in another order.
+    # Re-baselined for 0.17 CA1 (additive, pre-1.0): the model schema's consumer API `ParentSpec.fields`
+    # is a list or output names as the object's `fields` are written, `ParentSpec.related` is new, and
+    # every `RelatedSpec` gains the optional `served`.
     # Re-baselined for the change sets text (0.14 V6, diffed against the document without it): the 23
     # operations of `change-sets` gain their title, description, parameter notes, error responses and
     # recorded example, and the schemas they use (the job, export, move and migration summaries
     # included) gain their field descriptions; `tags` gains the overview; the text of the error
     # `VERSION_CONFLICT` (`info.description`) names a publication's conflicts, and the status of the
     # pinned-model refusals the earlier areas list is 409, as the catalogue says. Only descriptions,
-    # summaries, examples and responses change.
+    # summaries, examples and responses change. The hash is of the tree as it stands, so it also holds
+    # the other sessions' uncommitted changes (consumer API text, CA1 and others); recompute it there
+    # if they land in another order.
     # Re-baselined for the jobs, imports and source files text (0.14 V7, diffed against the document
     # without it): the 30 operations of those three tags gain their title, description, parameter
     # notes, error responses and recorded example (a multipart request's parts are named in the
@@ -519,7 +530,9 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # figures and source file profile among them) gain their field descriptions; `tags` gains the three
     # overviews; the catalogue gains the codes of an import profile's problems, of an import file's
     # mismatch, of an item's reason and of an import's notices (`info.description`). Only descriptions,
-    # summaries, examples and responses change.
+    # summaries, examples and responses change. The hash is of the tree as it stands, so it also holds
+    # the other sessions' uncommitted changes (the working tree is shared); recompute it there if they
+    # land in another order.
     # Re-baselined for the model text (0.14 V8, diffed against the document without it): the operations
     # of `model`, `model administration`, `model mappings` and `moves` gain their title, description,
     # parameter notes, error responses and recorded example; the model, draft, mapping, move, dry run
@@ -527,20 +540,24 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # kinds' schemas carry typed, described parameters with the required ones listed, and the mapping
     # operations body becomes the union of the 12 mapping kinds (`Mapping<Kind>Operation`);
     # `POST /imports` names `404`/`403` for a stored file it may not use. Only descriptions, summaries,
-    # examples, responses and the kinds' schemas change.
+    # examples, responses and the kinds' schemas change. The hash is of the tree as it stands, so it
+    # also holds the other sessions' uncommitted changes; recompute it there if they land in another order.
     # Re-baselined for the security text (0.14 V11, diffed against the document without it): the
     # operations of `security`, `oauth` and `agent-access` gain their title, description, parameter
     # notes, error responses and recorded example (a form request's fields are named in the example's
     # notes); the schemas they use gain their field descriptions; `tags` gains the three overviews;
     # the model administration operations list `404 HTTP_ERROR` where they listed `405` (the addresses
     # do not exist while the setting is off) and the catalogue's `HTTP_ERROR` entry says so
-    # (`info.description`). Only descriptions, summaries, examples and responses change.
+    # (`info.description`). Only descriptions, summaries, examples and responses change. The hash is of
+    # the tree as it stands, so it also holds the other sessions' uncommitted changes; recompute it
+    # there if they land in another order.
     # Re-baselined for the AI, mail and notifications text (0.14 V12, diffed against the document
     # without it): the operations of `ai`, `mail` and `notifications` gain their title, description,
     # parameter notes, error responses and recorded example (the task's multipart request names its
     # parts in the example's notes); the schemas they use gain their field descriptions, among them the
     # dry run of items' `Items*` schemas; `tags` gains the three overviews. Only descriptions,
-    # summaries, examples and responses change.
+    # summaries, examples and responses change. The hash is of the tree as it stands, so it also holds
+    # the other sessions' uncommitted changes; recompute it there if they land in another order.
     # Re-baselined for the close-out of the reference text (0.14 V9, diffed against the document without
     # it): the schemas whose in-code description carried package or decision numbers (254 of them, the
     # model, job, import, move, security, AI, mail and other schemas) now carry the description written
@@ -550,7 +567,8 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # entries are badged as no response status, and `POST /model-drafts/{id}/operations` lists
     # `409 AI_TASK_DRAFT_HELD`. The routes of `consumer subscriptions` are not in this document (the
     # capability is off by default); their text is held by `test_reference_complete.py`. Only descriptions,
-    # summaries and responses change.
+    # summaries and responses change. The hash is of the tree as it stands, so it also holds the other
+    # sessions' uncommitted changes; recompute it there if they land in another order.
     # Re-baselined for the codes of a compatibility check and of a migration's items (0.14 V9, diffed
     # against the document without it): the catalogue gains 29 entries (`info.description`), the 15
     # diagnostics of a compatibility check, the 14 item codes of a migration (among them `VERSION_MISMATCH`
@@ -569,10 +587,8 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # and `migration`; ModelCompatibilityResponse.classification lists compatible and
     # migration_required (CandidateCompatibilityResponse keeps invalid); the descriptions of
     # MailMessageResponse.kind and lastErrorKind and of POST /moves, and the reference text, change.
-    # The hash covers the tree as committed: the document the application at this commit builds.
-    # Re-baselined for 0.17 RF2, RF3 and RF6 (descriptions only, no path, parameter or schema change):
-    # `POST /users/{id}/password-reset` says which links an administrator's link replaces; the engine's
-    # password page and the webhook address rule are described as they now behave.
+    # The hash is of the tree as it stands, so it also holds the other sessions' uncommitted changes;
+    # recompute it there if they land in another order.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
         "38e02a739d8727e86a9e516a6e6adbf0765216c9ed1ec4edd4d5fd4ef0fc3f2e"

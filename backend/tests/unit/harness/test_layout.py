@@ -25,7 +25,10 @@ def test_a_journey_selects_its_variants_and_a_variant_only_itself():
 
 def test_a_unit_test_path_mirrors_the_module_it_tests():
     unit = layout.UNIT
-    assert layout.unit_target(unit / "engine/records/test_rules.py") == layout.APP / "engine/records/rules.py"
+    assert (
+        layout.unit_target(unit / "engine/records/test_rules.py")
+        == layout.APP / "engine/records/rules.py"
+    )
     split = unit / "engine/records/test_rules__parents.py"
     assert layout.unit_target(split) == layout.APP / "engine/records/rules.py"
     assert layout.unit_target(unit / "harness/test_seeds.py") == layout.TESTS / "seeds.py"

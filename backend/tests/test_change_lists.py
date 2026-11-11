@@ -108,7 +108,11 @@ class Editor:
         body = {**fields, "expectedVersion": current["version"], **self.context()}
         body.pop("workspaceKey", None)
         return self.track(
-            ok(self.client.patch(f"/api/v1/objects/{record['objectTypeKey']}/{record['id']}", json=body))
+            ok(
+                self.client.patch(
+                    f"/api/v1/objects/{record['objectTypeKey']}/{record['id']}", json=body
+                )
+            )
         )
 
     def delete(self, record):
@@ -168,7 +172,12 @@ def every(client, change_set_id, records="object", **params) -> list[dict]:
     items, cursor = [], None
     while True:
         body = changes(
-            client, change_set_id, records, pageSize=500, **params, **({"cursor": cursor} if cursor else {})
+            client,
+            change_set_id,
+            records,
+            pageSize=500,
+            **params,
+            **({"cursor": cursor} if cursor else {}),
         )
         items += body["items"]
         cursor = body["nextCursor"]
@@ -184,13 +193,24 @@ def by_id(items, key="objectId") -> dict[str, dict]:
 def edited(client):
     """Live systems, values and a mapped master value, then a current-live change set touching them."""
     live = Editor(client)
-    system_1 = live.create(SYSTEM, "System 1", attributes=[attr("system-code", f"S1-{uuid4().hex[:6]}")])
-    system_2 = live.create(SYSTEM, "System 2", attributes=[attr("system-code", f"S2-{uuid4().hex[:6]}")])
+    system_1 = live.create(
+        SYSTEM, "System 1", attributes=[attr("system-code", f"S1-{uuid4().hex[:6]}")]
+    )
+    system_2 = live.create(
+        SYSTEM, "System 2", attributes=[attr("system-code", f"S2-{uuid4().hex[:6]}")]
+    )
     domain = live.create(
-        "domain", "Domain", attributes=[attr("domain-code", f"D-{uuid4().hex[:6]}")], application="rdm-master"
+        "domain",
+        "Domain",
+        attributes=[attr("domain-code", f"D-{uuid4().hex[:6]}")],
+        application="rdm-master",
     )
     codelist = live.create(
-        "codelist", "Codelist", domain, [attr("codelist-code", f"C-{uuid4().hex[:6]}")], application="rdm-master"
+        "codelist",
+        "Codelist",
+        domain,
+        [attr("codelist-code", f"C-{uuid4().hex[:6]}")],
+        application="rdm-master",
     )
     master = live.create(
         "master-value",
@@ -248,7 +268,11 @@ def test_object_changes_list_every_kind_with_before_and_after(edited):
     listed = by_id(entries)
     # Created then deleted inside the change set never reaches live: it is left out.
     assert records["transient"]["id"] not in listed
-    kinds = {name: listed[record["id"]]["kind"] for name, record in records.items() if record["id"] in listed}
+    kinds = {
+        name: listed[record["id"]]["kind"]
+        for name, record in records.items()
+        if record["id"] in listed
+    }
     assert kinds == {
         "system_2": "changed",
         "master": "changed",
@@ -339,7 +363,10 @@ def test_relation_changes_list_every_kind_and_mark_containment(edited):
         ]
     )
     touched = next(item for item in entries if item["kind"] == "changed")
-    assert touched["changedFields"] == [] and touched["after"]["version"] == touched["before"]["version"] + 1
+    assert (
+        touched["changedFields"] == []
+        and touched["after"]["version"] == touched["before"]["version"] + 1
+    )
     added = next(item for item in entries if item["kind"] == "added" and not item["containment"])
     assert added["before"] is None and added["after"] == {"attributes": {}, "version": 1}
     # A removed end is read in the source.
@@ -371,7 +398,16 @@ def test_filters_narrow_each_list(edited):
     assert len(mappings) == 3 and not any(item["containment"] for item in mappings)
     by_type = every(client, change_set_id, "relation", relationTypeKey=[MAPS_TO], kind=["changed"])
     assert [item["kind"] for item in by_type] == ["changed"]
-    assert every(client, change_set_id, "relation", relationTypeKey=["system-contains-value"], containment=False) == []
+    assert (
+        every(
+            client,
+            change_set_id,
+            "relation",
+            relationTypeKey=["system-contains-value"],
+            containment=False,
+        )
+        == []
+    )
 
 
 def test_pages_walk_both_ways_jump_and_count(edited):
@@ -380,12 +416,21 @@ def test_pages_walk_both_ways_jump_and_count(edited):
         identity = "objectId" if records == "object" else "relationId"
         reference = [item[identity] for item in every(client, change_set_id, records)]
         assert len(reference) >= 6
-        assert {item["kind"] for item in every(client, change_set_id, records)} == {"added", "changed", "removed"}
+        assert {item["kind"] for item in every(client, change_set_id, records)} == {
+            "added",
+            "changed",
+            "removed",
+        }
 
         forward, cursor = [], None
         while True:
             body = changes(
-                client, change_set_id, records, pageSize=2, includeTotal=True, **({"cursor": cursor} if cursor else {})
+                client,
+                change_set_id,
+                records,
+                pageSize=2,
+                includeTotal=True,
+                **({"cursor": cursor} if cursor else {}),
             )
             assert body["totalCount"] == len(reference)
             assert body["startIndex"] == len(forward)
@@ -404,7 +449,9 @@ def test_pages_walk_both_ways_jump_and_count(edited):
         assert backward == reference
 
         for position in (0, 1, 3, len(reference) - 1, len(reference)):
-            body = changes(client, change_set_id, records, pageSize=2, position=position, includeTotal=True)
+            body = changes(
+                client, change_set_id, records, pageSize=2, position=position, includeTotal=True
+            )
             assert [item[identity] for item in body["items"]] == reference[position : position + 2]
             assert (body["startIndex"], body["totalCount"]) == (position, len(reference))
             anchor = body["anchor"]
@@ -458,13 +505,17 @@ def test_a_publication_sourced_change_set_reads_before_from_the_publication(edit
     client, change_set, records = edited["client"], edited["change_set"], edited["records"]
     edited["edit"].refresh()
     publication = ok(
-        publish_change_set(client, change_set["id"], expected_change_set_version=change_set["version"])
+        publish_change_set(
+            client, change_set["id"], expected_change_set_version=change_set["version"]
+        )
     )
     live = Editor(client)
     # Live moves on after the publication; the list still reads the publication.
     live.update(records["added"], name="Value added (live)")
 
-    derived = create_change_set(client, "default", derived_from_publication_id=publication["id"]).json()
+    derived = create_change_set(
+        client, "default", derived_from_publication_id=publication["id"]
+    ).json()
     edit = Editor(client, derived)
     edit.update(records["added"], name="Value added (derived)")
     edit.delete(records["moved"])
@@ -477,7 +528,10 @@ def test_a_publication_sourced_change_set_reads_before_from_the_publication(edit
     }
     assert listed[records["added"]["id"]]["before"]["name"] == "Value added"
     assert listed[records["added"]["id"]]["changedFields"] == ["name"]
-    assert [part["name"] for part in listed[records["moved"]["id"]]["path"]] == ["System 2", "Value moved"]
+    assert [part["name"] for part in listed[records["moved"]["id"]]["path"]] == [
+        "System 2",
+        "Value moved",
+    ]
     relations = every(client, derived["id"], "relation")
     assert sorted((item["kind"], item["containment"]) for item in relations) == [
         ("added", True),
@@ -489,7 +543,9 @@ def test_a_publication_sourced_change_set_reads_before_from_the_publication(edit
 def test_an_empty_root_change_set_lists_only_additions(client):
     change_set = create_change_set(client, "default").json()
     edit = Editor(client, change_set)
-    system = edit.create(SYSTEM, "Root system", attributes=[attr("system-code", f"R-{uuid4().hex[:6]}")])
+    system = edit.create(
+        SYSTEM, "Root system", attributes=[attr("system-code", f"R-{uuid4().hex[:6]}")]
+    )
     value = edit.value("Root value", system)
     transient = edit.value("Root transient", system)
     edit.delete(transient)
@@ -501,9 +557,9 @@ def test_an_empty_root_change_set_lists_only_additions(client):
     ]
     assert objects[1]["after"]["name"] == "Root value (edited)" and objects[1]["before"] is None
     relations = every(client, change_set["id"], "relation")
-    assert [(item["kind"], item["containment"], item["toObject"]["name"]) for item in relations] == [
-        ("added", True, "Root value (edited)")
-    ]
+    assert [
+        (item["kind"], item["containment"], item["toObject"]["name"]) for item in relations
+    ] == [("added", True, "Root value (edited)")]
     assert every(client, change_set["id"], kind=["changed", "removed"]) == []
 
 
@@ -555,15 +611,22 @@ def test_refusals(client):
         assert response.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
     change_set = create_change_set(client, "default", source="currentLive").json()
     base = f"/api/v1/change-sets/{change_set['id']}"
-    unknown_object = client.get(f"{base}/object-changes", params={"objectTypeKey": [SYSTEM, "no-such-type"]})
+    unknown_object = client.get(
+        f"{base}/object-changes", params={"objectTypeKey": [SYSTEM, "no-such-type"]}
+    )
     assert unknown_object.status_code == 422
     assert unknown_object.json()["error"]["code"] == "UNKNOWN_OBJECT_TYPE"
     assert unknown_object.json()["error"]["details"]["path"] == "/query/objectTypeKey"
-    unknown_relation = client.get(f"{base}/relation-changes", params={"relationTypeKey": "no-such-type"})
+    unknown_relation = client.get(
+        f"{base}/relation-changes", params={"relationTypeKey": "no-such-type"}
+    )
     assert unknown_relation.status_code == 422
     assert unknown_relation.json()["error"]["code"] == "UNKNOWN_RELATION_TYPE"
     assert client.get(f"{base}/object-changes", params={"kind": "moved"}).status_code == 422
-    assert client.get(f"{base}/object-changes", params={"position": 1, "from": "end"}).status_code == 422
+    assert (
+        client.get(f"{base}/object-changes", params={"position": 1, "from": "end"}).status_code
+        == 422
+    )
     empty = ok(client.get(f"{base}/object-changes", params={"includeTotal": True}))
     assert empty["items"] == [] and empty["totalCount"] == 0 and empty["nextCursor"] is None
 
@@ -601,25 +664,41 @@ def test_a_relation_type_used_both_ways_is_containment_only_to_a_child_type(mixe
     system = edit.create(SYSTEM, "System", attributes=[attr("system-code", f"S-{uuid4().hex[:6]}")])
     value = edit.value("Value", system)
     domain = edit.create(
-        "domain", "Domain", attributes=[attr("domain-code", f"D-{uuid4().hex[:6]}")], application="rdm-master"
+        "domain",
+        "Domain",
+        attributes=[attr("domain-code", f"D-{uuid4().hex[:6]}")],
+        application="rdm-master",
     )
     codelist = edit.create(
-        "codelist", "Codelist", domain, [attr("codelist-code", f"C-{uuid4().hex[:6]}")], application="rdm-master"
+        "codelist",
+        "Codelist",
+        domain,
+        [attr("codelist-code", f"C-{uuid4().hex[:6]}")],
+        application="rdm-master",
     )
     master = edit.create(
         "master-value",
         "Master",
         codelist,
-        [attr("master-id", f"M-{uuid4().hex[:6]}"), attr("value-code", "M"), attr("value-name", "Master")],
+        [
+            attr("master-id", f"M-{uuid4().hex[:6]}"),
+            attr("value-code", "M"),
+            attr("value-name", "Master"),
+        ],
         application="rdm-master",
     )
     edit.relate(system, master, "system-contains-value")
 
     def ends(**params) -> set[tuple[str, bool]]:
-        items = every(client, change_set["id"], "relation", relationTypeKey="system-contains-value", **params)
+        items = every(
+            client, change_set["id"], "relation", relationTypeKey="system-contains-value", **params
+        )
         return {(item["toObject"]["name"], item["containment"]) for item in items}
 
     assert ends() == {("Value", True), ("Master", False)}
     assert ends(containment=True) == {("Value", True)}
     assert ends(containment=False) == {("Master", False)}
-    assert value["id"] in {item["toObject"]["objectId"] for item in every(client, change_set["id"], "relation", containment=True)}
+    assert value["id"] in {
+        item["toObject"]["objectId"]
+        for item in every(client, change_set["id"], "relation", containment=True)
+    }

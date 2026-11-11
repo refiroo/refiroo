@@ -5881,6 +5881,8 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
     data; both together are `422 MUTUALLY_EXCLUSIVE_CONTEXT`. A cursor binds its context.
   - `search` — case-insensitive substring on source or target name (max 500 characters).
   - `cursor`, `pageSize` (1–100; defaults to 20 without a view, or the view's configured page size).
+  - `seek` — jumps to a place in the list. On a relationships table it is a value of the first thing
+    the list orders by (see below); on the plain list it compares relationship IDs.
 - Returns the standard page. Each item contains `relationId`, `relationTypeKey`, `direction`
   (`"outgoing"` or `"incoming"`), `source` and `target` object summaries, the stored relation
   `attributes` and the source anchor's `mappingVersion` (always `0` in a publication, which is
@@ -5893,8 +5895,6 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 ```json
 {
   "items": [{
-  - `seek` — jumps to a place in the list. On a relationships table it is a value of the first thing
-    the list orders by (see below); on the plain list it compares relationship IDs.
     "relationId": "relation-public-id",
     "relationTypeKey": "system-value-maps-to-master",
     "direction": "outgoing",

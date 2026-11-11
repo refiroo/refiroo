@@ -142,7 +142,10 @@ def change_set_version(client, change_set_id):
 
 
 def in_change_set(client, change_set_id):
-    return {"changeSetId": change_set_id, "expectedChangeSetVersion": change_set_version(client, change_set_id)}
+    return {
+        "changeSetId": change_set_id,
+        "expectedChangeSetVersion": change_set_version(client, change_set_id),
+    }
 
 
 @pytest.fixture
@@ -181,9 +184,16 @@ def test_candidates_mark_self_descendant_and_current_parent(client, systems):
     assert all(item["eligible"] is (item["reason"] is None) for item in page["items"])
 
     # One type at a time, and a search over names and searchable fields.
-    assert listed(candidates(client, systems["G2"], parentObjectTypeKey="system")) == {"S1": None, "S2": None}
+    assert listed(candidates(client, systems["G2"], parentObjectTypeKey="system")) == {
+        "S1": None,
+        "S2": None,
+    }
     assert listed(candidates(client, systems["G2"], search="h1")) == {"H1": None}
-    code = next(item["value"] for item in systems["H1"]["attributes"] if item["attributeTypeKey"] == "group-code")
+    code = next(
+        item["value"]
+        for item in systems["H1"]["attributes"]
+        if item["attributeTypeKey"] == "group-code"
+    )
     assert listed(candidates(client, systems["G2"], search=code[-6:])) == {"H1": None}
 
     # Ineligible candidates keep their place across pages, so the pages add up to the total.
@@ -207,7 +217,12 @@ def test_the_write_agrees_with_each_reason(client, systems):
     assert names(read(client, g3)["path"]) == ["S2", "H1", "G2", "G3"]
     edges = client.get(
         "/api/v1/relations",
-        params={**LIVE, "objectId": g2["id"], "direction": "incoming", "relationTypeKey": "system-group-has-child"},
+        params={
+            **LIVE,
+            "objectId": g2["id"],
+            "direction": "incoming",
+            "relationTypeKey": "system-group-has-child",
+        },
     ).json()["items"]
     assert [edge["object"]["id"] for edge in edges] == [systems["H1"]["id"]]
     # G1 no longer holds G2: G2 and G3 are now eligible for it, and H1 is G2's current parent.
@@ -217,14 +232,24 @@ def test_the_write_agrees_with_each_reason(client, systems):
         "G3": None,
         "H1": None,
     }
-    assert listed(candidates(client, moved, parentObjectTypeKey="system-group"))["H1"] == "currentParent"
+    assert (
+        listed(candidates(client, moved, parentObjectTypeKey="system-group"))["H1"]
+        == "currentParent"
+    )
 
 
 def test_move_across_types_in_a_mixed_hierarchy(client, systems):
     value = systems["V"]
     # A value can sit under a system or a group: both types are candidates, mixed in name order.
     page = candidates(client, value, includeTotal=True)
-    assert listed(page) == {"G1": None, "G2": "currentParent", "G3": None, "H1": None, "S1": None, "S2": None}
+    assert listed(page) == {
+        "G1": None,
+        "G2": "currentParent",
+        "G3": None,
+        "H1": None,
+        "S1": None,
+        "S2": None,
+    }
     assert page["totalCount"] == 6
     moved = move(client, value, systems["S2"])
     assert moved["parentObjectId"] == systems["S2"]["id"]
@@ -265,14 +290,22 @@ def test_refusals(client, systems):
     missing = {"objectTypeKey": "system-group", "id": str(uuid4())}
     assert candidates(client, missing, 404)["code"] == "OBJECT_NOT_FOUND"
     # A record of the default workspace is not found through another one.
-    assert candidates(client, systems["G2"], 404, workspaceKey="elsewhere")["code"] == "OBJECT_NOT_FOUND"
+    assert (
+        candidates(client, systems["G2"], 404, workspaceKey="elsewhere")["code"]
+        == "OBJECT_NOT_FOUND"
+    )
     # Named under a type it does not have: where the record is (D42, ADR-034).
     wrong_type = candidates(client, {**systems["G2"], "objectTypeKey": "system"}, 409)
     assert wrong_type["code"] == "OBJECT_TYPE_CHANGED"
     assert wrong_type["details"]["objectTypeKey"] == "system-group"
-    assert candidates(client, {**systems["G2"], "objectTypeKey": "nothing"}, 404)["code"] == "UNKNOWN_OBJECT_TYPE"
+    assert (
+        candidates(client, {**systems["G2"], "objectTypeKey": "nothing"}, 404)["code"]
+        == "UNKNOWN_OBJECT_TYPE"
+    )
     stale = candidates(client, systems["G2"], pageSize=2)
-    refused = candidates(client, systems["G2"], 422, pageSize=2, cursor=stale["nextCursor"], search="S")
+    refused = candidates(
+        client, systems["G2"], 422, pageSize=2, cursor=stale["nextCursor"], search="S"
+    )
     assert refused["code"] == "INVALID_CURSOR"
 
 
@@ -304,12 +337,20 @@ def test_change_set_moves_paths_and_candidates(client, systems):
     assert listed(candidates(client, systems["G1"]))["G2"] == "descendant"
     assert listed(candidates(client, g2, **context))["H1"] == "currentParent"
     # A cycle is refused in the change set too, and the change set keeps its move.
-    refused = move(client, read(client, systems["H1"], **context), g3, 422, **in_change_set(client, change_set["id"]))
+    refused = move(
+        client,
+        read(client, systems["H1"], **context),
+        g3,
+        422,
+        **in_change_set(client, change_set["id"]),
+    )
     assert refused["code"] == "PARENT_CYCLE"
 
     # Published, the new publication and live both carry the new paths.
     published = publish_change_set(
-        client, change_set["id"], expected_change_set_version=change_set_version(client, change_set["id"])
+        client,
+        change_set["id"],
+        expected_change_set_version=change_set_version(client, change_set["id"]),
     ).json()
     publication = {"publicationId": published["id"]}
     assert names(read(client, g3, **publication)["path"]) == ["S2", "H1", "G2", "G3"]
@@ -365,7 +406,11 @@ def test_moving_a_container_keeps_ancestor_scoped_uniqueness(client):
                 "parentObjectId": group["id"],
                 "attributes": [attr("translated-name", name), attr("active", True)],
                 "initialRelations": [
-                    {"relationTypeKey": "object-has-translation", "direction": "incoming", "otherObjectId": domain["id"]}
+                    {
+                        "relationTypeKey": "object-has-translation",
+                        "direction": "incoming",
+                        "otherObjectId": domain["id"],
+                    }
                 ],
             },
         )
@@ -384,11 +429,25 @@ def test_moving_a_container_keeps_ancestor_scoped_uniqueness(client):
 
 def test_openapi_documents_the_route(client):
     document = client.get("/openapi.json").json()
-    operation = document["paths"]["/api/v1/objects/{object_type_key}/{object_id}/parent-candidates"]["get"]
+    operation = document["paths"][
+        "/api/v1/objects/{object_type_key}/{object_id}/parent-candidates"
+    ]["get"]
     parameters = {item["name"] for item in operation["parameters"]}
-    assert {"workspaceKey", "changeSetId", "parentObjectTypeKey", "search", "cursor", "position", "includeTotal"} <= parameters
+    assert {
+        "workspaceKey",
+        "changeSetId",
+        "parentObjectTypeKey",
+        "search",
+        "cursor",
+        "position",
+        "includeTotal",
+    } <= parameters
     schema = document["components"]["schemas"]["ParentCandidate"]
-    assert set(json.dumps(schema["properties"]["reason"]).split('"')) >= {"self", "descendant", "currentParent"}
+    assert set(json.dumps(schema["properties"]["reason"]).split('"')) >= {
+        "self",
+        "descendant",
+        "currentParent",
+    }
 
 
 def test_the_candidates_read_takes_no_publication_context(client, systems):

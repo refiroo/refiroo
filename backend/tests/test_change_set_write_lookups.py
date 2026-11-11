@@ -92,10 +92,14 @@ def test_unique_values_follow_the_change_set_over_its_base():
         first = create_change_set(client, workspace_key).json()
         alpha = _domain(client, first, "Alpha", a).json()
         bravo = _domain(client, first, "Bravo", b).json()
-        activated = publish_change_set(client, first["id"], expected_change_set_version=first["version"])
+        activated = publish_change_set(
+            client, first["id"], expected_change_set_version=first["version"]
+        )
         publication_id = activated.json()["id"]
 
-        change_set = create_change_set(client, workspace_key, derived_from_publication_id=publication_id).json()
+        change_set = create_change_set(
+            client, workspace_key, derived_from_publication_id=publication_id
+        ).json()
         # A base record holds its value.
         assert _conflict(_set_code(client, change_set, bravo["id"], a, 409)) == alpha["id"]
         assert _conflict(_domain(client, change_set, "Copy", b, 409)) == bravo["id"]

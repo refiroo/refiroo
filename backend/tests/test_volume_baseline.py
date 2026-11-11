@@ -69,7 +69,9 @@ def _over_budget(baselines, contexts: set[str], *, writes: bool = False) -> list
     for small, large in _pairs(baselines, contexts, writes=writes):
         label = f"{small.context} · {small.scenario}"
         if small.statements != large.statements:
-            failures.append(f"{label}: statements {small.statements} → {large.statements} at 4× data")
+            failures.append(
+                f"{label}: statements {small.statements} → {large.statements} at 4× data"
+            )
         worst = max(small.rows_loaded, large.rows_loaded)
         page = (
             FEED_PAGE
@@ -123,7 +125,8 @@ def _largest_parameter_list(client, engine, dataset) -> dict[str, int]:
         assert created.status_code == 201, created.text
         change_set = created.json()
         item = client.get(
-            f"/api/v1/objects/{ITEM}/{dataset.live_item_id}", params={"changeSetId": change_set["id"]}
+            f"/api/v1/objects/{ITEM}/{dataset.live_item_id}",
+            params={"changeSetId": change_set["id"]},
         ).json()
         renamed = client.patch(
             f"/api/v1/objects/{ITEM}/{dataset.live_item_id}",
@@ -180,7 +183,9 @@ def test_fixture_matches_its_shape_and_is_reproducible(tmp_path, baselines):
             )
             assert count(children.where(RdmObject.object_type_key == ITEM)) == SMALL.heavy_items
             assert set(connection.scalars(children.distinct())) == {ITEM, NODE}
-            assert count(select(RdmObject).where(RdmObject.object_type_key == GROUP)) == SMALL.groups
+            assert (
+                count(select(RdmObject).where(RdmObject.object_type_key == GROUP)) == SMALL.groups
+            )
             assert count(select(RdmObject).where(RdmObject.object_type_key == ITEM)) == SMALL.items
             assert (
                 count(
@@ -193,9 +198,7 @@ def test_fixture_matches_its_shape_and_is_reproducible(tmp_path, baselines):
             )
             # Publication 1 holds the live membership and the matrix cells deleted live since.
             live = set(
-                connection.execute(
-                    select(RdmObject.id, RdmObject.name, RdmObject.parent_object_id)
-                )
+                connection.execute(select(RdmObject.id, RdmObject.name, RdmObject.parent_object_id))
             )
             publication = set(
                 connection.execute(

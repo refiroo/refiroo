@@ -3,12 +3,14 @@
 A client reads a consumer API in a workspace only with a grant of that API there (D306, D307): the
 harness, as Security administrator, makes clients and grants them through ``POST /grants``. A
 refusal is ``403 FORBIDDEN`` naming the API and the workspace, after the workspace and before the
-definition (D309). With a ``consumer`` token the index lists the granted APIs; with a
+definition (D309), when the workspace's model declares the API; when it does not, ``404
+CONSUMER_API_NOT_FOUND`` naming the workspaces where the client holds a grant of it. With a ``consumer`` token the index lists the granted APIs; with a
 ``management`` token the describing routes need Browse (D308). Each OpenAPI document declares the
 client credentials scheme (D311). A subscription names the client or person that created it
 (D310). Every case runs on two configurations through the public API.
 """
 
+import copy
 from uuid import uuid4
 
 import pytest
@@ -160,15 +162,19 @@ def test_the_index_and_documents_follow_the_grants(world):
 @pytest.mark.journey("J41.2")
 @pytest.mark.structures(*STRUCTURES)
 def test_a_refusal_reveals_nothing_about_other_apis(world):
-    """A client without grants asking for a key no model declares answers `403`, not `404`; C asking
-    for X at another contract version answers `404 CONTRACT_VERSION_NOT_FOUND`; an unknown workspace
-    answers `404 WORKSPACE_NOT_FOUND`."""
+    """A client without grants asking for a key no model declares answers `404 CONSUMER_API_NOT_FOUND`
+    with no workspaces named (the workspace's model decides, so a key it declares is `403`, below); C
+    asking for X at another contract version answers `404 CONTRACT_VERSION_NOT_FOUND`; an unknown
+    workspace answers `404 WORKSPACE_NOT_FOUND`."""
     api = world.key("Capi")
     record = world.made("R", "Probed ledger")
     _, nobody = _consumer(world, "Prober")
-    _forbidden(
-        nobody.get(f"/api/consumer/no-such-api/v1/objects/{record['id']}"), "no-such-api", W1
+    error = refused(
+        nobody.get(f"/api/consumer/no-such-api/v1/objects/{record['id']}"),
+        404,
+        "CONSUMER_API_NOT_FOUND",
     )
+    assert error["details"] == {"workspaces": []}
 
     _, caller = _consumer(world, "Catalogue sync", (api, W1))
     refused(
@@ -183,6 +189,37 @@ def test_a_refusal_reveals_nothing_about_other_apis(world):
         ),
         404,
         "WORKSPACE_NOT_FOUND",
+    )
+
+
+@pytest.mark.journey("J41.2")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_key_another_workspace_declares_is_not_found_here(world):
+    """Given API Y declared only by workspace B's model and client C granted Y in B. When C reads Y
+    without `workspace` (the default workspace A), then `404 CONSUMER_API_NOT_FOUND` names the
+    workspaces where C holds a grant of Y (`details.workspaces`) and says to add `?workspace=`; a
+    client with no grant anywhere gets the same `404` with an empty list; a key A's model declares,
+    without a grant, is still `403`."""
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] += "-b-only"
+    world.with_consumer_api(model)
+    ok(world.activate(world.install(model)["id"], W2))
+    record = world.made("R", "Declared elsewhere")
+    path = f"/api/consumer/{OTHER}/v1/objects/{record['id']}"
+
+    _, caller = _consumer(world, "Catalogue sync", (OTHER, W2))
+    error = refused(caller.get(path), 404, "CONSUMER_API_NOT_FOUND")
+    assert error["details"] == {"workspaces": [W2]}
+    assert f"?workspace={W2}" in error["message"] and OTHER in error["message"]
+
+    _, nobody = _consumer(world, "Prober")
+    error = refused(nobody.get(path), 404, "CONSUMER_API_NOT_FOUND")
+    assert error["details"] == {"workspaces": []} and "?workspace" not in error["message"]
+
+    _forbidden(
+        nobody.get(f"/api/consumer/{world.key('Capi')}/v1/objects/{record['id']}"),
+        world.key("Capi"),
+        W1,
     )
 
 
@@ -242,7 +279,12 @@ def test_granting_a_consumer_api(world):
         422,
         "GRANT_SCOPE_UNKNOWN",
     )
-    person = ok(world.api.post("/users", {"email": "consumer.reader@example.org", "name": "Consumer Reader"}), 201)
+    person = ok(
+        world.api.post(
+            "/users", {"email": "consumer.reader@example.org", "name": "Consumer Reader"}
+        ),
+        201,
+    )
     group = ok(world.api.post("/groups", {"name": "Consumers"}), 201)
     for kind, holder in (("user", person), ("group", group)):
         error = refused(

@@ -62,7 +62,10 @@ def _create(world, name):
         "name": name,
         "attributes": [
             {"attributeTypeKey": key, "value": value}
-            for key, value in {**world.required_values("R"), world.key("R.u"): f"U-{uuid4().hex[:10]}"}.items()
+            for key, value in {
+                **world.required_values("R"),
+                world.key("R.u"): f"U-{uuid4().hex[:10]}",
+            }.items()
         ],
     }
 
@@ -103,7 +106,12 @@ def test_a_publish_reaches_receivers_in_batches_as_the_pull_feed_has_it(world, r
     derive_events(world)
     full = _subscribe(world, ws, receiver.url + "/full", events=[EVERY], maxEventsPerBatch=100)
     identity = _subscribe(
-        world, ws, receiver.url + "/identity", events=[EVERY], payload="identity", maxEventsPerBatch=100
+        world,
+        ws,
+        receiver.url + "/identity",
+        events=[EVERY],
+        payload="identity",
+        maxEventsPerBatch=100,
     )
     start = full["acknowledgedThrough"]
 
@@ -120,7 +128,9 @@ def test_a_publish_reaches_receivers_in_batches_as_the_pull_feed_has_it(world, r
     _staged_rename(world, cs, renamed["id"], "Renamed twice")
     staged = world.record("R", removed["id"], changeSetId=cs["id"])
     gone = world.api.delete(
-        f"/objects/{world.key('R')}/{removed['id']}", expectedVersion=staged["version"], **_staged(world, cs)
+        f"/objects/{world.key('R')}/{removed['id']}",
+        expectedVersion=staged["version"],
+        **_staged(world, cs),
     )
     assert gone.status_code == 204, gone.text
     publication = world.publish(cs, workspace=ws)
@@ -141,7 +151,9 @@ def test_a_publish_reaches_receivers_in_batches_as_the_pull_feed_has_it(world, r
         assert {e["cause"]["kind"] for e in events} == {"publication"}
         assert {e["cause"]["id"] for e in events} == {publication["id"]}
         assert all(e["position"] <= sequence for e in events)
-        assert all(("object" in e) == (payload == "full" and e["id"] != removed["id"]) for e in events)
+        assert all(
+            ("object" in e) == (payload == "full" and e["id"] != removed["id"]) for e in events
+        )
     for event in _events(receiver, "/hook/full"):
         if event["id"] != removed["id"]:
             assert event["object"] == ok(consumer_object(world, event["id"], workspace=ws))
@@ -172,7 +184,12 @@ def test_work_that_does_not_reach_live_data_sends_nothing(world, receiver):
         "run": "inline",
         "items": [
             _create(world, "Never kept"),
-            {"op": "update", "target": {"id": record["id"]}, "expectedVersion": stale, "name": "Stale"},
+            {
+                "op": "update",
+                "target": {"id": record["id"]},
+                "expectedVersion": stale,
+                "name": "Stale",
+            },
         ],
     }
     assert ok(world.api.post("/batches", rolled_back))["job"]["result"] != "applied"
@@ -181,7 +198,9 @@ def test_work_that_does_not_reach_live_data_sends_nothing(world, receiver):
     _staged_rename(world, cs, record["id"], "Only in the change set")
     world.made("R", "Only staged", change_set=world.current(cs), workspace=ws)
     assert ok(world.api.post(f"/change-sets/{cs['id']}/validation"))["valid"] is True
-    discarded = world.api.delete(f"/change-sets/{cs['id']}", expectedVersion=world.current(cs)["version"])
+    discarded = world.api.delete(
+        f"/change-sets/{cs['id']}", expectedVersion=world.current(cs)["version"]
+    )
     assert discarded.status_code == 204, discarded.text
     derive_events(world)
     dispatch(world)
@@ -192,7 +211,9 @@ def test_work_that_does_not_reach_live_data_sends_nothing(world, receiver):
     derive_events(world)
     dispatch(world)
     (request,) = receiver.requests
-    assert [(e["change"], e["id"]) for e in request["body"]["events"]] == [("updated", record["id"])]
+    assert [(e["change"], e["id"]) for e in request["body"]["events"]] == [
+        ("updated", record["id"])
+    ]
     assert _read(world, created)["acknowledgedThrough"] == _head(world, ws)
 
 
@@ -234,7 +255,12 @@ def test_filters_scope_deliveries_as_the_lists_do(world, receiver):
     world.made("R2", "Plain entry", parent=plain["id"], workspace=ws)
     ok(world.update("R", permitted["id"], permitted["version"], name="Permitted renamed"))
     near_gone = world.made("R", "Related, removed", workspace=ws)
-    ok(world.relate("B11", near_gone["id"], world.made("K", f"Token {uuid4().hex[:6]}", workspace=ws)["id"]), 201)
+    ok(
+        world.relate(
+            "B11", near_gone["id"], world.made("K", f"Token {uuid4().hex[:6]}", workspace=ws)["id"]
+        ),
+        201,
+    )
     _delete(world, "R", near_gone["id"], ws)
     plain_gone = world.made("R", "Plain, removed", workspace=ws)
     _delete(world, "R", plain_gone["id"], ws)
@@ -245,7 +271,11 @@ def test_filters_scope_deliveries_as_the_lists_do(world, receiver):
     deleted = {near_gone["id"], plain_gone["id"]}
     for name, value in filters.items():
         listed = set(_listed(world, ws, **value))
-        expected = {i for i in changed if i in listed or (i in deleted and changed[i] == world.key("Capi.R"))}
+        expected = {
+            i
+            for i in changed
+            if i in listed or (i in deleted and changed[i] == world.key("Capi.R"))
+        }
         assert {e["id"] for e in _events(receiver, f"/hook/{name}")} == expected, name
     assert related["id"] in _listed(world, ws, **filters["token"])
     assert permitted["id"] in _listed(world, ws, **filters["permit"])
@@ -259,7 +289,9 @@ def test_filters_scope_deliveries_as_the_lists_do(world, receiver):
     assert len(_received(receiver, "/hook/token")) == sent["token"]
     assert _read(world, subscriptions["token"])["acknowledgedThrough"] == _head(world, ws)
     (update,) = _received(receiver, "/hook/kind")[sent["kind"] :]
-    assert [(e["change"], e["id"]) for e in update["body"]["events"]] == [("updated", related["id"])]
+    assert [(e["change"], e["id"]) for e in update["body"]["events"]] == [
+        ("updated", related["id"])
+    ]
 
 
 @pytest.mark.journey("J30")
@@ -294,7 +326,14 @@ def test_a_receiver_resets_and_resyncs_after_its_events_expired(world, receiver)
     copy = _listed(world, ws)
 
     later = world.made("R", "Later", workspace=ws)
-    ok(world.update("R", kept["id"], world.record("R", kept["id"], workspaceKey=ws)["version"], name="Kept renamed"))
+    ok(
+        world.update(
+            "R",
+            kept["id"],
+            world.record("R", kept["id"], workspaceKey=ws)["version"],
+            name="Kept renamed",
+        )
+    )
     _delete(world, "R", staged["id"], ws)
     derive_events(world)
     dispatch(world)
@@ -343,7 +382,8 @@ def test_a_running_application_delivers_on_its_own(world, receiver):
     engine = create_engine(world.database, poolclass=NullPool)
     with engine.connect() as connection:
         owner = connection.scalar(
-            text("SELECT lease_owner FROM consumer_subscriptions WHERE public_id = :id"), {"id": created["id"]}
+            text("SELECT lease_owner FROM consumer_subscriptions WHERE public_id = :id"),
+            {"id": created["id"]},
         )
     engine.dispose()
     assert owner is None

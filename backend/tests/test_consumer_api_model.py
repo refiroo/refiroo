@@ -40,11 +40,18 @@ def definition(k: Keys) -> dict[str, Any]:
         "name": "RDM consumer API",
         "contractVersion": 1,
         "exposes": [k("master-value"), k("codelist"), k("domain")],
-        "publicNames": {k("master-value"): "CodelistValue", k("codelist"): "Codelist", k("domain"): "Domain"},
+        "publicNames": {
+            k("master-value"): "CodelistValue",
+            k("codelist"): "Codelist",
+            k("domain"): "Domain",
+        },
         "object": {
             "fields": {
                 "masterId": {"role": "id"},
-                "code": {"role": "code", "from": [k("value-code"), k("codelist-code"), k("domain-code")]},
+                "code": {
+                    "role": "code",
+                    "from": [k("value-code"), k("codelist-code"), k("domain-code")],
+                },
                 "name": {"role": "name", "from": "name"},
                 "isActive": {"role": "active", "from": k("active"), "default": True},
                 "validFrom": {"role": "validFrom", "from": k("valid-from")},
@@ -87,14 +94,20 @@ def definition(k: Keys) -> dict[str, Any]:
                 "alsoMatchThrough": [
                     {
                         "related": "systemVariants",
-                        "firstOf": [{"field": "name", "exact": 80}, {"field": k("external-id"), "exact": 75}],
+                        "firstOf": [
+                            {"field": "name", "exact": 80},
+                            {"field": k("external-id"), "exact": 75},
+                        ],
                         "preferTypes": [k("master-value")],
                     }
                 ],
             },
             "resolve": {},
             "lists": {
-                "codelists": {"of": k("codelist"), "within": {"filter": "domain", "types": [k("domain")]}},
+                "codelists": {
+                    "of": k("codelist"),
+                    "within": {"filter": "domain", "types": [k("domain")]},
+                },
                 "values": {"of": k("master-value"), "within": {"filter": "codelist"}},
                 "all-values": {"of": k("master-value")},
             },
@@ -153,7 +166,11 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
     assert "consumerApis" not in compile_model(source).canonical_model
 
     contract = output_contract(compiled.model, consumer_apis(compiled.model)[0])
-    assert contract.types == {k("master-value"): "CodelistValue", k("codelist"): "Codelist", k("domain"): "Domain"}
+    assert contract.types == {
+        k("master-value"): "CodelistValue",
+        k("codelist"): "Codelist",
+        k("domain"): "Domain",
+    }
     assert contract.fields == {
         "masterId": "text",
         "code": "text",
@@ -165,7 +182,9 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
         "sortOrder": "integer",
         # description is longText, which outputs as text (C-D19).
         "description": "text",
-        "parent": {"object": {"objectType": "text", "masterId": "text", "code": "text", "name": "text"}},  # C-D75
+        "parent": {
+            "object": {"objectType": "text", "masterId": "text", "code": "text", "name": "text"}
+        },  # C-D75
         "path": "text",
         "hierarchy": "text[]",
     }
@@ -202,7 +221,9 @@ def test_events_round_trip_and_leave_definitions_without_them_unchanged(base):
     item["operations"]["events"] = {"custom": [event, unwatched]}
     compiled = compile_model(with_definition(source, item))
     assert compiled.valid, compiled.diagnostics
-    assert compiled.canonical_model["consumerApis"][0]["operations"]["events"] == {"custom": [event, unwatched]}
+    assert compiled.canonical_model["consumerApis"][0]["operations"]["events"] == {
+        "custom": [event, unwatched]
+    }
     assert compile_model(compiled.canonical_model).model_hash == compiled.model_hash
     assert compiled.model_hash != without.model_hash
 
@@ -252,42 +273,176 @@ def _append(path: str, value: Any) -> Mutation:
 def _rename_list(old: str, new: str) -> Mutation:
     def mutate(item: dict[str, Any], _k: Keys) -> None:
         lists = item["operations"]["lists"]
-        item["operations"]["lists"] = {new if key == old else key: value for key, value in lists.items()}
+        item["operations"]["lists"] = {
+            new if key == old else key: value for key, value in lists.items()
+        }
 
     return mutate
 
 
 REFUSALS: list[tuple[str, Mutation, str, str]] = [
-    ("unknown exposed type", _append("exposes", "unknown-type"), "UNKNOWN_OBJECT_TYPE", "/exposes/3"),
-    ("repeated public name", _set("publicNames/@domain", "Codelist"), "DUPLICATE_KEY", "/publicNames/{domain}"),
+    (
+        "unknown exposed type",
+        _append("exposes", "unknown-type"),
+        "UNKNOWN_OBJECT_TYPE",
+        "/exposes/3",
+    ),
+    (
+        "repeated public name",
+        _set("publicNames/@domain", "Codelist"),
+        "DUPLICATE_KEY",
+        "/publicNames/{domain}",
+    ),
     ("key outside the URL alphabet", _set("key", "RDM"), "INVALID_MODEL", "/consumerApis/RDM/key"),
-    ("unknown source", _set("object/fields/code/from/1", "no-such-attribute"), "INVALID_REFERENCE", "/object/fields/code/from/1"),
-    ("source no exposed type binds", _set("object/fields/code/from/1", lambda k: k("system-code")), "INVALID_REFERENCE", "/object/fields/code/from/1"),
-    ("sources of different types (C-D19)", _set("object/fields/code/from/1", lambda k: k("sort-order")), "INVALID_MODEL", "/object/fields/code/from"),
-    ("default of another type", _set("object/fields/isActive/default", "yes"), "INVALID_MODEL", "/object/fields/isActive/default"),
-    ("identity other than the object ID (C-D24)", _set("object/fields/masterId/from", lambda k: k("value-code")), "INVALID_MODEL", "/object/fields/masterId/from"),
-    ("reserved output name", _set("object/fields/matchScore", lambda k: k("value-name")), "INVALID_MODEL", "/object/fields/matchScore"),
-    ("output name used twice", _set("object/fields/path", lambda k: k("value-name")), "DUPLICATE_KEY", "/object/path"),
-    ("parent code without a code role", _drop("object/fields/code"), "INVALID_MODEL", "/object/parent"),
-    ("related records over an unknown relation", _set("object/related/systemVariants/via", "no-such-relation"), "INVALID_REFERENCE", "/object/related/systemVariants/via"),
-    ("related route no exposed type has", _set("object/related/systemVariants/via", lambda k: k("system-value-maps-to-master")), "INVALID_REFERENCE", "/object/related/systemVariants/via"),
-    ("related field of a type that is no ancestor", _set("object/related/systemVariants/fields/system", lambda k: f"ancestor:{k('domain')}.name"), "INVALID_REFERENCE", "/object/related/systemVariants/fields/system"),
-    ("related block named like an output field", _set("object/related/name", lambda k: {"via": k("object-has-translation"), "fields": {"n": "name"}}), "DUPLICATE_KEY", "/object/related/name"),
-    ("match on a field neither searchable nor unique (C-D20)", _set("operations/xref/matchOn/0/field", lambda k: k("sort-order")), "INVALID_MODEL", "/operations/xref/matchOn/0/field"),
-    ("match through an unknown related block", _set("operations/xref/alsoMatchThrough/0/related", "nothing"), "INVALID_REFERENCE", "/operations/xref/alsoMatchThrough/0/related"),
-    ("preferred type not exposed", _set("operations/xref/alsoMatchThrough/0/preferTypes/0", lambda k: k("system")), "INVALID_REFERENCE", "/operations/xref/alsoMatchThrough/0/preferTypes/0"),
-    ("reserved filter name", _set("filters/query", {"byType": True}), "INVALID_MODEL", "/filters/query"),
-    ("crosswalk-like filter name", _set("filters/to.system", {"byType": True}), "INVALID_MODEL", "/filters/to.system"),
-    ("under filter over a type that is no ancestor", _set("filters/codelist/under/0", lambda k: k("system")), "INVALID_REFERENCE", "/filters/codelist/under/0"),
-    ("linkedTo filter over an unknown route", _set("filters/sameSystem/through/1", "sharedWith:nothing"), "INVALID_REFERENCE", "/filters/sameSystem/through/1"),
-    ("onRelated filter on a field the related records lack", _set("filters/system/matchOn/1", lambda k: k("codelist-code")), "INVALID_REFERENCE", "/filters/system/matchOn/1"),
-    ("list key outside the URL alphabet", _rename_list("all-values", "All_Values"), "INVALID_MODEL", "/operations/lists/All_Values"),
-    ("list of a type not exposed", _set("operations/lists/all-values/of", lambda k: k("system")), "INVALID_REFERENCE", "/operations/lists/all-values/of"),
-    ("list within a type that cannot contain it", _set("operations/lists/codelists/within/types/0", lambda k: k("master-value")), "INVALID_REFERENCE", "/operations/lists/codelists/within/types/0"),
+    (
+        "unknown source",
+        _set("object/fields/code/from/1", "no-such-attribute"),
+        "INVALID_REFERENCE",
+        "/object/fields/code/from/1",
+    ),
+    (
+        "source no exposed type binds",
+        _set("object/fields/code/from/1", lambda k: k("system-code")),
+        "INVALID_REFERENCE",
+        "/object/fields/code/from/1",
+    ),
+    (
+        "sources of different types (C-D19)",
+        _set("object/fields/code/from/1", lambda k: k("sort-order")),
+        "INVALID_MODEL",
+        "/object/fields/code/from",
+    ),
+    (
+        "default of another type",
+        _set("object/fields/isActive/default", "yes"),
+        "INVALID_MODEL",
+        "/object/fields/isActive/default",
+    ),
+    (
+        "identity other than the object ID (C-D24)",
+        _set("object/fields/masterId/from", lambda k: k("value-code")),
+        "INVALID_MODEL",
+        "/object/fields/masterId/from",
+    ),
+    (
+        "reserved output name",
+        _set("object/fields/matchScore", lambda k: k("value-name")),
+        "INVALID_MODEL",
+        "/object/fields/matchScore",
+    ),
+    (
+        "output name used twice",
+        _set("object/fields/path", lambda k: k("value-name")),
+        "DUPLICATE_KEY",
+        "/object/path",
+    ),
+    (
+        "parent code without a code role",
+        _drop("object/fields/code"),
+        "INVALID_MODEL",
+        "/object/parent",
+    ),
+    (
+        "related records over an unknown relation",
+        _set("object/related/systemVariants/via", "no-such-relation"),
+        "INVALID_REFERENCE",
+        "/object/related/systemVariants/via",
+    ),
+    (
+        "related route no exposed type has",
+        _set("object/related/systemVariants/via", lambda k: k("system-value-maps-to-master")),
+        "INVALID_REFERENCE",
+        "/object/related/systemVariants/via",
+    ),
+    (
+        "related field of a type that is no ancestor",
+        _set(
+            "object/related/systemVariants/fields/system", lambda k: f"ancestor:{k('domain')}.name"
+        ),
+        "INVALID_REFERENCE",
+        "/object/related/systemVariants/fields/system",
+    ),
+    (
+        "related block named like an output field",
+        _set(
+            "object/related/name",
+            lambda k: {"via": k("object-has-translation"), "fields": {"n": "name"}},
+        ),
+        "DUPLICATE_KEY",
+        "/object/related/name",
+    ),
+    (
+        "match on a field neither searchable nor unique (C-D20)",
+        _set("operations/xref/matchOn/0/field", lambda k: k("sort-order")),
+        "INVALID_MODEL",
+        "/operations/xref/matchOn/0/field",
+    ),
+    (
+        "match through an unknown related block",
+        _set("operations/xref/alsoMatchThrough/0/related", "nothing"),
+        "INVALID_REFERENCE",
+        "/operations/xref/alsoMatchThrough/0/related",
+    ),
+    (
+        "preferred type not exposed",
+        _set("operations/xref/alsoMatchThrough/0/preferTypes/0", lambda k: k("system")),
+        "INVALID_REFERENCE",
+        "/operations/xref/alsoMatchThrough/0/preferTypes/0",
+    ),
+    (
+        "reserved filter name",
+        _set("filters/query", {"byType": True}),
+        "INVALID_MODEL",
+        "/filters/query",
+    ),
+    (
+        "crosswalk-like filter name",
+        _set("filters/to.system", {"byType": True}),
+        "INVALID_MODEL",
+        "/filters/to.system",
+    ),
+    (
+        "under filter over a type that is no ancestor",
+        _set("filters/codelist/under/0", lambda k: k("system")),
+        "INVALID_REFERENCE",
+        "/filters/codelist/under/0",
+    ),
+    (
+        "linkedTo filter over an unknown route",
+        _set("filters/sameSystem/through/1", "sharedWith:nothing"),
+        "INVALID_REFERENCE",
+        "/filters/sameSystem/through/1",
+    ),
+    (
+        "onRelated filter on a field the related records lack",
+        _set("filters/system/matchOn/1", lambda k: k("codelist-code")),
+        "INVALID_REFERENCE",
+        "/filters/system/matchOn/1",
+    ),
+    (
+        "list key outside the URL alphabet",
+        _rename_list("all-values", "All_Values"),
+        "INVALID_MODEL",
+        "/operations/lists/All_Values",
+    ),
+    (
+        "list of a type not exposed",
+        _set("operations/lists/all-values/of", lambda k: k("system")),
+        "INVALID_REFERENCE",
+        "/operations/lists/all-values/of",
+    ),
+    (
+        "list within a type that cannot contain it",
+        _set("operations/lists/codelists/within/types/0", lambda k: k("master-value")),
+        "INVALID_REFERENCE",
+        "/operations/lists/codelists/within/types/0",
+    ),
 ]
 
 
-@pytest.mark.parametrize(("label", "mutate", "code", "path"), REFUSALS, ids=[item[0] for item in REFUSALS])
+@pytest.mark.parametrize(
+    ("label", "mutate", "code", "path"), REFUSALS, ids=[item[0] for item in REFUSALS]
+)
 def test_every_reference_is_refused_at_its_pointer(base, label, mutate, code, path):
     source, k = base
     item = definition(k)
@@ -303,8 +458,14 @@ def test_every_reference_is_refused_at_its_pointer(base, label, mutate, code, pa
 def test_shape_errors_name_the_body_part(base):
     source, k = base
     for mutate, path in (
-        (_set("operations/xref/matchOn/0/exact", 0), "/consumerApis/0/operations/xref/matchOn/0/exact"),
-        (_set("operations/xref/matchOn/1", {"field": "name"}), "/consumerApis/0/operations/xref/matchOn/1"),
+        (
+            _set("operations/xref/matchOn/0/exact", 0),
+            "/consumerApis/0/operations/xref/matchOn/0/exact",
+        ),
+        (
+            _set("operations/xref/matchOn/1", {"field": "name"}),
+            "/consumerApis/0/operations/xref/matchOn/1",
+        ),
         (_set("filters/system/kind", "location"), "/consumerApis/0/filters/system"),
         (_set("object/fields/code/role", "label"), "/consumerApis/0/object/fields/code/role"),
         (_set("contractVersion", 0), "/consumerApis/0/contractVersion"),
@@ -313,7 +474,9 @@ def test_shape_errors_name_the_body_part(base):
         mutate(item, k)
         diagnostic = compile_model(with_definition(source, item)).diagnostics[0]
         assert diagnostic.path.startswith(path), (diagnostic.path, diagnostic.message)
-    duplicate = compile_model({**with_definition(source, definition(k)), "consumerApis": [definition(k)] * 2})
+    duplicate = compile_model(
+        {**with_definition(source, definition(k)), "consumerApis": [definition(k)] * 2}
+    )
     assert (duplicate.diagnostics[0].code, duplicate.diagnostics[0].path) == ("DUPLICATE_KEY", API)
 
 
@@ -335,12 +498,19 @@ def _stop_exposing(type_key: str) -> Mutation:
 
 BREAKING: list[tuple[str, Mutation, list[str]]] = [
     ("removes an output field", _drop("object/fields/sortOrder"), ["/object"]),
-    ("retypes an output field", _set("object/fields/sortOrder", lambda k: k("value-name")), ["/object"]),
+    (
+        "retypes an output field",
+        _set("object/fields/sortOrder", lambda k: k("value-name")),
+        ["/object"],
+    ),
     ("removes a parent field", _set("object/parent", ["objectType", "id", "name"]), ["/object"]),
     ("renames a public type", _set("publicNames/@domain", "Area"), ["/publicNames/{domain}"]),
     (
         "stops exposing a type",
-        _both(_stop_exposing("domain"), _set("object/fields/code/from", lambda k: [k("value-code"), k("codelist-code")])),
+        _both(
+            _stop_exposing("domain"),
+            _set("object/fields/code/from", lambda k: [k("value-code"), k("codelist-code")]),
+        ),
         ["/exposes"],
     ),
     (
@@ -348,10 +518,18 @@ BREAKING: list[tuple[str, Mutation, list[str]]] = [
         _both(_drop("object/related/translations"), _drop("filters/language")),
         ["/object/related", "/filters"],
     ),
-    ("removes a related field", _drop("object/related/systemVariants/fields/externalId"), ["/object/related/systemVariants/fields"]),
+    (
+        "removes a related field",
+        _drop("object/related/systemVariants/fields/externalId"),
+        ["/object/related/systemVariants/fields"],
+    ),
     ("changes a weight (C-D4)", _set("operations/xref/matchOn/0/exact", 999), ["/operations/xref"]),
     ("removes the lists (C-D18)", _drop("operations/lists"), ["/operations/lists"] * 3),
-    ("changes a list's within (C-D18)", _drop("operations/lists/values/within"), ["/operations/lists"]),
+    (
+        "changes a list's within (C-D18)",
+        _drop("operations/lists/values/within"),
+        ["/operations/lists"],
+    ),
     ("removes a filter (C-D18)", _drop("filters/type"), ["/filters"]),
     (
         "changes a filter's verb (C-D18)",
@@ -370,8 +548,12 @@ def test_breaking_changes_need_a_higher_contract_version(base, label, mutate, pa
     mutate(item, k)
     candidate = parse_model(with_definition(source, item))
     diagnostics = contract_diagnostics(active, candidate)
-    assert {(d.severity, d.code) for d in diagnostics} == {("error", "CONSUMER_CONTRACT_VERSION_REQUIRED")}, label
-    assert [d.path for d in diagnostics] == [f"{API}{path.replace('{domain}', k('domain'))}" for path in paths]
+    assert {(d.severity, d.code) for d in diagnostics} == {
+        ("error", "CONSUMER_CONTRACT_VERSION_REQUIRED")
+    }, label
+    assert [d.path for d in diagnostics] == [
+        f"{API}{path.replace('{domain}', k('domain'))}" for path in paths
+    ]
     assert all("raise contractVersion above 1" in d.message for d in diagnostics)
     # The same change under a higher contract version is a new contract.
     item["contractVersion"] = 2
@@ -397,10 +579,14 @@ def test_additions_are_compatible_and_lower_versions_or_removals_are_reported(ba
     lower = definition(k) | {"contractVersion": 1}
     higher_active = parse_model(with_definition(source, definition(k) | {"contractVersion": 3}))
     diagnostics = contract_diagnostics(higher_active, parse_model(with_definition(source, lower)))
-    assert [(d.code, d.path) for d in diagnostics] == [("CONSUMER_CONTRACT_VERSION_DECREASED", f"{API}/contractVersion")]
+    assert [(d.code, d.path) for d in diagnostics] == [
+        ("CONSUMER_CONTRACT_VERSION_DECREASED", f"{API}/contractVersion")
+    ]
 
     removed = contract_diagnostics(active, parse_model(source))
-    assert [(d.severity, d.code, d.path) for d in removed] == [("warning", "CONSUMER_API_REMOVED", API)]
+    assert [(d.severity, d.code, d.path) for d in removed] == [
+        ("warning", "CONSUMER_API_REMOVED", API)
+    ]
 
 
 def test_a_cardinality_change_in_the_model_changes_a_projection_shape(base):
@@ -412,7 +598,12 @@ def test_a_cardinality_change_in_the_model_changes_a_projection_shape(base):
             binding["cardinality"] = "one-to-many"
     candidate = parse_model(changed)
     # One system value per master value now: the projection becomes an object or null.
-    assert output_contract(candidate, consumer_apis(candidate)[0]).projections["systemVariants"]["shape"] == "one"
+    assert (
+        output_contract(candidate, consumer_apis(candidate)[0]).projections["systemVariants"][
+            "shape"
+        ]
+        == "one"
+    )
     diagnostics = contract_diagnostics(active, candidate)
     assert [(d.code, d.path) for d in diagnostics] == [
         ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/object/related/systemVariants")
@@ -479,7 +670,9 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     broken["release"]["version"] = "0.9.0-c1-broken"
     draft = client.post("/api/v1/model-drafts", json={"name": "C1 break", "model": broken})
     assert draft.status_code == 201, draft.text
-    compiled = client.post(f"/api/v1/model-drafts/{draft.json()['id']}/compile", json={"expectedVersion": 1}).json()
+    compiled = client.post(
+        f"/api/v1/model-drafts/{draft.json()['id']}/compile", json={"expectedVersion": 1}
+    ).json()
     assert compiled["valid"] is True
     assert compiled["compatibility"]["classification"] == "compatible"
     contracts = compiled["consumerContracts"]
@@ -490,7 +683,9 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     ]
 
     broken_id = _install(broken, "0.9.0-c1-broken")
-    diff = client.get(f"/api/v1/model-releases/{broken_id}/diff", params={"againstReleaseId": first}).json()
+    diff = client.get(
+        f"/api/v1/model-releases/{broken_id}/diff", params={"againstReleaseId": first}
+    ).json()
     assert diff["consumerContracts"]["classification"] == "version_required"
 
     refused = _activate(client, broken_id)

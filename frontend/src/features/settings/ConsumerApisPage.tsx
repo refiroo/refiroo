@@ -4,9 +4,11 @@
  * document; the document gives the routes, each linked to its operation in the API reference at
  * `/docs/api`, which holds everything else the contract says. Read only: a definition changes through a
  * model release. Last, the change feed consumers follow and how long it keeps its entries (moved
- * here from Jobs and feed in 0.10 A5c).
+ * here from Jobs and feed in 0.10 A5c). The APIs, their documents and the links to the reference
+ * follow the chosen workspace (`?workspace=<key>`, the default workspace otherwise).
  */
 
+import { useCallback } from "react";
 import { api } from "@/api/client";
 import { routePath } from "@/routing/routes";
 import type { ConsumerApiDocument, ConsumerApiIndexEntry, SettingsRoute } from "@/types";
@@ -20,17 +22,27 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { allConsumerApis, baseUrl, consumerSlug, openapiUrl, operationUrl } from "./consumerAddresses";
+import { ReferenceWorkspace } from "./ReferenceWorkspace";
 import { feedRetentionItem } from "./limits";
 import { useCapabilities, useSettingsRead, useSystem } from "./useSystem";
 
-async function loadApis() {
-  const entries = await allConsumerApis();
+async function loadApis(workspaceKey: string) {
+  const entries = await allConsumerApis(workspaceKey);
   const documents = await Promise.all(entries.map((entry) => api.consumerApiDocument(openapiUrl(entry))));
   return entries.map((entry, index) => ({ entry, document: documents[index] }));
 }
 
-export function ConsumerApisPage({ onNavigate }: { onNavigate: (route: SettingsRoute) => void }) {
-  const { data: apis, error, retry } = useSettingsRead(loadApis);
+export function ConsumerApisPage({
+  route,
+  onNavigate,
+}: {
+  route: Extract<SettingsRoute, { page: "consumer-apis" }>;
+  /** `replace` changes the route's workspace in place, without a history entry. */
+  onNavigate: (route: SettingsRoute, replace?: boolean) => void;
+}) {
+  const workspaceKey = route.workspaceKey ?? "";
+  const load = useCallback(() => loadApis(workspaceKey), [workspaceKey]);
+  const { data: apis, error, retry } = useSettingsRead(load);
   const { system, error: systemError, retry: retrySystem } = useSystem();
   const { capabilities } = useCapabilities();
   const release = system?.activeModelRelease;
@@ -43,6 +55,10 @@ export function ConsumerApisPage({ onNavigate }: { onNavigate: (route: SettingsR
       title="Consumer APIs"
       description="The read APIs the active model release declares for consuming systems, each at its contract version, with its routes. Each route opens its documentation in the API reference."
     >
+      <ReferenceWorkspace
+        value={workspaceKey}
+        onChange={(key) => onNavigate({ ...route, workspaceKey: key || undefined }, true)}
+      />
       {failure ? (
         <InlineError
           message={failure}
@@ -77,7 +93,9 @@ export function ConsumerApisPage({ onNavigate }: { onNavigate: (route: SettingsR
               The active release declares no consumer API.
             </EmptyState>
           ) : (
-            apis.map(({ entry, document }) => <ConsumerApi key={entry.consumerApi} entry={entry} document={document} />)
+            apis.map(({ entry, document }) => (
+              <ConsumerApi key={entry.consumerApi} entry={entry} document={document} workspaceKey={workspaceKey} />
+            ))
           )}
           {capabilities && (
             <Section
@@ -98,7 +116,15 @@ export function ConsumerApisPage({ onNavigate }: { onNavigate: (route: SettingsR
   );
 }
 
-function ConsumerApi({ entry, document }: { entry: ConsumerApiIndexEntry; document: ConsumerApiDocument }) {
+function ConsumerApi({
+  entry,
+  document,
+  workspaceKey,
+}: {
+  entry: ConsumerApiIndexEntry;
+  document: ConsumerApiDocument;
+  workspaceKey: string;
+}) {
   const base = baseUrl(entry);
   const basePath = new URL(base).pathname;
   const slug = consumerSlug(entry);
@@ -119,7 +145,9 @@ function ConsumerApi({ entry, document }: { entry: ConsumerApiIndexEntry; docume
                 </code>
               </th>
               <td data-label="What it does">
-                <a href={operationUrl(slug, method, path)}>{operation.summary ?? `${method.toUpperCase()} ${path}`}</a>
+                <a href={operationUrl(slug, method, path, workspaceKey)}>
+                  {operation.summary ?? `${method.toUpperCase()} ${path}`}
+                </a>
               </td>
             </tr>
           )),

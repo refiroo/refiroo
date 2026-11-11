@@ -119,7 +119,9 @@ def values(record) -> dict:
     return {item["attributeTypeKey"]: item["value"] for item in record["attributes"]}
 
 
-def create(client, application, object_type, name, attributes, parent=None, relations=None, **context):
+def create(
+    client, application, object_type, name, attributes, parent=None, relations=None, **context
+):
     payload = {
         "applicationKey": application,
         "objectTypeKey": object_type,
@@ -139,7 +141,11 @@ def create(client, application, object_type, name, attributes, parent=None, rela
 def relate(client, relation_type, source, target):
     response = client.post(
         "/api/v1/relations",
-        json={"relationTypeKey": relation_type, "fromObjectId": source["id"], "toObjectId": target["id"]},
+        json={
+            "relationTypeKey": relation_type,
+            "fromObjectId": source["id"],
+            "toObjectId": target["id"],
+        },
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -184,17 +190,13 @@ def read(client, object_type, object_id, expected=200, **params):
 
 
 def object_changes(client, change_set, **params) -> list[dict]:
-    response = client.get(
-        f"/api/v1/change-sets/{change_set['id']}/object-changes", params=params
-    )
+    response = client.get(f"/api/v1/change-sets/{change_set['id']}/object-changes", params=params)
     assert response.status_code == 200, response.text
     return response.json()["items"]
 
 
 def relation_changes(client, change_set, **params) -> list[dict]:
-    response = client.get(
-        f"/api/v1/change-sets/{change_set['id']}/relation-changes", params=params
-    )
+    response = client.get(f"/api/v1/change-sets/{change_set['id']}/relation-changes", params=params)
     assert response.status_code == 200, response.text
     return response.json()["items"]
 
@@ -338,9 +340,7 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     ]
 
     # D42: the old type's routes answer with the current type, in the change set only.
-    error = read(
-        client, k("system-value"), value["id"], expected=409, changeSetId=change_set["id"]
-    )
+    error = read(client, k("system-value"), value["id"], expected=409, changeSetId=change_set["id"])
     assert error["code"] == "OBJECT_TYPE_CHANGED"
     assert error["details"] == {
         "objectId": value["id"],
@@ -376,8 +376,9 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     ):
         assert response.status_code == 409, response.text
         assert response.json()["error"]["code"] == "OBJECT_TYPE_CHANGED"
-    assert read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)["version"] == (
-        live_before["version"]
+    assert (
+        read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)["version"]
+        == (live_before["version"])
     )
 
     # History: one reclassified event naming what changed, without values.
@@ -409,11 +410,12 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     assert entry["after"]["objectTypeKey"] == k("system-group")
     assert entry["changedFields"][0] == "objectType"
     for key in (k("system-value"), k("system-group")):
-        assert [item["objectId"] for item in object_changes(client, change_set, objectTypeKey=key)] == [
-            value["id"]
-        ]
+        assert [
+            item["objectId"] for item in object_changes(client, change_set, objectTypeKey=key)
+        ] == [value["id"]]
     relations = {
-        (item["relationTypeKey"], item["kind"]): item for item in relation_changes(client, change_set)
+        (item["relationTypeKey"], item["kind"]): item
+        for item in relation_changes(client, change_set)
     }
     assert set(relations) == {
         (k("system-contains-value"), "removed"),
@@ -430,9 +432,10 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     publish(client, change_set)
     live = read(client, k("system-group"), value["id"], workspaceKey=WORKSPACE)
     assert live["objectTypeKey"] == k("system-group") and values(live) == values(record)
-    assert read(client, k("system-value"), value["id"], expected=409, workspaceKey=WORKSPACE)[
-        "code"
-    ] == "OBJECT_TYPE_CHANGED"
+    assert (
+        read(client, k("system-value"), value["id"], expected=409, workspaceKey=WORKSPACE)["code"]
+        == "OBJECT_TYPE_CHANGED"
+    )
     assert read(client, k("system-value"), value["id"], publicationId=first["id"])[
         "objectTypeKey"
     ] == k("system-value")
@@ -463,7 +466,8 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     restored = read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)
     assert values(restored) == values(live_before)
     restored_ids = [
-        item["id"] for item in relations_of(client, systems["M"]["id"], workspaceKey=WORKSPACE, **maps)
+        item["id"]
+        for item in relations_of(client, systems["M"]["id"], workspaceKey=WORKSPACE, **maps)
     ]
     assert restored_ids == [mapped["id"]]
 
@@ -498,7 +502,12 @@ def test_group_moves_to_the_top_level_as_a_system_and_its_children_follow(starte
         inner["id"]: k("system-contains-group"),
         child["id"]: k("system-contains-value"),
     }
-    assert [part["id"] for part in read(client, k("system-value"), child["id"], changeSetId=change_set["id"])["path"]] == [
+    assert [
+        part["id"]
+        for part in read(client, k("system-value"), child["id"], changeSetId=change_set["id"])[
+            "path"
+        ]
+    ] == [
         group["id"],
         child["id"],
     ]
@@ -568,7 +577,14 @@ def test_refusals_leave_nothing_behind(starter, systems):
     assert code(TypeChange(value["id"], k("domain"))) == "OBJECT_TYPE_NOT_IN_APPLICATION"
     assert code(TypeChange(value["id"], k("system-value"))) == "OBJECT_TYPE_UNCHANGED"
     assert (
-        code(TypeChange(value["id"], k("system-group"), parent_object_id=None, mapping={k("group-code"): k("value-name")}))
+        code(
+            TypeChange(
+                value["id"],
+                k("system-group"),
+                parent_object_id=None,
+                mapping={k("group-code"): k("value-name")},
+            )
+        )
         == "PARENT_REQUIRED"
     )
     # A system needs its required code, which a group does not have.
@@ -638,9 +654,7 @@ def test_publishing_refuses_a_live_edit_and_a_live_relationship_the_new_type_can
 ):
     client, k = starter
     value = systems["V"]
-    change = TypeChange(
-        value["id"], k("system-group"), mapping={k("group-code"): k("value-name")}
-    )
+    change = TypeChange(value["id"], k("system-group"), mapping={k("group-code"): k("value-name")})
 
     # A live edit of the same record since the change set's base.
     edited = start_change_set(client)
@@ -679,9 +693,9 @@ def test_publishing_refuses_a_live_edit_and_a_live_relationship_the_new_type_can
     error = publish(client, untouched, expected_status=422)["error"]
     assert error["code"] == "WORKSPACE_GRAPH_INVALID"
     assert "INVALID_RELATION_PAIR" in {item["code"] for item in error["details"]}
-    assert read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)["objectTypeKey"] == (
-        k("system-value")
-    )
+    assert read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)[
+        "objectTypeKey"
+    ] == (k("system-value"))
 
 
 def test_translation_group_becomes_a_translation_with_its_required_scoped_relationship(starter):
@@ -808,7 +822,12 @@ def test_generated_model_item_becomes_node_keeping_its_citation(volume):
                 RelationSetVersion.relation_type_key == ITEM_CITES_GROUP,
             )
         }
-    assert bindings == {(ITEM, "outgoing"), (ITEM, "incoming"), (NODE, "outgoing"), (NODE, "incoming")}
+    assert bindings == {
+        (ITEM, "outgoing"),
+        (ITEM, "incoming"),
+        (NODE, "outgoing"),
+        (NODE, "incoming"),
+    }
     publish(client, change_set)
     assert read(client, NODE, item["id"], workspaceKey=WORKSPACE)["objectTypeKey"] == NODE
     assert [row["id"] for row in relations_of(client, cited["id"], workspaceKey=WORKSPACE)] == [
@@ -836,7 +855,13 @@ def test_generated_model_shelf_becomes_a_matrix_cell(volume):
         "Existing",
         [*_code("cell"), attr(ACTIVE, True)],
         shelf,
-        [{"relationTypeKey": GROUP_HAS_CELL, "direction": "incoming", "otherObjectId": group["id"]}],
+        [
+            {
+                "relationTypeKey": GROUP_HAS_CELL,
+                "direction": "incoming",
+                "otherObjectId": group["id"],
+            }
+        ],
     )
     change_set = start_change_set(client)
 

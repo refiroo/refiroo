@@ -40,7 +40,10 @@ ITEM_BUDGET = 0.1
 
 
 def _parent(index: int) -> dict[str, Any]:
-    return {"objectTypeKey": GROUP, "key": {"attributeTypeKey": CODE, "value": f"GROUP-{index % 10:06d}"}}
+    return {
+        "objectTypeKey": GROUP,
+        "key": {"attributeTypeKey": CODE, "value": f"GROUP-{index % 10:06d}"},
+    }
 
 
 def upserts(count: int, prefix: str) -> list[dict[str, Any]]:
@@ -55,7 +58,12 @@ def upserts(count: int, prefix: str) -> list[dict[str, Any]]:
             "name": f"Item {index}",
             "parent": _parent(index),
             "attributes": [
-                {"attributeTypeKey": CODE, "value": f"ITEM-{index // 2:06d}" if index % 2 == 0 else f"{prefix}-{index:06d}"},
+                {
+                    "attributeTypeKey": CODE,
+                    "value": f"ITEM-{index // 2:06d}"
+                    if index % 2 == 0
+                    else f"{prefix}-{index:06d}",
+                },
                 {"attributeTypeKey": RANK, "value": 7},
             ],
         }
@@ -109,15 +117,28 @@ def measured(tmp_path_factory) -> dict[tuple[str, str], dict[str, Any]]:
             with measure(engine) as cost:
                 response = client.post("/api/v1/batches", json=request)
             assert response.status_code == 200, response.text
-            results[("upserts", label)] = {"cost": cost, "job": response.json()["job"], "items": 1000}
+            results[("upserts", label)] = {
+                "cost": cost,
+                "job": response.json()["job"],
+                "items": 1000,
+            }
             request = {**body, "items": items, **context(label)}
             with measure(engine) as cost:
                 response = client.post("/api/v1/batches", json=request)
-            results[("resent", label)] = {"cost": cost, "job": response.json()["job"], "items": 1000}
+            results[("resent", label)] = {
+                "cost": cost,
+                "job": response.json()["job"],
+                "items": 1000,
+            }
 
             count = 10_000
             request = BatchRequest.model_validate(
-                {"policy": "atomic", "run": "inline", "items": creates(count, f"A{count}{label[0]}"), **context(label)}
+                {
+                    "policy": "atomic",
+                    "run": "inline",
+                    "items": creates(count, f"A{count}{label[0]}"),
+                    **context(label),
+                }
             )
             with SessionLocal() as session:
                 with measure(engine) as cost:
@@ -125,7 +146,11 @@ def measured(tmp_path_factory) -> dict[tuple[str, str], dict[str, Any]]:
                         session, request, idempotency_key=None, retention_days=7
                     )
                 counts = dict(job.counts)
-            results[("creates", label)] = {"cost": cost, "job": {"result": job.result, "counts": counts}, "items": count}
+            results[("creates", label)] = {
+                "cost": cost,
+                "job": {"result": job.result, "counts": counts},
+                "items": count,
+            }
     return results
 
 

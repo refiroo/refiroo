@@ -214,8 +214,6 @@ const SINGLE_PAGES = [
   "notifications",
   "deployment",
   "operations",
-  "consumer-apis",
-  "api-reference",
   "roles",
   "signing-keys",
   "mail",
@@ -278,6 +276,10 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       : { kind: "settings", page: "workspaces" };
   if (parts[0] !== "settings") return undefined;
   const [, page, kind, id] = parts;
+  if (page === "consumer-apis" || page === "api-reference") {
+    const workspaceKey = query.get("workspace")?.trim();
+    return workspaceKey ? { kind: "settings", page, workspaceKey } : { kind: "settings", page };
+  }
   if (isSinglePage(page)) return { kind: "settings", page };
   if (page === "workspaces") {
     if (!kind) return { kind: "settings", page };
@@ -476,6 +478,8 @@ function settingsPath(route: SettingsRoute) {
     const group = route.group!;
     return `/settings/jobs/groups/${group.kind}/${encodeURIComponent(group.id)}${narrowed}`;
   }
+  if ((route.page === "consumer-apis" || route.page === "api-reference") && route.workspaceKey)
+    return `/settings/${route.page}?workspace=${encodeURIComponent(route.workspaceKey)}`;
   if (route.page === "ai-tasks" && route.taskId) return `/settings/ai-tasks/${encodeURIComponent(route.taskId)}`;
   if (route.page === "people" && route.userId) return `/settings/people/${encodeURIComponent(route.userId)}`;
   if (route.page === "groups" && route.groupId) return `/settings/groups/${encodeURIComponent(route.groupId)}`;

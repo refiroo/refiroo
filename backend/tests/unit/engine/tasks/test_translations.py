@@ -10,7 +10,9 @@ def _info(*related):
 
 
 def _related(relation="guards"):
-    return Related(relation, relation.title(), "room", "Room", "atlas", (("estate", "Estate", True),))
+    return Related(
+        relation, relation.title(), "room", "Room", "atlas", (("estate", "Estate", True),)
+    )
 
 
 def test_exactly_one_relationship_to_a_contained_type_is_the_structure():

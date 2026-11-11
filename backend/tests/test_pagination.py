@@ -30,9 +30,7 @@ _DRAFT_KEYS = (
 
 def test_cursor_sort_encodes_direction():
     assert cursor_sort(_DRAFT_KEYS) == ("-updatedAt", "publicId")
-    assert cursor_sort(
-        (integer_key("sequenceId", ModelDraft.id, "id"),)
-    ) == ("sequenceId",)
+    assert cursor_sort((integer_key("sequenceId", ModelDraft.id, "id"),)) == ("sequenceId",)
 
 
 def test_keyset_predicate_follows_each_key_direction():

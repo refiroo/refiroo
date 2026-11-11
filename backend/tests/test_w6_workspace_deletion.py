@@ -64,13 +64,22 @@ def _refused(client: TestClient, key: str, code: str, version: int | None = None
     return error
 
 
-def _live_object(client: TestClient, workspace_key: str, object_type_key: str, name: str, *,
-                 parent: str | None = None, **attributes) -> dict:
+def _live_object(
+    client: TestClient,
+    workspace_key: str,
+    object_type_key: str,
+    name: str,
+    *,
+    parent: str | None = None,
+    **attributes,
+) -> dict:
     response = client.post(
         "/api/v1/objects",
         json={
             "workspaceKey": workspace_key,
-            "applicationKey": "rdm-systems" if object_type_key.startswith("system") else "rdm-master",
+            "applicationKey": "rdm-systems"
+            if object_type_key.startswith("system")
+            else "rdm-master",
             "objectTypeKey": object_type_key,
             "name": name,
             "parentObjectId": parent,
@@ -140,7 +149,8 @@ def test_retired_workspace_is_deleted_under_the_same_rule(client):
     key = unique_key("w6-retired")
     created = create_workspace(client, key)
     retired = client.patch(
-        f"/api/v1/workspaces/{key}", json={"status": "retired", "expectedVersion": created["version"]}
+        f"/api/v1/workspaces/{key}",
+        json={"status": "retired", "expectedVersion": created["version"]},
     )
     assert retired.status_code == 200, retired.text
     assert retired.json()["deletable"] is True
@@ -169,7 +179,8 @@ def test_published_workspace_is_refused_even_after_withdrawal_and_emptying(clien
     with SessionLocal() as session:
         live = session.scalars(select(RdmObject).where(RdmObject.workspace_key == key)).all()
         items = [
-            {"objectTypeKey": row.object_type_key, "id": row.id, "workspaceKey": key} for row in live
+            {"objectTypeKey": row.object_type_key, "id": row.id, "workspaceKey": key}
+            for row in live
         ]
     for item in items:
         _delete_object(client, item)
@@ -187,7 +198,11 @@ def test_objects_and_change_sets_are_refused_until_removed(client):
     create_workspace(client, key)
     system = _live_object(client, key, "system", "System", **{"system-code": unique_key("sys")})
     value = _live_object(
-        client, key, "system-value", "Value", parent=system["id"],
+        client,
+        key,
+        "system-value",
+        "Value",
+        parent=system["id"],
         **{"value-code": unique_key("v"), "value-name": "Value"},
     )
     change_set = create_change_set(client, key).json()
@@ -209,23 +224,22 @@ def test_objects_and_change_sets_are_refused_until_removed(client):
     assert discarded.status_code == 204, discarded.text
     with SessionLocal() as session:
         # Live containment left relation-set versions behind, which the deletion removes.
-        assert session.scalar(
-            select(func.count()).where(RelationSetVersion.workspace_key == key)
-        )
+        assert session.scalar(select(func.count()).where(RelationSetVersion.workspace_key == key))
     detail = _detail(client, key)
     assert detail["deletable"] is True
     assert _delete(client, key, detail["version"]).status_code == 204
     with SessionLocal() as session:
-        assert session.scalar(
-            select(func.count()).where(RelationSetVersion.workspace_key == key)
-        ) == 0
+        assert (
+            session.scalar(select(func.count()).where(RelationSetVersion.workspace_key == key)) == 0
+        )
 
 
 def test_stale_version_is_refused(client):
     key = unique_key("w6-stale")
     created = create_workspace(client, key)
     renamed = client.patch(
-        f"/api/v1/workspaces/{key}", json={"label": "Renamed", "expectedVersion": created["version"]}
+        f"/api/v1/workspaces/{key}",
+        json={"label": "Renamed", "expectedVersion": created["version"]},
     ).json()
     error = _refused(client, key, "VERSION_CONFLICT", version=created["version"])
     assert error["details"] == {"currentVersion": renamed["version"]}
@@ -260,9 +274,7 @@ def test_live_write_resolved_before_deletion_saves_nothing(monkeypatch, client):
     monkeypatch.setattr(object_writes, "resolve_workspace", resolve_then_hold)
     name = f"Domain {unique_key('held')}"
     with ThreadPoolExecutor(max_workers=1) as pool:
-        pending = pool.submit(
-            _post_domain, client, key, name
-        )
+        pending = pool.submit(_post_domain, client, key, name)
         assert resolved.wait(HOLD_TIMEOUT)
         deletion = _delete(client, key, created["version"])
         deleted.set()

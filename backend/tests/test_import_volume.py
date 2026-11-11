@@ -160,7 +160,9 @@ def test_the_preview_grows_only_by_its_paged_statements_and_cancel_checks(measur
     few_items, many_items = SIZES[0] * 3, SIZES[1] * 3
     checks = many_items // STOP_CHECK_ITEMS - few_items // STOP_CHECK_ITEMS
     pages = -(-many_items // 1_000) - -(-few_items // 1_000)
-    assert many.statements - few.statements <= CHECK_STATEMENTS * checks + PAGED_STATEMENTS * pages, (few, many)
+    assert (
+        many.statements - few.statements <= CHECK_STATEMENTS * checks + PAGED_STATEMENTS * pages
+    ), (few, many)
     assert max(few.rows_loaded, many.rows_loaded) <= PREVIEW_ORM_ROWS, (few, many)
 
 

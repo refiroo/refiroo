@@ -41,9 +41,26 @@ CONFIGURATION = parity()
 # in XREF too; matchScore only in XREF. The reference's duration and alternative are declared by the
 # fixture's definition as they appear there.
 REFERENCE_KEYS = {
-    "objectType", "masterId", "code", "name", "valueName", "sortOrder", "isActive", "internalOnly",
-    "validFrom", "validTo", "systemVariants", "translations", "availableAt", "duration",
-    "alternative", "path", "parent", "hierarchy", "description", "formerId",
+    "objectType",
+    "masterId",
+    "code",
+    "name",
+    "valueName",
+    "sortOrder",
+    "isActive",
+    "internalOnly",
+    "validFrom",
+    "validTo",
+    "systemVariants",
+    "translations",
+    "availableAt",
+    "duration",
+    "alternative",
+    "path",
+    "parent",
+    "hierarchy",
+    "description",
+    "formerId",
 }
 PARENT_KEYS = {"objectType", "masterId", "code", "name"}
 
@@ -69,7 +86,12 @@ def _record(ids, items, name, app, type_key, values, parent=None, **extra):
 
 def _relate(ids, items, relation, source, target):
     items.append(
-        {"op": "createRelation", "relationTypeKey": relation, "from": {"id": ids[source]}, "to": {"id": ids[target]}}
+        {
+            "op": "createRelation",
+            "relationTypeKey": relation,
+            "from": {"id": ids[source]},
+            "to": {"id": ids[target]},
+        }
     )
 
 
@@ -80,12 +102,19 @@ def _dataset(world) -> dict[str, str]:
 
     def value(name, code, master_id, parent, **values):
         _record(
-            ids, items, name, master, "master-value",
-            {"master-id": master_id, "value-code": code, "value-name": name, **values}, parent,
+            ids,
+            items,
+            name,
+            master,
+            "master-value",
+            {"master-id": master_id, "value-code": code, "value-name": name, **values},
+            parent,
         )
 
     _record(ids, items, "Transport", master, "domain", {"domain-code": "HC"})
-    _record(ids, items, "Timetable types", master, "codelist", {"codelist-code": "MOT"}, "Transport")
+    _record(
+        ids, items, "Timetable types", master, "codelist", {"codelist-code": "MOT"}, "Transport"
+    )
     value("Train", "CONS", "MV-0101", "Timetable types", **{"sort-order": 1})
     value("Follow-up", "FUP", "MV-0102", "Timetable types")
     value("Tram", "VAC", "MV-0103", "Timetable types")
@@ -93,7 +122,10 @@ def _dataset(world) -> dict[str, str]:
     _record(ids, items, "Durations", master, "codelist", {"codelist-code": "DUR"}, "Transport")
     value("30 minutes", "D30", "MV-0201", "Durations")
     _record(ids, items, "Stations", master, "codelist", {"codelist-code": "CLIN"}, "Transport")
-    for name, code, master_id in (("Central Station", "CEN", "LC-0001"), ("North Station", "NOR", "LC-0002")):
+    for name, code, master_id in (
+        ("Central Station", "CEN", "LC-0001"),
+        ("North Station", "NOR", "LC-0002"),
+    ):
         values = {"master-id": master_id, "value-code": code, "value-name": name}
         if code == "CEN":
             values["operator-code"] = "BR1"
@@ -120,15 +152,33 @@ def _dataset(world) -> dict[str, str]:
     _record(ids, items, "German", translations, "language", {"language-code": "de"})
     _record(ids, items, "Spanish", translations, "language", {"language-code": "es"})
     for language, code in (("German", "DE"), ("Spanish", "ES")):
-        _record(ids, items, f"{language} values", translations, "translation-group", {"group-code": code}, language)
+        _record(
+            ids,
+            items,
+            f"{language} values",
+            translations,
+            "translation-group",
+            {"group-code": code},
+            language,
+        )
     for name, of, group in (
         ("Eisenbahn", "Train", "German values"),
         ("Schweizer Franken", "Swiss franc", "German values"),
         ("Cita médica", "Train", "Spanish values"),
     ):
-        relation = {"relationTypeKey": "object-has-translation", "direction": "incoming", "object": {"id": ids[of]}}
+        relation = {
+            "relationTypeKey": "object-has-translation",
+            "direction": "incoming",
+            "object": {"id": ids[of]},
+        }
         _record(
-            ids, items, name, translations, "translation", {"translated-name": name}, group,
+            ids,
+            items,
+            name,
+            translations,
+            "translation",
+            {"translated-name": name},
+            group,
             initialRelations=[relation],
         )
 
@@ -158,7 +208,12 @@ def _seed() -> str:
     def inputs() -> list[Any]:
         import json
 
-        return [json.dumps(CONFIGURATION.model, sort_keys=True), SOURCE, __file__, seeds.APP / "engine" / "model" / "bootstrap.py"]
+        return [
+            json.dumps(CONFIGURATION.model, sort_keys=True),
+            SOURCE,
+            __file__,
+            seeds.APP / "engine" / "model" / "bootstrap.py",
+        ]
 
     seeds.register(seeds.Seed(name, build, inputs, base="schema"))
     return name
@@ -176,7 +231,10 @@ class Parity:
             (
                 re.compile(
                     "^"
-                    + "/".join("[^/]+" if part.startswith("{") else re.escape(part) for part in path.split("/"))
+                    + "/".join(
+                        "[^/]+" if part.startswith("{") else re.escape(part)
+                        for part in path.split("/")
+                    )
                     + "$"
                 ),
                 path,
@@ -186,7 +244,11 @@ class Parity:
 
     def call(self, method: str, path: str, body: Any = None, **params: Any):
         api = self.world.api
-        response = api.get(f"{API}{path}", **params) if method == "get" else api.post(f"{API}{path}", body, **params)
+        response = (
+            api.get(f"{API}{path}", **params)
+            if method == "get"
+            else api.post(f"{API}{path}", body, **params)
+        )
         if response.status_code == 200:
             self.conforms(f"{API}{path}", method, response.json())
         return response
@@ -216,7 +278,10 @@ class Parity:
         return ok(self.get(f"/objects/{self.ids[name]}", **params))
 
     def listed(self, list_key: str, **params: Any) -> list[str]:
-        return [item["name"] for item in ok(self.get(f"/lists/{list_key}", pageSize=100, **params))["items"]]
+        return [
+            item["name"]
+            for item in ok(self.get(f"/lists/{list_key}", pageSize=100, **params))["items"]
+        ]
 
 
 @pytest.fixture
@@ -269,7 +334,11 @@ def test_a_system_value_mapped_to_a_location(fixture):
     Station with expect=one. FU-1, mapped to Central Station and to Follow-up, scores the location only
     (preferTargetTypes)."""
     found = fixture.top(query="9001")
-    assert (found["objectType"], found["name"], found["matchScore"]) == ("Location", "North Station", 75)
+    assert (found["objectType"], found["name"], found["matchScore"]) == (
+        "Location",
+        "North Station",
+        75,
+    )
     assert _scored(fixture.xref(query="FU-1")) == [("Central Station", 80)]
 
 
@@ -286,7 +355,10 @@ def test_codelist_and_domain_by_name_and_by_code(fixture):
     keeps the timetable Standard only."""
     timetable = fixture.ids["Standard (timetable)"]
     for params in (
-        {"codelist": "MOT"}, {"codelist": "Timetable types"}, {"domain": "HC"}, {"domain": "Transport"},
+        {"codelist": "MOT"},
+        {"codelist": "Timetable types"},
+        {"domain": "HC"},
+        {"domain": "Transport"},
     ):
         page = fixture.xref(query="STD", **params)
         assert [item["masterId"] for item in page["results"]] == [timetable], params
@@ -300,8 +372,14 @@ def test_location_by_availability_by_itself_and_by_a_shared_system_value(fixture
     North Station or the codelist Stations. With system=SAP added, location=CEN keeps Follow-up only."""
     assert fixture.listed("all-values", location="CEN") == ["Train", "Follow-up"]
     assert fixture.listed("all-values", location="North Station") == ["Tram"]
-    assert {name for name, _score in _scored(fixture.xref(query="Station"))} >= {"Central Station", "North Station", "Stations"}
-    assert [name for name, _score in _scored(fixture.xref(query="Station", location="CEN"))] == ["Central Station"]
+    assert {name for name, _score in _scored(fixture.xref(query="Station"))} >= {
+        "Central Station",
+        "North Station",
+        "Stations",
+    }
+    assert [name for name, _score in _scored(fixture.xref(query="Station", location="CEN"))] == [
+        "Central Station"
+    ]
     assert fixture.listed("all-values", location="CEN", system="SAP") == ["Follow-up"]
 
 
@@ -348,8 +426,20 @@ def test_batch_resolve_of_a_mixed_batch(fixture):
         ]
     }
     answer = ok(fixture.call("post", "/resolve", body))
-    assert [item["status"] for item in answer["items"]] == ["found", "found", "not_found", "ambiguous", "rejected"]
-    assert [item["ref"] for item in answer["items"]] == ["currency", "station", "miss", "tie", "both"]
+    assert [item["status"] for item in answer["items"]] == [
+        "found",
+        "found",
+        "not_found",
+        "ambiguous",
+        "rejected",
+    ]
+    assert [item["ref"] for item in answer["items"]] == [
+        "currency",
+        "station",
+        "miss",
+        "tie",
+        "both",
+    ]
     for item, outcome in zip(body["items"][:2], answer["items"][:2], strict=True):
         assert outcome["object"] == fixture.top(query=item["query"], system="SAP")
 
@@ -363,7 +453,11 @@ def test_crosswalk_between_systems_and_to_a_translation(fixture):
     assert found["name"] == "Swiss franc"
     assert found["target"]["value"] == "SFR"
     assert found["target"]["externalId"] == "O-77"
-    refused(fixture.get("/xref", query="EUR", to__system="Oracle", expect="one"), 404, "TARGET_NOT_FOUND")
+    refused(
+        fixture.get("/xref", query="EUR", to__system="Oracle", expect="one"),
+        404,
+        "TARGET_NOT_FOUND",
+    )
 
     translated = fixture.top(query="CONS", to__language="de")
     assert translated["target"]["translatedName"] == "Eisenbahn"
@@ -387,10 +481,16 @@ def test_crosswalk_between_systems_and_to_a_translation(fixture):
         ),
         201,
     )
-    body = {"relationTypeKey": "system-value-maps-to-master", "fromObjectId": second["id"], "toObjectId": fixture.ids["Swiss franc"]}
+    body = {
+        "relationTypeKey": "system-value-maps-to-master",
+        "fromObjectId": second["id"],
+        "toObjectId": fixture.ids["Swiss franc"],
+    }
     ok(world.api.post("/relations", body), 201)
     error = refused(
-        fixture.get("/xref", query="CHF", system="SAP", to__system="Oracle", expect="one"), 409, "AMBIGUOUS_TARGET"
+        fixture.get("/xref", query="CHF", system="SAP", to__system="Oracle", expect="one"),
+        409,
+        "AMBIGUOUS_TARGET",
     )
     assert error["details"]["count"] == 2
 
@@ -424,7 +524,11 @@ def test_an_extract_pinned_to_the_latest_publication(fixture):
     )
     second = world.publish(world.change_set())["id"]
     while page["nextCursor"]:
-        page = ok(fixture.get("/lists/all-values", publication="latest", pageSize=2, cursor=page["nextCursor"]))
+        page = ok(
+            fixture.get(
+                "/lists/all-values", publication="latest", pageSize=2, cursor=page["nextCursor"]
+            )
+        )
         assert page["publication"] == first
         names += [item["name"] for item in page["items"]]
     assert sorted(names) == sorted(fixture.listed("all-values", publication=first))
@@ -440,7 +544,9 @@ def _value(fixture, name: str, code: str, master_id: str, **period: str) -> None
         "name": name,
         "workspaceKey": W1,
         "parentObjectId": fixture.ids["Currencies"],
-        "attributes": [{"attributeTypeKey": key, "value": value} for key, value in attributes.items()],
+        "attributes": [
+            {"attributeTypeKey": key, "value": value} for key, value in attributes.items()
+        ],
     }
     ok(fixture.world.api.post("/objects", body), 201)
 
@@ -454,10 +560,19 @@ def test_business_dates_on_each_side_of_a_boundary(fixture):
     location read by ID refuses a date, since its type declares no period."""
     world = fixture.world
     franc = ok(world.api.get(f"/objects/master-value/{fixture.ids['Swiss franc']}"))
-    change = {"expectedVersion": franc["version"], "attributes": [{"attributeTypeKey": "valid-to", "value": "2026-07-01"}]}
+    change = {
+        "expectedVersion": franc["version"],
+        "attributes": [{"attributeTypeKey": "valid-to", "value": "2026-07-01"}],
+    }
     ok(world.api.patch(f"/objects/master-value/{franc['id']}", change))
     _value(fixture, "Swiss franc 2026", "CHF", "MV-0005", **{"valid-from": "2026-07-01"})
-    _value(fixture, "Franc transition", "CHT", "MV-0006", **{"valid-from": "2026-06-15", "valid-to": "2026-07-15"})
+    _value(
+        fixture,
+        "Franc transition",
+        "CHT",
+        "MV-0006",
+        **{"valid-from": "2026-06-15", "valid-to": "2026-07-15"},
+    )
 
     def on(day: str) -> list[str]:
         return sorted(fixture.listed("all-values", codelist="CUR", asOf=day))
@@ -472,7 +587,11 @@ def test_business_dates_on_each_side_of_a_boundary(fixture):
     assert found[0] == "Swiss franc" and "Swiss franc 2026" not in found
     assert fixture.top(query="CHF", asOf="2026-07-01")["name"] == "Swiss franc 2026"
     assert fixture.top(query="CEN", asOf="2026-07-01")["name"] == "Central Station"
-    error = refused(fixture.get(f"/objects/{fixture.ids['Central Station']}", asOf="2026-07-01"), 400, "AS_OF_NOT_SUPPORTED")
+    error = refused(
+        fixture.get(f"/objects/{fixture.ids['Central Station']}", asOf="2026-07-01"),
+        400,
+        "AS_OF_NOT_SUPPORTED",
+    )
     assert error["details"]["objectTypes"] == ["Location"]
 
 
@@ -482,7 +601,9 @@ def test_the_api_index_names_the_definition_and_its_document(fixture):
     from openapi_spec_validator import validate as validate_openapi
 
     index = ok(fixture.world.api.get("/api/consumer"))
-    assert [(item["consumerApi"], item["openapi"]) for item in index["items"]] == [("rdm", f"{API}/openapi.json")]
+    assert [(item["consumerApi"], item["openapi"]) for item in index["items"]] == [
+        ("rdm", f"{API}/openapi.json")
+    ]
     validate_openapi(ok(fixture.world.api.get(index["items"][0]["openapi"])))
 
 
@@ -507,7 +628,10 @@ def test_the_reference_shape(fixture):
     assert [item["durationName"] for item in train["duration"]] == ["30 minutes"]
     assert train["path"] == "Transport/Timetable types"
     assert train["hierarchy"] == ["Transport", "Timetable types"]
-    assert (train["formerId"], train["masterId"]) == ("MV-0101", fixture.ids["Train"])
+    assert (train["formerId"], train["masterId"]) == (
+        "MV-0101",
+        fixture.ids["Train"],
+    )
     assert train["isActive"] is True
     assert train["internalOnly"] is False
     assert train["sortOrder"] == 1
@@ -524,4 +648,7 @@ def test_the_reference_shape(fixture):
     assert next(item for item in page["items"] if item["name"] == "Train") == train
     assert set(train["parent"]) == PARENT_KEYS
     assert train["parent"]["masterId"] == fixture.ids["Timetable types"]
-    assert (train["parent"]["objectType"], train["parent"]["code"]) == ("Codelist", "MOT")
+    assert (train["parent"]["objectType"], train["parent"]["code"]) == (
+        "Codelist",
+        "MOT",
+    )

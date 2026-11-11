@@ -37,13 +37,23 @@ def _totals(client, change_set_id: str) -> dict[tuple[str, str, str], int]:
         for object_type in (ITEM, GROUP):
             body = client.get(
                 f"/api/v1/change-sets/{change_set_id}/object-changes",
-                params={"kind": kind, "objectTypeKey": object_type, "includeTotal": True, "pageSize": 1},
+                params={
+                    "kind": kind,
+                    "objectTypeKey": object_type,
+                    "includeTotal": True,
+                    "pageSize": 1,
+                },
             ).json()
             totals[("object", kind, object_type)] = body["totalCount"]
         for containment in ("true", "false"):
             body = client.get(
                 f"/api/v1/change-sets/{change_set_id}/relation-changes",
-                params={"kind": kind, "containment": containment, "includeTotal": True, "pageSize": 1},
+                params={
+                    "kind": kind,
+                    "containment": containment,
+                    "includeTotal": True,
+                    "pageSize": 1,
+                },
             ).json()
             totals[("relation", kind, containment)] = body["totalCount"]
     return totals
@@ -75,5 +85,11 @@ def test_the_lists_count_what_the_change_set_holds(measured):
     assert totals[("relation", "added", "true")] == counts["moved"] + counts["added"]
     assert totals[("relation", "changed", "false")] == counts["citationsChanged"]
     assert totals[("relation", "changed", "true")] == 0
-    assert sum(value for (records, *_), value in totals.items() if records == "object") == counts["objects"]
-    assert sum(value for (records, *_), value in totals.items() if records == "relation") == counts["relations"]
+    assert (
+        sum(value for (records, *_), value in totals.items() if records == "object")
+        == counts["objects"]
+    )
+    assert (
+        sum(value for (records, *_), value in totals.items() if records == "relation")
+        == counts["relations"]
+    )

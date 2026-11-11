@@ -64,7 +64,9 @@ class MemoryTable:
         return found
 
     def pairs(self, first: int, second: int) -> int:
-        return len({(a, b) for a, b in zip(self.cells(first), self.cells(second), strict=True) if a and b})
+        return len(
+            {(a, b) for a, b in zip(self.cells(first), self.cells(second), strict=True) if a and b}
+        )
 
     def names_per_code(self, code: int, name: int) -> list[dict[str, Any]]:
         counts: dict[str, Counter] = {}
@@ -72,7 +74,13 @@ class MemoryTable:
             if a and b:
                 counts.setdefault(a, Counter())[b] += 1
         return [
-            {"code": c, "names": [{"value": v, "count": n} for v, n in sorted(found.items(), key=lambda i: (-i[1], i[0]))]}
+            {
+                "code": c,
+                "names": [
+                    {"value": v, "count": n}
+                    for v, n in sorted(found.items(), key=lambda i: (-i[1], i[0]))
+                ],
+            }
             for c, found in sorted(counts.items())
             if len(found) > 1
         ]
@@ -80,20 +88,30 @@ class MemoryTable:
     def split_parts(self, column: int, delimiter: str) -> tuple[int, int]:
         cells = [c for c in self.cells(column) if c]
         whole = {c.strip() for c in cells if delimiter not in c}
-        parts = [p.strip() for c in cells if delimiter in c for p in c.split(delimiter) if p.strip()]
+        parts = [
+            p.strip() for c in cells if delimiter in c for p in c.split(delimiter) if p.strip()
+        ]
         return len(parts), sum(p in whole for p in parts)
 
     def same(self, first: int, second: int) -> int:
-        return sum(1 for a, b in zip(self.cells(first), self.cells(second), strict=True) if a and a == b)
+        return sum(
+            1 for a, b in zip(self.cells(first), self.cells(second), strict=True) if a and a == b
+        )
 
     def distinct_values(self, column: int, limit: int) -> list[dict[str, Any]] | None:
         counts = Counter(c for c in self.cells(column) if c is not None)
         if len(counts) > limit:
             return None
-        return [{"value": v, "count": n} for v, n in sorted(counts.items(), key=lambda i: (-i[1], i[0]))]
+        return [
+            {"value": v, "count": n} for v, n in sorted(counts.items(), key=lambda i: (-i[1], i[0]))
+        ]
 
     def rows_of(self, columns: list[int], limit: int) -> list[tuple[str | None, ...]] | None:
-        found = [row for row in zip(*(self.cells(n) for n in columns), strict=True) if any(c is not None for c in row)]
+        found = [
+            row
+            for row in zip(*(self.cells(n) for n in columns), strict=True)
+            if any(c is not None for c in row)
+        ]
         return None if len(found) > limit else found
 
 
@@ -108,13 +126,18 @@ class MemoryWorkbook:
         return len(a & b)
 
 
-def workbook(*sheets: tuple[str, dict[str, list[Any]]], extra: tuple[tuple[str, str, dict[str, Any]], ...] = ()) -> MemoryWorkbook:
+def workbook(
+    *sheets: tuple[str, dict[str, list[Any]]],
+    extra: tuple[tuple[str, str, dict[str, Any]], ...] = (),
+) -> MemoryWorkbook:
     """A workbook of the named sheets, each column's statistics worked out as A3's profile states
     them, with its overlaps with every other column of the workbook, and the ``extra`` overlaps given
     as (sheet, header, entry), such as a workspace's records (D69)."""
     tables = [MemoryTable(name, index, dict(data)) for index, (name, data) in enumerate(sheets)]
     distinct = {
-        (t.index, n): set(filter(None, t.cells(n))) for t in tables for n in range(1, len(t.data) + 1)
+        (t.index, n): set(filter(None, t.cells(n)))
+        for t in tables
+        for n in range(1, len(t.data) + 1)
     }
     for table in tables:
         for number, header in enumerate(table.data, start=1):
@@ -125,13 +148,23 @@ def workbook(*sheets: tuple[str, dict[str, list[Any]]], extra: tuple[tuple[str, 
             for character in DELIMITERS:
                 found = sum(character in c for c in filled)
                 if found:
-                    delimiters.append({"character": character, "cells": found, "share": round(found / len(filled), 3)})
+                    delimiters.append(
+                        {
+                            "character": character,
+                            "cells": found,
+                            "share": round(found / len(filled), 3),
+                        }
+                    )
             delimiters.sort(key=lambda d: -d["cells"])
             placeholders = [
                 {"value": v, "count": n}
                 for v, n in sorted(counts.items(), key=lambda i: (-i[1], i[0]))
                 if v.strip().lower() in PLACEHOLDER_VALUES
-                or (len(v.strip()) <= 2 and not re.search(r"[A-Za-z0-9]", v) and n >= 0.01 * len(filled))
+                or (
+                    len(v.strip()) <= 2
+                    and not re.search(r"[A-Za-z0-9]", v)
+                    and n >= 0.01 * len(filled)
+                )
             ]
             own = distinct[(table.index, number)]
             overlaps = []
@@ -149,7 +182,11 @@ def workbook(*sheets: tuple[str, dict[str, list[Any]]], extra: tuple[tuple[str, 
                             "share": round(shared / len(own), 3),
                         }
                     )
-            overlaps += [entry for sheet, column_header, entry in extra if (sheet, column_header) == (table.name, header)]
+            overlaps += [
+                entry
+                for sheet, column_header, entry in extra
+                if (sheet, column_header) == (table.name, header)
+            ]
             overlaps.sort(key=lambda o: (-o["share"], -o["values"]))
             statistics = {
                 "header": header,
@@ -161,7 +198,10 @@ def workbook(*sheets: tuple[str, dict[str, list[Any]]], extra: tuple[tuple[str, 
                 "candidateKey": len(filled) == table.rows and len(counts) == len(filled),
                 "delimiters": delimiters,
                 "placeholders": placeholders[:10],
-                "values": [{"value": v, "count": n} for v, n in sorted(counts.items(), key=lambda i: (-i[1], i[0]))[:10]],
+                "values": [
+                    {"value": v, "count": n}
+                    for v, n in sorted(counts.items(), key=lambda i: (-i[1], i[0]))[:10]
+                ],
                 "overlaps": overlaps[:5],
             }
             table.columns.append(

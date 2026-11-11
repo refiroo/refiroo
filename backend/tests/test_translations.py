@@ -197,7 +197,9 @@ def _scope_breaches(client: TestClient) -> list[dict]:
     validation = client.post(f"/api/v1/change-sets/{client.change_set_id}/validation")
     assert validation.status_code == 200, validation.text
     return [
-        item for item in validation.json()["diagnostics"] if item["code"] == "DUPLICATE_RELATION_SCOPE"
+        item
+        for item in validation.json()["diagnostics"]
+        if item["code"] == "DUPLICATE_RELATION_SCOPE"
     ]
 
 

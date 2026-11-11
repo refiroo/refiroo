@@ -68,7 +68,10 @@ def add_field_and_view(model):
 def change(client, change_set, release, version=None):
     return client.patch(
         f"/api/v1/change-sets/{change_set['id']}/model-release",
-        json={"modelReleaseId": release, "expectedChangeSetVersion": version or change_set["version"]},
+        json={
+            "modelReleaseId": release,
+            "expectedChangeSetVersion": version or change_set["version"],
+        },
     )
 
 
@@ -103,13 +106,10 @@ def test_two_same_schema_change_sets_resolve_fields_rules_views_and_preserve_liv
         new = response.json()
         assert new["modelReleaseKey"] == target_model["release"]["key"]
         assert new["modelReleaseVersion"] == target_model["release"]["version"]
-        assert (
-            client.get("/api/v1/model", params={"changeSetId": old["id"]}).json()
-            == active_model
-        )
-        assert client.get(
-            "/api/v1/model", params={"changeSetId": new["id"]}
-        ).json() == parse_model(target_model).model_dump(mode="json")
+        assert client.get("/api/v1/model", params={"changeSetId": old["id"]}).json() == active_model
+        assert client.get("/api/v1/model", params={"changeSetId": new["id"]}).json() == parse_model(
+            target_model
+        ).model_dump(mode="json")
         attrs = [
             {"attributeTypeKey": "language-code", "value": unique_key("lang")},
             {"attributeTypeKey": "wp6-number", "value": 7},
@@ -143,9 +143,7 @@ def test_two_same_schema_change_sets_resolve_fields_rules_views_and_preserve_liv
             a["attributeTypeKey"] == "wp6-number" and a["value"] == 7
             for a in detail.json()["attributes"]
         )
-        assert (
-            client.post(f"/api/v1/change-sets/{new['id']}/validation").json()["valid"] is True
-        )
+        assert client.post(f"/api/v1/change-sets/{new['id']}/validation").json()["valid"] is True
         refused = client.post(
             f"/api/v1/change-sets/{new['id']}/publication",
             json={"expectedChangeSetVersion": new["version"]},
@@ -237,16 +235,12 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
         assert refused.json()["error"]["details"]["diagnosticCount"] > 0
         with SessionLocal() as session:
             assert (
-                session.scalar(
-                    select(ChangeSet.id).where(ChangeSet.workspace_key == workspace)
-                )
+                session.scalar(select(ChangeSet.id).where(ChangeSet.workspace_key == workspace))
                 is None
             )
             assert (
                 session.scalar(
-                    select(ChangeSetBase.id).where(
-                        ChangeSetBase.workspace_key == workspace
-                    )
+                    select(ChangeSetBase.id).where(ChangeSetBase.workspace_key == workspace)
                 )
                 is None
             )
@@ -277,9 +271,7 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
             row = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
             base = session.get(ChangeSetBase, row.base_id)
             assert base.model_release_id != row.model_release_id
-            assert (
-                base.model_release_id == default_model(session).model_release_id
-            )
+            assert base.model_release_id == default_model(session).model_release_id
 
 
 @pytest.mark.parametrize(
@@ -371,7 +363,8 @@ def test_historical_creation_retains_source_pin_then_explicitly_changes():
         target, _, _ = install_model(client, add_field_and_view)
         payload = {"source": "publication", "derivedFromPublicationId": publication["id"]}
         refused = client.post(
-            f"/api/v1/workspaces/{workspace}/change-sets", json={**payload, "modelReleaseId": target}
+            f"/api/v1/workspaces/{workspace}/change-sets",
+            json={**payload, "modelReleaseId": target},
         )
         assert refused.status_code == 422
         created = client.post(f"/api/v1/workspaces/{workspace}/change-sets", json=payload)
@@ -722,7 +715,9 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
                 ]
             )
             session.commit()
-        change_set = create_change_set(client, workspace, derived_from_publication_id=publication_id).json()
+        change_set = create_change_set(
+            client, workspace, derived_from_publication_id=publication_id
+        ).json()
         assert change_set["modelReleaseId"] == source
 
         def change_type(model):

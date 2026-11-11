@@ -142,16 +142,11 @@ export interface ChangesRoute {
 export type SettingsRoute =
   | {
       kind: "settings";
-      page:
-        | "about"
-        | "appearance"
-        | "account"
-        | "notifications"
-        | "deployment"
-        | "operations"
-        | "consumer-apis"
-        | "api-reference";
+      page: "about" | "appearance" | "account" | "notifications" | "deployment" | "operations";
     }
+  /** The consumer APIs and their reference: the workspace whose APIs they show (none is the default). */
+  | { kind: "settings"; page: "consumer-apis"; workspaceKey?: string }
+  | { kind: "settings"; page: "api-reference"; workspaceKey?: string }
   /** Jobs, or one job's page (0.9 J1u). */
   | {
       kind: "settings";

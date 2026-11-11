@@ -18,11 +18,21 @@ DOCUMENT = {
     ],
     "objectTypes": [
         {"key": "a", "name": "A", "attributes": [{"attributeTypeKey": "x"}]},
-        {"key": "b", "name": "B", "behavior": {"parentRelationTypeKeys": ["holds"]}, "attributes": []},
+        {
+            "key": "b",
+            "name": "B",
+            "behavior": {"parentRelationTypeKeys": ["holds"]},
+            "attributes": [],
+        },
     ],
     "attributeTypes": [{"key": "x", "name": "X", "valueType": "text"}],
-    "relationTypes": [{"key": "holds", "name": "Holds", "features": {"parentOf": True}}, {"key": "r", "name": "R"}],
-    "objectTypeRelations": [{"relationTypeKey": "holds", "fromObjectTypeKey": "a", "toObjectTypeKey": "b"}],
+    "relationTypes": [
+        {"key": "holds", "name": "Holds", "features": {"parentOf": True}},
+        {"key": "r", "name": "R"},
+    ],
+    "objectTypeRelations": [
+        {"relationTypeKey": "holds", "fromObjectTypeKey": "a", "toObjectTypeKey": "b"}
+    ],
 }
 
 
@@ -39,7 +49,10 @@ DOCUMENT = {
         ("/objectTypeRelations/0/cardinality", {"relationType": "holds", "from": "a", "to": "b"}),
         ("/applications/app/views/v/config", {"applicationKey": "app", "view": "v"}),
         ("/applications/app/details/a/panels/0", {"applicationKey": "app", "detail": "a"}),
-        ("/applications/app/navigation/groups/g/collections/0", {"applicationKey": "app", "group": "g"}),
+        (
+            "/applications/app/navigation/groups/g/collections/0",
+            {"applicationKey": "app", "group": "g"},
+        ),
         ("/applications/app/defaultView", {"applicationKey": "app"}),
         ("/release/version", None),
         ("/objectTypes/missing", None),
@@ -53,7 +66,9 @@ def test_a_pointer_names_the_element_it_falls_in(pointer, element):
 def test_marks_follow_the_base_release():
     draft = copy.deepcopy(DOCUMENT)
     draft["objectTypes"][0]["name"] = "A renamed"
-    draft["objectTypeRelations"].append({"relationTypeKey": "r", "fromObjectTypeKey": "b", "toObjectTypeKey": "a"})
+    draft["objectTypeRelations"].append(
+        {"relationTypeKey": "r", "fromObjectTypeKey": "b", "toObjectTypeKey": "a"}
+    )
     draft["objectTypes"].append({"key": "c", "name": "C"})
     outline = build_outline(draft, DOCUMENT)
     marks = {item["key"]: item["mark"] for item in outline["objectTypes"]}
@@ -67,14 +82,18 @@ def test_marks_follow_the_base_release():
 def test_without_a_base_every_element_is_new_and_the_tree_follows_containment():
     outline = build_outline(DOCUMENT, None)
     assert {item["mark"] for item in outline["objectTypes"] + outline["relationTypes"]} == {"new"}
-    assert outline["applications"][0]["tree"] == [{"objectType": "a", "children": [{"objectType": "b", "children": []}]}]
+    assert outline["applications"][0]["tree"] == [
+        {"objectType": "a", "children": [{"objectType": "b", "children": []}]}
+    ]
     assert outline["applications"][0]["navigation"]["ungrouped"] == []
 
 
 def test_a_containment_cycle_keeps_every_type_in_the_tree():
     cyclic = copy.deepcopy(DOCUMENT)
     cyclic["objectTypes"][0]["behavior"] = {"parentRelationTypeKeys": ["holds"]}
-    cyclic["objectTypeRelations"].append({"relationTypeKey": "holds", "fromObjectTypeKey": "b", "toObjectTypeKey": "a"})
+    cyclic["objectTypeRelations"].append(
+        {"relationTypeKey": "holds", "fromObjectTypeKey": "b", "toObjectTypeKey": "a"}
+    )
     tree = build_outline(cyclic, None)["applications"][0]["tree"]
     assert tree[0]["objectType"] == "a"
     assert tree[0]["children"][0]["objectType"] == "b"
@@ -82,7 +101,9 @@ def test_a_containment_cycle_keeps_every_type_in_the_tree():
 
 
 def test_an_unreadable_document_is_outlined_empty():
-    assert build_outline({"objectTypes": "nonsense", "applications": [1]}, None)["objectTypes"] == []
+    assert (
+        build_outline({"objectTypes": "nonsense", "applications": [1]}, None)["objectTypes"] == []
+    )
 
 
 def test_a_relation_carries_its_uniqueness_scope():
@@ -104,7 +125,9 @@ def test_a_relation_carries_which_records_it_may_choose():
 def test_a_relationships_table_view_carries_its_config():
     draft = copy.deepcopy(DOCUMENT)
     config = {"fromObjectTypeKey": "a", "toObjectTypeKey": "b", "layout": "grid"}
-    draft["applications"][0]["views"].append({"key": "rel", "type": "relationTable", "config": config})
+    draft["applications"][0]["views"].append(
+        {"key": "rel", "type": "relationTable", "config": config}
+    )
     views = {view["key"]: view for view in build_outline(draft, None)["applications"][0]["views"]}
     assert views["rel"]["config"] == config
     assert "config" not in views["v"]
@@ -116,7 +139,12 @@ def test_a_consumer_api_written_by_hand_without_its_parts_is_outlined_without_fa
     data = {
         "consumerApis": [
             {"name": "No key"},
-            {"key": "feed", "contractVersion": "two", "exposes": ["shelf", 3], "publicNames": {"shelf": 5}},
+            {
+                "key": "feed",
+                "contractVersion": "two",
+                "exposes": ["shelf", 3],
+                "publicNames": {"shelf": 5},
+            },
         ]
     }
     (entry,) = build_outline(data, None)["consumerApis"]
@@ -155,24 +183,42 @@ BORROWED = {
         {
             "key": "reference",
             "objectTypeKeys": ["gender", "system", "system-value"],
-            "views": [_table("genders", "gender"), _table("systems", "system"), _table("values", "system-value")],
+            "views": [
+                _table("genders", "gender"),
+                _table("systems", "system"),
+                _table("values", "system-value"),
+            ],
         },
         {
             "key": "codes",
             "objectTypeKeys": ["gender", "system", "system-value"],
-            "views": [_table("systems", "system"), _matrix("gender-by-system", "maps-to", "gender", "system", "system-value")],
+            "views": [
+                _table("systems", "system"),
+                _matrix("gender-by-system", "maps-to", "gender", "system", "system-value"),
+            ],
         },
         {
             "key": "translations",
             "objectTypeKeys": ["gender", "language", "group", "translation"],
             "views": [
                 _table("genders", "gender"),
-                _matrix("in-every-language", "has-translation", "gender", "language", "translation"),
+                _matrix(
+                    "in-every-language", "has-translation", "gender", "language", "translation"
+                ),
             ],
         },
         {
             "key": "catalogue",
-            "objectTypeKeys": ["category", "system", "system-value", "brand", "location", "language", "group", "translation"],
+            "objectTypeKeys": [
+                "category",
+                "system",
+                "system-value",
+                "brand",
+                "location",
+                "language",
+                "group",
+                "translation",
+            ],
             "views": [
                 _table("categories", "category"),
                 _matrix("offered", "offered-at", "category", "brand", "location"),
@@ -181,9 +227,23 @@ BORROWED = {
         },
     ],
     "objectTypes": [
-        {"key": key, "name": key.title(), "behavior": {"parentRelationTypeKeys": ["holds"]} if key in ("group", "translation") else {}}
+        {
+            "key": key,
+            "name": key.title(),
+            "behavior": {"parentRelationTypeKeys": ["holds"]}
+            if key in ("group", "translation")
+            else {},
+        }
         for key in (
-            "gender", "system", "system-value", "language", "group", "translation", "category", "brand", "location",
+            "gender",
+            "system",
+            "system-value",
+            "language",
+            "group",
+            "translation",
+            "category",
+            "brand",
+            "location",
         )
     ],
     "relationTypes": [
@@ -198,7 +258,11 @@ BORROWED = {
 
 def _roles(outline, app):
     entry = next(item for item in outline["applications"] if item["key"] == app)
-    return entry["ownTypes"], {item["objectType"]: item for item in entry["borrowed"]}, entry["unused"]
+    return (
+        entry["ownTypes"],
+        {item["objectType"]: item for item in entry["borrowed"]},
+        entry["unused"],
+    )
 
 
 def test_a_type_an_application_lists_for_a_relation_view_is_borrowed_from_its_home():
@@ -234,9 +298,12 @@ def test_columns_cells_and_the_containment_link_between_them_are_borrowed_and_un
     assert entry["borrowedTree"] == [
         {"objectType": "brand", "children": []},
         {"objectType": "location", "children": []},
-        {"objectType": "language", "children": [
-            {"objectType": "group", "children": [{"objectType": "translation", "children": []}]}
-        ]},
+        {
+            "objectType": "language",
+            "children": [
+                {"objectType": "group", "children": [{"objectType": "translation", "children": []}]}
+            ],
+        },
     ]
 
 
@@ -245,5 +312,9 @@ def test_a_type_own_in_two_applications_has_the_first_as_its_home_and_the_type_e
     gender = next(item for item in outline["objectTypes"] if item["key"] == "gender")
     assert gender["home"] == "reference"
     assert gender["ownIn"] == ["reference", "translations"]
-    assert [(item["application"], item["uses"][0]["role"]) for item in gender["borrowedIn"]] == [("codes", "rows")]
-    assert next(item for item in outline["objectTypes"] if item["key"] == "language")["home"] is None
+    assert [(item["application"], item["uses"][0]["role"]) for item in gender["borrowedIn"]] == [
+        ("codes", "rows")
+    ]
+    assert (
+        next(item for item in outline["objectTypes"] if item["key"] == "language")["home"] is None
+    )

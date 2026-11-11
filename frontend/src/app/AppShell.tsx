@@ -21,6 +21,7 @@ import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { routeChangeSetId, routePublicationId, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, ApplicationRoute, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Notice } from "@/ui/Notice";
+import { useRememberedWorkspace } from "@/lib/sharedWorkspace";
 import { ContextBandSlotContext } from "@/ui/ContextBandSlot";
 import { DataContextBand, RETIRED_WORKSPACE_TEXT } from "./DataContextBand";
 import { ShellFrame } from "./ShellFrame";
@@ -82,6 +83,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [bandSlot, setBandSlot] = useState<HTMLElement | null>(null);
+  useRememberedWorkspace(activeRoute.workspaceKey);
   const editModel = useEditModel(
     activeRoute.workspaceKey,
     workspace?.key === activeRoute.workspaceKey ? workspace.status : undefined,

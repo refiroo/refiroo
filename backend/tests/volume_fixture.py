@@ -369,7 +369,9 @@ def _consumer_api() -> dict[str, Any]:
             "parent": ["objectType", "id", "code", "name"],
             "path": True,
             "hierarchy": True,
-            "related": {CITED_GROUPS: {"via": ITEM_CITES_GROUP, "fields": {"code": CODE, "name": "name"}}},
+            "related": {
+                CITED_GROUPS: {"via": ITEM_CITES_GROUP, "fields": {"code": CODE, "name": "name"}}
+            },
         },
         "operations": {
             "objects": {},
@@ -590,8 +592,7 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     # before the values, whose unique-value trigger reads it.
     with Session(engine) as session:
         default_release = session.scalar(
-            select(WorkspaceModel.model_release_id)
-            .join(
+            select(WorkspaceModel.model_release_id).join(
                 WorkspaceRuntimeState,
                 WorkspaceRuntimeState.default_workspace_key == WorkspaceModel.workspace_key,
             )
@@ -600,7 +601,14 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     _bulk_insert(
         engine,
         WorkspaceModel,
-        [{"workspace_key": WORKSPACE, "model_release_id": default_release, "version": 1, "updated_at": now}],
+        [
+            {
+                "workspace_key": WORKSPACE,
+                "model_release_id": default_release,
+                "version": 1,
+                "updated_at": now,
+            }
+        ],
     )
     _bulk_insert(engine, RdmObject, [*objects, *matrix.objects])
     for key in (CODE, RANK):
@@ -620,7 +628,9 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     _bulk_insert(engine, ObjectRelation, [*relations, *matrix.relations])
 
     with Session(engine) as session:
-        release_id = session.scalar(select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == WORKSPACE))
+        release_id = session.scalar(
+            select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == WORKSPACE)
+        )
         assert release_id is not None, "The volume model must be active before seeding"
         publication = Publication(
             id=new_id(),
@@ -672,14 +682,14 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
 
     # Change set edits land across the whole name range, not in one block.
     containment = {
-        row["to_object_id"]: row for row in relations if row["relation_type_key"] == GROUP_CONTAINS_ITEM
+        row["to_object_id"]: row
+        for row in relations
+        if row["relation_type_key"] == GROUP_CONTAINS_ITEM
     }
     cited_items = set(citing)
     change_set_objects: list[dict[str, Any]] = []
     change_set_relations: list[dict[str, Any]] = []
-    edited = [
-        item for index, item in enumerate(items) if index % shape.change_set_edit_every == 1
-    ]
+    edited = [item for index, item in enumerate(items) if index % shape.change_set_edit_every == 1]
     edited_items = set(edited)
     deleted = [
         item
@@ -697,7 +707,10 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
         change_set_objects.append(row)
     for item in deleted:
         change_set_objects.append(
-            {**_membership_row(by_id[item], attributes, change_set_id=change_set_id), "is_deleted": True}
+            {
+                **_membership_row(by_id[item], attributes, change_set_id=change_set_id),
+                "is_deleted": True,
+            }
         )
         change_set_relations.append(
             {**_relation_row(containment[item], change_set_id=change_set_id), "is_deleted": True}
@@ -859,7 +872,9 @@ def _matrix_data(shape: VolumeShape, groups: list[str], now: datetime) -> _Matri
 
     data = _MatrixData(new_id)
 
-    def add_object(target: list, object_type: str, prefix: str, number: int, parent: str | None, **extra) -> str:
+    def add_object(
+        target: list, object_type: str, prefix: str, number: int, parent: str | None, **extra
+    ) -> str:
         object_id = new_id()
         target.append(
             {
@@ -874,7 +889,11 @@ def _matrix_data(shape: VolumeShape, groups: list[str], now: datetime) -> _Matri
                 "updated_at": now,
             }
         )
-        data.attributes[object_id] = {CODE: f"{prefix.upper()}-{number:07d}", RANK: number % 1000, **extra}
+        data.attributes[object_id] = {
+            CODE: f"{prefix.upper()}-{number:07d}",
+            RANK: number % 1000,
+            **extra,
+        }
         return object_id
 
     def add_relation(target: list, relation_type: str, source: str, destination: str) -> None:
@@ -918,7 +937,9 @@ def _matrix_data(shape: VolumeShape, groups: list[str], now: datetime) -> _Matri
         cell_number += 1
         gone = number % shape.matrix_retired_every == shape.matrix_retired_every // 2
         objects, relations = (
-            (data.retired_objects, data.retired_relations) if gone else (data.objects, data.relations)
+            (data.retired_objects, data.retired_relations)
+            if gone
+            else (data.objects, data.relations)
         )
         retired += gone
         inactive += not active
@@ -1015,7 +1036,9 @@ def seed_review_change_set(engine: Engine, dataset: VolumeDataset) -> ReviewChan
 
     publication = dataset.publication_id
     with Session(engine) as session:
-        release_id = session.scalar(select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == WORKSPACE))
+        release_id = session.scalar(
+            select(WorkspaceModel.model_release_id).where(WorkspaceModel.workspace_key == WORKSPACE)
+        )
         change_set = ChangeSet(
             id=new_id(),
             workspace_key=WORKSPACE,
@@ -1099,7 +1122,9 @@ def seed_review_change_set(engine: Engine, dataset: VolumeDataset) -> ReviewChan
             "is_deleted": False,
         }
 
-    counts = dict.fromkeys(("changed", "moved", "removed", "added", "groupsChanged", "groupsAdded"), 0)
+    counts = dict.fromkeys(
+        ("changed", "moved", "removed", "added", "groupsChanged", "groupsAdded"), 0
+    )
     for index, item in enumerate(items):
         if index % 25 == 0:
             attributes = {**item.attributes, RANK: item.attributes[RANK] + 1}
@@ -1140,7 +1165,11 @@ def seed_review_change_set(engine: Engine, dataset: VolumeDataset) -> ReviewChan
         )
         counts["groupsAdded"] += 1
     for number in range(max(25, len(items) * 3 // 200)):
-        parent = new_groups[number % len(new_groups)] if number % 3 == 0 else groups[rng.randrange(len(groups))].object_id
+        parent = (
+            new_groups[number % len(new_groups)]
+            if number % 3 == 0
+            else groups[rng.randrange(len(groups))].object_id
+        )
         item_id = new_id()
         objects.append(
             {
@@ -1165,7 +1194,11 @@ def seed_review_change_set(engine: Engine, dataset: VolumeDataset) -> ReviewChan
         engine,
         "change_set",
         release_id,
-        ((change_set_id, row["object_id"], row["attributes"]) for row in objects if not row["is_deleted"]),
+        (
+            (change_set_id, row["object_id"], row["attributes"])
+            for row in objects
+            if not row["is_deleted"]
+        ),
     )
     _bulk_insert(engine, ChangeSetRelation, relations)
     counts.update(
@@ -1209,7 +1242,9 @@ def _membership_row(
     publication_id: str | None = None,
     change_set_id: str | None = None,
 ) -> dict[str, Any]:
-    owner = {"publication_id": publication_id} if publication_id else {"change_set_id": change_set_id}
+    owner = (
+        {"publication_id": publication_id} if publication_id else {"change_set_id": change_set_id}
+    )
     return {
         **owner,
         "object_id": row["id"],
@@ -1225,7 +1260,9 @@ def _membership_row(
 def _relation_row(
     row: dict[str, Any], *, publication_id: str | None = None, change_set_id: str | None = None
 ) -> dict[str, Any]:
-    owner = {"publication_id": publication_id} if publication_id else {"change_set_id": change_set_id}
+    owner = (
+        {"publication_id": publication_id} if publication_id else {"change_set_id": change_set_id}
+    )
     return {
         **owner,
         "relation_id": row["id"],

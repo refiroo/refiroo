@@ -30,7 +30,9 @@ def test_an_ancestor_field_shows_the_ancestor_nearest_the_root(seeded):
         connection = session.connection().connection.driver_connection
         with connection.cursor() as cursor:
             cursor.execute(
-                sql.SQL("SELECT {} FROM people_records o WHERE o.object_id = 'leaf'").format(expression)
+                sql.SQL("SELECT {} FROM people_records o WHERE o.object_id = 'leaf'").format(
+                    expression
+                )
             )
             assert cursor.fetchone()[0] == "Outer"
         session.rollback()

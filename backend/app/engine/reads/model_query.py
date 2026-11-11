@@ -147,11 +147,15 @@ def plan_model_query(
         else:
             field_filters.append(_field_filter(model, (object_type,), criterion, pointer, context))
     sets.extend(
-        ancestor_field_sets(model, object_type, ancestor_fields, workspace_key=workspace_key, context=context)
+        ancestor_field_sets(
+            model, object_type, ancestor_fields, workspace_key=workspace_key, context=context
+        )
     )
     _check_sort(request.sort)
     select_fields = (
-        None if request.select is None else _selected(model, (object_type,), request.select, "/select")
+        None
+        if request.select is None
+        else _selected(model, (object_type,), request.select, "/select")
     )
     expansions = _expansions(model, object_type, request.expand)
 
@@ -520,9 +524,16 @@ def ancestor_field_sets(
             )
             start = select(others.c.object_id.label("id")).select_from(others).where(*predicates)
         containers = _containers_below(
-            model, [object_type.key], ancestor_type_key, start, workspace_key=workspace_key, context=context
+            model,
+            [object_type.key],
+            ancestor_type_key,
+            start,
+            workspace_key=workspace_key,
+            context=context,
         )
-        sets.append(SetFilter("parent", lambda column, containers=containers: column.in_(containers)))
+        sets.append(
+            SetFilter("parent", lambda column, containers=containers: column.in_(containers))
+        )
     return sets
 
 
@@ -589,7 +600,9 @@ def candidate_ids(
         )
     records = object_projection(context, object_type_keys=[object_type.key])
     columns = snapshot_object_columns(records, context, search_index=False)
-    _normalized, predicates = typed_filter_predicates(model, columns, (object_type,), own, capability=None)
+    _normalized, predicates = typed_filter_predicates(
+        model, columns, (object_type,), own, capability=None
+    )
     return (
         select(records.c.object_id.label("id"))
         .select_from(records)
@@ -620,7 +633,9 @@ def _related_predicate(
     # By value, not by what was sent: an export's stored request carries every field, null ones too.
     if criterion.field is not None or criterion.op is not None or criterion.value is not None:
         _invalid("A related criterion names no field, operator or value", f"{pointer}/related")
-    targets = _binding_targets(model, object_type, hop.relationTypeKey, hop.direction, f"{pointer}/related")
+    targets = _binding_targets(
+        model, object_type, hop.relationTypeKey, hop.direction, f"{pointer}/related"
+    )
     criteria = []
     under: list[SetFilter] = []
     for index, nested in enumerate(hop.where):
@@ -647,9 +662,14 @@ def _related_predicate(
         criteria.append(_field_filter(model, targets, nested, nested_pointer, context))
     target_keys = sorted(item.key for item in targets)
     if context is None:
-        relation, other = aliased(ObjectRelation, name="hop_relation"), aliased(RdmObject, name="hop")
+        relation, other = (
+            aliased(ObjectRelation, name="hop_relation"),
+            aliased(RdmObject, name="hop"),
+        )
         anchor, far = _ends(relation.from_object_id, relation.to_object_id, hop.direction)
-        _normalized, predicates = typed_filter_predicates(model, _live_columns(other), targets, criteria)
+        _normalized, predicates = typed_filter_predicates(
+            model, _live_columns(other), targets, criteria
+        )
         matched = (
             select(anchor)
             .join(other, other.id == far)
@@ -730,7 +750,9 @@ def _selected(
     pointer: str,
 ) -> tuple[str, ...]:
     """``select`` checked against the types: built-ins, attributes one of them binds, ancestors."""
-    bound = {item.attributeTypeKey for object_type in object_types for item in object_type.attributes}
+    bound = {
+        item.attributeTypeKey for object_type in object_types for item in object_type.attributes
+    }
     ancestors = set().union(*(ancestor_type_keys(model, item.key) for item in object_types))
     for index, field in enumerate(fields):
         known = (
@@ -753,7 +775,9 @@ def _expansions(
     result, seen = [], set()
     for index, item in enumerate(expand):
         pointer = f"/expand/{index}"
-        targets = _binding_targets(model, object_type, item.relationTypeKey, item.direction, pointer)
+        targets = _binding_targets(
+            model, object_type, item.relationTypeKey, item.direction, pointer
+        )
         if (item.relationTypeKey, item.direction) in seen:
             _invalid(
                 f"Relation type '{item.relationTypeKey}' ({item.direction}) is expanded twice",
@@ -761,7 +785,9 @@ def _expansions(
             )
         seen.add((item.relationTypeKey, item.direction))
         select_fields = (
-            None if item.select is None else _selected(model, targets, item.select, f"{pointer}/select")
+            None
+            if item.select is None
+            else _selected(model, targets, item.select, f"{pointer}/select")
         )
         result.append(Expansion(item.relationTypeKey, item.direction, select_fields, item.limit))
     return tuple(result)
@@ -874,7 +900,9 @@ def list_relation_filters(
             where=[QueryCriterion(field="id", op="eq", value=value) for value in ids],
         )
         if ids:
-            conditions.append(_hop_condition(model, object_type, hop, False, workspace_key, context))
+            conditions.append(
+                _hop_condition(model, object_type, hop, False, workspace_key, context)
+            )
         for flag in sorted(flags):
             plain = hop.model_copy(update={"where": []})
             conditions.append(
@@ -1046,4 +1074,3 @@ def _as_of(object_type: ObjectTypeDefinition, as_of: str | None) -> date | None:
 
 def _invalid(message: str, pointer: str) -> NoReturn:
     raise api_error(422, "INVALID_QUERY", message, {"path": pointer})
-

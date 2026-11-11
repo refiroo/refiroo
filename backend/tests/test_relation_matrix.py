@@ -53,7 +53,9 @@ def attr(key, value):
     return {"attributeTypeKey": key, "value": value}
 
 
-def create(client, application, object_type, name, attributes, *, parent=None, relations=None, **context):
+def create(
+    client, application, object_type, name, attributes, *, parent=None, relations=None, **context
+):
     payload = {
         "applicationKey": application,
         "objectTypeKey": object_type,
@@ -97,7 +99,10 @@ def cells(page, *, by="name"):
     columns = {column["id"]: column[by] for column in page["columns"]}
     return {
         row["row"]["name"]: {
-            columns[cell["columnId"]]: (cell["state"], [record["name"] for record in cell["records"]])
+            columns[cell["columnId"]]: (
+                cell["state"],
+                [record["name"] for record in cell["records"]],
+            )
             for cell in row["cells"]
         }
         for row in page["items"]
@@ -115,7 +120,9 @@ def delete(client, record, **params):
     preview = client.delete(path, params=params)
     assert preview.status_code == 409, preview.text
     token = preview.json()["error"]["details"]["deletionPreviewToken"]
-    response = client.delete(path, params={**params, "cascade": True, "deletionPreviewToken": token})
+    response = client.delete(
+        path, params={**params, "cascade": True, "deletionPreviewToken": token}
+    )
     assert response.status_code == 204, response.text
 
 
@@ -156,7 +163,11 @@ def translations(client):
             "rdm-master",
             "master-value",
             name,
-            [attr("master-id", name), attr("value-code", f"VC-{name}"), attr("value-name", f"Value {name}")],
+            [
+                attr("master-id", name),
+                attr("value-code", f"VC-{name}"),
+                attr("value-name", f"Value {name}"),
+            ],
             parent=codelist,
         )
         for name in ("M1", "M2", "M3", "M4")
@@ -164,7 +175,11 @@ def translations(client):
     languages, groups = {}, {}
     for code in ("en", "cs", "de"):
         languages[code] = create(
-            client, "rdm-translations", "language", f"Language {code}", [attr("language-code", code)]
+            client,
+            "rdm-translations",
+            "language",
+            f"Language {code}",
+            [attr("language-code", code)],
         )
         groups[code] = create(
             client,
@@ -287,11 +302,16 @@ def test_translation_cells_in_every_context(client, translations):
     assert cells(published)["M1"]["Language en"] == ("one", ["M1 en"])
     assert all(row["relationSetVersion"] == 0 for row in published["items"])
 
-    staged = matrix(client, TRANSLATIONS, columnIds=columns, changeSetId=translations["change_set"]["id"])
+    staged = matrix(
+        client, TRANSLATIONS, columnIds=columns, changeSetId=translations["change_set"]["id"]
+    )
     staged_cells = cells(staged)
     # Deleted in the change set, but publication 1 held it.
     assert staged_cells["M1"]["Language en"] == ("historyOnly", ["M1 en"])
-    assert staged_cells["M2"]["Language en"] == ("several", ["M2 en", "M2 en duplicate", "M2 en old"])
+    assert staged_cells["M2"]["Language en"] == (
+        "several",
+        ["M2 en", "M2 en duplicate", "M2 en old"],
+    )
     several = staged["items"][1]["cells"][0]
     assert (several["conflict"], several["recordCount"], several["matchingCount"]) == (True, 3, 2)
     assert staged_cells["M3"]["Language de"] == ("historyOnly", ["M3 de"])
@@ -346,7 +366,9 @@ def test_filtered_rows_page_both_ways_by_cursor_and_position(client, translation
     last = matrix(client, TRANSLATIONS, **params, **{"from": "end"})
     assert names(last) == ["M4"]
     # A cursor binds the state filter and the columns.
-    error = matrix(client, TRANSLATIONS, 422, **{**params, "state": "one"}, cursor=page["prevCursor"])
+    error = matrix(
+        client, TRANSLATIONS, 422, **{**params, "state": "one"}, cursor=page["prevCursor"]
+    )
     assert error["code"] == "INVALID_CURSOR"
     error = matrix(
         client,
@@ -383,35 +405,54 @@ def test_default_columns_page_by_name_with_their_own_cursor(client, translations
     assert error["code"] == "INVALID_CURSOR"
 
 
-def test_hide_empty_columns_skips_columns_no_matching_row_relates_and_keeps_paging_exact(client, translations):
+def test_hide_empty_columns_skips_columns_no_matching_row_relates_and_keeps_paging_exact(
+    client, translations
+):
     """0.13 LB-D8: a column with no cell under any row the search and parent scope leave is left out
     of the column pages themselves, so each page is full and its cursors exact; the count of what
     was left out is stated; named columns win; a change set and a publication read their own values."""
     everything = matrix(client, TRANSLATIONS)
-    assert [column["name"] for column in everything["columns"]] == ["Language cs", "Language de", "Language en"]
+    assert [column["name"] for column in everything["columns"]] == [
+        "Language cs",
+        "Language de",
+        "Language en",
+    ]
     assert everything["emptyColumnsHidden"] is None
 
     # Live: German's only translation was deleted, so its column is empty.
     hidden = matrix(client, TRANSLATIONS, hideEmptyColumns=True)
     assert [column["name"] for column in hidden["columns"]] == ["Language cs", "Language en"]
     assert hidden["emptyColumnsHidden"] == 1
-    assert cells(hidden)["M1"] == {"Language cs": ("inactive", ["M1 cs"]), "Language en": ("one", ["M1 en"])}
+    assert cells(hidden)["M1"] == {
+        "Language cs": ("inactive", ["M1 cs"]),
+        "Language en": ("one", ["M1 en"]),
+    }
 
     # Paging over what is left stays exact: one column a page, no page for the hidden one.
     first = matrix(client, TRANSLATIONS, hideEmptyColumns=True, columnPageSize=1)
     assert [column["name"] for column in first["columns"]] == ["Language cs"]
     second = matrix(
-        client, TRANSLATIONS, hideEmptyColumns=True, columnPageSize=1, columnCursor=first["columnsNextCursor"]
+        client,
+        TRANSLATIONS,
+        hideEmptyColumns=True,
+        columnPageSize=1,
+        columnCursor=first["columnsNextCursor"],
     )
     assert [column["name"] for column in second["columns"]] == ["Language en"]
     assert second["columnsNextCursor"] is None
     back = matrix(
-        client, TRANSLATIONS, hideEmptyColumns=True, columnPageSize=1, columnCursor=second["columnsPrevCursor"]
+        client,
+        TRANSLATIONS,
+        hideEmptyColumns=True,
+        columnPageSize=1,
+        columnCursor=second["columnsPrevCursor"],
     )
     assert [column["name"] for column in back["columns"]] == ["Language cs"]
     # A cursor is the scope's: it does not carry to a read that shows every column.
     assert (
-        matrix(client, TRANSLATIONS, 422, columnPageSize=1, columnCursor=first["columnsNextCursor"])["code"]
+        matrix(
+            client, TRANSLATIONS, 422, columnPageSize=1, columnCursor=first["columnsNextCursor"]
+        )["code"]
         == "INVALID_CURSOR"
     )
 
@@ -438,13 +479,22 @@ def test_hide_empty_columns_skips_columns_no_matching_row_relates_and_keeps_pagi
     published = matrix(
         client, TRANSLATIONS, hideEmptyColumns=True, publicationId=translations["publication"]["id"]
     )
-    assert [column["name"] for column in published["columns"]] == ["Language cs", "Language de", "Language en"]
+    assert [column["name"] for column in published["columns"]] == [
+        "Language cs",
+        "Language de",
+        "Language en",
+    ]
     assert published["emptyColumnsHidden"] == 0
 
 
 def test_rows_scope_search_sort_and_set_versions(client, translations):
     codelist, domain = translations["codelist"], translations["domain"]
-    assert names(matrix(client, TRANSLATIONS, parentObjectId=codelist["id"])) == ["M1", "M2", "M3", "M4"]
+    assert names(matrix(client, TRANSLATIONS, parentObjectId=codelist["id"])) == [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+    ]
     mismatch = matrix(client, TRANSLATIONS, 422, parentObjectId=domain["id"])
     assert mismatch["code"] == "RELATION_MATRIX_PARENT_SCOPE_MISMATCH"
     missing = matrix(client, TRANSLATIONS, 404, parentObjectId=str(uuid4()))
@@ -473,7 +523,12 @@ def test_codelists_by_system_optional_binding_without_condition(client):
         for name in ("S1", "S2")
     ]
     group = create(
-        client, "rdm-systems", "system-group", "S1 group", [attr("group-code", "g")], parent=systems[0]
+        client,
+        "rdm-systems",
+        "system-group",
+        "S1 group",
+        [attr("group-code", "g")],
+        parent=systems[0],
     )
     values = [
         create(
@@ -497,7 +552,11 @@ def test_codelists_by_system_optional_binding_without_condition(client):
     }
     several = page["items"][0]["cells"][0]
     assert (several["conflict"], several["recordCount"], several["matchingCount"]) == (False, 2, 2)
-    assert several["records"][0]["fields"] == {"value-code": "V1", "value-name": "V1", "active": False}
+    assert several["records"][0]["fields"] == {
+        "value-code": "V1",
+        "value-name": "V1",
+        "active": False,
+    }
     filtered = matrix(
         client, CODELIST_SYSTEMS, columnIds=[systems[1]["id"]], state="one", includeTotal=True
     )
@@ -536,7 +595,12 @@ def test_master_values_by_system_many_to_many_incoming(client):
         for name, parent in (("V1", systems[0]), ("V2", systems[0]), ("V3", systems[1]))
     ]
     # V1 maps to two master values: the same cell record sits in two rows.
-    for value, master in ((values[0], masters[0]), (values[2], masters[0]), (values[0], masters[1]), (values[1], masters[1])):
+    for value, master in (
+        (values[0], masters[0]),
+        (values[2], masters[0]),
+        (values[0], masters[1]),
+        (values[1], masters[1]),
+    ):
         relate(client, "system-value-maps-to-master", value, master)
     columns = [system["id"] for system in systems]
     page = matrix(client, MASTER_SYSTEMS, columnIds=columns)
@@ -564,7 +628,15 @@ def test_master_values_by_system_many_to_many_incoming(client):
     )
     staged = matrix(client, MASTER_SYSTEMS, columnIds=columns, changeSetId=change_set["id"])
     assert cells(staged)["M3"] == {"S1": ("none", []), "S2": ("one", ["V3"])}
-    assert names(matrix(client, MASTER_SYSTEMS, columnIds=[columns[1]], state="one", changeSetId=change_set["id"])) == ["M1", "M3"]
+    assert names(
+        matrix(
+            client,
+            MASTER_SYSTEMS,
+            columnIds=[columns[1]],
+            state="one",
+            changeSetId=change_set["id"],
+        )
+    ) == ["M1", "M3"]
 
 
 def test_refusals_are_machine_readable(client, translations):
@@ -573,15 +645,20 @@ def test_refusals_are_machine_readable(client, translations):
         "RELATION_MATRIX_VIEW_NOT_FOUND"
     )
     # A view of another type is not a matrix.
-    assert matrix(client, {"applicationKey": "rdm-systems", "viewKey": "system-to-master-mapping"}, 404)[
-        "code"
-    ] == "RELATION_MATRIX_VIEW_NOT_FOUND"
+    assert (
+        matrix(
+            client, {"applicationKey": "rdm-systems", "viewKey": "system-to-master-mapping"}, 404
+        )["code"]
+        == "RELATION_MATRIX_VIEW_NOT_FOUND"
+    )
     too_many = matrix(client, TRANSLATIONS, 422, columnIds=[str(uuid4()) for _ in range(21)])
     assert too_many["code"] == "TOO_MANY_COLUMNS" and too_many["details"]["limit"] == 20
     assert matrix(client, TRANSLATIONS, 422, columnIds=[columns[0], columns[0]])["code"] == (
         "DUPLICATE_COLUMN_IDS"
     )
-    wrong_type = matrix(client, TRANSLATIONS, 404, columnIds=[columns[0], translations["codelist"]["id"]])
+    wrong_type = matrix(
+        client, TRANSLATIONS, 404, columnIds=[columns[0], translations["codelist"]["id"]]
+    )
     assert wrong_type["code"] == "RELATION_MATRIX_COLUMN_NOT_FOUND"
     assert wrong_type["details"]["columnIds"] == [translations["codelist"]["id"]]
     assert matrix(client, TRANSLATIONS, 422, state="one")["code"] == (

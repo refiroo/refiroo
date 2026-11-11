@@ -186,7 +186,9 @@ def test_a_moved_change_set_conflicts_only_where_live_data_changed(seeded):
         _assignment, x1 = load_assignment(session, W1)
         change_set = create_change_set(session, W1, x1.id, source="currentLive")
         versions = dict(
-            session.execute(select(RdmObject.id, RdmObject.version).where(RdmObject.id.in_(r))).all()
+            session.execute(
+                select(RdmObject.id, RdmObject.version).where(RdmObject.id.in_(r))
+            ).all()
         )
         _batch(
             session,
@@ -247,7 +249,9 @@ def test_a_moved_change_set_conflicts_only_where_live_data_changed(seeded):
 
     with SessionLocal() as session:
         versions = dict(
-            session.execute(select(RdmObject.id, RdmObject.version).where(RdmObject.id.in_(r))).all()
+            session.execute(
+                select(RdmObject.id, RdmObject.version).where(RdmObject.id.in_(r))
+            ).all()
         )
         _batch(
             session,
@@ -295,7 +299,9 @@ def test_a_moved_change_set_conflicts_only_where_live_data_changed(seeded):
 
         # Undo what can be undone live, and give up the change set's deleted record's rename.
         versions = dict(
-            session.execute(select(RdmObject.id, RdmObject.version).where(RdmObject.id.in_(r))).all()
+            session.execute(
+                select(RdmObject.id, RdmObject.version).where(RdmObject.id.in_(r))
+            ).all()
         )
         _batch(
             session,

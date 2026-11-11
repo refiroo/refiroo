@@ -61,7 +61,9 @@ def _everything(client, path: str, params: dict[str, Any]) -> list[dict[str, Any
     """The whole list in one cursor walk of large pages: the reference order."""
     items, cursor = [], None
     while True:
-        body = _get(client, path, {**params, "pageSize": 500, **({"cursor": cursor} if cursor else {})})
+        body = _get(
+            client, path, {**params, "pageSize": 500, **({"cursor": cursor} if cursor else {})}
+        )
         items.extend(body["items"])
         cursor = body["nextCursor"]
         if cursor is None:
@@ -80,7 +82,12 @@ def _walk(client, path: str, params: dict[str, Any], reference: list[str]) -> No
         body = _get(
             client,
             path,
-            {**params, "pageSize": size, "includeTotal": True, **({"cursor": cursor} if cursor else {})},
+            {
+                **params,
+                "pageSize": size,
+                "includeTotal": True,
+                **({"cursor": cursor} if cursor else {}),
+            },
         )
         assert body["totalCount"] == len(reference)
         assert body["startIndex"] == len(forward)
@@ -96,7 +103,11 @@ def _walk(client, path: str, params: dict[str, Any], reference: list[str]) -> No
     assert last["startIndex"] == len(reference) - len(last["items"])
     backward, body = _ids(last["items"]), last
     while body["prevCursor"] is not None:
-        body = _get(client, path, {**params, "pageSize": size, "cursor": body["prevCursor"], "includeTotal": True})
+        body = _get(
+            client,
+            path,
+            {**params, "pageSize": size, "cursor": body["prevCursor"], "includeTotal": True},
+        )
         backward = _ids(body["items"]) + backward
         assert body["startIndex"] == len(reference) - len(backward)
     assert backward == reference
@@ -110,7 +121,14 @@ def _jumps(client, path: str, params: dict[str, Any], reference: list[str]) -> N
     assert (landed["startIndex"], landed["totalCount"]) == (at, len(reference))
     before = _get(client, path, {**params, "pageSize": PAGE, "cursor": landed["prevCursor"]})
     # S4R5: items first; totals appear only when asked for, never as nulls.
-    assert list(landed) == ["items", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"]
+    assert list(landed) == [
+        "items",
+        "nextCursor",
+        "prevCursor",
+        "anchor",
+        "totalCount",
+        "startIndex",
+    ]
     assert list(before) == ["items", "nextCursor", "prevCursor", "anchor"]
     assert _ids(before["items"]) == reference[at - PAGE : at]
     after = _get(client, path, {**params, "pageSize": PAGE, "cursor": landed["nextCursor"]})
@@ -118,7 +136,11 @@ def _jumps(client, path: str, params: dict[str, Any], reference: list[str]) -> N
     reopened = _get(client, path, {**params, "pageSize": PAGE, "cursor": landed["anchor"]})
     assert _ids(reopened["items"]) == _ids(landed["items"])
 
-    beyond = _get(client, path, {**params, "pageSize": PAGE, "position": len(reference) + 5, "includeTotal": True})
+    beyond = _get(
+        client,
+        path,
+        {**params, "pageSize": PAGE, "position": len(reference) + 5, "includeTotal": True},
+    )
     assert beyond["items"] == [] and beyond["nextCursor"] is None
     assert beyond["startIndex"] == len(reference)
     tail = _get(client, path, {**params, "pageSize": PAGE, "cursor": beyond["prevCursor"]})
@@ -129,7 +151,11 @@ def _jumps(client, path: str, params: dict[str, Any], reference: list[str]) -> N
 def test_object_pages_move_both_ways_and_jump_in_every_context(volume, context):
     client, dataset = volume
     path = f"/api/v1/objects/{ITEM}"
-    params = {**_context(context, dataset), "parentObjectId": dataset.heavy_group_id, "sort": "name"}
+    params = {
+        **_context(context, dataset),
+        "parentObjectId": dataset.heavy_group_id,
+        "sort": "name",
+    }
     reference = _ids(_everything(client, path, params))
     assert len(reference) > 5 * PAGE
     _walk(client, path, params, reference)
@@ -148,14 +174,17 @@ def test_seek_starts_at_the_first_row_at_or_after_the_value(volume, context, sor
     def value(item: dict[str, Any]) -> Any:
         if field == "name":
             return item["name"]
-        return next((a["value"] for a in item["attributes"] if a["attributeTypeKey"] == field), None)
+        return next(
+            (a["value"] for a in item["attributes"] if a["attributeTypeKey"] == field), None
+        )
 
     target = value(everything[len(everything) // 3])
     seek = str(target)
     expected = next(
         index
         for index, item in enumerate(everything)
-        if value(item) is not None and (value(item) <= target if descending else value(item) >= target)
+        if value(item) is not None
+        and (value(item) <= target if descending else value(item) >= target)
     )
     page = _get(client, path, {**params, "seek": seek, "pageSize": PAGE, "includeTotal": True})
     assert _ids(page["items"]) == _ids(everything[expected : expected + PAGE])
@@ -170,13 +199,21 @@ def test_top_level_lists_only_records_without_a_parent(volume, context):
     scope = _context(context, dataset)
 
     def total(object_type: str, **extra: Any) -> int:
-        body = _get(client, f"/api/v1/objects/{object_type}", {**scope, "pageSize": 1, "includeTotal": True, **extra})
+        body = _get(
+            client,
+            f"/api/v1/objects/{object_type}",
+            {**scope, "pageSize": 1, "includeTotal": True, **extra},
+        )
         return body["totalCount"]
 
     assert total(GROUP, topLevel=True) == total(GROUP) == dataset.shape.groups
     assert total(NODE) > 0 and total(NODE, topLevel=True) == 0
     assert total(ITEM) > 0 and total(ITEM, topLevel=True) == 0
-    roots = _get(client, f"/api/v1/objects/{GROUP}", {**scope, "topLevel": True, "sort": "name", "pageSize": 5})
+    roots = _get(
+        client,
+        f"/api/v1/objects/{GROUP}",
+        {**scope, "topLevel": True, "sort": "name", "pageSize": 5},
+    )
     assert all(item["parentObjectId"] is None for item in roots["items"])
     refused = _error(
         client,
@@ -208,7 +245,9 @@ def test_relations_search_sort_seek_and_page_in_every_context(volume, context):
     # Search covers the related record's name and its searchable fields (here the code).
     by_code = _value(by_name[3], CODE)
     found = _everything(client, path, {**params, "search": by_code.lower(), "sort": "name"})
-    assert _ids(found) == [row["relation"]["id"] for row in by_name if by_code.lower() in _value(row, CODE).lower()]
+    assert _ids(found) == [
+        row["relation"]["id"] for row in by_name if by_code.lower() in _value(row, CODE).lower()
+    ]
     fragment = names[5][-4:]
     found = _everything(client, path, {**params, "search": fragment, "sort": "-name"})
     expected = [
@@ -260,21 +299,42 @@ def test_relations_sort_by_the_related_types_attributes_and_ancestors(volume, co
     ranks = [_value(row, RANK) for row in descending]
     present = [rank for rank in ranks if rank is not None]
     assert present == sorted(present, reverse=True) and ranks[: len(present)] == present
-    seeked = _get(client, path, {**params, "sort": RANK, "seek": str(present[len(present) // 2]), "includeTotal": True})
-    assert _value(seeked["items"][0], RANK) == min(rank for rank in present if rank >= present[len(present) // 2])
+    seeked = _get(
+        client,
+        path,
+        {**params, "sort": RANK, "seek": str(present[len(present) // 2]), "includeTotal": True},
+    )
+    assert _value(seeked["items"][0], RANK) == min(
+        rank for rank in present if rank >= present[len(present) // 2]
+    )
 
     # The related item's group, read up the containment chain.
     by_group = _everything(client, path, {**params, "sort": "ancestor:vol-group"})
     groups = [row["object"]["path"][0]["name"] for row in by_group]
     assert groups == collated(groups) and sorted(_ids(by_group)) == sorted(_ids(by_name))
     _walk(client, path, {**params, "sort": "ancestor:vol-group"}, _ids(by_group))
-    landed = _get(client, path, {**params, "sort": "ancestor:vol-group", "position": 10, "pageSize": 5})
+    landed = _get(
+        client, path, {**params, "sort": "ancestor:vol-group", "position": 10, "pageSize": 5}
+    )
     assert _ids(landed["items"]) == _ids(by_group)[10:15]
-    back = _get(client, path, {**params, "sort": "ancestor:vol-group", "cursor": landed["prevCursor"], "pageSize": 5})
+    back = _get(
+        client,
+        path,
+        {**params, "sort": "ancestor:vol-group", "cursor": landed["prevCursor"], "pageSize": 5},
+    )
     assert _ids(back["items"]) == _ids(by_group)[5:10]
     reverse = _everything(client, path, {**params, "sort": "-ancestor:vol-group"})
     assert [row["object"]["path"][0]["name"] for row in reverse] == groups[::-1]
-    seeked = _get(client, path, {**params, "sort": "ancestor:vol-group", "seek": groups[len(groups) // 2], "includeTotal": True})
+    seeked = _get(
+        client,
+        path,
+        {
+            **params,
+            "sort": "ancestor:vol-group",
+            "seek": groups[len(groups) // 2],
+            "includeTotal": True,
+        },
+    )
     assert seeked["startIndex"] == groups.index(groups[len(groups) // 2])
 
     # Several levels up: a deep node's parent, under a chain of nodes below the heavy group.
@@ -305,11 +365,15 @@ def test_relations_sort_by_the_related_types_attributes_and_ancestors(volume, co
     assert present == sorted(present) and ranks[: len(present)] == present
     assert _error(client, path, {**heavy, "sort": "ancestor:vol-group"})["code"] == "INVALID_SORT"
     only_nodes = _get(client, path, {**heavy, "relationTypeKey": GROUP_CONTAINS_NODE, "sort": RANK})
-    assert {row["relation"]["relationTypeKey"] for row in only_nodes["items"]} == {GROUP_CONTAINS_NODE}
+    assert {row["relation"]["relationTypeKey"] for row in only_nodes["items"]} == {
+        GROUP_CONTAINS_NODE
+    }
 
 
 def _value(row: dict[str, Any], key: str) -> Any:
-    return next((a["value"] for a in row["object"]["attributes"] if a["attributeTypeKey"] == key), None)
+    return next(
+        (a["value"] for a in row["object"]["attributes"] if a["attributeTypeKey"] == key), None
+    )
 
 
 @pytest.mark.parametrize("context", CONTEXTS)
@@ -402,7 +466,10 @@ def test_cursor_reads_neither_repeat_nor_skip_across_a_concurrent_insert(volume,
             body["workspaceKey"] = WORKSPACE
         else:
             change_set = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()
-            body |= {"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": change_set["version"]}
+            body |= {
+                "changeSetId": dataset.change_set_id,
+                "expectedChangeSetVersion": change_set["version"],
+            }
         response = client.post("/api/v1/objects", json=body)
         assert response.status_code == 201, response.text
         created.append(response.json()["id"])

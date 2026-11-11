@@ -175,12 +175,19 @@ def test_branch_derived_from_older_history_has_distinct_derived_from_and_superse
         assert "derivedFromPublicationId" in r4_detail and "supersedesPublicationId" in r4_detail
 
         # Historical derivation applies only authored changes: later live domain and child survive.
-        assert client.get(
-            f"/api/v1/objects/domain/{domain_a['id']}", params={"workspaceKey": workspace_key}
-        ).status_code == 200
-        assert client.get(
-            f"/api/v1/objects/codelist/{codelist_a['id']}", params={"workspaceKey": workspace_key}
-        ).status_code == 200
+        assert (
+            client.get(
+                f"/api/v1/objects/domain/{domain_a['id']}", params={"workspaceKey": workspace_key}
+            ).status_code
+            == 200
+        )
+        assert (
+            client.get(
+                f"/api/v1/objects/codelist/{codelist_a['id']}",
+                params={"workspaceKey": workspace_key},
+            ).status_code
+            == 200
+        )
         published_domain = client.get(
             f"/api/v1/objects/domain/{domain_b['id']}", params={"workspaceKey": workspace_key}
         )
@@ -243,9 +250,12 @@ def test_publication_list_cursor_pagination_is_bounded_and_scoped_to_workspace()
             combined.extend(page.json()["items"])
             next_cursor = page.json()["nextCursor"]
         assert [item["id"] for item in combined] == publication_ids[::-1]
-        assert client.get(
-            f"/api/v1/workspaces/{workspace_key}/publications", params={"pageSize": 1}
-        ).json()["items"][0]["id"] == newest["id"]
+        assert (
+            client.get(
+                f"/api/v1/workspaces/{workspace_key}/publications", params={"pageSize": 1}
+            ).json()["items"][0]["id"]
+            == newest["id"]
+        )
         assert {item["id"] for item in combined} == set(publication_ids)
         numbers = [item["publicationNumber"] for item in combined]
         assert numbers == sorted(numbers, reverse=True)
@@ -268,12 +278,16 @@ def test_publication_list_cursor_pagination_is_bounded_and_scoped_to_workspace()
             )
             assert rejected.status_code == 422
             assert rejected.json()["error"] == {
-                "code": "INVALID_CURSOR", "message": "Publication cursor is invalid"
+                "code": "INVALID_CURSOR",
+                "message": "Publication cursor is invalid",
             }
         for size in (0, 501):
-            assert client.get(
-                f"/api/v1/workspaces/{workspace_key}/publications", params={"pageSize": size}
-            ).status_code == 422
+            assert (
+                client.get(
+                    f"/api/v1/workspaces/{workspace_key}/publications", params={"pageSize": size}
+                ).status_code
+                == 422
+            )
 
         # The list is bound to the workspace: a cursor minted for one workspace cannot page another.
         other_key = unique_key("publication-other")
@@ -365,11 +379,15 @@ def test_publication_snapshot_parity_across_active_and_change_set_read_contexts(
             assert (match["relation"]["updatedAt"] is not None) is recorded
             return _canonical_relation(match["relation"])
 
-        active_relation = relation_for_anchor({"workspaceKey": workspace_key}, "object-has-translation")
+        active_relation = relation_for_anchor(
+            {"workspaceKey": workspace_key}, "object-has-translation"
+        )
         publication_relation = relation_for_anchor(
             {"publicationId": publication_id}, "object-has-translation"
         )
-        change_set_relation = relation_for_anchor({"changeSetId": derived["id"]}, "object-has-translation")
+        change_set_relation = relation_for_anchor(
+            {"changeSetId": derived["id"]}, "object-has-translation"
+        )
         assert publication_relation == active_relation
         assert change_set_relation == active_relation
 
@@ -446,7 +464,9 @@ def test_active_live_writes_apply_without_a_change_set_and_leave_publication_sna
         )
         assert attr.status_code == 200, attr.text
         assert attr.json()["version"] == current_version + 1
-        attributes = {a["attributeTypeKey"]: a["value"] for a in live_get(language_id)["attributes"]}
+        attributes = {
+            a["attributeTypeKey"]: a["value"] for a in live_get(language_id)["attributes"]
+        }
         assert attributes["language-code"] == new_code
 
         # A live delete (no dependants here) physically removes the row from the active projection.
@@ -530,7 +550,9 @@ def test_historical_publication_reads_stay_immutable_while_live_writes_write_thr
             detail = client.get(f"/api/v1/publications/{publication_id}")
             assert detail.status_code == 200
             assert detail.json()["status"] == "withdrawn"
-            objects, _relations = graph_snapshot_sets(publication_graph_snapshot(client, publication_id))
+            objects, _relations = graph_snapshot_sets(
+                publication_graph_snapshot(client, publication_id)
+            )
             assert objects  # each retired publication still serves its immutable object snapshot
 
         # The retired publication r1 carries the rows it shares with the still-active r2 plus its own
@@ -552,7 +574,9 @@ def test_historical_publication_reads_stay_immutable_while_live_writes_write_thr
         )
 
         # The full publication history is listed for the workspace including every retired publication.
-        history = client.get(f"/api/v1/workspaces/{workspace_key}/publications", params={"pageSize": 10})
+        history = client.get(
+            f"/api/v1/workspaces/{workspace_key}/publications", params={"pageSize": 10}
+        )
         assert history.status_code == 200
         assert {item["id"] for item in history.json()["items"]} == {r0["id"], r1["id"], r2["id"]}
 

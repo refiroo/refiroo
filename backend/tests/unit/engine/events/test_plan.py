@@ -29,7 +29,13 @@ def _plan(change=None):
     document = copy.deepcopy(CONFIGURATION.model)
     (definition,) = document["consumerApis"]
     definition["operations"]["events"] = {
-        "custom": [{"key": "every", "objectTypes": definition["exposes"], "changes": ["created", "updated", "deleted"]}]
+        "custom": [
+            {
+                "key": "every",
+                "objectTypes": definition["exposes"],
+                "changes": ["created", "updated", "deleted"],
+            }
+        ]
     }
     if change is not None:
         change(document, definition)
@@ -42,7 +48,14 @@ def k(structure):
 
 
 def _object(action="updated", type_key="R", **fields):
-    return FeedChange(position=7, kind="object", action=action, record_id="x", object_type_key=k(type_key), **fields)
+    return FeedChange(
+        position=7,
+        kind="object",
+        action=action,
+        record_id="x",
+        object_type_key=k(type_key),
+        **fields,
+    )
 
 
 def test_a_records_own_change_names_the_outputs_its_sources_feed():
@@ -51,7 +64,16 @@ def test_a_records_own_change_names_the_outputs_its_sources_feed():
     event; a creation and a deletion of an exposed type are told whatever changed."""
     plan = _plan()
     owns, _ = plan.seeds([_object(names=frozenset({k("R.u"), k("R.n"), "name"}))])
-    assert owns == [Own(7, "x", "updated", k("R"), None, tuple(sorted({k("Capi.code"), k("Capi.n"), k("Capi.name")})))]
+    assert owns == [
+        Own(
+            7,
+            "x",
+            "updated",
+            k("R"),
+            None,
+            tuple(sorted({k("Capi.code"), k("Capi.n"), k("Capi.name")})),
+        )
+    ]
     owns, _ = plan.seeds([_object(moved=True, parent_id="p", previous_parent_id="q")])
     assert owns[0].outputs == tuple(sorted({k("Capi.parent"), k("Capi.path"), k("Capi.hierarchy")}))
     assert plan.seeds([_object(names=frozenset({k("R.q")}))])[0] == []
@@ -71,7 +93,10 @@ def test_a_rename_reaches_children_descendants_and_the_owners_of_a_projected_rec
     _, reaches = plan.seeds([_object(type_key="K", names=frozenset({"name"}))])
     b11, bown = k("B11"), k("Bown")
     assert Reach(7, "x", CHILDREN, None, None, (k("Capi.parent"),)) in reaches
-    assert Reach(7, "x", DESCENDANTS, None, None, tuple(sorted((k("Capi.path"), k("Capi.hierarchy"))))) in reaches
+    assert (
+        Reach(7, "x", DESCENDANTS, None, None, tuple(sorted((k("Capi.path"), k("Capi.hierarchy")))))
+        in reaches
+    )
     assert Reach(7, "x", SELF, b11, "outgoing", (k("Capi.B11"),)) in reaches
     _, reaches = plan.seeds([_object(type_key="G", names=frozenset({"name"}))])
     assert Reach(7, "x", DESCENDANTS, bown, "outgoing", (k("Capi.Bown"),)) in reaches
@@ -88,11 +113,17 @@ def test_a_relation_of_a_projections_type_reaches_its_owner_end():
     that reads the relationship's own values (``relation:<attribute>``), whichever value changed."""
     plan = _plan()
     for action in ("created", "deleted"):
-        change = FeedChange(7, "relation", action, "rel", relation_type_key=k("B11"), from_id="r", to_id="t")
+        change = FeedChange(
+            7, "relation", action, "rel", relation_type_key=k("B11"), from_id="r", to_id="t"
+        )
         assert plan.seeds([change]) == ([], [Reach(7, "r", SELF, None, None, (k("Capi.B11"),))])
-    change = FeedChange(7, "relation", "updated", "rel", relation_type_key=k("B11"), from_id="r", to_id="t")
+    change = FeedChange(
+        7, "relation", "updated", "rel", relation_type_key=k("B11"), from_id="r", to_id="t"
+    )
     assert plan.seeds([change]) == ([], [])
-    change = FeedChange(7, "relation", "updated", "rel", relation_type_key=k("Bscope"), from_id="r", to_id="d")
+    change = FeedChange(
+        7, "relation", "updated", "rel", relation_type_key=k("Bscope"), from_id="r", to_id="d"
+    )
     assert plan.seeds([change]) == ([], [Reach(7, "r", SELF, None, None, (k("Capi.Bscope"),))])
 
 
@@ -116,7 +147,10 @@ def test_a_projection_over_a_containment_relation_reaches_both_parents():
     (containment,) = model.containment_relation_keys(k("R2"))
 
     def children(_document, definition):
-        definition["object"]["related"]["entries"] = {"via": containment, "fields": {"entryName": "name"}}
+        definition["object"]["related"]["entries"] = {
+            "via": containment,
+            "fields": {"entryName": "name"},
+        }
 
     plan = _plan(children)
     created = _object("created", type_key="R2", parent_id="p")
@@ -161,7 +195,12 @@ def test_a_feed_entry_is_read_by_name():
         subject={"objectTypeKey": k("R"), "parentObjectId": "p"},
     )
     assert FeedChange.of(published).names == frozenset({k("R.n")})
-    withdrawal = AuditEvent(aggregate_type="workspace", aggregate_id="w", action="publication-withdrawn", feed_position=5)
+    withdrawal = AuditEvent(
+        aggregate_type="workspace",
+        aggregate_id="w",
+        action="publication-withdrawn",
+        feed_position=5,
+    )
     assert FeedChange.of(withdrawal) is None
 
 

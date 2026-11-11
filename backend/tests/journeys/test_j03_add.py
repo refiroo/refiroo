@@ -261,10 +261,18 @@ def test_an_initial_relationship_must_be_a_candidate(world):
     bad = world.made("K", f"{tag} bad", values={"K.code": f"NO-{tag}"})
 
     def initial(target):
-        return [{"relationTypeKey": world.key("Bcand"), "direction": "outgoing", "otherObjectId": target}]
+        return [
+            {
+                "relationTypeKey": world.key("Bcand"),
+                "direction": "outgoing",
+                "otherObjectId": target,
+            }
+        ]
 
     error = refused(
-        world.create("H", f"{tag} refused", relations=initial(bad["id"])), 422, "RELATION_CANDIDATE_REFUSED"
+        world.create("H", f"{tag} refused", relations=initial(bad["id"])),
+        422,
+        "RELATION_CANDIDATE_REFUSED",
     )
     assert error["details"]["objectId"] == bad["id"]
     page = ok(world.api.get(f"/objects/{world.key('H')}", search=f"{tag} refused"))

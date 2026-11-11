@@ -42,13 +42,29 @@ def _bound(world, model: dict[str, Any], *structures: str) -> list[str]:
     keys: list[str] = []
     for structure in structures:
         object_type = _by_key(model["objectTypes"], world.key(structure))
-        keys += [b["attributeTypeKey"] for b in object_type["attributes"] if b["attributeTypeKey"] not in keys]
+        keys += [
+            b["attributeTypeKey"]
+            for b in object_type["attributes"]
+            if b["attributeTypeKey"] not in keys
+        ]
     return keys
 
 
 def _activate(world, draft: dict[str, Any], version: int, model: dict[str, Any]) -> None:
-    answer = ok(_apply(world, draft, version, {"kind": "setRelease", "version": model["release"]["version"] + "-j33"}))
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            version,
+            {"kind": "setRelease", "version": model["release"]["version"] + "-j33"},
+        )
+    )
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}
+        ),
+        201,
+    )
     ok(world.activate(release["id"]))
 
 
@@ -65,7 +81,14 @@ def test_a_consumer_api_defined_by_operations_is_served_after_activation(world):
     draft = _draft_of_active(world)
     model = _model(world, draft)
     r, d = world.key("R"), world.key("D")
-    answer = ok(_apply(world, draft, draft["version"], {"kind": "addConsumerApi", "name": "J33 Feed", "key": FEED, "exposes": [r, d]}))
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {"kind": "addConsumerApi", "name": "J33 Feed", "key": FEED, "exposes": [r, d]},
+        )
+    )
     assert answer["valid"] is True, answer["diagnostics"]
 
     entry = _outline_entry(world, draft, FEED)
@@ -93,7 +116,13 @@ def test_a_consumer_api_defined_by_operations_is_served_after_activation(world):
 
     relation = _by_key(model["relationTypes"], world.key("Bown"))
     steps = [
-        {"kind": "insertConsumerApiPart", "consumerApi": FEED, "pointer": "/object/fields", "key": "j33Label", "value": "name"},
+        {
+            "kind": "insertConsumerApiPart",
+            "consumerApi": FEED,
+            "pointer": "/object/fields",
+            "key": "j33Label",
+            "value": "name",
+        },
         {
             "kind": "insertConsumerApiPart",
             "consumerApi": FEED,
@@ -155,23 +184,71 @@ def test_a_wrong_source_is_an_issue_and_a_value_of_the_wrong_shape_is_refused(wo
     parameter and the draft's version is unchanged."""
     draft = _draft_of_active(world)
     added = ok(
-        _apply(world, draft, draft["version"], {"kind": "addConsumerApi", "name": "J33 Feed", "key": FEED, "exposes": [world.key("R"), world.key("D")]})
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "addConsumerApi",
+                "name": "J33 Feed",
+                "key": FEED,
+                "exposes": [world.key("R"), world.key("D")],
+            },
+        )
     )
     wrong = ok(
-        _apply(world, draft, added["version"], {"kind": "insertConsumerApiPart", "consumerApi": FEED, "pointer": "/object/fields", "key": "j33Lost", "value": "j33-no-such-attribute"})
+        _apply(
+            world,
+            draft,
+            added["version"],
+            {
+                "kind": "insertConsumerApiPart",
+                "consumerApi": FEED,
+                "pointer": "/object/fields",
+                "key": "j33Lost",
+                "value": "j33-no-such-attribute",
+            },
+        )
     )
     assert wrong["valid"] is False
     pointers = [item["path"] for item in wrong["diagnostics"]]
-    assert f"/consumerApis/{FEED}/object/fields/j33Lost" in [p.rsplit("/source", 1)[0].rsplit("/from", 1)[0] for p in pointers]
+    assert f"/consumerApis/{FEED}/object/fields/j33Lost" in [
+        p.rsplit("/source", 1)[0].rsplit("/from", 1)[0] for p in pointers
+    ]
     outline = ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))
-    tied = [item for item in outline["diagnostics"] if item["path"].startswith(f"/consumerApis/{FEED}")]
+    tied = [
+        item for item in outline["diagnostics"] if item["path"].startswith(f"/consumerApis/{FEED}")
+    ]
     assert tied and all(item["element"] == {"consumerApi": FEED} for item in tied)
     assert ok(_definition(world, draft))["valid"] is False
 
     for operation, parameter in (
-        ({"kind": "setConsumerApiPart", "consumerApi": FEED, "pointer": "/operations/xref", "value": {"matchOn": [{"field": "name", "exact": "high"}]}}, "value"),
-        ({"kind": "moveConsumerApiPart", "consumerApi": FEED, "pointer": "/object/fields/name", "position": 99}, "position"),
-        ({"kind": "removeConsumerApiPart", "consumerApi": "j33-no-such-api", "pointer": "/object/fields/name"}, "consumerApi"),
+        (
+            {
+                "kind": "setConsumerApiPart",
+                "consumerApi": FEED,
+                "pointer": "/operations/xref",
+                "value": {"matchOn": [{"field": "name", "exact": "high"}]},
+            },
+            "value",
+        ),
+        (
+            {
+                "kind": "moveConsumerApiPart",
+                "consumerApi": FEED,
+                "pointer": "/object/fields/name",
+                "position": 99,
+            },
+            "position",
+        ),
+        (
+            {
+                "kind": "removeConsumerApiPart",
+                "consumerApi": "j33-no-such-api",
+                "pointer": "/object/fields/name",
+            },
+            "consumerApi",
+        ),
     ):
         error = refused(_apply(world, draft, wrong["version"], operation), 422, "INVALID_OPERATION")
         assert error["details"]["pointer"] == f"/operations/0/{parameter}"
@@ -189,23 +266,73 @@ def test_a_field_consumers_read_needs_a_higher_contract_version_to_be_removed(wo
     draft = _draft_of_active(world)
     model = _model(world, draft)
     api, field = world.key("Capi"), world.key("Capi.dt")
-    removed = ok(_apply(world, draft, draft["version"], {"kind": "removeConsumerApiPart", "consumerApi": api, "pointer": f"/object/fields/{field}"}))
+    removed = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "removeConsumerApiPart",
+                "consumerApi": api,
+                "pointer": f"/object/fields/{field}",
+            },
+        )
+    )
     assert removed["valid"] is True, removed["diagnostics"]
     entry = _outline_entry(world, draft, api)
     assert entry["mark"] == "changed"
     assert entry["contract"]["classification"] == "version_required"
-    assert any(item["path"].startswith(f"/consumerApis/{api}/object") for item in entry["contract"]["diagnostics"])
+    assert any(
+        item["path"].startswith(f"/consumerApis/{api}/object")
+        for item in entry["contract"]["diagnostics"]
+    )
 
-    answer = ok(_apply(world, draft, removed["version"], {"kind": "setRelease", "version": model["release"]["version"] + "-j33"}))
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            removed["version"],
+            {"kind": "setRelease", "version": model["release"]["version"] + "-j33"},
+        )
+    )
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}
+        ),
+        201,
+    )
     refused(world.activate(release["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
 
-    raised = ok(_apply(world, draft, answer["version"], {"kind": "setConsumerApiPart", "consumerApi": api, "pointer": "/contractVersion", "value": 2}))
+    raised = ok(
+        _apply(
+            world,
+            draft,
+            answer["version"],
+            {
+                "kind": "setConsumerApiPart",
+                "consumerApi": api,
+                "pointer": "/contractVersion",
+                "value": 2,
+            },
+        )
+    )
     entry = _outline_entry(world, draft, api)
     assert entry["contractVersion"] == 2
     assert entry["contract"]["classification"] == "compatible"
-    answer = ok(_apply(world, draft, raised["version"], {"kind": "setRelease", "version": model["release"]["version"] + "-j33b"}))
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            raised["version"],
+            {"kind": "setRelease", "version": model["release"]["version"] + "-j33b"},
+        )
+    )
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}
+        ),
+        201,
+    )
     ok(world.activate(release["id"]))
 
     record = world.made("R", "J33 versioned")
@@ -229,7 +356,14 @@ def test_a_key_changed_after_it_is_exposed_is_rewritten_in_the_definition(world)
             "key": "j33-note",
             "name": "Note",
             "pluralName": "Notes",
-            "parent": {"objectTypes": [world.key("R")], "relationType": {"key": "j33-has-note", "name": "Has note", "reverseName": "Note of"}},
+            "parent": {
+                "objectTypes": [world.key("R")],
+                "relationType": {
+                    "key": "j33-has-note",
+                    "name": "Has note",
+                    "reverseName": "Note of",
+                },
+            },
         },
         {"kind": "addAttributeType", "key": "j33-text", "name": "Note text", "valueType": "text"},
         {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-text"},
@@ -269,14 +403,27 @@ def test_a_removed_consumer_api_is_a_warning_and_undo_puts_it_back(world):
     draft = _draft_of_active(world)
     api = world.key("Capi")
     before = _model(world, draft)["consumerApis"]
-    removed = ok(_apply(world, draft, draft["version"], {"kind": "removeConsumerApi", "consumerApi": api}))
-    compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": removed["version"]}))
-    assert [item["code"] for item in compiled["consumerContracts"]["diagnostics"]] == ["CONSUMER_API_REMOVED"]
+    removed = ok(
+        _apply(world, draft, draft["version"], {"kind": "removeConsumerApi", "consumerApi": api})
+    )
+    compiled = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": removed["version"]}
+        )
+    )
+    assert [item["code"] for item in compiled["consumerContracts"]["diagnostics"]] == [
+        "CONSUMER_API_REMOVED"
+    ]
 
     undone = ok(_undo(world, draft, removed["version"]))
     assert _model(world, draft)["consumerApis"] == before
     error = refused(
-        _apply(world, draft, undone["version"], {"kind": "addConsumerApi", "name": "Again", "key": api, "exposes": [world.key("R")]}),
+        _apply(
+            world,
+            draft,
+            undone["version"],
+            {"kind": "addConsumerApi", "name": "Again", "key": api, "exposes": [world.key("R")]},
+        ),
         422,
         "INVALID_OPERATION",
     )
@@ -294,7 +441,11 @@ def test_raising_a_version_keeps_the_previous_one_and_it_is_announced_then_stopp
     api = world.key("Capi")
     before = _by_key(_model(world, draft)["consumerApis"], api)
 
-    raised = ok(_apply(world, draft, draft["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}))
+    raised = ok(
+        _apply(
+            world, draft, draft["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}
+        )
+    )
     assert raised["valid"] is True, raised["diagnostics"]
     after = _by_key(_model(world, draft)["consumerApis"], api)
     (kept,) = after["earlierVersions"]
@@ -302,35 +453,87 @@ def test_raising_a_version_keeps_the_previous_one_and_it_is_announced_then_stopp
     assert kept["object"] == before["object"] and kept["operations"] == before["operations"]
     assert kept["deprecated"] == datetime.now(UTC).date().isoformat() and "sunset" not in kept
 
-    dated = ok(_apply(world, draft, raised["version"], {"kind": "setConsumerApiSunset", "consumerApi": api, "version": 1, "sunset": "2027-06-30"}))
-    assert _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"][0]["sunset"] == "2027-06-30"
+    dated = ok(
+        _apply(
+            world,
+            draft,
+            raised["version"],
+            {
+                "kind": "setConsumerApiSunset",
+                "consumerApi": api,
+                "version": 1,
+                "sunset": "2027-06-30",
+            },
+        )
+    )
+    assert (
+        _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"][0]["sunset"]
+        == "2027-06-30"
+    )
     error = refused(
-        _apply(world, draft, dated["version"], {"kind": "setConsumerApiSunset", "consumerApi": api, "version": 1, "sunset": "next spring"}),
+        _apply(
+            world,
+            draft,
+            dated["version"],
+            {
+                "kind": "setConsumerApiSunset",
+                "consumerApi": api,
+                "version": 1,
+                "sunset": "next spring",
+            },
+        ),
         422,
         "INVALID_OPERATION",
     )
     assert error["details"]["reason"] == "invalidValue"
     refused(
-        _apply(world, draft, dated["version"], {"kind": "removeConsumerApiVersion", "consumerApi": api, "version": 7}),
+        _apply(
+            world,
+            draft,
+            dated["version"],
+            {"kind": "removeConsumerApiVersion", "consumerApi": api, "version": 7},
+        ),
         422,
         "INVALID_OPERATION",
     )
 
-    stopped = ok(_apply(world, draft, dated["version"], {"kind": "removeConsumerApiVersion", "consumerApi": api, "version": 1}))
+    stopped = ok(
+        _apply(
+            world,
+            draft,
+            dated["version"],
+            {"kind": "removeConsumerApiVersion", "consumerApi": api, "version": 1},
+        )
+    )
     assert not _by_key(_model(world, draft)["consumerApis"], api).get("earlierVersions")
     assert stopped["valid"] is True
     undone = ok(_undo(world, draft, stopped["version"]))
-    assert _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"][0]["sunset"] == "2027-06-30"
+    assert (
+        _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"][0]["sunset"]
+        == "2027-06-30"
+    )
     undone = ok(_undo(world, draft, undone["version"]))
     undone = ok(_undo(world, draft, undone["version"]))
     assert _by_key(_model(world, draft)["consumerApis"], api) == before
 
-    alone = ok(_apply(world, draft, undone["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api, "version": 5, "keep": False}))
+    alone = ok(
+        _apply(
+            world,
+            draft,
+            undone["version"],
+            {"kind": "raiseConsumerApiVersion", "consumerApi": api, "version": 5, "keep": False},
+        )
+    )
     assert alone["valid"] is True
     again = _by_key(_model(world, draft)["consumerApis"], api)
     assert again["contractVersion"] == 5 and not again.get("earlierVersions")
     refused(
-        _apply(world, draft, alone["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api, "version": 5}),
+        _apply(
+            world,
+            draft,
+            alone["version"],
+            {"kind": "raiseConsumerApiVersion", "consumerApi": api, "version": 5},
+        ),
         422,
         "INVALID_OPERATION",
     )
@@ -346,26 +549,76 @@ def test_the_kept_version_is_what_the_base_release_served_and_a_new_api_keeps_no
     api = world.key("Capi")
     before = _by_key(_model(world, draft)["consumerApis"], api)
     score = world.key("Capi.n")
-    edited = ok(_apply(world, draft, draft["version"], {"kind": "removeConsumerApiPart", "consumerApi": api, "pointer": f"/object/fields/{score}"}))
-    raised = ok(_apply(world, draft, edited["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}))
+    edited = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "removeConsumerApiPart",
+                "consumerApi": api,
+                "pointer": f"/object/fields/{score}",
+            },
+        )
+    )
+    raised = ok(
+        _apply(
+            world, draft, edited["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}
+        )
+    )
     after = _by_key(_model(world, draft)["consumerApis"], api)
     assert score not in after["object"]["fields"]
     assert after["earlierVersions"][0]["object"] == before["object"]
-    compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": raised["version"]}))
-    assert "CONSUMER_KEPT_VERSION_CHANGED" not in {d["code"] for d in compiled["consumerContracts"]["diagnostics"]}
+    compiled = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": raised["version"]}
+        )
+    )
+    assert "CONSUMER_KEPT_VERSION_CHANGED" not in {
+        d["code"] for d in compiled["consumerContracts"]["diagnostics"]
+    }
 
-    added = ok(_apply(world, draft, raised["version"], {"kind": "addConsumerApi", "name": "J33 New", "key": "j33-new", "exposes": [world.key("R")]}))
-    ok(_apply(world, draft, added["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": "j33-new"}))
+    added = ok(
+        _apply(
+            world,
+            draft,
+            raised["version"],
+            {
+                "kind": "addConsumerApi",
+                "name": "J33 New",
+                "key": "j33-new",
+                "exposes": [world.key("R")],
+            },
+        )
+    )
+    ok(
+        _apply(
+            world,
+            draft,
+            added["version"],
+            {"kind": "raiseConsumerApiVersion", "consumerApi": "j33-new"},
+        )
+    )
     assert not _by_key(_model(world, draft)["consumerApis"], "j33-new").get("earlierVersions")
 
 
 @pytest.mark.journey("J33.13")
 @pytest.mark.structures("Capi")
-def test_the_definition_of_an_unknown_draft_or_api_is_not_found_and_an_invalid_drafts_documents_are_refused(world):
-    refused(world.api.get(f"/model-drafts/00000000-0000-4000-8000-000000000000/consumer-apis/{world.key('Capi')}"), 404, "MODEL_DRAFT_NOT_FOUND")
+def test_the_definition_of_an_unknown_draft_or_api_is_not_found_and_an_invalid_drafts_documents_are_refused(
+    world,
+):
+    refused(
+        world.api.get(
+            f"/model-drafts/00000000-0000-4000-8000-000000000000/consumer-apis/{world.key('Capi')}"
+        ),
+        404,
+        "MODEL_DRAFT_NOT_FOUND",
+    )
     draft = _draft_of_active(world)
     refused(_definition(world, draft, "j33-no-such-api"), 404, "CONSUMER_API_NOT_FOUND")
-    invalid = ok(_apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"}))
+    invalid = ok(
+        _apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"})
+    )
     assert invalid["valid"] is False
     assert ok(_definition(world, draft, world.key("Capi")))["valid"] is False
     for part in ("/schema.json", "/example.json", "/openapi.json"):
@@ -391,15 +644,28 @@ def test_a_key_change_is_rewritten_in_the_earlier_versions_the_model_keeps(world
     name, and the draft stays valid (R13-F14)."""
     draft = _draft_of_active(world)
     api = world.key("Capi")
-    raised = ok(_apply(world, draft, draft["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}))
+    raised = ok(
+        _apply(
+            world, draft, draft["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}
+        )
+    )
     assert raised["valid"] is True, raised["diagnostics"]
     model = _model(world, draft)
     attributes = {item["key"] for item in model["attributeTypes"]}
     (kept,) = _by_key(model["consumerApis"], api)["earlierVersions"]
-    name, old = next((n, v) for n, v in kept["object"]["fields"].items() if isinstance(v, str) and v in attributes)
+    name, old = next(
+        (n, v)
+        for n, v in kept["object"]["fields"].items()
+        if isinstance(v, str) and v in attributes
+    )
 
     renamed = ok(
-        _apply(world, draft, raised["version"], {"kind": "setKey", "element": {"attributeType": old}, "key": "j33-renamed"})
+        _apply(
+            world,
+            draft,
+            raised["version"],
+            {"kind": "setKey", "element": {"attributeType": old}, "key": "j33-renamed"},
+        )
     )
     assert renamed["valid"] is True, renamed["diagnostics"]
     (after,) = _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"]

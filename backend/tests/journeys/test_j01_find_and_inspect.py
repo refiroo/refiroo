@@ -166,7 +166,9 @@ def test_a_not_false_filter_keeps_the_records_holding_no_value(world):
     # A configuration whose yes/no attribute has a default gives the third record that value.
     not_true = matching(**{f"filter.{b}.ne": "true"})
     assert ids["off"] in not_true and ids["on"] not in not_true
-    error = refused(world.api.get(f"/objects/{r_type}", **{"filter.name.ne": "x"}), 422, "INVALID_FILTER")
+    error = refused(
+        world.api.get(f"/objects/{r_type}", **{"filter.name.ne": "x"}), 422, "INVALID_FILTER"
+    )
     assert error["details"]["path"].endswith("filter.name.ne")
 
 
@@ -355,7 +357,9 @@ def test_related_records_of_another_application_searched_and_sorted(world):
 def _reverse_key(world, structure):
     """The reverse key of a relationship's type, which names it read from its ``to`` end."""
     key = world.key(structure)
-    return next(r["reverseKey"] for r in world.configuration.model["relationTypes"] if r["key"] == key)
+    return next(
+        r["reverseKey"] for r in world.configuration.model["relationTypes"] if r["key"] == key
+    )
 
 
 def _shown(expanded):
@@ -417,7 +421,10 @@ def test_a_list_shows_each_rows_related_records(world):
 
     backwards = ok(
         world.api.get(
-            f"/objects/{world.key('K')}", search=tag, expand=_reverse_key(world, "Bnn"), expandLimit=1
+            f"/objects/{world.key('K')}",
+            search=tag,
+            expand=_reverse_key(world, "Bnn"),
+            expandLimit=1,
         )
     )
     bravo = next(item for item in backwards["items"] if item["id"] == k["Bravo"])
@@ -559,9 +566,7 @@ def test_a_list_shows_a_field_of_each_rows_related_records(world):
     cannot sit under, an attribute D does not bind, and a sort by such a column are refused."""
     tag = uuid4().hex[:6]
     bscope, g_key, code, active = (world.key(s) for s in ("Bscope", "G", "K.code", "D.active"))
-    regions = [
-        world.made("G", f"{tag} G{n}", values={"K.code": f"{tag}-G{n}"}) for n in (1, 2)
-    ]
+    regions = [world.made("G", f"{tag} G{n}", values={"K.code": f"{tag}-G{n}"}) for n in (1, 2)]
     ds = [
         world.made(
             "D",
@@ -588,7 +593,9 @@ def test_a_list_shows_a_field_of_each_rows_related_records(world):
     plain, *named = item["expanded"]
     assert "field" not in plain and _shown(plain) == [f"{tag} D1", f"{tag} D2"]
     assert [entry["field"] for entry in named] == fields
-    values = [[record["object"]["fields"][entry["field"]] for record in entry["items"]] for entry in named]
+    values = [
+        [record["object"]["fields"][entry["field"]] for record in entry["items"]] for entry in named
+    ]
     assert values == [[f"{tag} G1", f"{tag} G2"], [f"{tag}-G1", f"{tag}-G2"], [True, False]]
     assert all(_shown(entry) == [f"{tag} D1", f"{tag} D2"] for entry in named)
 
@@ -596,7 +603,9 @@ def test_a_list_shows_a_field_of_each_rows_related_records(world):
     for field in (f"ancestor:{world.key('K')}.name", world.key("H.code")):
         error = refused(world.api.get(r_list, expand=f"{bscope}.{field}"), 422, "INVALID_EXPAND")
         assert error["details"]["value"] == f"{bscope}.{field}"
-    refused(world.api.get(r_list, sort=f"related:{bscope}.ancestor:{g_key}.name"), 422, "INVALID_SORT")
+    refused(
+        world.api.get(r_list, sort=f"related:{bscope}.ancestor:{g_key}.name"), 422, "INVALID_SORT"
+    )
 
 
 @pytest.mark.journey("J01.9")
@@ -645,7 +654,10 @@ def test_a_lists_related_fields_read_alike_in_every_context(world):
             g = next(part for part in record["path"] if part["objectTypeKey"] == g_key)
             region = world.record("G", g["id"], **context)
             expected.append(
-                (record["name"], [g["name"], world.value(region, "K.code"), world.value(record, "D.active")])
+                (
+                    record["name"],
+                    [g["name"], world.value(region, "K.code"), world.value(record, "D.active")],
+                )
             )
         expected.sort()
         page = ok(
@@ -659,7 +671,10 @@ def test_a_lists_related_fields_read_alike_in_every_context(world):
         [item] = page["items"]
         for index, entry in enumerate(item["expanded"]):
             assert entry["count"] == 2 and entry["nextCursor"] is None
-            shown = [(e["object"]["fields"]["name"], e["object"]["fields"][entry["field"]]) for e in entry["items"]]
+            shown = [
+                (e["object"]["fields"]["name"], e["object"]["fields"][entry["field"]])
+                for e in entry["items"]
+            ]
             assert shown == [(name, values[index]) for name, values in expected], context
 
         query = {
@@ -714,8 +729,15 @@ def _filtered(world, tag, **params):
 def _related_holders(world):
     tag = uuid4().hex[:6]
     k = _tokens(world, tag, ["Alpha", "Bravo"])
-    holders = {name: world.made("H", f"{tag} {name}", values={"H.code": f"{tag}-{name}"})["id"] for name in ("Aonly", "Bonly", "Both", "Neither")}
-    for holder, tokens in (("Aonly", ["Alpha"]), ("Bonly", ["Bravo"]), ("Both", ["Alpha", "Bravo"])):
+    holders = {
+        name: world.made("H", f"{tag} {name}", values={"H.code": f"{tag}-{name}"})["id"]
+        for name in ("Aonly", "Bonly", "Both", "Neither")
+    }
+    for holder, tokens in (
+        ("Aonly", ["Alpha"]),
+        ("Bonly", ["Bravo"]),
+        ("Both", ["Alpha", "Bravo"]),
+    ):
         for token in tokens:
             ok(world.relate("Bnn", holders[holder], k[token], {"Bnn.weight": 1}), 201)
     return tag, k, holders
@@ -737,7 +759,11 @@ def test_a_list_filtered_to_records_related_to_any_of_chosen_records(world):
     assert narrowed == [holders["Bonly"]]
     at = ok(
         world.api.get(
-            f"/objects/{world.key('H')}", search=tag, pageSize=1, position=2, includeTotal="true",
+            f"/objects/{world.key('H')}",
+            search=tag,
+            pageSize=1,
+            position=2,
+            includeTotal="true",
             **{field: [k["Alpha"], k["Bravo"]]},
         )
     )
@@ -752,13 +778,20 @@ def test_a_list_filtered_to_records_related_to_none_or_any_in_every_context(worl
     publication taken before. Then live and the publication give the record without one; the change
     set gives none, and its record among those with any."""
     tag, k, holders = _related_holders(world)
-    none, some = (f"filter__related:{world.key('Bnn')}__isNull", "true"), (f"filter__related:{world.key('Bnn')}__isNull", "false")
+    none, some = (
+        (f"filter__related:{world.key('Bnn')}__isNull", "true"),
+        (f"filter__related:{world.key('Bnn')}__isNull", "false"),
+    )
     published = world.publish(world.change_set(name=f"{tag} before"))
     cs1 = world.change_set(name=f"{tag} staged")
     ok(
         world.relate(
-            "Bnn", holders["Neither"], k["Alpha"], {"Bnn.weight": 1},
-            changeSetId=cs1["id"], expectedChangeSetVersion=world.current(cs1)["version"],
+            "Bnn",
+            holders["Neither"],
+            k["Alpha"],
+            {"Bnn.weight": 1},
+            changeSetId=cs1["id"],
+            expectedChangeSetVersion=world.current(cs1)["version"],
         ),
         201,
     )
@@ -766,8 +799,12 @@ def test_a_list_filtered_to_records_related_to_none_or_any_in_every_context(worl
     assert _filtered(world, tag, **{none[0]: none[1]}) == [holders["Neither"]]
     assert set(_filtered(world, tag, **{some[0]: some[1]})) == three
     assert _filtered(world, tag, changeSetId=cs1["id"], **{none[0]: none[1]}) == []
-    assert set(_filtered(world, tag, changeSetId=cs1["id"], **{some[0]: some[1]})) == three | {holders["Neither"]}
-    assert _filtered(world, tag, publicationId=published["id"], **{none[0]: none[1]}) == [holders["Neither"]]
+    assert set(_filtered(world, tag, changeSetId=cs1["id"], **{some[0]: some[1]})) == three | {
+        holders["Neither"]
+    }
+    assert _filtered(world, tag, publicationId=published["id"], **{none[0]: none[1]}) == [
+        holders["Neither"]
+    ]
 
 
 @pytest.mark.journey("J01.10")
@@ -813,7 +850,9 @@ def test_a_query_keeps_the_records_under_an_ancestor_with_a_field(world):
         g = world.made("G", f"{tag} {region}", values={"K.code": region_code})
         owner = world.made("R", f"{tag} owner in {region}")
         world.made(
-            "D", f"{tag} permit in {region}", parent=world.dependant_parent(g["id"]),
+            "D",
+            f"{tag} permit in {region}",
+            parent=world.dependant_parent(g["id"]),
             relations=[world.owner("Bown", owner["id"])],
         )
         return g
@@ -827,7 +866,9 @@ def test_a_query_keeps_the_records_under_an_ancestor_with_a_field(world):
         if context:
             body["context"] = context
         page = ok(world.api.post(f"/workspaces/{W1}/queries/objects", body))
-        return sorted(item["fields"]["name"] if "fields" in item else item["name"] for item in page["items"])
+        return sorted(
+            item["fields"]["name"] if "fields" in item else item["name"] for item in page["items"]
+        )
 
     by_name = {"field": f"ancestor:{g_key}.name", "op": "contains", "value": "reserved"}
     by_code = {"field": f"ancestor:{g_key}.{code}", "op": "eq", "value": f"RES-{tag}"}
@@ -836,16 +877,25 @@ def test_a_query_keeps_the_records_under_an_ancestor_with_a_field(world):
     assert query([by_code]) == reserved
     assert query([by_name, by_code]) == reserved
     cs = world.change_set(name=f"{tag} reserve the vale")
-    ok(world.api.patch(
-        f"/objects/{g_key}/{open_g['id']}",
-        {"name": f"{tag} Reserved Vale", "expectedVersion": open_g["version"], "changeSetId": cs["id"],
-         "expectedChangeSetVersion": cs["version"]},
-    ))
+    ok(
+        world.api.patch(
+            f"/objects/{g_key}/{open_g['id']}",
+            {
+                "name": f"{tag} Reserved Vale",
+                "expectedVersion": open_g["version"],
+                "changeSetId": cs["id"],
+                "expectedChangeSetVersion": cs["version"],
+            },
+        )
+    )
     assert query([by_name], changeSetId=cs["id"]) == [f"{tag} permit in Open Vale", *reserved]
     error = refused(
         world.api.post(
             f"/workspaces/{W1}/queries/objects",
-            {"objectTypeKey": world.key("D"), "where": [{**by_name, "field": "ancestor:no-such.name"}]},
+            {
+                "objectTypeKey": world.key("D"),
+                "where": [{**by_name, "field": "ancestor:no-such.name"}],
+            },
         ),
         422,
         "INVALID_QUERY",

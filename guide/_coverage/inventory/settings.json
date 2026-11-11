@@ -3,7 +3,7 @@
   "kind": "settings",
   "key": "DATABASE_URL",
   "labels": [],
-  "source": "backend/app/config.py:212",
+  "source": "backend/app/config.py:215",
   "section": "run",
   "summary": "The PostgreSQL database the engine runs on",
   "group": "runtime"
@@ -12,7 +12,7 @@
   "kind": "settings",
   "key": "RDM_MODEL_PATH",
   "labels": [],
-  "source": "backend/app/config.py:196",
+  "source": "backend/app/config.py:199",
   "section": "run",
   "summary": "The model file installed on a database's first start; not the active model",
   "group": "runtime"
@@ -21,7 +21,7 @@
   "kind": "settings",
   "key": "RDM_CURSOR_SIGNING_KEY",
   "labels": [],
-  "source": "backend/app/config.py:197",
+  "source": "backend/app/config.py:200",
   "section": "run",
   "summary": "Signs pagination cursors; unset, each process makes its own, so cursors stop working after a restart and differ between instances",
   "group": "runtime"
@@ -30,7 +30,7 @@
   "kind": "settings",
   "key": "CORS_ORIGINS",
   "labels": [],
-  "source": "backend/app/config.py:216",
+  "source": "backend/app/config.py:219",
   "section": "run",
   "summary": "Browser origins allowed to call the API",
   "group": "runtime"
@@ -39,7 +39,7 @@
   "kind": "settings",
   "key": "PUBLIC_URL",
   "labels": [],
-  "source": "backend/app/config.py:218",
+  "source": "backend/app/config.py:221",
   "section": "run",
   "summary": "The engine's address as callers reach it; the issuer of its tokens",
   "group": "runtime"
@@ -48,7 +48,7 @@
   "kind": "settings",
   "key": "SOURCE_CODE_URL",
   "labels": [],
-  "source": "backend/app/config.py:219",
+  "source": "backend/app/config.py:222",
   "section": "run",
   "summary": "Where the source of the running version is offered to its users; the project's tag of this version unless set (AGPL section 13)",
   "group": "runtime"
@@ -57,7 +57,7 @@
   "kind": "settings",
   "key": "SECRETS_ENCRYPTION_KEY",
   "labels": [],
-  "source": "backend/app/config.py:220",
+  "source": "backend/app/config.py:223",
   "section": "run",
   "summary": "Seals the stored token and webhook signing keys; required",
   "group": "runtime"
@@ -66,7 +66,7 @@
   "kind": "settings",
   "key": "JOB_FILE_DIR",
   "labels": [],
-  "source": "backend/app/config.py:301",
+  "source": "backend/app/config.py:304",
   "section": "run",
   "summary": "Where export files wait for download; created at start, kept as long as their job",
   "group": "runtime"
@@ -75,7 +75,7 @@
   "kind": "settings",
   "key": "RDM_API_REFERENCE_SCRIPT",
   "labels": [],
-  "source": "backend/app/config.py:249",
+  "source": "backend/app/config.py:252",
   "section": "run",
   "summary": "Where the API reference page at /docs/api loads its script from: bundled or cdn",
   "group": "runtime"
@@ -84,7 +84,7 @@
   "kind": "settings",
   "key": "WEB_CONCURRENCY",
   "labels": [],
-  "source": "backend/app/config.py:233",
+  "source": "backend/app/config.py:236",
   "section": "run",
   "summary": "Server worker processes on this instance",
   "group": "runtime"
@@ -93,7 +93,7 @@
   "kind": "settings",
   "key": "DATABASE_POOL_SIZE",
   "labels": [],
-  "source": "backend/app/config.py:234",
+  "source": "backend/app/config.py:237",
   "section": "run",
   "summary": "Database connections each process keeps open",
   "group": "runtime"
@@ -102,7 +102,7 @@
   "kind": "settings",
   "key": "DATABASE_POOL_MAX_OVERFLOW",
   "labels": [],
-  "source": "backend/app/config.py:235",
+  "source": "backend/app/config.py:238",
   "section": "run",
   "summary": "Database connections each process opens beyond the pool size when busy",
   "group": "runtime"
@@ -111,7 +111,7 @@
   "kind": "settings",
   "key": "DATABASE_POOL_TIMEOUT",
   "labels": [],
-  "source": "backend/app/config.py:236",
+  "source": "backend/app/config.py:239",
   "section": "run",
   "summary": "Seconds a request waits for a database connection before it answers 503",
   "group": "runtime"
@@ -120,7 +120,7 @@
   "kind": "settings",
   "key": "DATABASE_IDLE_TRANSACTION_TIMEOUT",
   "labels": [],
-  "source": "backend/app/config.py:238",
+  "source": "backend/app/config.py:241",
   "section": "run",
   "summary": "Seconds a connection may sit idle inside a transaction before the database ends it, releasing a stalled process's locks; 0 turns it off",
   "group": "runtime"
@@ -129,7 +129,7 @@
   "kind": "settings",
   "key": "LOG_FORMAT",
   "labels": [],
-  "source": "backend/app/config.py:240",
+  "source": "backend/app/config.py:243",
   "section": "run",
   "summary": "How the log is written: text lines, or one JSON object a line",
   "group": "runtime"
@@ -138,7 +138,7 @@
   "kind": "settings",
   "key": "LOG_LEVEL",
   "labels": [],
-  "source": "backend/app/config.py:241",
+  "source": "backend/app/config.py:244",
   "section": "run",
   "summary": "The lowest level the log writes",
   "group": "runtime"
@@ -147,7 +147,7 @@
   "kind": "settings",
   "key": "PROCESS_HEARTBEAT_SECONDS",
   "labels": [],
-  "source": "backend/app/config.py:242",
+  "source": "backend/app/config.py:245",
   "section": "run",
   "summary": "Seconds between each process's reports of its state to the others",
   "group": "runtime"
@@ -156,7 +156,7 @@
   "kind": "settings",
   "key": "MODEL_ADMIN_MUTATIONS_ENABLED",
   "labels": [],
-  "source": "backend/app/config.py:228",
+  "source": "backend/app/config.py:231",
   "section": "run",
   "summary": "Model drafts, compiling, installing and activating releases",
   "group": "capabilities"
@@ -165,7 +165,7 @@
   "kind": "settings",
   "key": "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
   "labels": [],
-  "source": "backend/app/config.py:231",
+  "source": "backend/app/config.py:234",
   "section": "run",
   "summary": "Creating, renaming, retiring, deleting workspaces and choosing the default",
   "group": "capabilities"
@@ -174,7 +174,7 @@
   "kind": "settings",
   "key": "INTEGRATION_JOBS_ENABLED",
   "labels": [],
-  "source": "backend/app/config.py:252",
+  "source": "backend/app/config.py:255",
   "section": "run",
   "summary": "Creating and cancelling jobs (POST /batches); job reads stay available",
   "group": "capabilities"
@@ -183,7 +183,7 @@
   "kind": "settings",
   "key": "CONSUMER_SUBSCRIPTIONS_ENABLED",
   "labels": [],
-  "source": "backend/app/config.py:305",
+  "source": "backend/app/config.py:308",
   "section": "run",
   "summary": "Webhook subscriptions and their delivery",
   "group": "capabilities"
@@ -192,7 +192,7 @@
   "kind": "settings",
   "key": "BATCH_MAX_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:254",
+  "source": "backend/app/config.py:257",
   "section": "run",
   "summary": "Items in an inline batch",
   "group": "limits"
@@ -201,7 +201,7 @@
   "kind": "settings",
   "key": "BATCH_MAX_BYTES",
   "labels": [],
-  "source": "backend/app/config.py:255",
+  "source": "backend/app/config.py:258",
   "section": "run",
   "summary": "Bytes in an inline batch's body",
   "group": "limits"
@@ -210,7 +210,7 @@
   "kind": "settings",
   "key": "ATOMIC_JOB_MAX_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:256",
+  "source": "backend/app/config.py:259",
   "section": "run",
   "summary": "Items in an atomic batch, inline or background",
   "group": "limits"
@@ -219,7 +219,7 @@
   "kind": "settings",
   "key": "BACKGROUND_JOB_MAX_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:258",
+  "source": "backend/app/config.py:261",
   "section": "run",
   "summary": "Items in a background batch",
   "group": "limits"
@@ -228,7 +228,7 @@
   "kind": "settings",
   "key": "BATCH_BACKGROUND_MAX_BYTES",
   "labels": [],
-  "source": "backend/app/config.py:260",
+  "source": "backend/app/config.py:263",
   "section": "run",
   "summary": "Bytes in a background batch's body",
   "group": "limits"
@@ -237,7 +237,7 @@
   "kind": "settings",
   "key": "JOB_CHUNK_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:262",
+  "source": "backend/app/config.py:265",
   "section": "run",
   "summary": "Items one background chunk commits",
   "group": "limits"
@@ -246,7 +246,7 @@
   "kind": "settings",
   "key": "IMPORT_MAX_BYTES",
   "labels": [],
-  "source": "backend/app/config.py:264",
+  "source": "backend/app/config.py:267",
   "section": "run",
   "summary": "Bytes in an import's file",
   "group": "limits"
@@ -255,7 +255,7 @@
   "kind": "settings",
   "key": "JOB_PREVIEW_MAX_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:265",
+  "source": "backend/app/config.py:268",
   "section": "run",
   "summary": "Items a preview of an import or a batch runs before it is a sample",
   "group": "limits"
@@ -264,7 +264,7 @@
   "kind": "settings",
   "key": "MODEL_OPERATION_MAX_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:266",
+  "source": "backend/app/config.py:269",
   "section": "run",
   "summary": "Operations in one request to a model draft",
   "group": "limits"
@@ -273,7 +273,7 @@
   "kind": "settings",
   "key": "JOB_LEASE_SECONDS",
   "labels": [],
-  "source": "backend/app/config.py:263",
+  "source": "backend/app/config.py:266",
   "section": "run",
   "summary": "Seconds a worker holds a job, renewed with each chunk",
   "group": "limits"
@@ -282,7 +282,7 @@
   "kind": "settings",
   "key": "ACCESS_TOKEN_MINUTES",
   "labels": [],
-  "source": "backend/app/config.py:221",
+  "source": "backend/app/config.py:224",
   "section": "run",
   "summary": "Minutes an access token lasts, for people and clients",
   "group": "runtime"
@@ -291,7 +291,7 @@
   "kind": "settings",
   "key": "TOKEN_SIGNING_KEY_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:222",
+  "source": "backend/app/config.py:225",
   "section": "run",
   "summary": "Days a token signing key signs before the next token brings a new one",
   "group": "runtime"
@@ -300,7 +300,7 @@
   "kind": "settings",
   "key": "SESSION_IDLE_HOURS",
   "labels": [],
-  "source": "backend/app/config.py:223",
+  "source": "backend/app/config.py:226",
   "section": "run",
   "summary": "Hours a browser session lasts without being used",
   "group": "runtime"
@@ -309,7 +309,7 @@
   "kind": "settings",
   "key": "SESSION_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:224",
+  "source": "backend/app/config.py:227",
   "section": "run",
   "summary": "Days a browser session lasts in all before the person signs in again",
   "group": "runtime"
@@ -318,7 +318,7 @@
   "kind": "settings",
   "key": "PASSWORD_RESET_HOURS",
   "labels": [],
-  "source": "backend/app/config.py:225",
+  "source": "backend/app/config.py:228",
   "section": "run",
   "summary": "Hours a password-reset link stays valid",
   "group": "runtime"
@@ -327,7 +327,7 @@
   "kind": "settings",
   "key": "PASSWORD_MIN_LENGTH",
   "labels": [],
-  "source": "backend/app/config.py:226",
+  "source": "backend/app/config.py:229",
   "section": "run",
   "summary": "Characters a local password needs at least; lower only for development",
   "group": "runtime"
@@ -336,7 +336,7 @@
   "kind": "settings",
   "key": "JOB_RETENTION_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:257",
+  "source": "backend/app/config.py:260",
   "section": "run",
   "summary": "Days a finished job keeps its outcomes and idempotency key",
   "group": "limits"
@@ -345,7 +345,7 @@
   "kind": "settings",
   "key": "FEED_RETENTION_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:302",
+  "source": "backend/app/config.py:305",
   "section": "run",
   "summary": "Days the change feed and consumer events answer a position",
   "group": "limits"
@@ -354,7 +354,7 @@
   "kind": "settings",
   "key": "CONSUMER_RESOLVE_MAX_ITEMS",
   "labels": [],
-  "source": "backend/app/config.py:303",
+  "source": "backend/app/config.py:306",
   "section": "run",
   "summary": "Items in one consumer batch resolve",
   "group": "limits"
@@ -363,9 +363,18 @@
   "kind": "settings",
   "key": "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:308",
+  "source": "backend/app/config.py:311",
   "section": "integrate",
   "summary": "Days the webhook delivery log keeps a request, its body and its attempts",
+  "group": "webhooks"
+ },
+ {
+  "kind": "settings",
+  "key": "WEBHOOK_PRIVATE_ADDRESSES_ALLOWED",
+  "labels": [],
+  "source": "backend/app/config.py:314",
+  "section": "integrate",
+  "summary": "Whether a webhook may go to a loopback, private (RFC 1918, unique-local, CGNAT) or other non-public address; off, the default, refuses them at subscription and at delivery. Link-local addresses (cloud metadata) are refused either way",
   "group": "webhooks"
  },
  {
@@ -381,7 +390,7 @@
   "kind": "settings",
   "key": "AI_MODEL",
   "labels": [],
-  "source": "backend/app/config.py:268",
+  "source": "backend/app/config.py:271",
   "section": "run",
   "summary": "The provider's model; empty for claude means claude-opus-5-5",
   "group": "ai"
@@ -390,7 +399,7 @@
   "kind": "settings",
   "key": "AI_API_KEY",
   "labels": [],
-  "source": "backend/app/config.py:269",
+  "source": "backend/app/config.py:272",
   "section": "run",
   "summary": "The provider's key; never shown",
   "group": "ai"
@@ -399,7 +408,7 @@
   "kind": "settings",
   "key": "AI_BASE_URL",
   "labels": [],
-  "source": "backend/app/config.py:270",
+  "source": "backend/app/config.py:273",
   "section": "run",
   "summary": "The provider's address: required for openai-compatible, empty for Claude's own",
   "group": "ai"
@@ -408,7 +417,7 @@
   "kind": "settings",
   "key": "AI_SEND_LEVEL",
   "labels": [],
-  "source": "backend/app/config.py:271",
+  "source": "backend/app/config.py:274",
   "section": "run",
   "summary": "The most that may leave the instance: structure (no values), samples (a few) or values (as many as a feature needs)",
   "group": "ai"
@@ -426,7 +435,7 @@
   "kind": "settings",
   "key": "AI_MIN_CONFIDENCE",
   "labels": [],
-  "source": "backend/app/config.py:273",
+  "source": "backend/app/config.py:276",
   "section": "run",
   "summary": "The confidence, 0 to 1, below which a proposal is not offered",
   "group": "ai"
@@ -435,7 +444,7 @@
   "kind": "settings",
   "key": "AI_LOG_CONTENT",
   "labels": [],
-  "source": "backend/app/config.py:274",
+  "source": "backend/app/config.py:277",
   "section": "run",
   "summary": "Keep each call's request and answer for an operator debugging a prompt",
   "group": "ai"
@@ -444,7 +453,7 @@
   "kind": "settings",
   "key": "AI_LOG_CONTENT_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:275",
+  "source": "backend/app/config.py:278",
   "section": "run",
   "summary": "Days a call's kept request and answer stay, when AI_LOG_CONTENT is on",
   "group": "ai"
@@ -453,7 +462,7 @@
   "kind": "settings",
   "key": "AI_TIMEOUT_SECONDS",
   "labels": [],
-  "source": "backend/app/config.py:276",
+  "source": "backend/app/config.py:279",
   "section": "run",
   "summary": "Seconds one call to the provider may take before it fails",
   "group": "ai"
@@ -462,7 +471,7 @@
   "kind": "settings",
   "key": "AI_REASONING_EFFORT",
   "labels": [],
-  "source": "backend/app/config.py:278",
+  "source": "backend/app/config.py:281",
   "section": "run",
   "summary": "openai-compatible only: how much the model reasons first, none, low, medium or high; empty sends nothing. none keeps a local thinking model fast",
   "group": "ai"
@@ -471,7 +480,7 @@
   "kind": "settings",
   "key": "AI_CONTEXT_TOKENS",
   "labels": [],
-  "source": "backend/app/config.py:281",
+  "source": "backend/app/config.py:284",
   "section": "run",
   "summary": "The model's context window in tokens, for a small local model; each call is sized to half of it. Empty: no limit",
   "group": "ai"
@@ -480,7 +489,7 @@
   "kind": "settings",
   "key": "AI_TASK_RETENTION_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:285",
+  "source": "backend/app/config.py:288",
   "section": "run",
   "summary": "Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then it and its file are deleted",
   "group": "ai"
@@ -489,7 +498,7 @@
   "kind": "settings",
   "key": "AI_AGENT_COMMAND",
   "labels": [],
-  "source": "backend/app/config.py:286",
+  "source": "backend/app/config.py:289",
   "section": "run",
   "summary": "The command that starts the assistant's Claude Code session, for example: claude --model sonnet; empty, the assistant runs no session",
   "group": "runtime"
@@ -498,7 +507,7 @@
   "kind": "settings",
   "key": "AI_AGENT_SANDBOX",
   "labels": [],
-  "source": "backend/app/config.py:288",
+  "source": "backend/app/config.py:291",
   "section": "run",
   "summary": "container when the engine runs in a container, where Claude Code's own sandbox cannot run; empty, the operating system's sandbox",
   "group": "runtime"
@@ -507,7 +516,7 @@
   "kind": "settings",
   "key": "AI_AGENT_TIMEOUT_SECONDS",
   "labels": [],
-  "source": "backend/app/config.py:289",
+  "source": "backend/app/config.py:292",
   "section": "run",
   "summary": "The longest one turn of the assistant's session may take, in seconds; a turn over it is stopped as a person's Stop is and the task goes back to its last point. Default 1800",
   "group": "runtime"
@@ -516,7 +525,7 @@
   "kind": "settings",
   "key": "AI_AGENT_API_URL",
   "labels": [],
-  "source": "backend/app/config.py:287",
+  "source": "backend/app/config.py:290",
   "section": "run",
   "summary": "The API address the assistant's session uses; empty, this instance's own",
   "group": "runtime"
@@ -525,7 +534,7 @@
   "kind": "settings",
   "key": "MCP_ENABLED",
   "labels": [],
-  "source": "backend/app/config.py:290",
+  "source": "backend/app/config.py:293",
   "section": "run",
   "summary": "Whether assistants can reach the instance at /mcp; off, the endpoint does not exist",
   "group": "ai"
@@ -534,7 +543,7 @@
   "kind": "settings",
   "key": "MCP_RATE_PER_MINUTE",
   "labels": [],
-  "source": "backend/app/config.py:291",
+  "source": "backend/app/config.py:294",
   "section": "run",
   "summary": "Tool calls one person or client may make through /mcp in a minute",
   "group": "ai"
@@ -543,7 +552,7 @@
   "kind": "settings",
   "key": "MCP_OPEN_REGISTRATION",
   "labels": [],
-  "source": "backend/app/config.py:292",
+  "source": "backend/app/config.py:295",
   "section": "run",
   "summary": "Whether an assistant may register itself; off, only those an administrator registers can sign people in",
   "group": "ai"
@@ -552,7 +561,7 @@
   "kind": "settings",
   "key": "MCP_REDIRECT_HOSTS",
   "labels": [],
-  "source": "backend/app/config.py:296",
+  "source": "backend/app/config.py:299",
   "section": "run",
   "summary": "HTTPS hosts a self-registered assistant may return to, besides this computer",
   "group": "ai"
@@ -561,7 +570,7 @@
   "kind": "settings",
   "key": "MCP_CALLS_DAYS",
   "labels": [],
-  "source": "backend/app/config.py:299",
+  "source": "backend/app/config.py:302",
   "section": "run",
   "summary": "Days a record of a tool call through /mcp is kept",
   "group": "ai"
@@ -570,7 +579,7 @@
   "kind": "settings",
   "key": "MCP_ANSWER_BYTES",
   "labels": [],
-  "source": "backend/app/config.py:300",
+  "source": "backend/app/config.py:303",
   "section": "run",
   "summary": "The longest answer of a tool through /mcp; past it a page comes back smaller, with a cursor",
   "group": "ai"

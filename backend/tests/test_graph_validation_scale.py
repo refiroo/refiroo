@@ -131,7 +131,9 @@ def test_the_indexed_checks_answer_as_the_scans_did():
         {"relationId": "cite-1"},
         {"relationId": "cite-2"},
     ]
-    assert [item["message"] for item in diagnostics if item["code"] == "RELATION_CARDINALITY_VIOLATION"] == [
+    assert [
+        item["message"] for item in diagnostics if item["code"] == "RELATION_CARDINALITY_VIOLATION"
+    ] == [
         f"Relation '{GROUP_CONTAINS_ITEM}' exceeds target cardinality",
         f"Relation '{GROUP_CONTAINS_ITEM}' exceeds target cardinality",
         f"Relation '{ITEM_CITES_GROUP}' exceeds source cardinality",
@@ -182,7 +184,10 @@ def test_validating_and_publishing_a_large_workspace_stay_within_budget(large):
     started = time.perf_counter()
     published = client.post(
         f"/api/v1/change-sets/{change_set['id']}/publication",
-        json={"expectedChangeSetVersion": version, "expectedActivePublicationId": dataset.publication_id},
+        json={
+            "expectedChangeSetVersion": version,
+            "expectedActivePublicationId": dataset.publication_id,
+        },
     )
     publishing = time.perf_counter() - started
     assert published.status_code == 200, published.text

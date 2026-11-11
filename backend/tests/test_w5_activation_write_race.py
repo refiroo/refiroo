@@ -47,13 +47,22 @@ def client(monkeypatch, migrated_database) -> Iterator[TestClient]:
     model_registry.clear()
 
 
-def _create(client: TestClient, workspace_key: str, object_type_key: str, name: str, *,
-            parent: str | None = None, **attributes) -> dict:
+def _create(
+    client: TestClient,
+    workspace_key: str,
+    object_type_key: str,
+    name: str,
+    *,
+    parent: str | None = None,
+    **attributes,
+) -> dict:
     response = client.post(
         "/api/v1/objects",
         json={
             "workspaceKey": workspace_key,
-            "applicationKey": "rdm-systems" if object_type_key.startswith("system") else "rdm-master",
+            "applicationKey": "rdm-systems"
+            if object_type_key.startswith("system")
+            else "rdm-master",
             "objectTypeKey": object_type_key,
             "name": name,
             "parentObjectId": parent,
@@ -78,7 +87,9 @@ def _candidate(client: TestClient, change: Callable[[dict], None]) -> ModelRelea
 
 def _system_type_required(source: dict) -> None:
     system = next(item for item in source["objectTypes"] if item["key"] == "system")
-    binding = next(item for item in system["attributes"] if item["attributeTypeKey"] == "system-type")
+    binding = next(
+        item for item in system["attributes"] if item["attributeTypeKey"] == "system-type"
+    )
     binding["required"] = True
 
 
@@ -105,8 +116,13 @@ def _activate(client: TestClient, release: ModelRelease, workspace: str) -> http
     )
 
 
-def _race(monkeypatch, client: TestClient, release: ModelRelease, workspace: str,
-          write: Callable[[], httpx.Response]) -> httpx.Response:
+def _race(
+    monkeypatch,
+    client: TestClient,
+    release: ModelRelease,
+    workspace: str,
+    write: Callable[[], httpx.Response],
+) -> httpx.Response:
     """Hold ``write`` after it resolved release A, activate ``release`` into its workspace, then
     let it continue."""
     resolved, activated = threading.Event(), threading.Event()
@@ -189,7 +205,10 @@ def test_attribute_write_resolved_under_a_is_refused_after_b_activates(monkeypat
     workspace_key = unique_key("w5-attribute")
     create_workspace(client, workspace_key)
     system = _create(
-        client, workspace_key, "system", "System",
+        client,
+        workspace_key,
+        "system",
+        "System",
         **{"system-code": unique_key("sys"), "system-type": "erp"},
     )
     release = _candidate(client, _system_type_required)
@@ -219,10 +238,16 @@ def test_attribute_write_resolved_under_a_is_refused_after_b_activates(monkeypat
 def test_relation_write_resolved_under_a_is_refused_after_b_activates(monkeypatch, client):
     workspace_key = unique_key("w5-relation")
     create_workspace(client, workspace_key)
-    system = _create(client, workspace_key, "system", "System", **{"system-code": unique_key("sys")})
+    system = _create(
+        client, workspace_key, "system", "System", **{"system-code": unique_key("sys")}
+    )
     first, second = (
         _create(
-            client, workspace_key, "system-value", f"Value {index}", parent=system["id"],
+            client,
+            workspace_key,
+            "system-value",
+            f"Value {index}",
+            parent=system["id"],
             **{"value-code": unique_key("v"), "value-name": f"Value {index}"},
         )
         for index in (1, 2)
@@ -317,8 +342,6 @@ def test_draft_base_capture_resolved_under_a_is_refused_after_b_activates(monkey
     assert response.json()["error"]["code"] == "CHANGE_SET_SNAPSHOT_RETRY"
     with SessionLocal() as session:
         assert (
-            session.scalar(
-                select(func.count()).where(ChangeSetBase.workspace_key == workspace_key)
-            )
+            session.scalar(select(func.count()).where(ChangeSetBase.workspace_key == workspace_key))
             == 0
         )

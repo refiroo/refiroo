@@ -188,7 +188,10 @@ def test_change_set_derivation_from_an_older_retired_publication():
         assert client.get(f"/api/v1/publications/{second['id']}").json()["status"] == "active"
 
         derived = _create_change_set(
-            client, workspace_key, name="Derived from retired", derived_from_publication_id=first["id"]
+            client,
+            workspace_key,
+            name="Derived from retired",
+            derived_from_publication_id=first["id"],
         ).json()
         assert derived["derivedFromPublicationId"] == first["id"]
         assert derived["modelReleaseId"] == first["modelReleaseId"]
@@ -206,7 +209,9 @@ def test_change_set_list_cursor_detail_rename_and_discard():
         first = _create_change_set(client, workspace_key, name="First").json()
         second = _create_change_set(client, workspace_key, name="Second").json()
 
-        first_page = client.get(f"/api/v1/workspaces/{workspace_key}/change-sets", params={"pageSize": 1})
+        first_page = client.get(
+            f"/api/v1/workspaces/{workspace_key}/change-sets", params={"pageSize": 1}
+        )
         assert first_page.status_code == 200
         assert len(first_page.json()["items"]) == 1
         cursor = first_page.json()["nextCursor"]
@@ -229,7 +234,9 @@ def test_change_set_list_cursor_detail_rename_and_discard():
         other_key = _key("other")
         _create_workspace(client, other_key)
         _create_change_set(client, other_key, name="Other")
-        other_page = client.get(f"/api/v1/workspaces/{other_key}/change-sets", params={"pageSize": 5})
+        other_page = client.get(
+            f"/api/v1/workspaces/{other_key}/change-sets", params={"pageSize": 5}
+        )
         assert other_page.status_code == 200
         assert [item["name"] for item in other_page.json()["items"]] == ["Other"]
         mismatched = client.get(
@@ -344,7 +351,9 @@ def test_catalogue_retirement_blocks_change_set_derive_rename_and_discard():
             expected_status=409,
         )
         assert derive.json()["error"]["code"] == "WORKSPACE_RETIRED"
-        create = _create_change_set(client, workspace_key, name="Blocked create", expected_status=409)
+        create = _create_change_set(
+            client, workspace_key, name="Blocked create", expected_status=409
+        )
         assert create.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
         rename = client.patch(
@@ -400,9 +409,7 @@ def test_record_level_crud_audit_stays_separate_from_workspace_lifecycle_audit()
             f"/api/v1/change-sets/{change_set['id']}",
             json={"name": "Renamed separate", "expectedVersion": 2},
         )
-        client.delete(
-            f"/api/v1/change-sets/{change_set['id']}", params={"expectedVersion": 3}
-        )
+        client.delete(f"/api/v1/change-sets/{change_set['id']}", params={"expectedVersion": 3})
 
     with SessionLocal() as session:
         lifecycle = list(

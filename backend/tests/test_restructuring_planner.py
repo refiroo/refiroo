@@ -96,7 +96,9 @@ def records(plan) -> dict[str, dict]:
 
 
 def outcomes(record: dict) -> dict[str, tuple[str, str | None]]:
-    return {item["attributeTypeKey"]: (item["outcome"], item["from"]) for item in record["attributes"]}
+    return {
+        item["attributeTypeKey"]: (item["outcome"], item["from"]) for item in record["attributes"]
+    }
 
 
 def refusal_codes(plan) -> list[tuple[str, str | None]]:
@@ -199,10 +201,16 @@ def estate(starter):  # noqa: F811 - the fixture imported above
         systems_app,
         k("system"),
         "T",
-        [attr(k("system-code"), "t"), attr(k("system-type"), "erp"), attr(k("description"), "About T")],
+        [
+            attr(k("system-code"), "t"),
+            attr(k("system-type"), "erp"),
+            attr(k("description"), "About T"),
+        ],
     )
     group = create(client, systems_app, k("system-group"), "G", [attr(k("group-code"), "g")], moved)
-    inner = create(client, systems_app, k("system-group"), "G2", [attr(k("group-code"), "g2")], group)
+    inner = create(
+        client, systems_app, k("system-group"), "G2", [attr(k("group-code"), "g2")], group
+    )
     value = create(
         client,
         systems_app,
@@ -248,9 +256,12 @@ def test_a_type_question_is_asked_once_and_answered_by_a_choice(starter, estate)
     )
     # A choice outside the options is refused.
     wrong = TypeChoice(k("system"), k("system"), k("system"))
-    assert [code for code, _ in refusal_codes(preview(change_set, Restructuring(operation, type_choices=[wrong])))] == [
-        "typeNotAllowed"
-    ]
+    assert [
+        code
+        for code, _ in refusal_codes(
+            preview(change_set, Restructuring(operation, type_choices=[wrong]))
+        )
+    ] == ["typeNotAllowed"]
 
     # As a group, it keeps its children, whose edges become the group's relations.
     as_group = TypeChoice(k("system"), k("system"), k("system-group"))
@@ -264,7 +275,9 @@ def test_a_type_question_is_asked_once_and_answered_by_a_choice(starter, estate)
         k("description"): ("kept", k("description")),
         k("active"): ("kept", k("active")),
     }
-    assert record["withoutPlace"]["attributes"] == [{"attributeTypeKey": k("system-type"), "value": "erp"}]
+    assert record["withoutPlace"]["attributes"] == [
+        {"attributeTypeKey": k("system-type"), "value": "erp"}
+    ]
     (pair,) = plan.payload()["pairs"]
     assert {item["attributeTypeKey"]: item["rule"] for item in pair["attributes"]} == {
         k("group-code"): "display",
@@ -353,7 +366,9 @@ def test_the_dry_run_refuses_a_collision_and_the_change_type_rules(starter, esta
     assert refusal["conflictingObjectId"]
     # The preview kept nothing.
     assert version(client, change_set) == before
-    assert read(client, k("system-group"), group["id"], changeSetId=change_set["id"])["parentObjectId"]
+    assert read(client, k("system-group"), group["id"], changeSetId=change_set["id"])[
+        "parentObjectId"
+    ]
 
     # Changing a type in place: the same type is a bad request; a type the parent cannot hold is
     # refused; so are another application's type and the top level for a type that needs a parent.
@@ -367,9 +382,9 @@ def test_the_dry_run_refuses_a_collision_and_the_change_type_rules(starter, esta
         (MoveOperation(group["id"], estate["G2"]["id"]), "cycle"),
         (MoveOperation(str(uuid4()), None), "notInChangeSet"),
     ):
-        assert [code for code, _ in refusal_codes(preview(change_set, Restructuring(operation)))] == [
-            code
-        ], operation
+        assert [
+            code for code, _ in refusal_codes(preview(change_set, Restructuring(operation)))
+        ] == [code], operation
     # A move that changes nothing plans nothing.
     same = preview(change_set, Restructuring(MoveOperation(group["id"], estate["T"]["id"])))
     assert same.status == "ready" and same.payload()["records"] == []
@@ -384,7 +399,9 @@ def mapped_value(starter):  # noqa: F811
     client, k = starter
     master_app = k("rdm-master")
     domain = create(client, master_app, k("domain"), "D", [attr(k("domain-code"), "d")])
-    codelist = create(client, master_app, k("codelist"), "C", [attr(k("codelist-code"), "c")], domain)
+    codelist = create(
+        client, master_app, k("codelist"), "C", [attr(k("codelist-code"), "c")], domain
+    )
     master = create(
         client,
         master_app,
@@ -423,7 +440,9 @@ def test_a_round_trip_offers_back_values_and_relationships(starter, mapped_value
         k("value-code"),
         k("external-id"),
     }
-    assert [item["relationId"] for item in record["withoutPlace"]["relationships"]] == [mapped["id"]]
+    assert [item["relationId"] for item in record["withoutPlace"]["relationships"]] == [
+        mapped["id"]
+    ]
     assert plan.summary()["relationshipsWithoutPlaceCount"] == 1
     publish(client, there)
 
@@ -452,16 +471,18 @@ def test_a_round_trip_offers_back_values_and_relationships(starter, mapped_value
         ),
     )
     (record,) = declined.payload()["records"]
-    assert record["inputsNeeded"] == [{"kind": "attribute", "key": k("value-code"), "reason": "required"}]
+    assert record["inputsNeeded"] == [
+        {"kind": "attribute", "key": k("value-code"), "reason": "required"}
+    ]
     assert record["restoredRelationships"] == []
 
     apply(client, back, request)
     publish(client, back)
     assert values(read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)) == original
     maps = {"relationTypeKey": k("system-value-maps-to-master")}
-    assert [item["id"] for item in relations_of(client, master["id"], workspaceKey=WORKSPACE, **maps)] == [
-        mapped["id"]
-    ]
+    assert [
+        item["id"] for item in relations_of(client, master["id"], workspaceKey=WORKSPACE, **maps)
+    ] == [mapped["id"]]
 
 
 def test_a_discarded_reclassification_is_not_offered_back(starter, mapped_value):  # noqa: F811
@@ -583,7 +604,12 @@ def test_a_cascade_over_three_levels_changes_each_level(volume):  # noqa: F811
         (ITEM, NODE): 2,
     }
     assert pairs[(ITEM, NODE)]["relations"] == [
-        {"relationTypeKey": ITEM_CITES_GROUP, "direction": "outgoing", "outcome": "kept", "count": 1}
+        {
+            "relationTypeKey": ITEM_CITES_GROUP,
+            "direction": "outgoing",
+            "outcome": "kept",
+            "count": 1,
+        }
     ]
     record = records(plan)[top["id"]]
     assert outcomes(record) == {CODE: ("kept", CODE), RANK: ("kept", RANK)}
@@ -601,9 +627,12 @@ def test_a_cascade_over_three_levels_changes_each_level(volume):  # noqa: F811
         assert [(edge["relationTypeKey"], edge["fromObjectId"]) for edge in edges] == [
             (relation, parent["id"])
         ]
-    assert [item["id"] for item in relations_of(client, leaf["id"], changeSetId=change_set["id"], direction="outgoing")] == [
-        cited["id"]
-    ]
+    assert [
+        item["id"]
+        for item in relations_of(
+            client, leaf["id"], changeSetId=change_set["id"], direction="outgoing"
+        )
+    ] == [cited["id"]]
     publish(client, change_set)
     assert read(client, NODE, leaf["id"], workspaceKey=WORKSPACE)["parentObjectId"] == lower["id"]
 
@@ -649,7 +678,9 @@ def test_a_cascade_asks_once_per_type_pair(questions):
     request = Restructuring(operation, type_choices=[as_node], mapping_choices=[score])
     plan = preview(change_set, request)
     by_name = {item["name"]: item for item in plan.payload()["records"]}
-    assert by_name["B"]["inputsNeeded"] == [{"kind": "attribute", "key": SCORE, "reason": "invalidValue"}]
+    assert by_name["B"]["inputsNeeded"] == [
+        {"kind": "attribute", "key": SCORE, "reason": "invalidValue"}
+    ]
     assert outcomes(by_name["C"])[SCORE] == ("mapped", RANK)
     assert [record.name for record in plan.records_with(["needsInput"])] == ["B"]
 
@@ -683,9 +714,9 @@ def test_refusals_and_the_size_limit(volume, monkeypatch):  # noqa: F811
     assert sorted(refusal_codes(plan)) == sorted(("noPossibleType", item["id"]) for item in items)
     assert plan.summary()["refusalCount"] == 3
     # Another application's parent, and an item at the top level, which becomes a group.
-    assert refusal_codes(preview(change_set, Restructuring(MoveOperation(top["id"], column["id"])))) == [
-        ("application", top["id"])
-    ]
+    assert refusal_codes(
+        preview(change_set, Restructuring(MoveOperation(top["id"], column["id"])))
+    ) == [("application", top["id"])]
     plan = preview(change_set, Restructuring(MoveOperation(items[0]["id"], None)))
     assert plan.status == "ready"
     assert plan.payload()["records"][0]["after"] == {"objectTypeKey": GROUP, "parentObjectId": None}
@@ -718,7 +749,9 @@ def test_apply_claims_the_previewed_plan(volume):  # noqa: F811
         with SessionLocal() as session, pytest.raises(ApiError) as caught:
             apply_restructuring(session, change_set["id"], **claim)
         assert version(client, change_set) == before
-        assert read(client, GROUP, top["id"], changeSetId=change_set["id"])["objectTypeKey"] == GROUP
+        assert (
+            read(client, GROUP, top["id"], changeSetId=change_set["id"])["objectTypeKey"] == GROUP
+        )
         return caught.value
 
     stale = refused(
@@ -728,9 +761,13 @@ def test_apply_claims_the_previewed_plan(volume):  # noqa: F811
     )
     assert stale.code == "CHANGE_SET_VERSION_CONFLICT"
     # Another choice is another plan.
-    other = Restructuring(request.operation, mapping_choices=[MappingChoice(GROUP, NODE, {RANK: None})])
+    other = Restructuring(
+        request.operation, mapping_choices=[MappingChoice(GROUP, NODE, {RANK: None})]
+    )
     changed = refused(
-        request=other, expected_change_set_version=plan.change_set_version, plan_digest=plan.plan_digest
+        request=other,
+        expected_change_set_version=plan.change_set_version,
+        plan_digest=plan.plan_digest,
     )
     assert changed.code == "RESTRUCTURING_PLAN_CHANGED"
     assert changed.details == {"planDigest": preview(change_set, other).plan_digest}

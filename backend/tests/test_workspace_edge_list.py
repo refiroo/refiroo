@@ -33,11 +33,16 @@ def seed(client):
     published = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     publication = client.post(
         f"/api/v1/change-sets/{published['id']}/publication",
-        json={"expectedChangeSetVersion": published["version"], "expectedActivePublicationId": None},
+        json={
+            "expectedChangeSetVersion": published["version"],
+            "expectedActivePublicationId": None,
+        },
     )
     assert publication.status_code == 200, publication.text
 
-    removed = client.delete(f"/api/v1/relations/{e1['id']}", params={"expectedVersion": e1["version"]})
+    removed = client.delete(
+        f"/api/v1/relations/{e1['id']}", params={"expectedVersion": e1["version"]}
+    )
     assert removed.status_code == 204, removed.text
     e3 = relation(client, s3, master)
 
@@ -59,7 +64,9 @@ def seed(client):
     )
     assert removed.status_code == 204, removed.text
     return {
-        "edges": {name: edge["id"] for name, edge in zip(("e1", "e2", "e3", "e4"), (e1, e2, e3, e4))},
+        "edges": {
+            name: edge["id"] for name, edge in zip(("e1", "e2", "e3", "e4"), (e1, e2, e3, e4))
+        },
         "contexts": {
             "live": {},
             "changeSet": {"changeSetId": change_set["id"]},
@@ -71,7 +78,9 @@ def seed(client):
 def walk(client, route, params):
     items, cursor = [], None
     while True:
-        page = get(client, route, {**params, "pageSize": 2, **({"cursor": cursor} if cursor else {})})
+        page = get(
+            client, route, {**params, "pageSize": 2, **({"cursor": cursor} if cursor else {})}
+        )
         items.extend(page["items"])
         cursor = page["nextCursor"]
         if cursor is None:

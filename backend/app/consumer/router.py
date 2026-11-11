@@ -38,6 +38,7 @@ from ..engine.model.registry import (
     resolve_model_snapshot,
     resolve_pinned_release,
 )
+from ..engine.model.workspace_models import default_workspace_key
 from ..engine.reads.consumer_events import (
     AFTER_POSITION,
     PAGE_SIZES,
@@ -188,12 +189,44 @@ def _authenticated(request: Request, session: DbSession) -> None:
         return
     consumer_api = request.path_params.get("consumer_api")
     if consumer_api is not None and not permissions.reads_consumer_api(consumer_api, workspace.key):
-        raise api_error(
-            403,
-            "FORBIDDEN",
-            f"Reading consumer API '{consumer_api}' in workspace '{workspace.key}' needs a grant of it",
-            {"consumerApi": consumer_api, "workspaceKey": workspace.key},
+        # A key this workspace's model does not declare is not found here, whatever the grants; the
+        # answer names the workspaces where this client holds a grant of it, from grant data only.
+        if served_versions(resolve_model_snapshot(session, workspace.key).model, consumer_api):
+            raise _forbidden_consumer_api(consumer_api, workspace.key)
+        granted = sorted(
+            session.scalars(
+                select(Workspace.key).where(
+                    Workspace.status == "active",
+                    Workspace.key.in_(
+                        [key for key, name in permissions.consumer_apis if name == consumer_api]
+                    ),
+                )
+            )
         )
+        hint = (
+            f"; this client reads it in {_keys(granted)} (add ?workspace={granted[0]})"
+            if granted
+            else ""
+        )
+        raise api_error(
+            404,
+            "CONSUMER_API_NOT_FOUND",
+            f"Consumer API '{consumer_api}' is not in workspace '{workspace.key}'{hint}",
+            {"workspaces": granted},
+        )
+
+
+def _keys(keys: list[str]) -> str:
+    return ("workspace " if len(keys) == 1 else "workspaces ") + ", ".join(f"'{key}'" for key in keys)
+
+
+def _forbidden_consumer_api(consumer_api: str, workspace_key: str) -> ApiError:
+    return api_error(
+        403,
+        "FORBIDDEN",
+        f"Reading consumer API '{consumer_api}' in workspace '{workspace_key}' needs a grant of it",
+        {"consumerApi": consumer_api, "workspaceKey": workspace_key},
+    )
 
 
 router = APIRouter(
@@ -764,11 +797,14 @@ def get_openapi(
     workspace, active = _described(response, session, request.query_params.get("workspace"))
     definition = _served(request, session, active, consumer_api, contract_version)
     root_path = _root_path(request)
+    # A non-default workspace's document requires ``workspace``; the default's leaves it optional.
+    described = None if workspace.key == default_workspace_key(session) else workspace.key
     return _document(
         request,
         response,
         entity_tag(
-            ("openapi", workspace.key, active.release_id, root_path), definition.contractVersion
+            ("openapi", workspace.key, described or "", active.release_id, root_path),
+            definition.contractVersion,
         ),
         lambda: consumer_openapi(
             active.model,
@@ -776,6 +812,7 @@ def get_openapi(
             root_path=root_path,
             resolve_max_items=request.app.state.consumer_resolve_max_items,
             token_url=f"{request.app.state.identity_settings.issuer}/oauth/token",
+            workspace_key=described,
         ),
     )
 

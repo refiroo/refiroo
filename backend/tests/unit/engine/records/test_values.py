@@ -28,9 +28,12 @@ def test_sql_encoding_equals_python_for_every_stored_value_type(seeded):
                 "1E-30",
                 "-42.500",
                 "123456789012345678901234567890",
-                *[f"{sign}{digits}{tail}" for sign in ("", "-")
-                  for digits in ("1234567890123456789012345678", "1234567890123456789012345679")
-                  for tail in ("49", "50", "51")],
+                *[
+                    f"{sign}{digits}{tail}"
+                    for sign in ("", "-")
+                    for digits in ("1234567890123456789012345678", "1234567890123456789012345679")
+                    for tail in ("49", "50", "51")
+                ],
                 *[str(rng.randrange(10**29, 10**30)) for _ in range(8)],
                 # PostgreSQL's scale limits, and an odd last digit where its division scale ends.
                 "1E-16383",
@@ -124,7 +127,9 @@ def test_conversion_classes_hold_to_the_database_function(seeded):
             for target in VALUE_COLUMNS:
                 converted = [
                     session.scalar(
-                        text("SELECT rdm_convert_value(CAST(:value AS json), :source, :target) IS NOT NULL"),
+                        text(
+                            "SELECT rdm_convert_value(CAST(:value AS json), :source, :target) IS NOT NULL"
+                        ),
                         {"value": json.dumps(value), "source": source, "target": target},
                     )
                     for value in values

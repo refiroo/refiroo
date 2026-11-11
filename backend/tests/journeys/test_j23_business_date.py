@@ -269,7 +269,9 @@ def _rates_walk(world, **params):
     naming the dated type."""
     names, cursor = [], None
     while True:
-        response = consumer_list(world, world.key("Capi.rates"), pageSize=1, cursor=cursor, **params)
+        response = consumer_list(
+            world, world.key("Capi.rates"), pageSize=1, cursor=cursor, **params
+        )
         page = ok(response)
         assert page["asOfApplied"] == [world.key("Capi.E")]
         assert response.headers[APPLIED] == world.key("Capi.E")
@@ -287,17 +289,31 @@ def test_a_consumer_list_on_a_date_page_by_page(world):
     for that date and names the dated type; the reused cursors are refused; the list of the undated
     type refuses a date, naming it."""
     _consumer_rates(world)
-    assert _rates_walk(world, asOf="2026-06-30") == ["Old rate", "Standing rate", "Transitional rate"]
-    assert _rates_walk(world, asOf="2026-07-01") == ["New rate", "Standing rate", "Transitional rate"]
+    assert _rates_walk(world, asOf="2026-06-30") == [
+        "Old rate",
+        "Standing rate",
+        "Transitional rate",
+    ]
+    assert _rates_walk(world, asOf="2026-07-01") == [
+        "New rate",
+        "Standing rate",
+        "Transitional rate",
+    ]
 
     rates = world.key("Capi.rates")
     cursor = ok(consumer_list(world, rates, pageSize=1, asOf="2026-06-30"))["nextCursor"]
-    refused(consumer_list(world, rates, pageSize=1, cursor=cursor, asOf="2026-07-02"), 400, "INVALID_CURSOR")
+    refused(
+        consumer_list(world, rates, pageSize=1, cursor=cursor, asOf="2026-07-02"),
+        400,
+        "INVALID_CURSOR",
+    )
     refused(consumer_list(world, rates, pageSize=1, cursor=cursor), 400, "INVALID_CURSOR")
     undated = ok(consumer_list(world, rates, pageSize=100))
     assert "asOfApplied" not in undated and len(undated["items"]) == 5
 
-    error = refused(consumer_list(world, world.key("Capi.fees"), asOf="2026-06-30"), 400, "AS_OF_NOT_SUPPORTED")
+    error = refused(
+        consumer_list(world, world.key("Capi.fees"), asOf="2026-06-30"), 400, "AS_OF_NOT_SUPPORTED"
+    )
     assert error["details"] == {"objectTypes": [world.key("Capi.F")], "path": "/query/asOf"}
 
 
@@ -315,7 +331,9 @@ def test_a_consumer_object_on_a_date(world):
     assert ok(response)[world.key("Capi.name")] == "Old rate"
     assert response.headers[APPLIED] == world.key("Capi.E")
     refused(consumer_object(world, old, asOf="2026-07-01"), 404, "OBJECT_NOT_FOUND")
-    error = refused(consumer_object(world, fee["id"], asOf="2026-06-30"), 400, "AS_OF_NOT_SUPPORTED")
+    error = refused(
+        consumer_object(world, fee["id"], asOf="2026-06-30"), 400, "AS_OF_NOT_SUPPORTED"
+    )
     assert error["details"]["objectTypes"] == [world.key("Capi.F")]
     refused(consumer_object(world, "no-such-record", asOf="2026-06-30"), 404, "OBJECT_NOT_FOUND")
 
@@ -354,23 +372,36 @@ def test_a_lookup_across_dated_and_undated_types(world):
     _dated(world, "Flat rate", structure="F")
     world.made("R", "Rate ledger")
 
-    plain = {item[world.key("Capi.name")]: item["matchScore"] for item in ok(consumer_xref(world, query="rate"))["results"]}
+    plain = {
+        item[world.key("Capi.name")]: item["matchScore"]
+        for item in ok(consumer_xref(world, query="rate"))["results"]
+    }
     response = consumer_xref(world, query="rate", asOf="2026-06-30")
     dated = ok(response)
     found = {item[world.key("Capi.name")]: item["matchScore"] for item in dated["results"]}
-    assert sorted(found) == ["Flat rate", "Old rate", "Rate ledger", "Standing rate", "Transitional rate"]
+    assert sorted(found) == [
+        "Flat rate",
+        "Old rate",
+        "Rate ledger",
+        "Standing rate",
+        "Transitional rate",
+    ]
     assert all(found[name] == plain[name] for name in found)
     assert dated["asOfApplied"] == [world.key("Capi.E")]
     assert response.headers[APPLIED] == world.key("Capi.E")
 
     error = refused(
-        consumer_xref(world, query="rate", asOf="2026-06-30", **{world.key("Capi.kind"): world.key("Capi.R")}),
+        consumer_xref(
+            world, query="rate", asOf="2026-06-30", **{world.key("Capi.kind"): world.key("Capi.R")}
+        ),
         400,
         "AS_OF_NOT_SUPPORTED",
     )
     assert error["details"]["objectTypes"] == [world.key("Capi.R")]
 
-    refused(consumer_xref(world, query="New rate", expect="one", asOf="2026-06-30"), 404, "NO_MATCH")
+    refused(
+        consumer_xref(world, query="New rate", expect="one", asOf="2026-06-30"), 404, "NO_MATCH"
+    )
     response = consumer_xref(world, query="New rate", expect="one", asOf="2026-07-01")
     assert ok(response)[world.key("Capi.name")] == "New rate"
     assert response.headers[APPLIED] == world.key("Capi.E")
@@ -389,11 +420,20 @@ def test_a_batch_resolved_on_a_date(world):
     items = [{"query": "Old rate"}, {"query": "New rate"}, {"id": fee["id"]}, {"id": old}]
     response = consumer_resolve(world, {"items": items}, asOf=day)
     answer = ok(response)
-    assert [item["status"] for item in answer["items"]] == ["found", "not_found", "rejected", "found"]
+    assert [item["status"] for item in answer["items"]] == [
+        "found",
+        "not_found",
+        "rejected",
+        "found",
+    ]
     assert answer["asOfApplied"] == [world.key("Capi.E")]
     assert response.headers[APPLIED] == world.key("Capi.E")
-    assert answer["items"][0]["object"] == ok(consumer_xref(world, query="Old rate", expect="one", asOf=day))
-    single = refused(consumer_xref(world, query="New rate", expect="one", asOf=day), 404, "NO_MATCH")
+    assert answer["items"][0]["object"] == ok(
+        consumer_xref(world, query="Old rate", expect="one", asOf=day)
+    )
+    single = refused(
+        consumer_xref(world, query="New rate", expect="one", asOf=day), 404, "NO_MATCH"
+    )
     assert answer["items"][1]["error"] == single
     rejected = answer["items"][2]["error"]
     assert rejected["code"] == "AS_OF_NOT_SUPPORTED"

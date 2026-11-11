@@ -57,13 +57,24 @@ def _event(size: int = 1, number: int = 1) -> dict:
 
 
 def _written(format: str, batched: bool) -> delivery.RequestFormat:
-    envelope = {"subscriptionId": "s", "consumerApi": "ledger", "contractVersion": 1, "workspaceKey": "main"}
+    envelope = {
+        "subscriptionId": "s",
+        "consumerApi": "ledger",
+        "contractVersion": 1,
+        "workspaceKey": "main",
+    }
     return delivery.RequestFormat(format=format, batched=batched, envelope=envelope, source=SOURCE)
 
 
 def test_the_events_source_is_the_definitions_events_path_in_the_workspace():
-    assert delivery.events_source("ledger", 2, "main") == "/api/consumer/ledger/v2/events?workspace=main"
-    assert delivery.events_source("ledger", 1, "a b&c") == "/api/consumer/ledger/v1/events?workspace=a%20b%26c"
+    assert (
+        delivery.events_source("ledger", 2, "main")
+        == "/api/consumer/ledger/v2/events?workspace=main"
+    )
+    assert (
+        delivery.events_source("ledger", 1, "a b&c")
+        == "/api/consumer/ledger/v1/events?workspace=a%20b%26c"
+    )
 
 
 def test_an_rdm_json_request_is_the_envelope_with_its_events_even_one():
@@ -104,7 +115,10 @@ def test_a_cloudevent_carries_the_attributes_and_the_rdm_event_as_data():
         _event(number=1)["eventId"],
         _event(number=2)["eventId"],
     ]
-    assert json.loads(delivery.encode(single.body("d", [event])))["time"] == "2026-10-06T12:00:00+00:00"
+    assert (
+        json.loads(delivery.encode(single.body("d", [event])))["time"]
+        == "2026-10-06T12:00:00+00:00"
+    )
 
 
 @pytest.mark.parametrize("format", ["rdm", "cloudevents"])
@@ -113,7 +127,9 @@ def test_a_batch_stops_at_the_byte_limit_and_an_event_over_it_goes_alone(format)
     events = [_event(100, number) for number in range(1, 4)]
 
     def size(count: int) -> int:
-        return len(delivery.encode(written.body("00000000-0000-0000-0000-000000000000", events[:count])))
+        return len(
+            delivery.encode(written.body("00000000-0000-0000-0000-000000000000", events[:count]))
+        )
 
     assert written.fitting([_event(10)] * 5, limit=10_000) == 5
     assert written.fitting(events, limit=size(2)) == 2
@@ -131,7 +147,10 @@ def test_the_signature_is_an_hmac_of_the_timestamp_and_the_body_with_the_secret(
     assert headers["RDM-Signature"] == f"sha256={expected}"
     assert delivery.sign("rdmwh_other", 1791281643, body) != headers["RDM-Signature"]
     assert headers["Content-Type"] == "application/json"
-    assert delivery.headers("d", ["k"], 1, body, delivery.CLOUDEVENT)["Content-Type"] == delivery.CLOUDEVENT
+    assert (
+        delivery.headers("d", ["k"], 1, body, delivery.CLOUDEVENT)["Content-Type"]
+        == delivery.CLOUDEVENT
+    )
 
 
 def test_during_a_rotations_overlap_the_signature_lists_the_new_key_first_then_the_previous():

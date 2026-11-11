@@ -560,7 +560,10 @@ def test_a_unique_value_handed_on_in_one_batch(world):
 
     refused(world.create("R", "Third", values={"R.u": "HAND-X"}), 409, "DUPLICATE_ATTRIBUTE_VALUE")
     r2 = world.record("R", r2["id"])
-    ok(world.api.delete(f"/objects/{world.key('R')}/{r2['id']}", expectedVersion=r2["version"]), 204)
+    ok(
+        world.api.delete(f"/objects/{world.key('R')}/{r2['id']}", expectedVersion=r2["version"]),
+        204,
+    )
     world.made("R", "Third", values={"R.u": "HAND-X"})
     world.made("R", "Elsewhere", values={"R.u": "HAND-X"}, workspace="second-site")
 
@@ -795,7 +798,9 @@ def test_a_cascading_delete_previewed_then_applied(world):
     assert outcomes[2]["deletedWithItem"] == 1 and "impact" not in outcomes[2]
     deletion = job["preview"]["deletion"]
     assert deletion["objectCount"] == 5
-    assert deletion["relationshipCount"] == sum(o["impact"]["relationshipCount"] for o in outcomes[:2])
+    assert deletion["relationshipCount"] == sum(
+        o["impact"]["relationshipCount"] for o in outcomes[:2]
+    )
     assert job["preview"]["counts"]["deleted"] == 2
     for structure, record in (("R", owner), ("R2", children[1]), ("D", owned), ("R", leaf)):
         assert world.record(structure, record["id"])["version"] == record["version"]
@@ -807,7 +812,11 @@ def test_a_cascading_delete_previewed_then_applied(world):
     assert done["state"] == "completed" and done["result"] == "applied", done["error"]
     assert _items(world, done) == expected
     for structure, record in (
-        ("R", leaf), ("R", owner), ("R2", children[0]), ("R2", children[1]), ("D", owned),
+        ("R", leaf),
+        ("R", owner),
+        ("R2", children[0]),
+        ("R2", children[1]),
+        ("D", owned),
     ):
         refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")
     assert world.record("K", kept["id"])["id"] == kept["id"]
@@ -1149,9 +1158,9 @@ def test_a_record_holds_one_of_a_kind(world):
         "to": {"id": k2},
     }
     assert _outcomes(ok(_batch(world, [second]))) == [("rejected", "CARDINALITY_VIOLATION")]
-    assert _outcomes(ok(_batch(world, [_bn1_set(world, h1, (k1, k2))], onExisting="overwrite"))) == [
-        ("rejected", "CARDINALITY_VIOLATION")
-    ]
+    assert _outcomes(
+        ok(_batch(world, [_bn1_set(world, h1, (k1, k2))], onExisting="overwrite"))
+    ) == [("rejected", "CARDINALITY_VIOLATION")]
     cs = world.change_set()
     staged = ok(
         _batch(

@@ -51,6 +51,7 @@ def test_planning_reads_level_by_level(measured):
 def test_the_dry_run_costs_the_same_per_record(measured):
     small, large = measured["small"], measured["large"]
     per_record = {
-        label: item["preview"].statements / item["records"] for label, item in (("small", small), ("large", large))
+        label: item["preview"].statements / item["records"]
+        for label, item in (("small", small), ("large", large))
     }
     assert per_record["large"] <= per_record["small"] * 1.05, per_record

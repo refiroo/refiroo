@@ -135,7 +135,9 @@ def _subject_count(event_ids: list[int]) -> int:
         )
 
 
-def _assert_validation_audit(change_set_id: str, *, valid: bool, error_codes: list[str]) -> AuditEvent:
+def _assert_validation_audit(
+    change_set_id: str, *, valid: bool, error_codes: list[str]
+) -> AuditEvent:
     events = _change_set_events(change_set_id)
     assert events[-1].action == "validated"
     event = events[-1]
@@ -288,7 +290,12 @@ def test_unique_attribute_collision_is_a_graph_diagnostic():
             attributes=[attribute("domain-code", code)],
         )
         inject_change_set_object(
-            change_set["id"], str(uuid4()), "rdm-master", "domain", "Second dup", attributes={"domain-code": code}
+            change_set["id"],
+            str(uuid4()),
+            "rdm-master",
+            "domain",
+            "Second dup",
+            attributes={"domain-code": code},
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
@@ -328,10 +335,12 @@ def test_containment_cycle_is_a_graph_diagnostic():
         assert rejected.json()["error"]["code"] == "PARENT_CYCLE"
         # Exercise validation of invalid persisted/imported content independently of that guard.
         with SessionLocal() as session:
-            row = session.scalar(select(ChangeSetObject).where(
-                ChangeSetObject.change_set_id == change_set["id"],
-                ChangeSetObject.object_id == first_group["id"],
-            ))
+            row = session.scalar(
+                select(ChangeSetObject).where(
+                    ChangeSetObject.change_set_id == change_set["id"],
+                    ChangeSetObject.object_id == first_group["id"],
+                )
+            )
             row.parent_object_id = second_group["id"]
             session.commit()
         result = validate_change_set(client, change_set["id"])
@@ -355,7 +364,9 @@ def test_missing_containment_relation_is_a_graph_diagnostic():
             parent_object_id=domain["id"],
         ).json()
         delete_change_set_relation(
-            change_set["id"], relation_type_key="domain-contains-codelist", to_object_id=codelist["id"]
+            change_set["id"],
+            relation_type_key="domain-contains-codelist",
+            to_object_id=codelist["id"],
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
@@ -629,7 +640,10 @@ def test_duplicate_translation_language_target_is_a_graph_diagnostic():
         assert result["valid"] is False
         diagnostic = _diag_by_code(result, "DUPLICATE_RELATION_SCOPE")
         assert diagnostic["details"]["objectId"] == domain["id"]
-        assert first["id"] not in (diagnostic["details"]["relationId"], diagnostic["details"]["conflictingRelationId"])
+        assert first["id"] not in (
+            diagnostic["details"]["relationId"],
+            diagnostic["details"]["conflictingRelationId"],
+        )
 
 
 # --------------------------------------------------------------------------- identity collision
@@ -732,7 +746,9 @@ def test_failed_validation_is_side_effect_free_on_change_set_and_published_reads
         assert client.get(f"/api/v1/publications/{published['id']}").json()["status"] == "active"
 
         # The only side effect is the bounded validation audit event.
-        event = _assert_validation_audit(change_set["id"], valid=False, error_codes=["UNKNOWN_OBJECT_TYPE"])
+        event = _assert_validation_audit(
+            change_set["id"], valid=False, error_codes=["UNKNOWN_OBJECT_TYPE"]
+        )
         assert event.version == before_detail["version"]
 
 
@@ -757,7 +773,14 @@ def test_activation_rejects_an_invalid_graph_without_publishing():
         assert "UNKNOWN_OBJECT_TYPE" in [
             item["code"] for item in response.json()["error"]["details"]
         ]
-        assert client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == change_set["version"]
+        assert (
+            client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+            == change_set["version"]
+        )
         with SessionLocal() as session:
-            rows = list(session.scalars(select(ChangeSetObject).where(ChangeSetObject.change_set_id == change_set["id"])))
+            rows = list(
+                session.scalars(
+                    select(ChangeSetObject).where(ChangeSetObject.change_set_id == change_set["id"])
+                )
+            )
             assert len(rows) == 1

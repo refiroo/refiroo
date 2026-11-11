@@ -61,7 +61,12 @@ def test_lists_stacked_in_one_run_are_split_at_empty_rows_each_under_its_header(
 
 
 def test_a_header_followed_by_an_empty_row_keeps_its_values():
-    cells = {**_column(1, 1, "Kinds"), **_column(1, 3, "Big", "Small"), **_column(3, 1, "Ways"), **_column(3, 3, "Fast", "Slow", "Late")}
+    cells = {
+        **_column(1, 1, "Kinds"),
+        **_column(1, 3, "Big", "Small"),
+        **_column(3, 1, "Ways"),
+        **_column(3, 3, "Fast", "Slow", "Late"),
+    }
     assert _lists(cells) == [(1, 1, 1, 4, ()), (3, 3, 1, 5, ())]
 
 
@@ -72,7 +77,11 @@ def test_a_one_cell_row_over_lists_side_by_side_is_their_title_not_a_header():
         **_column(3, 4, "Role", "Main", "Partner"),
         **_column(5, 4, "Reason", "First", "Second", "Third"),
     }
-    assert _lists(cells) == [(1, 1, 4, 6, ("Intake",)), (3, 3, 4, 6, ("Intake",)), (5, 5, 4, 7, ("Intake",))]
+    assert _lists(cells) == [
+        (1, 1, 4, 6, ("Intake",)),
+        (3, 3, 4, 6, ("Intake",)),
+        (5, 5, 4, 7, ("Intake",)),
+    ]
 
 
 def test_a_title_reaches_the_lists_up_to_the_next_title_on_its_row():
@@ -101,14 +110,20 @@ def test_titles_on_rows_apart_are_sections_one_after_the_other_not_levels():
 
 def test_prose_under_a_list_is_no_part_of_it():
     sentence = "These values are reviewed every year by the people who maintain the catalogue."
-    cells = {**_column(1, 1, "Kinds", "Big", "Small"), (5, 1): sentence, **_column(3, 1, "Ways", "Fast", "Slow")}
+    cells = {
+        **_column(1, 1, "Kinds", "Big", "Small"),
+        (5, 1): sentence,
+        **_column(3, 1, "Ways", "Fast", "Slow"),
+    }
     assert _lists(cells) == [(1, 1, 1, 3, ()), (3, 3, 1, 3, ())]
 
 
 def test_a_header_with_nothing_under_it_is_a_list_without_values():
     cells = {
-        (1, 1): "Category", (1, 2): "Categoría",
-        (3, 1): "Status", (3, 2): "Estado",
+        (1, 1): "Category",
+        (1, 2): "Categoría",
+        (3, 1): "Status",
+        (3, 2): "Estado",
         **_column(1, 5, "Open", "Closed"),
         **_column(2, 5, "Abierto", "Suspendido"),
     }
@@ -116,16 +131,25 @@ def test_a_header_with_nothing_under_it_is_a_list_without_values():
 
 
 def test_a_note_under_the_header_is_found_with_what_it_says():
-    cells = {**_column(1, 1, "Reasons", "(Multiple answers)", "First", "Second"), **_column(2, 1, "Motivos", "(Varias vías)", "Primero", "Segundo")}
+    cells = {
+        **_column(1, 1, "Reasons", "(Multiple answers)", "First", "Second"),
+        **_column(2, 1, "Motivos", "(Varias vías)", "Primero", "Segundo"),
+    }
     (found,) = split(_runs(cells), _grid(cells))
     assert found.note == {"row": 2, "text": "(Multiple answers)", "meaning": "many"}
 
 
 def test_note_words_are_folded_and_values_are_not_notes():
-    assert [note_meaning(v) for v in ("Multiple choice", "(multiple answer)", "Free field", "Single answer", "Several")] == [
-        "many", "many", "free", "one", "many"
+    assert [
+        note_meaning(v)
+        for v in ("Multiple choice", "(multiple answer)", "Free field", "Single answer", "Several")
+    ] == ["many", "many", "free", "one", "many"]
+    assert [note_meaning(v) for v in ("Multiple", "Free", "Open", "Several kinds")] == [
+        None,
+        None,
+        None,
+        None,
     ]
-    assert [note_meaning(v) for v in ("Multiple", "Free", "Open", "Several kinds")] == [None, None, None, None]
 
 
 def _note(cells: dict[tuple[int, int], str]) -> list[dict[str, object] | None]:
@@ -149,7 +173,10 @@ def test_a_first_row_with_an_answer_or_a_list_without_yes_no_columns_has_no_seco
     """D144: a first row answering one yes/no column is a value; without yes/no columns nothing
     tells such a row from a value; a later row answering none leaves the first row a value too."""
     answered = {**_column(1, 1, "Admin", "Clerk", "First"), **_column(2, 1, "UK", "N", "Y")}
-    plain = {**_column(1, 1, "Admin", "Clerk", "First", "Second"), **_column(2, 1, "Other", "Conductor", "Primero", "Segundo")}
+    plain = {
+        **_column(1, 1, "Admin", "Clerk", "First", "Second"),
+        **_column(2, 1, "Other", "Conductor", "Primero", "Segundo"),
+    }
     gapped = {**_column(1, 1, "Admin", "Clerk", "First", "Second"), (3, 2): "Y", (1, 2): "UK"}
     assert _note(answered) == [None]
     assert _note(plain) == [None]

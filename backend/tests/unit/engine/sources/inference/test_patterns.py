@@ -35,7 +35,9 @@ def _w1(seed: int, rows: int, shuffle: bool):
     return book, workbook((workbooks.S1, main), (workbooks.S2, names))
 
 
-@pytest.mark.parametrize(("seed", "rows", "shuffle"), [(1, 200, False), (2, 60, True), (3, 120, True), (4, 400, False)])
+@pytest.mark.parametrize(
+    ("seed", "rows", "shuffle"), [(1, 200, False), (2, 60, True), (3, 120, True), (4, 400, False)]
+)
 def test_w1_gives_its_patterns_whatever_the_seed_size_and_column_order(seed, rows, shuffle):
     book, found = _w1(seed, rows, shuffle)
     findings = find(found)
@@ -44,8 +46,16 @@ def test_w1_gives_its_patterns_whatever_the_seed_size_and_column_order(seed, row
         assert finding.pattern not in by_pattern, finding.pattern
         by_pattern[finding.pattern] = finding
     assert set(by_pattern) == {
-        "keyColumn", "repeatedParent", "textLookup", "placeholders", "codeAndName", "nameDrift",
-        "flagColumns", "externalId", "translationsByRow", "navigationGroup",
+        "keyColumn",
+        "repeatedParent",
+        "textLookup",
+        "placeholders",
+        "codeAndName",
+        "nameDrift",
+        "flagColumns",
+        "externalId",
+        "translationsByRow",
+        "navigationGroup",
     }
     table = found.sheets[0]
     headers = {c.number: c.header for c in table.columns}
@@ -57,7 +67,9 @@ def test_w1_gives_its_patterns_whatever_the_seed_size_and_column_order(seed, row
     assert columns("keyColumn") == [h("K"), h("N")]
     assert columns("repeatedParent")[0] == h("P")
     assert set(columns("repeatedParent")) == {h("P"), h("Po"), h("Pi")}
-    assert by_pattern["repeatedParent"].detail["key"] == next(n for n, x in headers.items() if x == h("Pi"))
+    assert by_pattern["repeatedParent"].detail["key"] == next(
+        n for n, x in headers.items() if x == h("Pi")
+    )
     assert columns("textLookup") == [h("T")]
     assert columns("codeAndName") == [h("Lc"), h("Ln")]
     assert set(columns("flagColumns")) >= {h("F1"), h("F2")}
@@ -83,11 +95,19 @@ def test_flag_columns_join_the_multi_valued_column_beside_them_only():
 
 def test_a_single_yes_no_column_is_not_a_flag_set():
     rng = random.Random(5)
-    table = {"Code": [f"A{i:03d}" for i in range(80)], "Name": [f"Thing {i}" for i in range(80)], "Active": [rng.choice("YN") for _ in range(80)]}
+    table = {
+        "Code": [f"A{i:03d}" for i in range(80)],
+        "Name": [f"Thing {i}" for i in range(80)],
+        "Active": [rng.choice("YN") for _ in range(80)],
+    }
     found = find(workbook(("Things", table)))
     assert "flagColumns" not in [f.pattern for f in found]
     active = next(f for f in found if f.columns == [3])
-    assert (active.pattern, active.evidence["valueType"], active.evidence["vocabulary"]) == ("attribute", "boolean", ["n", "y"])
+    assert (active.pattern, active.evidence["valueType"], active.evidence["vocabulary"]) == (
+        "attribute",
+        "boolean",
+        ["n", "y"],
+    )
 
 
 def test_level_columns_and_a_parent_code_column_are_hierarchies():
@@ -104,10 +124,18 @@ def test_level_columns_and_a_parent_code_column_are_hierarchies():
     levels["Level 2"] = [f"{region} area {rng.randint(1, 4)}" for region in levels["Level 1"]]
     found = {f.pattern: f for f in find(workbook(("Nodes", levels)))}
     assert found["levelColumns"].evidence["levels"] == 2
-    assert "Notes" not in [c.header for c in workbook(("Nodes", levels)).sheets[0].columns if c.number in found["levelColumns"].columns]
+    assert "Notes" not in [
+        c.header
+        for c in workbook(("Nodes", levels)).sheets[0].columns
+        if c.number in found["levelColumns"].columns
+    ]
 
     codes = [f"N{i:03d}" for i in range(rows)]
-    parent = {"Code": codes, "Name": [f"Node number {i}" for i in range(rows)], "Parent code": [None, *[rng.choice(codes[:i]) for i in range(1, rows)]]}
+    parent = {
+        "Code": codes,
+        "Name": [f"Node number {i}" for i in range(rows)],
+        "Parent code": [None, *[rng.choice(codes[:i]) for i in range(1, rows)]],
+    }
     self_found = [f for f in find(workbook(("Nodes", parent))) if f.pattern == "levelColumns"]
     assert self_found and self_found[0].evidence["parentOf"] == "Code"
 
@@ -120,14 +148,19 @@ def test_translations_by_column_translate_the_name_column():
         "Name FR": [f"Produit numéro {i}" for i in range(30)],
         "Weight (kg)": [float(i) / 3 for i in range(30)],
     }
-    found = next(f for f in find(workbook(("Products", table))) if f.pattern == "translationsByColumn")
+    found = next(
+        f for f in find(workbook(("Products", table))) if f.pattern == "translationsByColumn"
+    )
     assert found.evidence["languages"] == ["de", "FR"]
     assert "Weight (kg)" not in found.evidence.get("columns", [{}])[0].get("column", "")
 
 
 def test_a_column_of_another_sheets_codes_refers_to_its_records():
     rng = random.Random(9)
-    suppliers = {"Supplier code": [f"S{i:02d}" for i in range(20)], "Supplier name": [f"Supplier company {i}" for i in range(20)]}
+    suppliers = {
+        "Supplier code": [f"S{i:02d}" for i in range(20)],
+        "Supplier name": [f"Supplier company {i}" for i in range(20)],
+    }
     items = {
         "Item code": [f"I{i:03d}" for i in range(100)],
         "Item name": [f"Item number {i}" for i in range(100)],
@@ -173,9 +206,21 @@ def test_a_sheet_with_one_clear_table_is_read_by_it_and_lists_side_by_side_are_n
 
     assert main_block([block("A", "AF", 212), block("AH", "AI", 211)]) == 0
     assert main_block([block("A", "B", 30), block("D", "L", 200)]) == 1
-    assert main_block([block("B", "C", 11), block("E", "F", 18), block("H", "I", 16), block("K", "L", 8)]) is None
-    assert main_block([block("F", "I", 38), block("K", "N", 38), block("P", "S", 35), block("U", "X", 29)]) is None
-    assert main_block([block("A", "B", 500), block("D", "E", 10)]) is None, "too narrow to be a table"
+    assert (
+        main_block(
+            [block("B", "C", 11), block("E", "F", 18), block("H", "I", 16), block("K", "L", 8)]
+        )
+        is None
+    )
+    assert (
+        main_block(
+            [block("F", "I", 38), block("K", "N", 38), block("P", "S", 35), block("U", "X", 29)]
+        )
+        is None
+    )
+    assert main_block([block("A", "B", 500), block("D", "E", 10)]) is None, (
+        "too narrow to be a table"
+    )
 
 
 # --- a model description (0.10 A7, D107) --------------------------------------------------------
@@ -192,8 +237,19 @@ def _described(types, targets, fields=None):
 
 @pytest.mark.parametrize(
     ("word", "kind"),
-    [("lookup", "lookup"), ("List", "lookup"), ("Multi-Select", "multi"), ("multi lookup", "multi"), ("Yes/No", "flag"),
-     ("checkbox", "flag"), ("String", "text"), ("long_text", "longText"), ("Number", "integer"), ("decimal", "decimal"), ("DATE", "date")],
+    [
+        ("lookup", "lookup"),
+        ("List", "lookup"),
+        ("Multi-Select", "multi"),
+        ("multi lookup", "multi"),
+        ("Yes/No", "flag"),
+        ("checkbox", "flag"),
+        ("String", "text"),
+        ("long_text", "longText"),
+        ("Number", "integer"),
+        ("decimal", "decimal"),
+        ("DATE", "date"),
+    ],
 )
 def test_each_type_word_reads_as_its_kind(word, kind):
     found = find(_described(["lookup", "lookup", word], ["Colours", "Sizes", None]))
@@ -210,11 +266,21 @@ def test_a_description_claims_its_sheet_and_the_sheets_it_names():
 
 
 def test_a_type_column_needs_four_fifths_type_words_and_a_target_column_half_sheet_names():
-    four_of_five = find(_described(["lookup", "lookup", "text", "text", "whatever"], ["Colours", "Sizes", None, None, None]))
+    four_of_five = find(
+        _described(
+            ["lookup", "lookup", "text", "text", "whatever"], ["Colours", "Sizes", None, None, None]
+        )
+    )
     assert [f for f in four_of_five if f.pattern == "modelDescription"]
-    three_of_five = find(_described(["lookup", "lookup", "text", "huh", "whatever"], ["Colours", "Sizes", None, None, None]))
+    three_of_five = find(
+        _described(
+            ["lookup", "lookup", "text", "huh", "whatever"], ["Colours", "Sizes", None, None, None]
+        )
+    )
     assert not [f for f in three_of_five if f.pattern == "modelDescription"]
-    under_half = find(_described(["lookup", "lookup", "lookup"], ["Colours", "Elsewhere", "Nowhere"]))
+    under_half = find(
+        _described(["lookup", "lookup", "lookup"], ["Colours", "Elsewhere", "Nowhere"])
+    )
     assert not [f for f in under_half if f.pattern == "modelDescription"]
 
 
@@ -226,7 +292,14 @@ def test_a_column_naming_sheets_without_type_words_is_no_description():
 
 def test_a_list_sheet_of_placeholders_is_to_be_defined_and_a_placeholder_key_is_skipped():
     book = workbook(
-        ("Fields", {"Field": ["Colour", "Finish"], "Kind": ["lookup", "lookup"], "Target": ["Colours", "Finishes"]}),
+        (
+            "Fields",
+            {
+                "Field": ["Colour", "Finish"],
+                "Kind": ["lookup", "lookup"],
+                "Target": ["Colours", "Finishes"],
+            },
+        ),
         ("Colours", {"ID": ["C1", "C2", "?"], "Name": ["Red", "Green", "Unknown"]}),
         ("Finishes", {"ID": ["To be defined"], "Name": [None]}),
     )
@@ -281,11 +354,18 @@ def test_a_column_holding_only_its_header_is_reported_not_read():
 def test_a_free_field_or_a_header_without_values_is_not_a_list():
     free = _block({"Comment": [None]}, note={"row": 2, "text": "Free field", "meaning": "free"})
     assert (free.detail["list"], free.detail["reason"]) == (False, "free")
-    noted = _block({"Kinds": ["A", "B"]}, note={"row": 2, "text": "(multiple answers)", "meaning": "many"})
-    assert noted.detail["list"] is True and noted.evidence["note"] == {"text": "(multiple answers)", "meaning": "many"}
+    noted = _block(
+        {"Kinds": ["A", "B"]}, note={"row": 2, "text": "(multiple answers)", "meaning": "many"}
+    )
+    assert noted.detail["list"] is True and noted.evidence["note"] == {
+        "text": "(multiple answers)",
+        "meaning": "many",
+    }
 
 
-def _listed(data: dict[str, list], number: int, titles: tuple[str, ...] = ("Kinds",), header_row: int = 1):
+def _listed(
+    data: dict[str, list], number: int, titles: tuple[str, ...] = ("Kinds",), header_row: int = 1
+):
     """A list of a sheet laid out for reading, the ``number``-th, under ``titles``."""
     table = workbook(("Lists", data)).sheets[0]
     return BlockTable(
@@ -306,14 +386,22 @@ def _listed(data: dict[str, list], number: int, titles: tuple[str, ...] = ("Kind
 def _runs(*blocks: BlockTable) -> list[list[str]]:
     """The runs of one shape (D140) among the lists, each by its lists' headers."""
     found = find(SimpleNamespace(sheets=[], blocks=list(blocks)))
-    runs = {id(f.detail["run"]): f.detail["run"] for f in found if f.pattern == "listBlock" and f.detail.get("run")}
+    runs = {
+        id(f.detail["run"]): f.detail["run"]
+        for f in found
+        if f.pattern == "listBlock" and f.detail.get("run")
+    }
     return [[f.detail["block"].columns[0].header for f in run] for run in runs.values()]
 
 
 def _shaped(header: str, translated: bool = True) -> dict[str, list]:
     data = {header: ["A", "B", "C"], "Here": ["Y", "N", "Y"]}
     if translated:
-        data = {header: ["A", "B", "C"], f"{header} other": ["a", "b", "c"], "Here": ["Y", "N", "Y"]}
+        data = {
+            header: ["A", "B", "C"],
+            f"{header} other": ["a", "b", "c"],
+            "Here": ["Y", "N", "Y"],
+        }
     return data
 
 
@@ -327,7 +415,21 @@ def test_two_lists_or_a_different_kind_or_another_title_make_no_run():
     """D140: two lists are no run; a list whose columns differ in kind, or under another title,
     leaves the rest short of three; lists under no title are one run when three share a shape."""
     assert _runs(_listed(_shaped("A"), 0), _listed(_shaped("B"), 1)) == []
-    assert _runs(_listed(_shaped("A"), 0), _listed(_shaped("B"), 1), _listed(_shaped("C", translated=False), 2)) == []
-    assert _runs(_listed(_shaped("A"), 0), _listed(_shaped("B"), 1), _listed(_shaped("C"), 2, titles=("Other",))) == []
+    assert (
+        _runs(
+            _listed(_shaped("A"), 0),
+            _listed(_shaped("B"), 1),
+            _listed(_shaped("C", translated=False), 2),
+        )
+        == []
+    )
+    assert (
+        _runs(
+            _listed(_shaped("A"), 0),
+            _listed(_shaped("B"), 1),
+            _listed(_shaped("C"), 2, titles=("Other",)),
+        )
+        == []
+    )
     untitled = [_listed(_shaped(f"K{n}"), n, titles=()) for n in range(3)]
     assert _runs(*untitled) == [["K0", "K1", "K2"]]

@@ -214,8 +214,7 @@ def test_domain_and_codelist_share_exclusive_system_representation_relation():
         incoming = client.get("/api/v1/relations", params={"objectId": system_value["id"]})
         assert incoming.status_code == 200
         assert any(
-            item["relation"]["id"] == created.json()["id"]
-            and item["direction"] == "incoming"
+            item["relation"]["id"] == created.json()["id"] and item["direction"] == "incoming"
             for item in incoming.json()["items"]
         )
 

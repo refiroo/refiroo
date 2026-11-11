@@ -29,17 +29,35 @@ def _profile(model: dict[str, Any]) -> dict[str, Any]:
     for app in model["applications"]:
         for type_key in app["objectTypeKeys"]:
             columns: list[dict[str, Any]] = [{"column": "name", "field": "name"}]
-            columns += [{"column": f"a-{a}", "attributeTypeKey": a} for a in sorted(known.types.get(type_key, ()))]
+            columns += [
+                {"column": f"a-{a}", "attributeTypeKey": a}
+                for a in sorted(known.types.get(type_key, ()))
+            ]
             columns += [
                 {"column": f"p-{p}", "parent": {"objectTypeKey": p, "matchBy": {"field": "name"}}}
                 for p in sorted(known.parents.get(type_key, ()))
             ]
             columns += [
-                {"column": f"r-{r}-{to}", "relation": {"relationTypeKey": r, "objectTypeKey": to, "matchBy": {"field": "name"}}}
+                {
+                    "column": f"r-{r}-{to}",
+                    "relation": {
+                        "relationTypeKey": r,
+                        "objectTypeKey": to,
+                        "matchBy": {"field": "name"},
+                    },
+                }
                 for r, source, to in sorted(known.relations)
                 if source == type_key
             ]
-            sources.append({"id": f"{app['key']}-{type_key}", "sheet": "S", "applicationKey": app["key"], "objectTypeKey": type_key, "columns": columns})
+            sources.append(
+                {
+                    "id": f"{app['key']}-{type_key}",
+                    "sheet": "S",
+                    "applicationKey": app["key"],
+                    "objectTypeKey": type_key,
+                    "columns": columns,
+                }
+            )
     return {"key": "generated", "name": "Generated", "sources": sources, "valueMaps": {}}
 
 
@@ -58,17 +76,43 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         bound = [b["attributeTypeKey"] for b in item.get("attributes") or []]
         for attribute in bound:
             yield {"kind": "detachAttribute", "objectType": key, "attributeType": attribute}
-            yield {"kind": "convertAttributeToListType", "objectType": key, "attributeType": attribute, "name": "Zz list", "relationType": {"name": "Zz", "reverseName": "Zz of"}}
+            yield {
+                "kind": "convertAttributeToListType",
+                "objectType": key,
+                "attributeType": attribute,
+                "name": "Zz list",
+                "relationType": {"name": "Zz", "reverseName": "Zz of"},
+            }
             for other in others[:2]:
-                yield {"kind": "moveAttribute", "attributeType": attribute, "from": key, "to": other}
+                yield {
+                    "kind": "moveAttribute",
+                    "attributeType": attribute,
+                    "from": key,
+                    "to": other,
+                }
         if bound:
-            yield {"kind": "splitObjectType", "objectType": key, "name": "Zz part", "attributes": bound[:1], "relationType": {"name": "Zz", "reverseName": "Zz of"}}
+            yield {
+                "kind": "splitObjectType",
+                "objectType": key,
+                "name": "Zz part",
+                "attributes": bound[:1],
+                "relationType": {"name": "Zz", "reverseName": "Zz of"},
+            }
     for attribute in model["attributeTypes"]:
-        yield {"kind": "setKey", "element": {"attributeType": attribute["key"]}, "key": "zz-attribute"}
+        yield {
+            "kind": "setKey",
+            "element": {"attributeType": attribute["key"]},
+            "key": "zz-attribute",
+        }
     for relation in model["relationTypes"]:
         yield {"kind": "setKey", "element": {"relationType": relation["key"]}, "key": "zz-relation"}
     for binding in model["objectTypeRelations"]:
-        yield {"kind": "disallowRelation", "relationType": binding["relationTypeKey"], "from": binding["fromObjectTypeKey"], "to": binding["toObjectTypeKey"]}
+        yield {
+            "kind": "disallowRelation",
+            "relationType": binding["relationTypeKey"],
+            "from": binding["fromObjectTypeKey"],
+            "to": binding["toObjectTypeKey"],
+        }
 
 
 def _cases() -> Iterator[Any]:
@@ -79,11 +123,17 @@ def _cases() -> Iterator[Any]:
 
 def _context(model: dict[str, Any], profile: dict[str, Any]) -> Context:
     document = Document(model)
-    return Context(document, lambda _atom: False, Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log))
+    return Context(
+        document,
+        lambda _atom: False,
+        Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log),
+    )
 
 
 @pytest.mark.parametrize(("model_name", "operation"), list(_cases()))
-def test_the_profile_names_only_what_the_model_declares_and_the_inverse_restores_both(model_name: str, operation: dict[str, Any]):
+def test_the_profile_names_only_what_the_model_declares_and_the_inverse_restores_both(
+    model_name: str, operation: dict[str, Any]
+):
     model = copy.deepcopy(MODELS[model_name])
     profile = _profile(model)
     original = (copy.deepcopy(model), copy.deepcopy(profile))
@@ -94,9 +144,15 @@ def test_the_profile_names_only_what_the_model_declares_and_the_inverse_restores
         return
     known = facts(model)
     for source in profile["sources"]:
-        assert source["objectTypeKey"] in known.applications.get(source["applicationKey"], set()), source
+        assert source["objectTypeKey"] in known.applications.get(source["applicationKey"], set()), (
+            source
+        )
         for binding in source["columns"]:
-            assert binding_resolves(known, source, binding), (operation["kind"], source["id"], binding)
+            assert binding_resolves(known, source, binding), (
+                operation["kind"],
+                source["id"],
+                binding,
+            )
     apply_operation(_context(model, profile), applied.inverse)
     assert (model, profile) == original, f"{operation} then {applied.inverse['kind']}"
 
@@ -109,7 +165,11 @@ def test_a_lookup_replaces_exactly_when_the_rows_record_holds_one_of_the_relatio
     model = MODELS[name]
     for item in model["objectTypeRelations"]:
         binding = ObjectTypeRelationDefinition.model_validate(item)
-        relation, source, target = item["relationTypeKey"], item["fromObjectTypeKey"], item["toObjectTypeKey"]
+        relation, source, target = (
+            item["relationTypeKey"],
+            item["fromObjectTypeKey"],
+            item["toObjectTypeKey"],
+        )
         assert holds_one(model, relation, "outgoing", source, target) is binding.holds_one("from")
         assert holds_one(model, relation, "incoming", target, source) is binding.holds_one("to")
     assert holds_one(model, "zz-none", "outgoing", "a", "b") is False

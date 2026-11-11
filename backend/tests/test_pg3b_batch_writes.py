@@ -54,7 +54,12 @@ def domain_item(code: str, **extra: Any) -> dict:
 def queue(api, workspace_key: str, items: list[dict]) -> str:
     response = api.post(
         "/api/v1/batches",
-        json={"policy": "independent", "run": "background", "workspaceKey": workspace_key, "items": items},
+        json={
+            "policy": "independent",
+            "run": "background",
+            "workspaceKey": workspace_key,
+            "items": items,
+        },
     )
     assert response.status_code == 202, response.text
     return response.json()["id"]
@@ -84,7 +89,10 @@ def domains_named(workspace_key: str, prefix: str) -> int:
 
 @pytest.mark.parametrize("first", ["chunk", "single write"])
 def test_a_unique_value_raced_by_a_chunk_and_a_single_write_is_given_once(
-    client, workspace, request, first  # noqa: F811
+    client,
+    workspace,
+    request,
+    first,  # noqa: F811
 ):
     """The chunk takes the workspace lock before it reads; whichever writer holds it first gives
     the value, and the other is refused with its single write's code."""
@@ -92,7 +100,9 @@ def test_a_unique_value_raced_by_a_chunk_and_a_single_write_is_given_once(
     hold = request.getfixturevalue("at_lock" if first == "chunk" else "at_commit")
     code = unique_key("raced")
     tag = unique_key("race")
-    job_id = queue(client, workspace, [domain_item(f"{tag}-a"), domain_item(code), domain_item(f"{tag}-b")])
+    job_id = queue(
+        client, workspace, [domain_item(f"{tag}-a"), domain_item(code), domain_item(f"{tag}-b")]
+    )
     runner = worker()
     with ThreadPoolExecutor(max_workers=2) as pool:
         hold.arm()
@@ -149,8 +159,12 @@ def test_two_updates_racing_on_one_version(client, workspace, at_commit):  # noq
 
 def test_a_batch_update_racing_a_single_update_on_one_version(client, workspace, at_commit):  # noqa: F811
     record = domain(client, workspace)
-    update = {"op": "update", "target": {"id": record["id"]}, "expectedVersion": record["version"],
-              "name": "From the batch"}
+    update = {
+        "op": "update",
+        "target": {"id": record["id"]},
+        "expectedVersion": record["version"],
+        "name": "From the batch",
+    }
     job_id = queue(client, workspace, [update])
     runner = worker()
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -179,7 +193,9 @@ def _without_matrices(source: dict) -> None:
 
 
 def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
-    client, workspace, monkeypatch  # noqa: F811
+    client,
+    workspace,
+    monkeypatch,  # noqa: F811
 ):
     """The chunk's translations change a stored cell of the codelist translation matrix. Held at
     its release check, before it rewrites that cell's state row, the chunk holds nothing the
@@ -237,7 +253,11 @@ def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
 
     def held(session) -> None:
         # The first check inside the chunk's items (its claim commits before them).
-        if getattr(in_chunk, "running", False) and session.in_nested_transaction() and not reached.is_set():
+        if (
+            getattr(in_chunk, "running", False)
+            and session.in_nested_transaction()
+            and not reached.is_set()
+        ):
             reached.set()
             assert released.wait(HOLD_TIMEOUT), "the chunk was never released"
         original(session)
@@ -267,7 +287,9 @@ def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
             session.scalar(
                 select(func.count())
                 .select_from(RdmObject)
-                .where(RdmObject.workspace_key == workspace, RdmObject.name.like("Batch translation%"))
+                .where(
+                    RdmObject.workspace_key == workspace, RdmObject.name.like("Batch translation%")
+                )
             )
             == 0
         )

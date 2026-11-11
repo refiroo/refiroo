@@ -46,9 +46,7 @@ def _live_get(client, object_type_key: str, object_id: str, workspace_key: str) 
 
 def _change_set_version(change_set_id: str) -> int:
     with SessionLocal() as session:
-        version = session.scalar(
-            select(ChangeSet.version).where(ChangeSet.id == change_set_id)
-        )
+        version = session.scalar(select(ChangeSet.version).where(ChangeSet.id == change_set_id))
         assert version is not None, f"Change set '{change_set_id}' not found"
         return version
 
@@ -108,8 +106,9 @@ def test_publish_delta_merge_preserves_newer_live_content_and_snapshots_merged()
         # is the merged graph: both standalone domains + the live language.
         assert workspace_active_publication_id(workspace_key) == r2["id"]
         assert _live_get(client, "domain", domain_id, workspace_key)["id"] == domain_id
-        assert _live_get(client, "domain", change_set_domain["id"], workspace_key)["id"] == (
-            change_set_domain["id"]
+        assert (
+            _live_get(client, "domain", change_set_domain["id"], workspace_key)["id"]
+            == (change_set_domain["id"])
         )
         live_ids = {
             item["id"]
@@ -131,9 +130,7 @@ def test_publish_delta_merge_preserves_newer_live_content_and_snapshots_merged()
         )
         assert published_objects == snapshot_objects
         assert published_relations == snapshot_relations
-        r1_objects, _r1_relations = graph_snapshot_sets(
-            publication_graph_snapshot(client, r1_id)
-        )
+        r1_objects, _r1_relations = graph_snapshot_sets(publication_graph_snapshot(client, r1_id))
         assert r1_objects < snapshot_objects
         assert publication_graph_snapshot(client, r1_id) == r1_snapshot
 

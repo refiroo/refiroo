@@ -477,7 +477,9 @@ def test_change_set_create_and_clear(client):
     sv, mv = _endpoints(client)
     change_set = _create_change_set(client)
     dv = change_set["version"]
-    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=dv)
+    body = _replacement_body(
+        sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=dv
+    )
     r = client.put(PUT, json=body)
     assert r.status_code == 200
     result = r.json()
@@ -485,7 +487,9 @@ def test_change_set_create_and_clear(client):
     assert result["changeSetVersion"] is not None
     dv2 = _change_set_version(client, change_set["id"])
     ver = _change_set_set_version(change_set["id"], sv["id"], "outgoing")
-    body2 = _replacement_body(sv, mv, ver, target=None, change_set_id=change_set["id"], change_set_version=dv2)
+    body2 = _replacement_body(
+        sv, mv, ver, target=None, change_set_id=change_set["id"], change_set_version=dv2
+    )
     r2 = client.put(PUT, json=body2)
     assert r2.status_code == 200
     assert r2.json()["state"] == "unmapped"
@@ -494,7 +498,9 @@ def test_change_set_create_and_clear(client):
 def test_change_set_stale_change_set_version_409(client):
     sv, mv = _endpoints(client)
     change_set = _create_change_set(client)
-    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=999)
+    body = _replacement_body(
+        sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=999
+    )
     r = client.put(PUT, json=body)
     assert r.status_code == 409
 
@@ -516,7 +522,9 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     archive_put = f"/api/v1/workspaces/{key}/mappings"
     mapped = client.put(archive_put, json=_replacement_body(sv, mv, 0, target=mv))
     assert mapped.status_code == 200, mapped.text
-    change_set = client.post(f"/api/v1/workspaces/{key}/change-sets", json={"source": "currentLive"})
+    change_set = client.post(
+        f"/api/v1/workspaces/{key}/change-sets", json={"source": "currentLive"}
+    )
     assert change_set.status_code == 201, change_set.text
     change_set = change_set.json()
 
@@ -539,7 +547,12 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     foreign = client.put(
         PUT,
         json=_replacement_body(
-            sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=change_set["version"]
+            sv,
+            mv,
+            0,
+            target=None,
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert foreign.status_code == 404
@@ -572,7 +585,12 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     in_change_set = client.put(
         archive_put,
         json=_replacement_body(
-            sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=change_set["version"]
+            sv,
+            mv,
+            0,
+            target=None,
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert in_change_set.status_code == 409
@@ -625,7 +643,9 @@ def test_change_set_noop_clear_unmapped_preserves_change_set_version(client):
     sv, mv = _endpoints(client)
     change_set = _create_change_set(client)
     dv = change_set["version"]
-    body = _replacement_body(sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=dv)
+    body = _replacement_body(
+        sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=dv
+    )
     r = client.put(PUT, json=body)
     assert r.status_code == 200
     assert r.json()["state"] == "unmapped"
@@ -636,12 +656,16 @@ def test_change_set_noop_same_target_preserves_change_set_version(client):
     sv, mv = _endpoints(client)
     change_set = _create_change_set(client)
     dv = change_set["version"]
-    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=dv)
+    body = _replacement_body(
+        sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=dv
+    )
     r1 = client.put(PUT, json=body)
     assert r1.status_code == 200
     dv2 = _change_set_version(client, change_set["id"])
     ver = _change_set_set_version(change_set["id"], sv["id"], "outgoing")
-    body2 = _replacement_body(sv, mv, ver, target=mv, change_set_id=change_set["id"], change_set_version=dv2)
+    body2 = _replacement_body(
+        sv, mv, ver, target=mv, change_set_id=change_set["id"], change_set_version=dv2
+    )
     r2 = client.put(PUT, json=body2)
     assert r2.status_code == 200
     assert r2.json()["mappingVersion"] == ver
@@ -918,13 +942,22 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, chang
     change_set_id = change_set["id"] if change_set else None
     extra_versions = [
         _set_version(
-            "default", change_set_id, "alternate-mapping", FROM_TYPE, TO_TYPE, anchor["id"], direction
+            "default",
+            change_set_id,
+            "alternate-mapping",
+            FROM_TYPE,
+            TO_TYPE,
+            anchor["id"],
+            direction,
         )
         for anchor, direction in [(sv, "outgoing"), (mv, "incoming")]
     ]
     version = change_set["version"] if change_set else None
     saved = client.put(
-        PUT, json=_replacement_body(sv, mv, 0, target=mv, change_set_id=change_set_id, change_set_version=version)
+        PUT,
+        json=_replacement_body(
+            sv, mv, 0, target=mv, change_set_id=change_set_id, change_set_version=version
+        ),
     )
     assert saved.status_code == 200, saved.text
     cleared = client.put(
@@ -941,7 +974,13 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, chang
     assert cleared.status_code == 200, cleared.text
     assert [
         _set_version(
-            "default", change_set_id, "alternate-mapping", FROM_TYPE, TO_TYPE, anchor["id"], direction
+            "default",
+            change_set_id,
+            "alternate-mapping",
+            FROM_TYPE,
+            TO_TYPE,
+            anchor["id"],
+            direction,
         )
         for anchor, direction in [(sv, "outgoing"), (mv, "incoming")]
     ] == extra_versions
@@ -1231,7 +1270,12 @@ def test_activation_preserves_unrelated_live_mapping_work(client, unrelated_bind
     saved = client.put(
         PUT,
         json=_replacement_body(
-            sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=change_set["version"]
+            sv,
+            mv,
+            0,
+            target=mv,
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert saved.status_code == 200, saved.text
@@ -1280,7 +1324,12 @@ def test_activation_bounds_mapping_set_diagnostics(client):
         result = client.put(
             PUT,
             json=_replacement_body(
-                source, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=change_set_version
+                source,
+                mv,
+                0,
+                target=mv,
+                change_set_id=change_set["id"],
+                change_set_version=change_set_version,
             ),
         )
         assert result.status_code == 200, result.text
@@ -1341,10 +1390,7 @@ def test_activation_accepts_restored_source_graph_despite_advanced_live_token(cl
     )
     assert activated.status_code == 200, activated.text
     with SessionLocal() as session:
-        assert (
-            session.scalar(select(ChangeSet.id).where(ChangeSet.id == change_set["id"]))
-            is None
-        )
+        assert session.scalar(select(ChangeSet.id).where(ChangeSet.id == change_set["id"])) is None
         assert (
             session.scalar(
                 select(ObjectRelation.id).where(
@@ -1401,7 +1447,9 @@ def test_replacement_validates_final_ancestor_scope(client, change_set_context):
 
 @pytest.mark.parametrize("client", [{"ancestor_type": "system"}], indirect=True)
 @pytest.mark.parametrize("change_set_context", [False, True])
-def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client, change_set_context):
+def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(
+    client, change_set_context
+):
     sv, mv = _endpoints(client)
     change_set = _create_change_set(client) if change_set_context else None
     context = (

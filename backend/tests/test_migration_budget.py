@@ -40,7 +40,9 @@ def _target() -> dict:
         r for r in model["relationTypes"] if r["key"] not in {GROUP_CONTAINS_NODE, NODE_HAS_CHILD}
     ]
     model["objectTypeRelations"] = [
-        p for p in model["objectTypeRelations"] if NODE not in (p["fromObjectTypeKey"], p["toObjectTypeKey"])
+        p
+        for p in model["objectTypeRelations"]
+        if NODE not in (p["fromObjectTypeKey"], p["toObjectTypeKey"])
     ]
     application = next(a for a in model["applications"] if a["key"] == APPLICATION)
     application["objectTypeKeys"].remove(NODE)
@@ -85,7 +87,10 @@ def test_a_workspace_of_100000_records_migrates_once(tmp_path):
             started = time.perf_counter()
             answer = client.post(
                 f"/api/v1/workspaces/{WORKSPACE}/model/migrations",
-                json={"targetReleaseId": installed.json()["id"], "expectedVersion": current["version"]},
+                json={
+                    "targetReleaseId": installed.json()["id"],
+                    "expectedVersion": current["version"],
+                },
             )
             assert answer.status_code == 202, answer.text
             job = _wait(client, answer.json()["id"], {"awaiting_confirmation", "failed"})
@@ -109,8 +114,9 @@ def test_a_workspace_of_100000_records_migrates_once(tmp_path):
             done = _wait(client, job["id"], {"completed", "failed"})
             execution = time.perf_counter() - started
             assert done["state"] == "completed", done
-            assert client.get(f"/api/v1/workspaces/{WORKSPACE}/model").json()["releaseId"] == (
-                installed.json()["id"]
+            assert (
+                client.get(f"/api/v1/workspaces/{WORKSPACE}/model").json()["releaseId"]
+                == (installed.json()["id"])
             )
             # Every rule of the release checked over the migrated workspace, as a migration touching
             # everything would: the scoped uniqueness walk took over 9 minutes here before V1

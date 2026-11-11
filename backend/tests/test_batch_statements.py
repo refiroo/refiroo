@@ -59,10 +59,18 @@ CONTEXTS = ("live", "change set")
 # (`requestedBy`, one statement per kind of principal), found by Z6's full run. And two in 0.16
 # (ag1, ap9): a client token's request reads the client's kind and whether an assistant task owns
 # the client, found by CI's first full run (2026-11-08).
-BUDGET = {("live", "creates"): 38, ("live", "upserts"): 52, ("change set", "creates"): 50,
-          ("change set", "upserts"): 56, ("live", "relations"): 48, ("change set", "relations"): 51,
-          ("live", "deletes"): 54, ("change set", "deletes"): 70, ("live", "apart"): 44,
-          ("change set", "apart"): 49}
+BUDGET = {
+    ("live", "creates"): 38,
+    ("live", "upserts"): 52,
+    ("change set", "creates"): 50,
+    ("change set", "upserts"): 56,
+    ("live", "relations"): 48,
+    ("change set", "relations"): 51,
+    ("live", "deletes"): 54,
+    ("change set", "deletes"): 70,
+    ("live", "apart"): 44,
+    ("change set", "apart"): 49,
+}
 # How far apart the counts may be: IN lists past 500 values, UPDATE statements per set of columns.
 # A relationship item names two or three records, so 500 of them pass 500 values more often.
 ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8, "deletes": 4, "apart": 8}
@@ -70,7 +78,10 @@ DELETE_COUNTS = (2, 8)
 
 
 def _parent(index: int) -> dict[str, Any]:
-    return {"objectTypeKey": GROUP, "key": {"attributeTypeKey": CODE, "value": f"GROUP-{index % 10:06d}"}}
+    return {
+        "objectTypeKey": GROUP,
+        "key": {"attributeTypeKey": CODE, "value": f"GROUP-{index % 10:06d}"},
+    }
 
 
 def creates(count: int, prefix: str) -> list[dict[str, Any]]:
@@ -101,7 +112,9 @@ def upserts(count: int, prefix: str, first: int) -> list[dict[str, Any]]:
             "attributes": [
                 {
                     "attributeTypeKey": CODE,
-                    "value": f"ITEM-{first + index // 2:06d}" if index % 2 == 0 else f"{prefix}-{index:06d}",
+                    "value": f"ITEM-{first + index // 2:06d}"
+                    if index % 2 == 0
+                    else f"{prefix}-{index:06d}",
                 },
                 {"attributeTypeKey": RANK, "value": 11},
             ],
@@ -114,10 +127,18 @@ def relations(count: int, prefix: str) -> list[dict[str, Any]]:
     """Relationship items over the records ``creates(count, prefix)`` made."""
 
     def item(index: int) -> dict[str, Any]:
-        return {"objectTypeKey": ITEM, "key": {"attributeTypeKey": CODE, "value": f"{prefix}-{index:06d}"}}
+        return {
+            "objectTypeKey": ITEM,
+            "key": {"attributeTypeKey": CODE, "value": f"{prefix}-{index:06d}"},
+        }
 
     return [
-        {"op": "createRelation", "relationTypeKey": ITEM_CITES_GROUP, "from": item(index), "to": _parent(index + 3)}
+        {
+            "op": "createRelation",
+            "relationTypeKey": ITEM_CITES_GROUP,
+            "from": item(index),
+            "to": _parent(index + 3),
+        }
         if index % 2 == 0
         else {
             "op": "replaceRelationSet",
@@ -137,11 +158,18 @@ def apart(count: int, prefix: str) -> list[dict[str, Any]]:
     half remove a relationship it made, half name a group the record is not related to."""
 
     def item(index: int) -> dict[str, Any]:
-        return {"objectTypeKey": ITEM, "key": {"attributeTypeKey": CODE, "value": f"{prefix}-{index:06d}"}}
+        return {
+            "objectTypeKey": ITEM,
+            "key": {"attributeTypeKey": CODE, "value": f"{prefix}-{index:06d}"},
+        }
 
     return [
-        {"op": "ensureNoRelation", "relationTypeKey": ITEM_CITES_GROUP, "from": item(index),
-         "to": _parent(index + 3 if index % 2 == 0 else index + 9)}
+        {
+            "op": "ensureNoRelation",
+            "relationTypeKey": ITEM_CITES_GROUP,
+            "from": item(index),
+            "to": _parent(index + 3 if index % 2 == 0 else index + 9),
+        }
         for index in range(count)
     ]
 
@@ -159,7 +187,9 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
             def context(label: str) -> dict[str, Any]:
                 if label == "live":
                     return {"workspaceKey": WORKSPACE}
-                version = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()["version"]
+                version = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()[
+                    "version"
+                ]
                 return {"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": version}
 
             for label in CONTEXTS:
@@ -173,12 +203,20 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
                         ("relations", relations(count, f"C{tag}")),
                         ("apart", apart(count, f"C{tag}")),
                     ):
-                        body = {"policy": "independent", "run": "inline", "onExisting": "overwrite",
-                                "items": items, **context(label)}
+                        body = {
+                            "policy": "independent",
+                            "run": "inline",
+                            "onExisting": "overwrite",
+                            "items": items,
+                            **context(label),
+                        }
                         with measure(engine) as cost:
                             response = client.post("/api/v1/batches", json=body)
                         assert response.status_code == 200, response.text
-                        results[(size, label, kind, count)] = {"cost": cost, "job": response.json()["job"]}
+                        results[(size, label, kind, count)] = {
+                            "cost": cost,
+                            "job": response.json()["job"],
+                        }
                     first += count // 2
             groups = _groups_to_delete(engine, dataset)
             for label in CONTEXTS:
@@ -193,8 +231,13 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
                         }
                         for group_id in chosen
                     ]
-                    body = {"policy": "independent", "run": "background", "stage": "preview",
-                            "items": items, **context(label)}
+                    body = {
+                        "policy": "independent",
+                        "run": "background",
+                        "stage": "preview",
+                        "items": items,
+                        **context(label),
+                    }
                     queued = client.post("/api/v1/batches", json=body)
                     assert queued.status_code == 202, queued.text
                     with measure(engine) as cost:
@@ -204,27 +247,40 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
                     results[(size, label, "deletes", count)] = {"cost": cost, "job": job}
     print("\nPG3b statements per chunk (seconds):")
     for (size, label, kind, count), result in sorted(results.items()):
-        print(f"  {size:5} {label:10} {kind:7} {count:3} items: {result['cost'].statements} "
-              f"({result['cost'].seconds:.2f} s)")
+        print(
+            f"  {size:5} {label:10} {kind:7} {count:3} items: {result['cost'].statements} "
+            f"({result['cost'].seconds:.2f} s)"
+        )
     return results
 
 
 def _groups_to_delete(engine: Any, dataset: Any) -> list[str]:
     """The heavy group, the small one, and six others, which hold matrix cells."""
     with engine.connect() as connection:
-        others = connection.execute(
-            text(
-                "SELECT id FROM objects WHERE workspace_key = :workspace AND object_type_key = :type"
-                " AND id NOT IN (:heavy, :cited, :small) ORDER BY id LIMIT 6"
-            ),
-            {"workspace": WORKSPACE, "type": GROUP, "heavy": dataset.heavy_group_id,
-             "cited": dataset.cited_group_id, "small": dataset.small_group_id},
-        ).scalars().all()
+        others = (
+            connection.execute(
+                text(
+                    "SELECT id FROM objects WHERE workspace_key = :workspace AND object_type_key = :type"
+                    " AND id NOT IN (:heavy, :cited, :small) ORDER BY id LIMIT 6"
+                ),
+                {
+                    "workspace": WORKSPACE,
+                    "type": GROUP,
+                    "heavy": dataset.heavy_group_id,
+                    "cited": dataset.cited_group_id,
+                    "small": dataset.small_group_id,
+                },
+            )
+            .scalars()
+            .all()
+        )
     return [dataset.heavy_group_id, dataset.small_group_id, *others]
 
 
 def _version(client: Any, label: str, dataset: Any, group_id: str) -> int:
-    params = {"workspaceKey": WORKSPACE} if label == "live" else {"changeSetId": dataset.change_set_id}
+    params = (
+        {"workspaceKey": WORKSPACE} if label == "live" else {"changeSetId": dataset.change_set_id}
+    )
     response = client.get(f"/api/v1/objects/{GROUP}/{group_id}", params=params)
     assert response.status_code == 200, response.text
     return response.json()["version"]
@@ -298,42 +354,72 @@ def walked(tmp_path_factory) -> dict[str, tuple[int, int, int]]:
     records it reached, and the walks of matrix cells its upkeep ran. The walk runs once more under EXPLAIN in a savepoint on the raw cursor."""
     results = {}
     for size, shape in WALK_SIZES.items():
-        with volume_app(tmp_path_factory.mktemp(f"deletion-walk-{size}"), shape) as (client, dataset):
+        with volume_app(tmp_path_factory.mktemp(f"deletion-walk-{size}"), shape) as (
+            client,
+            dataset,
+        ):
             engine = get_engine()
             client.app.state.job_worker.stop()
             with engine.connect() as connection:
-                groups = connection.execute(
-                    text(
-                        "SELECT DISTINCT from_object_id FROM object_relations"
-                        " WHERE relation_type_key = :cell ORDER BY from_object_id LIMIT 8"
-                    ),
-                    {"cell": GROUP_HAS_CELL},
-                ).scalars().all()
+                groups = (
+                    connection.execute(
+                        text(
+                            "SELECT DISTINCT from_object_id FROM object_relations"
+                            " WHERE relation_type_key = :cell ORDER BY from_object_id LIMIT 8"
+                        ),
+                        {"cell": GROUP_HAS_CELL},
+                    )
+                    .scalars()
+                    .all()
+                )
             version = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()["version"]
             items = [
-                {"op": "delete", "target": {"id": group}, "cascade": True,
-                 "expectedVersion": _version(client, "change set", dataset, group)}
+                {
+                    "op": "delete",
+                    "target": {"id": group},
+                    "cascade": True,
+                    "expectedVersion": _version(client, "change set", dataset, group),
+                }
                 for group in groups
             ]
-            body = {"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": version,
-                    "policy": "independent", "run": "background", "stage": "preview", "items": items}
+            body = {
+                "changeSetId": dataset.change_set_id,
+                "expectedChangeSetVersion": version,
+                "policy": "independent",
+                "run": "background",
+                "stage": "preview",
+                "items": items,
+            }
             walks: list[tuple[int, int]] = []
             matrix_walks: list[str] = []
 
             def walk(
-                connection, cursor, statement, parameters, context, executemany,
-                walks=walks, matrix_walks=matrix_walks,
+                connection,
+                cursor,
+                statement,
+                parameters,
+                context,
+                executemany,
+                walks=walks,
+                matrix_walks=matrix_walks,
             ):
                 if statement.lstrip().startswith("WITH RECURSIVE matrix_descendants"):
                     matrix_walks.append(statement)
                 if statement.lstrip().startswith("WITH RECURSIVE reach"):
                     with cursor.connection.cursor() as probe:
                         probe.execute("SAVEPOINT walk")
-                        probe.execute("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + statement, parameters)
+                        probe.execute(
+                            "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + statement, parameters
+                        )
                         plan = probe.fetchone()[0]
                         probe.execute("ROLLBACK TO SAVEPOINT walk")
                     plan = (json.loads(plan) if isinstance(plan, str) else plan)[0]["Plan"]
-                    walks.append((plan["Shared Hit Blocks"] + plan["Shared Read Blocks"], plan["Plans"][0]["Actual Rows"]))
+                    walks.append(
+                        (
+                            plan["Shared Hit Blocks"] + plan["Shared Read Blocks"],
+                            plan["Plans"][0]["Actual Rows"],
+                        )
+                    )
 
             queued = client.post("/api/v1/batches", json=body)
             assert queued.status_code == 202, queued.text

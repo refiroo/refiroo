@@ -162,4 +162,3 @@ def test_navigation_has_its_own_shape(world):
         422,
         "INVALID_MODEL",
     )
-

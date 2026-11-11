@@ -733,7 +733,7 @@ default workspace without it; an unknown or retired one is `404 WORKSPACE_NOT_FO
 `RDM-Workspace` and `X-Model-Release-Id` naming what they describe, and their ETag follows that
 release. The index's `openapi` links carry the `workspace` asked for. A definition key may mean
 different contracts in two workspaces; a definition another workspace's model declares is
-`404 CONSUMER_API_NOT_FOUND`. The API reference page takes `?workspace=` the same way (D39).
+`404 CONSUMER_API_NOT_FOUND` for a `consumer` token as well, ahead of the grant check: `details.workspaces` lists, from the client's own grants, the active workspaces where it may read that key, and the message says to add `?workspace=`; a key the workspace's model declares, read without a grant, stays `403`. The API reference page takes `?workspace=` the same way (D39).
 
 The existing gateway can stay in front and map the reference routes (`/xref`,
 `/site-groups/{groupId}/sites`, …) onto these endpoints, so current consumers move without changes

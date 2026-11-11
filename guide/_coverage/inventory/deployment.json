@@ -5,7 +5,7 @@
   "labels": [],
   "source": "compose.yml:11",
   "section": "run",
-  "summary": "postgres:17-alpine",
+  "summary": "postgres:17-alpine@sha256:e5d2edd28b1f8d40a0a6c0c9cdc545b19b56a0d5d88f94bc11a97d970d4700d0",
   "aliases": [
    "database"
   ],
@@ -49,7 +49,7 @@
   "labels": [
    "job-files"
   ],
-  "source": "compose.yml:50",
+  "source": "compose.yml:57",
   "section": "run",
   "context": [
    "compose",
@@ -63,21 +63,7 @@
   "labels": [
    "assistant"
   ],
-  "source": "compose.yml:54",
-  "section": "run",
-  "context": [
-   "compose",
-   "docker",
-   "engine"
-  ]
- },
- {
-  "kind": "deployment",
-  "key": "mount:engine:/opt/refiroo/rdm-engine/data/assistant-claude@compose.yml",
-  "labels": [
-   "assistant-claude"
-  ],
-  "source": "compose.yml:55",
+  "source": "compose.yml:61",
   "section": "run",
   "context": [
    "compose",
@@ -89,7 +75,7 @@
   "kind": "deployment",
   "key": "service:web@compose.yml",
   "labels": [],
-  "source": "compose.yml:60",
+  "source": "compose.yml:66",
   "section": "run",
   "summary": "built from this repository",
   "aliases": [
@@ -107,7 +93,7 @@
    "./certs",
    "WEB_CERTS_DIR"
   ],
-  "source": "compose.yml:79",
+  "source": "compose.yml:85",
   "section": "run",
   "context": [
    "compose",
@@ -121,7 +107,7 @@
   "labels": [
    "8080"
   ],
-  "source": "compose.yml:75",
+  "source": "compose.yml:81",
   "section": "run",
   "context": [
    "compose",
@@ -134,7 +120,7 @@
   "labels": [
    "8443"
   ],
-  "source": "compose.yml:76",
+  "source": "compose.yml:82",
   "section": "run",
   "context": [
    "compose",
@@ -159,7 +145,7 @@
   "labels": [
    "job-files"
   ],
-  "source": "compose.yml:86",
+  "source": "compose.yml:92",
   "section": "run",
   "context": [
    "volume"
@@ -171,19 +157,7 @@
   "labels": [
    "assistant"
   ],
-  "source": "compose.yml:87",
-  "section": "run",
-  "context": [
-   "volume"
-  ]
- },
- {
-  "kind": "deployment",
-  "key": "volume:assistant-claude@compose.yml",
-  "labels": [
-   "assistant-claude"
-  ],
-  "source": "compose.yml:88",
+  "source": "compose.yml:93",
   "section": "run",
   "context": [
    "volume"
@@ -193,7 +167,7 @@
   "kind": "deployment",
   "key": "env:AI_AGENT_API_URL@compose.yml",
   "labels": [],
-  "source": "compose.yml:46",
+  "source": "compose.yml:49",
   "section": "run",
   "aliases": [
    "AI_AGENT_API_URL"
@@ -202,9 +176,20 @@
  },
  {
   "kind": "deployment",
+  "key": "env:AI_AGENT_SANDBOX@compose.yml",
+  "labels": [],
+  "source": "compose.yml:51",
+  "section": "run",
+  "aliases": [
+   "AI_AGENT_SANDBOX"
+  ],
+  "summary": "a variable the Compose file passes or reads"
+ },
+ {
+  "kind": "deployment",
   "key": "env:CORS_ORIGINS@compose.yml",
   "labels": [],
-  "source": "compose.yml:44",
+  "source": "compose.yml:47",
   "section": "run",
   "aliases": [
    "CORS_ORIGINS"
@@ -215,7 +200,7 @@
   "kind": "deployment",
   "key": "env:DATABASE_URL@compose.yml",
   "labels": [],
-  "source": "compose.yml:38",
+  "source": "compose.yml:41",
   "section": "run",
   "aliases": [
    "DATABASE_URL"
@@ -226,7 +211,7 @@
   "kind": "deployment",
   "key": "env:ENGINE_UPSTREAM@compose.yml",
   "labels": [],
-  "source": "compose.yml:71",
+  "source": "compose.yml:77",
   "section": "run",
   "aliases": [
    "ENGINE_UPSTREAM"
@@ -237,7 +222,7 @@
   "kind": "deployment",
   "key": "env:FORWARDED_ALLOW_IPS@compose.yml",
   "labels": [],
-  "source": "compose.yml:48",
+  "source": "compose.yml:55",
   "section": "run",
   "aliases": [
    "FORWARDED_ALLOW_IPS"
@@ -292,7 +277,7 @@
   "kind": "deployment",
   "key": "env:PUBLIC_URL@compose.yml",
   "labels": [],
-  "source": "compose.yml:43",
+  "source": "compose.yml:46",
   "section": "run",
   "aliases": [
    "PUBLIC_URL"
@@ -303,7 +288,7 @@
   "kind": "deployment",
   "key": "env:RDM_CURSOR_SIGNING_KEY@compose.yml",
   "labels": [],
-  "source": "compose.yml:40",
+  "source": "compose.yml:43",
   "section": "run",
   "aliases": [
    "RDM_CURSOR_SIGNING_KEY"
@@ -314,7 +299,7 @@
   "kind": "deployment",
   "key": "env:RDM_ENV_FILE@compose.yml",
   "labels": [],
-  "source": "compose.yml:36",
+  "source": "compose.yml:39",
   "section": "run",
   "aliases": [
    "RDM_ENV_FILE"
@@ -325,7 +310,7 @@
   "kind": "deployment",
   "key": "env:SECRETS_ENCRYPTION_KEY@compose.yml",
   "labels": [],
-  "source": "compose.yml:39",
+  "source": "compose.yml:42",
   "section": "run",
   "aliases": [
    "SECRETS_ENCRYPTION_KEY"
@@ -336,7 +321,7 @@
   "kind": "deployment",
   "key": "env:WEB_CERTS_DIR@compose.yml",
   "labels": [],
-  "source": "compose.yml:79",
+  "source": "compose.yml:85",
   "section": "run",
   "aliases": [
    "WEB_CERTS_DIR"
@@ -347,7 +332,7 @@
   "kind": "deployment",
   "key": "env:WEB_HTTPS_PORT@compose.yml",
   "labels": [],
-  "source": "compose.yml:76",
+  "source": "compose.yml:82",
   "section": "run",
   "aliases": [
    "WEB_HTTPS_PORT"
@@ -358,7 +343,7 @@
   "kind": "deployment",
   "key": "env:WEB_HTTP_PORT@compose.yml",
   "labels": [],
-  "source": "compose.yml:75",
+  "source": "compose.yml:81",
   "section": "run",
   "aliases": [
    "WEB_HTTP_PORT"
@@ -369,7 +354,7 @@
   "kind": "deployment",
   "key": "env:WEB_MAX_BODY@compose.yml",
   "labels": [],
-  "source": "compose.yml:73",
+  "source": "compose.yml:79",
   "section": "run",
   "aliases": [
    "WEB_MAX_BODY"
@@ -380,7 +365,7 @@
   "kind": "deployment",
   "key": "env:WEB_TLS@compose.yml",
   "labels": [],
-  "source": "compose.yml:67",
+  "source": "compose.yml:73",
   "section": "run",
   "aliases": [
    "WEB_TLS"
@@ -391,7 +376,7 @@
   "kind": "deployment",
   "key": "env:WEB_TRUSTED_PROXIES@compose.yml",
   "labels": [],
-  "source": "compose.yml:70",
+  "source": "compose.yml:76",
   "section": "run",
   "aliases": [
    "WEB_TRUSTED_PROXIES"
@@ -419,7 +404,7 @@
   "labels": [],
   "source": "compose.acme.yml:22",
   "section": "run",
-  "summary": "caddy:2",
+  "summary": "caddy:2@sha256:ce773ec7a742ce15ee6bf2bb5f65882b9e2a4487b10733e6f1484f86e6b5d8bc",
   "aliases": [
    "caddy"
   ],

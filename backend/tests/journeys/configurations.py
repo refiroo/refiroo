@@ -909,7 +909,11 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                 "keepOnlyMatching": True,
                 "crosswalk": True,
             },
-            n["Capi.token"]: {"linkedTo": [k["K"]], "through": [n["Capi.B11"]], "matchOn": ["name"]},
+            n["Capi.token"]: {
+                "linkedTo": [k["K"]],
+                "through": [n["Capi.B11"]],
+                "matchOn": ["name"],
+            },
             n["Capi.peer"]: {
                 "linkedTo": [k["R"]],
                 "through": ["itself", f"sharedWith:{n['Capi.Bscope']}"],
@@ -972,7 +976,11 @@ def parity() -> Configuration:
     ("Definition shape") written out: the parity fixture (C8). ``Capi`` is its key, so the consumer
     helpers of ``scenario`` read it."""
     model = json.loads(STARTER.read_text())
-    model["release"] = {**model["release"], "key": "rdm-parity", "name": "Consumer API parity fixture"}
+    model["release"] = {
+        **model["release"],
+        "key": "rdm-parity",
+        "name": "Consumer API parity fixture",
+    }
     model["attributeTypes"] += [
         {"key": "operator-code", "name": "Operator code", "features": {"searchable": True}},
         {"key": "internal-only", "name": "Internal only", "valueType": "boolean"},
@@ -1078,7 +1086,10 @@ def _reference_definition() -> dict[str, Any]:
         "object": {
             "fields": {
                 "masterId": {"role": "id"},
-                "code": {"role": "code", "from": ["operator-code", "value-code", "codelist-code", "domain-code"]},
+                "code": {
+                    "role": "code",
+                    "from": ["operator-code", "value-code", "codelist-code", "domain-code"],
+                },
                 "name": {"role": "name", "from": "name"},
                 "isActive": {"role": "active", "from": "active", "default": True},
                 "validFrom": {"role": "validFrom", "from": "valid-from"},
@@ -1125,11 +1136,20 @@ def _reference_definition() -> dict[str, Any]:
                 },
                 "duration": {
                     "via": "has-duration",
-                    "fields": {"durationId": "id", "durationCode": "value-code", "durationName": "name"},
+                    "fields": {
+                        "durationId": "id",
+                        "durationCode": "value-code",
+                        "durationName": "name",
+                    },
                 },
                 "alternative": {
                     "via": "alternative-for",
-                    "fields": {"objectType": "objectType", "masterId": "id", "code": "value-code", "name": "name"},
+                    "fields": {
+                        "objectType": "objectType",
+                        "masterId": "id",
+                        "code": "value-code",
+                        "name": "name",
+                    },
                 },
             },
         },
@@ -1181,7 +1201,15 @@ def _reference_definition() -> dict[str, Any]:
                         "objectTypes": ["master-value", "codelist", "location"],
                         "changes": ["created", "updated", "deleted"],
                         "watch": {
-                            "fields": ["masterId", "code", "name", "isActive", "validFrom", "validTo", "valueName"],
+                            "fields": [
+                                "masterId",
+                                "code",
+                                "name",
+                                "isActive",
+                                "validFrom",
+                                "validTo",
+                                "valueName",
+                            ],
                             "related": ["systemVariants", "translations"],
                         },
                     }

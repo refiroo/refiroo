@@ -57,7 +57,9 @@ STATES = ("one", "several", "inactive", "historyOnly", "none")
 
 @pytest.fixture
 def client(tmp_path, monkeypatch, migrated_database):
-    yield from serve(json.loads(STARTER.read_text()), tmp_path, monkeypatch, migrated_database("a3b.db"))
+    yield from serve(
+        json.loads(STARTER.read_text()), tmp_path, monkeypatch, migrated_database("a3b.db")
+    )
 
 
 @pytest.fixture
@@ -79,7 +81,9 @@ def assert_derived() -> None:
 def _all(client, params: dict) -> list[dict]:
     rows, cursor = [], None
     while True:
-        response = client.get(BASE, params={**params, "pageSize": 100, **({"cursor": cursor} if cursor else {})})
+        response = client.get(
+            BASE, params={**params, "pageSize": 100, **({"cursor": cursor} if cursor else {})}
+        )
         assert response.status_code == 200, response.text
         body = response.json()
         rows += body["items"]
@@ -91,12 +95,16 @@ def _all(client, params: dict) -> list[dict]:
 def assert_filters(client, view, columns, **context) -> dict[str, set[str]]:
     """Every state filter equals the rows whose cells show the state; returns the cell states."""
     params = {**view, "columnIds": columns, **context}
-    states = {item["row"]["name"]: {c["state"] for c in item["cells"]} for item in _all(client, params)}
+    states = {
+        item["row"]["name"]: {c["state"] for c in item["cells"]} for item in _all(client, params)
+    }
     for state in STATES:
         expected = [name for name, held in states.items() if state in held]
         filtered = _all(client, {**params, "state": state})
         assert [item["row"]["name"] for item in filtered] == expected, (state, context)
-        total = client.get(BASE, params={**params, "state": state, "includeTotal": True, "pageSize": 1})
+        total = client.get(
+            BASE, params={**params, "state": state, "includeTotal": True, "pageSize": 1}
+        )
         assert total.json()["totalCount"] == len(expected), state
     return states
 
@@ -122,7 +130,10 @@ def test_live_writes_keep_states_derived(client, languages, stored_only):
     check(client, TRANSLATIONS, columns)
 
     # Create with an initial relation, then flip the binding's condition both ways.
-    created = client.post("/api/v1/objects", json=translation_payload("M1 cs", groups["cs"], masters["M1"], active=False))
+    created = client.post(
+        "/api/v1/objects",
+        json=translation_payload("M1 cs", groups["cs"], masters["M1"], active=False),
+    )
     assert created.status_code == 201, created.text
     check(client, TRANSLATIONS, columns)
     activated = patch(client, created.json(), attributes=[attr("active", True)])
@@ -144,7 +155,9 @@ def test_live_writes_keep_states_derived(client, languages, stored_only):
     check(client, TRANSLATIONS, columns)
     with SessionLocal() as session:
         assert not session.scalar(
-            select(func.count()).select_from(MatrixCellState).where(MatrixCellState.row_id == masters["M2"]["id"])
+            select(func.count())
+            .select_from(MatrixCellState)
+            .where(MatrixCellState.row_id == masters["M2"]["id"])
         )
 
 
@@ -181,26 +194,37 @@ def test_change_set_writes_and_publishing_keep_states_derived(client, translatio
     # Stage more: an inactive translation for M4, a move and a condition edit.
     version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
     group = client.get(
-        "/api/v1/objects/translation-group", params={"workspaceKey": "default", "search": "Group cs"}
+        "/api/v1/objects/translation-group",
+        params={"workspaceKey": "default", "search": "Group cs"},
     ).json()["items"][0]
     created = client.post(
         "/api/v1/objects",
         json=translation_payload(
-            "M4 cs", group, translations["masters"]["M4"], active=False,
-            changeSetId=change_set["id"], expectedChangeSetVersion=version,
+            "M4 cs",
+            group,
+            translations["masters"]["M4"],
+            active=False,
+            changeSetId=change_set["id"],
+            expectedChangeSetVersion=version,
         ),
     )
     assert created.status_code == 201, created.text
     check(client, TRANSLATIONS, columns, staged)
     record = created.json()
     edited = patch(
-        client, record, attributes=[attr("active", True)],
-        changeSetId=change_set["id"], expectedChangeSetVersion=record["changeSetVersion"],
+        client,
+        record,
+        attributes=[attr("active", True)],
+        changeSetId=change_set["id"],
+        expectedChangeSetVersion=record["changeSetVersion"],
     )
     check(client, TRANSLATIONS, columns, staged)
     moved = patch(
-        client, group, parentObjectId=translations["languages"]["de"]["id"],
-        changeSetId=change_set["id"], expectedChangeSetVersion=edited["changeSetVersion"],
+        client,
+        group,
+        parentObjectId=translations["languages"]["de"]["id"],
+        changeSetId=change_set["id"],
+        expectedChangeSetVersion=edited["changeSetVersion"],
     )
     check(client, TRANSLATIONS, columns, staged)
     assert "one" in assert_filters(client, TRANSLATIONS, columns, **staged)["M4"]
@@ -210,27 +234,38 @@ def test_change_set_writes_and_publishing_keep_states_derived(client, translatio
     # Publishing is refused while the staged duplicate breaks the scope; resolve it and publish.
     duplicate = next(
         item
-        for item in matrix(client, TRANSLATIONS, columnIds=[columns[0]], **staged)["items"][1]["cells"][0]["records"]
+        for item in matrix(client, TRANSLATIONS, columnIds=[columns[0]], **staged)["items"][1][
+            "cells"
+        ][0]["records"]
         if item["name"] == "M2 en duplicate"
     )
     response = client.delete(
         f"/api/v1/objects/translation/{duplicate['id']}",
-        params={"expectedVersion": duplicate["version"], **staged, "expectedChangeSetVersion": moved["changeSetVersion"]},
+        params={
+            "expectedVersion": duplicate["version"],
+            **staged,
+            "expectedChangeSetVersion": moved["changeSetVersion"],
+        },
     )
     if response.status_code == 409:
         token = response.json()["error"]["details"]["deletionPreviewToken"]
         response = client.delete(
             f"/api/v1/objects/translation/{duplicate['id']}",
             params={
-                "expectedVersion": duplicate["version"], **staged,
-                "expectedChangeSetVersion": moved["changeSetVersion"], "cascade": True, "deletionPreviewToken": token,
+                "expectedVersion": duplicate["version"],
+                **staged,
+                "expectedChangeSetVersion": moved["changeSetVersion"],
+                "cascade": True,
+                "deletionPreviewToken": token,
             },
         )
     assert response.status_code == 204, response.text
     check(client, TRANSLATIONS, columns, staged)
     version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
     published = publish_change_set(
-        client, change_set["id"], expected_change_set_version=version,
+        client,
+        change_set["id"],
+        expected_change_set_version=version,
         expected_active_publication_id=translations["publication"]["id"],
     )
     assert published.status_code == 200, published.text
@@ -241,11 +276,16 @@ def test_change_set_writes_and_publishing_keep_states_derived(client, translatio
     assert "historyOnly" in assert_filters(client, TRANSLATIONS, columns)["M1"]
 
     # A change set from a publication reads that publication's states; discarding drops its own.
-    derived = create_change_set(client, "default", derived_from_publication_id=published.json()["id"]).json()
+    derived = create_change_set(
+        client, "default", derived_from_publication_id=published.json()["id"]
+    ).json()
     check(client, TRANSLATIONS, columns, {"changeSetId": derived["id"]})
-    assert client.delete(
-        f"/api/v1/change-sets/{derived['id']}", params={"expectedVersion": derived["version"]}
-    ).status_code == 204
+    assert (
+        client.delete(
+            f"/api/v1/change-sets/{derived['id']}", params={"expectedVersion": derived["version"]}
+        ).status_code
+        == 204
+    )
     assert not builds(owner_id=derived["id"])
     assert_derived()
 
@@ -262,13 +302,17 @@ def _candidate(client, change) -> ModelRelease:
 
 def _without_codelist_systems(source: dict) -> None:
     for application in source["applications"]:
-        application["views"] = [view for view in application["views"] if view["key"] != "codelists-by-system"]
+        application["views"] = [
+            view for view in application["views"] if view["key"] != "codelists-by-system"
+        ]
 
 
 @pytest.fixture
 def admin_client(tmp_path, monkeypatch, migrated_database):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
-    yield from serve(json.loads(STARTER.read_text()), tmp_path, monkeypatch, migrated_database("a3b-admin.db"))
+    yield from serve(
+        json.loads(STARTER.read_text()), tmp_path, monkeypatch, migrated_database("a3b-admin.db")
+    )
 
 
 def test_a_change_sets_walk_anti_joins_the_rows_it_replaces(client, translations, stored_only):
@@ -279,7 +323,8 @@ def test_a_change_sets_walk_anti_joins_the_rows_it_replaces(client, translations
     change_set = translations["change_set"]
     version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
     group = client.get(
-        "/api/v1/objects/translation-group", params={"workspaceKey": "default", "search": "Group cs"}
+        "/api/v1/objects/translation-group",
+        params={"workspaceKey": "default", "search": "Group cs"},
     ).json()["items"][0]
     plans = []
 
@@ -292,8 +337,11 @@ def test_a_change_sets_walk_anti_joins_the_rows_it_replaces(client, translations
     event.listen(get_engine(), "before_cursor_execute", explain)
     try:
         patch(
-            client, group, parentObjectId=translations["languages"]["de"]["id"],
-            changeSetId=change_set["id"], expectedChangeSetVersion=version,
+            client,
+            group,
+            parentObjectId=translations["languages"]["de"]["id"],
+            changeSetId=change_set["id"],
+            expectedChangeSetVersion=version,
         )
     finally:
         event.remove(get_engine(), "before_cursor_execute", explain)
@@ -312,7 +360,10 @@ def test_activation_and_release_change_follow_the_model(admin_client, stored_onl
     # A change set pinned to the new release keeps only its shapes, and so does its base.
     response = client.patch(
         f"/api/v1/change-sets/{change_set['id']}/model-release",
-        json={"modelReleaseId": release.public_id, "expectedChangeSetVersion": change_set["version"]},
+        json={
+            "modelReleaseId": release.public_id,
+            "expectedChangeSetVersion": change_set["version"],
+        },
     )
     assert response.status_code == 200, response.text
     assert len({key for kind, owner, key in _all_builds() if owner == change_set["id"]}) == 3
@@ -340,7 +391,11 @@ def _all_builds() -> set[tuple[str, str, str]]:
         return {
             tuple(item)
             for item in session.execute(
-                select(MatrixStateBuild.owner_kind, MatrixStateBuild.owner_id, MatrixStateBuild.shape_key)
+                select(
+                    MatrixStateBuild.owner_kind,
+                    MatrixStateBuild.owner_id,
+                    MatrixStateBuild.shape_key,
+                )
             )
         }
 
@@ -349,7 +404,9 @@ def test_workspaces_build_and_drop_their_states(client):
     create_workspace(client, "a3b-space")
     assert {kind for kind, _id in builds(workspace_key="a3b-space")} == {"live", "history"}
     workspace = client.get("/api/v1/workspaces/a3b-space").json()
-    response = client.delete("/api/v1/workspaces/a3b-space", params={"expectedVersion": workspace["version"]})
+    response = client.delete(
+        "/api/v1/workspaces/a3b-space", params={"expectedVersion": workspace["version"]}
+    )
     assert response.status_code == 204, response.text
     assert not builds(workspace_key="a3b-space")
 
@@ -372,10 +429,15 @@ def test_startup_builds_what_is_missing_and_a_failed_build_falls_back(
 
     # A failed build leaves the API serving and says what to do.
     monkeypatch.setattr(matrix_states, "sync_workspace", _raise)
-    with caplog.at_level(logging.ERROR), serve_once(model, tmp_path, monkeypatch, database) as client:
+    with (
+        caplog.at_level(logging.ERROR),
+        serve_once(model, tmp_path, monkeypatch, database) as client,
+    ):
         assert client.get("/health").json() == {"status": "ok"}
         assert assert_filters(client, TRANSLATIONS, data["columns"]) == expected
-    message = next(item.getMessage() for item in caplog.records if "matrix cell states" in item.getMessage())
+    message = next(
+        item.getMessage() for item in caplog.records if "matrix cell states" in item.getMessage()
+    )
     assert "derive their cells from records" in message and "restart" in message
     monkeypatch.undo()
 
@@ -404,26 +466,46 @@ class serve_once:
 
 def _seed_translations(client) -> dict:
     domain = create(client, "rdm-master", "domain", "Domain", [attr("domain-code", "D")])
-    codelist = create(client, "rdm-master", "codelist", "Codelist", [attr("codelist-code", "C")], parent=domain)
+    codelist = create(
+        client, "rdm-master", "codelist", "Codelist", [attr("codelist-code", "C")], parent=domain
+    )
     masters = [
         create(
-            client, "rdm-master", "master-value", name,
-            [attr("master-id", name), attr("value-code", name), attr("value-name", name)], parent=codelist,
+            client,
+            "rdm-master",
+            "master-value",
+            name,
+            [attr("master-id", name), attr("value-code", name), attr("value-name", name)],
+            parent=codelist,
         )
         for name in ("M1", "M2", "M3")
     ]
     columns, groups = [], []
     for code in ("en", "cs"):
-        columns.append(create(client, "rdm-translations", "language", code, [attr("language-code", code)]))
+        columns.append(
+            create(client, "rdm-translations", "language", code, [attr("language-code", code)])
+        )
         groups.append(
-            create(client, "rdm-translations", "translation-group", f"G {code}", [attr("group-code", code)], parent=columns[-1])
+            create(
+                client,
+                "rdm-translations",
+                "translation-group",
+                f"G {code}",
+                [attr("group-code", code)],
+                parent=columns[-1],
+            )
         )
     translation(client, "M1 en", groups[0], masters[0])
     translation(client, "M2 en", groups[0], masters[1], active=False)
     translation(client, "M2 cs", groups[1], masters[1])
     staged = create_change_set(client, "default", source="currentLive").json()
     added = translation(
-        client, "M3 cs", groups[1], masters[2], changeSetId=staged["id"], expectedChangeSetVersion=staged["version"]
+        client,
+        "M3 cs",
+        groups[1],
+        masters[2],
+        changeSetId=staged["id"],
+        expectedChangeSetVersion=staged["version"],
     )
     publish_change_set(client, staged["id"], expected_change_set_version=added["changeSetVersion"])
     delete_record(client, added)

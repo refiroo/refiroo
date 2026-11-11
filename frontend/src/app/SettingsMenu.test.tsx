@@ -15,6 +15,7 @@ vi.mock("@/api/client", () => ({
       lastSignInAt: null,
       signedInWith: "password",
       sessionId: "s1",
+      signInManaged: false,
     })),
     system: vi.fn(async () => ({
       engine: {

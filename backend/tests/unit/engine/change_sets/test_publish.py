@@ -89,9 +89,7 @@ def test_entries_come_in_publish_order_and_leave_containment_out():
         _relation("added", ends=("a", "n")),
         _relation("parent2", type_key=HOLDS, ends=("n", "c")),
     ]
-    assert _entries(
-        [kept, gone, child], [kept, new, child], live_relations, merged_relations
-    ) == [
+    assert _entries([kept, gone, child], [kept, new, child], live_relations, merged_relations) == [
         ("object", "created", "n", ["name", "parentObjectId", "attributes"]),
         ("relation", "deleted", "old", []),
         ("relation", "created", "added", ["attributes"]),

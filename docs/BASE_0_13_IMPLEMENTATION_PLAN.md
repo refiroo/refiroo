@@ -2310,7 +2310,8 @@ F26). The real coverage check found 18 uncovered capabilities; Codex wrote 17 pa
 - Private development data committed in `prototypes/ux-refinement-dev-data/` (in tags alpha.1 to alpha.4) was removed
   from the whole history; `main` and every tag were rewritten and force-pushed on 2026-11-10, the commit IDs cited in
   the repository's documents were rewritten to the new ones (68 citations; the old-to-new map is kept outside git in
-  until they confirm (the check: `gh api repos/refiroo/refiroo/commits/627318843cec86e44b85518c711ad33c3f9f897f` answers 404).
+  (confirmed 2026-11-11: `gh api repos/refiroo/refiroo/commits/627318843cec86e44b85518c711ad33c3f9f897f` answers
+  "No commit found").
 - Assistant sessions in a container run as one `assistant` user and can read each other's task folders and a
   concurrent session's token: a known limit for 0.13 (docs/OPERATIONS.md, `AI_AGENT_SANDBOX`); a user per session later.
 - A run slowed by the laptop is reported once and never rerun for a cleaner time.
@@ -2365,8 +2366,11 @@ alpha.4, the document still hashes to the previous lock (the version is its only
 release keeps it submitted (it answered `409 CHANGE_SET_SUBMITTED`). Its run: the j33/j37 migration and change-set
 journeys, 96 passed; `MigrationPage` and the changes tests, 31 passed.
 
-**Open until the release.** The release commit and tag (on the user's word); the versioned public site build
-(`website/tools/engine.mjs v0.16.1-alpha.5`); GitHub Support's purge (above). Not taken: two LB guide pictures (the reference model has no yes/no attribute and no
+**Released.** Commit 2f0131f5, tag `v0.16.1-alpha.5`, pushed 2026-11-11. The versioned public site build
+(`website/tools/engine.mjs v0.16.1-alpha.5 --minor 0.13`, keeping the guide's label) first stopped in the API
+reference: `static_site.py` imported the application before setting its throw-away key, and a clean checkout has no
+settings file. Fixed after the tag (CHANGELOG, Unreleased) and the build made with that file overlaid (recorded in
+`ref.json`): 258 pages. Not taken: two LB guide pictures (the reference model has no yes/no attribute and no
 sidebar with more than 10 entries; extending the reference data is the user's call).
 
 ## Exit gate (0.13)

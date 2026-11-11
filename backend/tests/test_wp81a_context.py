@@ -30,9 +30,7 @@ def _candidate_without_language_attribute(client, version: str) -> tuple[EngineM
     source = client.get("/api/v1/model").json()
     language = next(item for item in source["objectTypes"] if item["key"] == "language")
     binding = language["attributes"][0]["attributeTypeKey"]
-    source["attributeTypes"] = [
-        item for item in source["attributeTypes"] if item["key"] != binding
-    ]
+    source["attributeTypes"] = [item for item in source["attributeTypes"] if item["key"] != binding]
     language["attributes"] = [
         item for item in language["attributes"] if item["attributeTypeKey"] != binding
     ]
@@ -43,7 +41,9 @@ def _candidate_without_language_attribute(client, version: str) -> tuple[EngineM
         if isinstance(value, dict):
             # A consumer API's related field reading the attribute through the language ancestor.
             result = {
-                key: scrub(item) for key, item in value.items() if item != f"ancestor:language.{binding}"
+                key: scrub(item)
+                for key, item in value.items()
+                if item != f"ancestor:language.{binding}"
             }
             if result.get("displayAttributeTypeKey") == binding:
                 result["displayAttributeTypeKey"] = "locale-code"
@@ -139,12 +139,17 @@ def test_1_live_only_incompatible_data_blocks_activation_without_publication(mon
                 "workspaceKey": workspace_key,
                 "name": "Live only",
                 "attributes": [
-                    {"attributeTypeKey": "language-code", "value": _language_value(definition["valueType"])}
+                    {
+                        "attributeTypeKey": "language-code",
+                        "value": _language_value(definition["valueType"]),
+                    }
                 ],
             },
         )
         assert created.status_code == 201, created.text
-        candidate, _binding = _candidate_without_language_attribute(client, f"0.6.0-live-{uuid4().hex}")
+        candidate, _binding = _candidate_without_language_attribute(
+            client, f"0.6.0-live-{uuid4().hex}"
+        )
     response, _release, active_id, expected_version = _activate_candidate(
         monkeypatch, candidate, workspace_key
     )
@@ -184,7 +189,9 @@ def test_2_a_retired_workspace_keeps_its_release_and_its_live_data(monkeypatch):
             assert workspace is not None
             workspace.status = "retired"
             session.commit()
-        candidate, _binding = _candidate_without_language_attribute(client, f"0.6.0-retired-{uuid4().hex}")
+        candidate, _binding = _candidate_without_language_attribute(
+            client, f"0.6.0-retired-{uuid4().hex}"
+        )
     response, _release, active_id, expected_version = _activate_candidate(
         monkeypatch, candidate, workspace_key
     )
@@ -253,14 +260,18 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
         )
         old_model = EngineModel.model_validate(source)
         old_attr = {"name": "Historical only label", "valueType": "text"}
-    old_response, old_release, original_active_id, _version = _activate_candidate(monkeypatch, old_model)
+    old_response, old_release, original_active_id, _version = _activate_candidate(
+        monkeypatch, old_model
+    )
     assert old_response.status_code == 200, old_response.text
     assert old_release.public_id != active_release_id
     with TestClient(app) as client:
         active_model = client.get("/api/v1/model").json()
         old_release_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
         with SessionLocal() as session:
-            release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == old_release_id))
+            release = session.scalar(
+                select(ModelRelease).where(ModelRelease.public_id == old_release_id)
+            )
             assert release is not None
             publication = Publication(
                 workspace_key=workspace_key,
@@ -305,52 +316,66 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
         candidate_source = active_model
         candidate_source["release"]["version"] = f"0.6.0-history-new-{uuid4().hex}"
         candidate_source["attributeTypes"] = [
-            item for item in candidate_source["attributeTypes"] if item["key"] != historical_attribute_key
+            item
+            for item in candidate_source["attributeTypes"]
+            if item["key"] != historical_attribute_key
         ]
-        language = next(item for item in candidate_source["objectTypes"] if item["key"] == "language")
+        language = next(
+            item for item in candidate_source["objectTypes"] if item["key"] == "language"
+        )
         language["attributes"] = [
-            item for item in language["attributes"]
+            item
+            for item in language["attributes"]
             if item["attributeTypeKey"] != historical_attribute_key
         ]
         candidate_source["relationTypes"] = [
-            item for item in candidate_source["relationTypes"] if item["key"] != historical_relation_key
+            item
+            for item in candidate_source["relationTypes"]
+            if item["key"] != historical_relation_key
         ]
         candidate_source["objectTypeRelations"] = [
-            item for item in candidate_source["objectTypeRelations"]
+            item
+            for item in candidate_source["objectTypeRelations"]
             if item["relationTypeKey"] != historical_relation_key
         ]
         candidate = EngineModel.model_validate(candidate_source)
     try:
-        response, _release, _active_id, _expected_version = _activate_candidate(monkeypatch, candidate)
+        response, _release, _active_id, _expected_version = _activate_candidate(
+            monkeypatch, candidate
+        )
         assert response.status_code == 200, response.text
         with TestClient(app) as client:
-            assert historical_attribute_key not in {item["key"] for item in client.get("/api/v1/model").json()["attributeTypes"]}
-            assert historical_relation_key not in {item["key"] for item in client.get("/api/v1/model").json()["relationTypes"]}
+            assert historical_attribute_key not in {
+                item["key"] for item in client.get("/api/v1/model").json()["attributeTypes"]
+            }
+            assert historical_relation_key not in {
+                item["key"] for item in client.get("/api/v1/model").json()["relationTypes"]
+            }
         with TestClient(app) as client:
             objects = client.get(
-            "/api/v1/objects/language",
-            params={
-                "publicationId": publication_id,
-                f"filter.{historical_attribute_key}.eq": "legacy",
-            },
+                "/api/v1/objects/language",
+                params={
+                    "publicationId": publication_id,
+                    f"filter.{historical_attribute_key}.eq": "legacy",
+                },
             )
             assert objects.status_code == 200, objects.text
             assert objects.json()["items"][0]["id"] == language_id
             value = client.get(
-            f"/api/v1/objects/language/{language_id}/attributes/{historical_attribute_key}",
-            params={"publicationId": publication_id},
+                f"/api/v1/objects/language/{language_id}/attributes/{historical_attribute_key}",
+                params={"publicationId": publication_id},
             )
             assert value.status_code == 200, value.text
             assert value.json()["value"] == "legacy"
             assert value.json()["name"] == old_attr["name"]
             assert value.json()["valueType"] == old_attr["valueType"]
             relations = client.get(
-            "/api/v1/relations",
-            params={
-                "objectId": language_id,
-                "publicationId": publication_id,
-                "relationTypeKey": historical_relation_key,
-            },
+                "/api/v1/relations",
+                params={
+                    "objectId": language_id,
+                    "publicationId": publication_id,
+                    "relationTypeKey": historical_relation_key,
+                },
             )
             assert relations.status_code == 200, relations.text
             assert relations.json()["items"][0]["object"]["id"] == group_id
@@ -448,9 +473,7 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
             assert mismatch.status_code == 422, mismatch.text
             assert mismatch.json()["error"]["code"] == "WORKSPACE_CONTEXT_MISMATCH"
         with SessionLocal() as session:
-            current = session.scalar(
-                select(ChangeSet).where(ChangeSet.id == change_set["id"])
-            )
+            current = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
             assert current is not None and current.version == change_set_version
         # Relation detail uses the same context resolver even when the relation is not found.
         response = client.get(

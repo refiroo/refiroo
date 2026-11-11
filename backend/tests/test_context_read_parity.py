@@ -48,22 +48,103 @@ FIELDS = {
 
 # name, folder index, values (a missing key is unset; None is an explicit null)
 ENTRIES: list[tuple[str, int, dict[str, Any]]] = [
-    ("Alpha", 0, {"par-code": "A-1", "par-note": "first Note", "par-count": 5, "par-amount": "2.50",
-                  "par-flag": True, "par-due": "2026-01-10", "par-seen": "2026-03-01T10:00:00+02:00"}),
-    ("bravo", 0, {"par-code": "b-2", "par-note": None, "par-count": -3, "par-amount": "10",
-                  "par-flag": False, "par-due": "2025-12-31", "par-seen": "2026-03-01T08:30:00Z"}),
-    ("Charlie", 1, {"par-code": "C-3", "par-count": 40, "par-amount": "-1.5", "par-flag": True,
-                    "par-due": "2026-07-01"}),
-    ("delta 50%", 1, {"par-code": "D_4", "par-note": "percent_sign", "par-count": 0,
-                      "par-amount": "0.000", "par-seen": "2027-01-01T00:00:00+00:00"}),
-    ("Echo", 0, {"par-code": "E-5", "par-note": "echo note", "par-count": 12, "par-amount": "2.5001",
-                 "par-flag": None, "par-due": None, "par-seen": "2026-03-01T09:00:00+01:00"}),
-    ("foxtrot", 1, {"par-code": "F-6", "par-note": "Second NOTE", "par-count": 7,
-                    "par-amount": "100", "par-flag": False, "par-due": "2026-01-11"}),
-    ("Golf", 0, {"par-code": "g-7", "par-count": None, "par-amount": None, "par-flag": True,
-                 "par-due": "2024-02-29", "par-seen": "2025-06-15T12:00:00-04:00"}),
-    ("hotel", 1, {"par-code": "H-8", "par-note": "last", "par-count": 99, "par-amount": "3",
-                  "par-due": "2026-01-09", "par-seen": None}),
+    (
+        "Alpha",
+        0,
+        {
+            "par-code": "A-1",
+            "par-note": "first Note",
+            "par-count": 5,
+            "par-amount": "2.50",
+            "par-flag": True,
+            "par-due": "2026-01-10",
+            "par-seen": "2026-03-01T10:00:00+02:00",
+        },
+    ),
+    (
+        "bravo",
+        0,
+        {
+            "par-code": "b-2",
+            "par-note": None,
+            "par-count": -3,
+            "par-amount": "10",
+            "par-flag": False,
+            "par-due": "2025-12-31",
+            "par-seen": "2026-03-01T08:30:00Z",
+        },
+    ),
+    (
+        "Charlie",
+        1,
+        {
+            "par-code": "C-3",
+            "par-count": 40,
+            "par-amount": "-1.5",
+            "par-flag": True,
+            "par-due": "2026-07-01",
+        },
+    ),
+    (
+        "delta 50%",
+        1,
+        {
+            "par-code": "D_4",
+            "par-note": "percent_sign",
+            "par-count": 0,
+            "par-amount": "0.000",
+            "par-seen": "2027-01-01T00:00:00+00:00",
+        },
+    ),
+    (
+        "Echo",
+        0,
+        {
+            "par-code": "E-5",
+            "par-note": "echo note",
+            "par-count": 12,
+            "par-amount": "2.5001",
+            "par-flag": None,
+            "par-due": None,
+            "par-seen": "2026-03-01T09:00:00+01:00",
+        },
+    ),
+    (
+        "foxtrot",
+        1,
+        {
+            "par-code": "F-6",
+            "par-note": "Second NOTE",
+            "par-count": 7,
+            "par-amount": "100",
+            "par-flag": False,
+            "par-due": "2026-01-11",
+        },
+    ),
+    (
+        "Golf",
+        0,
+        {
+            "par-code": "g-7",
+            "par-count": None,
+            "par-amount": None,
+            "par-flag": True,
+            "par-due": "2024-02-29",
+            "par-seen": "2025-06-15T12:00:00-04:00",
+        },
+    ),
+    (
+        "hotel",
+        1,
+        {
+            "par-code": "H-8",
+            "par-note": "last",
+            "par-count": 99,
+            "par-amount": "3",
+            "par-due": "2026-01-09",
+            "par-seen": None,
+        },
+    ),
     ('Ünal "quoted"', 0, {"par-code": "Ü-10", "par-note": "Straße naïve"}),
 ]
 QUERIES: list[dict[str, str]] = [
@@ -110,8 +191,7 @@ def parity_model() -> dict[str, Any]:
             "name": key,
             "pluralName": f"{key}s",
             "attributes": [
-                {"attributeTypeKey": field, "order": index}
-                for index, field in enumerate(FIELDS)
+                {"attributeTypeKey": field, "order": index} for index, field in enumerate(FIELDS)
             ],
             "features": {"rootCreatable": not parents},
         }
@@ -144,16 +224,34 @@ def parity_model() -> dict[str, Any]:
         ],
         "objectTypes": [object_type(FOLDER, []), object_type(ENTRY, [HOLDS])],
         "relationTypes": [
-            {"key": HOLDS, "reverseKey": f"{HOLDS}-r", "name": HOLDS, "reverseName": HOLDS,
-             "features": {"parentOf": True}},
-            {"key": CITES, "reverseKey": f"{CITES}-r", "name": CITES, "reverseName": CITES,
-             "features": {}},
+            {
+                "key": HOLDS,
+                "reverseKey": f"{HOLDS}-r",
+                "name": HOLDS,
+                "reverseName": HOLDS,
+                "features": {"parentOf": True},
+            },
+            {
+                "key": CITES,
+                "reverseKey": f"{CITES}-r",
+                "name": CITES,
+                "reverseName": CITES,
+                "features": {},
+            },
         ],
         "objectTypeRelations": [
-            {"relationTypeKey": HOLDS, "fromObjectTypeKey": FOLDER, "toObjectTypeKey": ENTRY,
-             "cardinality": "one-to-many"},
-            {"relationTypeKey": CITES, "fromObjectTypeKey": ENTRY, "toObjectTypeKey": FOLDER,
-             "cardinality": "many-to-many"},
+            {
+                "relationTypeKey": HOLDS,
+                "fromObjectTypeKey": FOLDER,
+                "toObjectTypeKey": ENTRY,
+                "cardinality": "one-to-many",
+            },
+            {
+                "relationTypeKey": CITES,
+                "fromObjectTypeKey": ENTRY,
+                "toObjectTypeKey": FOLDER,
+                "cardinality": "many-to-many",
+            },
         ],
         "applications": [
             {
@@ -219,7 +317,11 @@ def _walk(client, path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
     """Every item of a collection, read in pages of three through its cursors."""
     items, cursor = [], None
     while True:
-        page = _ok(client.get(path, params={**params, "pageSize": 3, **({"cursor": cursor} if cursor else {})}))
+        page = _ok(
+            client.get(
+                path, params={**params, "pageSize": 3, **({"cursor": cursor} if cursor else {})}
+            )
+        )
         items.extend(page["items"])
         cursor = page["nextCursor"]
         if cursor is None:
@@ -246,8 +348,11 @@ def _seed(client) -> dict[str, Any]:
         _ok(
             client.post(
                 "/api/v1/relations",
-                json={"relationTypeKey": CITES, "fromObjectId": entry["id"],
-                      "toObjectId": folders[1]["id"]},
+                json={
+                    "relationTypeKey": CITES,
+                    "fromObjectId": entry["id"],
+                    "toObjectId": folders[1]["id"],
+                },
             ),
             201,
         )
@@ -257,27 +362,42 @@ def _seed(client) -> dict[str, Any]:
     # that live deletes too.
     overlay = load_change_set(client, source="currentLive")["id"]
     for entry in entries[::2]:
-        record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay}))
+        record = _ok(
+            client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay})
+        )
         for key, value in _values(record).items():
             record = _ok(
                 client.patch(
                     f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/{key}",
-                    json={"value": value, "expectedVersion": record["version"],
-                          "changeSetId": overlay,
-                          "expectedChangeSetVersion": _change_set_version(client, overlay)},
+                    json={
+                        "value": value,
+                        "expectedVersion": record["version"],
+                        "changeSetId": overlay,
+                        "expectedChangeSetVersion": _change_set_version(client, overlay),
+                    },
                 )
             )
     temporary = _create(
-        client, ENTRY, "Temporary", folders[1]["id"], {"par-code": "T-0"},
-        changeSetId=overlay, expectedChangeSetVersion=_change_set_version(client, overlay),
+        client,
+        ENTRY,
+        "Temporary",
+        folders[1]["id"],
+        {"par-code": "T-0"},
+        changeSetId=overlay,
+        expectedChangeSetVersion=_change_set_version(client, overlay),
     )
     for record in (temporary, doomed):
-        current = _ok(client.get(f"/api/v1/objects/{ENTRY}/{record['id']}", params={"changeSetId": overlay}))
+        current = _ok(
+            client.get(f"/api/v1/objects/{ENTRY}/{record['id']}", params={"changeSetId": overlay})
+        )
         _ok(
             client.delete(
                 f"/api/v1/objects/{ENTRY}/{record['id']}",
-                params={"changeSetId": overlay, "expectedVersion": current["version"],
-                        "expectedChangeSetVersion": _change_set_version(client, overlay)},
+                params={
+                    "changeSetId": overlay,
+                    "expectedVersion": current["version"],
+                    "expectedChangeSetVersion": _change_set_version(client, overlay),
+                },
             ),
             204,
         )
@@ -297,7 +417,9 @@ def _seed(client) -> dict[str, Any]:
             json={"expectedChangeSetVersion": publish["version"]},
         )
     )
-    derived = load_change_set(client, source="publication", derivedFromPublicationId=publication["id"])["id"]
+    derived = load_change_set(
+        client, source="publication", derivedFromPublicationId=publication["id"]
+    )["id"]
     return {
         "folders": folders,
         "entries": entries,
@@ -376,25 +498,41 @@ def test_live_change_set_and_history_return_the_same_rows_in_the_same_order(clie
         for name, context in contexts.items()
     }
     expected_relations = {
-        (item["relation"]["id"], item["direction"], item["object"]["id"], json.dumps(_values(item["object"]), sort_keys=True))
+        (
+            item["relation"]["id"],
+            item["direction"],
+            item["object"]["id"],
+            json.dumps(_values(item["object"]), sort_keys=True),
+        )
         for item in relations["live"]
     }
     assert len(expected_relations) == 5 + 4  # five citations, four contained entries
     for name, items in relations.items():
         assert {
-            (item["relation"]["id"], item["direction"], item["object"]["id"], json.dumps(_values(item["object"]), sort_keys=True))
+            (
+                item["relation"]["id"],
+                item["direction"],
+                item["object"]["id"],
+                json.dumps(_values(item["object"]), sort_keys=True),
+            )
             for item in items
         } == expected_relations, name
 
     entry = seeded["entries"][0]
-    live_path = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params=contexts["live"]))["path"]
+    live_path = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params=contexts["live"]))[
+        "path"
+    ]
     assert [step["id"] for step in live_path][-1] == entry["id"] and len(live_path) >= 2
     for name, context in contexts.items():
         record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params=context))
         assert _values(record) == _values(entry), name
         # A single-record read carries its ancestor path in every context, as its pages do (S7).
         assert record["path"] == live_path, name
-        value = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/par-amount", params=context))
+        value = _ok(
+            client.get(
+                f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/par-amount", params=context
+            )
+        )
         assert value["value"] == "2.5", name
 
 
@@ -434,7 +572,12 @@ def test_default_order_is_name_in_every_context(client):
     ):
         first = _ok(client.get(path, params={**context, "pageSize": 2}))
         # Control: re-signing alone keeps a cursor valid.
-        _ok(client.get(path, params={**context, "pageSize": 2, "cursor": reissue_cursor(first["nextCursor"])}))
+        _ok(
+            client.get(
+                path,
+                params={**context, "pageSize": 2, "cursor": reissue_cursor(first["nextCursor"])},
+            )
+        )
         stale = reissue_cursor(first["nextCursor"], sort=[former], position=["1"])
         refused = client.get(path, params={**context, "pageSize": 2, "cursor": stale})
         assert refused.status_code == 422, name
@@ -444,7 +587,9 @@ def test_default_order_is_name_in_every_context(client):
 def test_snapshot_cursor_is_bound_to_its_context_and_query(client):
     seeded = _seed(client)
     change_set = seeded["contexts"]["overlay change set"]
-    first = _ok(client.get(f"/api/v1/objects/{ENTRY}", params={**change_set, "sort": "name", "pageSize": 2}))
+    first = _ok(
+        client.get(f"/api/v1/objects/{ENTRY}", params={**change_set, "sort": "name", "pageSize": 2})
+    )
     assert first["nextCursor"]
     for params in (
         {**change_set, "sort": "-name"},
@@ -464,26 +609,36 @@ def test_every_change_set_write_keeps_the_typed_value_index_equal_to_the_json(cl
     seeded = _seed(client)
     overlay = seeded["overlay"]
     entry = seeded["entries"][1]
-    record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay}))
+    record = _ok(
+        client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay})
+    )
     record = _ok(
         client.patch(
             f"/api/v1/objects/{ENTRY}/{entry['id']}",
-            json={"name": "Bravo renamed", "parentObjectId": seeded["folders"][1]["id"],
-                  "attributes": [{"attributeTypeKey": "par-count", "value": 8}],
-                  "expectedVersion": record["version"], "changeSetId": overlay,
-                  "expectedChangeSetVersion": _change_set_version(client, overlay)},
+            json={
+                "name": "Bravo renamed",
+                "parentObjectId": seeded["folders"][1]["id"],
+                "attributes": [{"attributeTypeKey": "par-count", "value": 8}],
+                "expectedVersion": record["version"],
+                "changeSetId": overlay,
+                "expectedChangeSetVersion": _change_set_version(client, overlay),
+            },
         )
     )
     _ok(
         client.delete(
             f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/par-seen",
-            params={"changeSetId": overlay, "expectedVersion": record["version"],
-                    "expectedChangeSetVersion": _change_set_version(client, overlay)},
+            params={
+                "changeSetId": overlay,
+                "expectedVersion": record["version"],
+                "expectedChangeSetVersion": _change_set_version(client, overlay),
+            },
         ),
         204,
     )
     listed = _walk(
-        client, f"/api/v1/objects/{ENTRY}",
+        client,
+        f"/api/v1/objects/{ENTRY}",
         {"changeSetId": overlay, "filter.par-count.eq": "8"},
     )
     assert [item["name"] for item in listed] == ["Bravo renamed"]
@@ -511,8 +666,12 @@ def test_every_change_set_write_keeps_the_typed_value_index_equal_to_the_json(cl
         row = indexed[key]
         assert row.value_type == value["value_type"], key
         column = {
-            "text": "text_value", "longText": "text_value", "integer": "integer_value",
-            "decimal": "decimal_value", "boolean": "boolean_value", "date": "date_value",
+            "text": "text_value",
+            "longText": "text_value",
+            "integer": "integer_value",
+            "decimal": "decimal_value",
+            "boolean": "boolean_value",
+            "date": "date_value",
             "dateTime": "datetime_value",
         }[value["value_type"]]
         assert (getattr(row, column) is None) == (value[column] is None), key

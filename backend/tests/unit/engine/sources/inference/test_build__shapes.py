@@ -16,13 +16,24 @@ def _operations(proposals, kind):
 
 
 def test_a_list_of_an_id_and_a_name_is_a_type_keyed_by_its_id_and_named_after_its_sheet():
-    names = [f"{word} procedures" for word in ("Funicular", "Diagnostic", "Surgical", "Train", "Dental", "Boat")]
-    book = workbook(("RBTimetableStatus", {"Id": [str(uuid.UUID(int=i + 1)) for i in range(6)], "Name": names}))
+    names = [
+        f"{word} procedures"
+        for word in ("Funicular", "Diagnostic", "Surgical", "Train", "Dental", "Boat")
+    ]
+    book = workbook(
+        (
+            "RBTimetableStatus",
+            {"Id": [str(uuid.UUID(int=i + 1)) for i in range(6)], "Name": names},
+        )
+    )
     proposals = _build(book)
     (key,) = [p for p in proposals if p.pattern == "keyColumn"]
     assert key.columns == ["Id", "Name"]
     (added,) = _operations(proposals, "addObjectType")
-    assert (added["name"], added["pluralName"]) == ("FL Timetable Status", "FL Timetable Statuses")
+    assert (added["name"], added["pluralName"]) == (
+        "FL Timetable Status",
+        "FL Timetable Statuses",
+    )
 
 
 def test_one_parent_per_type_optional_where_cells_are_empty_and_a_further_repeated_column_a_list():
@@ -35,17 +46,28 @@ def test_one_parent_per_type_optional_where_cells_are_empty_and_a_further_repeat
         "Type Code": [f"T-{i:04d}" for i in range(rows)],
         "Customer Name": [f"Timetable kind number {i}" for i in range(rows)],
         "Category": category,
-        "Category order": [None if c is None else {"Lab": 1, "Admin": 2, "Train": 3, "Boat": 4}[c] for c in category],
+        "Category order": [
+            None if c is None else {"Lab": 1, "Admin": 2, "Train": 3, "Boat": 4}[c]
+            for c in category
+        ],
         "Platform_Name": slot,
-        "Slot internal": [{"Morning": "early", "Evening": "late", "Weekend": "off"}[s] for s in slot],
+        "Slot internal": [
+            {"Morning": "early", "Evening": "late", "Weekend": "off"}[s] for s in slot
+        ],
     }
     proposals = _build(workbook(("FINAL COPY (09-03)", data)))
     (row_type,) = [o for o in _operations(proposals, "addObjectType") if o["name"] == "Type"]
-    contained = [o for o in _operations(proposals, "setContainment") if o["objectType"] == row_type["key"]]
+    contained = [
+        o for o in _operations(proposals, "setContainment") if o["objectType"] == row_type["key"]
+    ]
     assert len(contained) == 1, "one parent"
     assert contained[0]["parent"]["optional"] is True, "a row without a category has no parent"
-    slot_list = next(o for o in _operations(proposals, "addObjectType") if o["name"] == "Reserved Slot Name")
-    (relation,) = [o for o in _operations(proposals, "allowRelation") if o["to"] == slot_list["key"]]
+    slot_list = next(
+        o for o in _operations(proposals, "addObjectType") if o["name"] == "Reserved Slot Name"
+    )
+    (relation,) = [
+        o for o in _operations(proposals, "allowRelation") if o["to"] == slot_list["key"]
+    ]
     assert (relation["from"], relation["cardinality"]) == (row_type["key"], "many-to-one")
 
 
@@ -53,8 +75,26 @@ def test_columns_translating_another_by_their_values_are_its_translations_whatev
     rng = random.Random(8)
     rows = 150
     english = ["Lab", "Admin timetable", "Train train", "Boat", "Massage"]
-    spanish = dict(zip(english, ["Tranvía", "Tren regional", "Tren de cercanías", "Imagen", "Autobús"], strict=True))
-    czech = dict(zip(english, ["Tramvaj", "Osobní vlak", "Rychlík se sestrou", "Zobrazování", "Autobus"], strict=True))
+    spanish = dict(
+        zip(
+            english,
+            ["Tranvía", "Tren regional", "Tren de cercanías", "Imagen", "Autobús"],
+            strict=True,
+        )
+    )
+    czech = dict(
+        zip(
+            english,
+            [
+                "Tramvaj",
+                "Osobní vlak",
+                "Rychlík se sestrou",
+                "Zobrazování",
+                "Autobus",
+            ],
+            strict=True,
+        )
+    )
     category = [rng.choice(english) for _ in range(rows)]
     data = {
         "Code": [f"C-{i:04d}" for i in range(rows)],
@@ -76,7 +116,10 @@ def test_columns_translating_another_by_their_values_are_its_translations_whatev
 def test_yes_no_columns_apart_form_one_set_and_repeated_descriptions_are_no_parent():
     rng = random.Random(9)
     rows = 100
-    descriptions = [f"Use this kind when the passenger {verb} and the station needs a follow up within a week" for verb in ("calls", "writes", "visits")]
+    descriptions = [
+        f"Use this kind when the passenger {verb} and the station needs a follow up within a week"
+        for verb in ("calls", "writes", "visits")
+    ]
     data = {
         "Code": [f"K-{i:04d}" for i in range(rows)],
         "Name": [f"Kind number {i}" for i in range(rows)],

@@ -56,7 +56,12 @@ def _x1(world):
     application = next(a for a in model["applications"] if a["key"] == world.app("R"))
     application["objectTypeKeys"].append(k.kind)
     model["relationTypes"].append(
-        {"key": k.cites, "reverseKey": f"{k.cites}--rev", "name": "cites", "reverseName": "cited by"}
+        {
+            "key": k.cites,
+            "reverseKey": f"{k.cites}--rev",
+            "name": "cites",
+            "reverseName": "cited by",
+        }
     )
     model["objectTypeRelations"].append(
         {
@@ -84,7 +89,9 @@ def _x2(world, *changes):
         if change == "count-integer":
             next(a for a in model["attributeTypes"] if a["key"] == k.count)["valueType"] = "integer"
         elif change == "drop-note":
-            r_type["attributes"] = [b for b in r_type["attributes"] if b["attributeTypeKey"] != k.note]
+            r_type["attributes"] = [
+                b for b in r_type["attributes"] if b["attributeTypeKey"] != k.note
+            ]
             model["attributeTypes"] = [a for a in model["attributeTypes"] if a["key"] != k.note]
         elif change == "drop-probe":
             model["objectTypes"] = [t for t in model["objectTypes"] if t["key"] != k.kind]
@@ -103,7 +110,9 @@ def _x2(world, *changes):
                 if pair["fromObjectTypeKey"] == k.kind:
                     pair["fromObjectTypeKey"] = k.renamed
         elif change == "require-note":
-            next(b for b in r_type["attributes"] if b["attributeTypeKey"] == k.note)["required"] = True
+            next(b for b in r_type["attributes"] if b["attributeTypeKey"] == k.note)["required"] = (
+                True
+            )
         elif change == "move-probe":
             # The editor's setContainment with an application: the probe type keeps its key and
             # stands in another application (0.11 R, R-F3).
@@ -204,7 +213,9 @@ def _head(world, workspace):
 
 
 def _read(world, workspace, record):
-    return ok(world.api.get(f"/objects/{record['objectTypeKey']}/{record['id']}", workspaceKey=workspace))
+    return ok(
+        world.api.get(f"/objects/{record['objectTypeKey']}/{record['id']}", workspaceKey=workspace)
+    )
 
 
 def _value(record, key):
@@ -352,7 +363,9 @@ def test_a_renamed_type_is_carried_by_a_type_mapping(world):
         "refused": 0,
     }
     rows = _rows(world, mapped["id"], status="reclassified")
-    assert {(row["objectId"], row["objectTypeKey"], row["targetObjectTypeKey"]) for row in rows} == {
+    assert {
+        (row["objectId"], row["objectTypeKey"], row["targetObjectTypeKey"]) for row in rows
+    } == {
         (made["first probe"]["id"], k.kind, k.renamed),
         (made["second probe"]["id"], k.kind, k.renamed),
     }
@@ -487,7 +500,11 @@ def test_writes_elsewhere_go_on_while_a_migration_runs(world, monkeypatch):
         if not listing and not written:
             pool = ThreadPoolExecutor(1)
             meanwhile = pool.submit(
-                other.made, "R", "Meanwhile", workspace=other_key, values={"R.u": f"M-{uuid4().hex[:8]}"}
+                other.made,
+                "R",
+                "Meanwhile",
+                workspace=other_key,
+                values={"R.u": f"M-{uuid4().hex[:8]}"},
             )
             try:
                 # Waiting on the migration's locks, it times out and fails the test, not hangs it.
@@ -557,9 +574,7 @@ def test_refusals_block_the_migration_until_the_data_is_fixed(world):
 
     job = _previewed(world, key, x2["id"])
     assert job["migration"]["counts"]["refused"] == 3
-    refusals = {
-        (row["objectId"], row["code"]) for row in _rows(world, job["id"], status="refused")
-    }
+    refusals = {(row["objectId"], row["code"]) for row in _rows(world, job["id"], status="refused")}
     assert refusals == {
         (made[name]["id"], "REQUIRED_ATTRIBUTE_MISSING") for name in ("forty", "words", "empty")
     }

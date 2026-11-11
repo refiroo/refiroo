@@ -49,13 +49,22 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
         for label in ("live", "change set"):
             costs = {}
             for where in dict.fromkeys(("live", label)):
-                write = {**single, **context(where),
-                         "attributes": [{"attributeTypeKey": CODE, "value": f"SINGLE-B2-{label[0]}-{where[0]}"}]}
+                write = {
+                    **single,
+                    **context(where),
+                    "attributes": [
+                        {"attributeTypeKey": CODE, "value": f"SINGLE-B2-{label[0]}-{where[0]}"}
+                    ],
+                }
                 with measure(engine) as costs[where]:
                     assert client.post("/api/v1/objects", json=write).status_code == 201
             live_cost, single_cost = costs["live"], costs[label]
-            body = {"policy": "independent", "run": "background", "items": creates(ITEMS, f"BG{label[0]}"),
-                    **context(label)}
+            body = {
+                "policy": "independent",
+                "run": "background",
+                "items": creates(ITEMS, f"BG{label[0]}"),
+                **context(label),
+            }
             with measure(engine) as cost:
                 started = time.perf_counter()
                 response = client.post("/api/v1/batches", json=body)
@@ -64,11 +73,20 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
                 job_id = response.json()["id"]
                 latencies: list[float] = []
                 progress: list[tuple[float, int]] = []
-                while (job := client.get(f"/api/v1/jobs/{job_id}").json())["state"] in {"queued", "running"}:
+                while (job := client.get(f"/api/v1/jobs/{job_id}").json())["state"] in {
+                    "queued",
+                    "running",
+                }:
                     progress.append((time.perf_counter(), job["progress"]["processed"]))
                     number = len(latencies)
-                    write = {**single, "name": f"Beside {number}", "workspaceKey": WORKSPACE,
-                             "attributes": [{"attributeTypeKey": CODE, "value": f"BESIDE-{label[0]}-{number}"}]}
+                    write = {
+                        **single,
+                        "name": f"Beside {number}",
+                        "workspaceKey": WORKSPACE,
+                        "attributes": [
+                            {"attributeTypeKey": CODE, "value": f"BESIDE-{label[0]}-{number}"}
+                        ],
+                    }
                     began = time.perf_counter()
                     assert client.post("/api/v1/objects", json=write).status_code == 201
                     latencies.append(time.perf_counter() - began)
@@ -81,7 +99,8 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
                 "job": job,
                 "submitted": submitted,
                 "ran": ran,
-                "per_item_statements": (cost.statements - live_cost.statements * len(latencies)) / ITEMS,
+                "per_item_statements": (cost.statements - live_cost.statements * len(latencies))
+                / ITEMS,
                 "single_statements": single_cost.statements,
                 "latencies": latencies,
                 "rates": _rates(progress),
@@ -91,7 +110,11 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
                 f"({ITEMS / max(ran, 1):.0f} items/s), "
                 f"{results[label]['per_item_statements']:.1f} statements per item "
                 f"(single create {single_cost.statements}); writes beside it: {len(latencies)} served"
-                + (f" (median {statistics.median(latencies):.2f} s, max {max(latencies):.2f} s)" if latencies else "")
+                + (
+                    f" (median {statistics.median(latencies):.2f} s, max {max(latencies):.2f} s)"
+                    if latencies
+                    else ""
+                )
                 + f"; ms per item by quarter {', '.join(f'{rate:.2f}' for rate in results[label]['rates'])}"
             )
     return results
@@ -104,7 +127,9 @@ def _rates(progress: list[tuple[float, int]]) -> list[float]:
     for quarter in range(4):
         low, high = ITEMS * quarter // 4, ITEMS * (quarter + 1) // 4
         start, begun = max((sample for sample in progress if sample[1] <= low), default=progress[0])
-        end, reached = min((sample for sample in progress if sample[1] >= high), default=progress[-1])
+        end, reached = min(
+            (sample for sample in progress if sample[1] >= high), default=progress[-1]
+        )
         rates.append((end - start) * 1000 / max(reached - begun, 1))
     return rates
 
@@ -113,7 +138,11 @@ def _rates(progress: list[tuple[float, int]]) -> list[float]:
 def test_a_background_batch_of_100000_items_runs_within_its_budget(measured, label):
     result = measured[label]
     job = result["job"]
-    assert (job["state"], job["result"], job["counts"]["created"]) == ("completed", "applied", ITEMS), job
+    assert (job["state"], job["result"], job["counts"]["created"]) == (
+        "completed",
+        "applied",
+        ITEMS,
+    ), job
     # Each item costs no more than its single write; chunks add their outcomes and checkpoint.
     assert result["per_item_statements"] <= result["single_statements"], result
     # The writes beside it are recorded (see the module docstring), not bounded here.

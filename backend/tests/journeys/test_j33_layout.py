@@ -40,7 +40,11 @@ def _note_under_r(world) -> list[dict[str, Any]]:
             "pluralName": "Notes",
             "parent": {
                 "objectTypes": [world.key("R")],
-                "relationType": {"key": "j33-has-note", "name": "Has note", "reverseName": "Note of"},
+                "relationType": {
+                    "key": "j33-has-note",
+                    "name": "Has note",
+                    "reverseName": "Note of",
+                },
             },
         },
         {
@@ -54,7 +58,12 @@ def _note_under_r(world) -> list[dict[str, Any]]:
         {"kind": "addAttributeType", "key": "j33-code", "name": "Note code", "valueType": "text"},
         {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-code"},
         {"kind": "addRelationType", "key": "j33-cites", "name": "Cites", "reverseName": "Cited by"},
-        {"kind": "allowRelation", "relationType": "j33-cites", "from": "j33-note", "to": world.key("K")},
+        {
+            "kind": "allowRelation",
+            "relationType": "j33-cites",
+            "from": "j33-note",
+            "to": world.key("K"),
+        },
     ]
 
 
@@ -105,12 +114,16 @@ def test_a_draft_that_does_not_compile_is_read_without_a_model(world):
     """Given an empty draft. When an application is added alone. Then the draft's model answers
     200 with valid false, no model and no placements, and the diagnostics the step answered."""
     draft = _empty_draft(world)
-    answer = ok(_apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"}))
+    answer = ok(
+        _apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"})
+    )
     read = _draft_model(world, draft)
     assert read["valid"] is False
     assert read.get("model") is None
     assert read.get("placements") is None
-    assert [{k: v for k, v in d.items() if k != "element"} for d in read["diagnostics"]] == answer["diagnostics"]
+    assert [{k: v for k, v in d.items() if k != "element"} for d in read["diagnostics"]] == answer[
+        "diagnostics"
+    ]
 
 
 @pytest.mark.journey("J33.10", "J33.4", "J08")
@@ -127,7 +140,12 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
     answer = ok(_apply(world, draft, draft["version"], *operations))
     if _page(_model(world, draft), app, "j33-note") is None:
         answer = ok(
-            _apply(world, draft, answer["version"], {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"})
+            _apply(
+                world,
+                draft,
+                answer["version"],
+                {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"},
+            )
         )
     page = _page(_model(world, draft), app, "j33-note")
     assert _panel_keys(page, "main") == ["j33-cites"]
@@ -139,18 +157,50 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
     steps = [
         [{"kind": "moveViewItem", **detail, "list": "panels", "item": "j33-cites", "position": 0}],
         [
-            {"kind": "setViewProperty", **detail, "panel": "j33-cites", "property": "region", "value": "side"},
+            {
+                "kind": "setViewProperty",
+                **detail,
+                "panel": "j33-cites",
+                "property": "region",
+                "value": "side",
+            },
         ],
-        [{"kind": "setViewProperty", **detail, "panel": "hierarchy", "property": "visible", "value": False}],
+        [
+            {
+                "kind": "setViewProperty",
+                **detail,
+                "panel": "hierarchy",
+                "property": "visible",
+                "value": False,
+            }
+        ],
         [
             {
                 "kind": "insertViewItem",
                 **detail,
                 "list": "panels",
-                "item": {"key": "j33-more", "title": "More", "type": "attributes", "region": "main", "config": {"fields": []}},
+                "item": {
+                    "key": "j33-more",
+                    "title": "More",
+                    "type": "attributes",
+                    "region": "main",
+                    "config": {"fields": []},
+                },
             },
-            {"kind": "removeViewItem", **detail, "panel": "attributes", "list": "fields", "item": "j33-text"},
-            {"kind": "insertViewItem", **detail, "panel": "j33-more", "list": "fields", "item": "j33-text"},
+            {
+                "kind": "removeViewItem",
+                **detail,
+                "panel": "attributes",
+                "list": "fields",
+                "item": "j33-text",
+            },
+            {
+                "kind": "insertViewItem",
+                **detail,
+                "panel": "j33-more",
+                "list": "fields",
+                "item": "j33-text",
+            },
         ],
         [{"kind": "moveViewItem", **view, "list": "columns", "item": "j33-text", "position": 0}],
         [{"kind": "removeViewItem", **view, "list": "columns", "item": "j33-code"}],
@@ -171,7 +221,11 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
         or (e["kind"] == "removeViewItem" and e["parameters"].get("item") == "j33-text")
     ]
     (group_step,) = {e["step"] for e in grouped}
-    assert [e["kind"] for e in entries if e["step"] == group_step] == ["insertViewItem", "removeViewItem", "insertViewItem"]
+    assert [e["kind"] for e in entries if e["step"] == group_step] == [
+        "insertViewItem",
+        "removeViewItem",
+        "insertViewItem",
+    ]
 
     laid_out = _draft_model(world, draft)["model"]
     page = _page(laid_out, app, "j33-note")
@@ -185,8 +239,12 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
     assert table["config"]["defaultSort"] == "j33-text"
 
     undone = ok(_undo(world, draft, answer["version"]))
-    assert _table(_draft_model(world, draft)["model"], app, "j33-note") == _table(before_last, app, "j33-note")
-    redone = ok(world.api.post(f"/model-drafts/{draft['id']}/redo", {"expectedVersion": undone["version"]}))
+    assert _table(_draft_model(world, draft)["model"], app, "j33-note") == _table(
+        before_last, app, "j33-note"
+    )
+    redone = ok(
+        world.api.post(f"/model-drafts/{draft['id']}/redo", {"expectedVersion": undone["version"]})
+    )
     answer = ok(
         _apply(
             world,
@@ -196,7 +254,12 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
         )
     )
     expected = _draft_model(world, draft)["model"]
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}
+        ),
+        201,
+    )
     ok(world.activate(release["id"]))
     active = ok(world.api.get("/model"))
     assert _page(active, app, "j33-note") == _page(expected, app, "j33-note")
@@ -214,11 +277,23 @@ def test_a_type_without_a_detail_page_gets_the_generated_one(world):
     answer = ok(_apply(world, draft, draft["version"], *_note_under_r(world)))
     if _page(_model(world, draft), app, "j33-note") is not None:
         answer = ok(
-            _apply(world, draft, answer["version"], {"kind": "removeDetailPage", "applicationKey": app, "objectType": "j33-note"})
+            _apply(
+                world,
+                draft,
+                answer["version"],
+                {"kind": "removeDetailPage", "applicationKey": app, "objectType": "j33-note"},
+            )
         )
     assert _page(_model(world, draft), app, "j33-note") is None
 
-    added = ok(_apply(world, draft, answer["version"], {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"}))
+    added = ok(
+        _apply(
+            world,
+            draft,
+            answer["version"],
+            {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"},
+        )
+    )
     page = _page(_model(world, draft), app, "j33-note")
     assert [(p["key"], p["type"], p["region"]) for p in page["panels"]] == [
         ("attributes", "attributes", "side"),
@@ -228,7 +303,12 @@ def test_a_type_without_a_detail_page_gets_the_generated_one(world):
     assert _by_key(page["panels"], "attributes")["config"]["fields"] == ["j33-text", "j33-code"]
 
     error = refused(
-        _apply(world, draft, added["version"], {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"}),
+        _apply(
+            world,
+            draft,
+            added["version"],
+            {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"},
+        ),
         422,
         "INVALID_OPERATION",
     )
@@ -242,7 +322,11 @@ def test_a_type_without_a_detail_page_gets_the_generated_one(world):
 @pytest.mark.journey("J33")
 @pytest.mark.structures("A1")
 def test_the_model_of_an_unknown_draft_is_not_found(world):
-    refused(world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000/model"), 404, "MODEL_DRAFT_NOT_FOUND")
+    refused(
+        world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000/model"),
+        404,
+        "MODEL_DRAFT_NOT_FOUND",
+    )
 
 
 @pytest.mark.journey("J33", "J08.7")
@@ -272,20 +356,32 @@ def test_a_table_marks_inactive_records_by_a_boolean_attribute_of_its_type(world
             draft,
             answer["version"],
             {"kind": "addAttributeType", "key": "j33-live", "name": "Live", "valueType": "boolean"},
-            {"kind": "addAttributeType", "key": "j33-elsewhere", "name": "Elsewhere", "valueType": "boolean"},
+            {
+                "kind": "addAttributeType",
+                "key": "j33-elsewhere",
+                "name": "Elsewhere",
+                "valueType": "boolean",
+            },
             {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-live"},
         )
     )
     view = {"applicationKey": app, "view": _table(_model(world, draft), app, "j33-note")["key"]}
 
     def set_field(version: int, value: str | None) -> dict[str, Any]:
-        operation = {"kind": "setViewProperty", **view, "property": "availabilityField", "value": value}
+        operation = {
+            "kind": "setViewProperty",
+            **view,
+            "property": "availabilityField",
+            "value": value,
+        }
         return ok(_apply(world, draft, version, operation))
 
     for wrong in ("j33-text", "j33-elsewhere"):
         step = set_field(answer["version"], wrong)
         assert step["valid"] is False
-        assert [d["path"].endswith("/config/availabilityField") for d in step["diagnostics"]] == [True]
+        assert [d["path"].endswith("/config/availabilityField") for d in step["diagnostics"]] == [
+            True
+        ]
         answer = set_field(step["version"], None)
         assert answer["valid"] is True, answer["diagnostics"]
 
@@ -295,13 +391,28 @@ def test_a_table_marks_inactive_records_by_a_boolean_attribute_of_its_type(world
     assert _table(expected, app, "j33-note")["config"]["availabilityField"] == "j33-live"
 
     release_version = expected["release"]["version"] + "-j33l"
-    named = ok(_apply(world, draft, answer["version"], {"kind": "setRelease", "version": release_version}))
-    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": named["version"]}), 201)
+    named = ok(
+        _apply(world, draft, answer["version"], {"kind": "setRelease", "version": release_version})
+    )
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": named["version"]}
+        ),
+        201,
+    )
     ok(world.activate(release["id"]))
-    assert _table(ok(world.api.get("/model")), app, "j33-note")["config"]["availabilityField"] == "j33-live"
+    assert (
+        _table(ok(world.api.get("/model")), app, "j33-note")["config"]["availabilityField"]
+        == "j33-live"
+    )
 
     second = _draft_of_active(world)
     operation = {"kind": "detachAttribute", "objectType": "j33-note", "attributeType": "j33-live"}
     detached = ok(_apply(world, second, second["version"], operation))
     assert detached["valid"] is True, detached["diagnostics"]
-    assert _table(_draft_model(world, second)["model"], app, "j33-note")["config"].get("availabilityField") is None
+    assert (
+        _table(_draft_model(world, second)["model"], app, "j33-note")["config"].get(
+            "availabilityField"
+        )
+        is None
+    )

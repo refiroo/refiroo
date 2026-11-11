@@ -52,12 +52,26 @@ def test_the_outline_of_a_draft_of_the_active_release_marks_what_is_new(world):
                 "pluralName": "Notes",
                 "parent": {
                     "objectTypes": [r_key],
-                    "relationType": {"key": "j33-has-note", "name": "Has note", "reverseName": "Note of"},
+                    "relationType": {
+                        "key": "j33-has-note",
+                        "name": "Has note",
+                        "reverseName": "Note of",
+                    },
                 },
             },
-            {"kind": "addAttributeType", "key": "j33-text", "name": "Note text", "valueType": "text"},
+            {
+                "kind": "addAttributeType",
+                "key": "j33-text",
+                "name": "Note text",
+                "valueType": "text",
+            },
             {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-text"},
-            {"kind": "addRelationType", "key": "j33-cites", "name": "Cites", "reverseName": "Cited by"},
+            {
+                "kind": "addRelationType",
+                "key": "j33-cites",
+                "name": "Cites",
+                "reverseName": "Cited by",
+            },
             {"kind": "allowRelation", "relationType": "j33-cites", "from": "j33-note", "to": k_key},
         )
     )
@@ -76,7 +90,9 @@ def test_the_outline_of_a_draft_of_the_active_release_marks_what_is_new(world):
 
     application = _by_key(outline["applications"], r_app)
     r_nodes = [node for node in _nodes(application["tree"]) if node["objectType"] == r_key]
-    assert r_nodes and all("j33-note" in [c["objectType"] for c in node["children"]] for node in r_nodes)
+    assert r_nodes and all(
+        "j33-note" in [c["objectType"] for c in node["children"]] for node in r_nodes
+    )
 
     cites = [r for r in outline["relations"] if r["relationType"] == "j33-cites"]
     assert cites == [
@@ -91,9 +107,9 @@ def test_the_outline_of_a_draft_of_the_active_release_marks_what_is_new(world):
         }
     ]
     assert _by_key(outline["relationTypes"], "j33-has-note")["containment"] is True
-    assert {r["mark"] for r in outline["relations"] if r["from"] != "j33-note" and r["to"] != "j33-note"} == {
-        "released"
-    }
+    assert {
+        r["mark"] for r in outline["relations"] if r["from"] != "j33-note" and r["to"] != "j33-note"
+    } == {"released"}
 
 
 @pytest.mark.journey("J33.2")
@@ -119,26 +135,53 @@ def test_after_installation_what_the_draft_added_is_marked_released(world):
                 "pluralName": "Notes",
                 "parent": {
                     "objectTypes": [r_key],
-                    "relationType": {"key": "j33-has-note", "name": "Has note", "reverseName": "Note of"},
+                    "relationType": {
+                        "key": "j33-has-note",
+                        "name": "Has note",
+                        "reverseName": "Note of",
+                    },
                 },
             },
-            {"kind": "addAttributeType", "key": "j33-text", "name": "Note text", "valueType": "text"},
+            {
+                "kind": "addAttributeType",
+                "key": "j33-text",
+                "name": "Note text",
+                "valueType": "text",
+            },
             {"kind": "attachAttribute", "objectType": "j33-note", "attributeType": "j33-text"},
-            {"kind": "addRelationType", "key": "j33-cites", "name": "Cites", "reverseName": "Cited by"},
+            {
+                "kind": "addRelationType",
+                "key": "j33-cites",
+                "name": "Cites",
+                "reverseName": "Cited by",
+            },
             {"kind": "allowRelation", "relationType": "j33-cites", "from": "j33-note", "to": k_key},
             {"kind": "setRelease", "version": f"{version}-t1"},
         )
     )
-    ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)
+    ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}
+        ),
+        201,
+    )
 
     outline = _outline(world, draft)
     marks = {
         f"{collection} {item.get('key', item.get('relationType'))}": item["mark"]
-        for collection in ("applications", "objectTypes", "attributeTypes", "relationTypes", "relations")
+        for collection in (
+            "applications",
+            "objectTypes",
+            "attributeTypes",
+            "relationTypes",
+            "relations",
+        )
         for item in outline[collection]
     }
     marks |= {
-        f"attribute {t['key']}.{a['attributeType']}": a["mark"] for t in outline["objectTypes"] for a in t["attributes"]
+        f"attribute {t['key']}.{a['attributeType']}": a["mark"]
+        for t in outline["objectTypes"]
+        for a in t["attributes"]
     }
     assert {name: mark for name, mark in marks.items() if mark != "released"} == {}
     assert "objectTypes j33-note" in marks
@@ -157,20 +200,43 @@ def test_the_outline_of_a_draft_built_from_empty_holds_what_the_request_built(wo
             draft,
             draft["version"],
             {"kind": "addApplication", "name": "J33 Storage Rooms"},
-            {"kind": "addObjectType", "applicationKey": "j33-storage-rooms", "name": "J33 Shelf", "parent": None},
+            {
+                "kind": "addObjectType",
+                "applicationKey": "j33-storage-rooms",
+                "name": "J33 Shelf",
+                "parent": None,
+            },
             {
                 "kind": "addObjectType",
                 "applicationKey": "j33-storage-rooms",
                 "name": "J33 Item",
                 "parent": {
                     "objectTypes": ["j33-shelf"],
-                    "relationType": {"key": "j33-holds", "name": "Holds item", "reverseName": "On shelf"},
+                    "relationType": {
+                        "key": "j33-holds",
+                        "name": "Holds item",
+                        "reverseName": "On shelf",
+                    },
                 },
             },
             {"kind": "addRelationType", "name": "J33 Replaces", "reverseName": "J33 Replaced by"},
-            {"kind": "allowRelation", "relationType": "j33-replaces", "from": "j33-item", "to": "j33-item"},
-            {"kind": "addNavigationGroup", "applicationKey": "j33-storage-rooms", "label": "J33 Storage"},
-            {"kind": "placeCollection", "applicationKey": "j33-storage-rooms", "collection": "j33-shelf", "group": "j33-storage"},
+            {
+                "kind": "allowRelation",
+                "relationType": "j33-replaces",
+                "from": "j33-item",
+                "to": "j33-item",
+            },
+            {
+                "kind": "addNavigationGroup",
+                "applicationKey": "j33-storage-rooms",
+                "label": "J33 Storage",
+            },
+            {
+                "kind": "placeCollection",
+                "applicationKey": "j33-storage-rooms",
+                "collection": "j33-shelf",
+                "group": "j33-storage",
+            },
         )
     )
     outline = _outline(world, draft)
@@ -193,7 +259,9 @@ def test_the_outline_of_a_draft_built_from_empty_holds_what_the_request_built(wo
         "ungrouped": ["j33-item"],
         "opens": {},
     }
-    assert sorted((r["relationType"], r["from"], r["to"], r["containment"]) for r in outline["relations"]) == [
+    assert sorted(
+        (r["relationType"], r["from"], r["to"], r["containment"]) for r in outline["relations"]
+    ) == [
         ("j33-holds", "j33-shelf", "j33-item", True),
         ("j33-replaces", "j33-item", "j33-item", False),
     ]
@@ -209,13 +277,19 @@ def test_a_draft_left_invalid_between_steps_is_outlined_with_its_diagnostics(wor
     """Given an empty draft. When an application is added alone. Then the outline answers with the
     application and the step's diagnostics, each carrying the element its pointer falls in."""
     draft = _empty_draft(world)
-    answer = ok(_apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"}))
+    answer = ok(
+        _apply(world, draft, draft["version"], {"kind": "addApplication", "name": "J33 Empty"})
+    )
     outline = _outline(world, draft)
     assert [a["key"] for a in outline["applications"]] == ["j33-empty"]
     assert outline["valid"] is False
-    assert [{k: v for k, v in d.items() if k != "element"} for d in outline["diagnostics"]] == answer["diagnostics"]
+    assert [
+        {k: v for k, v in d.items() if k != "element"} for d in outline["diagnostics"]
+    ] == answer["diagnostics"]
     assert all("element" in d for d in outline["diagnostics"])
-    in_application = [d for d in outline["diagnostics"] if d["path"].startswith("/applications/j33-empty")]
+    in_application = [
+        d for d in outline["diagnostics"] if d["path"].startswith("/applications/j33-empty")
+    ]
     assert in_application
     assert all(d["element"]["applicationKey"] == "j33-empty" for d in in_application)
 
@@ -224,7 +298,9 @@ def test_a_draft_left_invalid_between_steps_is_outlined_with_its_diagnostics(wor
 @pytest.mark.structures("A1")
 def test_the_outline_of_an_unknown_draft_is_not_found(world):
     refused(
-        world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000/outline"), 404, "MODEL_DRAFT_NOT_FOUND"
+        world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000/outline"),
+        404,
+        "MODEL_DRAFT_NOT_FOUND",
     )
 
 

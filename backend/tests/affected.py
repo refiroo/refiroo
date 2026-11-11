@@ -27,7 +27,9 @@ class Rule:
 
 # First match wins.
 RULES: tuple[Rule, ...] = (
-    Rule("backend/app/migrations/*", FULL, "a migration changes the schema every seed is built from"),
+    Rule(
+        "backend/app/migrations/*", FULL, "a migration changes the schema every seed is built from"
+    ),
     Rule("model/*.json", FULL, "the starter model is read as data by bootstrap, seeds and tests"),
     Rule("backend/tests/seeds.py", FULL, "seed code runs before the tests"),
     Rule("backend/tests/postgres_server.py", FULL, "the test server runs before the tests"),
@@ -40,7 +42,11 @@ RULES: tuple[Rule, ...] = (
         "tests/journeys tests/unit/harness/test_layout.py tests/test_api_journeys.py",
         "the journey catalogue is read at collection and by the inventory check",
     ),
-    Rule("docs/testing/API_JOURNEYS.md", "tests/test_api_journeys.py", "the inventory is read as data"),
+    Rule(
+        "docs/testing/API_JOURNEYS.md",
+        "tests/test_api_journeys.py",
+        "the inventory is read as data",
+    ),
     Rule("backend/app/*", "testmon", "code the tests execute"),
     Rule("backend/tests/*", "testmon", "test code"),
     Rule("frontend/*", "", "frontend: Vitest and the build (EXECUTION_GUIDE §2)"),

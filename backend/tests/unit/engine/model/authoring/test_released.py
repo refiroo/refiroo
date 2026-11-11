@@ -15,7 +15,9 @@ def _install(session, model):
     return release
 
 
-def test_a_draft_is_compared_with_its_base_else_the_newest_release_of_its_model_else_nothing(seeded):
+def test_a_draft_is_compared_with_its_base_else_the_newest_release_of_its_model_else_nothing(
+    seeded,
+):
     model = copy.deepcopy(seeded.configuration.model)
     model["release"]["key"] = f"unit-{uuid4().hex[:8]}"
     with SessionLocal() as session:

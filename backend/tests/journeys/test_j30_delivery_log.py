@@ -31,7 +31,14 @@ def _deliveries(world, subscription, **params):
     """Every row of the subscription's deliveries, page after page."""
     rows, cursor = [], None
     while True:
-        page = ok(world.api.get(f"{PATH}/{subscription['id']}/deliveries", pageSize=2, **({"cursor": cursor} if cursor else {}), **params))
+        page = ok(
+            world.api.get(
+                f"{PATH}/{subscription['id']}/deliveries",
+                pageSize=2,
+                **({"cursor": cursor} if cursor else {}),
+                **params,
+            )
+        )
         rows += page["items"]
         cursor = page.get("nextCursor")
         if not cursor:
@@ -51,14 +58,21 @@ def test_a_subscription_has_a_name_and_renaming_keeps_a_batch_being_retried(worl
     the batch pending as it was; another edit drops it."""
     _activate(world, "events")
     ws = _workspace(world)
-    nameless = {"consumerApi": world.key("Capi"), "workspaceKey": ws, "events": [WATCHED], "url": receiver.url}
+    nameless = {
+        "consumerApi": world.key("Capi"),
+        "workspaceKey": ws,
+        "events": [WATCHED],
+        "url": receiver.url,
+    }
     refused(world.api.post(PATH, nameless), 422, "REQUEST_VALIDATION_ERROR")
     refused(world.api.post(PATH, {**nameless, "name": ""}), 422, "REQUEST_VALIDATION_ERROR")
 
     created = _subscribe(world, ws, receiver.url, name="Billing feed")
     assert created["name"] == "Billing feed"
     assert _read(world, created)["name"] == "Billing feed"
-    assert [item["name"] for item in ok(world.api.get(PATH, workspaceKey=ws))["items"]] == ["Billing feed"]
+    assert [item["name"] for item in ok(world.api.get(PATH, workspaceKey=ws))["items"]] == [
+        "Billing feed"
+    ]
 
     receiver.answer(503)
     world.made("R", "Ledger Named", workspace=ws)
@@ -67,9 +81,18 @@ def test_a_subscription_has_a_name_and_renaming_keeps_a_batch_being_retried(worl
     pending = _read(world, created)["delivery"]["pending"]
     assert pending is not None
 
-    renamed = ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": created["version"], "name": "Invoices"}))
+    renamed = ok(
+        world.api.patch(
+            f"{PATH}/{created['id']}", {"expectedVersion": created["version"], "name": "Invoices"}
+        )
+    )
     assert renamed["name"] == "Invoices" and renamed["delivery"]["pending"] == pending
-    edited = ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": renamed["version"], "url": receiver.url + "/b"}))
+    edited = ok(
+        world.api.patch(
+            f"{PATH}/{created['id']}",
+            {"expectedVersion": renamed["version"], "url": receiver.url + "/b"},
+        )
+    )
     assert edited["name"] == "Invoices" and edited["delivery"]["pending"] is None
 
 
@@ -114,7 +137,9 @@ def test_the_deliveries_list_each_event_with_what_was_sent_and_answered(world, r
     assert [event["eventId"] for event in detail["events"]] == [event["eventId"] for event in sent]
     (attempt,) = detail["attempts"]
     assert attempt["number"] == 1 and attempt["responseStatus"] == 200 and attempt["error"] is None
-    assert datetime.fromisoformat(attempt["startedAt"]) <= datetime.fromisoformat(attempt["completedAt"])
+    assert datetime.fromisoformat(attempt["startedAt"]) <= datetime.fromisoformat(
+        attempt["completedAt"]
+    )
     assert attempt["durationMs"] >= 0
     assert json.loads(attempt["responseBody"]) == {"accepted": True}
 
@@ -139,13 +164,20 @@ def test_a_retried_request_shows_each_attempt_and_when_the_next_is_due(world, re
     pending = _read(world, created)["delivery"]["pending"]
     assert (row["status"], row["attempts"], row["responseStatus"]) == ("retrying", 1, 503)
     assert row["deliveryId"] == pending["deliveryId"]
-    assert datetime.fromisoformat(row["nextAttemptAt"]) == datetime.fromisoformat(pending["nextAttemptAt"])
+    assert datetime.fromisoformat(row["nextAttemptAt"]) == datetime.fromisoformat(
+        pending["nextAttemptAt"]
+    )
     assert _deliveries(world, created, status="retrying") == [row]
     assert _deliveries(world, created, status="succeeded") == []
 
     dispatch(world, now + timedelta(minutes=1))
     (row,) = _deliveries(world, created)
-    assert (row["status"], row["attempts"], row["responseStatus"], row["nextAttemptAt"]) == ("succeeded", 2, 200, None)
+    assert (row["status"], row["attempts"], row["responseStatus"], row["nextAttemptAt"]) == (
+        "succeeded",
+        2,
+        200,
+        None,
+    )
     attempts = _detail(world, created, row["deliveryId"])["attempts"]
     assert [(a["number"], a["responseStatus"]) for a in attempts] == [(1, 503), (2, 200)]
     assert attempts[0]["error"]["kind"] == "status" and attempts[0]["responseBody"] == "busy"
@@ -168,7 +200,12 @@ def test_an_edit_drops_a_retried_request_and_a_day_of_failures_fails_it(world, r
     dispatch(world, now)
     (dropped,) = _deliveries(world, created)
 
-    edited = ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": created["version"], "url": receiver.url + "/b"}))
+    edited = ok(
+        world.api.patch(
+            f"{PATH}/{created['id']}",
+            {"expectedVersion": created["version"], "url": receiver.url + "/b"},
+        )
+    )
     assert _deliveries(world, created)[0]["status"] == "dropped"
     clock = now + timedelta(seconds=1)
     dispatch(world, clock)
@@ -214,7 +251,11 @@ def test_deliveries_are_kept_for_the_retention_and_a_pending_batch_is_kept_longe
 
     dispatch(world, now + timedelta(days=8))
     assert _deliveries(world, delivered) == []
-    refused(world.api.get(f"{PATH}/{delivered['id']}/deliveries/{gone['deliveryId']}"), 404, "DELIVERY_NOT_FOUND")
+    refused(
+        world.api.get(f"{PATH}/{delivered['id']}/deliveries/{gone['deliveryId']}"),
+        404,
+        "DELIVERY_NOT_FOUND",
+    )
     assert [row["deliveryId"] for row in _deliveries(world, failing)] == [kept["deliveryId"]]
 
 
@@ -232,11 +273,22 @@ def test_unknown_deliveries_are_refused_and_a_deleted_subscription_takes_its_log
     dispatch(world)
     (row,) = _deliveries(world, created)
 
-    refused(world.api.get(f"{PATH}/{created['id']}/deliveries/no-such-delivery"), 404, "DELIVERY_NOT_FOUND")
+    refused(
+        world.api.get(f"{PATH}/{created['id']}/deliveries/no-such-delivery"),
+        404,
+        "DELIVERY_NOT_FOUND",
+    )
     refused(world.api.get(f"{PATH}/no-such-subscription/deliveries"), 404, "SUBSCRIPTION_NOT_FOUND")
-    refused(world.api.get(f"{PATH}/no-such-subscription/deliveries/{row['deliveryId']}"), 404, "SUBSCRIPTION_NOT_FOUND")
+    refused(
+        world.api.get(f"{PATH}/no-such-subscription/deliveries/{row['deliveryId']}"),
+        404,
+        "SUBSCRIPTION_NOT_FOUND",
+    )
     current = _read(world, created)
-    assert world.api.delete(f"{PATH}/{created['id']}", expectedVersion=current["version"]).status_code == 204
+    assert (
+        world.api.delete(f"{PATH}/{created['id']}", expectedVersion=current["version"]).status_code
+        == 204
+    )
     refused(world.api.get(f"{PATH}/{created['id']}/deliveries"), 404, "SUBSCRIPTION_NOT_FOUND")
 
 
@@ -277,7 +329,11 @@ def test_a_delivered_event_is_resent_by_hand_as_it_was_sent(world, receiver):
     assert _signed(created["signingSecret"], request)
     assert request["body"]["deliveryId"] == resent["deliveryId"] != original["deliveryId"]
     assert request["body"]["events"] == [sent]
-    assert (resent["status"], resent["resendOf"], len(resent["attempts"])) == ("succeeded", original["deliveryId"], 1)
+    assert (resent["status"], resent["resendOf"], len(resent["attempts"])) == (
+        "succeeded",
+        original["deliveryId"],
+        1,
+    )
     newest = _deliveries(world, created)[0]
     assert (newest["deliveryId"], newest["eventId"], newest["resendOf"], newest["status"]) == (
         resent["deliveryId"],
@@ -312,7 +368,10 @@ def test_a_resend_to_a_failing_receiver_fails_once_even_while_suspended(world, r
 
     receiver.answer(500)
     resent = ok(_resend(world, created, row["deliveryId"], row["eventId"]), 201)
-    assert (resent["status"], [a["responseStatus"] for a in resent["attempts"]]) == ("failed", [500])
+    assert (resent["status"], [a["responseStatus"] for a in resent["attempts"]]) == (
+        "failed",
+        [500],
+    )
     sent = len(receiver.requests)
     current = _read(world, created)
     ok(world.api.post(f"{PATH}/{created['id']}/resume", {"expectedVersion": current["version"]}))
@@ -336,7 +395,9 @@ def test_what_cannot_be_resent_is_refused(world, receiver):
     (row,) = _deliveries(world, created)
 
     refused(_resend(world, created, row["deliveryId"]), 422, "REQUEST_VALIDATION_ERROR")
-    error = refused(_resend(world, created, row["deliveryId"], "no-such-event"), 404, "EVENT_NOT_IN_DELIVERY")
+    error = refused(
+        _resend(world, created, row["deliveryId"], "no-such-event"), 404, "EVENT_NOT_IN_DELIVERY"
+    )
     assert error["details"]["pointer"] == "/eventId"
     assert len(receiver.requests) == 1 and len(_deliveries(world, created)) == 1
 
@@ -353,7 +414,9 @@ def test_a_cloudevent_is_resent_alone_in_the_content_mode_it_was_sent_in(world, 
     manual`` and a valid signature; its row names the event and the delivery it repeats."""
     _activate(world, "events")
     ws = _workspace(world)
-    created = _subscribe(world, ws, receiver.url, events=[EVERY], format="cloudevents", maxEventsPerBatch=size)
+    created = _subscribe(
+        world, ws, receiver.url, events=[EVERY], format="cloudevents", maxEventsPerBatch=size
+    )
     world.made("R", "Ledger Sent", workspace=ws)
     world.made("R", "Ledger Again", workspace=ws)
     derive_events(world)
@@ -362,7 +425,11 @@ def test_a_cloudevent_is_resent_alone_in_the_content_mode_it_was_sent_in(world, 
     sent = _cloudevents(original)[-1]
     content_type = original["headers"]["content-type"]
     current = _read(world, created)
-    ok(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": current["version"], "format": "rdm"}))
+    ok(
+        world.api.patch(
+            f"{PATH}/{created['id']}", {"expectedVersion": current["version"], "format": "rdm"}
+        )
+    )
 
     delivery_id = original["headers"]["rdm-delivery-id"]
     resent = ok(_resend(world, created, delivery_id, sent["id"]), 201)

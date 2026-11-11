@@ -72,16 +72,24 @@ def test_a_value_the_driver_refused_is_not_an_outage():
         (PoolTimeout("QueuePool limit of size 1 overflow 0 reached"), "poolExhausted"),
         # The server's own limit (SQLSTATE 53300), through SQLAlchemy and from psycopg directly.
         (_database("53300"), "tooManyConnections"),
-        (psycopg_errors.TooManyConnections("sorry, too many clients already"), "tooManyConnections"),
+        (
+            psycopg_errors.TooManyConnections("sorry, too many clients already"),
+            "tooManyConnections",
+        ),
         # Refused while connecting, psycopg names no SQLSTATE, only the server's message.
         (
-            psycopg.OperationalError('connection failed: FATAL:  too many connections for role "rdm"'),
+            psycopg.OperationalError(
+                'connection failed: FATAL:  too many connections for role "rdm"'
+            ),
             "tooManyConnections",
         ),
         # The server ended a transaction left idle past DATABASE_IDLE_TRANSACTION_TIMEOUT (0.11 N3,
         # D183): the connection is invalidated, but the database is reachable.
         (_database("25P03", invalidated=True), "transactionEnded"),
-        (psycopg_errors.IdleInTransactionSessionTimeout("terminating connection"), "transactionEnded"),
+        (
+            psycopg_errors.IdleInTransactionSessionTimeout("terminating connection"),
+            "transactionEnded",
+        ),
         (_database(), "unreachable"),
         (_database("08006"), "unreachable"),
         (_database("40001"), None),
@@ -118,7 +126,9 @@ def test_an_ended_transaction_is_one_plain_warning_naming_the_setting(caplog):
     assert "cannot reach" not in record.getMessage()
 
 
-def test_an_outage_is_one_plain_error_then_a_reminder_an_interval_then_the_recovery(monkeypatch, caplog):
+def test_an_outage_is_one_plain_error_then_a_reminder_an_interval_then_the_recovery(
+    monkeypatch, caplog
+):
     logger = logging.getLogger("tests.outage")
     log = OutageLog(logger, "The worker", 2.0)
     monkeypatch.setattr(outage_module, "REMINDER_SECONDS", 0.05)

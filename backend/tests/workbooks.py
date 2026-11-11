@@ -111,7 +111,9 @@ def w1(seed: int = 1, rows: int = 200) -> W1:
                 "Ln": rng.choice(COLOURS[code]),
                 "F1": rng.choice("YN"),
                 "F2": rng.choice("YN"),
-                "Fo": "; ".join(features) if len(features) > 1 else (features[0] if features else None),
+                "Fo": "; ".join(features)
+                if len(features) > 1
+                else (features[0] if features else None),
                 "X": str(uuid.UUID(int=rng.getrandbits(128))),
             }
         )
@@ -129,8 +131,14 @@ def w1_next(seed: int = 1, rows: int = 200) -> W1:
     records[5]["T"] = "Bamboo"
     for index in range(3):
         number = rows + index + 1
-        records.append({**records[index], "K": f"IT-{number:05d}", "N": f"Added item {number}",
-                        "X": str(uuid.UUID(int=seed * 1000 + number))})
+        records.append(
+            {
+                **records[index],
+                "K": f"IT-{number:05d}",
+                "N": f"Added item {number}",
+                "X": str(uuid.UUID(int=seed * 1000 + number)),
+            }
+        )
     headers = dict(HEADERS)
     headers["Ln"] = "Colour name"
     headers["Y"] = "Pack size"
@@ -324,7 +332,9 @@ def _title_over(titles: dict[int, str], column: int) -> str:
     return titles[max(c for c in titles if c <= column)]
 
 
-def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, top: int) -> list[dict[str, Any]]:
+def _second_band(
+    sheet: Any, first: list[dict[str, Any]], rng: random.Random, top: int
+) -> list[dict[str, Any]]:
     """D121: a section title on row ``top``, the headers on the row under it, one block per shape
     of :data:`SECOND_BAND` in the columns of the first band's blocks wide enough for it."""
     header_row = top + 1
@@ -376,7 +386,11 @@ def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, to
                 "titles": [title],
                 "values": values,
                 "translations": (
-                    {other: translated} if shape == "unmarked" else {other: None} if shape == "headerOnly" else {}
+                    {other: translated}
+                    if shape == "unmarked"
+                    else {other: None}
+                    if shape == "headerOnly"
+                    else {}
                 ),
                 "note": note,
                 "meaning": {"Free field": "free", "Multiple choice": "many"}.get(note or ""),
@@ -386,7 +400,9 @@ def _second_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, to
     return found
 
 
-def _third_band(sheet: Any, first: list[dict[str, Any]], rng: random.Random, top: int) -> list[dict[str, Any]]:
+def _third_band(
+    sheet: Any, first: list[dict[str, Any]], rng: random.Random, top: int
+) -> list[dict[str, Any]]:
     """D145 (0.10 A8c): a section title on row ``top`` over three lists of one shape side by side,
     in the columns of the first band's three-column blocks, whose headers are values: each a name,
     a translation headed by the header in another language and a yes/no column; a second header
@@ -467,8 +483,22 @@ def w4(seed: int = 1, rows: int = 120) -> W4:
     kinds = book.active
     kinds.title = "Kinds"
     kinds.append(
-        ["Kind Code", "Customer Name", "Category ID", "Sort Order", "Category", "Slot_Name", "Slot hours", "North",
-         "Duration", "South", "Definition", "Categoría", "Kategorie", "Customer Name"]
+        [
+            "Kind Code",
+            "Customer Name",
+            "Category ID",
+            "Sort Order",
+            "Category",
+            "Slot_Name",
+            "Slot hours",
+            "North",
+            "Duration",
+            "South",
+            "Definition",
+            "Categoría",
+            "Kategorie",
+            "Customer Name",
+        ]
     )
     ids = {name: str(uuid.UUID(int=index + 1)) for index, name in enumerate(W4_CATEGORIES)}
     slots = {"Morning": "8-12", "Evening": "17-21", "Weekend": "9-13"}
@@ -479,13 +509,28 @@ def w4(seed: int = 1, rows: int = 120) -> W4:
         spanish, czech, order = W4_CATEGORIES[category] if category else (None, None, None)
         slot = rng.choice(list(slots))
         kinds.append(
-            [f"K-{index + 1:04d}", f"Kind {index // 2 + 1}", ids.get(category), order, category, slot, slots[slot],
-             rng.choice("YN"), f"{rng.choice([15, 30, 45])} min", rng.choice("YN"), rng.choice(W4_DEFINITIONS),
-             spanish, czech, f"Druh {index // 2 + 1}"]
+            [
+                f"K-{index + 1:04d}",
+                f"Kind {index // 2 + 1}",
+                ids.get(category),
+                order,
+                category,
+                slot,
+                slots[slot],
+                rng.choice("YN"),
+                f"{rng.choice([15, 30, 45])} min",
+                rng.choice("YN"),
+                rng.choice(W4_DEFINITIONS),
+                spanish,
+                czech,
+                f"Druh {index // 2 + 1}",
+            ]
         )
     statuses = book.create_sheet("Statuses")
     statuses.append(["Id", "Name"])
-    for index, name in enumerate(("Booked and confirmed", "Waiting for payment", "No show", "Cancelled by station", "Arrived")):
+    for index, name in enumerate(
+        ("Booked and confirmed", "Waiting for payment", "No show", "Cancelled by station", "Arrived")
+    ):
         statuses.append([str(uuid.UUID(int=1000 + index)), name])
     return W4(_save(book), rows, blank)
 
@@ -493,7 +538,9 @@ def w4(seed: int = 1, rows: int = 120) -> W4:
 def _ensure_shapes(records: list[dict[str, Any]]) -> None:
     """The structures every W1 holds whatever its size: both names of each two-named colour code,
     both placeholders, and a ``;``-separated ``Fo``."""
-    for offset, (code, names) in enumerate((c, n) for c, n in sorted(COLOURS.items()) if len(n) > 1):
+    for offset, (code, names) in enumerate(
+        (c, n) for c, n in sorted(COLOURS.items()) if len(n) > 1
+    ):
         for position, name in enumerate(names):
             row = records[(offset * 2 + position) % len(records)]
             row["Lc"], row["Ln"] = code, name
@@ -513,7 +560,9 @@ def _names(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return names
 
 
-def _book(records: list[dict[str, Any]], names: list[dict[str, Any]], headers: dict[str, str]) -> bytes:
+def _book(
+    records: list[dict[str, Any]], names: list[dict[str, Any]], headers: dict[str, str]
+) -> bytes:
     book = Workbook()
     main = book.active
     main.title = S1

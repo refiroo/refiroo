@@ -381,8 +381,12 @@ def test_what_a_set_of_records_holds_through_a_relationship(world):
     cs1 = world.change_set()
     ok(
         world.relate(
-            "Bnn", hs[3], b, {"Bnn.weight": 1},
-            changeSetId=cs1["id"], expectedChangeSetVersion=world.current(cs1)["version"],
+            "Bnn",
+            hs[3],
+            b,
+            {"Bnn.weight": 1},
+            changeSetId=cs1["id"],
+            expectedChangeSetVersion=world.current(cs1)["version"],
         ),
         201,
     )
@@ -421,7 +425,9 @@ def _reserve(world, tag, region):
     g = world.made("G", f"{tag} {region}")
     owner = world.made("R", f"{tag} owner of {region}")
     return world.made(
-        "D", f"{tag} permit in {region}", parent=world.dependant_parent(g["id"]),
+        "D",
+        f"{tag} permit in {region}",
+        parent=world.dependant_parent(g["id"]),
         relations=[world.owner("Bown", owner["id"])],
     ), g
 
@@ -445,14 +451,21 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     assert _candidates(world, "K", bcand, "H", tag) == [f"{tag} also good", f"{tag} good"]
 
     cs = world.change_set(name=f"{tag} recode")
-    ok(world.api.patch(
-        f"/objects/{world.key('K')}/{bad['id']}",
-        {"attributes": [{"attributeTypeKey": world.key("K.code"), "value": f"OK-{tag}-3"}],
-         "expectedVersion": bad["version"], "changeSetId": cs["id"],
-         "expectedChangeSetVersion": cs["version"]},
-    ))
+    ok(
+        world.api.patch(
+            f"/objects/{world.key('K')}/{bad['id']}",
+            {
+                "attributes": [{"attributeTypeKey": world.key("K.code"), "value": f"OK-{tag}-3"}],
+                "expectedVersion": bad["version"],
+                "changeSetId": cs["id"],
+                "expectedChangeSetVersion": cs["version"],
+            },
+        )
+    )
     assert _candidates(world, "K", bcand, "H", tag, changeSetId=cs["id"]) == [
-        f"{tag} also good", f"{tag} bad", f"{tag} good"
+        f"{tag} also good",
+        f"{tag} bad",
+        f"{tag} good",
     ]
     assert _candidates(world, "K", bcand, "H", tag) == [f"{tag} also good", f"{tag} good"]
 
@@ -464,7 +477,9 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     def item(op, target):
         return {"op": op, "relationTypeKey": bcand, "from": {"id": h["id"]}, "to": {"id": target}}
 
-    result = ok(_batch(world, [item("ensureRelation", also["id"]), item("ensureRelation", bad["id"])]))
+    result = ok(
+        _batch(world, [item("ensureRelation", also["id"]), item("ensureRelation", bad["id"])])
+    )
     assert [i["status"] for i in result["items"]] == ["applied", "rejected"]
     assert result["items"][1]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
 
@@ -472,14 +487,22 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     def create_k(code):
         record_id = str(uuid4())
         return record_id, {
-            "op": "create", "id": record_id, "applicationKey": world.app("K"),
-            "objectTypeKey": world.key("K"), "name": f"{tag} new {code}",
+            "op": "create",
+            "id": record_id,
+            "applicationKey": world.app("K"),
+            "objectTypeKey": world.key("K"),
+            "name": f"{tag} new {code}",
             "attributes": [{"attributeTypeKey": world.key("K.code"), "value": f"{code}-{tag}"}],
         }
 
     new_ok, create_ok = create_k("OK")
     new_no, create_no = create_k("NO")
-    result = ok(_batch(world, [create_ok, create_no, item("ensureRelation", new_ok), item("ensureRelation", new_no)]))
+    result = ok(
+        _batch(
+            world,
+            [create_ok, create_no, item("ensureRelation", new_ok), item("ensureRelation", new_no)],
+        )
+    )
     assert [i["status"] for i in result["items"]] == ["applied", "applied", "applied", "rejected"]
     assert result["items"][3]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
 
@@ -487,21 +510,41 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     current = world.record("K", good["id"])
     ok(world.update("K", good["id"], current["version"], values={"K.code": f"NO-{tag}-4"}))
     replace = {
-        "op": "replaceRelationSet", "relationTypeKey": bcand, "fromObjectTypeKey": world.key("H"),
-        "toObjectTypeKey": world.key("K"), "direction": "outgoing", "anchor": {"id": h["id"]},
+        "op": "replaceRelationSet",
+        "relationTypeKey": bcand,
+        "fromObjectTypeKey": world.key("H"),
+        "toObjectTypeKey": world.key("K"),
+        "direction": "outgoing",
+        "anchor": {"id": h["id"]},
     }
-    kept = ok(_batch(world, [{**replace, "targets": [{"object": {"id": good["id"]}}]}], onExisting="overwrite"))
+    kept = ok(
+        _batch(
+            world,
+            [{**replace, "targets": [{"object": {"id": good["id"]}}]}],
+            onExisting="overwrite",
+        )
+    )
     assert kept["items"][0]["status"] == "applied"
-    added = ok(_batch(world, [{**replace, "targets": [{"object": {"id": bad["id"]}}]}], onExisting="overwrite"))
+    added = ok(
+        _batch(
+            world, [{**replace, "targets": [{"object": {"id": bad["id"]}}]}], onExisting="overwrite"
+        )
+    )
     assert added["items"][0]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
     # An edit of the held record keeps it, live and in a change set alike (an import's update).
     held = world.record("K", good["id"])
     edit = world.change_set(name=f"{tag} rename held")
-    ok(world.api.patch(
-        f"/objects/{world.key('K')}/{good['id']}",
-        {"name": f"{tag} good renamed", "expectedVersion": held["version"], "changeSetId": edit["id"],
-         "expectedChangeSetVersion": edit["version"]},
-    ))
+    ok(
+        world.api.patch(
+            f"/objects/{world.key('K')}/{good['id']}",
+            {
+                "name": f"{tag} good renamed",
+                "expectedVersion": held["version"],
+                "changeSetId": edit["id"],
+                "expectedChangeSetVersion": edit["version"],
+            },
+        )
+    )
 
     # Banc: the R end must be flagged, the D end under a reserved G.
     banc = world.key("Banc")
@@ -510,9 +553,13 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     reserved, _g = _reserve(world, tag, "Reserved West")
     open_d, _g2 = _reserve(world, tag, "Open North")
     assert _candidates(world, "D", banc, "R", tag) == [f"{tag} permit in Reserved West"]
-    error = refused(world.relate("Banc", plain_r["id"], reserved["id"]), 422, "RELATION_CANDIDATE_REFUSED")
+    error = refused(
+        world.relate("Banc", plain_r["id"], reserved["id"]), 422, "RELATION_CANDIDATE_REFUSED"
+    )
     assert error["details"]["end"] == "from"
-    error = refused(world.relate("Banc", flagged["id"], open_d["id"]), 422, "RELATION_CANDIDATE_REFUSED")
+    error = refused(
+        world.relate("Banc", flagged["id"], open_d["id"]), 422, "RELATION_CANDIDATE_REFUSED"
+    )
     assert error["details"]["end"] == "to"
     ok(world.relate("Banc", flagged["id"], reserved["id"]), 201)
     assert world.api.get(f"/objects/{world.key('D')}", candidateFor=banc).status_code == 422
@@ -530,11 +577,17 @@ def test_a_relationship_outlives_the_criteria_it_was_chosen_by(world):
     reserved, g = _reserve(world, tag, "Reserved East")
     relation = ok(world.relate("Banc", flagged["id"], reserved["id"]), 201)
     cs = world.change_set(name=f"{tag} rename")
-    ok(world.api.patch(
-        f"/objects/{world.key('G')}/{g['id']}",
-        {"name": f"{tag} Plain East", "expectedVersion": g["version"], "changeSetId": cs["id"],
-         "expectedChangeSetVersion": cs["version"]},
-    ))
+    ok(
+        world.api.patch(
+            f"/objects/{world.key('G')}/{g['id']}",
+            {
+                "name": f"{tag} Plain East",
+                "expectedVersion": g["version"],
+                "changeSetId": cs["id"],
+                "expectedChangeSetVersion": cs["version"],
+            },
+        )
+    )
     world.publish(world.current(cs))
     held = _relations(world, flagged["id"], relationTypeKey=banc, direction="outgoing")
     assert [(item["relation"]["id"], item["object"]["id"]) for item in held] == [

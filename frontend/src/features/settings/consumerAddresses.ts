@@ -11,22 +11,24 @@ export const openapiUrl = (entry: ConsumerApiIndexEntry) => new URL(entry.openap
 
 export const baseUrl = (entry: ConsumerApiIndexEntry) => openapiUrl(entry).replace(/\/openapi\.json$/, "");
 
-/** The reference page opened on one source: `management`, or `consumer-{consumerApi}-v{version}`. */
-export const referenceUrl = (slug: string) => `${API_URL}/docs/api?api=${encodeURIComponent(slug)}`;
+/** The reference page opened on one source: `management`, or `consumer-{consumerApi}-v{version}`.
+ * With a workspace, the page lists that workspace's consumer APIs (`?workspace=<key>`). */
+export const referenceUrl = (slug: string, workspaceKey?: string) =>
+  `${API_URL}/docs/api?api=${encodeURIComponent(slug)}${workspaceKey ? `&workspace=${encodeURIComponent(workspaceKey)}` : ""}`;
 
 /** One operation on the reference page: its source, then the method and the path as the document
  * writes it (Scalar's address for an operation; it opens that source, scrolled to it). */
-export const operationUrl = (slug: string, method: string, path: string) =>
-  `${API_URL}/docs/api#${slug}/${method.toUpperCase()}${path}`;
+export const operationUrl = (slug: string, method: string, path: string, workspaceKey?: string) =>
+  `${API_URL}/docs/api${workspaceKey ? `?workspace=${encodeURIComponent(workspaceKey)}` : ""}#${slug}/${method.toUpperCase()}${path}`;
 
 export const consumerSlug = (entry: ConsumerApiIndexEntry) => `consumer-${entry.consumerApi}-v${entry.contractVersion}`;
 
-/** Every entry of the API index, page after page. */
-export async function allConsumerApis() {
+/** Every entry of the API index, page after page, of the default workspace or of `workspaceKey`. */
+export async function allConsumerApis(workspaceKey?: string) {
   const entries: ConsumerApiIndexEntry[] = [];
   let cursor: string | undefined;
   do {
-    const page = await api.consumerApis(cursor);
+    const page = await api.consumerApis(cursor, workspaceKey);
     entries.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);

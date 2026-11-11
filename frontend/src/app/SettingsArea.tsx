@@ -138,7 +138,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       ) : route.page === "operations" ? (
         <OperationsPage />
       ) : route.page === "consumer-apis" ? (
-        <ConsumerApisPage onNavigate={(next) => navigate(next)} />
+        <ConsumerApisPage route={route} onNavigate={(next, replace) => navigate(next, replace)} />
       ) : route.page === "webhooks" ? (
         <WebhooksPage route={route} model={model} onNavigate={(next) => navigate(next)} />
       ) : route.page === "import-profiles" ? (
@@ -180,7 +180,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       ) : route.page === "mail" ? (
         <MailPage />
       ) : route.page === "api-reference" ? (
-        <ApiReferencePage />
+        <ApiReferencePage route={route} onNavigate={(next, replace) => navigate(next, replace)} />
       ) : route.page === "workspaces" ? (
         <WorkspaceAdmin
           route={route}

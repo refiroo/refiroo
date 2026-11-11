@@ -62,10 +62,14 @@ def consumer_openapi(
     root_path: str,
     resolve_max_items: int,
     token_url: str,
+    workspace_key: str | None = None,
 ) -> dict[str, Any]:
     """The OpenAPI 3.1 document of ``definition`` as the active release ``model`` declares it; every
-    operation needs a ``consumer`` token from ``token_url`` (0.12 Z3, D311)."""
-    document = _Document(model, definition, root_path, resolve_max_items).build()
+    operation needs a ``consumer`` token from ``token_url`` (0.12 Z3, D311). ``workspace_key`` names the
+    workspace the document describes when that is not the deployment's default: every read then
+    requires ``workspace`` with that key, so a client built from the document (the reference page's test
+    request) reads that workspace; without it the parameter is optional and names the default."""
+    document = _Document(model, definition, root_path, resolve_max_items, workspace_key).build()
     document["components"]["securitySchemes"] = {
         "oauth2": {
             "type": "oauth2",
@@ -113,8 +117,15 @@ def _object(properties: dict[str, Any], required: list[str] | None = None, *, cl
 
 class _Document:
     def __init__(
-        self, model: EngineModel, definition: ConsumerApiDefinition, root_path: str, resolve_max_items: int
+        self,
+        model: EngineModel,
+        definition: ConsumerApiDefinition,
+        root_path: str,
+        resolve_max_items: int,
+        workspace_key: str | None = None,
     ) -> None:
+        self.workspace = _workspace_parameter(workspace_key)
+        self.workspace_key = workspace_key
         self.model = model
         self.definition = definition
         self.contract: OutputContract = output_contract(model, definition)
@@ -169,8 +180,12 @@ class _Document:
                 "description": (
                     f"{intro}Consumer API `{definition.key}`, contract version {definition.contractVersion},"
                     f" declared by the model release {release.name} {release.version}. A read takes the live"
-                    " data of a workspace (`workspace`, default: the deployment's default workspace) or one"
-                    " of its publications (`publication`: an ID or `latest`). Every `GET` answers an `ETag`"
+                    + (
+                        " data of a workspace (`workspace`, default: the deployment's default workspace) or one"
+                        if self.workspace_key is None
+                        else f" data of workspace `{self.workspace_key}`, which it names (`workspace={self.workspace_key}`), or one"
+                    )
+                    + " of its publications (`publication`: an ID or `latest`). Every `GET` answers an `ETag`"
                     " and `304 Not Modified` to a matching `If-None-Match`."
                 ),
             },
@@ -208,7 +223,7 @@ class _Document:
         list, its type; elsewhere any exposed type (C16)."""
         if dated is None:
             dated = bool(self.contract.as_of)
-        return [_WORKSPACE, _PUBLICATION, *([_as_of(self._dated_names())] if dated else [])]
+        return [self.workspace, _PUBLICATION, *([_as_of(self._dated_names())] if dated else [])]
 
     def _include_description(self) -> str:
         names = ", ".join(f"`{name}`" for name in self.definition.on_request())
@@ -398,7 +413,7 @@ class _Document:
                 "The workspace's publications, newest first. `eventSequence` is the feed position of the"
                 " publication's `published` entry: live data at that position equals the publication."
             ),
-            "parameters": [_WORKSPACE, *_PAGING, _INCLUDE_TOTAL],
+            "parameters": [self.workspace, *_PAGING, _INCLUDE_TOTAL],
             "responses": _responses(_ref("PublicationPage"), "WORKSPACE_NOT_FOUND"),
         }
 
@@ -419,7 +434,7 @@ class _Document:
                 " entries: an older position is `410 EVENTS_EXPIRED`, naming the publication to re-read.",
             ),
             "parameters": [
-                _WORKSPACE,
+                self.workspace,
                 _EVENT_NAMES,
                 _AFTER,
                 _EVENT_CURSOR,
@@ -726,6 +741,22 @@ _WORKSPACE = {
     "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
     "schema": {"type": "string"},
 }
+def _workspace_parameter(workspace_key: str | None) -> dict[str, Any]:
+    """``workspace``: optional in the default workspace's document; required, with that key as its
+    only value, in the document of any other workspace."""
+    if workspace_key is None:
+        return _WORKSPACE
+    return {
+        "name": "workspace",
+        "in": "query",
+        "required": True,
+        "description": f"This document describes workspace `{workspace_key}`, which a read must name;"
+        " named in `RDM-Workspace`.",
+        "schema": {"type": "string", "enum": [workspace_key]},
+        "example": workspace_key,
+    }
+
+
 _PUBLICATION = {
     "name": "publication",
     "in": "query",

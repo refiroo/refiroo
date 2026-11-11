@@ -18,8 +18,22 @@ from scenario import (
 )
 
 CAPI = (
-    "Capi", "R", "R2", "R.u", "R2.u", "R.b", "R.n", "R.dt", "K", "K.code", "B11", "Bown", "Bscope",
-    "G", "M", "D",
+    "Capi",
+    "R",
+    "R2",
+    "R.u",
+    "R2.u",
+    "R.b",
+    "R.n",
+    "R.dt",
+    "K",
+    "K.code",
+    "B11",
+    "Bown",
+    "Bscope",
+    "G",
+    "M",
+    "D",
 )
 
 
@@ -48,9 +62,7 @@ def test_the_shared_object(world):
     names R, and its hierarchy is [R's name]; the B11 projection is an object, and null on a record
     without the relationship; the Bown projection is an array ordered by name, with each G's name; a
     record with no dependants has []."""
-    r = world.made(
-        "R", "Alpha ledger", values={"R.u": "LED-1", "R.b": False, "R.dt": "2026-03-04"}
-    )
+    r = world.made("R", "Alpha ledger", values={"R.u": "LED-1", "R.b": False, "R.dt": "2026-03-04"})
     token = world.made("K", "Paired token", values={"K.code": "TK-1"})
     ok(world.relate("B11", r["id"], token["id"]), 201)
     north = world.made("G", "Region north", values={"K.code": "GN"})
@@ -155,21 +167,51 @@ def test_another_workspace(world):
     refused(missing, 404, "OBJECT_NOT_FOUND")
     assert missing.headers["RDM-Workspace"] == W1
     refused(consumer_object(world, first["id"], workspace=W2), 404, "OBJECT_NOT_FOUND")
-    refused(consumer_object(world, first["id"], workspace="no-such-site"), 404, "WORKSPACE_NOT_FOUND")
+    refused(
+        consumer_object(world, first["id"], workspace="no-such-site"), 404, "WORKSPACE_NOT_FOUND"
+    )
     refused(consumer_object(world, world.ids["w3r"], workspace=W3), 404, "WORKSPACE_NOT_FOUND")
+
+    # The document of a non-default workspace requires `workspace`, naming that workspace, on every
+    # read, so a request composed from it (the reference page's test request) reads that workspace;
+    # the default workspace's document leaves it optional.
+    path = f"/api/consumer/{world.key('Capi')}/v1/openapi.json"
+
+    def workspace_parameters(document):
+        return [
+            parameter
+            for operations in document["paths"].values()
+            for operation in operations.values()
+            for parameter in operation["parameters"]
+            if parameter["name"] == "workspace"
+        ]
+
+    other = workspace_parameters(ok(world.api.get(path, workspace=W2)))
+    assert other and all(
+        item["required"] and item["schema"]["enum"] == [W2] and item["example"] == W2
+        for item in other
+    )
+    default = workspace_parameters(ok(world.api.get(path)))
+    assert default and not any(item.get("required") for item in default)
 
 
 @pytest.mark.journey("J28.4")
 @pytest.mark.structures(*CAPI)
 def test_refusals(world):
-    """An unknown consumer API name is 403 FORBIDDEN, since no grant can name it (0.12 Z3, D309;
-    404 CONSUMER_API_NOT_FOUND before). Version 2 of a version-1 API is 404
+    """An unknown consumer API name is 404 CONSUMER_API_NOT_FOUND, naming no workspace (the workspace's
+    model does not declare it, whatever the grants; 403 FORBIDDEN for a key it declares, 0.12 Z3,
+    D309). Version 2 of a version-1 API is 404
     CONTRACT_VERSION_NOT_FOUND. A record of a type the definition does not expose is 404
     OBJECT_NOT_FOUND. pagesize=5 is 400 UNKNOWN_PARAMETER, naming it. A list's parent parameter is
     400 PARAMETER_NOT_SUPPORTED (C3)."""
     record = world.made("R", "Refusals")
-    refused(consumer_object(world, record["id"], api="no-such-api"), 403, "FORBIDDEN")
-    error = refused(consumer_object(world, record["id"], version=2), 404, "CONTRACT_VERSION_NOT_FOUND")
+    error = refused(
+        consumer_object(world, record["id"], api="no-such-api"), 404, "CONSUMER_API_NOT_FOUND"
+    )
+    assert error["details"] == {"workspaces": []}
+    error = refused(
+        consumer_object(world, record["id"], version=2), 404, "CONTRACT_VERSION_NOT_FOUND"
+    )
     assert error["details"]["contractVersion"] == 1
     token = world.made("K", "Not exposed")
     refused(consumer_object(world, token["id"]), 404, "OBJECT_NOT_FOUND")
@@ -317,7 +359,11 @@ def test_below_a_parent(world):
     assert _listed(world, "entries", **{ledger: north["id"]}) == ["North one", "North two"]
     both = ["North one", "North two", "South one"]
     assert _listed(world, "entries", **{ledger: [north["id"], south["id"]]}) == both
-    typed = ok(consumer_list_typed(world, world.key("Capi.entries"), f"{ledger}={north['id']},{south['id']}"))
+    typed = ok(
+        consumer_list_typed(
+            world, world.key("Capi.entries"), f"{ledger}={north['id']},{south['id']}"
+        )
+    )
     assert _names(world, typed) == both
     refused(
         consumer_list(world, world.key("Capi.entries"), **{ledger: f"{north['id']},{south['id']}"}),
@@ -336,7 +382,9 @@ def test_below_a_parent(world):
     token = world.made("K", "Not a region")
     for value in ("North", token["id"], str(uuid4())):
         error = refused(
-            consumer_list(world, world.key("Capi.entries"), **{ledger: value}), 404, "PARENT_NOT_FOUND"
+            consumer_list(world, world.key("Capi.entries"), **{ledger: value}),
+            404,
+            "PARENT_NOT_FOUND",
         )
         assert value in error["message"]
     refused(consumer_list(world, permits, **{region: north["id"]}), 404, "PARENT_NOT_FOUND")
@@ -359,7 +407,14 @@ def _narrowing_world(world):
     _permit_under(world, a["id"], south["id"], "Permit c")
     ok(world.relate("Bscope", a["id"], permit_a["id"]), 201)
     ok(world.relate("Bscope", b["id"], permit_a["id"]), 201)
-    return {"a": a, "b": b, "c": c, "permit_b": permit_b, "zone_one": zone_one, "zone_two": zone_two}
+    return {
+        "a": a,
+        "b": b,
+        "c": c,
+        "permit_b": permit_b,
+        "zone_one": zone_one,
+        "zone_two": zone_two,
+    }
 
 
 @pytest.mark.journey("J28.8")
@@ -374,7 +429,11 @@ def test_parameters_narrow_a_list(world):
     the URL, token=Bonds,Notes is two values and token=Bonds\\,%20Notes is no escape, so neither
     matches (C3b). Two parameters together give the records both keep."""
     _narrowing_world(world)
-    container, token, peer = _param(world, "container"), _param(world, "token"), _param(world, "peer")
+    container, token, peer = (
+        _param(world, "container"),
+        _param(world, "token"),
+        _param(world, "peer"),
+    )
     permit, kind = _param(world, "permit"), _param(world, "kind")
 
     assert _listed(world, "permits", **{container: "Permit a zone"}) == ["Permit a"]
@@ -391,7 +450,11 @@ def test_parameters_narrow_a_list(world):
         "Permit c"
     ]
 
-    assert _listed(world, "all", **{kind: world.key("Capi.R")}) == ["Ledger a", "Ledger b", "Ledger c"]
+    assert _listed(world, "all", **{kind: world.key("Capi.R")}) == [
+        "Ledger a",
+        "Ledger b",
+        "Ledger c",
+    ]
     assert _listed(world, "all", **{kind: world.key("Capi.R2")}) == []
     error = refused(
         consumer_list(world, world.key("Capi.all"), **{kind: "Nothing"}), 400, "UNKNOWN_OBJECT_TYPE"
@@ -426,15 +489,21 @@ def test_parameters_on_get_by_id(world):
 
     limited = _read(world, made["a"]["id"], **{permit: "Region north"})
     assert [p[_out(world, "Bown.name")] for p in limited[_out(world, "Bown")]] == ["Permit a"]
-    refused(consumer_object(world, made["c"]["id"], **{permit: "Region north"}), 404, "OBJECT_NOT_FOUND")
+    refused(
+        consumer_object(world, made["c"]["id"], **{permit: "Region north"}), 404, "OBJECT_NOT_FOUND"
+    )
     permit_b = made["permit_b"]["id"]
-    refused(consumer_object(world, permit_b, **{container: "Permit a zone"}), 404, "OBJECT_NOT_FOUND")
+    refused(
+        consumer_object(world, permit_b, **{container: "Permit a zone"}), 404, "OBJECT_NOT_FOUND"
+    )
     assert _read(world, permit_b, **{container: "Permit b zone"})[_out(world, "name")] == "Permit b"
 
     error = refused(consumer_object(world, permit_b, pageSize=5), 400, "PARAMETER_NOT_SUPPORTED")
     assert error["details"]["parameters"] == ["pageSize"]
     parent = _param(world, "permits.parent")
-    error = refused(consumer_object(world, permit_b, **{parent: "x"}), 400, "PARAMETER_NOT_SUPPORTED")
+    error = refused(
+        consumer_object(world, permit_b, **{parent: "x"}), 400, "PARAMETER_NOT_SUPPORTED"
+    )
     assert error["details"]["parameters"] == [parent]
 
 
@@ -451,9 +520,13 @@ def test_paging_refusals(world):
     for size in (0, 101):
         refused(consumer_list(world, all_, pageSize=size), 400, "INVALID_PAGE_SIZE")
     cursor = _page(world, "all", pageSize=1)["nextCursor"]
-    refused(consumer_list(world, all_, cursor=cursor, position=1), 400, "CONFLICTING_PAGE_PARAMETERS")
+    refused(
+        consumer_list(world, all_, cursor=cursor, position=1), 400, "CONFLICTING_PAGE_PARAMETERS"
+    )
     token = _param(world, "token")
-    refused(consumer_list(world, all_, pageSize=1, cursor=cursor, **{token: "x"}), 400, "INVALID_CURSOR")
+    refused(
+        consumer_list(world, all_, pageSize=1, cursor=cursor, **{token: "x"}), 400, "INVALID_CURSOR"
+    )
 
 
 # --- publications and ETag (C6a) -----------------------------------------------------------------
@@ -536,7 +609,9 @@ def test_latest_and_paging_an_extract(world):
     p2 = world.publish(world.change_set())["id"]
     names, page = _names(world, first), first
     while page["nextCursor"]:
-        response = consumer_list(world, all_, publication="latest", pageSize=1, cursor=page["nextCursor"])
+        response = consumer_list(
+            world, all_, publication="latest", pageSize=1, cursor=page["nextCursor"]
+        )
         page = ok(response)
         assert page["publication"] == p1
         assert response.headers["RDM-Publication"] == p1
@@ -567,14 +642,30 @@ def test_publication_refusals(world):
     p1 = made["p1"]["id"]
     all_ = world.key("Capi.all")
 
-    refused(consumer_object(world, made["l1"]["id"], publication=str(uuid4())), 404, "PUBLICATION_NOT_FOUND")
-    refused(consumer_object(world, made["l1"]["id"], publication=p1, workspace=W2), 404, "PUBLICATION_NOT_FOUND")
+    refused(
+        consumer_object(world, made["l1"]["id"], publication=str(uuid4())),
+        404,
+        "PUBLICATION_NOT_FOUND",
+    )
+    refused(
+        consumer_object(world, made["l1"]["id"], publication=p1, workspace=W2),
+        404,
+        "PUBLICATION_NOT_FOUND",
+    )
 
     live_cursor = _page(world, "all", pageSize=1)["nextCursor"]
-    refused(consumer_list(world, all_, pageSize=1, cursor=live_cursor, publication=p1), 400, "INVALID_CURSOR")
+    refused(
+        consumer_list(world, all_, pageSize=1, cursor=live_cursor, publication=p1),
+        400,
+        "INVALID_CURSOR",
+    )
     pinned_cursor = _page(world, "all", pageSize=1, publication=p1)["nextCursor"]
     p2 = world.publish(world.change_set())["id"]
-    refused(consumer_list(world, all_, pageSize=1, cursor=pinned_cursor, publication=p2), 400, "INVALID_CURSOR")
+    refused(
+        consumer_list(world, all_, pageSize=1, cursor=pinned_cursor, publication=p2),
+        400,
+        "INVALID_CURSOR",
+    )
     refused(consumer_list(world, all_, pageSize=1, cursor=pinned_cursor), 400, "INVALID_CURSOR")
 
     answer = ok(
@@ -592,7 +683,9 @@ def test_publication_refusals(world):
     definition["contractVersion"] = 2
     ok(world.activate(world.install(model)["id"]))
     error = refused(
-        consumer_object(world, made["l1"]["id"], version=2, publication=p1), 409, "PUBLICATION_CONTRACT_MISMATCH"
+        consumer_object(world, made["l1"]["id"], version=2, publication=p1),
+        409,
+        "PUBLICATION_CONTRACT_MISMATCH",
     )
     assert error["details"]["publication"] == p1
     assert error["details"]["contractVersion"] == 1
@@ -625,7 +718,9 @@ def test_the_publications_list_and_etag(world):
     assert [item["status"] for item in listed["items"][:2]] == ["active", "withdrawn"]
     assert listed["workspace"] == W1
     entries = ok(world.api.get(f"/workspaces/{W1}/feed", kind="publication", pageSize=100))["items"]
-    published = {entry["id"]: entry["position"] for entry in entries if entry["action"] == "published"}
+    published = {
+        entry["id"]: entry["position"] for entry in entries if entry["action"] == "published"
+    }
     for item in listed["items"][:2]:
         assert item["eventSequence"] == published[item["id"]]
         assert set(item) == {"id", "publishedAt", "eventSequence", "status"}
@@ -666,7 +761,9 @@ def test_the_publications_list_and_etag(world):
     assert after.status_code == 200
     assert after.json()["addedCopy"] == "L1"
 
-    resolved = world.api.post(f"/api/consumer/{world.key('Capi')}/v1/resolve", {"items": [{"query": "L1"}]})
+    resolved = world.api.post(
+        f"/api/consumer/{world.key('Capi')}/v1/resolve", {"items": [{"query": "L1"}]}
+    )
     assert resolved.status_code == 200
     assert "ETag" not in resolved.headers
 
@@ -679,7 +776,9 @@ def _watched_pair(world):
     first = _dependant(world, watcher["id"], north["id"], "Permit a")
     second = _dependant(world, watcher["id"], south["id"], "Permit b")
     relation = ok(
-        world.relate("Bscope", watcher["id"], first["id"], {"Bscope.flag": True, "Bscope.note": "Front desk"}),
+        world.relate(
+            "Bscope", watcher["id"], first["id"], {"Bscope.flag": True, "Bscope.note": "Front desk"}
+        ),
         201,
     )
     ok(world.relate("Bscope", watcher["id"], second["id"]), 201)
@@ -689,7 +788,11 @@ def _watched_pair(world):
 def _shown(world, answer):
     """The watched block's items as ``(name, flag, note)``."""
     return [
-        (item[_out(world, "Bscope.name")], item[_out(world, "Bscope.flag")], item[_out(world, "Bscope.note")])
+        (
+            item[_out(world, "Bscope.name")],
+            item[_out(world, "Bscope.flag")],
+            item[_out(world, "Bscope.note")],
+        )
         for item in answer[_out(world, "Bscope")]
     ]
 
@@ -708,20 +811,36 @@ def test_a_related_item_shows_the_values_of_its_own_relationship(world):
     assert _shown(world, answer) == expected
 
     listed = ok(consumer_list(world, _out(world, "all")))["items"]
-    assert _shown(world, next(item for item in listed if item[_out(world, "id")] == watcher["id"])) == expected
+    assert (
+        _shown(world, next(item for item in listed if item[_out(world, "id")] == watcher["id"]))
+        == expected
+    )
     (found,) = ok(consumer_xref(world, query="WL-1"))["results"]
     assert _shown(world, found) == expected
 
     path = f"/relations/{relation['id']}"
-    changed = {"attributes": {world.key("Bscope.flag"): False}, "expectedVersion": relation["version"]}
+    changed = {
+        "attributes": {world.key("Bscope.flag"): False},
+        "expectedVersion": relation["version"],
+    }
     ok(world.api.patch(path, changed))
-    assert _shown(world, _read(world, watcher["id"])) == [("Permit a", False, None), ("Permit b", None, None)]
+    assert _shown(world, _read(world, watcher["id"])) == [
+        ("Permit a", False, None),
+        ("Permit b", None, None),
+    ]
 
     # A publication keeps the values it was published with.
     published = world.publish(world.change_set())["id"]
-    again = {"attributes": {world.key("Bscope.flag"): True}, "expectedVersion": relation["version"] + 1}
+    again = {
+        "attributes": {world.key("Bscope.flag"): True},
+        "expectedVersion": relation["version"] + 1,
+    }
     ok(world.api.patch(path, again))
-    assert _shown(world, _read(world, watcher["id"], publication=published))[0] == ("Permit a", False, None)
+    assert _shown(world, _read(world, watcher["id"], publication=published))[0] == (
+        "Permit a",
+        False,
+        None,
+    )
     assert _shown(world, _read(world, watcher["id"]))[0] == ("Permit a", True, None)
 
     document = ok(world.api.get(f"/api/consumer/{world.key('Capi')}/v1/openapi.json"))
@@ -747,7 +866,9 @@ def test_a_filter_matches_the_relationship_not_the_related_record(world):
     found = _read(world, watcher["id"], **{label: "front DESK"})
     assert _shown(world, found) == [("Permit a", True, "Front desk")]
     refused(consumer_object(world, other["id"], **{label: "front desk"}), 404, "OBJECT_NOT_FOUND")
-    assert _shown(world, _read(world, other["id"], **{label: "back office"})) == [("Permit a", None, "Back office")]
+    assert _shown(world, _read(world, other["id"], **{label: "back office"})) == [
+        ("Permit a", None, "Back office")
+    ]
     page = ok(consumer_list(world, _out(world, "all"), **{label: "front desk"}))["items"]
     assert [item[_out(world, "id")] for item in page] == [watcher["id"]]
     assert ok(consumer_list(world, _out(world, "all"), **{label: "nothing"}))["items"] == []
@@ -784,7 +905,12 @@ def test_a_crosswalk_target_is_the_item_reached_through_the_matching_relationshi
 
     target = f"to.{_out(world, 'score')}"
     found = _read(world, watcher["id"], **{target: "front desk"})["target"]
-    assert (found[_out(world, "Bscope.name")], found[_out(world, "Bscope.note")]) == ("Permit a", "Front desk")
-    refused(consumer_object(world, watcher["id"], **{target: "back office"}), 404, "TARGET_NOT_FOUND")
+    assert (found[_out(world, "Bscope.name")], found[_out(world, "Bscope.note")]) == (
+        "Permit a",
+        "Front desk",
+    )
+    refused(
+        consumer_object(world, watcher["id"], **{target: "back office"}), 404, "TARGET_NOT_FOUND"
+    )
     back = _read(world, other["id"], **{target: "back office"})["target"]
     assert back[_out(world, "Bscope.name")] == "Permit b"

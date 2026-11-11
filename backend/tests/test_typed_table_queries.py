@@ -86,9 +86,7 @@ def test_repeated_equality_is_or_other_filters_are_and_and_values_are_typed():
         assert response.status_code == 200
         assert {item["id"] for item in response.json()["items"]} == {first["id"], second["id"]}
 
-        invalid = client.get(
-            "/api/v1/objects/domain", params={"filter.active.eq": "not-a-boolean"}
-        )
+        invalid = client.get("/api/v1/objects/domain", params={"filter.active.eq": "not-a-boolean"})
         assert invalid.status_code == 422
         assert invalid.json()["error"] == {
             "code": "INVALID_FILTER",
@@ -144,11 +142,16 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
     token = f"WP3_{uuid4().hex[:8]}"
     with TestClient(app) as client:
         domain = _domain(client, token, "Numeric fixture", "parent")
-        parent = client.post("/api/v1/objects", json={
-            "applicationKey": "rdm-master", "objectTypeKey": "codelist", "name": "Numbers",
-            "parentObjectId": domain["id"],
-            "attributes": [_attribute("codelist-code", f"{token}-numbers")],
-        })
+        parent = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "codelist",
+                "name": "Numbers",
+                "parentObjectId": domain["id"],
+                "attributes": [_attribute("codelist-code", f"{token}-numbers")],
+            },
+        )
         assert parent.status_code == 201, parent.text
         created = []
         for number in (1, 5, 10):
@@ -173,10 +176,15 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
         for sort, expected in (("sort-order", [1, 5, 10]), ("-sort-order", [10, 5, 1])):
             seen, cursor = [], None
             while True:
-                page = client.get("/api/v1/objects/master-value", params={
-                    "search": token, "sort": sort, "pageSize": 1,
-                    **({"cursor": cursor} if cursor else {}),
-                })
+                page = client.get(
+                    "/api/v1/objects/master-value",
+                    params={
+                        "search": token,
+                        "sort": sort,
+                        "pageSize": 1,
+                        **({"cursor": cursor} if cursor else {}),
+                    },
+                )
                 assert page.status_code == 200, page.text
                 seen += [item["id"] for item in page.json()["items"]]
                 cursor = page.json()["nextCursor"]
@@ -222,33 +230,56 @@ def test_date_values_keep_their_type_through_write_filter_and_sort(context):
         (LiveTestClient, {"workspaceKey": "default"}) if context == "live" else (TestClient, {})
     )
     with client_type(app) as client:
+
         def create(type_key: str, name: str, parent: str | None, attributes):
-            return client.post("/api/v1/objects", json={
-                "applicationKey": "rdm-master", "objectTypeKey": type_key, "name": name,
-                "parentObjectId": parent, "attributes": attributes, **scope,
-            })
+            return client.post(
+                "/api/v1/objects",
+                json={
+                    "applicationKey": "rdm-master",
+                    "objectTypeKey": type_key,
+                    "name": name,
+                    "parentObjectId": parent,
+                    "attributes": attributes,
+                    **scope,
+                },
+            )
 
         domain = create("domain", f"{token} domain", None, [_attribute("domain-code", token)])
         assert domain.status_code == 201, domain.text
-        codelist = create("codelist", f"{token} dates", domain.json()["id"], [
-            _attribute("codelist-code", f"{token}-dates"),
-        ])
+        codelist = create(
+            "codelist",
+            f"{token} dates",
+            domain.json()["id"],
+            [
+                _attribute("codelist-code", f"{token}-dates"),
+            ],
+        )
         assert codelist.status_code == 201, codelist.text
 
         def value(label: str, valid_from):
-            return create("master-value", f"{token} {label}", codelist.json()["id"], [
-                _attribute("master-id", f"{token}-master-{label}"),
-                _attribute("value-code", f"{token}-value-{label}"),
-                _attribute("value-name", f"{token} {label}"),
-                _attribute("valid-from", valid_from),
-            ])
+            return create(
+                "master-value",
+                f"{token} {label}",
+                codelist.json()["id"],
+                [
+                    _attribute("master-id", f"{token}-master-{label}"),
+                    _attribute("value-code", f"{token}-value-{label}"),
+                    _attribute("value-name", f"{token} {label}"),
+                    _attribute("valid-from", valid_from),
+                ],
+            )
 
         ids = {}
-        for label, date in (("late", "2027-01-01"), ("boundary", "2026-07-01"), ("early", "2025-12-31")):
+        for label, date in (
+            ("late", "2027-01-01"),
+            ("boundary", "2026-07-01"),
+            ("early", "2025-12-31"),
+        ):
             response = value(label, date)
             assert response.status_code == 201, response.text
             stored = next(
-                item for item in response.json()["attributes"]
+                item
+                for item in response.json()["attributes"]
                 if item["attributeTypeKey"] == "valid-from"
             )
             assert stored["value"] == date
@@ -268,19 +299,21 @@ def test_date_values_keep_their_type_through_write_filter_and_sort(context):
 
         assert set(listed()) == set(ids.values())
         assert listed(**{"filter.valid-from.gte": "2026-07-01", "sort": "valid-from"}) == [
-            ids["boundary"], ids["late"],
+            ids["boundary"],
+            ids["late"],
         ]
         assert listed(**{"filter.valid-from.lt": "2026-07-01"}) == [ids["early"]]
         assert listed(sort="-valid-from") == [ids["late"], ids["boundary"], ids["early"]]
 
-        invalid_filter = client.get("/api/v1/objects/master-value", params={
-            "filter.valid-from.gte": "July 2026",
-        })
+        invalid_filter = client.get(
+            "/api/v1/objects/master-value",
+            params={
+                "filter.valid-from.gte": "July 2026",
+            },
+        )
         assert invalid_filter.status_code == 422
         assert invalid_filter.json()["error"]["code"] == "INVALID_FILTER"
-        assert invalid_filter.json()["error"]["details"] == {
-            "path": "/query/filter.valid-from.gte"
-        }
+        assert invalid_filter.json()["error"]["details"] == {"path": "/query/filter.valid-from.gte"}
 
 
 @pytest.fixture
@@ -312,7 +345,9 @@ def typed_model_client(tmp_path, monkeypatch, migrated_database):
     model_registry.clear()
 
 
-def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activation(typed_model_client):
+def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activation(
+    typed_model_client,
+):
     client = typed_model_client
     change_set = client.post("/api/v1/workspaces/default/change-sets", json={})
     assert change_set.status_code == 201, change_set.text
@@ -326,16 +361,22 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
             if item["attributeTypeKey"].startswith("wp10-")
         }
 
-    created = client.post("/api/v1/objects", json={
-        "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "Typed",
-        "attributes": [
-            _attribute("domain-code", "TYPED"),
-            _attribute("wp10-amount", "12.50"),
-            _attribute("wp10-seen-at", "2026-09-24T10:15:00+00:00"),
-            _attribute("wp10-due", "2026-10-01"),
-        ],
-        **context, "expectedChangeSetVersion": change_set["version"],
-    })
+    created = client.post(
+        "/api/v1/objects",
+        json={
+            "applicationKey": "rdm-master",
+            "objectTypeKey": "domain",
+            "name": "Typed",
+            "attributes": [
+                _attribute("domain-code", "TYPED"),
+                _attribute("wp10-amount", "12.50"),
+                _attribute("wp10-seen-at", "2026-09-24T10:15:00+00:00"),
+                _attribute("wp10-due", "2026-10-01"),
+            ],
+            **context,
+            "expectedChangeSetVersion": change_set["version"],
+        },
+    )
     assert created.status_code == 201, created.text
     # One canonical form in every context: trailing zeros dropped, instants in UTC with an offset.
     assert values(created.json()) == {
@@ -345,11 +386,15 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
     }
     record = created.json()
 
-    updated = client.patch(f"/api/v1/objects/domain/{record['id']}", json={
-        "attributes": [_attribute("wp10-amount", 7), _attribute("wp10-due", "2026-11-30")],
-        "expectedVersion": record["version"],
-        **context, "expectedChangeSetVersion": record["changeSetVersion"],
-    })
+    updated = client.patch(
+        f"/api/v1/objects/domain/{record['id']}",
+        json={
+            "attributes": [_attribute("wp10-amount", 7), _attribute("wp10-due", "2026-11-30")],
+            "expectedVersion": record["version"],
+            **context,
+            "expectedChangeSetVersion": record["changeSetVersion"],
+        },
+    )
     assert updated.status_code == 200, updated.text
     assert values(updated.json())["wp10-amount"] == "7"
     record = updated.json()
@@ -359,18 +404,24 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
         json={
             "value": "2026-12-24T18:00:00+01:00",
             "expectedVersion": record["version"],
-            **context, "expectedChangeSetVersion": record["changeSetVersion"],
+            **context,
+            "expectedChangeSetVersion": record["changeSetVersion"],
         },
     )
     assert field.status_code == 200, field.text
     record = field.json()
-    for key, invalid in (("wp10-amount", "twelve"), ("wp10-seen-at", "noon"), ("wp10-due", "2026-02-30")):
+    for key, invalid in (
+        ("wp10-amount", "twelve"),
+        ("wp10-seen-at", "noon"),
+        ("wp10-due", "2026-02-30"),
+    ):
         refused = client.patch(
             f"/api/v1/objects/domain/{record['id']}/attributes/{key}",
             json={
                 "value": invalid,
                 "expectedVersion": record["version"],
-                **context, "expectedChangeSetVersion": record["changeSetVersion"],
+                **context,
+                "expectedChangeSetVersion": record["changeSetVersion"],
             },
         )
         assert refused.status_code == 422, refused.text
@@ -384,7 +435,9 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
     change_set_read = client.get(f"/api/v1/objects/domain/{record['id']}", params=context)
     assert values(change_set_read.json()) == expected
     # Change sets record no timestamps (WP-10K): report them as absent, never as the current time.
-    assert change_set_read.json()["createdAt"] is None and change_set_read.json()["updatedAt"] is None
+    assert (
+        change_set_read.json()["createdAt"] is None and change_set_read.json()["updatedAt"] is None
+    )
     for params, found in (
         ({"filter.wp10-amount.gt": "6.5"}, True),
         ({"filter.wp10-amount.gt": "10"}, False),
@@ -407,31 +460,37 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
         listed = client.get("/api/v1/objects/domain", params={**context, **params})
         assert listed.status_code == 422, (params, listed.text)
         assert listed.json()["error"]["code"] == code
-        assert listed.json()["error"]["message"] == f"{message} is not recorded in change sets or publications"
+        assert (
+            listed.json()["error"]["message"]
+            == f"{message} is not recorded in change sets or publications"
+        )
 
     activated = client.post(
         f"/api/v1/change-sets/{change_set['id']}/publication",
         json={"expectedChangeSetVersion": record["changeSetVersion"]},
     )
     assert activated.status_code == 200, activated.text
-    live = client.get(
-        f"/api/v1/objects/domain/{record['id']}", params={"workspaceKey": "default"}
-    )
+    live = client.get(f"/api/v1/objects/domain/{record['id']}", params={"workspaceKey": "default"})
     assert live.status_code == 200, live.text
     assert values(live.json()) == expected
 
 
 def test_live_datetime_keeps_its_instant(typed_model_client):
     written = "2026-12-24T18:00:00+01:00"
-    created = typed_model_client.post("/api/v1/objects", json={
-        "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "Instant",
-        "workspaceKey": "default",
-        "attributes": [
-            _attribute("domain-code", "INSTANT"),
-            _attribute("wp10-seen-at", written),
-            _attribute("wp10-amount", "12.50"),
-        ],
-    })
+    created = typed_model_client.post(
+        "/api/v1/objects",
+        json={
+            "applicationKey": "rdm-master",
+            "objectTypeKey": "domain",
+            "name": "Instant",
+            "workspaceKey": "default",
+            "attributes": [
+                _attribute("domain-code", "INSTANT"),
+                _attribute("wp10-seen-at", written),
+                _attribute("wp10-amount", "12.50"),
+            ],
+        },
+    )
     assert created.status_code == 201, created.text
     read = typed_model_client.get(
         f"/api/v1/objects/domain/{created.json()['id']}", params={"workspaceKey": "default"}
@@ -444,29 +503,40 @@ def test_live_datetime_keeps_its_instant(typed_model_client):
     # The same forms a change set row carries, so equal values compare equal across contexts.
     assert stored["wp10-seen-at"] == "2026-12-24T17:00:00+00:00"
     assert stored["wp10-amount"] == "12.5"
-    for filter_value, found in (("2026-12-24T18:00:00+01:00", True), ("2026-12-24T16:30:00", False)):
-        listed = typed_model_client.get("/api/v1/objects/domain", params={
-            "workspaceKey": "default", "filter.wp10-seen-at.lte": filter_value,
-        })
+    for filter_value, found in (
+        ("2026-12-24T18:00:00+01:00", True),
+        ("2026-12-24T16:30:00", False),
+    ):
+        listed = typed_model_client.get(
+            "/api/v1/objects/domain",
+            params={
+                "workspaceKey": "default",
+                "filter.wp10-seen-at.lte": filter_value,
+            },
+        )
         assert listed.status_code == 200, listed.text
         assert (body["id"] in [item["id"] for item in listed.json()["items"]]) is found
 
 
 def test_server_timestamps_carry_an_explicit_offset(typed_model_client):
     """A timestamp without its zone would reach clients as local wall-clock time."""
-    created = typed_model_client.post("/api/v1/objects", json={
-        "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "Stamped",
-        "workspaceKey": "default", "attributes": [_attribute("domain-code", "STAMPED")],
-    })
+    created = typed_model_client.post(
+        "/api/v1/objects",
+        json={
+            "applicationKey": "rdm-master",
+            "objectTypeKey": "domain",
+            "name": "Stamped",
+            "workspaceKey": "default",
+            "attributes": [_attribute("domain-code", "STAMPED")],
+        },
+    )
     assert created.status_code == 201, created.text
     read = typed_model_client.get(
         f"/api/v1/objects/domain/{created.json()['id']}", params={"workspaceKey": "default"}
     )
     change_set = typed_model_client.post("/api/v1/workspaces/default/change-sets", json={})
     assert change_set.status_code == 201, change_set.text
-    history = typed_model_client.get(
-        f"/api/v1/objects/domain/{created.json()['id']}/history"
-    )
+    history = typed_model_client.get(f"/api/v1/objects/domain/{created.json()['id']}/history")
     assert history.status_code == 200, history.text
     stamps = [read.json()["createdAt"], read.json()["updatedAt"], change_set.json()["createdAt"]]
     stamps += [item["occurredAt"] for item in history.json()["items"]]

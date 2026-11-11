@@ -41,7 +41,9 @@ def _context(context: str, dataset) -> dict[str, str]:
 def _all_rows(client, params: dict) -> list[dict]:
     rows, cursor = [], None
     while True:
-        response = client.get(PATH, params={**params, "pageSize": 100, **({"cursor": cursor} if cursor else {})})
+        response = client.get(
+            PATH, params={**params, "pageSize": 100, **({"cursor": cursor} if cursor else {})}
+        )
         assert response.status_code == 200, response.text
         body = response.json()
         rows += body["items"]
@@ -78,11 +80,19 @@ def test_state_filter_matches_every_rows_cells(volume, context, view, monkeypatc
             position = len(expected) // 2
             response = client.get(
                 PATH,
-                params={**params, "state": state, "position": position, "pageSize": 3, "includeTotal": True},
+                params={
+                    **params,
+                    "state": state,
+                    "position": position,
+                    "pageSize": 3,
+                    "includeTotal": True,
+                },
             )
             body = response.json()
             assert (body["totalCount"], body["startIndex"]) == (len(expected), position), state
-            assert [row["row"]["name"] for row in body["items"]] == expected[position : position + 3]
+            assert [row["row"]["name"] for row in body["items"]] == expected[
+                position : position + 3
+            ]
 
     # The generated data holds the states its shape promises in each context.
     history = {"historyOnly"} if context == "live" else set()

@@ -70,7 +70,10 @@ def _create_starter_records(client: Any) -> dict[str, list[dict[str, Any]]]:
                         "objectTypeKey": object_type,
                         "name": f"{label} {index:02d}",
                         "attributes": [
-                            {"attributeTypeKey": f"{object_type}-code", "value": f"{object_type}-{index}"}
+                            {
+                                "attributeTypeKey": f"{object_type}-code",
+                                "value": f"{object_type}-{index}",
+                            }
                         ],
                     },
                 )
@@ -126,7 +129,11 @@ def starter_seed(model_path: Path) -> str:
             return {"records": _create_starter_records(client)}
 
     def inputs() -> list[str | Path]:
-        return [model_text, TESTS / "browser_seeds.py", seeds.APP / "engine" / "model" / "bootstrap.py"]
+        return [
+            model_text,
+            TESTS / "browser_seeds.py",
+            seeds.APP / "engine" / "model" / "bootstrap.py",
+        ]
 
     seeds.register(seeds.Seed(name, build, inputs, base="schema"))
     return name
@@ -173,7 +180,11 @@ def clone(seed: str, *, model: Path | None, scale: float) -> dict[str, Any]:
             "TOKEN_SIGNING_KEY_DAYS": harness_identity.SIGNING_KEY_DAYS,
         },
     }
-    return {"database_url": url.render_as_string(hide_password=False), **payload, "harness": harness}
+    return {
+        "database_url": url.render_as_string(hide_password=False),
+        **payload,
+        "harness": harness,
+    }
 
 
 def main() -> None:

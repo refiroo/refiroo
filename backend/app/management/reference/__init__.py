@@ -22,12 +22,14 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...config import ApiReferenceScript
 from ...engine.model.consumer_definitions import consumer_apis, served_versions
 from ...engine.model.consumer_openapi import consumer_openapi_path
 from ...engine.model.registry import resolve_model_snapshot
+from ...engine.model.workspace_models import default_workspace_key
 from ...errors import ApiError
 from ..dependencies import DbSession
 from .content import example_bodies
@@ -54,7 +56,7 @@ _PAGE = """<!doctype html>
       body {{ margin: 0; }}
 {extra_style}    </style>
     <script>{theme_script}</script>
-  </head>
+{workspace_element}  </head>
   <body>
 {header_element}{older_element}    <div id="rdm-api-reference"></div>
     <script>{anchor_script}</script>
@@ -132,6 +134,25 @@ _SCHEME = """var SCHEME_KEY = "rdm:scheme:v1";
   }"""
 _NO_SCHEME = """var SCHEME_KEY = null;
   function scheme() {}"""
+
+# The application remembers the workspace its person works in under ``refiroo.workspace`` (JSON, a key;
+# ``frontend/src/lib/sharedWorkspace.ts``, which names this key too). The guide and this page are static
+# or opened from a plain link, so they cannot carry ``?workspace=``: before Scalar starts, a page
+# addressed without ``workspace`` goes to the remembered workspace when that is not the one it was
+# rendered for. An explicit ``workspace`` in the address always wins and is never redirected.
+_WORKSPACE_REDIRECT = """
+(function () {
+  var RENDERED = __RENDERED__;
+  try {
+    var url = new URL(location.href);
+    if (url.searchParams.has("workspace")) return;
+    var stored = JSON.parse(localStorage.getItem("refiroo.workspace") || "null");
+    if (typeof stored !== "string" || !stored || stored === RENDERED) return;
+    url.searchParams.set("workspace", stored);
+    location.replace(url.href);
+  } catch (error) {}
+})();
+"""
 
 # Sets Scalar's colour mode at once (right after it is created, before the first paint) and wires the
 # picker (when the header has one) and the other tabs to the choice: a pick here is saved for the
@@ -312,7 +333,9 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
             },
             *consumer_sources(session, root_path, workspace),
         ]
-        page = render_page(script, root_path, sources)
+        page = render_page(
+            script, root_path, sources, workspace_key=workspace or _default_workspace(session)
+        )
         return HTMLResponse(page, headers=page_headers(script, page))
 
     @router.get("/docs/api/examples/{slug}/{part}.json")
@@ -332,6 +355,15 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
         )
 
     return router
+
+
+def _default_workspace(session: Session) -> str | None:
+    """The deployment's default workspace, or None when the database cannot say: the page still opens
+    (as ``consumer_sources`` does), only without the redirect to the workspace the application remembers."""
+    try:
+        return default_workspace_key(session)
+    except SQLAlchemyError:
+        return None
 
 
 def consumer_sources(session: Session, root_path: str, workspace: str | None = None) -> list[dict]:
@@ -472,8 +504,10 @@ def render_page(
     sources: list[dict],
     *,
     static: StaticSite | None = None,
+    workspace_key: str | None = None,
 ) -> str:
-    """The page. With ``static`` it is the public site's copy: no sign-in script (no engine to ask),
+    """The page. ``workspace_key`` is the workspace the page lists the consumer APIs of; with it the
+    page follows the workspace the application remembers (``_WORKSPACE_REDIRECT``). With ``static`` it is the public site's copy: no sign-in script (no engine to ask),
     no "test request" button (nothing to send it to), and the header's links point inside the site."""
     configuration = {**OFFLINE_OPTIONS, "customCss": HEADER_CSS + STATUS_CSS, "sources": sources}
     if static is not None:
@@ -518,6 +552,15 @@ def render_page(
         ),
         theme_wiring_script=_THEME_WIRING,
         anchor_script=_ANCHOR,
+        workspace_element=(
+            ""
+            if static is not None or workspace_key is None
+            else "    <script>"
+            + _WORKSPACE_REDIRECT.replace(
+                "__RENDERED__", json.dumps(workspace_key).replace("<", "\\u003c")
+            )
+            + "</script>\n"
+        ),
         sign_in_element="" if static is not None else f"    <script>{sign_in}</script>\n",
     )
 

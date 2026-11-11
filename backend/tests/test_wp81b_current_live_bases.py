@@ -150,7 +150,10 @@ def test_current_live_activation_preserves_untouched_live_addition_and_refuses_t
         assert conflict.status_code == 200, conflict.text
         activation = client.post(
             f"/api/v1/change-sets/{change_set['id']}/publication",
-            json={"expectedChangeSetVersion": change_set["version"], "expectedActivePublicationId": None},
+            json={
+                "expectedChangeSetVersion": change_set["version"],
+                "expectedActivePublicationId": None,
+            },
         )
         assert activation.status_code == 409, activation.text
         assert activation.json()["error"]["code"] == "VERSION_CONFLICT"
@@ -248,9 +251,7 @@ def test_change_set_source_rejections_and_legacy_requests_keep_their_meaning():
         with SessionLocal() as session:
             assert (
                 session.scalar(
-                    select(ChangeSetBase.id).where(
-                        ChangeSetBase.workspace_key == workspace_key
-                    )
+                    select(ChangeSetBase.id).where(ChangeSetBase.workspace_key == workspace_key)
                 )
                 is None
             )
@@ -274,9 +275,7 @@ def test_current_live_capture_refuses_a_model_selection_that_changed_before_lock
         assert error.value.code == "CHANGE_SET_SNAPSHOT_RETRY"
         assert (
             session.scalar(
-                select(ChangeSetBase.id).where(
-                    ChangeSetBase.workspace_key == workspace_key
-                )
+                select(ChangeSetBase.id).where(ChangeSetBase.workspace_key == workspace_key)
             )
             is None
         )
@@ -400,9 +399,7 @@ def test_discard_and_successful_activation_remove_private_base_rows():
         discarded = create_change_set(client, workspace_key, source="currentLive").json()
         with SessionLocal() as session:
             base_id = session.scalar(
-                select(ChangeSetBase.id).where(
-                    ChangeSetBase.workspace_key == workspace_key
-                )
+                select(ChangeSetBase.id).where(ChangeSetBase.workspace_key == workspace_key)
             )
             assert base_id is not None
             assert (
@@ -448,19 +445,18 @@ def test_discard_and_successful_activation_remove_private_base_rows():
         activated = create_change_set(client, workspace_key, source="currentLive").json()
         with SessionLocal() as session:
             activation_base_id = session.scalar(
-                select(ChangeSetBase.id).where(
-                    ChangeSetBase.workspace_key == workspace_key
-                )
+                select(ChangeSetBase.id).where(ChangeSetBase.workspace_key == workspace_key)
             )
             assert activation_base_id is not None
         activation = client.post(
             f"/api/v1/change-sets/{activated['id']}/publication",
-            json={"expectedChangeSetVersion": activated["version"], "expectedActivePublicationId": None},
+            json={
+                "expectedChangeSetVersion": activated["version"],
+                "expectedActivePublicationId": None,
+            },
         )
         assert activation.status_code == 200, activation.text
-        assert (
-            client.get(f"/api/v1/publications/{activation.json()['id']}").status_code == 200
-        )
+        assert client.get(f"/api/v1/publications/{activation.json()['id']}").status_code == 200
         with SessionLocal() as session:
             assert session.get(ChangeSetBase, activation_base_id) is None
             assert (

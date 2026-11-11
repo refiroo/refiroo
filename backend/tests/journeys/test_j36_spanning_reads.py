@@ -160,7 +160,9 @@ def test_counterparts_across_models_are_refused_per_item(world):
     assert outcomes["mine"]["status"] == "applied", outcomes
 
     mine = world.made("K", f"Mine {uuid4().hex[:6]}", workspace=W1, fill=True)
-    content = _replaced(_export(world, W1, ("K",), "csv", relations="none"), mine["id"], theirs["id"])
+    content = _replaced(
+        _export(world, W1, ("K",), "csv", relations="none"), mine["id"], theirs["id"]
+    )
     assert theirs["id"] in content.decode()
     job = _imported(world, "x.csv", content, _request(W1, otherWorkspaceIds="counterparts"))
     notices = {notice["code"]: notice for notice in job["notices"]}
@@ -170,4 +172,6 @@ def test_counterparts_across_models_are_refused_per_item(world):
     assert {item["error"]["code"] for item in rejected} == {"COUNTERPARTS_ACROSS_MODELS"}, rejected
     assert len(rejected) == 1
     assert len(outcomes) == len(list(csv.reader(io.StringIO(content.decode())))) - 1
-    assert ok(world.api.get("/objects", workspaceKey=W1, filter__name__eq="Not loaded"))["items"] == []
+    assert (
+        ok(world.api.get("/objects", workspaceKey=W1, filter__name__eq="Not loaded"))["items"] == []
+    )

@@ -112,9 +112,7 @@ def test_follow_the_feed_and_resume_from_a_stored_position(world):
 
     refused(world.api.get("/workspaces/no-such-site/feed"), 404, "WORKSPACE_NOT_FOUND")
     refused(world.api.get(f"/workspaces/{ws}/feed", pageSize=0), 422, "REQUEST_VALIDATION_ERROR")
-    refused(
-        world.api.get(f"/workspaces/{ws}/feed", pageSize=1001), 422, "REQUEST_VALIDATION_ERROR"
-    )
+    refused(world.api.get(f"/workspaces/{ws}/feed", pageSize=1001), 422, "REQUEST_VALIDATION_ERROR")
     error = refused(
         world.api.get(f"/workspaces/{ws}/feed", after=len(entries) + 1), 409, "FEED_POSITION_AHEAD"
     )
@@ -256,7 +254,11 @@ def test_a_published_type_change_reads_as_reclassified(world):
         workspace=ws,
         values={"L.code": "M-1", "L.only1": "kept for later"},
         relations=[
-            {"relationTypeKey": world.key("Ll1k"), "direction": "outgoing", "otherObjectId": k["id"]}
+            {
+                "relationTypeKey": world.key("Ll1k"),
+                "direction": "outgoing",
+                "otherObjectId": k["id"],
+            }
         ],
     )
     child = world.made("L2", "Moving 2", workspace=ws, parent=t["id"], values={"L.code": "M-2"})

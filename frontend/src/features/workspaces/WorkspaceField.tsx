@@ -23,6 +23,7 @@ export function WorkspaceField({
   describe,
   exclude,
   holding,
+  hideWhenSingle,
 }: {
   /** A workspace's key; empty for the deployment's default workspace, with `withDefault`. */
   value: string;
@@ -39,6 +40,8 @@ export function WorkspaceField({
   exclude?: string;
   /** Only the workspaces where the person holds this action group (0.12 Z5, D323, D327). */
   holding?: string;
+  /** Show nothing while at most one workspace is offered: there is no choice to make. */
+  hideWhenSingle?: boolean;
 }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   // Callers pass a new handler with each render; the workspaces are read once.
@@ -68,6 +71,7 @@ export function WorkspaceField({
     const first = (workspaces ?? []).find((item) => item.key !== exclude);
     if (first && (!value || (value === exclude && !chosen.current)) && !withDefault) onChange(first.key);
   }, [workspaces, value, withDefault, onChange, exclude]);
+  if (hideWhenSingle && (!workspaces || offered.length + (withDefault ? 1 : 0) <= 1)) return null;
   return (
     <FormField label={label} help={help}>
       {(control) => (

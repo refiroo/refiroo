@@ -82,9 +82,7 @@ def test_draft_compile_install_and_activate_a_release(world):
     assert again["id"] == release["id"]
 
     activated = ok(world.activate(release["id"]))
-    assert (
-        activated["releaseId"] == release["id"] and activated["version"] == m1["version"] + 1
-    )
+    assert activated["releaseId"] == release["id"] and activated["version"] == m1["version"] + 1
     assert _model_release(world) == release["id"]
 
     refused(
@@ -257,9 +255,7 @@ def test_data_the_candidate_does_not_fit_blocks_activation(world):
 
     compiled = _compile(world, _draft(world, model))
     release = world.install(model)["id"]
-    diff = ok(
-        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"])
-    )
+    diff = ok(world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"]))
     for answer in (compiled, diff):
         compatibility = answer["compatibility"]
         assert compatibility["classification"] == "migration_required"
@@ -389,9 +385,7 @@ def test_a_binding_tightened_to_many_to_one_waits_for_its_data(world):
     state = _active(world)
 
     release = world.install(model)["id"]
-    diff = ok(
-        world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"])
-    )
+    diff = ok(world.api.get(f"/model-releases/{release}/diff", againstReleaseId=state["releaseId"]))
     assert diff["compatibility"]["classification"] == "migration_required"
     (diagnostic,) = diff["compatibility"]["diagnostics"]
     assert diagnostic["path"] == "/objectTypeRelations/" + "/".join(identity) + "/cardinality"
@@ -489,12 +483,23 @@ def test_a_relation_column_where_the_model_allows_it(world):
         return view_of(model, h)[0]["config"]
 
     refused_at(relations_panel, f"{detail_path}/related")
-    refused_at(mapping_grid, f"/applications/{application}/views/{world.key('Vnn')}/config/sourceColumns")
+    refused_at(
+        mapping_grid, f"/applications/{application}/views/{world.key('Vnn')}/config/sourceColumns"
+    )
     # Since 0.9 K6 (D154) a filter may name the relationship; a field of its records stays refused.
-    refused_at(lambda m: h_config(m)["filterFields"].append(f"related:{bn1}.name"), f"{h_path}/config/filterFields")
-    refused_at(lambda m: h_config(m)["sortFields"].append(f"related:{bnn}"), f"{h_path}/config/sortFields")
-    refused_at(lambda m: h_config(m)["columns"].append("related:no-such"), f"{h_path}/config/columns")
-    refused_at(lambda m: h_config(m)["columns"].append(f"related:{b1n}"), f"{h_path}/config/columns")
+    refused_at(
+        lambda m: h_config(m)["filterFields"].append(f"related:{bn1}.name"),
+        f"{h_path}/config/filterFields",
+    )
+    refused_at(
+        lambda m: h_config(m)["sortFields"].append(f"related:{bnn}"), f"{h_path}/config/sortFields"
+    )
+    refused_at(
+        lambda m: h_config(m)["columns"].append("related:no-such"), f"{h_path}/config/columns"
+    )
+    refused_at(
+        lambda m: h_config(m)["columns"].append(f"related:{b1n}"), f"{h_path}/config/columns"
+    )
 
 
 @pytest.mark.journey("J08.12")
@@ -520,10 +525,15 @@ def test_a_relation_column_naming_a_field(world):
     model, view, _path = with_column(lambda c: c)
     assert _validation(world, model)["valid"] is True
 
-    for bad in (column.replace(f"ancestor:{g}.", f"ancestor:{k}."), f"related:{world.key('Bscope')}.no-such-field"):
+    for bad in (
+        column.replace(f"ancestor:{g}.", f"ancestor:{k}."),
+        f"related:{world.key('Bscope')}.no-such-field",
+    ):
         model, _view, path = with_column(lambda _c, bad=bad: bad)
         result = _validation(world, model)
-        assert result["valid"] is False and result["diagnostics"][0]["path"] == f"{path}/columns", bad
+        assert result["valid"] is False and result["diagnostics"][0]["path"] == f"{path}/columns", (
+            bad
+        )
 
     model, view, path = with_column(lambda c: c)
     view["config"]["sortFields"].append(column)
@@ -545,7 +555,10 @@ def test_a_relationship_in_a_views_filter_fields(world):
             for view in application["views"]:
                 if view["type"] == "table" and view["objectTypeKey"] == h:
                     view["config"]["filterFields"].append(field)
-                    return model, f"/applications/{application['key']}/views/{view['key']}/config/filterFields"
+                    return (
+                        model,
+                        f"/applications/{application['key']}/views/{view['key']}/config/filterFields",
+                    )
         raise AssertionError(h)
 
     model, _path = with_filter(f"related:{bnn}")
@@ -554,7 +567,6 @@ def test_a_relationship_in_a_views_filter_fields(world):
         model, path = with_filter(field)
         result = _validation(world, model)
         assert result["valid"] is False and result["diagnostics"][0]["path"] == path, field
-
 
 
 @pytest.mark.journey("J08.1")

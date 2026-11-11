@@ -175,7 +175,8 @@ def test_sc15_two_change_sets_on_two_releases_through_activation_and_refusals(cl
     )
     assert refused.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
     discarded = client.delete(
-        f"/api/v1/change-sets/{change_set1['id']}", params={"expectedVersion": change_set1["version"]}
+        f"/api/v1/change-sets/{change_set1['id']}",
+        params={"expectedVersion": change_set1["version"]},
     )
     assert discarded.status_code == 204, discarded.text
     assert _snapshot(client, retail, warehouse, live["id"]) == after_publication

@@ -10,12 +10,24 @@ from app.engine.events.resend import resend_body
 from app.errors import ApiError
 from app.models.database import ConsumerWebhookRequest
 
-EVENT = {"eventId": "e1", "position": 3, "event": "ledger-changed", "change": "updated", "objectType": "Ledger", "id": "o1"}
+EVENT = {
+    "eventId": "e1",
+    "position": 3,
+    "event": "ledger-changed",
+    "change": "updated",
+    "objectType": "Ledger",
+    "id": "o1",
+}
 OTHER = {**EVENT, "eventId": "e2", "position": 4}
 
 
 def _cloudevent(event: dict) -> dict:
-    return {"specversion": "1.0", "id": event["eventId"], "type": "rdm.ledger-changed.updated", "data": event}
+    return {
+        "specversion": "1.0",
+        "id": event["eventId"],
+        "type": "rdm.ledger-changed.updated",
+        "data": event,
+    }
 
 
 def _request(body) -> ConsumerWebhookRequest:

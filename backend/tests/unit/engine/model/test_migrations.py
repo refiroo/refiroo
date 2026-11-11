@@ -34,8 +34,20 @@ VALUE_TYPES = ("text", "longText", "integer", "decimal", "boolean", "date", "dat
 # Stored values of each type, in their JSON form (``rdm_value_json``).
 SAMPLES: dict[str, list[Any]] = {
     "text": [
-        "12", " -7 ", "1e3", "3.50", "true", "False", "2026-02-28", "2026-02-30",
-        "2026-02-28T10:15:00+02:00", "2026-02-28 10:15", "{\"a\": 1}", "[1, 2]", "twelve", "",
+        "12",
+        " -7 ",
+        "1e3",
+        "3.50",
+        "true",
+        "False",
+        "2026-02-28",
+        "2026-02-30",
+        "2026-02-28T10:15:00+02:00",
+        "2026-02-28 10:15",
+        '{"a": 1}',
+        "[1, 2]",
+        "twelve",
+        "",
         "99999999999",
     ],
     "integer": [0, -12, 2147483647],
@@ -118,7 +130,11 @@ def test_the_other_pairs_convert_only_without_loss(seeded):
     ]
     with SessionLocal() as session:
         for value, from_type, to_type, expected in cases:
-            assert _convert(session, value, from_type, to_type) == expected, (value, from_type, to_type)
+            assert _convert(session, value, from_type, to_type) == expected, (
+                value,
+                from_type,
+                to_type,
+            )
 
 
 def _models(change):
@@ -142,7 +158,9 @@ def _drop_type(document, structure):
         if application.get("defaultView") not in {v["key"] for v in application["views"]}:
             application["defaultView"] = application["views"][0]["key"]
     document["objectTypeRelations"] = [
-        p for p in document["objectTypeRelations"] if key not in (p["fromObjectTypeKey"], p["toObjectTypeKey"])
+        p
+        for p in document["objectTypeRelations"]
+        if key not in (p["fromObjectTypeKey"], p["toObjectTypeKey"])
     ]
 
 
@@ -150,15 +168,23 @@ def test_the_plan_decides_each_type_value_and_relationship():
     """A type the target lacks is lost with its relationships; a binding the target drops leaves
     its values without a place; a changed value type converts to it; the other types, values and
     relationships stay as they are."""
+
     def change(document):
         _drop_type(document, "N")
         r_type = _type(document, "R")
-        r_type["attributes"] = [b for b in r_type["attributes"] if b["attributeTypeKey"] != KEYS["R.ro"]]
-        next(a for a in document["attributeTypes"] if a["key"] == KEYS["R.n"])["valueType"] = "decimal"
+        r_type["attributes"] = [
+            b for b in r_type["attributes"] if b["attributeTypeKey"] != KEYS["R.ro"]
+        ]
+        next(a for a in document["attributeTypes"] if a["key"] == KEYS["R.n"])["valueType"] = (
+            "decimal"
+        )
 
     current, target = _models(change)
     plan = plan_migration(current, target, ())
-    types = {(app, kind): (new_app, new_kind, code) for app, kind, new_app, new_kind, code, _cand in plan.types}
+    types = {
+        (app, kind): (new_app, new_kind, code)
+        for app, kind, new_app, new_kind, code, _cand in plan.types
+    }
     lost = {kind: code for (_app, kind), (_a, _k, code) in types.items() if code}
     assert lost == {KEYS["N"]: "OBJECT_TYPE_IN_USE"}
     assert all(new_kind == kind for (_app, kind), (_a, new_kind, code) in types.items() if not code)
@@ -193,12 +219,18 @@ def test_a_type_mapping_keeps_the_records_and_names_attribute_sources():
         KEYS["C2"]: "OBJECT_TYPE_IN_USE"
     }
     display = target.object_type(renamed).displayAttributeTypeKey
-    mapped = plan_migration(current, target, (TypeMapping(KEYS["C2"], renamed, ((display, None),)),))
-    assert {kind: (new_kind, code) for _a, kind, _na, new_kind, code, _c in mapped.types}[KEYS["C2"]] == (
+    mapped = plan_migration(
+        current, target, (TypeMapping(KEYS["C2"], renamed, ((display, None),)),)
+    )
+    assert {kind: (new_kind, code) for _a, kind, _na, new_kind, code, _c in mapped.types}[
+        KEYS["C2"]
+    ] == (
         renamed,
         None,
     )
-    assert {(kind, key): goes for kind, key, goes, _vt in mapped.values}[(KEYS["C2"], display)] is None
+    assert {(kind, key): goes for kind, key, goes, _vt in mapped.values}[
+        (KEYS["C2"], display)
+    ] is None
 
 
 def test_a_named_source_wins_over_the_same_attribute_whatever_the_order():
@@ -224,8 +256,14 @@ def test_a_named_source_wins_over_the_same_attribute_whatever_the_order():
     [
         (TypeMapping("no-such-type", "x"), "/typeMappings/0/fromObjectTypeKey"),
         (TypeMapping(KEYS["R"], "no-such-type"), "/typeMappings/0/toObjectTypeKey"),
-        (TypeMapping(KEYS["R"], KEYS["R"], (("no-such", None),)), "/typeMappings/0/attributes/0/attributeTypeKey"),
-        (TypeMapping(KEYS["R"], KEYS["R"], ((KEYS["R.u"], "no-such"),)), "/typeMappings/0/attributes/0/from"),
+        (
+            TypeMapping(KEYS["R"], KEYS["R"], (("no-such", None),)),
+            "/typeMappings/0/attributes/0/attributeTypeKey",
+        ),
+        (
+            TypeMapping(KEYS["R"], KEYS["R"], ((KEYS["R.u"], "no-such"),)),
+            "/typeMappings/0/attributes/0/from",
+        ),
     ],
 )
 def test_a_mapping_naming_what_the_models_lack_is_refused_at_its_pointer(mapping, pointer):
@@ -245,8 +283,12 @@ def test_the_relaxed_target_keeps_every_element_and_drops_every_rule():
     assert not any(b.required for t in loose.objectTypes for b in t.attributes)
     assert all(t.features.get("rootCreatable") for t in loose.objectTypes)
     assert not any(t.effectivePeriod or t.validation.get("atLeastOneOf") for t in loose.objectTypes)
-    assert not any(a.features.get("unique") or "minimum" in a.validation for a in loose.attributeTypes)
-    assert all(p.cardinality == "many-to-many" and not p.required for p in loose.objectTypeRelations)
+    assert not any(
+        a.features.get("unique") or "minimum" in a.validation for a in loose.attributeTypes
+    )
+    assert all(
+        p.cardinality == "many-to-many" and not p.required for p in loose.objectTypeRelations
+    )
 
 
 def test_an_executed_migration_leaves_the_stored_matrix_states_true(seeded):
@@ -274,7 +316,9 @@ def test_an_executed_migration_leaves_the_stored_matrix_states_true(seeded):
 
     def change(document):
         _drop_type(document, "N")
-        next(a for a in document["attributeTypes"] if a["key"] == KEYS["R.n"])["valueType"] = "decimal"
+        next(a for a in document["attributeTypes"] if a["key"] == KEYS["R.n"])["valueType"] = (
+            "decimal"
+        )
         # The consumer API exposes R.n: its contract changes, so its version rises (D75).
         for api in document["consumerApis"]:
             api["contractVersion"] += 1
@@ -305,9 +349,9 @@ def test_an_executed_migration_leaves_the_stored_matrix_states_true(seeded):
         session.commit()
         assignment, _current_release = load_assignment(session, W1)
         notices = session.scalar(
-            select(func.count()).select_from(RdmObject).where(
-                RdmObject.workspace_key == W1, RdmObject.object_type_key == KEYS["N"]
-            )
+            select(func.count())
+            .select_from(RdmObject)
+            .where(RdmObject.workspace_key == W1, RdmObject.object_type_key == KEYS["N"])
         )
         job = submit_migration(
             session,
@@ -339,15 +383,17 @@ def test_an_executed_migration_leaves_the_stored_matrix_states_true(seeded):
     with SessionLocal() as session:
         assert load_assignment(session, W1)[1].public_id == release.public_id
         assert not session.scalar(
-            select(func.count()).select_from(RdmObject).where(
-                RdmObject.workspace_key == W1, RdmObject.object_type_key == KEYS["N"]
-            )
+            select(func.count())
+            .select_from(RdmObject)
+            .where(RdmObject.workspace_key == W1, RdmObject.object_type_key == KEYS["N"])
         )
         stored_as = set(
             session.scalars(
                 select(AttributeValue.value_type)
                 .join(RdmObject, RdmObject.id == AttributeValue.object_id)
-                .where(RdmObject.workspace_key == W1, AttributeValue.attribute_type_key == KEYS["R.n"])
+                .where(
+                    RdmObject.workspace_key == W1, AttributeValue.attribute_type_key == KEYS["R.n"]
+                )
             )
         )
         assert stored_as <= {"decimal"}
@@ -366,7 +412,9 @@ def test_a_release_changing_a_consumer_contract_without_a_new_version_is_refused
     from app.engine.model.workspace_models import load_assignment
 
     def change(document, raise_version):
-        next(a for a in document["attributeTypes"] if a["key"] == KEYS["R.n"])["valueType"] = "decimal"
+        next(a for a in document["attributeTypes"] if a["key"] == KEYS["R.n"])["valueType"] = (
+            "decimal"
+        )
         if raise_version:
             for api in document["consumerApis"]:
                 api["contractVersion"] += 1
@@ -405,7 +453,9 @@ def test_only_rules_that_changed_or_cover_what_the_migration_touched_are_checked
 
     def stricter(document):
         r_type = _type(document, "R")
-        next(b for b in r_type["attributes"] if b["attributeTypeKey"] == KEYS["R.b"])["required"] = True
+        next(b for b in r_type["attributes"] if b["attributeTypeKey"] == KEYS["R.b"])[
+            "required"
+        ] = True
 
     current, target = _models(stricter)
     unique = lambda model, key: bool(model.attribute_type(key).features.get("unique"))

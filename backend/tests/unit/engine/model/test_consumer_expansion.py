@@ -42,18 +42,32 @@ def _document(**changes: Any) -> dict[str, Any]:
             "parent": ["objectType", "id", "code", "name"],
             "path": True,
             "related": {
-                "variants": {"via": "master-value-represented-by-system-value", "fields": {"value": "name"}},
-                "translations": {"via": "object-has-translation", "fields": {"text": "translated-name"}},
+                "variants": {
+                    "via": "master-value-represented-by-system-value",
+                    "fields": {"value": "name"},
+                },
+                "translations": {
+                    "via": "object-has-translation",
+                    "fields": {"text": "translated-name"},
+                },
             },
         },
         "operations": {
             "objects": {},
-            "xref": {"matchOn": [{"field": "id", "exact": 1000}, {"field": "code", "exact": 500, "contains": 40}]},
+            "xref": {
+                "matchOn": [
+                    {"field": "id", "exact": 1000},
+                    {"field": "code", "exact": 500, "contains": 40},
+                ]
+            },
             "resolve": {},
             "lists": {"codelists": {"of": "codelist", "within": {"filter": "domain"}}},
             "events": {"perType": True},
         },
-        "filters": {"domain": {"under": ["domain"]}, "codelist": {"under": ["codelist"], "matchOn": ["code", "name"]}},
+        "filters": {
+            "domain": {"under": ["domain"]},
+            "codelist": {"under": ["codelist"], "matchOn": ["code", "name"]},
+        },
     }
     document.update(changes)
     return document
@@ -75,17 +89,27 @@ def test_every_default_is_written_out():
     sources its types bind and name; the parent and path take their own names."""
     definition, _pointers = _expanded(_document())
     assert {key: item.publicName for key, item in definition.objectTypes.items()} == {
-        "domain": "Domain", "codelist": "Codelist", "master-value": "MasterValue",
+        "domain": "Domain",
+        "codelist": "Codelist",
+        "master-value": "MasterValue",
     }
-    assert [(event.key, event.objectTypes, event.changes, event.watch) for event in definition.events] == [
-        (f"{key}-changed", (key,), ("created", "updated", "deleted"), None) for key in ("domain", "codelist", "master-value")
+    assert [
+        (event.key, event.objectTypes, event.changes, event.watch) for event in definition.events
+    ] == [
+        (f"{key}-changed", (key,), ("created", "updated", "deleted"), None)
+        for key in ("domain", "codelist", "master-value")
     ]
     (codelists,) = definition.lists
-    assert (codelists.parentParameter.name, codelists.parentParameter.objectTypes) == ("domain", ("domain",))
+    assert (codelists.parentParameter.name, codelists.parentParameter.objectTypes) == (
+        "domain",
+        ("domain",),
+    )
     assert definition.parameters["domain"].matchFields == ("id", "domain-code", "name")
     assert (definition.object.parent.output, definition.object.path) == ("parent", "path")
     assert definition.object.id.source == ("id",)
-    assert all(definition.offers(name) for name in ("objects", "xref", "resolve", "lists", "events"))
+    assert all(
+        definition.offers(name) for name in ("objects", "xref", "resolve", "lists", "events")
+    )
     assert public_name("timetable-type") == "TimetableType"
 
 
@@ -95,7 +119,10 @@ def test_code_stands_for_each_code_source_in_place():
     definition, pointers = _expanded(_document())
     assert [rule.model_dump(exclude_none=True) for rule in definition.match.own] == [
         {"field": "id", "exact": 1000},
-        *({"field": source, "exact": 500, "contains": 40} for source in ("value-code", "codelist-code", "domain-code")),
+        *(
+            {"field": source, "exact": 500, "contains": 40}
+            for source in ("value-code", "codelist-code", "domain-code")
+        ),
     ]
     assert definition.parameters["codelist"].matchFields == ("codelist-code", "name")
     assert pointers.authored("/match/own/3/contains") == "/operations/xref/matchOn/1/contains"
@@ -105,7 +132,10 @@ def test_via_names_a_relation_by_either_key():
     """A relation's key is the outgoing route, its reverseKey the incoming one; a name that is
     neither is refused at the via."""
     definition, _pointers = _expanded(_document())
-    routes = {name: (item.from_.relation, item.from_.direction) for name, item in definition.projections.items()}
+    routes = {
+        name: (item.from_.relation, item.from_.direction)
+        for name, item in definition.projections.items()
+    }
     assert routes == {
         "variants": ("system-value-maps-to-master", "incoming"),
         "translations": ("object-has-translation", "outgoing"),
@@ -132,7 +162,11 @@ def test_the_operations_offered_are_the_ones_listed():
     for name in ("xref", "resolve", "lists", "events"):
         del document["operations"][name]
     definition, _pointers = _expanded(document)
-    assert [name for name in ("objects", "xref", "resolve", "lists", "events") if definition.offers(name)] == ["objects"]
+    assert [
+        name
+        for name in ("objects", "xref", "resolve", "lists", "events")
+        if definition.offers(name)
+    ] == ["objects"]
 
 
 def _with(path: str, value: Any) -> dict[str, Any]:
@@ -149,16 +183,37 @@ def _with(path: str, value: Any) -> dict[str, Any]:
     ("document", "pointer"),
     [
         (_with("filters/domain", {"under": ["domain"], "byType": True}), "/filters/domain"),
-        (_with("filters/domain", {"under": ["domain"], "through": ["itself"]}), "/filters/domain/through"),
+        (
+            _with("filters/domain", {"under": ["domain"], "through": ["itself"]}),
+            "/filters/domain/through",
+        ),
         (_with("filters/domain", {"onRelated": "variants"}), "/filters/domain"),
         (_with("filters/domain", {"linkedTo": ["domain"]}), "/filters/domain"),
-        (_with("object/fields", {"id": {"role": "id"}, "name": {"role": "name", "from": "name"}, "label": {"role": "name", "from": "name"}}), "/object/fields/label/role"),
+        (
+            _with(
+                "object/fields",
+                {
+                    "id": {"role": "id"},
+                    "name": {"role": "name", "from": "name"},
+                    "label": {"role": "name", "from": "name"},
+                },
+            ),
+            "/object/fields/label/role",
+        ),
         (_with("object/fields", {"masterId": "master-id"}), "/object/fields"),
         (_with("object/fields/code", {"role": "code"}), "/object/fields/code"),
         (_with("publicNames", {"system": "System"}), "/publicNames/system"),
-        (_with("operations/resolve", {}) | {"operations": {"objects": {}, "resolve": {}}}, "/operations/resolve"),
+        (
+            _with("operations/resolve", {}) | {"operations": {"objects": {}, "resolve": {}}},
+            "/operations/resolve",
+        ),
         (_with("operations/events", {}), "/operations/events"),
-        (_with("operations/lists", {"values": {"of": "master-value", "within": {"filter": "type"}}}), "/operations/lists/values/within"),
+        (
+            _with(
+                "operations/lists", {"values": {"of": "master-value", "within": {"filter": "type"}}}
+            ),
+            "/operations/lists/values/within",
+        ),
         (
             _with("object/fields", {"id": {"role": "id"}, "name": {"role": "name", "from": "name"}})
             | {"filters": {"domain": {"under": ["domain"]}}},
@@ -166,10 +221,18 @@ def _with(path: str, value: Any) -> dict[str, Any]:
         ),
     ],
     ids=[
-        "two verbs", "a part of another verb", "onRelated without matchOn", "linkedTo without through",
-        "a role given twice", "no id role", "a field without from",
-        "a public name of a type not exposed", "resolve without xref", "events declaring none",
-        "within a filter that is not under, without types", "code without a code field",
+        "two verbs",
+        "a part of another verb",
+        "onRelated without matchOn",
+        "linkedTo without through",
+        "a role given twice",
+        "no id role",
+        "a field without from",
+        "a public name of a type not exposed",
+        "resolve without xref",
+        "events declaring none",
+        "within a filter that is not under, without types",
+        "code without a code field",
     ],
 )
 def test_the_syntax_is_refused_at_the_authors_pointer(document, pointer):
@@ -183,12 +246,20 @@ def test_the_rules_pointers_are_taken_back_to_what_was_written():
     assert pointers.authored("/objectTypes/master-value") == "/exposes/2"
     assert pointers.authored("/object/attributes/masterId/source/0") == "/object/fields/masterId"
     assert pointers.authored("/object/code/source/2") == "/object/fields/code/from/2"
-    assert pointers.authored("/projections/variants/from/relation") == "/object/related/variants/via"
-    assert pointers.authored("/projections/variants/fields/value") == "/object/related/variants/fields/value"
+    assert (
+        pointers.authored("/projections/variants/from/relation") == "/object/related/variants/via"
+    )
+    assert (
+        pointers.authored("/projections/variants/fields/value")
+        == "/object/related/variants/fields/value"
+    )
     assert pointers.authored("/parameters/domain/matchFields/1") == "/filters/domain"
     assert pointers.authored("/parameters/codelist/matchFields/0") == "/filters/codelist/matchOn/0"
     assert pointers.authored("/parameters/codelist/objectTypes/0") == "/filters/codelist/under/0"
-    assert pointers.authored("/lists/codelists/parentParameter/objectTypes/0") == "/operations/lists/codelists/within/filter"
+    assert (
+        pointers.authored("/lists/codelists/parentParameter/objectTypes/0")
+        == "/operations/lists/codelists/within/filter"
+    )
     assert pointers.authored("/events/codelist-changed/key") == "/operations/events/perType"
     assert pointers.authored("/contractVersion") == "/contractVersion"
 
@@ -205,7 +276,10 @@ def test_an_event_watches_related_blocks_by_name():
     definition, pointers = _expanded(_with("operations/events", {"custom": [event]}))
     (declared,) = definition.events
     assert (declared.watch.fields, declared.watch.projections) == (("code",), ("variants",))
-    assert pointers.authored("/events/values-changed/watch/projections/0") == "/operations/events/custom/0/watch/related/0"
+    assert (
+        pointers.authored("/events/values-changed/watch/projections/0")
+        == "/operations/events/custom/0/watch/related/0"
+    )
 
 
 # --- the parent's fields and related blocks (0.17 CA1) ----------------------------------------------

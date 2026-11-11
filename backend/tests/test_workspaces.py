@@ -145,7 +145,9 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
             json={"expectedChangeSetVersion": 2, "expectedActivePublicationId": None},
         )
         assert activation.status_code == 200
-        blocked_change_set = client.post(f"/api/v1/workspaces/{workspace_key}/change-sets", json={}).json()
+        blocked_change_set = client.post(
+            f"/api/v1/workspaces/{workspace_key}/change-sets", json={}
+        ).json()
         retired = client.patch(
             f"/api/v1/workspaces/{workspace_key}",
             json={"status": "retired", "expectedVersion": created_workspace["version"]},
@@ -174,14 +176,27 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
 
         assert client.get(f"/api/v1/workspaces/{workspace_key}").status_code == 200
         assert (
-            client.get("/api/v1/objects/language", params={"workspaceKey": workspace_key}).status_code
+            client.get(
+                "/api/v1/objects/language", params={"workspaceKey": workspace_key}
+            ).status_code
             == 200
         )
-        assert client.get(f"/api/v1/objects/language/{created_object['id']}", params={"workspaceKey": workspace_key}).status_code == 200
+        assert (
+            client.get(
+                f"/api/v1/objects/language/{created_object['id']}",
+                params={"workspaceKey": workspace_key},
+            ).status_code
+            == 200
+        )
 
         update = client.patch(
             f"/api/v1/objects/language/{created_object['id']}",
-                json={"name": "Blocked", "expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
+            json={
+                "name": "Blocked",
+                "expectedVersion": created_object["version"],
+                "changeSetId": blocked_change_set["id"],
+                "expectedChangeSetVersion": 1,
+            },
         )
         assert update.status_code == 409
         assert update.json()["error"]["code"] == "WORKSPACE_RETIRED"
@@ -202,7 +217,12 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
 
         attribute = client.patch(
             f"/api/v1/objects/language/{created_object['id']}/attributes/language-code",
-            json={"value": _key("blocked-attribute"), "expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
+            json={
+                "value": _key("blocked-attribute"),
+                "expectedVersion": created_object["version"],
+                "changeSetId": blocked_change_set["id"],
+                "expectedChangeSetVersion": 1,
+            },
         )
         assert attribute.status_code == 409
         assert attribute.json()["error"]["code"] == "WORKSPACE_RETIRED"
@@ -221,7 +241,11 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
         assert relation.json()["error"]["code"] == "WORKSPACE_RETIRED"
         delete = client.delete(
             f"/api/v1/objects/language/{created_object['id']}",
-            params={"expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
+            params={
+                "expectedVersion": created_object["version"],
+                "changeSetId": blocked_change_set["id"],
+                "expectedChangeSetVersion": 1,
+            },
         )
         assert delete.status_code == 409
         assert delete.json()["error"]["code"] == "WORKSPACE_RETIRED"
@@ -291,17 +315,26 @@ def test_change_set_workflow_runs_end_to_end_without_workspace_administration(mo
     assert set(paths["/api/v1/publications/{publication_id}/withdrawal"]) == {"post"}
     with TestClient(disabled_app) as client:
         # Catalogue mutations are absent.
-        assert client.post(
-            "/api/v1/workspaces", json={"key": _key("absent"), "label": "Absent"}
-        ).status_code == 405
-        assert client.patch(
-            f"/api/v1/workspaces/{workspace_key}",
-            json={"label": "Renamed", "expectedVersion": 1},
-        ).status_code == 405
-        assert client.patch(
-            "/api/v1/workspace-runtime-state",
-            json={"defaultWorkspaceKey": workspace_key, "expectedVersion": runtime_version},
-        ).status_code == 405
+        assert (
+            client.post(
+                "/api/v1/workspaces", json={"key": _key("absent"), "label": "Absent"}
+            ).status_code
+            == 405
+        )
+        assert (
+            client.patch(
+                f"/api/v1/workspaces/{workspace_key}",
+                json={"label": "Renamed", "expectedVersion": 1},
+            ).status_code
+            == 405
+        )
+        assert (
+            client.patch(
+                "/api/v1/workspace-runtime-state",
+                json={"defaultWorkspaceKey": workspace_key, "expectedVersion": runtime_version},
+            ).status_code
+            == 405
+        )
 
         # Create, rename, repin, edit, validate and publish a change set, then withdraw it.
         change_set = create_change_set(client, workspace_key, name="flag off").json()

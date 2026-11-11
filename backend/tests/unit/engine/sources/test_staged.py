@@ -30,7 +30,9 @@ ROWS = [
 
 
 def _cells(rows):
-    return [(number, [None if is_empty(cell) else cell for cell in cells]) for number, cells in rows]
+    return [
+        (number, [None if is_empty(cell) else cell for cell in cells]) for number, cells in rows
+    ]
 
 
 def _xlsx(path):
@@ -54,10 +56,13 @@ def _csv(path):
     path.write_text(buffer.getvalue(), encoding="utf-8")
 
 
-@pytest.mark.parametrize(("file_format", "write", "areas"), [
-    ("xlsx", _xlsx, [Area(2), Area(1), Area.of(2, None)]),
-    ("csv", _csv, [Area(1), Area(2, first_column=2, last_column=4, last_row=4)]),
-])
+@pytest.mark.parametrize(
+    ("file_format", "write", "areas"),
+    [
+        ("xlsx", _xlsx, [Area(2), Area(1), Area.of(2, None)]),
+        ("csv", _csv, [Area(1), Area(2, first_column=2, last_column=4, last_row=4)]),
+    ],
+)
 def test_staged_rows_and_tables_are_the_readers(seeded, tmp_path, file_format, write, areas):
     path = tmp_path / f"file.{file_format}"
     write(path)
@@ -67,7 +72,11 @@ def test_staged_rows_and_tables_are_the_readers(seeded, tmp_path, file_format, w
         session.add(draft)
         session.flush()
         source = SourceFile(
-            draft_id=draft.id, name=path.name, format=file_format, bytes=1, sha256="0" * 64,
+            draft_id=draft.id,
+            name=path.name,
+            format=file_format,
+            bytes=1,
+            sha256="0" * 64,
             csv_delimiter=delimiter,
         )
         session.add(source)
@@ -83,7 +92,9 @@ def test_staged_rows_and_tables_are_the_readers(seeded, tmp_path, file_format, w
                 assert _cells(staged.rows(name)) == _cells(reader.rows(name))
                 for area in areas:
                     expected, found = reader.table(name, area), staged.table(name, area)
-                    assert found.header[: len(expected.header)] == expected.header[: len(found.header)]
+                    assert (
+                        found.header[: len(expected.header)] == expected.header[: len(found.header)]
+                    )
                     width = len(found.header)
                     assert _cells(
                         (number, cells[:width]) for number, cells in expected.rows

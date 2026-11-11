@@ -124,6 +124,7 @@ export interface ModelDiagnostic {
 }
 
 export interface ModelCompatibility {
+  /** `invalid`: the draft did not compile, so there was nothing to compare (the answer of `compile`). */
   classification: "compatible" | "migration_required" | "invalid";
   activeReleaseId: string;
   diagnostics: ModelDiagnostic[];

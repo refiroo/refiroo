@@ -72,12 +72,17 @@ def journey_tests() -> dict[str, list[str]]:
     if not any(layout.JOURNEYS.rglob("test_*.py")):
         return {}
     result = subprocess.run(
-        [sys.executable, "-c", _COLLECT], cwd=layout.BACKEND, capture_output=True, text=True,
+        [sys.executable, "-c", _COLLECT],
+        cwd=layout.BACKEND,
+        capture_output=True,
+        text=True,
         check=False,
     )
     line = next((row for row in result.stdout.splitlines() if row.startswith("JOURNEYS=")), None)
     if line is None:
-        raise SystemExit("Collecting tests/journeys failed:\n" + result.stdout[-2000:] + result.stderr[-2000:])
+        raise SystemExit(
+            "Collecting tests/journeys failed:\n" + result.stdout[-2000:] + result.stderr[-2000:]
+        )
     return json.loads(line.removeprefix("JOURNEYS="))
 
 
@@ -122,7 +127,9 @@ def report(show_modules: bool) -> str:
         if "." in key:
             continue
         reached = by_journey.get(key, set())
-        lines.append(f"  {key}: {len(reached)} modules" + ("" if reached else "  (no journey test yet)"))
+        lines.append(
+            f"  {key}: {len(reached)} modules" + ("" if reached else "  (no journey test yet)")
+        )
         if show_modules:
             lines.extend(f"      {module}" for module in sorted(reached))
     no_journey = sorted(modules - reached_by_journeys)

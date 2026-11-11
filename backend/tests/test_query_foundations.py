@@ -16,7 +16,7 @@ def _create_domain(
     token: str,
     index: int,
     *,
-        workspace_key: str = "default",
+    workspace_key: str = "default",
 ):
     response = client.post(
         "/api/v1/objects",
@@ -24,7 +24,7 @@ def _create_domain(
             "applicationKey": "rdm-master",
             "objectTypeKey": "domain",
             "name": f"{token} {index}",
-                "workspaceKey": workspace_key,
+            "workspaceKey": workspace_key,
             "attributes": [_attr("domain-code", f"{token}_{index}")],
         },
     )
@@ -121,9 +121,7 @@ def test_every_built_in_object_sort_supports_cursor_traversal(context):
     token = f"WP5_{uuid4().hex[:8]}"
     client_type = LiveTestClient if context == "live" else TestClient
     with client_type(app) as client:
-        created = {
-            _create_domain(client, token, index)["id"] for index in range(1, 4)
-        }
+        created = {_create_domain(client, token, index)["id"] for index in range(1, 4)}
         if context == "change_set":
             # Change sets record no timestamps (WP-10K): a timestamp sort is refused explicitly.
             for sort in ("createdAt", "-updatedAt"):
@@ -181,10 +179,15 @@ def test_relation_expansion_is_paged_cursor_bound_and_workspace_filtered():
         )
         assert second.status_code == 200
         assert second.json()["nextCursor"] is None
-        assert len({
-            first.json()["items"][0]["relation"]["id"],
-            second.json()["items"][0]["relation"]["id"],
-        }) == 2
+        assert (
+            len(
+                {
+                    first.json()["items"][0]["relation"]["id"],
+                    second.json()["items"][0]["relation"]["id"],
+                }
+            )
+            == 2
+        )
 
         mismatch = client.get(
             "/api/v1/relations",
@@ -206,16 +209,28 @@ def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope()
             assert response.status_code in {201, 409}
         west_change_set = client.post("/api/v1/workspaces/west/change-sets", json={}).json()
         east_change_set = client.post("/api/v1/workspaces/east/change-sets", json={}).json()
-        west_response = client.post("/api/v1/objects", json={
-            "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": f"{token} west",
-            "attributes": [_attr("domain-code", f"{token}_west")],
-            "changeSetId": west_change_set["id"], "expectedChangeSetVersion": 1,
-        })
-        east_response = client.post("/api/v1/objects", json={
-            "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": f"{token} east",
-            "attributes": [_attr("domain-code", f"{token}_east")],
-            "changeSetId": east_change_set["id"], "expectedChangeSetVersion": 1,
-        })
+        west_response = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": f"{token} west",
+                "attributes": [_attr("domain-code", f"{token}_west")],
+                "changeSetId": west_change_set["id"],
+                "expectedChangeSetVersion": 1,
+            },
+        )
+        east_response = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": f"{token} east",
+                "attributes": [_attr("domain-code", f"{token}_east")],
+                "changeSetId": east_change_set["id"],
+                "expectedChangeSetVersion": 1,
+            },
+        )
         assert west_response.status_code == east_response.status_code == 201
         west, east = west_response.json(), east_response.json()
 

@@ -12,7 +12,18 @@ from scenario import (
 )
 
 CAPI = (
-    "Capi", "R", "R2", "R.u", "R2.u", "K", "K.code", "B11", "Bown", "Bscope", "G", "D",
+    "Capi",
+    "R",
+    "R2",
+    "R.u",
+    "R2.u",
+    "K",
+    "K.code",
+    "B11",
+    "Bown",
+    "Bscope",
+    "G",
+    "D",
 )
 
 
@@ -82,7 +93,11 @@ def test_scored_lookup(world):
     ]
     contained = _xref(world, query="dger")
     # The R2's public name sorts before the R's in both configurations, whatever their names.
-    assert _scored(world, contained) == [("Zed ledger", 30), ("Abc ledger", 30), ("Ledger seven", 30)]
+    assert _scored(world, contained) == [
+        ("Zed ledger", 30),
+        ("Abc ledger", 30),
+        ("Ledger seven", 30),
+    ]
     for page in (by_code, by_name, contained):
         _same_as_get_by_id(world, page)
 
@@ -92,7 +107,10 @@ def _watched(world, name):
     owner = _ledger(world, "Owner", "OW-1")
     region = world.made("G", "Region one", values={"K.code": "RG-1"})
     permit = world.made(
-        "D", name, parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+        "D",
+        name,
+        parent=world.dependant_parent(region["id"]),
+        relations=[world.owner("Bown", owner["id"])],
     )
     watcher = _ledger(world, "Watcher", "WA-1")
     entry = world.made("R2", "Watching entry", parent=watcher["id"])
@@ -113,7 +131,11 @@ def test_promoted_matches(world):
     _paired(world, "Beta", "BTK-9B", "TK-9", "KB-1")
     # Its own code is the term (500); its K's code contains it (10).
     _paired(world, "Gamma", "TK-9", "Third", "TK-9X")
-    assert _scored(world, _xref(world, query="tk-9")) == [("Gamma", 500), ("Paired", 80), ("Beta", 75)]
+    assert _scored(world, _xref(world, query="tk-9")) == [
+        ("Gamma", 500),
+        ("Paired", 80),
+        ("Beta", 75),
+    ]
 
     _watched(world, "Watch zone")
     watched = _xref(world, query="Watch zone")
@@ -159,10 +181,16 @@ def test_expect_one(world):
     assert error["details"]["count"] == 2
     candidates = error["details"]["candidates"]
     assert sorted(c["id"] for c in candidates) == sorted(t["id"] for t in twins)
-    assert all(c["matchScore"] == 200 and c["objectType"] == world.key("Capi.R") for c in candidates)
+    assert all(
+        c["matchScore"] == 200 and c["objectType"] == world.key("Capi.R") for c in candidates
+    )
     assert all(c["name"] == "Twin" for c in candidates)
 
-    refused(consumer_xref(world, query="led-7", expect="one", pageSize=5), 400, "PARAMETER_NOT_SUPPORTED")
+    refused(
+        consumer_xref(world, query="led-7", expect="one", pageSize=5),
+        400,
+        "PARAMETER_NOT_SUPPORTED",
+    )
 
 
 @pytest.mark.journey("J29.4")
@@ -203,7 +231,9 @@ def test_paging(world):
     assert (listed(last), last["totalCount"], last["startIndex"]) == (names[4:], 7, 4)
 
     refused(
-        consumer_xref(world, query="other", pageSize=3, cursor=first["nextCursor"]), 400, "INVALID_CURSOR"
+        consumer_xref(world, query="other", pageSize=3, cursor=first["nextCursor"]),
+        400,
+        "INVALID_CURSOR",
     )
 
 
@@ -222,10 +252,18 @@ def test_refusals(world):
     terms = ",".join(f"T{number}" for number in range(101))
     error = refused(consumer_xref_typed(world, f"query={terms}"), 400, "TOO_MANY_TERMS")
     assert "100" in error["message"]
-    assert _typed(world, "query=" + ",".join(f"T{number}" for number in range(100)))["results"] == []
+    assert (
+        _typed(world, "query=" + ",".join(f"T{number}" for number in range(100)))["results"] == []
+    )
 
-    for name, value in ((world.key("Capi.entries.parent"), "x"), ("seek", "1"), ("includeTotal", "true")):
-        error = refused(consumer_xref(world, query="qz", **{name: value}), 400, "PARAMETER_NOT_SUPPORTED")
+    for name, value in (
+        (world.key("Capi.entries.parent"), "x"),
+        ("seek", "1"),
+        ("includeTotal", "true"),
+    ):
+        error = refused(
+            consumer_xref(world, query="qz", **{name: value}), 400, "PARAMETER_NOT_SUPPORTED"
+        )
         assert error["details"]["parameters"] == [name]
     assert _xref(world, query="qz", **{world.key("Capi.token"): "x"})["results"] == []
 
@@ -239,7 +277,10 @@ def _param(world, name):
 
 def _found(world, page):
     """Each result's public type, name and score, ignoring the order of equal results."""
-    return sorted((item["objectType"], item[_out(world, "name")], item["matchScore"]) for item in page["results"])
+    return sorted(
+        (item["objectType"], item[_out(world, "name")], item["matchScore"])
+        for item in page["results"]
+    )
 
 
 @pytest.mark.journey("J29.6")
@@ -262,41 +303,63 @@ def test_parameters_narrow_the_lookup(world):
     south = world.made("G", "South", values={"K.code": "GS"})
     for region, name in ((north, "North permit"), (south, "South permit")):
         world.made(
-            "D", name, parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", permitted["id"])]
+            "D",
+            name,
+            parent=world.dependant_parent(region["id"]),
+            relations=[world.owner("Bown", permitted["id"])],
         )
     yard = world.made("M", "Yard", parent=south["id"])
-    world.made("D", "Twin yard permit", parent=yard["id"], relations=[world.owner("Bown", holder["id"])])
+    world.made(
+        "D", "Twin yard permit", parent=yard["id"], relations=[world.owner("Bown", holder["id"])]
+    )
     spot = world.made(
-        "D", "Watched spot", parent=world.dependant_parent(south["id"]), relations=[world.owner("Bown", base["id"])]
+        "D",
+        "Watched spot",
+        parent=world.dependant_parent(south["id"]),
+        relations=[world.owner("Bown", base["id"])],
     )
     ok(world.relate("Bscope", twin["id"], spot["id"]), 201)
     ok(world.relate("Bscope", twin_entry["id"], spot["id"]), 201)
 
     ledger, entry, permit = world.key("Capi.R"), world.key("Capi.R2"), world.key("Capi.D")
     everything = _xref(world, query="Twin")
-    assert _found(world, everything) == sorted([
-        (ledger, "Twin", 200),
-        (entry, "Twin", 200),
-        (ledger, "Twin paired", 30),
-        (ledger, "Twin permitted", 30),
-        (permit, "Twin yard permit", 30),
-    ])
+    assert _found(world, everything) == sorted(
+        [
+            (ledger, "Twin", 200),
+            (entry, "Twin", 200),
+            (ledger, "Twin paired", 30),
+            (ledger, "Twin permitted", 30),
+            (permit, "Twin yard permit", 30),
+        ]
+    )
     scores = {item[_out(world, "id")]: item["matchScore"] for item in everything["results"]}
 
     def narrowed(**params):
-        page = _xref(world, query="Twin", **{_param(world, name): value for name, value in params.items()})
+        page = _xref(
+            world, query="Twin", **{_param(world, name): value for name, value in params.items()}
+        )
         assert page["totalCount"] == len(page["results"])
         for item in page["results"]:
             assert item["matchScore"] == scores[item[_out(world, "id")]]
         return page
 
-    assert _found(world, narrowed(kind=ledger)) == sorted([
-        (ledger, "Twin", 200), (ledger, "Twin paired", 30), (ledger, "Twin permitted", 30),
-    ])
-    refused(consumer_xref(world, query="Twin", **{_param(world, "kind"): "Nothing"}), 400, "UNKNOWN_OBJECT_TYPE")
+    assert _found(world, narrowed(kind=ledger)) == sorted(
+        [
+            (ledger, "Twin", 200),
+            (ledger, "Twin paired", 30),
+            (ledger, "Twin permitted", 30),
+        ]
+    )
+    refused(
+        consumer_xref(world, query="Twin", **{_param(world, "kind"): "Nothing"}),
+        400,
+        "UNKNOWN_OBJECT_TYPE",
+    )
     assert _found(world, narrowed(container="Yard")) == [(permit, "Twin yard permit", 30)]
     assert _found(world, narrowed(token="coin")) == [(ledger, "Twin paired", 30)]
-    assert _found(world, narrowed(peer="Twin")) == sorted([(ledger, "Twin", 200), (entry, "Twin", 200)])
+    assert _found(world, narrowed(peer="Twin")) == sorted(
+        [(ledger, "Twin", 200), (entry, "Twin", 200)]
+    )
 
     held = narrowed(permit="North")
     assert _found(world, held) == [(ledger, "Twin permitted", 30)]
@@ -313,7 +376,13 @@ def test_parameters_narrow_the_lookup(world):
     first = _xref(world, query="Twin", pageSize=2, **{_param(world, "kind"): ledger})
     assert first["totalCount"] == 3 and first["nextCursor"]
     refused(
-        consumer_xref(world, query="Twin", pageSize=2, cursor=first["nextCursor"], **{_param(world, "kind"): entry}),
+        consumer_xref(
+            world,
+            query="Twin",
+            pageSize=2,
+            cursor=first["nextCursor"],
+            **{_param(world, "kind"): entry},
+        ),
         400,
         "INVALID_CURSOR",
     )
@@ -339,31 +408,44 @@ def test_scores_from_limits_which_related_records_score(world):
     for region_name in ("North", "South"):
         region = world.made("G", region_name, values={"K.code": f"G{region_name[0]}"})
         zones[region_name] = world.made(
-            "D", "Gate zone", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+            "D",
+            "Gate zone",
+            parent=world.dependant_parent(region["id"]),
+            relations=[world.owner("Bown", owner["id"])],
         )
     watchers = {}
-    for name, region_name in (("North watcher", "North"), ("South watcher", "South"), ("Gate zone", "South")):
+    for name, region_name in (
+        ("North watcher", "North"),
+        ("South watcher", "South"),
+        ("Gate zone", "South"),
+    ):
         watchers[name] = world.made("R2", name, parent=base["id"])
         ok(world.relate("Bscope", watchers[name]["id"], zones[region_name]["id"]), 201)
 
     entry, permit = world.key("Capi.R2"), world.key("Capi.D")
-    assert _found(world, _xref(world, query="Gate zone")) == sorted([
-        (entry, "Gate zone", 200),
-        (permit, "Gate zone", 200),
-        (permit, "Gate zone", 200),
-        (entry, "North watcher", 60),
-        (entry, "South watcher", 60),
-    ])
+    assert _found(world, _xref(world, query="Gate zone")) == sorted(
+        [
+            (entry, "Gate zone", 200),
+            (permit, "Gate zone", 200),
+            (permit, "Gate zone", 200),
+            (entry, "North watcher", 60),
+            (entry, "South watcher", 60),
+        ]
+    )
 
     watched = _xref(world, query="Gate zone", **{_param(world, "watch"): "North"})
-    assert _found(world, watched) == sorted([
-        (entry, "Gate zone", 200),
-        (permit, "Gate zone", 200),
-        (permit, "Gate zone", 200),
-        (entry, "North watcher", 60),
-    ])
+    assert _found(world, watched) == sorted(
+        [
+            (entry, "Gate zone", 200),
+            (permit, "Gate zone", 200),
+            (permit, "Gate zone", 200),
+            (entry, "North watcher", 60),
+        ]
+    )
     assert watched["totalCount"] == 4
-    (north_watcher,) = [item for item in watched["results"] if item[_out(world, "name")] == "North watcher"]
+    (north_watcher,) = [
+        item for item in watched["results"] if item[_out(world, "name")] == "North watcher"
+    ]
     assert north_watcher[_out(world, "id")] == watchers["North watcher"]["id"]
     assert north_watcher[_out(world, "Bscope")] == [_watched_item(world, "Gate zone")]
 
@@ -381,7 +463,10 @@ def _resolve(world, body, **params):
 def _single(world, item, defaults=None):
     """The single read an item stands for: xref?expect=one by query, get by ID by id, with the
     defaults overlaid by the item's own parameters."""
-    params = {**(defaults or {}), **{name: value for name, value in item.items() if name not in ("ref", "query", "id")}}
+    params = {
+        **(defaults or {}),
+        **{name: value for name, value in item.items() if name not in ("ref", "query", "id")},
+    }
     if "id" in item:
         return consumer_object(world, item["id"], **params)
     return consumer_xref(world, query=item["query"], expect="one", **params)
@@ -440,11 +525,25 @@ def test_batch_resolve_a_mixed_batch(world):
     answer = _resolve(world, body)
     assert answer["workspace"] == "default"
     assert _statuses(answer) == [
-        "found", "found", "found", "found", "found", "found", "not_found", "not_found", "found", "ambiguous",
+        "found",
+        "found",
+        "found",
+        "found",
+        "found",
+        "found",
+        "not_found",
+        "not_found",
+        "found",
+        "ambiguous",
     ]
     found = [outcome["object"] for outcome in answer["items"] if outcome["status"] == "found"]
     assert [(item[_out(world, "name")], item.get("matchScore")) for item in found] == [
-        ("Alpha", 500), ("Led", 200), ("Paired", 80), ("Alpha", 500), ("Bonded", 75), ("Alpha", None),
+        ("Alpha", 500),
+        ("Led", 200),
+        ("Paired", 80),
+        ("Alpha", 500),
+        ("Bonded", 75),
+        ("Alpha", None),
         ("Ledger seven", 30),
     ]
     codes = [outcome["error"]["code"] for outcome in answer["items"] if "error" in outcome]
@@ -453,7 +552,14 @@ def test_batch_resolve_a_mixed_batch(world):
     _same_as_single(world, body, answer)
 
     # The same lookup sent again, its terms reordered and repeated, has the same answer.
-    repeated = {"items": [{"query": ["LED-7", "TK-9"]}, {"query": ["TK-9", "LED-7", "TK-9"]}, {"query": "twin"}] * 2}
+    repeated = {
+        "items": [
+            {"query": ["LED-7", "TK-9"]},
+            {"query": ["TK-9", "LED-7", "TK-9"]},
+            {"query": "twin"},
+        ]
+        * 2
+    }
     answer = _resolve(world, repeated)
     assert answer["items"][1]["object"] == answer["items"][0]["object"] == found[3]
     assert [outcome["status"] for outcome in answer["items"]] == ["found", "found", "ambiguous"] * 2
@@ -475,13 +581,20 @@ def test_batch_resolve_defaults_and_item_parameters(world):
     for region_name in ("North", "South"):
         region = world.made("G", region_name, values={"K.code": f"G{region_name[0]}"})
         zone = world.made(
-            "D", "Portal", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+            "D",
+            "Portal",
+            parent=world.dependant_parent(region["id"]),
+            relations=[world.owner("Bown", owner["id"])],
         )
         watchers[region_name] = world.made("R2", f"{region_name} watcher", parent=base["id"])
         ok(world.relate("Bscope", watchers[region_name]["id"], zone["id"]), 201)
 
     ledger, entry = world.key("Capi.R"), world.key("Capi.R2")
-    kind, container, watch = _param(world, "kind"), _param(world, "container"), _param(world, "watch")
+    kind, container, watch = (
+        _param(world, "kind"),
+        _param(world, "container"),
+        _param(world, "watch"),
+    )
 
     body = {
         "defaults": {kind: ledger},
@@ -504,13 +617,18 @@ def test_batch_resolve_defaults_and_item_parameters(world):
     _same_as_single(world, plain, answer)
 
     # Both watchers take 60 from the Portal they watch; scoresFrom lets only North's pass.
-    portals = {"defaults": {kind: entry}, "items": [{"query": "Portal"}, {"query": "Portal", watch: "North"}]}
+    portals = {
+        "defaults": {kind: entry},
+        "items": [{"query": "Portal"}, {"query": "Portal", watch: "North"}],
+    }
     answer = _resolve(world, portals)
     assert _statuses(answer) == ["ambiguous", "found"]
     assert answer["items"][1]["object"][_out(world, "id")] == watchers["North"]["id"]
     assert answer["items"][1]["object"]["matchScore"] == 60
     _same_as_single(world, portals, answer)
-    narrowed = _resolve(world, {"defaults": {kind: entry, watch: "North"}, "items": [{"query": "Portal"}]})
+    narrowed = _resolve(
+        world, {"defaults": {kind: entry, watch: "North"}, "items": [{"query": "Portal"}]}
+    )
     assert narrowed["items"][0]["object"] == answer["items"][1]["object"]
 
 
@@ -537,7 +655,10 @@ def test_batch_resolve_refusals(world):
     ]
     answer = _resolve(world, {"items": items})
     assert _statuses(answer) == ["rejected"] * 8 + ["found"]
-    errors = [(outcome["error"]["code"], outcome["error"]["details"]["pointer"]) for outcome in answer["items"][:8]]
+    errors = [
+        (outcome["error"]["code"], outcome["error"]["details"]["pointer"])
+        for outcome in answer["items"][:8]
+    ]
     assert errors == [
         ("QUERY_OR_ID_REQUIRED", "/items/0"),
         ("QUERY_OR_ID_REQUIRED", "/items/1"),
@@ -554,10 +675,18 @@ def test_batch_resolve_refusals(world):
     assert defaulted["items"][0]["error"]["details"]["pointer"] == f"/defaults/{kind}"
 
     one = {"items": [{"query": "led-7"}]}
-    error = refused(consumer_resolve(world, {**one, "defaults": {"bogus": "1"}}), 400, "UNKNOWN_PARAMETER")
+    error = refused(
+        consumer_resolve(world, {**one, "defaults": {"bogus": "1"}}), 400, "UNKNOWN_PARAMETER"
+    )
     assert error["details"]["pointer"] == "/defaults/bogus"
-    refused(consumer_resolve(world, {**one, "defaults": {"expect": "one"}}), 400, "PARAMETER_NOT_SUPPORTED")
-    refused(consumer_resolve(world, one, **{kind: world.key("Capi.R")}), 400, "PARAMETER_NOT_SUPPORTED")
+    refused(
+        consumer_resolve(world, {**one, "defaults": {"expect": "one"}}),
+        400,
+        "PARAMETER_NOT_SUPPORTED",
+    )
+    refused(
+        consumer_resolve(world, one, **{kind: world.key("Capi.R")}), 400, "PARAMETER_NOT_SUPPORTED"
+    )
     refused(consumer_resolve(world, one, query="led-7"), 400, "PARAMETER_NOT_SUPPORTED")
     refused(consumer_resolve(world, one, bogus="1"), 400, "UNKNOWN_PARAMETER")
     refused(consumer_resolve(world, one, workspace="nowhere"), 404, "WORKSPACE_NOT_FOUND")
@@ -575,18 +704,29 @@ def test_batch_resolve_refusals(world):
     ):
         refused(consumer_resolve(world, wrong), 400, "REQUEST_VALIDATION_ERROR")
     raw = world.api.client.post(
-        f"/api/consumer/{world.key('Capi')}/v1/resolve", content=b"{not json", headers={"content-type": "application/json"}
+        f"/api/consumer/{world.key('Capi')}/v1/resolve",
+        content=b"{not json",
+        headers={"content-type": "application/json"},
     )
     refused(raw, 400, "REQUEST_VALIDATION_ERROR")
 
     capabilities = ok(world.api.get("/capabilities"))
-    assert capabilities["consumerApi"] == {"resolveMaxItems": 1000, "setting": "CONSUMER_RESOLVE_MAX_ITEMS"}
+    assert capabilities["consumerApi"] == {
+        "resolveMaxItems": 1000,
+        "setting": "CONSUMER_RESOLVE_MAX_ITEMS",
+    }
     state = world.api.client.app.state
     saved = state.consumer_resolve_max_items
     state.consumer_resolve_max_items = 5
     try:
-        error = refused(consumer_resolve(world, {"items": [{"query": "led-7"}] * 6}), 413, "BATCH_TOO_LARGE")
-        assert error["details"] == {"setting": "CONSUMER_RESOLVE_MAX_ITEMS", "maximum": 5, "items": 6}
+        error = refused(
+            consumer_resolve(world, {"items": [{"query": "led-7"}] * 6}), 413, "BATCH_TOO_LARGE"
+        )
+        assert error["details"] == {
+            "setting": "CONSUMER_RESOLVE_MAX_ITEMS",
+            "maximum": 5,
+            "items": 6,
+        }
         assert _statuses(_resolve(world, {"items": [{"query": "led-7"}] * 5})) == ["found"] * 5
     finally:
         state.consumer_resolve_max_items = saved
@@ -604,7 +744,9 @@ def _crosswalk(world):
     """Ledger X (LX) watching (Bscope) a D below G North and a D below South; Ledger Y (LY) watching
     only the North D; Entry Z (EZ, an R2) watching two D below South. Each D has its own owner, since
     an R owns one active D per G."""
-    regions = {name: world.made("G", name, values={"K.code": f"G{name[0]}"}) for name in ("North", "South")}
+    regions = {
+        name: world.made("G", name, values={"K.code": f"G{name[0]}"}) for name in ("North", "South")
+    }
     desks = {}
     for number, (name, region) in enumerate(
         (("North desk", "North"), ("South desk", "South"), ("South annex", "South")), start=1
@@ -619,7 +761,11 @@ def _crosswalk(world):
     x = _ledger(world, "Ledger X", "LX")
     y = _ledger(world, "Ledger Y", "LY")
     z = world.made("R2", "Entry Z", parent=y["id"], values={"R2.u": "EZ"})
-    for record, names in ((x, ("North desk", "South desk")), (y, ("North desk",)), (z, ("South desk", "South annex"))):
+    for record, names in (
+        (x, ("North desk", "South desk")),
+        (y, ("North desk",)),
+        (z, ("South desk", "South annex")),
+    ):
         for name in names:
             ok(world.relate("Bscope", record["id"], desks[name]["id"]), 201)
     return x, y, z
@@ -627,13 +773,21 @@ def _crosswalk(world):
 
 def _watched_item(world, name):
     # The relationships carry no values here, so the block's relationship fields are null.
-    return {_out(world, "Bscope.name"): name, _out(world, "Bscope.flag"): None, _out(world, "Bscope.note"): None}
+    return {
+        _out(world, "Bscope.name"): name,
+        _out(world, "Bscope.flag"): None,
+        _out(world, "Bscope.note"): None,
+    }
 
 
 def _without_pointer(error):
     """An error without where it points: a single read names the query parameter, a batch item the
     place in the body."""
-    details = {key: value for key, value in error.get("details", {}).items() if key not in ("path", "pointer")}
+    details = {
+        key: value
+        for key, value in error.get("details", {}).items()
+        if key not in ("path", "pointer")
+    }
     return {**error, "details": details}
 
 
@@ -656,16 +810,26 @@ def test_crosswalk_with_expect_one(world):
     assert found[_out(world, "Bscope")] == [south]
     assert found["matchScore"] == plain["matchScore"] == 500
     assert list(found)[-2:] == ["target", "matchScore"]
-    assert {key: value for key, value in found.items() if key not in ("target", _out(world, "Bscope"))} == {
-        key: value for key, value in plain.items() if key != _out(world, "Bscope")
-    }
+    assert {
+        key: value for key, value in found.items() if key not in ("target", _out(world, "Bscope"))
+    } == {key: value for key, value in plain.items() if key != _out(world, "Bscope")}
     assert _xref(world, query="LX", expect="one", **{watch: "North", to: "South"}) == found
 
-    error = refused(consumer_xref(world, query="LY", expect="one", **{to: "South"}), 404, "TARGET_NOT_FOUND")
-    assert (error["details"]["id"], error["details"]["objectType"]) == (y["id"], world.key("Capi.R"))
+    error = refused(
+        consumer_xref(world, query="LY", expect="one", **{to: "South"}), 404, "TARGET_NOT_FOUND"
+    )
+    assert (error["details"]["id"], error["details"]["objectType"]) == (
+        y["id"],
+        world.key("Capi.R"),
+    )
     assert error["details"]["parameter"] == to
-    error = refused(consumer_xref(world, query="EZ", expect="one", **{to: "South"}), 409, "AMBIGUOUS_TARGET")
-    assert (error["details"]["id"], error["details"]["objectType"]) == (z["id"], world.key("Capi.R2"))
+    error = refused(
+        consumer_xref(world, query="EZ", expect="one", **{to: "South"}), 409, "AMBIGUOUS_TARGET"
+    )
+    assert (error["details"]["id"], error["details"]["objectType"]) == (
+        z["id"],
+        world.key("Capi.R2"),
+    )
     assert error["details"]["count"] == 2
     assert sorted(error["details"]["targets"], key=str) == sorted(
         [south, _watched_item(world, "South annex")], key=str
@@ -679,7 +843,9 @@ def test_crosswalk_with_expect_one(world):
     _ledger(world, "Twin", "TW-2")
     south_desk = _xref(world, query="South desk", expect="one")[_out(world, "id")]
     ok(world.relate("Bscope", twin["id"], south_desk), 201)
-    refused(consumer_xref(world, query="twin", expect="one", **{to: "South"}), 409, "AMBIGUOUS_MATCH")
+    refused(
+        consumer_xref(world, query="twin", expect="one", **{to: "South"}), 409, "AMBIGUOUS_MATCH"
+    )
 
 
 @pytest.mark.journey("J29.12")
@@ -710,7 +876,9 @@ def test_crosswalk_on_pages_and_get_by_id(world):
     assert targets["Ledger X"] == [south]
     assert targets["Ledger Y"] == []
     first = ok(consumer_list(world, ledgers, pageSize=2))
-    following = ok(consumer_list(world, ledgers, pageSize=2, cursor=first["nextCursor"], **{to: "South"}))
+    following = ok(
+        consumer_list(world, ledgers, pageSize=2, cursor=first["nextCursor"], **{to: "South"})
+    )
     assert [item[_out(world, "name")] for item in following["items"]] == names[2:4]
     assert all("target" in item for item in following["items"])
 
@@ -751,7 +919,10 @@ def test_crosswalk_in_batch_resolve(world):
         else:
             assert _without_pointer(outcome["error"]) == _without_pointer(single.json()["error"])
             assert outcome["error"]["details"]["pointer"] == f"/defaults/{to}", index
-    assert [o["error"]["code"] for o in answer["items"] if "error" in o] == ["TARGET_NOT_FOUND", "AMBIGUOUS_TARGET"]
+    assert [o["error"]["code"] for o in answer["items"] if "error" in o] == [
+        "TARGET_NOT_FOUND",
+        "AMBIGUOUS_TARGET",
+    ]
 
 
 @pytest.mark.journey("J29.14")
@@ -762,13 +933,21 @@ def test_crosswalk_refusals(world):
     an item rejects that item with a pointer into it, an item's to. name replaces a different one
     from defaults, and to.token in defaults refuses the request."""
     x, _y, _z = _crosswalk(world)
-    watch_to, permit_to, token_to = _to(world, "watch"), _to(world, "permit"), f"to.{_param(world, 'token')}"
+    watch_to, permit_to, token_to = (
+        _to(world, "watch"),
+        _to(world, "permit"),
+        f"to.{_param(world, 'token')}",
+    )
     for name in (token_to, "to.nothing"):
-        error = refused(consumer_xref(world, query="LX", **{name: "South"}), 400, "UNKNOWN_PARAMETER")
+        error = refused(
+            consumer_xref(world, query="LX", **{name: "South"}), 400, "UNKNOWN_PARAMETER"
+        )
         assert error["details"]["parameters"] == [name]
         assert watch_to in error["message"] and permit_to in error["message"]
     error = refused(
-        consumer_object(world, x["id"], **{watch_to: "South", permit_to: "North"}), 400, "MULTIPLE_TARGETS"
+        consumer_object(world, x["id"], **{watch_to: "South", permit_to: "North"}),
+        400,
+        "MULTIPLE_TARGETS",
     )
     assert sorted(error["details"]["parameters"]) == sorted([watch_to, permit_to])
     refused(
@@ -796,7 +975,9 @@ def test_crosswalk_refusals(world):
     assert errors[2] == ("TARGET_NOT_FOUND", f"/items/2/{permit_to}")
 
     one = {"items": [{"query": "LX"}]}
-    error = refused(consumer_resolve(world, {**one, "defaults": {token_to: "x"}}), 400, "UNKNOWN_PARAMETER")
+    error = refused(
+        consumer_resolve(world, {**one, "defaults": {token_to: "x"}}), 400, "UNKNOWN_PARAMETER"
+    )
     assert error["details"]["pointer"] == f"/defaults/{token_to}"
     refused(
         consumer_resolve(world, {**one, "defaults": {watch_to: "South", permit_to: "North"}}),
@@ -820,7 +1001,11 @@ def test_resolving_against_a_publication(world):
     ok(world.update("R", x["id"], record["version"], values={"R.u": "LX-NEW"}))
     watches = ok(
         world.api.get(
-            "/relations", objectId=x["id"], direction="outgoing", relationTypeKey=world.key("Bscope"), pageSize=100
+            "/relations",
+            objectId=x["id"],
+            direction="outgoing",
+            relationTypeKey=world.key("Bscope"),
+            pageSize=100,
         )
     )["items"]
     (south,) = [item["relation"] for item in watches if item["object"]["name"] == "South desk"]
@@ -833,12 +1018,17 @@ def test_resolving_against_a_publication(world):
     assert pinned[_out(world, "code")] == "LX"
     crossed = _xref(world, query="LX", expect="one", publication=p1, **{to: "South"})
     assert crossed["target"] == _watched_item(world, "South desk")
-    refused(consumer_xref(world, query="LX-NEW", expect="one", **{to: "South"}), 404, "TARGET_NOT_FOUND")
+    refused(
+        consumer_xref(world, query="LX-NEW", expect="one", **{to: "South"}), 404, "TARGET_NOT_FOUND"
+    )
     page = _xref(world, query="LX", publication=p1)
     assert page["publication"] == p1
     assert [item[_out(world, "id")] for item in page["results"]] == [x["id"]]
 
-    body = {"defaults": {to: "South"}, "items": [{"query": "LX"}, {"query": "LX-NEW"}, {"id": x["id"]}]}
+    body = {
+        "defaults": {to: "South"},
+        "items": [{"query": "LX"}, {"query": "LX-NEW"}, {"id": x["id"]}],
+    }
     response = consumer_resolve(world, body, publication=p1)
     answer = ok(response)
     assert answer["publication"] == p1
@@ -866,7 +1056,10 @@ def test_a_promoted_match_reads_the_relationship_it_passes_through(world):
     owner = _ledger(world, "Owner", "OW-2")
     region = world.made("G", "Region two", values={"K.code": "RG-2"})
     permit = world.made(
-        "D", "Shared zone", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+        "D",
+        "Shared zone",
+        parent=world.dependant_parent(region["id"]),
+        relations=[world.owner("Bown", owner["id"])],
     )
     front, back = _ledger(world, "Front ledger", "FL-1"), _ledger(world, "Back ledger", "BL-1")
     ok(world.relate("Bscope", front["id"], permit["id"], {"Bscope.note": "Front desk"}), 201)
@@ -886,14 +1079,19 @@ def test_a_scoring_limit_on_a_relationship_value_passes_scores_through_it_only(w
     owner = _ledger(world, "Owner", "OW-3")
     region = world.made("G", "Region three", values={"K.code": "RG-3"})
     permit = world.made(
-        "D", "Joint zone", parent=world.dependant_parent(region["id"]), relations=[world.owner("Bown", owner["id"])]
+        "D",
+        "Joint zone",
+        parent=world.dependant_parent(region["id"]),
+        relations=[world.owner("Bown", owner["id"])],
     )
     front, back = _ledger(world, "Front ledger", "FL-2"), _ledger(world, "Back ledger", "BL-2")
     ok(world.relate("Bscope", front["id"], permit["id"], {"Bscope.note": "Front desk"}), 201)
     ok(world.relate("Bscope", back["id"], permit["id"], {"Bscope.note": "Back office"}), 201)
 
     assert _scored(world, _xref(world, query="Joint zone")) == [
-        ("Joint zone", 200), ("Back ledger", 60), ("Front ledger", 60)
+        ("Joint zone", 200),
+        ("Back ledger", 60),
+        ("Front ledger", 60),
     ]
     limited = _xref(world, query="Joint zone", **{_out(world, "score"): "front desk"})
     assert _scored(world, limited) == [("Joint zone", 200), ("Front ledger", 60)]

@@ -90,9 +90,14 @@ def test_the_other_workspace_writes_by_its_own_release(world):
 
     ok(other.create("R", "Mine", workspace=key, headers=_named(y["id"])), 201)
     error = refused(
-        other.create("R", "Not mine", workspace=key, headers=_named(x2)), 409, "MODEL_RELEASE_CHANGED"
+        other.create("R", "Not mine", workspace=key, headers=_named(x2)),
+        409,
+        "MODEL_RELEASE_CHANGED",
     )
-    assert (error["details"]["workspaceKey"], error["details"]["currentReleaseId"]) == (key, y["id"])
+    assert (error["details"]["workspaceKey"], error["details"]["currentReleaseId"]) == (
+        key,
+        y["id"],
+    )
 
 
 @pytest.mark.journey("J36.9")

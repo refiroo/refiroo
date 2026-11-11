@@ -19,13 +19,24 @@ from app.models.database import RelationSetVersion
 
 
 def _key(index: int) -> tuple[str, str, str, str, str]:
-    return ("rel", "from-type", "to-type", f"anchor-{index:05d}", ("outgoing", "incoming")[index % 2])
+    return (
+        "rel",
+        "from-type",
+        "to-type",
+        f"anchor-{index:05d}",
+        ("outgoing", "incoming")[index % 2],
+    )
 
 
 def _versions(session, change_set_id):
     return {
-        (r.relation_type_key, r.from_object_type_key, r.to_object_type_key, r.anchor_object_id,
-         r.direction): r.version
+        (
+            r.relation_type_key,
+            r.from_object_type_key,
+            r.to_object_type_key,
+            r.anchor_object_id,
+            r.direction,
+        ): r.version
         for r in session.scalars(
             select(RelationSetVersion).where(
                 RelationSetVersion.workspace_key == W1,

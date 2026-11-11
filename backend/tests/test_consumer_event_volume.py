@@ -46,7 +46,10 @@ def test_deriving_reading_and_delivering_events_hold_their_statements_as_the_dat
         other = large[scenario]
         if item.statements != other.statements:
             failures.append(f"{scenario}: statements {item.statements} → {other.statements}")
-        if "derive" not in scenario and max(item.rows_loaded, other.rows_loaded) > ROWS_PER_LISTED_ROW * EVENT_PAGE:
+        if (
+            "derive" not in scenario
+            and max(item.rows_loaded, other.rows_loaded) > ROWS_PER_LISTED_ROW * EVENT_PAGE
+        ):
             failures.append(f"{scenario}: rows {item.rows_loaded} → {other.rows_loaded}")
     assert not failures, failures
     assert len(small) == 11
