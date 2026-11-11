@@ -589,9 +589,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # MailMessageResponse.kind and lastErrorKind and of POST /moves, and the reference text, change.
     # The hash is of the tree as it stands, so it also holds the other sessions' uncommitted changes;
     # recompute it there if they land in another order.
+    # Re-baselined for info.version 0.16.2-alpha.1 (an interim release): with 0.16.1-alpha.5 the document
+    # hashes to the previous lock exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "38e02a739d8727e86a9e516a6e6adbf0765216c9ed1ec4edd4d5fd4ef0fc3f2e"
+        "224efd8d1ff5fc0413a65b750ce4ab074a0b7e663aed3ba2c88dcef0655f1f85"
     )
 
 

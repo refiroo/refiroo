@@ -7,10 +7,10 @@
     "status": 200,
     "body": {
       "engine": {
-        "version": "0.16.1-alpha.5",
+        "version": "0.16.2-alpha.1",
         "managementApi": "v1",
         "license": "AGPL-3.0-or-later",
-        "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.16.1-alpha.5",
+        "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.16.2-alpha.1",
         "build": {
           "commit": "3f2a9c1e",
           "tag": null

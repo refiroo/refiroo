@@ -1,6 +1,6 @@
 [project]
 name = "rdm-engine-backend"
-version = "0.16.1-alpha.5"
+version = "0.16.2-alpha.1"
 description = "Model-driven reference data management engine"
 requires-python = ">=3.14"
 dependencies = [

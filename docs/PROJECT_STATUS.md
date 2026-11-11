@@ -8,6 +8,11 @@ defects found by the runs fixed (R13-F36–F45 and the Add members dialog). 0.16
 ships as **0.16.1-alpha.5**. The release commit and tag wait for the reference-list UI work the user placed in 0.13; then
 only the checks that work changes are rerun. Known limit recorded: assistant sessions in a container share one user.
 
+**0.16.2-alpha.1 (2026-11-12) is an interim release** the user asked for, to deploy to a production environment: `main`
+as it stands, with the 0.17 packages delivered so far (EM1, EX1, MC1, CA1, SA1, RF1 to RF6). It was tagged without a
+release's full review and without the build acceptance runs; the packages' own targeted checks ran. Assistant sessions in a
+container no longer share one user (0.17 RF5).
+
 ## Current development baseline — Base 0.16 complete (2026-11-02)
 
 **Base 0.16 is complete**, build acceptance R included
