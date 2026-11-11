@@ -354,7 +354,7 @@ async function walk(configuration) {
     });
 
     await runCase(c, 9, "Local sign-in off", async () => {
-      const [kept] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
+      const [kept] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.email)}`)).items;
       await api(`/users/${kept.id}`, { expectedVersion: kept.version, localKept: true }, "PATCH");
       await page.goto(`${uiUrl}/settings/sign-in/local`);
       await page.getByRole("heading", { level: 2, name: "Local accounts" }).waitFor();

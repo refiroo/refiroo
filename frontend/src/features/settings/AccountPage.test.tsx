@@ -110,7 +110,6 @@ describe("Settings › Account (0.12 I2)", () => {
       id: "u1",
       kind: "user",
       name: "Ana Ferreira",
-      username: "ana",
       email: "ana@example.org",
       lastSignInAt: "2026-10-23T08:12:00Z",
       signedInWith: "password",

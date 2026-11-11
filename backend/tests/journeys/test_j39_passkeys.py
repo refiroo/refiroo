@@ -153,7 +153,7 @@ def test_a_person_adds_a_passkey_and_signs_in_with_it_alone(world):
     code, _ = _code_of(answer)
     access = ok(_exchange(fresh, code, verifier))["access_token"]
     me = ok(world.api.client.get("/api/v1/me", headers=_bearer(access)))
-    assert me["signedInWith"] == "passkey" and me["username"] == "mei"
+    assert me["signedInWith"] == "passkey" and me["email"] == "mei@example.org"
     used = ok(_own(world, access, "GET", "/me/passkeys"))["items"][0]
     assert used["lastUsedAt"]
     again = _browser(world)

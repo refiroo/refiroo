@@ -6,7 +6,7 @@
 #                                      SECRETS_ENCRYPTION_KEY (or the one already in your
 #                                      environment) and every other setting commented out at its
 #                                      default; run again, it adds what a newer version brings
-#   scripts/dev.sh admin <username> "<name>"
+#   scripts/dev.sh admin <e-mail> "<name>"
 #                                      create the first administrator (asks for a password)
 #   scripts/dev.sh engine              run the engine on http://localhost:8000
 #   scripts/dev.sh frontend            run the frontend on http://localhost:5173, which forwards the
@@ -210,11 +210,11 @@ frontend() {
 }
 
 admin() {
-  [[ $# -ge 2 ]] || fail "Usage: scripts/dev.sh admin <username> \"<name>\""
+  [[ $# -ge 2 ]] || fail "Usage: scripts/dev.sh admin <e-mail> \"<name>\""
   venv
   load_settings
   cd "$ROOT/backend"
-  exec .venv/bin/python -m app.cli.create_admin --username "$1" --name "$2"
+  exec .venv/bin/python -m app.cli.create_admin --email "$1" --name "$2"
 }
 
 case "${1:-}" in

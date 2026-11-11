@@ -12,8 +12,8 @@ from scenario import W1, W2, ok, refused
 from test_j40_authorization import _grant
 
 
-def _user(world, username: str) -> dict:
-    return ok(world.api.post("/users", {"username": username, "name": username.title()}), 201)
+def _user(world, name: str) -> dict:
+    return ok(world.api.post("/users", {"email": f"{name}@example.org", "name": name.title()}), 201)
 
 
 def _roles(person: dict) -> dict[str, dict]:
@@ -85,8 +85,8 @@ def test_a_persons_grants_include_their_groups(world):
 
 @pytest.mark.journey("J40.4")
 def test_several_people_join_and_leave_a_group_at_once(world):
-    """Given a group with one member, three people (one deactivated, one with an e-mail address).
-    When a pasted list of usernames and an e-mail address, in other cases, is checked, then each
+    """Given a group with one member, three people (one deactivated).
+    When a pasted list of e-mail addresses, in other cases, is checked, then each
     line says whom it names and whether they would be added, and nothing changes. When three are
     added by ID, the active two join (each with its security event) and the deactivated one is left
     out; when two are taken out with an unknown ID, both leave and the ID is not found (0.12 SP1b,
@@ -95,19 +95,25 @@ def test_several_people_join_and_leave_a_group_at_once(world):
     kept = _user(world, "kept-sp1b")
     ok(world.api.post(f"/groups/{group['id']}/members", {"userId": kept["id"]}), 201)
     ivo = _user(world, "ivo-sp1b")
-    body = {"username": "jun-sp1b", "name": "Jun", "email": "jun.sp1b@example.org"}
+    body = {"name": "Jun", "email": "jun.sp1b@example.org"}
     jun = ok(world.api.post("/users", body), 201)
     old = _user(world, "old-sp1b")
     ok(world.api.patch(f"/users/{old['id']}", {"expectedVersion": old["version"], "active": False}))
     batch = f"/groups/{group['id']}/members/batch"
 
-    lines = ["IVO-SP1B", "Jun.SP1b@example.org", "nobody@example.org", "kept-sp1b", " "]
+    lines = [
+        "IVO-SP1B@example.org",
+        "Jun.SP1b@example.org",
+        "nobody@example.org",
+        "kept-sp1b@example.org",
+        " ",
+    ]
     checked = ok(world.api.post(batch, {"identifiers": lines, "dryRun": True}))
     assert [(item["input"], item["outcome"]) for item in checked["items"]] == [
-        ("IVO-SP1B", "toAdd"),
+        ("IVO-SP1B@example.org", "toAdd"),
         ("Jun.SP1b@example.org", "toAdd"),
         ("nobody@example.org", "notFound"),
-        ("kept-sp1b", "alreadyMember"),
+        ("kept-sp1b@example.org", "alreadyMember"),
     ]
     assert checked["items"][1]["member"]["id"] == jun["id"]
     assert checked["items"][2]["member"] is None

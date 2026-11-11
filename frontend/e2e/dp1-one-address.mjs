@@ -53,7 +53,7 @@ async function walk(configuration) {
 
     await page.goto(uiUrl);
     await page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-    await page.getByLabel("Username").fill(person.username);
+    await page.getByLabel("E-mail address").fill(person.email);
     await page.getByLabel("Password").fill(person.password);
     await page.keyboard.press("Enter");
     await page.getByRole("button", { name: "Account" }).waitFor();

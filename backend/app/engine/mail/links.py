@@ -7,7 +7,7 @@ the person, is refused before the earlier link is replaced.
 
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
@@ -55,28 +55,28 @@ def create_and_send(
 def request_reset(
     session: Session,
     settings: IdentitySettings,
-    identifier: str,
+    email: str,
     address: str | None,
     now: datetime,
 ) -> int:
-    """A person who forgot their password asks for a link by username or e-mail address (D420).
+    """A person who forgot their password asks for a link by e-mail address (D420, 0.17 EM1).
     Returns the seconds still to wait, 0 when the request was taken. Taking it says nothing about
     whether anyone was written to: the ask is counted against the typed name and the address
     (slowed like sign-ins, D271) whatever it matches, and a link is sent only to an active person
     with a local password, a kept local sign-in and an address, one link each. ``409
     MAIL_NOT_SET_UP`` when mail is not set up (it says nothing of any account). Commits."""
     mail_settings.require(session)
-    wait = sign_in.seconds_to_wait(session, identifier, address, now, sign_in.RESET)
+    wait = sign_in.seconds_to_wait(session, email, address, now, sign_in.RESET)
     if wait > 0:
         return wait
-    sign_in.record_failure(session, identifier, address, now, sign_in.RESET)
+    sign_in.record_failure(session, email, address, now, sign_in.RESET)
     session.commit()
-    typed = identifier.strip().lower()
+    typed = email.strip().lower()
     people = session.scalars(
         select(User.public_id).where(
             User.active.is_(True),
             User.password_hash.is_not(None),
-            or_(func.lower(User.username) == typed, func.lower(User.email) == typed),
+            func.lower(User.email) == typed,
         )
     ).all()
     for public_id in people:

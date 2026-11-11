@@ -88,14 +88,16 @@ def test_a_provider_identity_is_moved_onto_an_existing_person(world, idp):
     ann = _user(world, ann["id"])
 
     _, first_token = _sign_in_keeping(world, idp, sub="a-1", name="Ann Provider",
-                                      preferred_username="ann.p", groups=["staff"])  # fmt: skip
+                                      email="ann.p@example.org", preferred_username="ann.p", groups=["staff"])  # fmt: skip
     first = _me(world, first_token)
     new = _user(world, first["id"])
     assert new["id"] != ann["id"] and new["hasPassword"] is False
     assert [i["subject"] for i in new["identities"]] == ["a-1"] and ann["identities"] == []
 
     refused(_link(world, new, ann), 409, "PERSON_HAS_ACCESS")
-    bob_token = _signed_in(world, idp, sub="b-1", name="Bob Provider", groups=[])
+    bob_token = _signed_in(
+        world, idp, sub="b-1", name="Bob Provider", email="bob.p@example.org", groups=[]
+    )
     bob = _user(world, _me(world, bob_token)["id"])
     # A person with no password has no use for a second factor or a passkey of their own.
     refused(world.api.client.post("/api/v1/me/second-factor", headers=_bearer(bob_token)),
@@ -121,7 +123,8 @@ def test_a_provider_identity_is_moved_onto_an_existing_person(world, idp):
             422, "LINK_SAME_PERSON")  # fmt: skip
     refused(_link(world, ann, bob), 409, "VERSION_CONFLICT")
 
-    token = _signed_in(world, idp, sub="a-1", name="Ann Provider", preferred_username="ann.p",
+    token = _signed_in(world, idp, sub="a-1", name="Ann Provider", email="ann.p@example.org",
+                       preferred_username="ann.p",
                        groups=["staff"])  # fmt: skip
     me = _me(world, token)
     assert me["id"] == ann["id"] and me["signedInWith"] == "harness"
@@ -133,8 +136,9 @@ def test_a_provider_identity_is_moved_onto_an_existing_person(world, idp):
     assert _user(world, ann["id"])["identities"] == []
     assert _members(world, _group_by_claim(world, "staff")) == []
     _revoked(world.api.client.get("/api/v1/me", headers=_bearer(token)))
+    # Ann took the provider's address at the sign-in above, so the new person has another one.
     again = _me(world, _signed_in(world, idp, sub="a-1", name="Ann Provider",
-                                  preferred_username="ann.p", groups=["staff"]))  # fmt: skip
+                                  email="ann.new@example.org", groups=["staff"]))  # fmt: skip
     assert again["id"] not in (ann["id"], new["id"])
     assert "identity-linked" in _actions(world, ann["id"])
     assert "identity-unlinked" in _actions(world, ann["id"])

@@ -31,7 +31,7 @@
       "shows": "Guide Admin's page: Edit, See changes, Reset password, Sign out everywhere, Deactivate; password set; the six roles held in every workspace; groups; recent activity.",
       "actions": [
         {
-          "goto": "/settings/people/054d3640-8cb6-4fd2-b12c-111c35d96eef"
+          "goto": "/settings/people/d16ced0b-c50c-46f1-ae94-06f41b68fdca"
         },
         {
           "waitFor": {
@@ -54,7 +54,7 @@
       "shows": "Rita Approver's page: Data owner granted directly in Graubünden, not in any group, recent activity.",
       "actions": [
         {
-          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+          "goto": "/settings/people/906cb2ad-523d-45c7-b41b-65a3d71c8010"
         },
         {
           "waitFor": {
@@ -118,7 +118,7 @@
       "shows": "Reset password on Rita Approver: there is no confirmation, the click makes a one-time password link at once and this dialog shows it (the link was never used). The second-factor reset button only appears for a person with a second factor set up, which nobody has on the reference instance.",
       "actions": [
         {
-          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+          "goto": "/settings/people/906cb2ad-523d-45c7-b41b-65a3d71c8010"
         },
         {
           "waitFor": {
@@ -286,7 +286,7 @@
       "shows": "Grants of a person: Guide Admin's Roles table (Where, Role, Narrowed to, Through) and Grant.",
       "actions": [
         {
-          "goto": "/settings/people/054d3640-8cb6-4fd2-b12c-111c35d96eef"
+          "goto": "/settings/people/d16ced0b-c50c-46f1-ae94-06f41b68fdca"
         },
         {
           "waitFor": {
@@ -341,7 +341,7 @@
       "shows": "The Grant dialog of Rita Approver (opened, not saved): choose a role and where it applies.",
       "actions": [
         {
-          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+          "goto": "/settings/people/906cb2ad-523d-45c7-b41b-65a3d71c8010"
         },
         {
           "waitFor": {
@@ -704,7 +704,7 @@
       "shows": "Changes filtered to Rita Approver (See changes on her page): who changed what, newest first.",
       "actions": [
         {
-          "goto": "/changes?actorId=e63f4689-4c63-4628-a5a5-ec63f4570d68"
+          "goto": "/changes?actorId=906cb2ad-523d-45c7-b41b-65a3d71c8010"
         },
         {
           "waitFor": {

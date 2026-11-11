@@ -142,14 +142,14 @@ def test_the_index_and_documents_follow_the_grants(world):
     reader = _person(world, f"reader{uuid4().hex[:6]}")
     _grant(world, reader, kind="user", role="reader")
     browser = _browser(world)
-    token = _sign_in(browser, reader["username"])
+    token = _sign_in(browser, reader["email"])
     listed = ok(browser.get("/api/consumer", headers={"Authorization": f"Bearer {token}"}))
     assert sorted(item["consumerApi"] for item in listed["items"]) == sorted([api, OTHER])
 
     outsider = _person(world, f"outsider{uuid4().hex[:6]}")
     _grant(world, outsider, kind="user", role="reader", scope={"workspaceKey": W2})
     other_browser = _browser(world)
-    other_token = _sign_in(other_browser, outsider["username"])
+    other_token = _sign_in(other_browser, outsider["email"])
     refused(
         other_browser.get("/api/consumer", headers={"Authorization": f"Bearer {other_token}"}),
         403,
@@ -242,7 +242,7 @@ def test_granting_a_consumer_api(world):
         422,
         "GRANT_SCOPE_UNKNOWN",
     )
-    person = ok(world.api.post("/users", {"username": "consumer.reader", "name": "Consumer Reader"}), 201)
+    person = ok(world.api.post("/users", {"email": "consumer.reader@example.org", "name": "Consumer Reader"}), 201)
     group = ok(world.api.post("/groups", {"name": "Consumers"}), 201)
     for kind, holder in (("user", person), ("group", group)):
         error = refused(
@@ -308,7 +308,7 @@ def test_a_subscription_names_its_owner(world):
     person = _person(world, f"hooks{uuid4().hex[:6]}")
     _grant(world, person, kind="user", role="integration-admin")
     browser = _browser(world)
-    bearer = {"Authorization": f"Bearer {_sign_in(browser, person['username'])}"}
+    bearer = {"Authorization": f"Bearer {_sign_in(browser, person['email'])}"}
     read = ok(browser.get(f"/api/v1{PATH}/{created['id']}", headers=bearer))
     assert read["owner"]["id"] == client["id"]
     suspended = browser.post(

@@ -140,7 +140,7 @@ class Enrolment:
 
 def _enrolment(key: bytes, user: User, issuer: str) -> Enrolment:
     secret = base64.b32encode(key).decode().rstrip("=")
-    label = f"{quote(issuer, safe='')}:{quote(user.username, safe='')}"
+    label = f"{quote(issuer, safe='')}:{quote(user.email, safe='')}"
     uri = (
         f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer, safe='')}"
         f"&algorithm=SHA1&digits={DIGITS}&period={STEP_SECONDS}"
@@ -293,7 +293,7 @@ def check(
     ``recovery`` (a recovery code), ``any`` (the app's by its six digits, else a recovery code) or
     ``confirm`` (the app's, for a factor not yet confirmed). A wrong code is counted and logged
     like a wrong password; a right one is used up. Commits."""
-    wait = sign_in.seconds_to_wait(session, user.username, address, now)
+    wait = sign_in.seconds_to_wait(session, user.email, address, now)
     if wait > 0:
         raise CodeRefused("slowed", wait)
     if kind == "any":
@@ -304,10 +304,10 @@ def check(
         else _use_app_code(session, settings, user, code, now, confirming=kind == "confirm")
     )
     if not accepted:
-        sign_in.record_failure(session, user.username, address, now)
+        sign_in.record_failure(session, user.email, address, now)
         security_events.record(
             session, "sign-in", user.public_id, "failed", about=[user.public_id], by=None,
-            details={"username": user.username, "address": address, "reason": "code"},
+            details={"email": user.email, "address": address, "reason": "code"},
         )  # fmt: skip
         session.commit()
         raise CodeRefused("wrong")
@@ -455,7 +455,7 @@ def prove(
         raise api_error(
             422, "PROOF_REQUIRED", "Type your password, or a code from your authenticator app"
         )
-    wait = sign_in.seconds_to_wait(session, user.username, address, now)
+    wait = sign_in.seconds_to_wait(session, user.email, address, now)
     if wait > 0:
         raise _refused(CodeRefused("slowed", wait))
     if user.password_hash is not None and verify_secret(proof, user.password_hash):
@@ -466,10 +466,10 @@ def prove(
         except CodeRefused as failure:
             raise _refused(failure) from None
         return
-    sign_in.record_failure(session, user.username, address, now)
+    sign_in.record_failure(session, user.email, address, now)
     security_events.record(
         session, "sign-in", user.public_id, "failed", about=[user.public_id], by=None,
-        details={"username": user.username, "address": address, "reason": "proof"},
+        details={"email": user.email, "address": address, "reason": "proof"},
     )  # fmt: skip
     session.commit()
     raise api_error(422, "CODE_INCORRECT", "That is not right")
@@ -551,4 +551,4 @@ def finish_step(
     """The sign-in is whole: the step is used and the password sign-in is logged. The caller
     commits."""
     step.used_at = now
-    sign_in.complete(session, user, user.username, address)
+    sign_in.complete(session, user, user.email, address)

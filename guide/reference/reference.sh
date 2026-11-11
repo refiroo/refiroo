@@ -49,7 +49,7 @@ case "${1:-}" in
     make_env
     "${compose[@]}" up -d --build --wait
     value GUIDE_ADMIN_PASSWORD | "${compose[@]}" run --rm -T engine python -m app.cli.create_admin \
-      --username "$(value GUIDE_ADMIN_USERNAME)" --name "Guide Admin" --password-stdin || true
+      --email "$(value GUIDE_ADMIN_EMAIL)" --name "Guide Admin" --password-stdin || true
     load
     ;;
   update) "${compose[@]}" up -d --build --wait engine web ;;

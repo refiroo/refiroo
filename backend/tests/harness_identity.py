@@ -46,7 +46,7 @@ EVERY_ROLE = (
     "operator",
     "security-admin",
 )
-HARNESS_PERSON = {"username": "harness", "password": "harness person passphrase 0001"}
+HARNESS_PERSON = {"email": "harness@example.org", "password": "harness person passphrase 0001"}
 # Long enough that a seed's signing key is never replaced while it is reused (D264).
 SIGNING_KEY_DAYS = "36500"
 os.environ.setdefault("TOKEN_SIGNING_KEY_DAYS", SIGNING_KEY_DAYS)
@@ -84,7 +84,7 @@ def create_harness_client() -> dict[str, object]:
         keys.signing_key(session, identity)
         create_user(
             session,
-            UserCreate(username=HARNESS_PERSON["username"], name="Test harness person"),
+            UserCreate(email=HARNESS_PERSON["email"], name="Test harness person"),
             password=HARNESS_PERSON["password"],
             roles=EVERY_ROLE,
         )

@@ -120,7 +120,7 @@ def group_page(session: Session, page: Page[UserGroup]) -> GroupPage:
 def member_response(user: User, seen_at: datetime | None = None) -> GroupMemberResponse:
     return GroupMemberResponse(
         id=user.public_id,
-        username=user.username,
+        email=user.email,
         name=user.name,
         active=user.active,
         seenAt=seen_at,

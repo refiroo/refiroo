@@ -51,10 +51,15 @@ def _request(challenge: str, **changes: str) -> dict[str, str]:
     }
 
 
-def _post_form(browser: TestClient, username: str, password: str, challenge: str, **changes):
+def address(name: str) -> str:
+    """The e-mail address a person is made with: a short name stands for ``<name>@example.org``."""
+    return name if "@" in name else f"{name}@example.org"
+
+
+def _post_form(browser: TestClient, name: str, password: str, challenge: str, **changes):
     return browser.post(
         "/oauth/authorize",
-        data={**_request(challenge, **changes), "username": username, "password": password},
+        data={**_request(challenge, **changes), "email": address(name), "password": password},
         follow_redirects=False,
     )
 
@@ -81,12 +86,12 @@ def _exchange(browser: TestClient, code: str, verifier: str, redirect_uri: str =
     )
 
 
-def _sign_in(browser: TestClient, username: str, password: str = PASSWORD) -> str:
+def _sign_in(browser: TestClient, name: str, password: str = PASSWORD) -> str:
     """Sign in as the browser does; the access token, the refresh cookie kept in ``browser``."""
     verifier, challenge = _pkce()
     page = browser.get("/oauth/authorize", params=_request(challenge))
     assert page.status_code == 200 and 'name="password"' in page.text
-    code = _code(_post_form(browser, username, password, challenge))
+    code = _code(_post_form(browser, name, password, challenge))
     return ok(_exchange(browser, code, verifier))["access_token"]
 
 
@@ -127,9 +132,9 @@ def _set_password(browser: TestClient, token: str, password: str = PASSWORD):
     )
 
 
-def _person(world, username: str) -> dict:
+def _person(world, name: str) -> dict:
     """A person with a password, set through the link an administrator makes."""
-    person = ok(world.api.post("/users", {"username": username, "name": username.title()}), 201)
+    person = ok(world.api.post("/users", {"email": address(name), "name": name.title()}), 201)
     response = _set_password(_browser(world), _reset_link(world, person))
     assert response.status_code == 200 and "Your password is set" in response.text
     return person
@@ -320,7 +325,7 @@ def test_a_deactivated_person_is_refused_at_once(world):
     _invalid_grant(_renew(browser))
     deactivated = _post_form(browser, "dov", PASSWORD, _pkce()[1])
     assert deactivated.status_code == 401
-    assert "The username or password is not right" in deactivated.text
+    assert "The e-mail address or password is not right" in deactivated.text
     ok(
         world.api.patch(
             f"/users/{person['id']}", {"expectedVersion": changed["version"], "active": True}
@@ -331,7 +336,7 @@ def test_a_deactivated_person_is_refused_at_once(world):
 
 @pytest.mark.journey("J39.5")
 def test_wrong_passwords_are_slowed_never_locked(world):
-    """A wrong password and an unknown username give the same message. After the free failures,
+    """A wrong password and an unknown address give the same message. After the free failures,
     the next attempt is refused with the wait, even with the right password; after the wait the
     right password signs in."""
     _person(world, "eve")
@@ -341,7 +346,7 @@ def test_wrong_passwords_are_slowed_never_locked(world):
     unknown = _post_form(browser, "nobody-here", "not the right passphrase", challenge)
     for response in (wrong, unknown):
         assert response.status_code == 401
-        assert "The username or password is not right" in response.text
+        assert "The e-mail address or password is not right" in response.text
     for _ in range(5):
         _post_form(browser, "eve", "still not the right one", challenge)
     slowed = _post_form(browser, "eve", PASSWORD, challenge)
@@ -376,7 +381,7 @@ def test_changing_ones_password(world):
     assert ok(_me(world, token))["kind"] == "user"
     _revoked(_me(world, other))
     old = _post_form(there, "fay", PASSWORD, _pkce()[1])
-    assert old.status_code == 401 and "The username or password is not right" in old.text
+    assert old.status_code == 401 and "The e-mail address or password is not right" in old.text
     _sign_in(there, "fay", "another long passphrase")
 
 
@@ -413,7 +418,7 @@ def test_a_reset_link_sets_a_password_once(world):
     """Given a person without a password. When an administrator makes a link, then its page sets a
     password under the rules and the person signs in; the link used again, or replaced by a newer
     one, is refused; using one ends the person's sessions."""
-    person = ok(world.api.post("/users", {"username": "gil", "name": "Gil"}), 201)
+    person = ok(world.api.post("/users", {"email": "gil@example.org", "name": "Gil"}), 201)
     assert ok(world.api.get(f"/users/{person['id']}"))["hasPassword"] is False
     browser = _browser(world)
     replaced, token = _reset_link(world, person), _reset_link(world, person)

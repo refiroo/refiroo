@@ -46,9 +46,11 @@ corrects that result, and the way to import when no provider is configured.
 | [PL6](PLAIN_PATH_PLAN.md#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first; Export for people; draft steps grouped |
 | [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, not only a whole collection. Relation matrices are built (0.13 NG); left: the other view kinds, Move to group… on their rows and the canvas's group drop |
 | [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey |
+| [EM1](#em1-the-e-mail-is-the-sign-in-name) | — | The e-mail address is required, unique and the name a person signs in with; the separate username is gone |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
-**Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. NG1 comes before PL3b so the canvas's group drops
+**Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
+delivered first, at their request; nothing else depends on it. NG1 comes before PL3b so the canvas's group drops
 place views from the start. PL1 and PL2 are the cheapest fixes on the most frequent
 paths. PL3 gives PL4 its place, and PL3b is where PL4's Adjust leads. Each UI package shows its mock-up with its
 plan for one approval and is then delivered whole.
@@ -70,6 +72,10 @@ plan for one approval and is then delivered whole.
 | PP-D11 | **A view placed in a group leaves its collection** (recommended: it shows once, in the group; otherwise the sidebar shows it twice) or also stays as one of its collection's views. | Open. 0.13 NG built the second for relation matrices (the matrix stays among its row type's views); not put to the user |
 | PP-D12 | **One ordered member list per group,** each member a collection or a view (recommended: the sidebar order is the declared order, mixing both), or `views` beside `collections` with collections first. The first changes the shape of `collections`; pre-1.0 allows it. | Open. 0.13 NG built the first (`{ "view": "<key>" }` beside collection keys in `collections`); not put to the user |
 | PP-D13 | **Schema version:** the new member in schema 0.10 (recommended: additive, refused nowhere today) or a new schema version. | Open. 0.13 NG built schema 0.10, additive; not put to the user |
+| PP-D14 | **The e-mail is the sign-in name** (EM1): required for an active person, unique ignoring case; the username is removed. | **Approved by the user 2026-11-11** |
+| PP-D15 | **A provider's person needs an `email` claim;** an address another person holds refuses the first sign-in, and an administrator resolves it. Matching stays by `sub` (D363). | **Approved by the user 2026-11-11** |
+| PP-D16 | **A deactivated person may have no e-mail,** so the address can be freed; reactivating needs one. | Planning default |
+| PP-D17 | **The migration stops on an active person without an address or on a shared address,** naming them; nothing is invented. | Planning default |
 
 ## PL3b: The workbook canvas
 
@@ -196,6 +202,43 @@ changed and when, and what to do if it was not them, in the shared branded layou
 carries no secret, code or link that signs in (D421). It is queued in the same transaction as the change, as
 activation is. The exact list of events and whether a person can switch these messages off are settled in
 SM1's plan.
+
+## EM1: The e-mail is the sign-in name
+
+_Added by the user on 2026-11-11,_ to make signing in easy, also with an external provider. Today a person
+has a username (required, unique ignoring case) and an optional e-mail that is not unique; they sign in with
+the username; a provider's person gets a username from `preferred_username`, else `email`, else
+`<provider key>-<sub>` (D363). After EM1 the e-mail is the only name a person has for signing in.
+
+- **The person:** `email` is required for an active person and unique ignoring case; the `username` column,
+  its index and every API field named after it are gone (pre-1.0). A deactivated person may have no e-mail,
+  so history keeps them and their address can be freed; reactivating one needs an e-mail (`422`). Who acted
+  is resolved by the person's ID and name, as before; past security events keep the username they recorded.
+- **Signing in:** the password page, the API's password step, the reset request, the failed-sign-in counter
+  (per e-mail, case folded) and the password rule that refuses a password containing the account name all use
+  the e-mail. Where a standard names a parameter or claim (`username` in an OAuth grant, `preferred_username`
+  in a token the engine issues), the standard name stays and carries the e-mail.
+- **A provider's person:** still found only by provider and `sub`, never by e-mail (D363 stands). The first
+  sign-in needs an `email` claim; without one it is refused, and the message names the missing claim and that
+  the provider's administrator adds it. An e-mail already held by another person refuses the first sign-in
+  (`email_taken`), and the message says a security administrator resolves it; OPERATIONS gives the steps
+  (deactivate the old person and clear their e-mail, or change it). At later sign-ins the e-mail is refreshed
+  from the token as before, unless another person holds the new one; then the stored e-mail stays and the
+  sign-in succeeds.
+- **The migration:** an active person without an e-mail whose username is an address takes it as the e-mail.
+  If an active person still has none, or two people share one ignoring case, the migration stops and names
+  them, so an operator fixes them first; nothing is invented. On dev every active person has an e-mail
+  (checked 2026-11-11: 3 active, 3 with an e-mail; the 4 without are deactivated).
+- **Everywhere else:** `POST /users` takes `{name, email}`; adding members takes an ID or an e-mail; the CLI
+  that creates the first administrator takes `--email`; the Users pages, the New person dialog and the member
+  pickers show and ask for the e-mail; the MCP tools and the OpenAPI document follow.
+- **Decisions:** PP-D14 (the e-mail is the sign-in name; the username is removed) and PP-D15 (a provider's
+  person needs an `email` claim; an address already taken refuses the first sign-in) were approved by the user on
+  2026-11-11. PP-D16 (a deactivated person may have no e-mail) and PP-D17 (the migration stops on a missing or
+  shared address rather than inventing one) are planning defaults.
+- **Tests and docs:** journey tests through the API for local sign-in by e-mail, the uniqueness refusal, a
+  provider's first sign-in without the claim and with a taken address; API.md, OPERATIONS, DECISIONS (D363
+  amended), the guide sentences that name the username, CHANGELOG.
 
 ## R: Build acceptance and release
 

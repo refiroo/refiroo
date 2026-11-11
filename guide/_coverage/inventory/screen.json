@@ -2630,7 +2630,7 @@
   "labels": [
    "Unlink"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:694",
+  "source": "frontend/src/features/security/PeoplePage.tsx:674",
   "section": "use"
  },
  {
@@ -2640,7 +2640,7 @@
    "Remove",
    "Remove second factor"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:715",
+  "source": "frontend/src/features/security/PeoplePage.tsx:695",
   "section": "use"
  },
  {
@@ -2650,7 +2650,7 @@
    "Keep local sign-in",
    "Stop keeping it"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:741",
+  "source": "frontend/src/features/security/PeoplePage.tsx:721",
   "section": "use"
  },
  {
@@ -2659,7 +2659,7 @@
   "labels": [
    "Deactivate"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:767",
+  "source": "frontend/src/features/security/PeoplePage.tsx:747",
   "section": "use"
  },
  {
@@ -2669,7 +2669,7 @@
    "Sign",
    "Sign out everywhere"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:792",
+  "source": "frontend/src/features/security/PeoplePage.tsx:772",
   "section": "use"
  },
  {
@@ -2679,7 +2679,7 @@
    "Remove",
    "Remove passkey"
   ],
-  "source": "frontend/src/features/security/PeoplePage.tsx:918",
+  "source": "frontend/src/features/security/PeoplePage.tsx:898",
   "section": "use"
  },
  {
@@ -2739,7 +2739,7 @@
    "Sign out everywhere",
    "Sign out everywhere?"
   ],
-  "source": "frontend/src/features/settings/AccountPage.tsx:337",
+  "source": "frontend/src/features/settings/AccountPage.tsx:333",
   "section": "use"
  },
  {

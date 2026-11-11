@@ -202,7 +202,7 @@ def post_group_member(
 def post_group_members(
     group_id: str, payload: GroupMembersAdd, session: DbSession
 ) -> GroupMembersResult:
-    """Add several people at once, by their IDs or by usernames or e-mail addresses as pasted (in
+    """Add several people at once, by their IDs or by e-mail addresses as pasted (in
     any case), up to 500, in one transaction (0.12 SP1b, D401). Each input answers what it did:
     ``added``, ``alreadyMember``, ``deactivated`` (not added) or ``notFound``; with ``dryRun``
     ``toAdd`` in place of ``added`` and nothing changes. A provider group's members come from

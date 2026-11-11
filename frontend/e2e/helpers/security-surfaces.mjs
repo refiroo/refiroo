@@ -64,7 +64,7 @@ export async function visitSecuritySurfaces(visit) {
     ).items;
 
     const person = async (username, name, grants = []) => {
-      const created = await api("/users", { username, name, email: `${username}@example.org` });
+      const created = await api("/users", { name, email: `${username}@example.org` });
       for (const [role, scope] of grants)
         await api("/grants", { principal: { kind: "user", id: created.id }, role, scope });
       const { url } = await api(`/users/${created.id}/password-reset`, {}, "POST");
@@ -94,7 +94,7 @@ export async function visitSecuritySurfaces(visit) {
             code_challenge: base64Url(createHash("sha256").update(verifier).digest()),
             code_challenge_method: "S256",
             state: "surfaces",
-            username,
+            email: `${username}@example.org`,
             password: PASSWORD,
           },
           maxRedirects: 0,
@@ -325,7 +325,7 @@ with engine.begin() as connection:
           signedOut(state, async (surface) => {
             await surface.goto(uiUrl);
             await surface.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-            await surface.getByLabel("Username").waitFor();
+            await surface.getByLabel("E-mail address").waitFor();
           }),
         { dark: true, phone: true },
       ],
@@ -334,7 +334,7 @@ with engine.begin() as connection:
         (state) =>
           signedOut(state, async (surface) => {
             await surface.goto(uiUrl);
-            await surface.getByLabel("Username").fill("pia");
+            await surface.getByLabel("E-mail address").fill("pia@example.org");
             await surface.getByLabel("Password").fill(PASSWORD);
             await surface.getByRole("button", { name: "Sign in", exact: true }).click();
             await surface.getByRole("heading", { level: 1, name: "Enter your code" }).waitFor();

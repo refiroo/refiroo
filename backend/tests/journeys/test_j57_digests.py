@@ -262,7 +262,7 @@ def test_kinds_are_mailed_at_once_in_the_digest_or_not_and_the_inbox_keeps_all(w
     unmailed = _database(
         world,
         "SELECT kind FROM notifications n JOIN users u ON u.id = n.user_id "
-        "WHERE u.username = 'pavel' AND n.mailed_at IS NULL",
+        "WHERE u.email = 'pavel@example.org' AND n.mailed_at IS NULL",
     )
     assert unmailed == [("change-set.sent-back",)]
 
@@ -343,15 +343,14 @@ def test_choices_are_refused_whole_and_a_digest_needs_mail_that_can_work(world, 
     _, found = _steward(world, smtp, "tess", kinds=kinds)
     _submit_one(world, _submitter(world))
     ok(switched_off.api.put(SWITCH, {"enabled": False}))
-    _write(world, "UPDATE users SET email = NULL WHERE username = 'rhea'")
-    _write(world, "UPDATE users SET active = false WHERE username = 'sam'")
+    _write(world, "UPDATE users SET active = false, email = NULL WHERE email = 'rhea@example.org'")
+    _write(world, "UPDATE users SET active = false WHERE email = 'sam@example.org'")
     later = _when(found) + timedelta(days=2)
     ok(world.api.delete("/mail-settings"), 204)
-    due_before = _database(world, "SELECT username, notice_digest_due_at FROM users ORDER BY id")
+    due_before = _database(world, "SELECT email, notice_digest_due_at FROM users ORDER BY id")
     assert send_mail(world, later) == 0 and smtp.messages == []
     assert (
-        _database(world, "SELECT username, notice_digest_due_at FROM users ORDER BY id")
-        == due_before
+        _database(world, "SELECT email, notice_digest_due_at FROM users ORDER BY id") == due_before
     )
 
     _save(world, smtp, applicationUrl=APPLICATION)

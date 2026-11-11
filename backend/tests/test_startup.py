@@ -24,7 +24,7 @@ from app.db import DatabaseStartupError, get_engine
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261127_02"
+HEAD = "20261128_01"
 LIMITED_ROLE = "rdm_startup_limited"
 LIMITED_PASSWORD = "limited-role-pass"
 
@@ -82,8 +82,8 @@ def _assert_refused(client: TestClient, errors: list[str], *phrases: str) -> str
         client.post("/oauth/token", data={"grant_type": "client_credentials", "client_id": "a", "client_secret": "b"}),
         # The application's JSON sign-in routes (I5) are guarded the same way (0.12 R).
         client.get("/oauth/sign-in/options"),
-        client.post("/oauth/sign-in/password", json={"username": "a", "password": "b"}),
-        client.post("/oauth/sign-in/reset-request", json={"username": "a"}),
+        client.post("/oauth/sign-in/password", json={"email": "a@example.org", "password": "b"}),
+        client.post("/oauth/sign-in/reset-request", json={"email": "a@example.org"}),
     ):
         assert response.status_code == 503, response.text
         assert response.json()["error"]["code"] == "MODEL_REGISTRY_UNAVAILABLE"

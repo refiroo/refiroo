@@ -2148,7 +2148,7 @@ applications and record types as data.
 
 **Actor:** any person. **Channel:** UI (the sign-in page, the account menu, the account page), API.
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, I2 and I3. I1 (2026-10-23):
-the refusals without a token or with one not issued here. I2 (2026-10-23): steps 1–3 with a username
+the refusals without a token or with one not issued here. I2 (2026-10-23): steps 1–3 with an e-mail address
 and password, J39.1–J39.6; the provider's button and J39.7 are I3. I3 (2026-10-25): J39.7 through
 the API and the UI (Settings › Security › Sign-in, the sign-in page's button), and local sign-in
 turned off with the administrators made on the server keeping it. I4a (2026-10-25): J39.8, and the
@@ -2156,7 +2156,7 @@ link of J40.13. I4b (2026-10-25): J39.9, a second factor for a password. I4c (20
 C1 (2026-10-26): J39.11, the API reference signed in.
 
 1. Open the application; its own sign-in screen (in the saved theme, with the refiroo mark) asks for a
-   username and password, or offers a passkey or the organisation's sign-in provider.
+   e-mail address and password, or offers a passkey or the organisation's sign-in provider.
 2. Sign in and return to the page asked for; work for the day without signing in again.
 3. Sign out, from the account menu.
 
@@ -2174,9 +2174,11 @@ C1 (2026-10-26): J39.11, the API reference signed in.
 - **J39.6 Change one's password**: the current one is needed; a password too short or too common is
   refused; the other sessions end.
 - **J39.7 Sign in with a provider**: the person is found or created by the provider's issuer and
-  subject; the provider's groups become provider groups.
+  subject; the provider's groups become provider groups. A first sign-in needs the provider's e-mail
+  claim and an address no other person holds (0.17 EM1): without the claim, or with a taken address,
+  it is refused with what to ask for and of whom, and nobody is created.
 - **J39.10 A passkey**: a signed-in person adds a passkey on the engine's own page and names it; it
-  signs them in alone, with no username, or after a password as the second step; a passkey of another
+  signs them in alone, with no e-mail address typed, or after a password as the second step; a passkey of another
   site, or used without the person verified, is refused and counted; they rename and remove theirs and
   an administrator removes one; a passkey meets the instance's requirement, and a passkey alone is
   refused while local sign-in is off for someone who does not keep it (0.12 I4c).
@@ -2236,7 +2238,7 @@ made at a sign-in or ahead of it and granted like any group, their membership se
 - **J40.3 Narrowed to record types**: writes to the named types pass, any other type is refused,
   also inside a batch, an import, a move, a publication or a type change.
 - **J40.4 Through a group**: a grant to a group applies to its members; leaving the group removes it.
-  Several people join or leave at once, by ID or by a pasted list of usernames and e-mail addresses
+  Several people join or leave at once, by ID or by a pasted list of e-mail addresses
   checked first (0.12 SP1b).
 - **J40.5 A custom role**: copied from a predefined role, changed, granted; a predefined role cannot
   change; a role still granted cannot be deleted.
@@ -2457,7 +2459,7 @@ password by I6 and inbox notices by M2 (2026-10-27).
   holds the link, shown once. Without mail or without an address it is refused and the earlier link
   keeps working; without `send` nothing is queued.
 - **J46.8 A forgotten password** (0.12 I6): on the sign-in screen a person asks for a new password with
-  their username or e-mail address and is told the same whoever they name. With mail set up, a link to
+  their e-mail address and is told the same whoever they name. With mail set up, a link to
   the application's reset page is mailed only to an active person who has a local password and an
   address; no one else is written to and nothing shows who exists. Asking is slowed per name and per
   address, whatever the name matches, and sign-in is not. The link says who it is for, works once, is

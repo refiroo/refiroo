@@ -1,6 +1,6 @@
 /**
  * The pages that give a person back their password (0.12 I6, D420, D422), at `/reset-password`:
- * without a token they ask for a link by username or e-mail address (and are told the same whoever
+ * without a token they ask for a link by e-mail address (and are told the same whoever
  * they name); with the token of a link that was mailed or made for them they choose a new password.
  * The engine decides everything (`/oauth/sign-in/reset*`); these pages draw what it answers inside
  * the sign-in screen's frame. They work without a session: the person has none.
@@ -57,8 +57,8 @@ export function ResetPasswordScreen({ token = new URLSearchParams(window.locatio
           {gone ? <a href="/reset-password">Ask for a new link</a> : null}
           {BACK}
         </>
-      ) : "username" in page ? (
-        <NewPassword token={token} username={page.username} minLength={page.minLength} />
+      ) : "email" in page ? (
+        <NewPassword token={token} email={page.email} minLength={page.minLength} />
       ) : page.available ? (
         <Ask />
       ) : (
@@ -74,7 +74,7 @@ export function ResetPasswordScreen({ token = new URLSearchParams(window.locatio
 }
 
 function Ask() {
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [asked, setAsked] = useState("");
@@ -84,7 +84,7 @@ function Ask() {
     setPending(true);
     setMessage("");
     try {
-      const answer = await requestReset(identifier.trim());
+      const answer = await requestReset(email.trim());
       if (answer.ok) setAsked(answer.message);
       else setMessage(refusalText(answer));
     } catch {
@@ -107,26 +107,25 @@ function Ask() {
     );
   return (
     <>
-      <p className="sign-in-aside">
-        Type your username or e-mail address and we will mail you a link to choose a new one.
-      </p>
+      <p className="sign-in-aside">Type your e-mail address and we will mail you a link to choose a new one.</p>
       {message && <Notice tone={message.startsWith("Too many") ? "warning" : "error"}>{message}</Notice>}
       <form className="sign-in-form" noValidate onSubmit={(event) => void submit(event)}>
-        <FormField label="Username or e-mail address">
+        <FormField label="E-mail address">
           {(control) => (
             <input
               {...control}
               autoFocus
               required
+              type="email"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
             />
           )}
         </FormField>
-        <button type="submit" className="primary" disabled={pending || !identifier.trim()}>
+        <button type="submit" className="primary" disabled={pending || !email.trim()}>
           {pending ? "Sending…" : "Mail me a link"}
         </button>
       </form>
@@ -135,7 +134,7 @@ function Ask() {
   );
 }
 
-function NewPassword({ token, username, minLength }: { token: string; username: string; minLength: number }) {
+function NewPassword({ token, email, minLength }: { token: string; email: string; minLength: number }) {
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [pending, setPending] = useState(false);
@@ -177,8 +176,8 @@ function NewPassword({ token, username, minLength }: { token: string; username: 
   return (
     <>
       <p className="sign-in-aside">
-        A new password for <strong>{username}</strong>. At least {minLength} characters, and not your username or a very
-        common password.
+        A new password for <strong>{email}</strong>. At least {minLength} characters, and not your e-mail address or a
+        very common password.
       </p>
       {message && <Notice tone="error">{message}</Notice>}
       <form className="sign-in-form" noValidate onSubmit={(event) => void submit(event)}>

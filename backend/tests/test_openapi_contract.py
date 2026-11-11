@@ -455,9 +455,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.13 BR (additive): `EngineInfo.build` and `BuildInfo` (`commit`, `tag`).
     # Re-baselined for 0.13 LB (additive): a table view's optional `availabilityField` in the model schema; the relation matrix read's `hideEmptyColumns` parameter and `RelationMatrixPage.emptyColumnsHidden`.
     # Re-baselined for 0.16.1-alpha.2, alpha.3, alpha.4 and alpha.5: info.version only; with the previous version the document hashes to the previous lock.
+    # Re-baselined for 0.17 EM1 (breaking, pre-1.0): the e-mail is the sign-in name. `UserCreate`
+    # takes `{name, email}` and no `username`; `UserResponse`, `MeResponse` and `GroupMemberResponse`
+    # lose `username` (the member names its `email`); `EMAIL_TAKEN` replaces `USERNAME_TAKEN` and
+    # `EMAIL_REQUIRED` is new.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "36a72c180c868c142794d3436f0c619ab14fa2d196dc48a17fc333e47f9e87d1"
+        "ae4300503ca442ccbe66a78e82121f808bc76862fc843c982e4784ee0621c2f5"
     )
 
 

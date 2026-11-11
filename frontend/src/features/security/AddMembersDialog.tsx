@@ -1,6 +1,6 @@
 /**
  * Several people added to a group at once (0.12 SP1b, D401; the group members mock-up): searched and
- * ticked, or pasted as a list of usernames and e-mail addresses. The people to add gather as chips
+ * ticked, or pasted as a list of e-mail addresses. The people to add gather as chips
  * below either tab and are added in one request. People already in the group and deactivated people
  * are shown but cannot be ticked; a pasted line nobody has is said so. Searching and checking ask
  * the engine (`dryRun`), so the dialog never loads every person.
@@ -19,7 +19,7 @@ import { Tabs } from "@/ui/Tabs";
 const NOTES: Partial<Record<GroupMemberOutcome["outcome"], string>> = {
   alreadyMember: "Already a member",
   deactivated: "Deactivated",
-  notFound: "No person with this username or e-mail",
+  notFound: "No person with this e-mail address",
 };
 
 export function AddMembersDialog({
@@ -125,7 +125,7 @@ export function AddMembersDialog({
   );
 }
 
-/** Search people by name, username or e-mail; each found person says whether they can be added. */
+/** Search people by name or e-mail; each found person says whether they can be added. */
 function SearchPeople({
   group,
   picked,
@@ -170,7 +170,7 @@ function SearchPeople({
     <div className="add-members-tab">
       <SearchField
         label="Search people"
-        placeholder="Search people by name, username or e-mail"
+        placeholder="Search people by name or e-mail"
         value={text}
         onChange={setText}
       />
@@ -209,7 +209,7 @@ function SearchPeople({
                 />
                 <span className="add-members-person-text">
                   <strong>{member.name}</strong>
-                  <span>{member.username}</span>
+                  <span>{member.email}</span>
                 </span>
                 {NOTES[item.outcome] && <span className="admin-hint">{NOTES[item.outcome]}</span>}
               </label>
@@ -250,7 +250,7 @@ function PastePeople({ group, onFound }: { group: Group; onFound: (members: Grou
   return (
     <div className="add-members-tab">
       <label className="add-members-paste">
-        Usernames or e-mail addresses
+        E-mail addresses
         <textarea
           className="field-input"
           rows={6}

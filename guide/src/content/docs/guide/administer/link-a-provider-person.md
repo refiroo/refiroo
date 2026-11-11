@@ -6,7 +6,7 @@ reader: access-admin
 
 Use this task when someone already has an account and their first organisation-provider sign-in created another person. You need **Security administration**. refiroo never links accounts just because their e-mail addresses match. Read [People and groups](/docs/administer/people-and-groups/).
 
-1. Confirm the person’s identity through your organisation’s process. Identify the existing account whose roles and history should continue, and the new person created by provider sign-in. Check usernames and sign-in methods as well as names.
+1. Confirm the person’s identity through your organisation’s process. Identify the existing account whose roles and history should continue, and the new person created by provider sign-in. Check e-mail addresses and sign-in methods as well as names.
 2. Open **Settings › Security › People** and select the new provider person. Do this before giving that new person a password, direct roles or local group memberships; those additions make linking unsafe and are refused.
 3. Choose **Link to an existing person…**. In **Link this sign-in to an existing person**, search **Person** and select the existing active account. Read the sentence naming what moves and which person remains.
 4. Choose **Link to …** with the intended person’s name. **Cancel** leaves the accounts separate. If **Not linked** appears, read the reason. Check the target is active and the source has no password, direct roles or local groups; resolve the conflict rather than linking to someone else to bypass it.

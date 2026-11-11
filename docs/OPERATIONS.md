@@ -16,7 +16,7 @@ the health checks and the paths people sign in through are open. Keep the engine
 and every other setting commented out at its default with its one-line description. Run again on an
 existing file, it keeps every line, adds the settings a newer version brings and comments out a
 retired one the engine would refuse. A setting in your environment wins over the file; restart the
-engine after a change. `scripts/dev.sh admin <username> "<name>"` makes
+engine after a change. `scripts/dev.sh admin <e-mail> "<name>"` makes
 the first administrator.
 
 ### From a phone on the same network
@@ -216,12 +216,12 @@ environment:
 
 ```bash
 cd backend
-.venv/bin/python -m app.cli.create_admin --username ada --name "Ada Lovelace"
+.venv/bin/python -m app.cli.create_admin --email ada@example.org --name "Ada Lovelace"
 .venv/bin/python -m app.cli.create_client --name "Deployment automation" --role workspace-admin --role model-admin
 ```
 
 `create_admin` reads the password from the terminal twice (`--password-stdin` reads one line from
-standard input): 15 to 128 characters, not the username, not one of the most common (D252). The
+standard input): 15 to 128 characters, not the e-mail address, not one of the most common (D252). The
 administrator then signs in from the browser. The first administrator holds, at the instance,
 Security administrator and every role needed to set the instance up: Data owner, Model
 administrator, Workspace administrator, Integration administrator and Operator (D282). Hand out
@@ -345,7 +345,7 @@ owner.
 engine (work no signed-in person or client started, such as a job submitted before Z2); entries recorded before the
 upgrade name nobody and read "Before sign-in", with no backfill. **Security events** record each
 change to people, groups, roles, grants, clients and token signing keys, and each sign-in, succeeded
-or failed once the password was checked, with the username and the address (the connection's, or
+or failed once the password was checked, with the e-mail address and the address (the connection's, or
 the proxy's forwarded one when uvicorn trusts it); an attempt refused while an account or address is
 slowed stays a log line (`sign_in_failed`). Read them with `GET /api/v1/security-events`
 (`principalId=`, `aggregateType=`) as a Security administrator, or with a client holding that role
@@ -398,15 +398,15 @@ token presented a second time ends the session, since only a copy can do that.
   first `CORS_ORIGINS` entry; the engine's `/oauth/password` when neither is known, and for links made
   earlier); a newer link replaces an older one, and using it ends the person's sessions. With mail set up
   a person who forgot their password asks for the same link themselves on the sign-in screen (I6): by
-  username or e-mail address, answered the same whoever is named, slowed per name and per address, sent
+  e-mail address, answered the same whoever is named, slowed per name and per address, sent
   only to an active person with a local password and an address. Without mail they ask an administrator.
-- **Failed sign-ins are slowed, never locked** (D271): the first 5 failures for one username and the
+- **Failed sign-ins are slowed, never locked** (D271): the first 5 failures for one e-mail address and the
   first 20 from one address cost nothing; after that an attempt waits until 1 second after the last
   failure, then 2, 4 and so on to at most 15 minutes, and the page says how long. This is the design
-  against password guessing, and its price is that anyone who knows a username can keep that person
-  slowed by failing against it (the right password is not checked while the wait runs). A success clears the username's count;
+  against password guessing, and its price is that anyone who knows an e-mail address can keep that person
+  slowed by failing against it (the right password is not checked while the wait runs). A success clears the address's count;
   counts lapse after 24 hours. Each failure is logged
-  (`sign_in_failed`, with the username and address). Behind a proxy, the address is the proxy's
+  (`sign_in_failed`, with the e-mail address and address). Behind a proxy, the address is the proxy's
   unless uvicorn trusts it to forward the caller's (`--forwarded-allow-ips` with
   `--proxy-headers`); without that, every person shares the proxy's address and its count of 20.
   The same slowing counts a wrong current password at `POST /me/password`, a wrong proof when adding a
@@ -447,14 +447,34 @@ only proves who the person is.
    "Group Membership" mapper on the client; Google sends no groups.
 
 **Who a person is.** The engine finds a person by the provider and the token's subject (`sub`),
-never by e-mail (D363). At their first sign-in a person is created with the token's name, e-mail
-and username (`preferred_username`, else `email`, numbered when taken) and no roles; their groups
-grant what they may do. Name and e-mail follow the provider at each sign-in. Someone who already had
+never by e-mail (D363). The e-mail address is the name a person signs in with (0.17 EM1), so the
+token must carry an `email` claim: a first sign-in without one is refused, and the message tells
+the person to ask whoever manages the provider to add it. At their first sign-in a person is created
+with the token's name and e-mail and no roles; their groups grant what they may do. Name and e-mail
+follow the provider at each sign-in, except that an address another person holds is not taken: the
+stored one stays and the sign-in goes on. Someone who already had
 a local account becomes a second person: open the new person's page and choose **Link to an existing
 person…** (0.12 I4a, D377): their identity and provider groups move onto the person who had the
 account, with their roles and history, and the new person is deactivated. It is refused when the new
 person already has a password, roles of their own or local groups: remove those first. **Unlink** on
 the person's page undoes a wrong link; the next sign-in with that provider makes a new person.
+
+**An address that is already taken** (`email_taken`, 0.17 EM1). A first provider sign-in is refused
+when another person, active or deactivated, already holds the token's e-mail address, in any
+letters; the person sees that a security administrator resolves it, and the `sign-in` `failed` event
+says `email_taken`. To resolve it, open Settings › Security › People, find the person who holds the
+address (search the address) and do one of these, then ask the person to sign in again:
+
+1. The address belongs to an old account that nobody uses: **Deactivate** it, then **Edit…** and
+   clear its E-mail (a deactivated person may have none; this frees the address), then **Save**.
+2. The old account is the person's own, with roles and history to keep: **Edit…** it and change its
+   E-mail to another address of theirs (or any free one), so the token's address is free. The person
+   signs in with the provider and a new person is made; choose **Link to an existing person…** on the
+   new person's page to move the sign-in onto the old account. The new person is deactivated and its
+   address freed, and the old account takes the provider's address at the next sign-in.
+
+A first sign-in refused with `no_email` needs nothing freed: once the provider's administrator adds
+the claim, the person signs in again.
 
 **Turning local sign-in off** (D365): on Settings › Security › Sign-in › Local accounts, once an
 enabled provider has signed someone in. Passwords then stop working, except for the people who
@@ -509,7 +529,7 @@ asked: the provider's own factor applies.
 **Passkeys** (0.12 I4c, D389–D394). A person adds a passkey on Settings › Account › Passkeys: the
 button opens the engine's own page, where the browser asks for their fingerprint, face, device PIN
 or security key. A passkey signs them in alone (the sign-in page's **Sign in with a passkey**, no
-username) or as the second step after a password, and meets the requirement above. A passkey belongs
+e-mail address typed) or as the second step after a password, and meets the requirement above. A passkey belongs
 to one site name, the host of `PUBLIC_URL` (the relying party): it works on the engine's pages, never
 on a look-alike. **Changing `PUBLIC_URL`'s host invalidates every passkey**; people add them again,
 and until then the password and the app still work. The engine needs `PUBLIC_URL` at the address
@@ -1200,7 +1220,7 @@ Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as th
 4. **Start it:** `docker compose up -d --build`. The engine creates and migrates the database at
    start; `docker compose ps` shows the three healthy.
 5. **Create the first administrator:** `docker compose run --rm engine python -m app.cli.create_admin
-   --username <name> --name "<Name>"` asks for the password. Everyone else is added in the application.
+   --email <address> --name "<Name>"` asks for the password. Everyone else is added in the application.
 6. **Register a sign-in provider** (optional): its redirect address is
    `<PUBLIC_URL>/oauth/providers/<key>/callback`, see
    [Signing in with the organisation's provider](#signing-in-with-the-organisations-provider).

@@ -14,7 +14,7 @@ environment through Compose. From the repository root, for example:
 
 ```bash
 docker compose run --rm engine python -m app.cli.create_admin \
-  --username operator --name "Installation administrator"
+  --email operator@example.org --name "Installation administrator"
 ```
 
 In a configured host backend environment, use `cd backend` then
@@ -23,7 +23,7 @@ automatically. Never pass secret values as literal shell arguments.
 
 | Module after `app.cli.` | Arguments | Purpose and result |
 | --- | --- | --- |
-| `create_admin` | `--username NAME --name "Display name"`, optional `--email ADDRESS`, `--password-stdin` | Creates an instance administrator, including local recovery sign-in. Prompts twice for the password, or reads one stdin line. Exit 0 created, 1 database failure, 2 invalid/refused input. |
+| `create_admin` | `--email ADDRESS --name "Display name"`, `--password-stdin` | Creates an instance administrator, including local recovery sign-in. Prompts twice for the password, or reads one stdin line. Exit 0 created, 1 database failure, 2 invalid/refused input. |
 | `create_client` | `--name "Client name"`, repeatable `--role KEY`, optional `--json` | Creates a client and prints its credentials once; without roles it can do nothing until granted access. Exit 0 created, 1 database failure, 2 invalid/refused input. Store its secret securely. |
 | `generate_key` | None | Prints a new 32-byte URL-safe-base64 sealing key; exit 0. Secret output: never commit or log it. |
 | `database_upgrade` | None | Migrates the configured database. Exit 0 success, 1 startup/migration failure. Back up before upgrading. |
@@ -97,7 +97,7 @@ that installation. All tools listed here support `--help` without performing the
 
 | Command | Example | Successful output |
 | --- | --- | --- |
-| Create administrator | `docker compose run --rm engine python -m app.cli.create_admin --username operator --name "Installation administrator" --email operator@example.org` | `Created administrator 'operator' (...)`. Parentheses contain the new person's ID. |
+| Create administrator | `docker compose run --rm engine python -m app.cli.create_admin --name "Installation administrator" --email operator@example.org` | `Created administrator 'operator@example.org' (...)`. Parentheses contain the new person's ID. |
 | Create monitoring client | `docker compose run --rm engine python -m app.cli.create_client --name Monitoring --role operator --json` | One JSON object with `clientId` and `clientSecret`; store the secret immediately. |
 | Generate sealing key | `docker compose run --rm --no-deps engine python -m app.cli.generate_key` | One base64 line; a new random key every time. It does not install the key. |
 | Upgrade database | `docker compose run --rm engine python -m app.cli.database_upgrade` | `Database migration completed successfully.` |

@@ -84,7 +84,7 @@ async function walk(configuration) {
       "PUT",
     );
     const people = (await api(`/users?pageSize=200`)).items;
-    const me = people.find((item) => item.username === harnessIdentity.person.username) ?? people[0];
+    const me = people.find((item) => item.email === harnessIdentity.person.email) ?? people[0];
     await api(`/users/${me.id}`, { expectedVersion: me.version, email: "steward@example.org" }, "PATCH");
     const table = await startingPoint(api, { count: 3 });
 
@@ -229,8 +229,8 @@ async function walk(configuration) {
     // A followed publication: the link opens the publication.
     execute(
       databaseUrl,
-      "INSERT INTO workspace_followers (user_id, workspace_key, created_at) SELECT id, 'default', now() FROM users WHERE username = '" +
-        harnessIdentity.person.username +
+      "INSERT INTO workspace_followers (user_id, workspace_key, created_at) SELECT id, 'default', now() FROM users WHERE email = '" +
+        harnessIdentity.person.email +
         "'",
     );
     const published = await api("/workspaces/default/change-sets", { source: "currentLive", name: "Followed" });

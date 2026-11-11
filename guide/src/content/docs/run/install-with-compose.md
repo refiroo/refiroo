@@ -255,11 +255,11 @@ readiness and must succeed before you continue. For a readiness failure, follow
 
 ## 6. Create the first administrator and sign in
 
-Replace the username and display name as needed:
+Replace the e-mail address and display name as needed:
 
 ```bash
 docker compose run --rm engine python -m app.cli.create_admin \
-  --username operator --name "Installation administrator"
+  --email operator@example.org --name "Installation administrator"
 ```
 
 The command asks `Password:` and `Password again:`. Enter the same password twice. It needs at
@@ -289,8 +289,7 @@ the unauthenticated health probe.
 
 Add other people through **Settings › Security › People**:
 
-1. Select **New person**. Fill **Username**, **Name** and, if needed, **E-mail (optional)**.
-   The username cannot change later.
+1. Select **New person**. Fill **Name** and **E-mail**, the address they sign in with.
 2. Select **Create and make a password link**. The **Pass on the password link** dialog shows a
    **Password link** once. Copy it, pass it privately to that person and select **I have copied it**.
    The person uses it to set their own password; the link works once, until the displayed expiry.

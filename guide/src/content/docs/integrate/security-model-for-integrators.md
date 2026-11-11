@@ -76,7 +76,7 @@ A client holding Security administration can manage people, groups and roles thr
 | --- | --- |
 | `ACTION_GROUP_UNKNOWN` | Read the action catalogue and choose a known group. |
 | `USER_NOT_FOUND`, `GROUP_NOT_FOUND` or `GROUP_MEMBER_NOT_FOUND` | Refresh the people, groups or membership before changing it. |
-| `USERNAME_TAKEN` or `GROUP_NAME_TAKEN` | Choose an unused username or group name. |
+| `EMAIL_TAKEN` or `GROUP_NAME_TAKEN` | Choose an unused e-mail address or group name. |
 | `GROUP_FROM_PROVIDER` | Change membership in the sign-in provider; it is synchronized at sign-in. |
 | `GROUP_CLAIM_TAKEN` | Use the existing group for that provider claim or choose a different claim. |
 | `SIGN_IN_PROVIDER_NOT_FOUND` or `SIGN_IN_PROVIDER_KEY_TAKEN` | Select an existing provider or give the new one a distinct key. |

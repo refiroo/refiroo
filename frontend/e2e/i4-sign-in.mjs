@@ -71,7 +71,7 @@ async function signInThroughProvider(c, person, landing = "/settings/account") {
 
 async function partA(c) {
   const { tag, uiUrl, api, page, shot, overflow } = c;
-  const ann = await api("/users", { username: `ann.${tag}`, name: `Ann ${tag}` });
+  const ann = await api("/users", { email: `ann.${tag}@example.org`, name: `Ann ${tag}` });
   const pat = {
     sub: `p-${tag}`,
     name: `Pat ${tag}`,
@@ -83,7 +83,7 @@ async function partA(c) {
   // 1. Pat signs in through the provider and is a new person with no roles.
   const first = await signInThroughProvider(c, pat);
   await first.context.close();
-  const [made] = (await api(`/users?q=${encodeURIComponent(pat.username)}`)).items;
+  const [made] = (await api(`/users?q=${encodeURIComponent(pat.email)}`)).items;
   expect(made && made.identities.length === 1, `${tag}: the sign-in made a person with the provider's identity`);
 
   // 2. From the made person's page, by keyboard: link to the existing person.
@@ -151,7 +151,12 @@ async function partA(c) {
   await axe(page, `${tag}-provider-sign-out`);
   await page.getByRole("button", { name: "Save", exact: true }).first().click();
   await page.getByText("are signed out of it too").waitFor();
-  const lake = await signInThroughProvider(c, { ...pat, sub: `${pat.sub}-2`, username: `${pat.username}.2` });
+  const lake = await signInThroughProvider(c, {
+    ...pat,
+    sub: `${pat.sub}-2`,
+    email: `pat-${tag}-2@provider.example`,
+    username: `${pat.username}.2`,
+  });
   const visited = [];
   lake.page.on("request", (request) => visited.push(request.url()));
   await lake.page.getByRole("button", { name: "Sign out", exact: true }).click();
@@ -165,7 +170,7 @@ async function partA(c) {
 
   // 6. The switch: the last person who keeps local sign-in cannot stop while local sign-in is off.
   const everyone = (await api("/users?pageSize=500")).items;
-  const self = everyone.find((user) => user.username === c.harnessIdentity.person.username);
+  const self = everyone.find((user) => user.email === c.harnessIdentity.person.email);
   for (const other of everyone.filter((user) => user.localKept && user.id !== self.id))
     await api(`/users/${other.id}`, { expectedVersion: other.version, localKept: false }, "PATCH");
   const current = await api(`/users/${self.id}`);
@@ -216,8 +221,8 @@ async function partA(c) {
 
 const PASSPHRASE = "a long passphrase for testing";
 /** A person with a password: made through the API, the password set on the engine's own page. */
-async function personWithPassword(c, username, name) {
-  const person = await c.api("/users", { username, name });
+async function personWithPassword(c, local, name) {
+  const person = await c.api("/users", { email: `${local}@example.org`, name });
   const link = await c.api(`/users/${person.id}/password-reset`, {}, "POST");
   const outside = await c.signedOutContext({ viewport: { width: 1440, height: 900 } });
   const page = await outside.newPage();
@@ -231,13 +236,13 @@ async function personWithPassword(c, username, name) {
   return person;
 }
 
-/** The engine's sign-in page with a username and password typed; the page that answers. */
-async function passwordStep(c, username, options = {}) {
+/** The engine's sign-in page with an e-mail address and password typed; the page that answers. */
+async function passwordStep(c, email, options = {}) {
   const outside = await c.signedOutContext({ viewport: { width: 1440, height: 900 }, ...options });
   const page = await outside.newPage();
   page.setDefaultTimeout(15000);
   await page.goto(`${c.uiUrl}/settings/account`);
-  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("E-mail address").fill(email);
   await page.getByLabel("Password").fill(PASSPHRASE);
   await page.getByRole("button", { name: "Sign in" }).click();
   return { context: outside, page };
@@ -248,7 +253,7 @@ async function partB(c) {
   const mei = await personWithPassword(c, `mei.${tag}`, `Mei ${tag}`);
 
   // 1. Account: not set up, then the set-up with the QR code, the key and a code, then the codes.
-  const { context, page: account } = await passwordStep(c, mei.username);
+  const { context, page: account } = await passwordStep(c, mei.email);
   await account.waitForURL(`${uiUrl}/settings/account`);
   await account.getByRole("heading", { level: 2, name: "Authenticator app" }).waitFor();
   await account.getByText("Not set up").waitFor();
@@ -286,7 +291,7 @@ async function partB(c) {
   await account.getByRole("button", { name: "Sign out", exact: true }).click();
   await account.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
   await context.close();
-  const second = await passwordStep(c, mei.username);
+  const second = await passwordStep(c, mei.email);
   await second.page.getByRole("heading", { level: 1, name: "Enter your code" }).waitFor();
   await shot(second.page, "code-page");
   await axe(second.page, `${tag}-code-page`);
@@ -303,7 +308,7 @@ async function partB(c) {
   checks.push(`${tag}: the password leads to the code page; a wrong code refused, the right one signs in`);
 
   // 3. A recovery code, once.
-  const third = await passwordStep(c, mei.username);
+  const third = await passwordStep(c, mei.email);
   await third.page.getByRole("button", { name: "Use a recovery code instead" }).click();
   await third.page.getByRole("heading", { level: 1, name: "Use a recovery code" }).waitFor();
   await shot(third.page, "recovery-page");
@@ -313,7 +318,7 @@ async function partB(c) {
   await third.page.waitForURL(`${uiUrl}/settings/account`);
   await third.page.getByText(/9 of\s+10 recovery codes left/).waitFor();
   await third.context.close();
-  const fourth = await passwordStep(c, mei.username);
+  const fourth = await passwordStep(c, mei.email);
   await fourth.page.getByRole("button", { name: "Use a recovery code instead" }).click();
   await fourth.page.getByLabel("Recovery code").fill(codes[0]);
   await fourth.page.getByRole("button", { name: "Sign in" }).click();
@@ -333,7 +338,7 @@ async function partB(c) {
   await ask.getByRole("button", { name: "Require it" }).click();
   await ask.waitFor({ state: "detached" });
   const noa = await personWithPassword(c, `noa.${tag}`, `Noa ${tag}`);
-  const setup = await passwordStep(c, noa.username);
+  const setup = await passwordStep(c, noa.email);
   await setup.page.getByRole("heading", { level: 1, name: "Set up a second factor" }).waitFor();
   await setup.page.getByRole("img", { name: "QR code for the authenticator app" }).waitFor();
   const noaSecret = await setup.page.locator("#key").innerText();
@@ -381,7 +386,7 @@ async function partB(c) {
     !(await page.getByText("Second factor: authenticator app").count()),
     `${tag}: the second factor row is gone after the removal`,
   );
-  const again = await passwordStep(c, noa.username);
+  const again = await passwordStep(c, noa.email);
   await again.page.getByRole("heading", { level: 1, name: "Set up a second factor" }).waitFor();
   await again.context.close();
   const local = await api("/sign-in-providers/local");
@@ -393,7 +398,7 @@ async function partB(c) {
     [{ colorScheme: "dark" }, "dark"],
     [{ viewport: { width: 390, height: 844 }, hasTouch: true }, "narrow"],
   ]) {
-    const view = await passwordStep(c, mei.username, options);
+    const view = await passwordStep(c, mei.email, options);
     await view.page.getByRole("heading", { level: 1, name: "Enter your code" }).waitFor();
     await shot(view.page, `code-page-${label}`);
     if (label === "dark") await axe(view.page, `${tag}-code-page-dark`);
@@ -433,7 +438,7 @@ async function partC(c) {
   const pia = await personWithPassword(c, `pia.${tag}`, `Pia ${tag}`);
 
   // 1. Add a passkey from Account: the engine's own page, the virtual authenticator, back to Account.
-  const { context, page: account } = await passwordStep(c, pia.username);
+  const { context, page: account } = await passwordStep(c, pia.email);
   await account.waitForURL(`${uiUrl}/settings/account`);
   await virtualAuthenticator(context, account);
   await account.getByRole("heading", { level: 2, name: "Passkeys" }).waitFor();
@@ -459,7 +464,7 @@ async function partC(c) {
   await axe(account, `${tag}-passkeys-one`);
   checks.push(`${tag}: a passkey added from Account on the engine's page and named`);
 
-  // 2. Sign in with it alone: the button, no username.
+  // 2. Sign in with it alone: the button, no e-mail address.
   await account.getByRole("button", { name: "Sign out", exact: true }).click();
   await account.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
   await account.getByRole("button", { name: "Sign in with a passkey" }).waitFor();
@@ -473,12 +478,12 @@ async function partC(c) {
   await account.getByText("Signed in with a passkey").waitFor();
   await account.getByText(/last used/).waitFor();
   await shot(account, "passkeys-used");
-  checks.push(`${tag}: signed in with the passkey alone, no username typed; the passkey reads as used`);
+  checks.push(`${tag}: signed in with the passkey alone, no e-mail address typed; the passkey reads as used`);
 
   // 3. As the second step after a password.
   await account.getByRole("button", { name: "Sign out", exact: true }).click();
   await account.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-  await account.getByLabel("Username").fill(pia.username);
+  await account.getByLabel("E-mail address").fill(pia.email);
   await account.getByLabel("Password").fill(PASSPHRASE);
   await account.getByRole("button", { name: "Sign in", exact: true }).click();
   await account.getByRole("heading", { level: 1, name: "Confirm it is you" }).waitFor();
@@ -514,7 +519,7 @@ async function partC(c) {
 
   // 5. The sign-in page with a passkey offered, in dark and at 390px, without horizontal scroll.
   const other = await personWithPassword(c, `ola.${tag}`, `Ola ${tag}`);
-  const holder = await passwordStep(c, other.username);
+  const holder = await passwordStep(c, other.email);
   await holder.page.waitForURL(`${uiUrl}/settings/account`);
   await virtualAuthenticator(holder.context, holder.page);
   await holder.page.getByRole("button", { name: /Add a passkey/ }).click();

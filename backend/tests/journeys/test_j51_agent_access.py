@@ -17,6 +17,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from scenario import W1, ok, refused
 from test_j39_sign_in import PASSWORD, _bearer, _person, _pkce
 from test_j39_sign_in import _sign_in as browser_sign_in
+from test_j39_sign_in import address as email_of
 
 ON = {"MCP_ENABLED": "true"}
 CALLBACK = "http://localhost:43123/callback"
@@ -107,7 +108,7 @@ def _register(browser: TestClient, **body: Any):
     )
 
 
-def _sign_in(browser: TestClient, application: str, username: str, callback: str = CALLBACK):
+def _sign_in(browser: TestClient, application: str, name: str, callback: str = CALLBACK):
     """What an assistant does: the page in the person's browser, then the code for tokens."""
     verifier, challenge = _pkce()
     request = {
@@ -129,7 +130,7 @@ def _sign_in(browser: TestClient, application: str, username: str, callback: str
     assert origin in page.headers["content-security-policy"]
     done = browser.post(
         "/oauth/authorize",
-        data={**request, "username": username, "password": PASSWORD},
+        data={**request, "email": email_of(name), "password": PASSWORD},
         follow_redirects=False,
     )
     assert done.status_code == 303, done.text

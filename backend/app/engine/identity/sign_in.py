@@ -1,6 +1,6 @@
 """Signing a person in on the engine's own page (Product 0.12 I2, ADR-043).
 
-The page checks a username and password and answers a one-time code bound to the browser's PKCE
+The page checks an e-mail address and password and answers a one-time code bound to the browser's PKCE
 challenge (``S256``) and the address it returns to; the browser exchanges the code with its
 verifier for an access token and a session. Failed sign-ins are slowed per account and per address
 with a growing wait, never locked (D252, D271): while a wait runs, an attempt is refused with the
@@ -56,7 +56,7 @@ _CHALLENGE = re.compile(r"^[A-Za-z0-9\-_]{43}$")
 
 @cache
 def _absent_hash() -> str:
-    """Compared with when no account matches, so an unknown username takes as long as a wrong
+    """Compared with when no account matches, so an unknown address takes as long as a wrong
     password."""
     return hash_secret(new_token())
 
@@ -76,23 +76,23 @@ def wait_after(failures: int, kind: str) -> int:
     return min(2 ** (beyond - 1), LONGEST_WAIT_SECONDS)
 
 
-def _keys(username: str, address: str | None, scope: str = "") -> list[tuple[str, str]]:
+def _keys(email: str, address: str | None, scope: str = "") -> list[tuple[str, str]]:
     """What a failure is counted against: the account, when one is known, and the address. A
     ``scope`` (``RESET``) counts something else against the same two with kinds of its own."""
-    keys = [(f"{scope}account", username.strip().casefold()[:320])] if username.strip() else []
+    keys = [(f"{scope}account", email.strip().casefold()[:320])] if email.strip() else []
     if address:
         keys.append((f"{scope}address", address[:320]))
     return keys
 
 
 def seconds_to_wait(
-    session: Session, username: str, address: str | None, now: datetime, scope: str = ""
+    session: Session, email: str, address: str | None, now: datetime, scope: str = ""
 ) -> int:
     """How long the next attempt for this account or from this address must wait; 0 when it may
     go ahead."""
     rows = session.scalars(
         select(SignInFailure).where(
-            tuple_(SignInFailure.kind, SignInFailure.key).in_(_keys(username, address, scope))
+            tuple_(SignInFailure.kind, SignInFailure.key).in_(_keys(email, address, scope))
         )
     ).all()
     longest = 0
@@ -105,10 +105,10 @@ def seconds_to_wait(
 
 
 def record_failure(
-    session: Session, username: str, address: str | None, now: datetime, scope: str = ""
+    session: Session, email: str, address: str | None, now: datetime, scope: str = ""
 ) -> None:
     """Count a failed attempt against the account and the address (D271)."""
-    for kind, key in _keys(username, address, scope):
+    for kind, key in _keys(email, address, scope):
         statement = insert(SignInFailure).values(kind=kind, key=key, count=1, last_failure_at=now)
         session.execute(
             statement.on_conflict_do_update(
@@ -126,7 +126,7 @@ def record_failure(
 
 @dataclass(frozen=True)
 class Refused:
-    """Why a sign-in failed: the username or password (never which), or a wait still running."""
+    """Why a sign-in failed: the e-mail address or password (never which), or a wait still running."""
 
     reason: Literal["wrong", "slowed"]
     wait_seconds: int = 0
@@ -134,7 +134,7 @@ class Refused:
 
 def check_password(
     session: Session,
-    username: str,
+    email: str,
     password: str,
     address: str | None,
     now: datetime,
@@ -148,44 +148,44 @@ def check_password(
     second step may follow, I4b) a success is neither logged nor clears the count: ``complete``
     does, once the sign-in is whole, so guessing codes after a known password is still slowed.
     Commits."""
-    wait = seconds_to_wait(session, username, address, now)
+    wait = seconds_to_wait(session, email, address, now)
     if wait > 0:
         return Refused("slowed", wait)
-    user = session.scalar(select(User).where(func.lower(User.username) == username.strip().lower()))
+    user = session.scalar(select(User).where(func.lower(User.email) == email.strip().lower()))
     usable = user is not None and user.active and (user.local_kept or not kept_only)
     stored = user.password_hash if usable else None
     matches = verify_secret(password, stored or _absent_hash())
     if user is None or stored is None or not matches:
-        record_failure(session, username, address, now)
+        record_failure(session, email, address, now)
         # Checked, so bounded by the growing delay; a slowed attempt is only logged (D318).
         security_events.record(
             session, "sign-in", user.public_id if user else "unknown", "failed",
             about=[user.public_id] if user else [], by=None,
-            details={"username": username[:150], "address": address},
+            details={"email": email[:320], "address": address},
         )  # fmt: skip
         session.commit()
         logger.warning(
             "A sign-in failed",
-            extra={"event": "sign_in_failed", "username": username[:150], "address": address},
+            extra={"event": "sign_in_failed", "email": email[:320], "address": address},
         )
         return Refused("wrong")
     if finish:
-        complete(session, user, username, address)
+        complete(session, user, email, address)
         session.commit()
     return user
 
 
 def complete(
-    session: Session, user: User, username: str, address: str | None, *, method: str | None = None
+    session: Session, user: User, email: str, address: str | None, *, method: str | None = None
 ) -> None:
     """A sign-in that is whole: the account's count of failures is cleared and the sign-in is a
     security event, with ``method`` when it was not by a password alone. The caller commits."""
     session.execute(
         delete(SignInFailure).where(
-            SignInFailure.kind == "account", SignInFailure.key == username.strip().casefold()[:320]
+            SignInFailure.kind == "account", SignInFailure.key == email.strip().casefold()[:320]
         )
     )
-    details = {"username": user.username, "address": address}
+    details = {"email": user.email, "address": address}
     if method:
         details["method"] = method
     security_events.record(

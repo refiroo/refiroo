@@ -146,7 +146,7 @@ def _second_step(
         "stage": stage,
         "app": second_factor.summary(session, user) is not None,
         "passkey": passkeys.has_any(session, user),
-        "username": user.username,
+        "email": user.email,
     }
     if stage == "setup":
         made = second_factor.begin(session, settings, user, oauth._product(session), now)
@@ -156,7 +156,7 @@ def _second_step(
 
 @router.post("/password")
 def password(payload: AppPasswordSignIn, request: Request, session: DbSession) -> Response:
-    """A username and password. The answer is ``signed_in`` with the address to go to, or
+    """An e-mail address and password. The answer is ``signed_in`` with the address to go to, or
     ``second_factor`` with the step's token, or ``401 wrong_credentials`` (never saying which part
     was wrong) or ``429 slowed`` with the seconds to wait (D271)."""
     settings = oauth._settings(request)
@@ -167,7 +167,7 @@ def password(payload: AppPasswordSignIn, request: Request, session: DbSession) -
         return _refused(checked)
     now = datetime.now(UTC)
     outcome = browser_sign_in.password_step(
-        session, checked, payload.username, payload.password, oauth._address(request), now
+        session, checked, payload.email, payload.password, oauth._address(request), now
     )
     if isinstance(outcome, sign_in.Refused):
         if outcome.reason == "slowed":
@@ -182,7 +182,7 @@ def password(payload: AppPasswordSignIn, request: Request, session: DbSession) -
         return _problem(
             401,
             "wrong_credentials",
-            "The username or password is not right. Check both and try again.",
+            "The e-mail address or password is not right. Check both and try again.",
         )
     if isinstance(outcome, browser_sign_in.SignedIn):
         return _done(outcome)
@@ -249,7 +249,7 @@ def _link_gone() -> JSONResponse:
 
 @router.post("/reset-request", status_code=202)
 def reset_request(payload: AppResetRequest, request: Request, session: DbSession) -> Response:
-    """Ask for a link to a new password with a username or an e-mail address. The answer is the
+    """Ask for a link to a new password with an e-mail address. The answer is the
     same ``202`` whether or not such a person exists or can be written to; ``429 slowed`` counts
     the asks per name and per address (D271) and says nothing of any account; ``409
     mail_not_set_up`` when the engine cannot send mail at all."""
@@ -260,7 +260,7 @@ def reset_request(payload: AppResetRequest, request: Request, session: DbSession
         wait = mail_links.request_reset(
             session,
             settings,
-            payload.identifier,
+            payload.email,
             oauth._address(request),
             datetime.now(UTC),
         )
@@ -284,7 +284,7 @@ def reset_request(payload: AppResetRequest, request: Request, session: DbSession
     return JSONResponse(
         {
             "status": "requested",
-            "message": "If there is an account with that username or address that can be reset "
+            "message": "If there is an account with that e-mail address that can be reset "
             "by e-mail, a link was sent to it.",
         },
         status_code=202,
@@ -311,7 +311,7 @@ def reset_page(
     return JSONResponse(
         {
             "product": product,
-            "username": user.username,
+            "email": user.email,
             "minLength": oauth._settings(request).password_min_length,
         },
         headers=_NO_STORE,

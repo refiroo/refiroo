@@ -109,7 +109,7 @@ export async function signInContext(context, { apiUrl, uiUrl, person }) {
       code_challenge: base64Url(createHash("sha256").update(verifier).digest()),
       code_challenge_method: "S256",
       state: "harness",
-      username: person.username,
+      email: person.email,
       password: person.password,
     },
     maxRedirects: 0,

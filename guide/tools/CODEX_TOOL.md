@@ -30,7 +30,7 @@ the closing backtick is a comment. The section ends at the next heading.
 A wave file may carry a line `Screens file: \`PILOT.screens.json\`` (a name in `_waves/` or a path under
 `guide/`). The file lists screens (`name`, `shows`, and how to reach them); `node guide/tools/screens.mjs`
 captures them from the reference instance into `guide/public/screens/<name>.png` (`--list`, `--only a,b`).
-A screen signs in as the administrator unless it has `"as": "<role>"`: that role's `GUIDE_<ROLE>_USERNAME` and
+A screen signs in as the administrator unless it has `"as": "<role>"`: that role's `GUIDE_<ROLE>_EMAIL` and
 `GUIDE_<ROLE>_PASSWORD` from `guide/reference/.env` are used (`approver`, `contributor`, ...); sessions are
 reused per role and width.
 `run` passes every image of the screens file to `codex exec` with one `-i` each and adds the list (name and

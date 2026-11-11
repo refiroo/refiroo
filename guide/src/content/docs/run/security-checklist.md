@@ -32,7 +32,7 @@ own; historical security tests do not certify your deployment.
   to match policy and use the organisation's provider or second-factor requirements. Disable
   leavers in refiroo as well as at the provider.
 - **Throttling:** sign-in has per-name and per-address delays; after the first five failures for
-  a name or 20 for an address, delays grow up to 15 minutes. A known username can be slowed by
+  a name or 20 for an address, delays grow up to 15 minutes. A known e-mail address can be slowed by
   another caller. Preserve real caller addresses and investigate repeated failures.
 - **Outbound connections:** permit only needed providers, SMTP, webhook receivers and optional AI.
   Preserve TLS verification and supply internal CAs where needed. Check the optional assistant's

@@ -66,11 +66,7 @@ function Profile({ me }: { me: Me }) {
       </span>
       <div className="account-profile-text">
         <p className="account-profile-name">{me.name}</p>
-        <p className="account-muted">
-          {me.username && <span>@{me.username}</span>}
-          {me.username && me.email && <span aria-hidden="true"> · </span>}
-          {me.email && <span>{me.email}</span>}
-        </p>
+        <p className="account-muted">{me.email && <span>{me.email}</span>}</p>
         <p className="account-pills">
           {me.signedInWith && (
             <span className="account-pill success">

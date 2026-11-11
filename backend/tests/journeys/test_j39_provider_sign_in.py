@@ -31,6 +31,7 @@ from test_j39_sign_in import (
     _pkce,
     _post_form,
     _request,
+    address,
 )
 
 
@@ -103,10 +104,10 @@ def _members(world, group: dict) -> list[str]:
     return [m["name"] for m in ok(world.api.get(f"/groups/{group['id']}/members"))["items"]]
 
 
-def _create_admin(world, username: str):
+def _create_admin(world, name: str):
     return subprocess.run(
-        [sys.executable, "-m", "app.cli.create_admin", "--username", username, "--name",
-         username.title(), "--password-stdin"],
+        [sys.executable, "-m", "app.cli.create_admin", "--email", address(name), "--name",
+         name.title(), "--password-stdin"],
         input=PASSWORD + "\n",
         cwd=BACKEND,
         env={**os.environ, "DATABASE_URL": render(world.database)},
@@ -138,8 +139,7 @@ def test_a_first_and_a_second_sign_in_through_a_provider(world, idp):
     assert me["signedInWith"] == "harness"
     assert me["signInProvider"] == {"key": "harness", "name": "Harness ID"}
     person = ok(world.api.get(f"/users/{me['id']}"))
-    assert (person["username"], person["name"], person["email"]) == (
-        "pat", "Pat Provider", "pat@example.org")  # fmt: skip
+    assert (person["name"], person["email"]) == ("Pat Provider", "pat@example.org")
     assert person["hasPassword"] is False and person["localKept"] is False
     assert person["identities"] == [
         {"provider": {"key": "harness", "name": "Harness ID"}, "subject": "p-1"}
@@ -154,7 +154,7 @@ def test_a_first_and_a_second_sign_in_through_a_provider(world, idp):
         world, idp, **{**PAT, "name": "Pat Renamed"}, preferred_username="pat", groups=["g2"]
     )
     again = ok(world.api.get(f"/users/{me['id']}"))
-    assert again["name"] == "Pat Renamed" and again["username"] == "pat"
+    assert again["name"] == "Pat Renamed" and again["email"] == "pat@example.org"
     assert _members(world, g1) == [] and _members(world, g2) == ["Pat Renamed"]
     assert ok(world.api.get("/users", q="pat"))["items"] == [again]
     assert ok(world.api.get("/sign-in-providers/harness"))["people"] == 1
@@ -180,7 +180,9 @@ def test_a_provider_group_granted_ahead(world, idp):
     grant = {"principal": {"kind": "group", "id": group["id"]}, "role": "reader"}
     ok(world.api.post("/grants", {**grant, "scope": {"workspaceKey": W1}}), 201)
 
-    token = _signed_in(world, idp, sub="s-1", name="Sam Staff", groups=["staff"])
+    token = _signed_in(
+        world, idp, sub="s-1", name="Sam Staff", email="sam.staff@example.org", groups=["staff"]
+    )
     ok(world.api.client.get(f"/api/v1/objects/{world.key('R')}", params={"workspaceKey": W1},
                             headers=_bearer(token)))  # fmt: skip
     refused(world.create("R", "Not by a reader", headers=_bearer(token)), 403, "FORBIDDEN")
@@ -193,7 +195,9 @@ def test_a_provider_group_granted_ahead(world, idp):
     refused(world.api.delete(f"/groups/{group['id']}/members/{member['id']}"), 409,
             "GROUP_FROM_PROVIDER")  # fmt: skip
 
-    later = _signed_in(world, idp, sub="s-1", name="Sam Staff", groups=[])
+    later = _signed_in(
+        world, idp, sub="s-1", name="Sam Staff", email="sam.staff@example.org", groups=[]
+    )
     gone = world.api.client.get(f"/api/v1/objects/{world.key('R')}", params={"workspaceKey": W1},
                                 headers=_bearer(later))  # fmt: skip
     refused(gone, 403, "FORBIDDEN")
@@ -332,7 +336,7 @@ def test_local_sign_in_off(world, idp):
     assert 'name="password"' in form.text
     local_off = _post_form(_browser(world), "lou", PASSWORD, challenge)
     assert local_off.status_code == 401
-    assert "The username or password is not right" in local_off.text
+    assert "The e-mail address or password is not right" in local_off.text
     kept = _post_form(_browser(world), "kept", PASSWORD, challenge)
     assert kept.status_code == 303
     refused(world.api.post(f"/users/{local_person['id']}/password-reset", {}), 409,
@@ -453,3 +457,48 @@ def test_an_issuer_is_not_changed_while_people_are_linked_through_the_provider(w
         )
     )
     _signed_in(world, idp, **PAT)
+
+
+@pytest.mark.journey("J39")
+def test_a_first_sign_in_needs_the_providers_email_and_a_free_address(world, idp):
+    """Given a provider and a local person holding ana@example.org. When someone signs in through
+    the provider for the first time without an `email` claim, then the engine's page refuses it,
+    says the claim is missing and that the provider's administrator adds it, and nobody is
+    created; when the claim names the address the local person holds (in other letters), then it
+    is refused as taken and says a security administrator resolves it, with nobody created and
+    the sign-in event saying why; when the local person is deactivated and their address cleared,
+    the same sign-in creates the person with that address as their sign-in name; and at a later
+    sign-in the stored address stays when the token's new address belongs to another person."""
+    _provider(world, idp)
+    ana = _person(world, "ana")
+
+    _cannot(_through(_browser(world), idp, sub="p-9", name="No Address")[0], "e-mail claim")
+    assert ok(world.api.get("/users", q="No Address"))["items"] == []
+
+    taken = _through(_browser(world), idp, sub="p-9", name="Ana Provider", email="ANA@example.org")[
+        0
+    ]
+    _cannot(taken, "security administrator")
+    assert "ana@example.org" in taken.text.lower()
+    assert ok(world.api.get("/users", q="Ana Provider"))["items"] == []
+    assert [e["details"]["reason"] for e in _failures(world)] == ["email_taken", "no_email"]
+
+    version = ok(world.api.get(f"/users/{ana['id']}"))["version"]
+    refused(
+        world.api.patch(f"/users/{ana['id']}", {"expectedVersion": version, "email": None}),
+        422,
+        "EMAIL_REQUIRED",
+    )
+    ok(
+        world.api.patch(
+            f"/users/{ana['id']}", {"expectedVersion": version, "active": False, "email": None}
+        )
+    )
+    token = _signed_in(world, idp, sub="p-9", name="Ana Provider", email="ana@example.org")
+    me = ok(world.api.client.get("/api/v1/me", headers=_bearer(token)))
+    assert me["email"] == "ana@example.org" and me["id"] != ana["id"]
+
+    _signed_in(world, idp, sub="p-1", name="Pat Provider", email="pat@example.org")
+    _signed_in(world, idp, sub="p-1", name="Pat Provider", email="ana@example.org")
+    pat = ok(world.api.get("/users", q="Pat Provider"))["items"][0]
+    assert pat["email"] == "pat@example.org"

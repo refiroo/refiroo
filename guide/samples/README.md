@@ -25,7 +25,7 @@ The instance needs its first administrator (docs/OPERATIONS.md, Deploying) and
 python3 guide/samples/load.py --set docs --base http://<your-instance> --env path/to/env-file
 ```
 
-`--set` is `docs` or `reference`. The env file holds `GUIDE_ADMIN_USERNAME` and `GUIDE_ADMIN_PASSWORD`
+`--set` is `docs` or `reference`. The env file holds `GUIDE_ADMIN_EMAIL` and `GUIDE_ADMIN_PASSWORD`
 (or set them in the environment). The script signs in as that administrator, installs the model release,
 makes the workspace `graubuenden` (the default one), and loads the set in background batches. It
 changes nothing on a second run. The reference set takes about 20 seconds. `--skip-changeset` leaves out

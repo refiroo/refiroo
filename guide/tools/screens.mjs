@@ -2,8 +2,8 @@
 // Captures the guide's screenshots from the reference instance (guide/reference). See _waves/*.screens.json.
 // Usage: node guide/tools/screens.mjs [--file PILOT.screens.json] [--only a,b] [--scheme dark] [--list]
 // Reuses the Playwright installed in frontend/ (no second framework). Signs in through the engine's own
-// sign-in form as the reference administrator (GUIDE_ADMIN_USERNAME / GUIDE_ADMIN_PASSWORD in
-// guide/reference/.env). A screen with "as": "<role>" signs in with GUIDE_<ROLE>_USERNAME / GUIDE_<ROLE>_PASSWORD
+// sign-in form as the reference administrator (GUIDE_ADMIN_EMAIL / GUIDE_ADMIN_PASSWORD in
+// guide/reference/.env). A screen with "as": "<role>" signs in with GUIDE_<ROLE>_EMAIL / GUIDE_<ROLE>_PASSWORD
 // instead ("approver", "contributor", ...); one session per role is reused. Light theme; 1440 px wide unless a screen names another width.
 // --scheme dark: the browser's colour scheme and the app's own Appearance setting (localStorage rdm:theme:v1) are dark, and the file is
 // written as <name>-dark.png beside the light one (the website's dark screenshots, W5). Without the flag nothing changes.
@@ -50,7 +50,7 @@ async function newSession(browser, width, height, who = 'ADMIN') {
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   await page.goto(BASE + '/');
-  await page.getByLabel('Username').fill(env[`GUIDE_${who}_USERNAME`]);
+  await page.getByLabel('E-mail address').fill(env[`GUIDE_${who}_EMAIL`]);
   await page.getByLabel('Password').fill(env[`GUIDE_${who}_PASSWORD`]);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   // Signed in once the form is gone: a person with one workspace may land elsewhere than the workspace list.

@@ -262,7 +262,7 @@ try {
 
   // 8. A person holding only Security administrator: the grant dialog offers the narrowing and the
   // consumer APIs (D355).
-  const created = await api("/users", { username: "mei-sp2", name: "Mei Sp2" });
+  const created = await api("/users", { email: "mei-sp2@example.org", name: "Mei Sp2" });
   await api("/grants", {
     principal: { kind: "user", id: created.id },
     role: "security-admin",
@@ -280,7 +280,7 @@ try {
   await mei.getByText(/Your password is set/).waitFor();
   await mei.goto(`${uiUrl}/settings/clients/${client.id}`);
   await mei.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-  await mei.getByLabel("Username").fill("mei-sp2");
+  await mei.getByLabel("E-mail address").fill("mei-sp2@example.org");
   await mei.getByLabel("Password").fill(PASSWORD);
   await mei.getByRole("button", { name: "Sign in" }).click();
   await mei.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();

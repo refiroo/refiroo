@@ -457,7 +457,7 @@ def test_a_rotated_secret_does_not_end_a_token_already_issued(world):
 def test_a_provider_only_person_is_asked_for_like_a_stranger(world, smtp, idp):  # noqa: F811
     """Given a person who only ever signed in through the organisation's provider (no local
     password, an address) and one with a password. When each, and a stranger, is asked for by
-    username and by address, then every answer is the same and one message is queued, to the person
+    address, then every answer is the same and one message is queued, to the person
     with the password."""
     _save(world, smtp)
     _provider(world, idp)
@@ -466,7 +466,7 @@ def test_a_provider_only_person_is_asked_for_like_a_stranger(world, smtp, idp): 
     from test_j39_sign_in import _browser
 
     browser = _browser(world)
-    names = ("ada", "pat", "PAT@example.org", "nobody", "nobody@example.org")
+    names = ("ada@example.org", "pat@example.org", "PAT@example.org", "nobody@example.org")
     answers = [_ask(browser, name) for name in names]
     assert all(answer == answers[0] for answer in answers)
     assert _outbox(world)["pending"] == 1
@@ -488,7 +488,7 @@ def test_asking_is_slowed_per_address_whatever_the_names(world, smtp):  # noqa: 
     for number in range(40):
         response = browser.post(
             "/oauth/sign-in/reset-request",
-            json={"identifier": f"stranger-{number}"},
+            json={"email": f"stranger-{number}@example.org"},
             headers={"Origin": "http://localhost:5173"},
         )
         if response.status_code == 429:
@@ -496,7 +496,7 @@ def test_asking_is_slowed_per_address_whatever_the_names(world, smtp):  # noqa: 
             break
         assert response.status_code == 202, response.text
     assert slowed and slowed["error"] == "slowed" and slowed["waitSeconds"] >= 1
-    _ask(browser, "ada", 429)
+    _ask(browser, "ada@example.org", 429)
     assert _outbox(world)["pending"] == 0
     assert send_mail(world) == 0 and smtp.messages == []
 
@@ -532,7 +532,7 @@ def test_no_message_holds_a_password_a_code_or_a_record(world, smtp):  # noqa: F
     ada = _with_password(world, "ada", "ada@example.org")
     record = world.made("R", "Distinctive record 7731")
     browser = _browser(world)
-    _ask(browser, "ada")
+    _ask(browser, "ada@example.org")
     ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
     ok(world.api.post("/mail-settings/test", {"to": "ada@example.org"}))
     send_mail(world)
@@ -621,7 +621,7 @@ CLASSIFICATION: dict[tuple[str, str], Route] = {
     ("get", "/oauth/sign-in/options"): Route(OPEN, "the sign-in screen's choices", {400}, valid={200}),
     ("post", "/oauth/sign-in/password"): Route(OPEN, "the sign-in screen's password step", {422}, body="json", origin=True),
     ("post", "/oauth/sign-in/second-factor"): Route(OPEN, "the sign-in screen's second step (a step token)", {422}, body="json", shaped={"step": "nope", "code": "000000"}, origin=True),
-    ("post", "/oauth/sign-in/reset-request"): Route(OPEN, "asks for a reset link; answers alike for everyone", {422}, body="json", shaped={"identifier": "nobody"}, origin=True),
+    ("post", "/oauth/sign-in/reset-request"): Route(OPEN, "asks for a reset link; answers alike for everyone", {422}, body="json", shaped={"email": "nobody@example.org"}, origin=True),
     ("get", "/oauth/sign-in/reset"): Route(OPEN, "the reset screen's state; a link token is the proof", {200}),
     ("post", "/oauth/sign-in/reset"): Route(OPEN, "a reset link sets a password; the token is the proof", {422}, body="json", shaped={"token": "nope", "password": "a long enough pass 1", "repeat": "a long enough pass 1"}, origin=True),
     ("post", "/oauth/console-token"): Route(SESSION, "the API console's token for the cookie's person", {401}, body="json", shaped={}, origin=True),
@@ -670,7 +670,7 @@ def _structured(response, where: str) -> str | None:
 
 def _junk_bodies() -> list[tuple[str, dict]]:
     json_ = {"content-type": "application/json"}
-    names = ("request", "username", "password", "step", "token", "identifier", "code")
+    names = ("request", "email", "password", "step", "token", "code")
     wrong = {name: [1] for name in names}
     nested = {name: {"a": 1} for name in names}
     long = "x" * 70000
@@ -681,10 +681,10 @@ def _junk_bodies() -> list[tuple[str, dict]]:
         ("null", {"content": "null", "headers": json_}),
         ("lists for text", {"content": json.dumps(wrong), "headers": json_}),
         ("objects for text", {"content": json.dumps(nested), "headers": json_}),
-        ("long values", {"content": json.dumps({k: long for k in ("identifier", "token", "step", "password", "username", "ceremony", "name")}), "headers": json_}),
-        ("nul and emoji", {"content": json.dumps({"identifier": "\u0000\u00e9\U0001f4a5", "token": "\u0000", "username": "\u0000", "step": "\u0000"}), "headers": json_}),
+        ("long values", {"content": json.dumps({k: long for k in ("email", "token", "step", "password", "ceremony", "name")}), "headers": json_}),
+        ("nul and emoji", {"content": json.dumps({"email": "\u0000\u00e9\U0001f4a5", "token": "\u0000", "step": "\u0000"}), "headers": json_}),
         ("deep", {"content": "[" * 50000, "headers": json_}),
-        ("form", {"data": {"step": "x", "token": "y", "username": "\x00", "password": "p" * 5000, "code": "1", "grant_type": "\u0000", "client_id": "z"}}),
+        ("form", {"data": {"step": "x", "token": "y", "email": "\x00", "password": "p" * 5000, "code": "1", "grant_type": "\u0000", "client_id": "z"}}),
         ("a cookie", {"headers": {"Cookie": "oauth_refresh=" + "c" * 4000 + "; oauth_provider=junk; oauth_signed_out=//evil.example"}}),
     ]  # fmt: skip
 
@@ -771,7 +771,11 @@ def test_every_route_outside_the_document_answers_as_its_class_says(world):
     assert before["user_sessions"] >= 1
 
     _, challenge = _pkce()
-    shaped_sign_in = {"request": _request(challenge), "username": "nobody", "password": "x"}
+    shaped_sign_in = {
+        "request": _request(challenge),
+        "email": "nobody@example.org",
+        "password": "x",
+    }
     junk_bodies, junk_queries = _junk_bodies(), _junk_queries(challenge)
     problems: list[str] = []
     requests = 0
@@ -842,7 +846,7 @@ def test_every_route_outside_the_document_answers_as_its_class_says(world):
         shaped = shaped_sign_in if path == "/oauth/sign-in/password" else route.shaped
         if route.origin and (shaped is not None or route.body == "form"):
             if route.body == "form":
-                form = {**_request(challenge), "username": "nobody", "password": "x"}
+                form = {**_request(challenge), "email": "nobody@example.org", "password": "x"}
                 if path == "/oauth/second-factor":
                     form = {"step": "nope", "code": "000000"}
                 send = {"data": form}
@@ -1016,7 +1020,7 @@ def test_a_reset_by_mail_does_not_skip_the_second_factor(world, smtp):  # noqa: 
     assert _open_sessions(world, ada["id"]) == 2
 
     browser = _browser(world)
-    assert _ask(browser, "ada")["status"] == "requested"
+    assert _ask(browser, "ada@example.org")["status"] == "requested"
     assert send_mail(world) == 1
     [mail] = smtp.messages
     link = next(
@@ -1043,7 +1047,7 @@ def test_a_reset_by_mail_does_not_skip_the_second_factor(world, smtp):  # noqa: 
     _, challenge = _pkce()
     asked = browser.post(
         "/oauth/sign-in/password",
-        json={"request": _request(challenge), "username": "ada", "password": SET_TO},
+        json={"request": _request(challenge), "email": "ada@example.org", "password": SET_TO},
         headers=APP_ORIGIN,
     )
     answer = ok(asked)
@@ -1067,7 +1071,7 @@ def test_a_reset_by_mail_does_not_skip_the_second_factor(world, smtp):  # noqa: 
     # The old password is no password, and a recovery code (once) is what signs in.
     old = page_browser.post(
         "/oauth/authorize",
-        data={**_request(challenge), "username": "ada", "password": PASSWORD},
+        data={**_request(challenge), "email": "ada@example.org", "password": PASSWORD},
         follow_redirects=False,
     )
     assert old.status_code == 401 and _open_sessions(world, ada["id"]) == 0
@@ -1075,7 +1079,7 @@ def test_a_reset_by_mail_does_not_skip_the_second_factor(world, smtp):  # noqa: 
     assert used.status_code == 303
     access = ok(_exchange(page_browser, _code(used), verifier))["access_token"]
     me = ok(world.api.client.get("/api/v1/me", headers=_bearer(access)))
-    assert me["username"] == "ada" and me["signedInWith"] == "password"
+    assert me["email"] == "ada@example.org" and me["signedInWith"] == "password"
     assert _open_sessions(world, ada["id"]) == 1
     again = _browser(world)
     verifier, challenge = _pkce()
@@ -1087,7 +1091,7 @@ def _password_step_with(browser, challenge: str):
     """The new password accepted by the sign-in page: the page that asks for more."""
     page = browser.post(
         "/oauth/authorize",
-        data={**_request(challenge), "username": "ada", "password": SET_TO},
+        data={**_request(challenge), "email": "ada@example.org", "password": SET_TO},
         follow_redirects=False,
     )
     assert page.status_code == 200 and "location" not in page.headers

@@ -54,7 +54,7 @@ async function walk(configuration) {
 
     /** A person granted `grants`, signed in in a context of their own at `width`. */
     async function person(username, grants, width = 1440) {
-      const created = await api("/users", { username: `${username}-${tag}`, name: `${username} ${tag}` });
+      const created = await api("/users", { email: `${username}-${tag}@example.org`, name: `${username} ${tag}` });
       for (const [role, scope] of grants)
         await api("/grants", { principal: { kind: "user", id: created.id }, role, scope });
       const { url } = await api(`/users/${created.id}/password-reset`, {}, "POST");
@@ -69,7 +69,7 @@ async function walk(configuration) {
       await page.getByText(/Your password is set/).waitFor();
       await page.goto(uiUrl);
       await page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-      await page.getByLabel("Username").fill(created.username);
+      await page.getByLabel("E-mail address").fill(created.email);
       await page.getByLabel("Password").fill(PASSWORD);
       await page.getByRole("button", { name: "Sign in" }).click();
       // Signed in once the application has opened: its top bar's Settings.

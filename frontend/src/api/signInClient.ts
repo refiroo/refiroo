@@ -28,7 +28,7 @@ export interface SecondStep {
   /** The person has an authenticator app, and/or passkeys. */
   app: boolean;
   passkey: boolean;
-  username: string;
+  email: string;
   setup?: { secret: string; svg: string };
 }
 
@@ -81,9 +81,9 @@ export async function signInOptions(
   return { error: body.error ?? "unexpected", message: body.message ?? "The engine did not accept this sign-in." };
 }
 
-export async function signInWithPassword(request: SignInRequest, username: string, password: string) {
+export async function signInWithPassword(request: SignInRequest, email: string, password: string) {
   return answer(
-    await call("/oauth/sign-in/password", { method: "POST", body: JSON.stringify({ request, username, password }) }),
+    await call("/oauth/sign-in/password", { method: "POST", body: JSON.stringify({ request, email, password }) }),
   );
 }
 
@@ -105,7 +105,7 @@ export interface ResetRefused {
 /** What the reset page needs; with a token, who the link is for and the password rule. */
 export type ResetPage =
   | { ok: true; product: string; available: boolean }
-  | { ok: true; product: string; username: string; minLength: number }
+  | { ok: true; product: string; email: string; minLength: number }
   | ResetRefused;
 
 function refusal({ body }: { body: Body }): ResetRefused {
@@ -123,9 +123,9 @@ export async function resetPage(token = ""): Promise<ResetPage> {
   return refusal(result);
 }
 
-/** Ask for a link by username or e-mail address; the same answer whoever is named (D420). */
-export async function requestReset(identifier: string): Promise<{ ok: true; message: string } | ResetRefused> {
-  const result = await call("/oauth/sign-in/reset-request", { method: "POST", body: JSON.stringify({ identifier }) });
+/** Ask for a link by e-mail address; the same answer whoever is named (D420). */
+export async function requestReset(email: string): Promise<{ ok: true; message: string } | ResetRefused> {
+  const result = await call("/oauth/sign-in/reset-request", { method: "POST", body: JSON.stringify({ email }) });
   if (result.status === 202) return { ok: true, message: result.body.message ?? "" };
   return refusal(result);
 }

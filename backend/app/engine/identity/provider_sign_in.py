@@ -12,6 +12,7 @@ shows and a ``sign-in`` ``failed`` security event.
 """
 
 import logging
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -249,16 +250,31 @@ def finish(
                 "Your account is deactivated. Ask a security administrator.",
                 user=user,
             )
-        _refresh(user, claims, now)
+        _refresh(session, user, claims, now)
         identity.last_sign_in_at = now
     else:
-        user = _create_person(session, provider, claims, subject, now)
+        email = _email(claims)
+        if email is None:
+            raise fail(
+                "no_email",
+                f"{provider.name} did not send an e-mail address, and refiroo needs it to know who "
+                f"you are. Ask whoever manages {provider.name} to add the e-mail claim to what it "
+                "sends to this application, then sign in again.",
+            )
+        if _holder(session, email) is not None:
+            raise fail(
+                "email_taken",
+                f"Another person in refiroo already has the e-mail address {email}. A security "
+                "administrator resolves this: ask one, then sign in again.",
+                detail=f"{email} belongs to another person",
+            )
+        user = _create_person(session, provider, claims, subject, now, email)
     _sync_groups(session, provider, user, claims, now)
     provider.last_sign_in_at = now
     security_events.record(
         session, "sign-in", user.public_id, "succeeded", about=[user.public_id],
         by=("user", user.id),
-        details={"username": user.username, "address": address, "provider": provider.key},
+        details={"email": user.email, "address": address, "provider": provider.key},
     )  # fmt: skip
     session.commit()
     sealed = (
@@ -306,6 +322,9 @@ def sign_out(session: Session, settings: IdentitySettings, refresh_token: str) -
 # --- the person -----------------------------------------------------------------------------------
 
 
+_ADDRESS = re.compile(r"^[^@\s]+@[^@\s]+$")
+
+
 def _text(claims: dict[str, Any], name: str, limit: int) -> str | None:
     value = claims.get(name)
     if isinstance(value, str) and value.strip():
@@ -324,43 +343,40 @@ def _name(claims: dict[str, Any], fallback: str) -> str:
 
 def _email(claims: dict[str, Any]) -> str | None:
     email = _text(claims, "email", 320)
-    return email if email and "@" in email else None
+    return email if email and _ADDRESS.match(email) else None
 
 
-def _refresh(user: User, claims: dict[str, Any], now: datetime) -> None:
-    """Name and e-mail follow the provider at each sign-in (D363)."""
-    name, email = _name(claims, user.name), _email(claims) or user.email
+def _holder(session: Session, email: str, *, except_id: int | None = None) -> User | None:
+    statement = select(User).where(func.lower(User.email) == email.lower())
+    if except_id is not None:
+        statement = statement.where(User.id != except_id)
+    return session.scalar(statement)
+
+
+def _refresh(session: Session, user: User, claims: dict[str, Any], now: datetime) -> None:
+    """Name and e-mail follow the provider at each sign-in (D363); an address another person holds
+    is not taken, the stored one stays and the sign-in goes on (0.17 EM1, PP-D15)."""
+    email = _email(claims)
+    if email is None or _holder(session, email, except_id=user.id) is not None:
+        email = user.email
+    name = _name(claims, user.name)
     if (name, email) != (user.name, user.email):
         user.name, user.email = name, email
         user.version += 1
         user.updated_at = now
 
 
-def username_for(session: Session, claims: dict[str, Any], key: str, subject: str) -> str:
-    """``preferred_username``, else ``email``, else ``<provider key>-<sub>``; numbered when taken."""
-    base = (
-        _text(claims, "preferred_username", 140)
-        or _text(claims, "email", 140)
-        or f"{key}-{subject}"[:140]
-    )
-    candidate, number = base, 2
-    while (
-        session.scalar(select(User.id).where(func.lower(User.username) == candidate.lower()))
-        is not None
-    ):
-        candidate = f"{base}-{number}"
-        number += 1
-    return candidate
-
-
 def _create_person(
-    session: Session, provider: SignInProvider, claims: dict[str, Any], subject: str, now: datetime
+    session: Session,
+    provider: SignInProvider,
+    claims: dict[str, Any],
+    subject: str,
+    now: datetime,
+    email: str,
 ) -> User:
-    username = username_for(session, claims, provider.key, subject)
     user = User(
-        username=username,
-        name=_name(claims, username),
-        email=_email(claims),
+        name=_name(claims, email),
+        email=email,
         password_hash=None,
         active=True,
     )
@@ -377,7 +393,7 @@ def _create_person(
     )
     security_events.record(
         session, "user", user.public_id, "created", about=[user.public_id], by=("user", user.id),
-        details={"username": user.username, "name": user.name, "roles": [],
+        details={"email": user.email, "name": user.name, "roles": [],
                  "provider": provider.key},
     )  # fmt: skip
     return user

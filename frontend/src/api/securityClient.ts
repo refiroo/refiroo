@@ -71,8 +71,7 @@ export const security = {
       })}`,
     ),
   user: (userId: string) => request<User>(`/api/v1/users/${id(userId)}`),
-  createUser: (body: { username: string; name: string; email?: string }) =>
-    request<User>("/api/v1/users", json("POST", body)),
+  createUser: (body: { name: string; email: string }) => request<User>("/api/v1/users", json("POST", body)),
   updateUser: (
     userId: string,
     body: { expectedVersion: number; name?: string; email?: string | null; active?: boolean; localKept?: boolean },
@@ -133,7 +132,7 @@ export const security = {
     request<GroupMemberPage>(`/api/v1/groups/${id(groupId)}/members${query({ cursor, pageSize: 100 })}`),
   addMember: (groupId: string, userId: string) =>
     request<unknown>(`/api/v1/groups/${id(groupId)}/members`, json("POST", { userId })),
-  /** Several people at once, by ID or by usernames and e-mail addresses; `dryRun` changes nothing (SP1b). */
+  /** Several people at once, by ID or by e-mail addresses; `dryRun` changes nothing (SP1b). */
   addMembers: (groupId: string, body: { userIds?: string[]; identifiers?: string[]; dryRun?: boolean }) =>
     request<GroupMembersResult>(`/api/v1/groups/${id(groupId)}/members/batch`, json("POST", body)),
   /** Several people taken out at once (SP1b, D402). */

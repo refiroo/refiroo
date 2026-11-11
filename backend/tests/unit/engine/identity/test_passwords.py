@@ -13,18 +13,18 @@ from app.errors import ApiError
 
 
 @pytest.mark.parametrize(
-    ("password", "username", "reason"),
+    ("password", "email", "reason"),
     [
         ("x" * (DEFAULT_MIN_LENGTH - 1), None, "tooShort"),
         ("x" * (MAX_LENGTH + 1), None, "tooLong"),
-        ("Ada.Lovelace.1815", "ada.lovelace.1815", "username"),
+        ("Ada.Lovelace@Example.org", "ada.lovelace@example.org", "email"),
         ("PasswordPassword", None, "common"),
         ("  ", None, "tooShort"),
     ],
 )
-def test_a_password_the_rules_refuse(password, username, reason):
+def test_a_password_the_rules_refuse(password, email, reason):
     with pytest.raises(ApiError) as refused:
-        check_password(password, username)
+        check_password(password, email)
     assert (refused.value.status, refused.value.code) == (422, "PASSWORD_REJECTED")
     assert refused.value.details == {"reason": reason}
 

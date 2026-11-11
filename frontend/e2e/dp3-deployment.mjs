@@ -95,7 +95,7 @@ async function signedIn(browser, viewport, tag) {
   });
   await page.goto(publicUrl);
   await page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-  await page.getByLabel("Username").fill("ada");
+  await page.getByLabel("E-mail address").fill("ada@example.org");
   await page.getByLabel("Password").fill(PASSWORD);
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Account" }).waitFor();
@@ -113,9 +113,9 @@ async function signedIn(browser, viewport, tag) {
 
 // A failed password sign-in at `base`, carrying `forwarded` as X-Forwarded-For when given. The sign-in
 // throttle then records the address the engine saw (D271), which is what the checks below read.
-async function failedSignIn(base, username, forwarded) {
+async function failedSignIn(base, email, forwarded) {
   const body = new URLSearchParams({
-    username,
+    email,
     password: "wrong",
     response_type: "code",
     client_id: "browser",
@@ -157,7 +157,7 @@ try {
   checks.push(`built and started from empty at ${publicUrl} in ${Math.round((performance.now() - started) / 1000)} s`);
 
   // 3. The first administrator, as the guide says.
-  must(compose(["run", "--rm", "-T", "engine", "python", "-m", "app.cli.create_admin", "--username", "ada", "--name", "Ada", "--password-stdin"], { input: PASSWORD }), "create_admin");
+  must(compose(["run", "--rm", "-T", "engine", "python", "-m", "app.cli.create_admin", "--email", "ada@example.org", "--name", "Ada", "--password-stdin"], { input: PASSWORD }), "create_admin");
   checks.push("the first administrator was created with create_admin");
 
   // 4. What is public, what is not.
@@ -188,7 +188,7 @@ try {
 
   // 6. A forged forwarded address is not what the sign-in throttle counts: a wrong password carrying
   // X-Forwarded-For is recorded under the address nginx saw, never under the forged one.
-  await failedSignIn(publicUrl, "ada", "6.6.6.6");
+  await failedSignIn(publicUrl, "ada@example.org", "6.6.6.6");
   const seen = throttleAddresses();
   expect(seen.length > 0 && !seen.includes("6.6.6.6"), `the throttle counted a forged address (${seen})`);
   checks.push(`a forged X-Forwarded-For was not the throttle's address (counted: ${seen})`);
@@ -224,7 +224,7 @@ try {
   // 9b. With WEB_TRUSTED_PROXIES empty nobody is trusted: the forged address is ignored and the caller
   // is the address web is connected from (learned here, since it depends on how Docker publishes ports).
   clearThrottle();
-  await failedSignIn(plain, "ada", "7.7.7.7");
+  await failedSignIn(plain, "ada@example.org", "7.7.7.7");
   const untrusted = throttleAddresses();
   expect(untrusted.length === 1 && untrusted[0] !== "7.7.7.7", `WEB_TLS=proxy, no trusted proxies: the throttle counted ${untrusted}, not the connecting address`);
   const connecting = untrusted[0];
@@ -236,7 +236,7 @@ try {
   await healthy("web");
   clearThrottle();
   // The balancer appends the address it saw; a client's own earlier entry is not believed.
-  await failedSignIn(plain, "ada", "9.9.9.9, 7.7.7.7");
+  await failedSignIn(plain, "ada@example.org", "9.9.9.9, 7.7.7.7");
   const trusted = throttleAddresses();
   expect(trusted.length === 1 && trusted[0] === "7.7.7.7", `WEB_TLS=proxy, balancer trusted: the throttle counted ${trusted}, not the address the balancer named (7.7.7.7)`);
   checks.push(`WEB_TLS=proxy with ${connecting} in WEB_TRUSTED_PROXIES took the caller from X-Forwarded-For (the last untrusted entry)`);

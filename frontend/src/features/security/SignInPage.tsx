@@ -110,7 +110,7 @@ export function SignInPage({ route, onNavigate }: { route: SignInRoute; onNaviga
     <SettingsLayout
       eyebrow="Security"
       title="Sign-in"
-      description="How people prove who they are: a username and password, or the organisation's sign-in provider (OpenID Connect) with its own multi-factor sign-in. The engine starts its own session either way."
+      description="How people prove who they are: an e-mail address and password, or the organisation's sign-in provider (OpenID Connect) with its own multi-factor sign-in. The engine starts its own session either way."
       actions={
         <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
           <Icon name="plus" /> New provider
@@ -751,7 +751,7 @@ function LocalDetail({
       </header>
       <p>
         {local.enabled
-          ? "People sign in with a username and password; each may add an authenticator app on their Account page, and you can require it below. A provider brings the organisation's own multi-factor sign-in."
+          ? "People sign in with an e-mail address and password; each may add an authenticator app on their Account page, and you can require it below. A provider brings the organisation's own multi-factor sign-in."
           : `Only the ${local.keptPeople === 1 ? "administrator" : `${local.keptPeople} administrators`} made on the server sign in with a password, from the link on the sign-in page. Everyone else signs in with a provider.`}
       </p>
       {error && !confirming && (

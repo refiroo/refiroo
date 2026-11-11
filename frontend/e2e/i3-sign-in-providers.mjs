@@ -146,7 +146,7 @@ async function walk(configuration) {
 
     // 4. Local sign-in off through its confirmation; the sign-in page with the button and the link.
     // The harness person keeps local sign-in, as an administrator made on the server does (D365).
-    const [kept] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
+    const [kept] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.email)}`)).items;
     await api(`/users/${kept.id}`, { expectedVersion: kept.version, localKept: true }, "PATCH");
     await page.goto(`${uiUrl}/settings/sign-in/local`);
     await page.getByRole("heading", { level: 2, name: "Local accounts" }).waitFor();
@@ -171,7 +171,7 @@ async function walk(configuration) {
     await shot(door, "sign-in-local-off");
     await axe(door, `${tag}-sign-in-local-off`);
     await door.getByRole("button", { name: "Sign in with a local administrator account" }).click();
-    await door.getByLabel("Username").fill(harnessIdentity.person.username);
+    await door.getByLabel("E-mail address").fill(harnessIdentity.person.email);
     await door.getByLabel("Password").fill(harnessIdentity.person.password);
     await door.getByRole("button", { name: "Sign in" }).click();
     await door.waitForURL(`${uiUrl}/settings/about`);

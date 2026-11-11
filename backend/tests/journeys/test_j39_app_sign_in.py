@@ -57,7 +57,9 @@ def test_the_screen_signs_a_person_in_with_a_password(world):
     assert set(offered["build"]) == {"version", "commit", "tag"}
 
     wrong = browser.post(
-        PASSWORD_STEP, json={"request": request, "username": "ana", "password": "nope"}, headers=APP
+        PASSWORD_STEP,
+        json={"request": request, "email": "ana@example.org", "password": "nope"},
+        headers=APP,
     )
     assert wrong.status_code == 401 and wrong.json()["error"] == "wrong_credentials"
     events = ok(world.api.get("/security-events", aggregateType="sign-in"))["items"]
@@ -65,7 +67,7 @@ def test_the_screen_signs_a_person_in_with_a_password(world):
 
     right = browser.post(
         PASSWORD_STEP,
-        json={"request": request, "username": "ana", "password": PASSWORD},
+        json={"request": request, "email": "ana@example.org", "password": PASSWORD},
         headers=APP,
     )
     code = _signed_in(right)
@@ -74,12 +76,12 @@ def test_the_screen_signs_a_person_in_with_a_password(world):
     assert other.status_code == 400 and other.json()["error"] == "invalid_grant"
     again = browser.post(
         PASSWORD_STEP,
-        json={"request": request, "username": "ana", "password": PASSWORD},
+        json={"request": request, "email": "ana@example.org", "password": PASSWORD},
         headers=APP,
     )
     token = ok(_exchange(browser, _signed_in(again), verifier))["access_token"]
     me = ok(world.api.client.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"}))
-    assert me["username"] == "ana" and me["signedInWith"] == "password"
+    assert me["email"] == "ana@example.org" and me["signedInWith"] == "password"
 
 
 @pytest.mark.journey("J39")
@@ -91,7 +93,7 @@ def test_the_screen_is_refused_what_the_pages_refuse(world):
     _person(world, "ben")
     browser = _browser(world)
     _, challenge = _pkce()
-    body = {"username": "ben", "password": PASSWORD}
+    body = {"email": "ben@example.org", "password": PASSWORD}
     for changes, error in (
         ({"client_id": "other"}, "unknown_client"),
         ({"redirect_uri": "http://evil.example/signed-in"}, "unknown_client"),
@@ -115,7 +117,7 @@ def test_the_screen_is_refused_what_the_pages_refuse(world):
     for _ in range(12):
         last = browser.post(
             PASSWORD_STEP,
-            json={"request": request, "username": "ben", "password": "wrong"},
+            json={"request": request, "email": "ben@example.org", "password": "wrong"},
             headers=APP,
         )
         if last.status_code == 429:
@@ -139,7 +141,11 @@ def test_the_screen_takes_the_second_step(world):
         verifier, challenge = _pkce()
         answer = browser.post(
             PASSWORD_STEP,
-            json={"request": _request(challenge), "username": "cleo", "password": PASSWORD},
+            json={
+                "request": _request(challenge),
+                "email": "cleo@example.org",
+                "password": PASSWORD,
+            },
             headers=APP,
         )
         assert answer.status_code == 200, answer.text
@@ -155,7 +161,7 @@ def test_the_screen_takes_the_second_step(world):
     signed = browser.post(SECOND, json={"step": step, "code": _totp(secret, ahead=1)}, headers=APP)
     access = ok(_exchange(browser, _signed_in(signed), verifier))["access_token"]
     me = ok(world.api.client.get("/api/v1/me", headers={"Authorization": f"Bearer {access}"}))
-    assert me["signedInWith"] == "password" and me["username"] == "cleo"
+    assert me["signedInWith"] == "password" and me["email"] == "cleo@example.org"
     gone = browser.post(SECOND, json={"step": step, "code": _totp(secret, ahead=1)}, headers=APP)
     assert gone.status_code == 410 and gone.json()["error"] == "step_gone"
 
@@ -189,7 +195,11 @@ def test_the_screen_sets_a_second_factor_up_when_it_is_required(world):
     answer = ok(
         browser.post(
             PASSWORD_STEP,
-            json={"request": _request(challenge), "username": "dara", "password": PASSWORD},
+            json={
+                "request": _request(challenge),
+                "email": "dara@example.org",
+                "password": PASSWORD,
+            },
             headers=APP,
         )
     )

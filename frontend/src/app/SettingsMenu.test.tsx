@@ -11,7 +11,6 @@ vi.mock("@/api/client", () => ({
       id: "u1",
       kind: "user",
       name: "Ana Ferreira",
-      username: "ana",
       email: "ana@example.org",
       lastSignInAt: null,
       signedInWith: "password",

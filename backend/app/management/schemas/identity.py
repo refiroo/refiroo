@@ -20,7 +20,6 @@ class MeResponse(BaseModel):
     id: str
     kind: Literal["user", "client"]
     name: str
-    username: str | None = Field(description="A person's username; null for a client")
     email: str | None
     lastSignInAt: datetime | None = Field(
         description="A person's last sign-in, or when a client last obtained a token"
@@ -112,9 +111,10 @@ class PasskeyPage(CollectionPage[PasskeyResponse]):
 
 class UserResponse(BaseModel):
     id: str
-    username: str
     name: str
-    email: str | None
+    email: str | None = Field(
+        description="The e-mail address a person signs in with; null only for a deactivated person"
+    )
     active: bool = Field(description="False once deactivated; a person is never deleted")
     hasPassword: bool = Field(
         description="Whether the person has set a password; never the password"
@@ -234,9 +234,9 @@ class SecurityEventResponse(BaseModel):
     """A change to access, or a sign-in (0.12 Z4, D317, D318). ``aggregateId`` is the person's,
     group's or client's public ID, the role's key, the grant's ID, the key's ``kid``, a sign-in
     provider's key (``local`` for local sign-in) or, for a sign-in, the person's ID (``unknown``
-    for a username nobody has). ``details`` holds what changed
+    for an address nobody has). ``details`` holds what changed
     (``changedFields`` and the new values for an update; the principal, role and scope for a grant;
-    the username and address for a sign-in), never a password, secret, link or key. ``actor`` is
+    the e-mail address and the caller's address for a sign-in), never a password, secret, link or key. ``actor`` is
     who made it; a failed sign-in names nobody."""
 
     id: str

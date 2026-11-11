@@ -1,9 +1,9 @@
 """Passwords and client secrets: the rules a password meets and how both are stored (D252, D253).
 
 A local password is 15 to 128 characters with no composition rules, refused when it equals the
-username or is one of the most common (NIST SP 800-63B rev. 4 for a password used alone). The least
-length is ``PASSWORD_MIN_LENGTH``, 15 unless a development machine lowers it (D276). Passwords
-and client secrets are stored as Argon2id PHC strings, never sealed: the engine never reads them
+e-mail address or is one of the most common (NIST SP 800-63B rev. 4 for a password used
+alone). The least length is ``PASSWORD_MIN_LENGTH``, 15 unless a development machine lowers it
+(D276). Passwords and client secrets are stored as Argon2id PHC strings, never sealed: the engine never reads them
 back, only compares.
 """
 
@@ -91,17 +91,15 @@ _ITERATIONS = 2
 _LANES = 1
 
 
-def check_password(
-    password: str, username: str | None, min_length: int = DEFAULT_MIN_LENGTH
-) -> None:
+def check_password(password: str, email: str | None, min_length: int = DEFAULT_MIN_LENGTH) -> None:
     """Refuse a password the rules do not allow, with ``422 PASSWORD_REJECTED`` and the reason;
     ``min_length`` is the deployment's ``PASSWORD_MIN_LENGTH``."""
     if len(password) < min_length:
         reason, message = "tooShort", f"A password needs at least {min_length} characters"
     elif len(password) > MAX_LENGTH:
         reason, message = "tooLong", f"A password has at most {MAX_LENGTH} characters"
-    elif username is not None and password.casefold() == username.casefold():
-        reason, message = "username", "A password cannot be the username"
+    elif email is not None and password.casefold() == email.casefold():
+        reason, message = "email", "A password cannot be the e-mail address"
     elif password.casefold() in COMMON:
         reason, message = "common", "This password is one of the most common; choose another"
     else:

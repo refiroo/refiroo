@@ -1,6 +1,6 @@
 /**
  * Settings › Security › People (0.12 SP1, U8): the people of the instance beside the selected
- * person (U-D10's list and detail), searched by name, username or e-mail, active or deactivated,
+ * person (U-D10's list and detail), searched by name or e-mail, active or deactivated,
  * each with the roles they hold (D298). A person's page edits their name and e-mail, makes a
  * one-time password link shown once (D304), signs them out everywhere, deactivates or restores them
  * (never deletes, D237), lists their roles directly and through groups (D299) and their groups.
@@ -127,7 +127,7 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
       <section>
         <SearchField
           label="Search people"
-          placeholder="Name, username or e-mail"
+          placeholder="Name or e-mail"
           value={search}
           onChange={setSearch}
           clearOnEscape
@@ -299,7 +299,6 @@ function PasswordLinkDialog({
 
 // What a person's fields must be, said where the engine refused one (`422`, by field).
 const PERSON_FIELDS: Record<string, string> = {
-  username: "A username has no spaces and at most 150 characters. Use a dot, dash or underscore instead, as in user.1.",
   name: "A name has 1 to 200 characters.",
   email: "An e-mail address looks like name@example.org.",
 };
@@ -317,14 +316,11 @@ function NewPersonDialog({
   onClose: () => void;
   onCreated: (user: User, link: PasswordResetLink | undefined) => void;
 }) {
-  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [refused, setRefused] = useState<Record<string, string>>({});
-  // A space is refused by the engine; said as it is typed, before anything is sent.
-  const usernameProblem = /\s/.test(username) ? PERSON_FIELDS.username : refused.username;
 
   async function create() {
     setPending(true);
@@ -332,11 +328,7 @@ function NewPersonDialog({
     setRefused({});
     let user: User;
     try {
-      user = await security.createUser({
-        username: username.trim(),
-        name: name.trim(),
-        ...(email.trim() ? { email: email.trim() } : {}),
-      });
+      user = await security.createUser({ name: name.trim(), email: email.trim() });
     } catch (cause) {
       const fields = refusedFields(cause);
       setRefused(fields);
@@ -356,7 +348,7 @@ function NewPersonDialog({
       eyebrow="Security"
       size="compact"
       busy={pending}
-      dirty={!!(username || name || email)}
+      dirty={!!(name || email)}
       onClose={onClose}
     >
       <form
@@ -366,30 +358,11 @@ function NewPersonDialog({
           void create();
         }}
       >
-        <FormField
-          label="Username"
-          help="What they type to sign in, without spaces; it cannot change later."
-          error={usernameProblem}
-        >
-          {(control) => (
-            <input
-              {...control}
-              autoFocus
-              required
-              maxLength={150}
-              autoComplete="off"
-              value={username}
-              onChange={(event) => {
-                setUsername(event.target.value);
-                setRefused(({ username: _, ...rest }) => rest);
-              }}
-            />
-          )}
-        </FormField>
         <FormField label="Name" error={refused.name}>
           {(control) => (
             <input
               {...control}
+              autoFocus
               required
               maxLength={200}
               value={name}
@@ -397,11 +370,17 @@ function NewPersonDialog({
             />
           )}
         </FormField>
-        <FormField label="E-mail (optional)" error={refused.email}>
+        <FormField
+          label="E-mail"
+          help="What they type to sign in. Another person cannot have the same address."
+          error={refused.email}
+        >
           {(control) => (
             <input
               {...control}
               type="email"
+              required
+              autoComplete="off"
               maxLength={320}
               value={email}
               onChange={(event) => {
@@ -420,7 +399,7 @@ function NewPersonDialog({
           <button type="button" className="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={pending || !username.trim() || !name.trim() || /\s/.test(username)}>
+          <button className="primary" disabled={pending || !email.trim() || !name.trim()}>
             {pending ? "Creating…" : "Create and make a password link"}
           </button>
         </div>
@@ -449,7 +428,7 @@ function PersonDetail({
   const [user, setUser] = useState<User>();
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<false | "edit" | "restore">(false);
   const [confirming, setConfirming] = useState<"deactivate" | "sign-out" | "keep" | "remove-factor">();
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<SignInProviderRef>();
@@ -521,10 +500,7 @@ function PersonDetail({
         <div>
           <p className="eyebrow">Person</p>
           <h2>{user.name}</h2>
-          <p>
-            {user.username}
-            {user.email && ` · ${user.email}`}
-          </p>
+          <p>{user.email ?? "No e-mail address"}</p>
           <div className="security-pills">
             {user.active ? (
               <StatusPill tone="success">Active</StatusPill>
@@ -548,7 +524,7 @@ function PersonDetail({
         </Notice>
       )}
       <div className="model-actions">
-        <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing(true)}>
+        <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing("edit")}>
           Edit…
         </button>
         {readsChanges(held) && (
@@ -584,12 +560,15 @@ function PersonDetail({
             className="secondary"
             disabled={pending}
             onClick={() =>
-              void write(async () =>
-                stored(
-                  await security.updateUser(user.id, { expectedVersion: user.version, active: true }),
-                  `${user.name} was restored and can sign in again.`,
-                ),
-              )
+              // An active person signs in with an e-mail address, so one without is asked for it first.
+              user.email
+                ? void write(async () =>
+                    stored(
+                      await security.updateUser(user.id, { expectedVersion: user.version, active: true }),
+                      `${user.name} was restored and can sign in again.`,
+                    ),
+                  )
+                : setEditing("restore")
             }
           >
             Restore
@@ -662,13 +641,14 @@ function PersonDetail({
       {editing && (
         <EditPersonDialog
           user={user}
+          restoring={editing === "restore"}
           onClose={() => {
             setEditing(false);
             editRef.current?.focus();
           }}
           onSaved={(updated) => {
             setEditing(false);
-            stored(updated, "Saved.");
+            stored(updated, editing === "restore" ? `${updated.name} was restored and can sign in again.` : "Saved.");
           }}
           onConflict={(current) => {
             setUser(current);
@@ -938,11 +918,14 @@ function PersonPasskeys({ user, onRemoved }: { user: User; onRemoved: (user: Use
 
 function EditPersonDialog({
   user,
+  restoring,
   onClose,
   onSaved,
   onConflict,
 }: {
   user: User;
+  /** A deactivated person is made active again with the address typed here. */
+  restoring: boolean;
   onClose: () => void;
   onSaved: (user: User) => void;
   onConflict: (current: User) => void;
@@ -953,7 +936,7 @@ function EditPersonDialog({
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState("");
   const [refused, setRefused] = useState<Record<string, string>>({});
-  const changed = name.trim() !== user.name || email.trim() !== (user.email ?? "");
+  const changed = restoring || name.trim() !== user.name || email.trim() !== (user.email ?? "");
 
   async function save() {
     setPending(true);
@@ -966,6 +949,7 @@ function EditPersonDialog({
           expectedVersion: user.version,
           name: name.trim(),
           email: email.trim() || null,
+          ...(restoring ? { active: true } : {}),
         }),
       );
     } catch (cause) {
@@ -984,7 +968,14 @@ function EditPersonDialog({
   }
 
   return (
-    <Modal title={`Edit ${user.name}`} eyebrow="Person" size="compact" busy={pending} dirty={changed} onClose={onClose}>
+    <Modal
+      title={`${restoring ? "Restore" : "Edit"} ${user.name}`}
+      eyebrow="Person"
+      size="compact"
+      busy={pending}
+      dirty={changed}
+      onClose={onClose}
+    >
       <form
         noValidate
         onSubmit={(event) => {
@@ -1004,11 +995,20 @@ function EditPersonDialog({
             />
           )}
         </FormField>
-        <FormField label="E-mail (optional)" error={refused.email}>
+        <FormField
+          label={user.active || restoring ? "E-mail" : "E-mail (optional)"}
+          help={
+            user.active || restoring
+              ? "The name they sign in with. Another person cannot have the same address."
+              : "A deactivated person may have none, which frees the address for someone else."
+          }
+          error={refused.email}
+        >
           {(control) => (
             <input
               {...control}
               type="email"
+              required={user.active || restoring}
               maxLength={320}
               value={email}
               onChange={(event) => {
@@ -1018,7 +1018,6 @@ function EditPersonDialog({
             />
           )}
         </FormField>
-        <p className="admin-hint">The username {user.username} does not change.</p>
         {conflict && (
           <Notice tone="warning" title="Not saved">
             {conflict}
@@ -1034,7 +1033,7 @@ function EditPersonDialog({
             Cancel
           </button>
           <button className="primary" disabled={pending || !changed || !name.trim()}>
-            {pending ? "Saving…" : "Save"}
+            {pending ? "Saving…" : restoring ? "Restore" : "Save"}
           </button>
         </div>
       </form>

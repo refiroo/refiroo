@@ -148,11 +148,11 @@ If `VITE_API_URL` separates the frontend and engine, both must share a site, suc
 cookie even when CORS permits requests. Outside applications can use the engine's
 `/oauth/authorize` page; it cannot be framed. Its passkey script is served by the engine itself.
 
-The first five failed attempts for a username and twenty for a caller address incur no delay.
+The first five failed attempts for an e-mail address and twenty for a caller address incur no delay.
 Subsequent attempts wait 1 second, then 2, 4 and so on, up to 15 minutes after the last failure.
-A correct password is not checked during a wait. Success clears the username count; counts lapse
+A correct password is not checked during a wait. Success clears the e-mail address count; counts lapse
 after 24 hours. Wrong current passwords, passkey proofs and client secrets also count against
-throttling. Logs identify failures with `sign_in_failed`, username and caller address.
+throttling. Logs identify failures with `sign_in_failed`, e-mail address and caller address.
 Trust forwarded caller addresses only from the actual proxy, or everyone shares its address limit.
 At most 2,000 unfinished provider sign-ins can be open per provider. Further starts show HTTP 429
 until starts expire after ten minutes.
@@ -514,14 +514,14 @@ all need engine recreation after a change.
 
    ```bash
    docker compose run --rm engine python -m app.cli.create_admin    \
-     --username recovery-operator --name "Recovery administrator"
+     --email recovery-operator@example.org --name "Recovery administrator"
    ```
 
-   Expect the password prompts and `Created administrator 'recovery-operator' (...)`.
+   Expect the password prompts and `Created administrator 'recovery-operator@example.org' (...)`.
    This creates another privileged person who keeps local sign-in. Complete required second-factor
    setup on first use. Once access is recovered, review and narrow temporary recovery grants.
 
-Repeated login failures are slowed per username and caller address. Check forwarded-address trust
+Repeated login failures are slowed per e-mail address and caller address. Check forwarded-address trust
 if many different users appear to share a throttle. A correct password does not bypass a wait
 already in force. Do not reset passwords or disable second factors just to work around a proxy
 that supplies one address for everyone.

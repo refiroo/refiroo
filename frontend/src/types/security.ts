@@ -7,7 +7,6 @@ export interface Me {
   id: string;
   kind: "user" | "client";
   name: string;
-  username: string | null;
   email: string | null;
   lastSignInAt: string | null;
   /** `password`, or a sign-in provider's key (0.12 I3). */
@@ -131,8 +130,8 @@ export interface UserRole {
 /** A person, as Settings › Security › People shows them (0.12 I1, SP1). */
 export interface User {
   id: string;
-  username: string;
   name: string;
+  /** The name a person signs in with; null only for a deactivated person (0.17 EM1). */
   email: string | null;
   active: boolean;
   hasPassword: boolean;
@@ -194,7 +193,7 @@ export interface GroupPage extends PageNavigation {
 
 export interface GroupMember {
   id: string;
-  username: string;
+  email: string | null;
   name: string;
   active: boolean;
   /** A provider group's member: when a sign-in last named them in it. */
@@ -203,7 +202,7 @@ export interface GroupMember {
 
 /** What adding or removing one of several people did, or would do (0.12 SP1b, D401, D402). */
 export interface GroupMemberOutcome {
-  /** The person's ID, or the username or e-mail address as sent. */
+  /** The person's ID, or the e-mail address as sent. */
   input: string;
   outcome: "added" | "toAdd" | "alreadyMember" | "deactivated" | "notFound" | "removed" | "notMember";
   member: GroupMember | null;

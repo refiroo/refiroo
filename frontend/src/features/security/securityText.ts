@@ -97,7 +97,7 @@ export function unlinkSentence(person: string, provider: string): string {
 
 /** Local accounts' line on Sign-in (D365). */
 export function localSignInLine(local: Pick<LocalSignIn, "enabled" | "keptPeople">): string {
-  if (local.enabled) return "On · people sign in with a username and password";
+  if (local.enabled) return "On · people sign in with an e-mail address and password";
   return `Off · ${administrators(local.keptPeople)} ${local.keptPeople === 1 ? "keeps" : "keep"} a password`;
 }
 
@@ -323,7 +323,7 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
         return `Person created at their first sign-in with ${text(details.provider)}`;
       if (event.action === "identity-linked") {
         const providers = Array.isArray(details.providers) ? (details.providers as string[]).join(", ") : "";
-        return `Sign-in with ${providers || "a provider"} linked from ${text(details.fromUsername) || "another person"}`;
+        return `Sign-in with ${providers || "a provider"} linked from ${text(details.fromEmail) || text(details.fromUsername) || "another person"}`;
       }
       if (event.action === "passkey-added") return `Passkey added: ${text(details.name)}`;
       if (event.action === "passkey-removed")

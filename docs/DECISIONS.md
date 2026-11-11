@@ -1744,7 +1744,11 @@ the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (
 - A stolen access token works for up to an hour while its holder stays active.
 - A person signing in through a provider is found by the provider and the token's subject, never by
   e-mail, and created at their first sign-in (0.12 I3, D363); someone with a local account becomes
-  a second person. A provider's groups are groups of the engine whose membership each sign-in sets
+  a second person. _Amended by 0.17 EM1 (PP-D14, PP-D15):_ matching stays by the provider and `sub`;
+  the e-mail address is now the person's only sign-in name (the username is gone), so a provider's
+  first sign-in needs an `email` claim and an address no other person holds (`email_taken`, which a
+  security administrator resolves, OPERATIONS), and at later sign-ins an address another person
+  holds is not taken. A provider's groups are groups of the engine whose membership each sign-in sets
   (D364). Local sign-in can be turned off once a provider works, the administrators made on the
   server keeping it as the way back (D365).
 - An administrator moves a provider identity onto the person who already had a local account after

@@ -110,16 +110,16 @@ def _issue(session: Session, checked: dict[str, str], user: User, now: datetime)
 def password_step(
     session: Session,
     checked: dict[str, str],
-    username: str,
+    email: str,
     password: str,
     address: str | None,
     now: datetime,
 ) -> SignedIn | NeedsSecondFactor | sign_in.Refused:
-    """A username and password: refused (a wrong pair, never saying which part, or a wait running,
+    """An e-mail address and password: refused (a wrong pair, never saying which part, or a wait running,
     D271), a second step, or signed in."""
     outcome = sign_in.check_password(
         session,
-        username,
+        email,
         password,
         address,
         now,
@@ -130,7 +130,7 @@ def password_step(
         return outcome
     stage = second_factor.required_step(session, outcome)
     if stage is None:
-        sign_in.complete(session, outcome, username, address)
+        sign_in.complete(session, outcome, email, address)
         session.commit()
         return _issue(session, checked, outcome, now)
     return NeedsSecondFactor(

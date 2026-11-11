@@ -135,7 +135,7 @@ def test_a_person_sets_up_an_authenticator_app_and_signs_in_with_it(world):
     signed = _second(browser, _step(wrong), code=_totp(secret, ahead=1))
     access = ok(_exchange(browser, _code(signed), verifier))["access_token"]
     me = ok(world.api.client.get("/api/v1/me", headers=_bearer(access)))
-    assert me["signedInWith"] == "password" and me["username"] == "mei"
+    assert me["signedInWith"] == "password" and me["email"] == "mei@example.org"
 
     again = _browser(world)
     verifier, challenge = _pkce()

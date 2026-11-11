@@ -53,7 +53,7 @@ export function PrincipalPicker({
               kind: "user" as const,
               id: item.id,
               name: item.name,
-              detail: item.username,
+              detail: item.email ?? "",
             })),
           )
         : [],

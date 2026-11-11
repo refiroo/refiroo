@@ -248,7 +248,7 @@ def begin_registration(
         rp_id=rp_id,
         rp_name=product,
         user_id=user.public_id.encode(),
-        user_name=user.username,
+        user_name=user.email,
         user_display_name=user.name,
         attestation=AttestationConveyancePreference.NONE,
         authenticator_selection=AuthenticatorSelectionCriteria(
@@ -365,11 +365,11 @@ def _refuse(
     detail: str = "",
 ) -> PasskeyRefused:
     """Count a passkey that did not sign anyone in, as a wrong password is (D271)."""
-    sign_in.record_failure(session, user.username if user else "", address, now)
+    sign_in.record_failure(session, user.email if user else "", address, now)
     security_events.record(
         session, "sign-in", user.public_id if user else "unknown", "failed",
         about=[user.public_id] if user else [], by=None,
-        details={"username": user.username if user else None, "address": address,
+        details={"email": user.email if user else None, "address": address,
                  "reason": "passkey", "method": "passkey", "detail": detail[:200]},
     )  # fmt: skip
     session.commit()
@@ -395,7 +395,7 @@ def finish_authentication(
     if row.challenge is None:
         raise PasskeyRefused("Start the passkey again.", status=410)
     wait = sign_in.seconds_to_wait(
-        session, second_step[1].username if second_step else "", address, now
+        session, second_step[1].email if second_step else "", address, now
     )
     if wait > 0:
         raise PasskeyRefused(
@@ -455,6 +455,6 @@ def finish_authentication(
     passkey.sign_count = verified.new_sign_count
     passkey.last_used_at = now
     row.used_at = now
-    sign_in.complete(session, owner, owner.username, address, method="passkey")
+    sign_in.complete(session, owner, owner.email, address, method="passkey")
     session.commit()
     return Authenticated(owner, dict(row.request), second_step is not None, row)

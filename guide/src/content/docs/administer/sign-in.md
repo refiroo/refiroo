@@ -14,9 +14,9 @@ decide what that identity may do afterwards.
 
 ## Local accounts
 
-With **Local accounts** on, people can use their refiroo username and password.
+With **Local accounts** on, people can use their refiroo e-mail address and password.
 They manage their password, passkeys and authenticator app on their own
-[Account](/docs/use/account/) page. Passwords normally need 15–128 characters. The operator can change the minimum. A password equal to the username or a common password is refused with a reason.
+[Account](/docs/use/account/) page. Passwords normally need 15–128 characters. The operator can change the minimum. A password equal to the e-mail address or a common password is refused with a reason.
 Repeated failed sign-ins are delayed, rather than permanently locking the account;
 the sign-in screen says how long to wait. Slowdown starts after five failed attempts for an account or twenty from an address. Waits double up to fifteen minutes; repeatedly retrying does not bypass them.
 
@@ -151,7 +151,7 @@ and recovery-code tasks are on [Your account](/docs/use/account/).
 
 ## Help with the sign-in screen
 
-The screen shows the refiroo mark and **Reference data that stays in step.** People enter **Username** and **Password**, then **Sign in**; **Signing in…** means it is waiting for an answer. Provider buttons say **Continue with …**. **Sign in with a passkey** uses a registered passkey and the device’s own confirmation.
+The screen shows the refiroo mark and **Reference data that stays in step.** People enter **E-mail address** and **Password**, then **Sign in**; **Signing in…** means it is waiting for an answer. Provider buttons say **Continue with …**. **Sign in with a passkey** uses a registered passkey and the device’s own confirmation.
 
 The next step depends on the methods available. **Enter your code** asks for an app code. **Confirm it is you** also offers **Use a passkey**. **Use a recovery code instead** opens **Use a recovery code**; **Use the app’s code** returns to the app. **Set up a second factor** shows the setup image and key, followed by **Confirm and continue** and **Keep your recovery codes**. Ask the person to store the codes before continuing. They can start again if the sign-in attempt has expired.
 

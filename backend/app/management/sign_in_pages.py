@@ -187,7 +187,7 @@ def sign_in(
     *,
     issuer: str,
     redirect_origins: tuple[str, ...],
-    username: str = "",
+    email: str = "",
     ended: bool = False,
     wrong: bool = False,
     wait_seconds: int = 0,
@@ -242,7 +242,7 @@ def sign_in(
         )
     if wrong:
         notes.append(
-            _note("error", "The username or password is not right. Check both and try again.")
+            _note("error", "The e-mail address or password is not right. Check both and try again.")
         )
     if wait_seconds:
         notes.append(
@@ -270,15 +270,15 @@ def sign_in(
         + offer
         + '<form method="post" action="/oauth/authorize">'
         + _hidden(request_fields)
-        + '<div><label for="username">Username</label>'
-        + f'<input id="username" name="username" value="{escape(username)}" '
+        + '<div><label for="email">E-mail address</label>'
+        + f'<input id="email" name="email" value="{escape(email)}" '
         + 'autocomplete="username" autocapitalize="none" spellcheck="false" required'
-        + ("" if username else " autofocus")
+        + ("" if email else " autofocus")
         + "></div>"
         + '<div><label for="password">Password</label>'
         + '<input id="password" name="password" type="password" '
         + f'autocomplete="current-password" required{invalid}'
-        + (" autofocus" if username else "")
+        + (" autofocus" if email else "")
         + "></div>"
         + f'<button type="submit">Sign in{allow}</button></form>'
         + (
@@ -350,7 +350,7 @@ def password(
     *,
     issuer: str,
     redirect_origins: tuple[str, ...],
-    username: str,
+    email: str,
     min_length: int,
     message: str | None = None,
     status: int = 200,
@@ -362,11 +362,11 @@ def password(
         note = note.replace("<p ", '<p id="password-problem" ', 1)
     body = (
         "<h1>Set your password</h1>"
-        + f'<p class="aside">For <strong>{escape(username)}</strong>.</p>'
+        + f'<p class="aside">For <strong>{escape(email)}</strong>.</p>'
         + note
         + '<form method="post" action="/oauth/password">'
         + _hidden({"token": token})
-        + f'<input type="hidden" name="username" value="{escape(username)}" '
+        + f'<input type="hidden" name="email" value="{escape(email)}" '
         + 'autocomplete="username">'
         + '<div><label for="new-password">New password</label>'
         + '<input id="new-password" name="password" type="password" autocomplete="new-password" '
@@ -399,7 +399,7 @@ def password_set(
     )
     body = (
         "<h1>Your password is set</h1>"
-        + _note("ok", "Sign in with your username and the new password.")
+        + _note("ok", "Sign in with your e-mail address and the new password.")
         + link
     )
     return _page("Password set", product, body, issuer=issuer, redirect_origins=redirect_origins)
@@ -451,7 +451,7 @@ def _link_button(step: str, view: str, text: str) -> str:
 def second_factor_code(
     product: str,
     step: str,
-    username: str,
+    email: str,
     *,
     start_again: str,
     issuer: str,
@@ -479,7 +479,7 @@ def second_factor_code(
         title = "Use a recovery code"
     else:
         invalid = ' aria-invalid="true" aria-describedby="code-problem"' if wrong else ""
-        who = f'<p class="aside">Signing in as <strong>{escape(username)}</strong>. '
+        who = f'<p class="aside">Signing in as <strong>{escape(email)}</strong>. '
         if passkey:
             heading = "Confirm it is you"
             intro = who + (
@@ -537,7 +537,7 @@ def second_factor_code(
 
 def passkey_add(
     product: str,
-    username: str,
+    email: str,
     return_to: str,
     *,
     issuer: str,
@@ -548,7 +548,7 @@ def passkey_add(
     host is the engine's, a passkey made here works on the sign-in page."""
     body = (
         "<h1>Add a passkey</h1>"
-        f'<p class="aside">For <strong>{escape(username)}</strong>. Your browser will ask you to '
+        f'<p class="aside">For <strong>{escape(email)}</strong>. Your browser will ask you to '
         "confirm with your fingerprint, face, device PIN or security key.</p>"
         + _PASSKEY_NOTE
         + '<div><label for="passkey-name">Name it</label>'

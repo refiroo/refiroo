@@ -241,7 +241,9 @@ def test_security_changes_and_sign_ins_are_recorded(world):
     (address, no actor), the membership, the grant and the creation (by S), and no entry holds a
     password or link; a person without Security administration gets `403 FORBIDDEN`."""
     administrator, as_administrator = _signed_in(world, "sam", ("security-admin", AT_INSTANCE))
-    person = ok(as_administrator.api.post("/users", {"username": "pat", "name": "Pat"}), 201)
+    person = ok(
+        as_administrator.api.post("/users", {"email": "pat@example.org", "name": "Pat"}), 201
+    )
     grant = {"principal": {"kind": "user", "id": person["id"]}, "role": "reader", "scope": IN_W1}
     granted = ok(as_administrator.api.post("/grants", grant), 201)
     group = ok(as_administrator.api.post("/groups", {"name": "J44 Stewards"}), 201)

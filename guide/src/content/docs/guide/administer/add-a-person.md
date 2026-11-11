@@ -11,17 +11,15 @@ provider, first sign-in creates their person instead; see
 
 ## Create the account
 
-1. Open **Settings › Security › People**. Check the Active list or search by name, username
+1. Open **Settings › Security › People**. Check the Active list or search by name
    or e-mail to avoid creating another account for the same person. Check **Deactivated**
    too; **Restore** reactivates an existing person with their retained roles and groups.
-2. Choose **New person**. Enter **Username**, the sign-in name without spaces. It cannot
-   change later. Use up to 150 characters, with a dot, dash or underscore instead of spaces.
-3. Enter **Name**, the display name used in lists and history, up to 200 characters.
-   Enter **E-mail (optional)** if you have it. An e-mail address is not required for a local account.
+2. Choose **New person**. Enter **Name**, the display name used in lists and history, up to 200 characters.
+3. Enter **E-mail**, the address they sign in with. Another person cannot have the same address.
 4. Choose **Create and make a password link**. **Cancel** leaves the person uncreated.
    If a field is refused, correct the named problem and submit again.
 
-![New person dialog with Username, Name and optional E-mail](/docs/screens/admin-person-new.png)
+![New person dialog with Name and E-mail](/docs/screens/admin-person-new.png)
 
 *Above: the reference instance's empty New person dialog, opened but not saved.*
 
@@ -54,7 +52,7 @@ the same link dialog. Its example address is not one to reuse.*
    a second factor, they set one up before their session starts. If the workspace is missing,
    review the grant's workspace and whether its role includes Browse.
 
-Creating a person does not send them data or grant access automatically. Keep the username
-stable; use **Edit…** for later name or e-mail corrections.
+Creating a person does not send them data or grant access automatically. Keep the e-mail address
+correct; use **Edit…** for later name or e-mail corrections.
 
 For delivery problems, check [Mail › Messages](/docs/administer/mail/#messages-and-retries). A queued message can still fail; the one-time dialog is not proof of receipt.

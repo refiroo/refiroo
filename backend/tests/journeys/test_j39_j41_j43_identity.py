@@ -139,7 +139,7 @@ def test_a_client_obtains_a_token_and_calls_the_api(world):
     )
     caller = _bearer(ok(in_body)["access_token"])
     me = ok(anonymous.get("/api/v1/me", headers=caller))
-    assert (me["id"], me["kind"], me["name"], me["username"]) == (
+    assert (me["id"], me["kind"], me["name"], me["email"]) == (
         client["id"],
         "client",
         "Nightly import",
@@ -319,14 +319,19 @@ def test_the_token_signing_key_rotated(world):
 def test_people_are_created_changed_and_deactivated(world):
     """Given an administrator. When a person is created, read, changed and deactivated with
     `expectedVersion`, then each read shows it; a stale version answers `409 VERSION_CONFLICT`, a
-    taken username `409 USERNAME_TAKEN`, and a person cannot be deleted."""
-    person = ok(
-        world.api.post("/users", {"username": "grace", "name": "Grace", "email": "g@example.org"}),
-        201,
-    )
+    taken e-mail address, in any letters, `409 EMAIL_TAKEN`, an active person without one `422`, and a
+    person cannot be deleted. A deactivated person may have no address, which frees it; reactivating
+    needs one."""
+    person = ok(world.api.post("/users", {"name": "Grace", "email": "g@example.org"}), 201)
     assert (person["active"], person["hasPassword"], person["version"]) == (True, False, 1)
     refused(
-        world.api.post("/users", {"username": "GRACE", "name": "Another"}), 409, "USERNAME_TAKEN"
+        world.api.post("/users", {"email": "G@Example.org", "name": "Another"}), 409, "EMAIL_TAKEN"
+    )
+    refused(world.api.post("/users", {"name": "No address"}), 422, "REQUEST_VALIDATION_ERROR")
+    refused(
+        world.api.patch(f"/users/{person['id']}", {"expectedVersion": 1, "email": None}),
+        422,
+        "EMAIL_REQUIRED",
     )
     renamed = ok(
         world.api.patch(f"/users/{person['id']}", {"expectedVersion": 1, "name": "Grace H."})
@@ -343,9 +348,39 @@ def test_people_are_created_changed_and_deactivated(world):
     )
     assert (gone["name"], gone["active"]) == ("Grace H.", False)
     assert ok(world.api.get(f"/users/{person['id']}")) == gone
+    freed = ok(
+        world.api.patch(
+            f"/users/{person['id']}", {"expectedVersion": gone["version"], "email": None}
+        )
+    )
+    assert freed["email"] is None and freed["active"] is False
+    other = ok(world.api.post("/users", {"email": "g@example.org", "name": "Gee"}), 201)
+    refused(
+        world.api.patch(
+            f"/users/{person['id']}", {"expectedVersion": freed["version"], "active": True}
+        ),
+        422,
+        "EMAIL_REQUIRED",
+    )
+    refused(
+        world.api.patch(
+            f"/users/{person['id']}",
+            {"expectedVersion": freed["version"], "active": True, "email": "G@example.org"},
+        ),
+        409,
+        "EMAIL_TAKEN",
+    )
+    back = ok(
+        world.api.patch(
+            f"/users/{person['id']}",
+            {"expectedVersion": freed["version"], "active": True, "email": "grace@example.org"},
+        )
+    )
+    assert back["active"] is True and back["email"] == "grace@example.org"
+    assert other["email"] == "g@example.org"
     refused(world.api.delete(f"/users/{person['id']}"), 405, "HTTP_ERROR")
     listed = ok(world.api.get("/users", q="grace"))["items"]
-    assert [item["id"] for item in listed] == [person["id"]]
+    assert sorted(item["id"] for item in listed) == [person["id"]]
 
 
 @pytest.mark.journey("J40")
@@ -359,8 +394,8 @@ def test_the_first_administrator_from_the_command_line(world):
                 sys.executable,
                 "-m",
                 "app.cli.create_admin",
-                "--username",
-                "ada",
+                "--email",
+                "ada@example.org",
                 "--name",
                 "Ada",
                 "--password-stdin",
@@ -393,4 +428,8 @@ def test_the_first_administrator_from_the_command_line(world):
         "workspace-admin",
     ]
     assert all(item["scope"]["instance"] for item in grants)
-    assert (admin["username"], admin["hasPassword"], admin["active"]) == ("ada", True, True)
+    assert (admin["email"], admin["hasPassword"], admin["active"]) == (
+        "ada@example.org",
+        True,
+        True,
+    )

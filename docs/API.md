@@ -6335,8 +6335,8 @@ Outside `/api/v1`, needing no token:
   JSON, for the browser application's own sign-in screen. The authorization request is the page's
   (six fields, checked by the same code: `400` with `unknown_client`, `unsupported_response_type` or
   `invalid_request`). `options` answers `{product, local, passkey, providers[{key, name, start}]}`.
-  `password` takes `{request, username, password}` and answers `{status: "signed_in", redirect}`, or
-  `{status: "second_factor", step, stage: "code"|"setup", app, passkey, username, setup?}`, or `401
+  `password` takes `{request, email, password}` and answers `{status: "signed_in", redirect}`, or
+  `{status: "second_factor", step, stage: "code"|"setup", app, passkey, email, setup?}`, or `401
   wrong_credentials`, or `429 slowed` with `waitSeconds` (and `Retry-After`). `second-factor` takes
   `{step, code?, recovery?}` and answers `signed_in`, `{status: "recovery_codes", codes}` (send the
   step again with no code to go on), `401 wrong_code`, `429 slowed`, `410 step_gone`. A post whose
@@ -6344,13 +6344,13 @@ Outside `/api/v1`, needing no token:
   `{error, message}`, the message being the page's own wording. `options` also answers `reset` (mail is
   set up and local sign-in is on).
 - `POST /oauth/sign-in/reset-request`, `GET /oauth/sign-in/reset`, `POST /oauth/sign-in/reset` (I6,
-  D420; not in the OpenAPI document): a forgotten password. `reset-request {identifier}` (a username or
-  an e-mail address) answers `202 {status: "requested", message}` whether or not anyone matches; only an
+  D420; not in the OpenAPI document): a forgotten password. `reset-request {email}` (an e-mail address, in any
+  letters) answers `202 {status: "requested", message}` whether or not anyone matches; only an
   active person with a local password, a kept local sign-in and an address is written to, one link each.
   Asks are counted per typed name (the first 3 cost nothing) and per address (the first 20), counted apart
   from failed sign-ins; from the next, an ask is refused `429 slowed` with `waitSeconds` until 1 s after
   the last one, then 2 s, 4 s and so on up to 15 minutes (D271); `409 mail_not_set_up` when mail is not set up. `GET reset`
-  without a token answers `{product, available}`; with one `{product, username, minLength}` or `410
+  without a token answers `{product, available}`; with one `{product, email, minLength}` or `410
   link_gone` (used, replaced, expired or unknown). `POST reset {token, password, repeat}` answers
   `{status: "password_set"}` and ends the person's sessions, or `410 link_gone`, `422 passwords_differ`,
   `422 password_rejected` (the rule that failed; the link stays valid), `403 foreign_origin`.
@@ -6381,16 +6381,22 @@ Outside `/api/v1`, needing no token:
   the address to register with it (`redirectUri`). The engine exchanges the code with the client
   secret (`client_secret_basic`, or `client_secret_post` when the provider offers only that), checks
   the ID token (signature against the provider's keys, RS256, PS256 or ES256; `iss`, `aud`, `azp`,
-  `exp`, `iat`, `nonce`), finds the person by the provider and `sub` or creates them (D363), sets
+  `exp`, `iat`, `nonce`), finds the person by the provider and `sub` or creates them (D363; never by e-mail, 0.17 EM1), sets
   their memberships in the provider's groups (D364), and redirects (`303`) to the browser's
   `redirect_uri` with a one-time code and its `state`, as the form does; the session's
   `signedInWith` is the provider's key. Parameters the provider adds of its own (`session_state`, ...) are ignored; an `iss` (RFC 9207) must equal the provider's issuer, else the sign-in is refused (reason `issuer`). A sign-in that cannot finish shows "*name* could not sign
   you in" with the reason and **Try again** (`400`; `403` for a deactivated person or a disabled
-  provider) and is a `sign-in` `failed` security event; nothing is redirected.
+  provider; `403` too for `email_taken`) and is a `sign-in` `failed` security event; nothing is redirected.
+  A first sign-in needs the token's `email` claim (reason `no_email`: the message names the missing
+  claim and that the provider's administrator adds it) and an address no other person holds, in any
+  letters, deactivated or not (reason `email_taken`: the message says a security administrator
+  resolves it; OPERATIONS gives the steps); the address is the person's name for signing in. At a
+  later sign-in the name and e-mail follow the token, except that an address another person holds
+  is not taken: the stored one stays and the sign-in succeeds (0.17 EM1, PP-D15).
 - `POST /oauth/second-factor` (I4b, D388): the sign-in page's second step, a form post carrying the
   `step` token that the password's answer put in its page (the page, not a redirect, answers a right
   password when the person has a second factor or the instance requires one; `401` for a wrong
-  username or password as before). Fields: `code` (the app's six digits, spaces ignored) or
+  e-mail address or password as before). Fields: `code` (the app's six digits, spaces ignored) or
   `recovery` (a recovery code), `view=recovery|code` to switch the page, `continue=1` after the
   recovery codes were shown. A right code answers as the password form did (`303`, a one-time code);
   a wrong or used one `401` on the page, counted in the same slowing as a wrong password and a
@@ -6499,19 +6505,19 @@ signature, the issuer or a required claim does not verify); both with `WWW-Authe
 
 **Local passwords** (D252): 15 to 128 characters (`PASSWORD_MIN_LENGTH`, lowered only on a
 development machine, D276), no composition rules; refused when equal to the
-username or in a built-in list of the most common (`422 PASSWORD_REJECTED`, `details.reason`).
-Failed sign-ins are counted per account (the username, case folded) and per address. The first 5
-failures for a username and the first 20 from an address cost nothing; after that an attempt is refused
+e-mail address or in a built-in list of the most common (`422 PASSWORD_REJECTED`, `details.reason`).
+Failed sign-ins are counted per account (the e-mail address, case folded) and per address. The first 5
+failures for an address and the first 20 from an address cost nothing; after that an attempt is refused
 (`429` on the sign-in page, which says how long to wait) until 1 s after the last failure, then 2 s, 4 s
 and so on up to 15 minutes. Nothing is ever locked, but the wait is the account's own, not the
-caller's: anyone who knows a username can keep it slowed by failing against it, and while it runs even
+caller's: anyone who knows an address can keep it slowed by failing against it, and while it runs even
 the right password is not checked. A refused attempt is not counted, counts lapse after 24 hours and
-a success clears the username's count (D271). Passwords and client secrets are hashed with Argon2id.
+a success clears the address's count (D271). Passwords and client secrets are hashed with Argon2id.
 
 ### The caller
 
 - `GET /api/v1/me` (delivered, I1, I2): the principal: `id`, `kind` (`user` or `client`), `name`,
-  `username` and `email` (a person; `null` for a client), `lastSignInAt` (a person's last sign-in, or
+  `email` (the name a person signs in with; `null` for a client), `lastSignInAt` (a person's last sign-in, or
   when a client last obtained a token), `signedInWith` (`password`, or a provider's key, I3),
   `signInProvider` (that provider's `key` and `name`; `null` for a password or a client) and
   `sessionId` (a person's session; `null` for a client).
@@ -6746,15 +6752,17 @@ Jobs submitted before 0.12 Z2 have no requester and run as before.
 All under `/api/v1`, needing `security-admin` at the instance; lists cursor-paged; writes take
 `expectedVersion` like every other resource.
 
-- **Users:** `GET /users` (`q`, `active`), `POST /users` `{username, name, email}`, `GET /users/{id}`,
+- **Users:** `GET /users` (`q`, `active`), `POST /users` `{name, email}`, `GET /users/{id}`,
   `PATCH /users/{id}` (`name`, `email`, `active: false` to deactivate; never deleted, D237),
   `POST /users/{id}/password-reset` (a one-time link, shown once; `send` also mails it, SP3), `DELETE /users/{id}/sessions`
   (sign out everywhere), `GET /users/{id}/grants`. A user has no password until the link is used.
-  _Delivered by I1:_ the list (`q` matches the username, name or e-mail; `active`; in creation
+  _Delivered by I1:_ the list (`q` matches the name or e-mail; `active`; in creation
   order), create, read and `PATCH` (`expectedVersion`; `active: true` restores). A person reads
-  `id`, `username`, `name`, `email`, `active`, `hasPassword` (never the password), `version`,
-  `createdAt`, `updatedAt`, `lastSignInAt`. The username has no spaces, at most 150 characters, and
-  is unique ignoring case (`409 USERNAME_TAKEN`); a missing person is `404 USER_NOT_FOUND`.
+  `id`, `name`, `email`, `active`, `hasPassword` (never the password), `version`,
+  `createdAt`, `updatedAt`, `lastSignInAt`. The e-mail address is the name a person signs in with (0.17 EM1, PP-D14): required for an
+  active person and unique ignoring case (`409 EMAIL_TAKEN`; `422 EMAIL_REQUIRED` for an active person
+  left without one, also when restoring one who has none); a deactivated person may have none, which
+  frees the address (PP-D16), and `email` is `null` in their read. A missing person is `404 USER_NOT_FOUND`.
   Deactivating a person ends their sessions. _Delivered by I2:_ `POST /users/{id}/password-reset`
   (`201 {url, expiresAt}`, answered once; valid `PASSWORD_RESET_HOURS`, once; a newer link replaces an
   older one, D272) and `DELETE /users/{id}/sessions` (`204`). _Delivered by SP1:_ every read of a
@@ -6815,7 +6823,7 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 - **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
   `DELETE /groups/{id}/members/{userId}`. _Since 0.12 SP1b (D401, D402):_ `POST
   /groups/{id}/members/batch {userIds?, identifiers?, dryRun?}` adds up to 500 people in one
-  transaction, by ID or by username or e-mail address in any case; each input answers `added`
+  transaction, by ID or by e-mail address in any case; each input answers `added`
   (`toAdd` with `dryRun`, which changes nothing), `alreadyMember`, `deactivated` (left out) or
   `notFound`, with the person it names, and `changed` counts those added; each added member has its
   `member-added` security event. `POST /groups/{id}/members/removal {userIds}` takes up to 500 out
@@ -6833,7 +6841,7 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   granted and deleted like any group; deleting its provider deletes it.
   _Delivered by Z1 (local groups):_ a group reads `id`, `name` (unique ignoring case,
   `409 GROUP_NAME_TAKEN`), `description`, `members` (a count), `version`, `createdAt`, `updatedAt`;
-  `PATCH` takes `expectedVersion`; a member reads `id`, `username`, `name`, `active`; adding one
+  `PATCH` takes `expectedVersion`; a member reads `id`, `email`, `name`, `active`; adding one
   already in the group changes nothing; deleting a group removes its memberships and grants. Missing
   ones are `404 GROUP_NOT_FOUND` and `404 GROUP_MEMBER_NOT_FOUND`. _Delivered by SP1 (D300):_
   `GET /groups` takes `q` (a case-insensitive part of the name) and `memberId` (the groups a person
@@ -6960,7 +6968,7 @@ security change is audited with its actor.
   `sign-in`, `sign-in-provider`, `mail-settings`, `approval-policy`), `aggregateId` (the public ID, a role's key, a key's `kid`, a
   provider's key or `local`, a workspace's key for its approval policy, for a sign-in the person's ID or `unknown`), `action`, `version`, `occurredAt`, `actor` (as on history; a failed sign-in names
   nobody) and `details`, which holds what changed and never a password, secret, link or key:
-  - `user`: `created` (`username`, `name`, `roles`), `updated` (`changedFields`, `name`, `active`),
+  - `user`: `created` (`email`, `name`, `roles`), `updated` (`changedFields`, `name`, `active`),
     `password-link-created` (`expiresAt`), `password-set` (through a link), `password-changed`,
     `signed-out-everywhere` (`reason`, `keptSession`);
   - `group`: `created`, `updated`, `deleted` (`name`), `member-added`, `member-removed` (`groupName`,
@@ -6969,15 +6977,16 @@ security change is audited with its actor.
     `applications`, `recordTypes`);
   - `client`: `created`, `updated`, `secret-added` (`secretId`, `overlapHours`), `secret-removed`;
     `token-signing-key`: `rotated` (`previousKid`, `immediate`; by the engine when due);
-  - `sign-in`: `succeeded`, and `failed` once the password was checked (`username`, `address`); an
+  - `sign-in`: `succeeded`, and `failed` once the password was checked (`email`, `address`; an event before 0.17 EM1 holds the `username` it recorded); an
     attempt refused while slowed (D271) is a log line only. Through a provider (I3, D368): with
     `provider`, and for a failure `reason` (`unknown`, `used`, `expired`, `browser`, `disabled`,
-    `unreachable`, `provider`, `exchange`, `token`, `issuer`, `audience`, `nonce`, `deactivated`)
+    `unreachable`, `provider`, `exchange`, `token`, `issuer`, `audience`, `nonce`, `deactivated`,
+    `no_email`, `email_taken`)
     and `detail`; a person made at a provider sign-in is `user` `created` with `provider`, and a
     provider group made or a membership changed at a sign-in is `group` `created`, `member-added`,
     `member-removed` with `provider`, each by the person signing in; a provider identity moved is
-    `user` `identity-linked` on the person it moved to (`fromUserId`, `fromUsername`, `providers`,
-    `groups`; about both people) with an `updated` (`active`) on the one deactivated, and one
+    `user` `identity-linked` on the person it moved to (`fromUserId`, `fromEmail`, `providers`,
+    `groups`; about both people) with an `updated` (`active`) on the one deactivated, whose address is freed, and one
     removed is `identity-unlinked` (`provider`, `subject`); `localKept` changed is `updated` with
     `changedFields` `localKept`; an authenticator app turned on is `user` `second-factor-added`, new
     recovery codes `recovery-codes-created` (`count`), a factor removed `second-factor-removed`

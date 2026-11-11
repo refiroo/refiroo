@@ -308,7 +308,7 @@ def _address(request: Request) -> str | None:
 def authorize_form(
     request: Request,
     session: DbSession,
-    username: Annotated[str, Form(max_length=320)] = "",
+    email: Annotated[str, Form(max_length=320)] = "",
     password: Annotated[str, Form(max_length=1024)] = "",
     response_type: Annotated[str | None, Form()] = None,
     client_id: Annotated[str | None, Form()] = None,
@@ -343,7 +343,7 @@ def authorize_form(
         )
     now = datetime.now(UTC)
     outcome = browser_sign_in.password_step(
-        session, checked, username, password, _address(request), now
+        session, checked, email, password, _address(request), now
     )
     if isinstance(outcome, sign_in.Refused):
         slowed = outcome.reason == "slowed"
@@ -353,7 +353,7 @@ def authorize_form(
             issuer=settings.issuer,
             redirect_origins=_origins(settings, checked),
             assistant=_assistant(session, settings, checked),
-            username=username,
+            email=email,
             wrong=not slowed,
             wait_seconds=outcome.wait_seconds,
             status=429 if slowed else 401,
@@ -415,7 +415,7 @@ def _factor_page(
             wait_seconds=wait_seconds, status=status, **common,
         )  # fmt: skip
     return pages.second_factor_code(
-        product, token, user.username, start_again=_query("/oauth/authorize", checked),
+        product, token, user.email, start_again=_query("/oauth/authorize", checked),
         recovery=recovery, wrong=wrong, wait_seconds=wait_seconds, status=status,
         app=second_factor.summary(session, user) is not None,
         passkey=passkeys.has_any(session, user), **common,
@@ -523,7 +523,7 @@ def _provider_problem(
         redirect_origins=_origins(settings),
         status=(
             403
-            if failed.reason in ("disabled", "deactivated")
+            if failed.reason in ("disabled", "deactivated", "email_taken")
             else 429
             if failed.reason == "busy"
             else 400
@@ -751,7 +751,7 @@ def passkey_add_page(
         )
     return pages.passkey_add(
         _product(session),
-        user.username,
+        user.email,
         _return_address(settings, return_to),
         issuer=settings.issuer,
         redirect_origins=_origins(settings),
@@ -1257,7 +1257,7 @@ def password_page(
         token,
         issuer=settings.issuer,
         redirect_origins=_origins(settings),
-        username=user.username,
+        email=user.email,
         min_length=settings.password_min_length,
     )
 
@@ -1293,7 +1293,7 @@ def password_form(
             token,
             issuer=settings.issuer,
             redirect_origins=origins,
-            username=user.username,
+            email=user.email,
             min_length=settings.password_min_length,
             message=message,
             status=422,

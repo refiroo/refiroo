@@ -342,7 +342,7 @@ def list_users(
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> UserPage:
     """People in the order they were created, each with the roles they hold, directly or through a
-    group, and where (D298); ``q`` matches the username, name or e-mail."""
+    group, and where (D298); ``q`` matches the name or e-mail."""
     return present.user_page(
         session, user_page(session, q=q, active=active, page=paging, page_size=page_size)
     )
@@ -351,8 +351,8 @@ def list_users(
 @router.post("/users", response_model=UserResponse, status_code=201)
 @requires("security.manage", at=INSTANCE)
 def post_user(payload: UserCreate, session: DbSession) -> UserResponse:
-    """A person, without a password until they set one; the username is unique ignoring case
-    (``409 USERNAME_TAKEN``)."""
+    """A person, without a password until they set one; the e-mail address, the name they
+    sign in with, is unique ignoring case (``409 EMAIL_TAKEN``)."""
     return present.user_response(session, create_user(session, payload))
 
 

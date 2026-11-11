@@ -52,7 +52,7 @@ const SECOND: SecondStep = {
   stage: "code",
   app: true,
   passkey: false,
-  username: "mei",
+  email: "mei@example.org",
 };
 
 function open(options: Partial<SignInOptions> = {}) {
@@ -61,7 +61,7 @@ function open(options: Partial<SignInOptions> = {}) {
 }
 
 async function typeCredentials() {
-  fireEvent.change(await screen.findByLabelText("Username"), { target: { value: "mei" } });
+  fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: "mei@example.org" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
 }
 
@@ -81,7 +81,7 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     await typeCredentials();
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(go).toHaveBeenCalledWith("http://localhost:5173/signed-in?code=x&state=s"));
-    expect(client.signInWithPassword).toHaveBeenCalledWith(request, "mei", "secret");
+    expect(client.signInWithPassword).toHaveBeenCalledWith(request, "mei@example.org", "secret");
   });
 
   it("says a wrong password without naming the part, and how long to wait when slowed", async () => {
@@ -89,7 +89,7 @@ describe("the application's sign-in screen (0.12 I5)", () => {
       .mockResolvedValueOnce({
         kind: "refused",
         error: "wrong_credentials",
-        message: "The username or password is not right. Check both and try again.",
+        message: "The e-mail address or password is not right. Check both and try again.",
         waitSeconds: 0,
         status: 401,
       })
@@ -103,10 +103,10 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     open();
     await typeCredentials();
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText(/username or password is not right/)).toBeInTheDocument();
-    expect(screen.getByText(/username or password is not right/).closest(".notice")).toHaveClass("error-notice");
-    // The username stays and the password field is cleared and focused.
-    expect(screen.getByLabelText("Username")).toHaveValue("mei");
+    expect(await screen.findByText(/e-mail address or password is not right/)).toBeInTheDocument();
+    expect(screen.getByText(/e-mail address or password is not right/).closest(".notice")).toHaveClass("error-notice");
+    // The e-mail address stays and the password field is cleared and focused.
+    expect(screen.getByLabelText("E-mail address")).toHaveValue("mei@example.org");
     expect(screen.getByLabelText("Password")).toHaveValue("");
     expect(screen.getByLabelText("Password")).toHaveFocus();
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "again" } });
@@ -122,11 +122,11 @@ describe("the application's sign-in screen (0.12 I5)", () => {
       providers: [{ key: "entra", name: "Entra ID", start: "/oauth/providers/entra/start?state=s" }],
     });
     expect(await screen.findByRole("button", { name: "Continue with Entra ID" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Username")).toBeNull();
+    expect(screen.queryByLabelText("E-mail address")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Continue with Entra ID" }));
     expect(go).toHaveBeenCalledWith("http://localhost:8000/oauth/providers/entra/start?state=s");
     fireEvent.click(screen.getByRole("button", { name: "Sign in with a local administrator account" }));
-    expect(await screen.findByLabelText("Username")).toBeInTheDocument();
+    expect(await screen.findByLabelText("E-mail address")).toBeInTheDocument();
   });
 
   it("links to the reset page only where a forgotten password can be asked for by e-mail", async () => {
@@ -136,7 +136,7 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     );
     first.unmount();
     open({ reset: false });
-    await screen.findByLabelText("Username");
+    await screen.findByLabelText("E-mail address");
     expect(screen.queryByRole("link", { name: "Forgotten your password?" })).toBeNull();
     expect(screen.getByText(/Ask a security administrator for a reset link/)).toBeTruthy();
   });
@@ -228,7 +228,7 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     expect(await screen.findByText(/not one the engine signs people in to/)).toBeInTheDocument();
     client.signInOptions.mockResolvedValueOnce({ options: OPTIONS });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByLabelText("Username")).toBeInTheDocument();
+    expect(await screen.findByLabelText("E-mail address")).toBeInTheDocument();
   });
 });
 

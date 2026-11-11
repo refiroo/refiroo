@@ -7,7 +7,7 @@
 // Auth (credentials in guide/reference/.env, never printed):
 //   consumer  OAuth client credentials (GUIDE_CONSUMER_CLIENT_ID / _SECRET) at POST /oauth/token, scope consumer.
 //   admin     the management API takes a bearer token; a person gets one only through the sign-in, so this signs
-//             in as GUIDE_ADMIN_USERNAME / GUIDE_ADMIN_PASSWORD as the browser does (POST /oauth/sign-in/password,
+//             in as GUIDE_ADMIN_EMAIL / GUIDE_ADMIN_PASSWORD as the browser does (POST /oauth/sign-in/password,
 //             then the authorization-code exchange with PKCE for client "browser"). No client is created.
 //   none      no Authorization header.
 // Tokens are reused for the run (and renewed once on a 401).
@@ -66,7 +66,7 @@ async function getToken(kind) {
     };
     const res = await fetch(BASE + '/oauth/sign-in/password', {
       method: 'POST', headers: { 'content-type': 'application/json', origin: BASE },
-      body: JSON.stringify({ request, username: env.GUIDE_ADMIN_USERNAME, password: env.GUIDE_ADMIN_PASSWORD }),
+      body: JSON.stringify({ request, email: env.GUIDE_ADMIN_EMAIL, password: env.GUIDE_ADMIN_PASSWORD }),
     });
     const out = await res.json().catch(() => ({}));
     if (res.status !== 200 || out.status !== 'signed_in') throw new Error(`admin sign-in ${res.status} ${out.error ?? out.status ?? ''}`.trim());

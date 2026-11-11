@@ -46,12 +46,12 @@ async function walk(configuration) {
     harness = await bootShaped(configuration);
     const { apiUrl, uiUrl, api, output, browser, signedOutContext } = harness;
     const tag = configuration.name;
-    const username = `ada-${tag}`;
+    const email = `ada-${tag}@example.org`;
     const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     const shot = (page, name) => page.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
 
     // A person with a password and an address, set the way an administrator's link sets it.
-    const made = await api("/users", { username, name: `Ada ${tag}`, email: `${username}@example.org` });
+    const made = await api("/users", { name: `Ada ${tag}`, email });
     const first = await api(`/users/${made.id}/password-reset`, {});
     expect(
       first.url.startsWith(`${uiUrl}/reset-password?token=`),
@@ -94,19 +94,19 @@ async function walk(configuration) {
     await shot(page, "sign-in-with-reset");
     await page.getByRole("link", { name: "Forgotten your password?" }).click();
     await page.getByRole("heading", { level: 1, name: "Forgotten your password?" }).waitFor();
-    await page.getByLabel("Username or e-mail address").waitFor();
+    await page.getByLabel("E-mail address").waitFor();
     await shot(page, "ask");
     await axe(page, `${tag}-ask`);
 
     // 3. The same words for a person and for a name nobody has.
     async function ask(name) {
       await page.goto(`${uiUrl}/reset-password`);
-      await page.getByLabel("Username or e-mail address").fill(name);
+      await page.getByLabel("E-mail address").fill(name);
       await page.getByRole("button", { name: "Mail me a link" }).click();
       return page.getByText(/If there is an account/).innerText();
     }
     const ghost = await ask("nobody-at-all");
-    const known = await ask(username);
+    const known = await ask(email);
     expect(ghost === known, `${tag}: the same words whoever is named: "${ghost}" / "${known}"`);
     await shot(page, "asked");
     await axe(page, `${tag}-asked`);
@@ -114,7 +114,7 @@ async function walk(configuration) {
     await smtp.quiet();
     expect(smtp.messages.length === 1, `${tag}: only the person was written to (${smtp.messages.length})`);
     const mail = decoded(smtp.messages[0] ?? "");
-    expect(mail.includes(`To: ${username}@example.org`), `${tag}: addressed to the person`);
+    expect(mail.includes(`To: ${email}`), `${tag}: addressed to the person`);
     const link = mail.match(/https?:\/\/\S+reset-password\?token=\S+/)?.[0] ?? "";
     expect(link.startsWith(`${uiUrl}/reset-password?token=`), `${tag}: the mail links to the application: ${link}`);
     checks.push(
@@ -124,7 +124,7 @@ async function walk(configuration) {
     // 4. The link: who it is for, the engine's refusal, then the new password.
     await page.goto(link);
     await page.getByRole("heading", { level: 1, name: "Choose a new password" }).waitFor();
-    await page.getByText(username, { exact: true }).waitFor();
+    await page.getByText(email, { exact: true }).waitFor();
     await shot(page, "choose");
     await axe(page, `${tag}-choose`);
     await page.getByLabel("New password").fill("short");
@@ -145,10 +145,10 @@ async function walk(configuration) {
     // 5. Sign in with it; the old one no longer works.
     await page.getByRole("link", { name: "Sign in" }).click();
     await signInHeading();
-    await page.getByLabel("Username").fill(username);
+    await page.getByLabel("E-mail address").fill(email);
     await page.getByLabel("Password").fill(OLD);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.getByRole("alert").filter({ hasText: "The username or password is not right" }).waitFor();
+    await page.getByRole("alert").filter({ hasText: "The e-mail address or password is not right" }).waitFor();
     await page.getByLabel("Password").fill(NEW);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.locator(".account-button").waitFor();
@@ -170,7 +170,7 @@ async function walk(configuration) {
     // 7. 390px.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${uiUrl}/reset-password`);
-    await page.getByLabel("Username or e-mail address").waitFor();
+    await page.getByLabel("E-mail address").waitFor();
     await shot(page, "ask-390");
     expect((await overflow(page)) <= 0, `${tag}: no horizontal scroll at 390px`);
     checks.push(`${tag}: the ask page at 390px`);

@@ -45,7 +45,7 @@ async function tokenFor(context, apiUrl, uiUrl, username) {
       code_challenge: base64Url(createHash("sha256").update(verifier).digest()),
       code_challenge_method: "S256",
       state: "security-r",
-      username,
+      email: username,
       password: PASSWORD,
     },
     maxRedirects: 0,
@@ -103,7 +103,7 @@ async function walk(configuration, width) {
 
     /** A person with a password, made through the API (the link's one-time token sets it). */
     async function make(username, name, grants = []) {
-      const created = await api("/users", { username, name });
+      const created = await api("/users", { email: `${username}@example.org`, name });
       for (const [role, scope] of grants)
         await api("/grants", { principal: { kind: "user", id: created.id }, role, scope });
       const { url } = await api(`/users/${created.id}/password-reset`, {}, "POST");
@@ -128,7 +128,7 @@ async function walk(configuration, width) {
       page.on("pageerror", (error) => failures.push(`${tag} ${username}: ${error.message}`));
       await page.goto(goTo);
       await page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-      // The username has focus on arrival; Tab leads to the password, Enter sends the form.
+      // The e-mail address has focus on arrival; Tab leads to the password, Enter sends the form.
       await page.waitForFunction(() => document.activeElement?.tagName === "INPUT");
       await page.keyboard.type(username);
       await page.keyboard.press("Tab");
@@ -165,7 +165,7 @@ async function walk(configuration, width) {
 
     // ---- J40: a Security administrator grants a role to a person and to a group ----
     {
-      const { context, page } = await signIn(sofia.username, `${uiUrl}/settings`);
+      const { context, page } = await signIn(sofia.email, `${uiUrl}/settings`);
       await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
       const settings = page.getByRole("navigation", { name: "Settings" });
       // The settings navigation is a column at 1440px; at 390px the address is typed (the page is the same).
@@ -204,7 +204,7 @@ async function walk(configuration, width) {
       await groupEntry.waitFor();
       await press(page, groupEntry);
       await page.getByRole("heading", { level: 2, name: `Curators ${tag}` }).waitFor();
-      await page.getByRole("group", { name: "Members" }).getByText(ada.username).waitFor();
+      await page.getByRole("group", { name: "Members" }).getByText(ada.email).waitFor();
       await press(page, page.getByRole("button", { name: "Grant", exact: true }));
       dialog = page.getByRole("dialog", { name: `Grant Curators ${tag} access` });
       await press(page, dialog.getByRole("checkbox", { name: "Contributor" }), "Space");
@@ -234,7 +234,7 @@ async function walk(configuration, width) {
 
     // ---- J39: the person signs in, opens a collection and signs out ----
     {
-      const { context, page } = await signIn(nia.username);
+      const { context, page } = await signIn(nia.email);
       await page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening), Nia$/ }).waitFor();
       // Tab from the top of the page to the first application of the workspace's card; Enter opens it.
       let reached = "";
@@ -286,7 +286,7 @@ async function walk(configuration, width) {
 
     // ---- J42: submit, send back, resubmit, approve; J45: Home lists the request for the approver ----
     const tokens = await signedOutContext({ viewport });
-    const adaToken = await tokenFor(tokens, apiUrl, uiUrl, ada.username);
+    const adaToken = await tokenFor(tokens, apiUrl, uiUrl, ada.email);
     await tokens.close();
     const as = async (path, body, method) => {
       const response = await fetch(`${apiUrl}/api/v1${path}`, {
@@ -310,8 +310,8 @@ async function walk(configuration, width) {
       "PATCH",
     );
 
-    const adaSession = await signIn(ada.username);
-    const omarSession = await signIn(omar.username);
+    const adaSession = await signIn(ada.email);
+    const omarSession = await signIn(omar.email);
     const inboxOf = async (page) => {
       const bell = page.getByRole("button", { name: /^Inbox/ });
       await press(page, bell);

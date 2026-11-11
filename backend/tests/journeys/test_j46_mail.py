@@ -449,11 +449,8 @@ def test_the_mail_password_and_queued_mail_are_re_sealed_with_the_other_secrets(
     assert counts["mail server password"] == 1 and counts["queued mail"] == 1
 
 
-def _person(world, username: str, email: str | None) -> dict:
-    return ok(
-        world.api.post("/users", {"username": username, "name": username.title(), "email": email}),
-        201,
-    )
+def _person(world, name: str, email: str) -> dict:
+    return ok(world.api.post("/users", {"name": name.title(), "email": email}), 201)
 
 
 def _link_works(world, link: str) -> bool:
@@ -526,13 +523,8 @@ def test_a_link_cannot_be_mailed_without_mail_or_an_address_and_the_earlier_link
         "MAIL_NOT_SET_UP",
     )
     _save(world, smtp)
-    bob = _person(world, "bob", None)
-    bobs = ok(world.api.post(f"/users/{bob['id']}/password-reset", {}), 201)
-    refused(world.api.post(f"/users/{bob['id']}/password-reset", {"send": True}), 409, "NO_EMAIL")
-
-    for link in (first, bobs):
-        page = world.api.client.get("/oauth/password", params={"token": _token(link["url"])})
-        assert page.status_code == 200, page.text
+    page = world.api.client.get("/oauth/password", params={"token": _token(first["url"])})
+    assert page.status_code == 200, page.text
     assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 0, "failed": 0}
 
 

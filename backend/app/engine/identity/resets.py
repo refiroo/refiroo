@@ -94,7 +94,7 @@ def use_link(session: Session, settings: IdentitySettings, token: str, password:
     link, user = row
     if link.used_at is not None or now >= link.expires_at or not user.active:
         return False
-    check_password(password, user.username, settings.password_min_length)
+    check_password(password, user.email, settings.password_min_length)
     _set(user, password, now)
     link.used_at = now
     sessions.end_all(session, user.id, "passwordReset", now)
@@ -121,7 +121,7 @@ def change_password(
     a stolen session cannot guess it. Commits."""
     user = load_user(session, user_public_id, for_update=True)
     now = datetime.now(UTC)
-    wait = sign_in.seconds_to_wait(session, user.username, address, now)
+    wait = sign_in.seconds_to_wait(session, user.email, address, now)
     if wait > 0:
         session.rollback()
         raise api_error(
@@ -131,14 +131,14 @@ def change_password(
             {"waitSeconds": wait},
         )
     if user.password_hash is None or not verify_secret(current, user.password_hash):
-        sign_in.record_failure(session, user.username, address, now)
+        sign_in.record_failure(session, user.email, address, now)
         security_events.record(
             session, "sign-in", user.public_id, "failed", about=[user.public_id], by=None,
-            details={"username": user.username, "address": address, "reason": "password-change"},
+            details={"email": user.email, "address": address, "reason": "password-change"},
         )  # fmt: skip
         session.commit()
         raise api_error(422, "PASSWORD_INCORRECT", "The current password is not right")
-    check_password(new, user.username, settings.password_min_length)
+    check_password(new, user.email, settings.password_min_length)
     _set(user, new, now)
     kept = None
     if session_public_id is not None:

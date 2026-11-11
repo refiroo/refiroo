@@ -23,7 +23,7 @@ for the scope of each history view.
 ## Start from a person or client
 
 1. Open **Settings › Security › People** or **Clients**. Search and select the identity.
-   Check their username or client ID if similar names exist. For a deactivated identity,
+   Check their e-mail address or client ID if similar names exist. For a deactivated identity,
    use the **Deactivated** list.
 2. Choose **See changes**. The page names that person or client and lists their visible
    changes, newest first, grouped by day. It can cover several workspaces.

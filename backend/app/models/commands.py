@@ -708,7 +708,6 @@ class ConsumerSubscriptionResume(BaseModel):
 
 # --- People, clients and signing keys (Product 0.12 I1, API.md "Security administration") ------
 
-Username = Annotated[str, StringConstraints(min_length=1, max_length=150, pattern=r"^\S+$")]
 PrincipalName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
@@ -720,13 +719,13 @@ MAX_OVERLAP_HOURS = 168
 
 
 class UserCreate(BaseModel):
-    """A person; they have no password until they set one (I2's link, or ``create_admin``)."""
+    """A person, named by the e-mail they sign in with (0.17 EM1); they have no password until they
+    set one (I2's link, or ``create_admin``)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    username: Username
     name: PrincipalName
-    email: Email | None = None
+    email: Email
 
 
 class PasswordResetRequest(BaseModel):
@@ -978,22 +977,22 @@ class BrowserRequest(BaseModel):
 
 
 class AppPasswordSignIn(BaseModel):
-    """A username and password posted by the application's sign-in screen (0.12 I5)."""
+    """An e-mail address and password posted by the application's sign-in screen (0.12 I5)."""
 
     model_config = ConfigDict(extra="forbid")
 
     request: BrowserRequest
-    username: str = Field(default="", max_length=320)
+    email: str = Field(default="", max_length=320)
     password: str = Field(default="", max_length=1024)
 
 
 class AppResetRequest(BaseModel):
-    """A forgotten password asked for on the application's sign-in screen: the username or the
-    e-mail address (0.12 I6, D420)."""
+    """A forgotten password asked for on the application's sign-in screen: the e-mail address
+    (0.12 I6, D420, 0.17 EM1)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    identifier: str = Field(min_length=1, max_length=320)
+    email: str = Field(min_length=1, max_length=320)
 
 
 class AppPasswordReset(BaseModel):
@@ -1058,8 +1057,8 @@ class GroupMemberAdd(BaseModel):
 
 
 class GroupMembersAdd(BaseModel):
-    """Several people added to a group at once (0.12 SP1b, D401): by their IDs, or by usernames or
-    e-mail addresses as pasted, in any case; ``dryRun`` answers what would happen and changes
+    """Several people added to a group at once (0.12 SP1b, D401): by their IDs, or by e-mail
+    addresses as pasted, in any case; ``dryRun`` answers what would happen and changes
     nothing."""
 
     model_config = ConfigDict(extra="forbid")

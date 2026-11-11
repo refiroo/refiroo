@@ -26,10 +26,10 @@ See [People and groups](/docs/administer/people-and-groups/) for how local and p
 
 ## Add people and shared roles
 
-1. On the group's page choose **Add members**. In **Search and tick**, search by name,
-   username or e-mail and tick the intended people. Already-present and deactivated people
+1. On the group's page choose **Add members**. In **Search and tick**, search by name
+   or e-mail and tick the intended people. Already-present and deactivated people
    cannot be selected for addition.
-2. For a longer list, choose **Paste a list**. Enter **Usernames or e-mail addresses**,
+2. For a longer list, choose **Paste a list**. Enter **E-mail addresses**,
    one per line or separated by commas or semicolons, up to 500. Choose **Check the list**
    (or **Check … lines** when a count appears). Review the results before adding. Resolve
    unmatched or ambiguous entries rather than choosing someone by guesswork.

@@ -19,7 +19,7 @@ the choice is saved in this browser. **Sign out** ends your current sign-in.
 
 ## Your identity and sign-in
 
-The account card shows your name, user name, email where present, how you signed in and when.
+The account card shows your name, e-mail address, how you signed in and when.
 These details help you check that you are using the intended account. **Sign out** on the card
 ends the current browser's sign-in.
 
@@ -97,9 +97,9 @@ For administrator-managed sign-in and help with lost devices, see
 ## Sign-in and password help
 
 Opening a saved application address without a session shows the sign-in page, in this browser's
-theme. Use your username and password, a passkey, or the offered organisation's provider.
+theme. Use your e-mail address and password, a passkey, or the offered organisation's provider.
 After signing in you return to the requested page. An ended session sends you there again.
-A wrong username or password does not reveal which was wrong. Repeated failures slow attempts;
+A wrong e-mail address or password does not reveal which was wrong. Repeated failures slow attempts;
 they do not permanently lock your account. Wait before retrying rather than repeatedly submitting.
 
 Sessions renew while you work, but still have idle and overall expiry limits set by the operator.
@@ -110,7 +110,7 @@ The identity card can say **Signed in with your password**, **Signed in with a p
 **Signed in with …**, with **Since …** for this session's start. **Where you’re signed in**
 counts browsers and shows **Active now** or last activity with sign-in time.
 
-The normal password rule is 15–128 characters. Common passwords and your username are refused;
+The normal password rule is 15–128 characters. Common passwords and your e-mail address are refused;
 use a longer distinct password, not repeated guesses. A development instance can have a lower
 minimum, so the displayed refusal is authoritative. The current password is needed to change
 it. Use the reveal buttons to check the current or new password privately. If you forgot it,
@@ -159,7 +159,7 @@ with the original person. Signing out of refiroo signs out of the provider too o
 that provider is configured to do so. If you can immediately sign in again without a password,
 check whether the provider still has an open session.
 
-**Forgotten your password?** asks for your username or email address. It gives the same
+**Forgotten your password?** asks for your e-mail address. It gives the same
 response whether or not that account exists. A reset message is sent only for an account
 with a local password and an email address. For a provider account, reset your password with
 the organisation instead. An administrator can supply a one-time password-setting link

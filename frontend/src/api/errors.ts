@@ -50,7 +50,7 @@ export function changedObjectType(cause: unknown): string | undefined {
 
 /**
  * The body fields a `422 REQUEST_VALIDATION_ERROR` refused, each with the engine's reason, keyed by
- * the field's name (`username`, `email`); empty for any other failure. A dialog shows each under its
+ * the field's name (`name`, `email`); empty for any other failure. A dialog shows each under its
  * field instead of the bare "Request validation failed".
  */
 export function invalidFields(cause: unknown): Record<string, string> {

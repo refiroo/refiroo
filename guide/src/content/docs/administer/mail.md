@@ -98,7 +98,7 @@ With a state selected and no matching messages, the list says **No message is in
 
 With mail set up and an e-mail address on the person, **New person** and **Reset password** also mail the link. The administrator still sees it once for copying. Read whether it was mailed; queued delivery can fail later. Follow [Add a person](/docs/guide/administer/add-a-person/).
 
-The sign-in page offers **Forgotten your password?** when mail is configured. People enter **Username or e-mail address** and choose **Mail me a link**. The answer is the same whether or not an account matches, and repeated requests are slowed. The one-use link opens **Choose a new password**; using it ends all sessions. An existing second factor remains required. An expired or already used link needs a fresh request.
+The sign-in page offers **Forgotten your password?** when mail is configured. People enter **E-mail address** and choose **Mail me a link**. The answer is the same whether or not an account matches, and repeated requests are slowed. The one-use link opens **Choose a new password**; using it ends all sessions. An existing second factor remains required. An expired or already used link needs a fresh request.
 
 ## Notices and digests
 

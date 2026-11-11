@@ -10,7 +10,7 @@ Security administrator role. That role manages access; it does not itself allow 
 
 ## People and their sign-in
 
-Use **Search people** (**Name, username or e-mail**) to find a person. The list also shows their roles. **Active** and **Deactivated** show
+Use **Search people** (**Name or e-mail**) to find a person. The list also shows their roles. **Active** and **Deactivated** show
 separate lists and counts. Select someone to see their sign-in methods, roles, groups and recent activity.
 A person has one identity in refiroo and can hold different roles in different workspaces.
 
@@ -18,9 +18,8 @@ A person has one identity in refiroo and can hold different roles in different w
 
 *Above: Guide Admin and fictional person Rita Approver are active in the reference instance.*
 
-A local account uses a username and password. **New person** creates the person and makes
-a one-time link for them to choose a password. If mail is configured and they have an e-mail address, it is also queued for mailing. It grants no roles. The username cannot
-change; **Edit…** changes the display name and optional e-mail address. Follow
+A local account uses an e-mail address and password. **New person** creates the person and makes
+a one-time link for them to choose a password. If mail is configured and they have an e-mail address, it is also queued for mailing. It grants no roles. **Edit…** changes the display name and the e-mail address. Follow
 [Add a person](/docs/guide/administer/add-a-person/).
 
 A person signing in through the organisation's provider is created on their first sign-in.
@@ -102,13 +101,13 @@ The person's **Recent activity** is grouped by day and can be narrowed to **Sign
 may browse. [Who changed what](/docs/administer/audit/) explains which view answers which question.
 
 For several group members at once, use **Search and tick** or **Paste a list** and check the
-usernames and email addresses before adding. Unmatched lines need correcting. Several ticked
+e-mail addresses before adding. Unmatched lines need correcting. Several ticked
 members can be removed together. Provider groups are shown under their provider; change their
 membership there rather than in the local member controls.
 
 ## Edit details and memberships
 
-**Edit…** opens the named person’s form with **Name** and **E-mail (optional)**. Choose **Save** or **Cancel**. The username stays fixed. Provider-supplied name and e-mail follow the provider at sign-in.
+**Edit…** opens the named person’s form with **Name** and **E-mail** (optional only for a deactivated person, whose address it frees). Choose **Save** or **Cancel**. Provider-supplied name and e-mail follow the provider at sign-in.
 
 Under **Groups**, **Add to a group** opens a picker; choose the intended local group and **Add to the group**. A group chip’s remove control removes that local membership immediately. **Not in any group.** means there are no memberships shown. Provider memberships are managed at the provider.
 
@@ -121,8 +120,8 @@ For outgoing messages and forgotten-password recovery, see [Mail](/docs/administ
 ## Correct an account or group problem
 
 **The person was not created** means creation failed; correct the field or reason shown.
-A username already used by another person cannot be reused, including for a deactivated
-person. Search both lists before choosing a different username for the same person.
+An e-mail address already used by another person cannot be reused, including by a deactivated
+person. Search both lists, or clear the address on the deactivated person to free it.
 
 **Nobody was added**, **People could not be searched** and **The list could not be checked**
 are different failures in Add members. A search or checking failure does not add anyone.

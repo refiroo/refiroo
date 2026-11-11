@@ -820,7 +820,7 @@ def test_a_person_answers_as_a_client_with_the_same_role_does(world, role):
     person = _person(world, "twin" + re.sub(r"[^a-z]", "", role))
     for name, scope in grants_of(role):
         _grant(world, person, kind="user", role=name, scope=scope)
-    token = _sign_in(_browser(world), person["username"])
+    token = _sign_in(_browser(world), person["email"])
     http = TestClient(app, authenticated=False, headers={"Authorization": f"Bearer {token}"})
     as_person = collect(http, role, ids, declared)
 

@@ -14,7 +14,7 @@ Public documentation, contract documents, sign-in services and health checks hav
 
 ## Sign-in and credentials
 
-Local accounts support TOTP authenticator codes and WebAuthn passkeys. An organisation's OpenID Connect sign-in provider brings its own sign-in policy. Repeated failed local sign-ins are slowed, and the failure message does not reveal whether a username or password was wrong. People can inspect and end their sessions on [Account](/docs/use/account/).
+Local accounts support TOTP authenticator codes and WebAuthn passkeys. An organisation's OpenID Connect sign-in provider brings its own sign-in policy. Repeated failed local sign-ins are slowed, and the failure message does not reveal whether the e-mail address or the password was wrong. People can inspect and end their sessions on [Account](/docs/use/account/).
 
 Passwords are stored as hashes. Secrets that refiroo must use again, such as provider credentials and webhook signing keys, are encrypted in storage with an operator-managed key. Secrets are not ordinary reference-data fields and are not included in activity records. Protecting the encryption key and backups remains an operator responsibility; changing a key requires the documented recovery procedure.
 

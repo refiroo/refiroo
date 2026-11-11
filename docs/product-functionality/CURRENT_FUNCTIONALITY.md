@@ -1378,16 +1378,16 @@ credentials; nobody reaches the data without either.
 
 Opening the application without a session shows its own sign-in screen (0.12 I5), which follows the
 saved theme, names the instance's product beside the refiroo mark and says what refiroo is for, and
-asks for a username and password, a passkey or a provider's button (the engine's own page stays for
+asks for an e-mail address and password, a passkey or a provider's button (the engine's own page stays for
 outside web applications); signing in returns to the page asked for.
 The session renews itself while the person works and ends after 12 hours without use (`SESSION_IDLE_HOURS`) or 14 days in
-all (`SESSION_DAYS`). A wrong username or password is refused without saying which was wrong; after repeated failures
+all (`SESSION_DAYS`). A wrong e-mail address or password is refused without saying which was wrong; after repeated failures
 each attempt waits longer, up to fifteen minutes, but the account is never locked. The account menu
 names the person and leads to Settings › Account, where they change their password and see where they
 are signed in, signing out one browser or all of them. An administrator signs a person out everywhere,
 deactivates them (their access ends at once) or makes a one-time link that sets their password, for a
 new person or a forgotten password. Where mail is set up the sign-in screen offers Forgotten your
-password?: the person types their username or e-mail address, is told the same whoever they name, and
+password?: the person types their e-mail address, is told the same whoever they name, and
 receives a link to choose a new password only if they have a local password and an address. Systems obtain tokens with a client's credentials (F16).
 
 The organisation's sign-in provider (OpenID Connect: Entra ID, Google, Keycloak and others) is added
@@ -1454,7 +1454,7 @@ name and e-mail, makes a one-time password link (shown once, and mailed to the p
 have an address), signs them out everywhere, deactivates or restores them, and lists their roles, directly
 or through a group, and their groups. **Groups** creates, renames and deletes groups, grants them
 roles and adds or removes members: several at once, searched and ticked or pasted as a list of
-usernames and e-mail addresses that is checked first (each line saying whom it names, or that
+e-mail addresses that is checked first (each line saying whom it names, or that
 nobody has it), and several ticked members removed together (0.12 SP1b). **Roles** shows every role against the action groups; a custom
 role is made empty or copied from any role and edited in place. A workspace's page in Settings ›
 Workspaces shows its **Access**: who can do what there, granted in the workspace or for the whole

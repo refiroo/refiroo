@@ -89,7 +89,7 @@ try {
 
   /** A person granted `grants` whose password is set; signed in on the engine's page at `width`. */
   async function person(username, name, grants, width = 1440) {
-    const created = await api("/users", { username, name });
+    const created = await api("/users", { email: `${username}@example.org`, name });
     for (const [role, scope] of grants)
       await api("/grants", { principal: { kind: "user", id: created.id }, role, scope });
     const { url } = await api(`/users/${created.id}/password-reset`, {}, "POST");
@@ -113,7 +113,7 @@ try {
         code_challenge: base64Url(createHash("sha256").update(verifier).digest()),
         code_challenge_method: "S256",
         state: "z6",
-        username,
+        email: `${username}@example.org`,
         password: PASSWORD,
       },
       maxRedirects: 0,

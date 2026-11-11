@@ -2,7 +2,7 @@
 # serves the application and forwards the engine's paths. Fill .env from .env.example, put the
 # certificate and key in ./certs, then:
 #   docker compose up -d --build
-#   docker compose run --rm engine python -m app.cli.create_admin --username <name> --name "<Name>"
+#   docker compose run --rm engine python -m app.cli.create_admin --email <address> --name "<Name>"
 # Only `web` is published. Keep the engine and the database off the network: the engine trusts the
 # caller address `web` forwards, so a caller reaching it directly could pretend to be anyone.
 name: refiroo

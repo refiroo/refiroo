@@ -1,6 +1,6 @@
 """J46.8 — a forgotten password, asked for on the application's sign-in screen (0.12 I6).
 
-A person who cannot sign in asks for a new password with their username or e-mail address and gets
+A person who cannot sign in asks for a new password with their e-mail address and gets
 a link to the application's reset page. Whoever asks is told the same thing, so nothing shows which
 accounts exist; a link goes only to an active person who has a local password and an address; asking
 is slowed per name and per address, as sign-ins are; the link works once and the new password meets
@@ -19,9 +19,9 @@ APP = {"Origin": "http://localhost:5173"}
 SET_TO = "a-new-long-enough-pass-7"
 
 
-def _with_password(world, username: str, email: str | None) -> dict:
+def _with_password(world, name: str, email: str) -> dict:
     """A person with a password, set through an administrator's link."""
-    person = _person(world, username, email)
+    person = _person(world, name, email)
     link = ok(world.api.post(f"/users/{person['id']}/password-reset", {}), 201)
     done = _browser(world).post(
         "/oauth/password",
@@ -31,8 +31,8 @@ def _with_password(world, username: str, email: str | None) -> dict:
     return person
 
 
-def _ask(browser, identifier: str, expected: int = 202):
-    response = browser.post(REQUEST, json={"identifier": identifier}, headers=APP)
+def _ask(browser, email: str, expected: int = 202):
+    response = browser.post(REQUEST, json={"email": email}, headers=APP)
     assert response.status_code == expected, f"{response.status_code}: {response.text[:300]}"
     return response.json()
 
@@ -43,7 +43,7 @@ def _outbox(world) -> dict:
 
 @pytest.mark.journey("J46.8")
 def test_a_person_asks_for_a_new_password_gets_a_link_and_signs_in_with_it(world, smtp):  # noqa: F811
-    """Given a person with a password and an address. When they ask by username, then they are
+    """Given a person with a password and an address. When they ask by e-mail address, then they are
     answered that a link was sent if there is such an account, a message reaches their address with
     a link to the application's reset page, the link says who it is for, and setting a password
     through it ends their sessions and lets them sign in with the new one; the link works once."""
@@ -51,7 +51,7 @@ def test_a_person_asks_for_a_new_password_gets_a_link_and_signs_in_with_it(world
     ada = _with_password(world, "ada", "ada@example.org")
     browser = _browser(world)
 
-    answer = _ask(browser, "Ada")
+    answer = _ask(browser, "Ada@Example.org")
     assert answer["status"] == "requested"
     assert send_mail(world) == 1
     [mail] = smtp.messages
@@ -65,7 +65,7 @@ def test_a_person_asks_for_a_new_password_gets_a_link_and_signs_in_with_it(world
     token = _token(link)
 
     shown = ok(browser.get(PAGE, params={"token": token}, headers=APP))
-    assert shown["username"] == "ada" and shown["minLength"] >= 8 and shown["product"]
+    assert shown["email"] == "ada@example.org" and shown["minLength"] >= 8 and shown["product"]
 
     done = browser.post(
         "/oauth/sign-in/reset",
@@ -84,13 +84,13 @@ def test_a_person_asks_for_a_new_password_gets_a_link_and_signs_in_with_it(world
     _, challenge = _pkce()
     signed = browser.post(
         "/oauth/sign-in/password",
-        json={"request": _request(challenge), "username": "ada", "password": SET_TO},
+        json={"request": _request(challenge), "email": "ada@example.org", "password": SET_TO},
         headers=APP,
     )
     assert ok(signed)["status"] == "signed_in"
     old = browser.post(
         "/oauth/sign-in/password",
-        json={"request": _request(challenge), "username": "ada", "password": PASSWORD},
+        json={"request": _request(challenge), "email": "ada@example.org", "password": PASSWORD},
         headers=APP,
     )
     assert old.status_code == 401 and old.json()["error"] == "wrong_credentials"
@@ -99,20 +99,26 @@ def test_a_person_asks_for_a_new_password_gets_a_link_and_signs_in_with_it(world
 
 @pytest.mark.journey("J46.8")
 def test_asking_says_the_same_to_everyone_and_writes_only_to_who_can_be_written_to(world, smtp):  # noqa: F811
-    """Given mail is set up and an active person with a password and an address, one with no
-    address, one with no password yet, one deactivated, and no one called `nobody`. When each is
-    asked for by username, and the first by e-mail address in other letters, then every answer is
-    the same, and only the first two asks queue a message, both to the first person."""
+    """Given mail is set up and an active person with a password, one with no password yet, one
+    deactivated, and no one at `nobody@example.org`. When each is asked for by e-mail address, and
+    the first again in other letters, then every answer is the same, and only the first two asks
+    queue a message, both to the first person."""
     _save(world, smtp)
     _with_password(world, "ada", "ada@example.org")
-    _with_password(world, "bob", None)
     _person(world, "cy", "cy@example.org")
     dan = ok(world.api.get(f"/users/{_with_password(world, 'dan', 'dan@example.org')['id']}"))
     ok(world.api.patch(f"/users/{dan['id']}", {"active": False, "expectedVersion": dan["version"]}))
     browser = _browser(world)
 
     answers = [
-        _ask(browser, name) for name in ("ada", "bob", "cy", "dan", "nobody", "ADA@Example.org")
+        _ask(browser, name)
+        for name in (
+            "ada@example.org",
+            "cy@example.org",
+            "dan@example.org",
+            "nobody@example.org",
+            "ADA@Example.org",
+        )
     ]
     assert all(answer == answers[0] for answer in answers)
     assert _outbox(world)["pending"] == 2
@@ -130,26 +136,29 @@ def test_asking_is_slowed_whatever_the_name_matches_and_sign_in_is_not_affected(
     _with_password(world, "ada", "ada@example.org")
     browser = _browser(world)
     slowed = {}
-    for name in ("ada", "ghost"):
+    for name in ("ada@example.org", "ghost@example.org"):
         taken = 0
         while True:
-            response = browser.post(REQUEST, json={"identifier": name}, headers=APP)
+            response = browser.post(REQUEST, json={"email": name}, headers=APP)
             if response.status_code == 429:
                 slowed[name] = response.json()
                 break
             assert response.status_code == 202 and taken < 6, response.text
             taken += 1
         assert taken >= 3, f"{name}: slowed after only {taken} asks"
-    assert slowed["ada"]["error"] == slowed["ghost"]["error"] == "slowed"
-    assert slowed["ada"]["waitSeconds"] >= 1 and slowed["ghost"]["waitSeconds"] >= 1
+    assert slowed["ada@example.org"]["error"] == slowed["ghost@example.org"]["error"] == "slowed"
+    assert (
+        slowed["ada@example.org"]["waitSeconds"] >= 1
+        and slowed["ghost@example.org"]["waitSeconds"] >= 1
+    )
     queued = _outbox(world)["pending"]
-    _ask(browser, "ada", 429)
+    _ask(browser, "ada@example.org", 429)
     assert _outbox(world)["pending"] == queued
 
     _, challenge = _pkce()
     signed = browser.post(
         "/oauth/sign-in/password",
-        json={"request": _request(challenge), "username": "ada", "password": PASSWORD},
+        json={"request": _request(challenge), "email": "ada@example.org", "password": PASSWORD},
         headers=APP,
     )
     assert ok(signed)["status"] == "signed_in"
@@ -166,12 +175,12 @@ def test_the_screen_offers_the_reset_only_where_it_can_finish(world, smtp):  # n
     assert ok(browser.get("/oauth/sign-in/options", **options))["reset"] is False
     assert ok(browser.get(PAGE, headers=APP))["available"] is False
     for _ in range(5):
-        assert _ask(browser, "ada", 409)["error"] == "mail_not_set_up"
+        assert _ask(browser, "ada@example.org", 409)["error"] == "mail_not_set_up"
 
     _save(world, smtp)
     assert ok(browser.get("/oauth/sign-in/options", **options))["reset"] is True
     assert ok(browser.get(PAGE, headers=APP))["available"] is True
-    assert _ask(browser, "ada")["status"] == "requested"
+    assert _ask(browser, "ada@example.org")["status"] == "requested"
 
 
 @pytest.mark.journey("J46.8")
@@ -201,7 +210,9 @@ def test_the_new_password_meets_the_rules_and_a_replaced_link_is_gone(world, smt
     assert differ.status_code == 422 and differ.json()["error"] == "passwords_differ"
     foreign = post(SET_TO, SET_TO, Origin="https://elsewhere.example")
     assert foreign.status_code == 403 and foreign.json()["error"] == "foreign_origin"
-    assert ok(browser.get(PAGE, params={"token": second}, headers=APP))["username"] == "ada"
+    assert (
+        ok(browser.get(PAGE, params={"token": second}, headers=APP))["email"] == "ada@example.org"
+    )
     assert ok(post(SET_TO, SET_TO))["status"] == "password_set"
 
 
@@ -213,7 +224,7 @@ def test_a_reset_reads_the_same_whoever_asked_for_it(world, smtp):  # noqa: F811
     _save(world, smtp)
     ada = _with_password(world, "ada", "ada@example.org")
     ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
-    _ask(_browser(world), "ada")
+    _ask(_browser(world), "ada@example.org")
     ok(world.api.post("/mail-settings/test", {"to": "ada@example.org"}))
     send_mail(world)
     test, by_administrator, by_person = smtp.messages[-3:]  # the test message goes at once

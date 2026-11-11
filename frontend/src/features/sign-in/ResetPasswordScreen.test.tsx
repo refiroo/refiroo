@@ -21,10 +21,10 @@ describe("the reset pages (0.12 I6)", () => {
     client.resetPage.mockResolvedValue({ ok: true, product: "refiroo", available: true });
     client.requestReset.mockResolvedValue({ ok: true, message: "If there is an account, a link was sent." });
     render(<ResetPasswordScreen token="" />);
-    fireEvent.change(await screen.findByLabelText("Username or e-mail address"), { target: { value: " ada " } });
+    fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: " ada@example.org " } });
     fireEvent.click(screen.getByRole("button", { name: "Mail me a link" }));
     await screen.findByText("If there is an account, a link was sent.");
-    expect(client.requestReset).toHaveBeenCalledWith("ada");
+    expect(client.requestReset).toHaveBeenCalledWith("ada@example.org");
     expect(screen.getByRole("link", { name: "Back to sign in" }).getAttribute("href")).toBe("/");
   });
 
@@ -37,7 +37,7 @@ describe("the reset pages (0.12 I6)", () => {
       waitSeconds: 130,
     });
     render(<ResetPasswordScreen token="" />);
-    fireEvent.change(await screen.findByLabelText("Username or e-mail address"), { target: { value: "ada" } });
+    fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: "ada@example.org" } });
     fireEvent.click(screen.getByRole("button", { name: "Mail me a link" }));
     await screen.findByText(/You can try again in 3 minutes\./);
   });
@@ -50,7 +50,7 @@ describe("the reset pages (0.12 I6)", () => {
   });
 
   it("sets a password with a link, shows the engine's refusal first, then the way back in", async () => {
-    client.resetPage.mockResolvedValue({ ok: true, product: "refiroo", username: "ada", minLength: 12 });
+    client.resetPage.mockResolvedValue({ ok: true, product: "refiroo", email: "ada@example.org", minLength: 12 });
     client.setPasswordWithLink
       .mockResolvedValueOnce({
         ok: false,
@@ -60,7 +60,7 @@ describe("the reset pages (0.12 I6)", () => {
       })
       .mockResolvedValueOnce({ ok: true });
     render(<ResetPasswordScreen token="tok" />);
-    await screen.findByText("ada");
+    await screen.findByText("ada@example.org");
     fireEvent.change(screen.getByLabelText("New password"), { target: { value: "short" } });
     fireEvent.change(screen.getByLabelText("Type it again"), { target: { value: "short" } });
     fireEvent.click(screen.getByRole("button", { name: "Set password" }));

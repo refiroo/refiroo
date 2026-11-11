@@ -52,7 +52,7 @@ async function walk(configuration) {
     const shot = (page, name) => page.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
     await api("/workspaces", SECOND, "POST");
     const { type: recordType } = await startingPoint(api);
-    const lena = { username: `lena-${tag}`, name: `Lena ${tag}`, password: "a passphrase for lena here" };
+    const lena = { email: `lena-${tag}@example.org`, name: `Lena ${tag}`, password: "a passphrase for lena here" };
 
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
@@ -66,26 +66,22 @@ async function walk(configuration) {
     await navigation.getByRole("heading", { name: "Security" }).waitFor();
     await page.getByRole("button", { name: "New person" }).click();
     const create = page.getByRole("dialog", { name: "New person" });
-    // A space in the username is said as it is typed; a malformed e-mail is refused by the engine
-    // and said under its field, not as "Request validation failed" (found by the user, 2026-10-24).
-    await create.getByLabel("Username", { exact: true }).fill("user 1");
+    // The e-mail address is asked for; a malformed one is refused by the engine and said under its
+    // field, not as "Request validation failed" (found by the user, 2026-10-24).
     await create.getByLabel("Name", { exact: true }).fill(lena.name);
-    await create.getByText(/A username has no spaces/).waitFor();
     expect(
       await create.getByRole("button", { name: "Create and make a password link" }).isDisabled(),
-      `${tag}: a username with a space is not sent`,
+      `${tag}: a person without an e-mail address is not sent`,
     );
-    await create.getByLabel("Username", { exact: true }).fill(lena.username);
-    await create.getByLabel("E-mail (optional)").fill("not an e-mail");
+    await create.getByLabel("E-mail", { exact: true }).fill("not an e-mail");
     await create.getByRole("button", { name: "Create and make a password link" }).click();
     await create.getByText("An e-mail address looks like name@example.org.").waitFor();
     expect(
       (await create.getByText("Request validation failed").count()) === 0,
       `${tag}: the engine's refusal is said by field`,
     );
-    await create.getByLabel("E-mail (optional)").fill("");
-    checks.push(`${tag}: New person says a username has no spaces, and the engine's e-mail refusal by field`);
-    await create.getByLabel("Username", { exact: true }).fill(lena.username);
+    checks.push(`${tag}: New person asks for the e-mail address, and the engine's e-mail refusal by field`);
+    await create.getByLabel("E-mail", { exact: true }).fill(lena.email);
     await create.getByLabel("Name", { exact: true }).fill(lena.name);
     await create.getByRole("button", { name: "Create and make a password link" }).click();
     const shown = page.getByRole("dialog", { name: "Pass on the password link" });
@@ -168,7 +164,7 @@ async function walk(configuration) {
     // 3b. With a role, the person signs in; without Security administration they are not shown it.
     await lenaPage.goto(`${uiUrl}/settings/about`);
     await lenaPage.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-    await lenaPage.getByLabel("Username").fill(lena.username);
+    await lenaPage.getByLabel("E-mail address").fill(lena.email);
     await lenaPage.getByLabel("Password").fill(lena.password);
     await lenaPage.getByRole("button", { name: "Sign in" }).click();
     await lenaPage
@@ -204,16 +200,16 @@ async function walk(configuration) {
     await shot(page, "add-members-search");
     await memberDialog.getByRole("tab", { name: "Paste a list" }).click();
     await memberDialog
-      .getByLabel("Usernames or e-mail addresses")
-      .fill(`${lena.username.toUpperCase()}\nnobody-${tag}@example.org`);
+      .getByLabel("E-mail addresses")
+      .fill(`${lena.email.toUpperCase()}\nnobody-${tag}@example.org`);
     await memberDialog.getByRole("button", { name: "Check 2 lines" }).click();
     const checkedLines = memberDialog.getByRole("list", { name: "Lines checked" });
     await checkedLines.getByText("Added to the people to add").waitFor();
-    await checkedLines.getByText("No person with this username or e-mail").waitFor();
+    await checkedLines.getByText("No person with this e-mail address").waitFor();
     await shot(page, "add-members-paste");
     await axe(page, `${tag}-add-members`);
     await memberDialog.getByRole("button", { name: "Add 1 member" }).click();
-    await page.getByRole("group", { name: "Members" }).getByText(lena.username).waitFor();
+    await page.getByRole("group", { name: "Members" }).getByText(lena.email).waitFor();
     checks.push(`${tag}: a member added from a search and a pasted list (an unknown line said so), together`);
     await page.getByRole("button", { name: "Grant", exact: true }).click();
     dialog = page.getByRole("dialog", { name: "Grant Curators access" });
@@ -247,7 +243,7 @@ async function walk(configuration) {
     // 5b. Their recent activity (0.12 Z4, D319): what was done to them and by them, each by whom.
     // Grouped by day since 0.12 RA1: the name is the group's, a list under each day's heading.
     const activity = page.getByRole("group", { name: `${lena.name}'s recent activity` });
-    const [administrator] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
+    const [administrator] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.email)}`)).items;
     const admin = administrator.name;
     await activity.getByText("Added to Curators").waitFor();
     for (const line of [`Granted Data steward in Default`, "Person created", "Password set from a one-time link"])
@@ -365,7 +361,7 @@ async function walk(configuration) {
     checks.push(`${tag}: a consumer API grant in Access by its API's name, removed by keyboard, 390px`);
 
     // 8. Deactivating the only Security administrator is refused as the engine words it.
-    const [self] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
+    const [self] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.email)}`)).items;
     await page.goto(`${uiUrl}/settings/people/${self.id}`);
     await page.getByRole("heading", { level: 2, name: self.name }).waitFor();
     await page.getByRole("button", { name: "Deactivate", exact: true }).click();
@@ -379,6 +375,34 @@ async function walk(configuration) {
     await confirm.getByText(/no active person holding Security administration/).waitFor();
     await confirm.getByRole("button", { name: "Cancel" }).click();
     checks.push(`${tag}: deactivating the last Security administrator is refused, as worded`);
+
+    // 8b. Restore: a deactivated person without an e-mail address is asked for one first (0.17 EM1).
+    const holder = await api("/users", { email: `holder-${tag}@example.org`, name: `Holder ${tag}` });
+    const gone = await api("/users", { email: `gone-${tag}@example.org`, name: `Gone ${tag}` });
+    await api(`/users/${gone.id}`, { expectedVersion: gone.version, active: false, email: null }, "PATCH");
+    await page.goto(`${uiUrl}/settings/people/${gone.id}`);
+    await page.getByRole("heading", { level: 2, name: `Gone ${tag}` }).waitFor();
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    const restore = page.getByRole("dialog", { name: `Restore Gone ${tag}` });
+    await restore.getByLabel("E-mail", { exact: true }).waitFor();
+    await restore.getByRole("button", { name: "Restore", exact: true }).click();
+    await restore.getByText(/needs an e-mail address/).waitFor();
+    await shot(page, "restore-missing");
+    await restore.getByLabel("E-mail", { exact: true }).fill(`HOLDER-${tag}@example.org`);
+    await restore.getByRole("button", { name: "Restore", exact: true }).click();
+    await restore.getByText("Another person has this e-mail address").waitFor();
+    await shot(page, "restore-taken");
+    await restore.getByLabel("E-mail", { exact: true }).fill(`back-${tag}@example.org`);
+    await restore.getByRole("button", { name: "Restore", exact: true }).click();
+    await restore.waitFor({ state: "detached" });
+    await page.getByText(`back-${tag}@example.org`).first().waitFor();
+    const back = await api(`/users/${gone.id}`);
+    expect(
+      back.active === true && back.email === `back-${tag}@example.org` && holder.email,
+      `${tag}: the restored person is active with the address typed`,
+    );
+    await shot(page, "restored");
+    checks.push(`${tag}: Restore asks a person without an address for one, refuses a missing and a taken one in place`);
 
     // 9. Dark at 1440px; People, a person and Roles at 390px without a horizontal page scroll.
     const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });

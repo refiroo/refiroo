@@ -11,11 +11,11 @@
  },
  {
   "kind": "command",
-  "key": "app.cli.create_admin --username",
+  "key": "app.cli.create_admin --email",
   "labels": [
-   "--username"
+   "--email"
   ],
-  "source": "backend/app/cli/create_admin.py:45",
+  "source": "backend/app/cli/create_admin.py:46",
   "section": "run",
   "context": [
    "create_admin",
@@ -27,19 +27,6 @@
   "key": "app.cli.create_admin --name",
   "labels": [
    "--name"
-  ],
-  "source": "backend/app/cli/create_admin.py:46",
-  "section": "run",
-  "context": [
-   "create_admin",
-   "app.cli.create_admin"
-  ]
- },
- {
-  "kind": "command",
-  "key": "app.cli.create_admin --email",
-  "labels": [
-   "--email"
   ],
   "source": "backend/app/cli/create_admin.py:47",
   "section": "run",

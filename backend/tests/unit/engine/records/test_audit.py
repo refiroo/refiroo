@@ -77,7 +77,7 @@ def test_entries_name_whoever_the_session_writes_as(seeded):
     step's requester, whichever way it was built; with no caller, or a job without a requester,
     the engine; one built naming nobody (a failed sign-in) keeps that."""
     with SessionLocal() as session:
-        person = User(username="audit-unit", name="Audit unit", active=True)
+        person = User(email="audit-unit@example.org", name="Audit unit", active=True)
         client = OAuthClient(name="Audit unit client", active=True)
         session.add_all([person, client])
         session.flush()

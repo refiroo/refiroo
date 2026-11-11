@@ -4,8 +4,7 @@
 // with an address is created with the same button, the dialog shows the link and offers "Mail it to
 // <address>"; pressed, the dialog says where the link went and shows the newer link once, the server
 // receives one message holding that link, and the person's one Make a password link button leads to the
-// same dialog. A person with no address gets the link to pass
-// on although mail is set up. Axe on each dialog; screenshots; no horizontal page scroll at 390px.
+// same dialog. Axe on each dialog; screenshots; no horizontal page scroll at 390px.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
@@ -53,12 +52,11 @@ async function walk(configuration) {
     page.setDefaultTimeout(15000);
     page.on("pageerror", (error) => failures.push(`${tag}: ${error.message}`));
 
-    async function newPerson(username, name, email, button) {
+    async function newPerson(_local, name, email, button) {
       await page.getByRole("button", { name: "New person" }).click();
       const create = page.getByRole("dialog", { name: "New person" });
-      await create.getByLabel("Username", { exact: true }).fill(username);
       await create.getByLabel("Name", { exact: true }).fill(name);
-      if (email) await create.getByLabel("E-mail (optional)").fill(email);
+      await create.getByLabel("E-mail", { exact: true }).fill(email);
       await create.getByRole("button", { name: button }).click();
       return page.getByRole("dialog", { name: "Pass on the password link" });
     }
@@ -117,17 +115,7 @@ async function walk(configuration) {
     );
     checks.push(`${tag}: Make a password link, then Mail it, on a person's page mails it too`);
 
-    // 4. A person with no address: the link to pass on although mail is set up.
-    shown = await newPerson(`cy-${tag}`, `Cy ${tag}`, "", "Create and make a password link");
-    await shown.getByText(/no e-mail address/).waitFor();
-    expect(
-      (await shown.getByRole("button", { name: /^Mail it to/ }).count()) === 0,
-      `${tag}: no Mail it without an address`,
-    );
-    await shown.getByRole("button", { name: "I have copied it" }).click();
-    checks.push(`${tag}: a person without an address gets the link to pass on`);
-
-    // 5. 390px.
+    // 4. 390px.
     await page.setViewportSize({ width: 390, height: 844 });
     shown = await newPerson(`di-${tag}`, `Di ${tag}`, `di-${tag}@example.org`, "Create and make a password link");
     await shown.getByRole("button", { name: /^Mail it to/ }).click();

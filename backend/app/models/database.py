@@ -2291,14 +2291,21 @@ class User(Base):
     """A person who signs in (Product 0.12 I1, ADR-043).
 
     Deactivated, never deleted, so history always resolves who acted (D237). ``password_hash`` is
-    an Argon2id PHC string, or none for a person who has not set a password (D252); the username is
-    unique ignoring case. ``local_kept``: the person signs in with a password while local sign-in is
+    an Argon2id PHC string, or none for a person who has not set a password (D252); the e-mail is the
+    sign-in name: required while active and unique ignoring case (0.17 EM1, PP-D14); a deactivated
+    person may have none (PP-D16). ``local_kept``: the person signs in with a password while local sign-in is
     off, the way back made on the server (I3, D365).
     """
 
     __tablename__ = "users"
     __table_args__ = (
-        Index("ux_users_username", func.lower(literal_column("username")), unique=True),
+        Index(
+            "ux_users_email",
+            func.lower(literal_column("email")),
+            unique=True,
+            postgresql_where=text("email IS NOT NULL"),
+        ),
+        CheckConstraint("active IS FALSE OR email IS NOT NULL", name="ck_users_active_email"),
         CheckConstraint(
             "notice_digest_every IS NULL OR notice_digest_every IN ('daily', 'weekly')",
             name="ck_users_notice_digest_every",
@@ -2321,7 +2328,6 @@ class User(Base):
     public_id: Mapped[str] = mapped_column(
         String(36), unique=True, nullable=False, default=lambda: str(uuid4())
     )
-    username: Mapped[str] = mapped_column(String(150), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -2817,7 +2823,7 @@ class PasswordResetLink(Base):
 
 
 class SignInFailure(Base):
-    """Failed sign-ins counted per account (the username as typed, lower case) and per address, to
+    """Failed sign-ins counted per account (the e-mail as typed, lower case) and per address, to
     slow guessing without locking anyone out (I2, D252, D271)."""
 
     __tablename__ = "sign_in_failures"

@@ -82,7 +82,6 @@ def me_response(session: Session, principal: Principal) -> MeResponse:
         id=principal.id,
         kind=principal.kind,
         name=principal.name,
-        username=principal.username,
         email=principal.email,
         lastSignInAt=principal.last_sign_in_at,
         signedInWith=principal.signed_in_with,
@@ -131,7 +130,6 @@ def user_response(
         passkey_counts = passkeys.counts(session, [user.id])
     return UserResponse(
         id=user.public_id,
-        username=user.username,
         name=user.name,
         email=user.email,
         active=user.active,

@@ -44,7 +44,6 @@ class Principal:
     kind: PrincipalKind
     id: str
     name: str
-    username: str | None
     email: str | None
     last_sign_in_at: datetime | None
     # A person's session and how they signed in to it (I2); ``None`` for a client.
@@ -139,7 +138,6 @@ def authenticate(
             "user",
             principal.public_id,
             principal.name,
-            principal.username,
             principal.email,
             principal.last_sign_in_at,
             user_session.public_id,
@@ -153,7 +151,6 @@ def authenticate(
         "client",
         principal.public_id,
         principal.name,
-        None,
         None,
         principal.last_used_at,
         row_id=principal.id,

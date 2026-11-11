@@ -269,7 +269,9 @@ describe("the Clients page's words (SP2)", () => {
       /^1 person · last sign-in /,
     );
     expect(providerUseLine({ people: 42, lastSignInAt: "2026-10-25T10:11:00Z" }, now)).toMatch(/^42 people · /);
-    expect(localSignInLine({ enabled: true, keptPeople: 1 })).toBe("On · people sign in with a username and password");
+    expect(localSignInLine({ enabled: true, keptPeople: 1 })).toBe(
+      "On · people sign in with an e-mail address and password",
+    );
     expect(localSignInLine({ enabled: false, keptPeople: 1 })).toBe("Off · 1 administrator keeps a password");
     expect(localSignInLine({ enabled: false, keptPeople: 2 })).toBe("Off · 2 administrators keep a password");
     expect(turnOffSentence(["Northfield Entra ID"], 1)).toBe(
@@ -323,8 +325,10 @@ describe("the Clients page's words (SP2)", () => {
       securityEventTitle(event("sign-in-provider", "entra", "updated", { changedFields: ["enabled"], enabled: false })),
     ).toBe("Sign-in provider entra disabled");
     expect(
-      securityEventTitle(event("user", "u", "identity-linked", { providers: ["entra"], fromUsername: "pat.p" })),
-    ).toBe("Sign-in with entra linked from pat.p");
+      securityEventTitle(
+        event("user", "u", "identity-linked", { providers: ["entra"], fromEmail: "pat.p@example.org" }),
+      ),
+    ).toBe("Sign-in with entra linked from pat.p@example.org");
     expect(securityEventTitle(event("user", "u", "updated", { changedFields: ["localKept"], localKept: false }))).toBe(
       "No longer keeps local sign-in",
     );

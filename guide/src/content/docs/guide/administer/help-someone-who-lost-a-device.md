@@ -23,7 +23,7 @@ protection. A password reset alone does not bypass a second factor. See
 ## Remove a lost local authenticator
 
 1. Open **Settings › Security › People**, search for the person and select them.
-   Check their name, username and sign-in method.
+   Check their name, e-mail address and sign-in method.
 2. Under **Sign-in**, choose **Remove second factor…** beside
    **Second factor: authenticator app**. This button appears only when an app is set up.
 3. Read the confirmation, then choose **Remove second factor**. Their app and its recovery

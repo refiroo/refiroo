@@ -145,7 +145,10 @@ def link(session: Session, public_id: str, payload: IdentityLink) -> User:
             .values(user_id=target.id)
         )
         sessions.end_all(session, source.id, "deactivated", now)
+        # The address the deactivated person held is freed (PP-D16): the provider's next sign-in
+        # after an unlink makes a person again, and it is theirs to hold.
         source.active = False
+        freed, source.email = source.email, None
         source.version += 1
         source.updated_at = now
         target.version += 1
@@ -155,7 +158,7 @@ def link(session: Session, public_id: str, payload: IdentityLink) -> User:
         security_events.record(
             session, "user", target.public_id, "identity-linked",
             about=[target.public_id, source.public_id], version=target.version,
-            details={"fromUserId": source.public_id, "fromUsername": source.username,
+            details={"fromUserId": source.public_id, "fromEmail": freed,
                      "providers": [key for _, key in moved], "groups": len(groups)},
         )  # fmt: skip
         security_events.record(

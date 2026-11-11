@@ -15,7 +15,7 @@ engine must allow model changes through the API (MODEL_ADMIN_MUTATIONS_ENABLED=t
      unpublished (--skip-changeset leaves it out);
   5. with --client NAME: makes a client holding the `stops` consumer API in the workspace and keeps
      its credentials in the env file (GUIDE_CONSUMER_CLIENT_ID / _SECRET).
-The administrator's name and password come from the env file (GUIDE_ADMIN_USERNAME,
+The administrator's name and password come from the env file (GUIDE_ADMIN_EMAIL,
 GUIDE_ADMIN_PASSWORD) or the environment. The set is `docs` (about 600 records, what the guide's
 examples run on) or `reference` (about 3,500 records, the reference instance).
 Standard library only. Another program, such as the docs test group, can use `Api` with its own
@@ -89,19 +89,19 @@ def urllib_send(base: str) -> Send:
 
 
 class Api:
-    """The management API. `send` carries the requests (HTTP by default); without a username the
+    """The management API. `send` carries the requests (HTTP by default); without an e-mail address the
     caller has its own credentials (the docs test group's client) and no sign-in happens."""
 
     def __init__(
         self,
         send: Send,
         base: str = "",
-        username: str = "",
+        email: str = "",
         password: str = "",
         log: Callable[[str], None] = lambda text: print(text, flush=True),
     ):
         self.send, self.base = send, base.rstrip("/")
-        self.username, self.password = username, password
+        self.email, self.password = email, password
         self.token = ""
         self.requests = 0
         self.log = log
@@ -115,7 +115,7 @@ class Api:
 
     def call(self, method, path, body=None, ok=(200, 201, 202, 204), headers=None):
         status, out = self.raw(method, path, body, headers)
-        if status == 401 and self.username:  # the one-hour token ran out: sign in again
+        if status == 401 and self.email:  # the one-hour token ran out: sign in again
             self.login()
             status, out = self.raw(method, path, body, headers)
         if status not in ok:
@@ -141,7 +141,7 @@ class Api:
         status, out = self.raw(
             "POST",
             "/oauth/sign-in/password",
-            {"request": request, "username": self.username, "password": self.password},
+            {"request": request, "email": self.email, "password": self.password},
             auth=False,
         )
         if status != 200 or out.get("status") != "signed_in":
@@ -252,7 +252,7 @@ def load_set(
     t0 = time.time()
     d = {p.stem: json.loads(p.read_text()) for p in (DATA / set_name).glob("*.json")}
 
-    if api.username:
+    if api.email:
         print("1. sign in")
         api.login()
 
@@ -561,7 +561,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--set", required=True, choices=["docs", "reference"], dest="set_name")
     ap.add_argument("--base", default="http://localhost:8480")
-    ap.add_argument("--env", type=Path, help="the env file with GUIDE_ADMIN_USERNAME and _PASSWORD")
+    ap.add_argument("--env", type=Path, help="the env file with GUIDE_ADMIN_EMAIL and _PASSWORD")
     ap.add_argument("--skip-changeset", action="store_true")
     ap.add_argument(
         "--client", metavar="NAME", help="also make a client of this name holding the stops API"
@@ -573,12 +573,12 @@ def main() -> int:
         else dict(os.environ)
     )
     try:
-        username, password = env["GUIDE_ADMIN_USERNAME"], env["GUIDE_ADMIN_PASSWORD"]
+        email, password = env["GUIDE_ADMIN_EMAIL"], env["GUIDE_ADMIN_PASSWORD"]
     except KeyError as missing:
         raise SystemExit(f"{missing} is not set: give --env FILE or set it in the environment")
     if a.client and not a.env:
         raise SystemExit("--client keeps the client's credentials in the env file: give --env FILE")
-    api = Api(urllib_send(a.base), a.base, username, password)
+    api = Api(urllib_send(a.base), a.base, email, password)
     load_set(api, a.set_name, changeset=not a.skip_changeset, client_name=a.client, env_file=a.env)
     return 0
 

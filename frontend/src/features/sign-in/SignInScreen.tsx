@@ -65,7 +65,7 @@ export function SignInScreen() {
   const setMessage = (text: string, slowed = false) => setNotice(text ? { text, slowed } : undefined);
   const [pending, setPending] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
 
@@ -107,7 +107,7 @@ export function SignInScreen() {
       setMessage(refusalText(answer), answer.error === "slowed");
       if (answer.error === "step_gone") setView({ kind: "start" });
       if (answer.error === "wrong_credentials" || answer.error === "slowed") {
-        // The username stays; the password is typed again.
+        // The e-mail address stays; the password is typed again.
         setPassword("");
         passwordRef.current?.focus();
       }
@@ -127,7 +127,7 @@ export function SignInScreen() {
 
   function submitPassword(event: FormEvent) {
     event.preventDefault();
-    if (request) void run(() => signInWithPassword(request, username, password));
+    if (request) void run(() => signInWithPassword(request, email, password));
   }
 
   function submitCode(event: FormEvent, step: SecondStep, recovery: boolean) {
@@ -212,17 +212,18 @@ export function SignInScreen() {
               )}
               {(options.local || showLocal) && (
                 <form className="sign-in-form" noValidate onSubmit={submitPassword}>
-                  <FormField label="Username">
+                  <FormField label="E-mail address">
                     {(control) => (
                       <input
                         {...control}
                         autoFocus={!options.passkey}
                         required
+                        type="email"
                         autoComplete="username"
                         autoCapitalize="none"
                         spellCheck={false}
-                        value={username}
-                        onChange={(event) => setUsername(event.target.value)}
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
                       />
                     )}
                   </FormField>
@@ -239,7 +240,7 @@ export function SignInScreen() {
                       />
                     )}
                   </FormField>
-                  <button type="submit" className="primary" disabled={pending || leaving || !username || !password}>
+                  <button type="submit" className="primary" disabled={pending || leaving || !email || !password}>
                     {pending ? "Signing in…" : "Sign in"}
                   </button>
                 </form>
@@ -377,7 +378,7 @@ function SecondStepView({
         </>
       ) : (
         <p className="sign-in-aside">
-          Signing in as <strong>{step.username}</strong>.{" "}
+          Signing in as <strong>{step.email}</strong>.{" "}
           {recovery
             ? "Type one of your recovery codes. Each works once."
             : step.passkey

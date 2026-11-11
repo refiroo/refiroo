@@ -86,7 +86,7 @@ your certificate and key in `certs/` as `fullchain.pem` and `privkey.pem`, then:
 
 ```bash
 docker compose up -d --build
-docker compose run --rm engine python -m app.cli.create_admin --username <name> --name "<Name>"
+docker compose run --rm engine python -m app.cli.create_admin --email <address> --name "<Name>"
 ```
 
 On a public name, add `-f compose.yml -f compose.acme.yml` for certificates that renew themselves.

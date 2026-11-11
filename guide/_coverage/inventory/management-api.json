@@ -3257,7 +3257,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/relation-matrix/containers"
   ],
-  "source": "backend/app/management/routers/relation_matrix.py:101",
+  "source": "backend/app/management/routers/relation_matrix.py:110",
   "section": "use",
   "operationId": "get_relation_matrix_containers_api_v1_workspaces__workspace_key__relation_matrix_containers_get",
   "summary": "Get Relation Matrix Containers",
@@ -3272,7 +3272,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates"
   ],
-  "source": "backend/app/management/routers/relation_matrix.py:120",
+  "source": "backend/app/management/routers/relation_matrix.py:129",
   "section": "use",
   "operationId": "get_relation_matrix_link_candidates_api_v1_workspaces__workspace_key__relation_matrix_link_candidates_get",
   "summary": "Get Relation Matrix Link Candidates",

@@ -570,8 +570,8 @@ def _inputs(values: list[str]) -> list[str]:
 
 
 def _people(session: Session, user_ids: list[str], identifiers: list[str]) -> dict[str, User]:
-    """Who each input names, read in one query: an ID exactly, a username or an e-mail address
-    in any case (0.12 SP1b, D401)."""
+    """Who each input names, read in one query: an ID exactly, or an e-mail address in
+    any case (0.12 SP1b, D401)."""
     lowered = {value.lower() for value in identifiers}
     if not user_ids and not lowered:
         return {}
@@ -579,17 +579,15 @@ def _people(session: Session, user_ids: list[str], identifiers: list[str]) -> di
         select(User).where(
             or_(
                 User.public_id.in_(user_ids),
-                func.lower(User.username).in_(lowered),
                 func.lower(User.email).in_(lowered),
             )
         )
     ).all()
     by_id = {user.public_id: user for user in users}
-    by_name = {user.username.lower(): user for user in users}
     by_email = {user.email.lower(): user for user in users if user.email}
     found = {value: by_id[value] for value in user_ids if value in by_id}
     for value in identifiers:
-        user = by_name.get(value.lower()) or by_email.get(value.lower())
+        user = by_email.get(value.lower())
         if user is not None:
             found[value] = user
     return found

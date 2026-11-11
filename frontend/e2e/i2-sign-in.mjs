@@ -48,7 +48,7 @@ async function walk(configuration) {
     page.on("pageerror", (error) => failures.push(`${tag}: ${error.message}`));
     await page.goto(record);
     await onSignInPage(page);
-    await page.getByLabel("Username").waitFor();
+    await page.getByLabel("E-mail address").waitFor();
     expect(page.url().startsWith(uiUrl), `${tag}: the sign-in screen is the application's own: ${page.url()}`);
     expect(
       await page.getByText("Reference data that stays in step.").isVisible(),
@@ -77,25 +77,25 @@ async function walk(configuration) {
         )
         .then(() => true)
         .catch(() => false);
-    expect(await focused("Username"), `${tag}: the username has focus`);
+    expect(await focused("E-mail address"), `${tag}: the e-mail address has focus`);
     await shot(page, "sign-in-light");
     await axe(page, `${tag}-sign-in-light`);
     checks.push(`${tag}: a signed-out record page leads to the application's sign-in screen`);
 
-    // 2. A wrong password by keyboard: refused without saying which part; the username kept.
-    await page.keyboard.type(person.username);
+    // 2. A wrong password by keyboard: refused without saying which part; the e-mail address kept.
+    await page.keyboard.type(person.email);
     await page.keyboard.press("Tab");
     await page.keyboard.type("not the right passphrase at all");
     await page.keyboard.press("Enter");
     await page
       .getByRole("alert")
-      .filter({ hasText: "The username or password is not right" })
+      .filter({ hasText: "The e-mail address or password is not right" })
       .waitFor()
       .catch(async (error) => {
         console.error((await page.locator("body").innerText()).slice(0, 800));
         throw error;
       });
-    expect((await page.getByLabel("Username").inputValue()) === person.username, `${tag}: the username is kept`);
+    expect((await page.getByLabel("E-mail address").inputValue()) === person.email, `${tag}: the e-mail address is kept`);
     expect(await focused("Password"), `${tag}: the password has focus after a refusal`);
     await shot(page, "sign-in-wrong");
     checks.push(`${tag}: a wrong password is refused without saying which part`);
@@ -161,12 +161,12 @@ async function walk(configuration) {
 
     // 6. An administrator ends the person's sessions: the next request leads to the sign-in page,
     // which says the session ended, and back to the same page.
-    const [user] = (await api(`/users?q=${encodeURIComponent(person.username)}`)).items;
+    const [user] = (await api(`/users?q=${encodeURIComponent(person.email)}`)).items;
     await api(`/users/${user.id}/sessions`, undefined, "DELETE");
     await page.getByRole("link", { name: "About" }).click();
     await onSignInPage(page);
     await page.getByText("Your session ended. Sign in again to return to where you were.").waitFor();
-    await page.getByLabel("Username").fill(person.username);
+    await page.getByLabel("E-mail address").fill(person.email);
     await page.getByLabel("Password").fill(NEW_PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL(`${uiUrl}/settings/about`);
@@ -184,8 +184,8 @@ async function walk(configuration) {
 
     // 7b. A person granted Reader, and Contributor narrowed to one record type, in one workspace:
     // the menu names both there, and Account lists them, the narrowing by the type's name.
-    const reader = { username: "rhea", password: "a passphrase for the reader" };
-    const created = await api("/users", { username: reader.username, name: "Rhea Reader" }, "POST");
+    const reader = { email: "rhea@example.org", password: "a passphrase for the reader" };
+    const created = await api("/users", { email: reader.email, name: "Rhea Reader" }, "POST");
     const [recordType] = (await api("/object-types?workspaceKey=default")).items;
     await api(
       "/grants",
@@ -212,7 +212,7 @@ async function walk(configuration) {
     await rhea.getByRole("button", { name: /Set password/i }).click();
     await rhea.goto(`${uiUrl}/settings/account`);
     await onSignInPage(rhea);
-    await rhea.getByLabel("Username").fill(reader.username);
+    await rhea.getByLabel("E-mail address").fill(reader.email);
     await rhea.getByLabel("Password").fill(reader.password);
     await rhea.getByRole("button", { name: "Sign in" }).click();
     await rhea.getByRole("heading", { level: 1, name: "Account" }).waitFor();
@@ -257,7 +257,7 @@ async function walk(configuration) {
     await onSignInPage(phone);
     expect((await overflow(phone)) <= 0, `${tag}: the sign-in page scrolls sideways at 390px`);
     await shot(phone, "sign-in-narrow");
-    await phone.getByLabel("Username").fill(person.username);
+    await phone.getByLabel("E-mail address").fill(person.email);
     await phone.getByLabel("Password").fill(NEW_PASSWORD);
     await phone.getByRole("button", { name: "Sign in" }).click();
     await phone.waitForURL(`${uiUrl}/settings/account`);

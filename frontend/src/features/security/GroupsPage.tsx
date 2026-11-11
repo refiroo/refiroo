@@ -373,7 +373,7 @@ function GroupMembers({
           label="Members"
           columns={
             seen
-              ? ["Person", "Username", "Status", "Last seen in this group"]
+              ? ["Person", "E-mail", "Status", "Last seen in this group"]
               : [
                   {
                     key: "select",
@@ -386,7 +386,7 @@ function GroupMembers({
                     ),
                   },
                   "Person",
-                  "Username",
+                  "E-mail",
                   "Status",
                   { hidden: "Actions" },
                 ]
@@ -415,7 +415,7 @@ function GroupMembers({
                     <th scope="row">{name}</th>
                   </>
                 )}
-                <td data-label="Username">{member.username}</td>
+                <td data-label="E-mail">{member.email}</td>
                 <td data-label="Status">{member.active ? "Active" : "Deactivated"}</td>
                 {seen ? (
                   <td data-label="Last seen in this group">

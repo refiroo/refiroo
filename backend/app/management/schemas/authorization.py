@@ -80,7 +80,7 @@ class GroupPage(CollectionPage[GroupResponse]):
 
 class GroupMemberResponse(BaseModel):
     id: str
-    username: str
+    email: str | None
     name: str
     active: bool
     seenAt: datetime | None = Field(
@@ -95,7 +95,7 @@ class GroupMemberPage(CollectionPage[GroupMemberResponse]):
 class GroupMemberOutcome(BaseModel):
     """What adding or removing one of several people did, or would do (0.12 SP1b, D401, D402)."""
 
-    input: str = Field(description="The person's ID, or the username or e-mail address as sent")
+    input: str = Field(description="The person's ID, or the e-mail address as sent")
     outcome: Literal[
         "added", "toAdd", "alreadyMember", "deactivated", "notFound", "removed", "notMember"
     ]

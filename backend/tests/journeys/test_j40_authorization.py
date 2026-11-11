@@ -283,8 +283,8 @@ def test_who_can_do_what_here_and_the_last_security_administrator(world):
     assert all(item["principal"]["id"] != elsewhere["id"] for item in access)
 
     # One principal's grants are adjacent: people, groups, clients, each by name; paging agrees.
-    zed = ok(world.api.post("/users", {"username": "zed", "name": "Zed"}), 201)
-    amy = ok(world.api.post("/users", {"username": "amy", "name": "amy"}), 201)
+    zed = ok(world.api.post("/users", {"email": "zed@example.org", "name": "Zed"}), 201)
+    amy = ok(world.api.post("/users", {"email": "amy@example.org", "name": "amy"}), 201)
     for person, role in ((zed, "reader"), (amy, "reader"), (zed, "contributor"), (amy, "steward")):
         _grant(world, "user", person["id"], role)
     listing = f"/workspaces/{W1}/access"

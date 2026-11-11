@@ -7,7 +7,12 @@ import type { Group, GroupMember } from "@/types";
 vi.mock("@/api/securityClient", () => ({ security: { users: vi.fn(), addMembers: vi.fn() } }));
 
 const group = { id: "g1", name: "Curators" } as Group;
-const person = (id: string, name: string, active = true): GroupMember => ({ id, name, username: id, active });
+const person = (id: string, name: string, active = true): GroupMember => ({
+  id,
+  name,
+  email: `${id}@example.org`,
+  active,
+});
 const ana = person("ana", "Ana Varga");
 const bo = person("bo", "Bo Lind");
 const kept = person("kept", "Kept Member");
@@ -45,13 +50,13 @@ describe("adding several people to a group (0.12 SP1b)", () => {
     expect(screen.getByText("Already a member")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Paste a list" }));
-    fireEvent.change(screen.getByLabelText("Usernames or e-mail addresses"), {
-      target: { value: "BO\nnobody@example.org" },
+    fireEvent.change(screen.getByLabelText("E-mail addresses"), {
+      target: { value: "BO@example.org\nnobody@example.org" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Check 2 lines" }));
-    expect(await screen.findByText("No person with this username or e-mail")).toBeInTheDocument();
+    expect(await screen.findByText("No person with this e-mail address")).toBeInTheDocument();
     expect(security.addMembers).toHaveBeenLastCalledWith("g1", {
-      identifiers: ["BO", "nobody@example.org"],
+      identifiers: ["BO@example.org", "nobody@example.org"],
       dryRun: true,
     });
 

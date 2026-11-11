@@ -36,7 +36,15 @@ def _changing[T](session: Session, change: Callable[[], T]) -> T:
 
 
 def _taken() -> ApiError:
-    return api_error(409, "USERNAME_TAKEN", "Another person has this username")
+    return api_error(409, "EMAIL_TAKEN", "Another person has this e-mail address")
+
+
+def _refuse_taken_email(session: Session, email: str, *, except_id: int | None = None) -> None:
+    statement = select(User.id).where(func.lower(User.email) == email.lower())
+    if except_id is not None:
+        statement = statement.where(User.id != except_id)
+    if session.scalar(statement) is not None:
+        raise _taken()
 
 
 def load_user(session: Session, public_id: str, *, for_update: bool = False) -> User:
@@ -60,16 +68,11 @@ def create_user(
     ``roles``, holding them at the instance (the first administrator's, D282); with
     ``local_kept``, signing in with a password while local sign-in is off (I3, D365)."""
     if password is not None:
-        check_password(password, payload.username, min_length)
+        check_password(password, payload.email, min_length)
 
     def change() -> User:
-        taken = session.scalar(
-            select(User.id).where(func.lower(User.username) == payload.username.lower())
-        )
-        if taken is not None:
-            raise _taken()
+        _refuse_taken_email(session, payload.email)
         user = User(
-            username=payload.username,
             name=payload.name,
             email=payload.email,
             password_hash=hash_secret(password) if password is not None else None,
@@ -82,7 +85,7 @@ def create_user(
             grant_roles(session, "user", user.id, roles)
         security_events.record(
             session, "user", user.public_id, "created", about=[user.public_id],
-            details={"username": user.username, "name": user.name, "roles": list(roles)},
+            details={"email": user.email, "name": user.name, "roles": list(roles)},
         )  # fmt: skip
         return user
 
@@ -100,9 +103,21 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
                 {"currentVersion": user.version},
             )
         fields = payload.model_fields_set
+        will_be_active = payload.active if payload.active is not None else user.active
+        will_have = payload.email if "email" in fields else user.email
+        if will_be_active and will_have is None:
+            raise api_error(
+                422,
+                "EMAIL_REQUIRED",
+                "An active person needs an e-mail address: it is the name they sign in with",
+            )
+        if "email" in fields and payload.email is not None:
+            _refuse_taken_email(session, payload.email, except_id=user.id)
         if "name" in fields and payload.name is not None:
             user.name = payload.name
-        if "email" in fields:
+        # A flush must never see an active person without an address: the address is set before a
+        # person is restored or stays active, and cleared after one is deactivated.
+        if "email" in fields and will_be_active:
             user.email = payload.email
         if "localKept" in fields and payload.localKept is not None:
             if not payload.localKept:
@@ -118,6 +133,8 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
                 session.flush()
                 refuse_last_administrator(session, before)
             user.active = payload.active
+        if "email" in fields and not will_be_active:
+            user.email = payload.email
         user.version += 1
         user.updated_at = now
         changed = sorted(fields - {"expectedVersion"})
@@ -141,13 +158,11 @@ def user_page(
     page: PageRequest,
     page_size: int,
 ) -> Page[User]:
-    """People in the order they were created; ``q`` matches the username, name or e-mail."""
+    """People in the order they were created; ``q`` matches the name or e-mail."""
     statement = select(User)
     if q:
         pattern = f"%{q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')}%"
-        statement = statement.where(
-            or_(User.username.ilike(pattern), User.name.ilike(pattern), User.email.ilike(pattern))
-        )
+        statement = statement.where(or_(User.name.ilike(pattern), User.email.ilike(pattern)))
     if active is not None:
         statement = statement.where(User.active.is_(active))
     return paginate_statement(

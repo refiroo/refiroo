@@ -30,13 +30,10 @@ function openNewPerson() {
 beforeEach(() => vi.clearAllMocks());
 
 describe("New person (0.12 SP1: a refusal said only 'Request validation failed')", () => {
-  it("says a username has no spaces as it is typed, and sends nothing", () => {
+  it("asks for the e-mail address, the name a person signs in with, and sends nothing without it", () => {
     const dialog = openNewPerson();
-    fireEvent.change(within(dialog).getByLabelText("Username"), { target: { value: "user 1" } });
     fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "User One" } });
-    const username = within(dialog).getByLabelText("Username");
-    expect(username).toHaveAttribute("aria-invalid", "true");
-    expect(within(dialog).getByText(/A username has no spaces/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("E-mail")).toBeRequired();
     expect(within(dialog).getByRole("button", { name: "Create and make a password link" })).toBeDisabled();
     expect(security.createUser).not.toHaveBeenCalled();
   });
@@ -48,25 +45,23 @@ describe("New person (0.12 SP1: a refusal said only 'Request validation failed')
       ]),
     );
     const dialog = openNewPerson();
-    fireEvent.change(within(dialog).getByLabelText("Username"), { target: { value: "user1" } });
     fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "User One" } });
-    fireEvent.change(within(dialog).getByLabelText("E-mail (optional)"), { target: { value: "not an e-mail" } });
+    fireEvent.change(within(dialog).getByLabelText("E-mail"), { target: { value: "not an e-mail" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create and make a password link" }));
     expect(await within(dialog).findByText("An e-mail address looks like name@example.org.")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("E-mail (optional)")).toHaveAttribute("aria-invalid", "true");
+    expect(within(dialog).getByLabelText("E-mail")).toHaveAttribute("aria-invalid", "true");
     expect(within(dialog).queryByText("Request validation failed")).toBeNull();
   });
 });
 
 describe("A new person's link by mail (0.12 SP3)", () => {
-  const user = { id: "u1", name: "Ada", username: "ada", email: "ada@example.org", roles: [] };
+  const user = { id: "u1", name: "Ada", email: "ada@example.org", roles: [] };
   const link = { url: "https://x/oauth/password?token=t", expiresAt: "2026-11-01T00:00:00Z" };
 
   async function createAda() {
     const dialog = openNewPerson();
-    fireEvent.change(within(dialog).getByLabelText("Username"), { target: { value: "ada" } });
     fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Ada" } });
-    fireEvent.change(within(dialog).getByLabelText("E-mail (optional)"), { target: { value: "ada@example.org" } });
+    fireEvent.change(within(dialog).getByLabelText("E-mail"), { target: { value: "ada@example.org" } });
     return dialog;
   }
 
