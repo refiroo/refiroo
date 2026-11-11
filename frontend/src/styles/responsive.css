@@ -2,7 +2,6 @@
 
 @media (max-width: 1080px) {
   .workspace-main {
-    --main-pad-x: 20px;
     padding-bottom: 40px;
   }
   .model-summary {

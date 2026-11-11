@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed (wide screens)
 
-- **Application pages fill a wide window.** Lists, relation matrices, mapping grids, relationship tables, trees, record pages, group pages and change-set pages stopped at 1440px with empty margins either side on a wide display; they now span the main column, and its side padding is narrower: 20px up to a 1440px window (was 32px), growing slowly to at most 32px on wide windows; phones keep 16px. Home, Changes, Notifications and Account keep their reading widths. The browser runner `lb-list-browsing` checks the list card and a relation matrix at 1920 and 2560px, and UI acceptance now names a wide layout (1920 and 2560px) beside the narrow one.
+- **Application pages fill a wide window.** Lists, relation matrices, mapping grids, relationship tables, trees, record pages, group pages and change-set pages stopped at 1440px with empty margins either side on a wide display; they now span the main column, and its side padding is proportional to the window, so the margin looks the same on every screen: about 1.4% of the width (20px at 1440px, was 32px; about 27px at 1920px and 36px at 2560px), at least 16px and at most 40px. Home, Changes, Notifications and Account keep their reading widths. The browser runner `lb-list-browsing` checks the list card and a relation matrix at 1920 and 2560px, and UI acceptance now names a wide layout (1920 and 2560px) beside the narrow one.
 
 ### Added (list browsing: Find a list, a table's inactive records and a matrix's empty columns, 0.13 LB)
 
