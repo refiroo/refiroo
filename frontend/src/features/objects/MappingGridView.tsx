@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useRef, useState, type Ref } from "react";
+import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
 import { InlineError } from "@/ui/InlineError";
+import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
+import { useTableDisplay } from "@/ui/TableDisplay";
 import { Icon } from "@/ui/Icon";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
@@ -15,7 +17,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
-import { holdsOne, objectTypeFor } from "@/model/lookup";
+import { holdsOne, listingApplication, objectTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ScopeBanner } from "@/features/objects/CollectionScope";
 import { MappingProposalDialog } from "@/features/objects/MappingProposalDialog";
@@ -55,6 +57,7 @@ export function MappingGridView({
   onShowProposed,
   refreshToken = 0,
   lenses,
+  onOpen,
 }: ViewComponentProps) {
   const view = rawView as MappingGridViewDefinition;
   const api = useDataApi();
@@ -151,12 +154,32 @@ export function MappingGridView({
     ],
     { anchor: query.anchor, refreshToken: combinedRefresh },
   );
-  const { loading, error } = pages;
+  const { error } = pages;
 
   const refreshCoverage = useCallback(() => {
     setInternalRefresh((n) => n + 1);
     onChanged?.();
   }, [onChanged]);
+
+  // The columns keep their widths per view on this device, as every table's do (ui/TableDisplay).
+  const sourceColumns = config.sourceColumns.filter((column) => column !== "name");
+  const targetColumns = config.targetDisplayColumns.filter((column) => column !== "name");
+  const display = useTableDisplay(["name", ...sourceColumns, "state", "targets"], `${application.key}:${view.key}`);
+  const rowAttributes = useCallback(
+    (row: MappingCoverageRow) => ({
+      tabIndex: -1,
+      className: `mapping-row mapping-state-${row.state}${readOnly ? "" : " clickable-row"}`,
+      onClick: readOnly
+        ? undefined
+        : (event: MouseEvent<HTMLTableRowElement>) => {
+            // The row button is the keyboard path; the row is a larger pointer target.
+            if ((event.target as HTMLElement).closest("button, a, input, select, textarea, summary")) return;
+            if (window.getSelection()?.toString()) return;
+            setEditingId(row.source.id);
+          },
+    }),
+    [readOnly],
+  );
 
   if (!sourceType || !targetType) {
     return (
@@ -168,20 +191,63 @@ export function MappingGridView({
   }
 
   const directionLabel = config.direction === "outgoing" ? relationType?.name : relationType?.reverseName;
-  const sourceColumns = config.sourceColumns.filter((column) => column !== "name");
-  const targetColumns = config.targetDisplayColumns.filter((column) => column !== "name");
-  const columnCount = (readOnly ? 3 : 4) + sourceColumns.length;
-  const placeholderCells = [
-    undefined,
-    ...sourceColumns.map(() => "mobile-secondary-column"),
-    undefined,
-    undefined,
-    ...(readOnly ? [] : ["mapping-actions-col"]),
-  ];
+  const sourceApplicationKey = listingApplication(model, application.key, sourceTypeKey);
+  const targetApplicationKey = listingApplication(model, application.key, targetTypeKey);
   const targetHue = objectTypeHue(model, targetType.key);
   const editingIndex = pages.items.findIndex((row) => row.source.id === editingId);
   const editingRow = editingIndex >= 0 ? pages.items[editingIndex] : undefined;
   const nextRow = editingIndex >= 0 ? pages.items[editingIndex + 1] : undefined;
+
+  const openRecord = (record: MappingObjectSummary, applicationKey: string) =>
+    onOpen({ id: record.id, objectTypeKey: record.objectTypeKey, applicationKey, workspaceKey });
+  const openTarget = (record: MappingObjectSummary) => openRecord(record, targetApplicationKey);
+  const columns: DataColumn<MappingCoverageRow>[] = [
+    {
+      key: "name",
+      label: sourceType.name,
+      alwaysShown: true,
+      cell: (row) => (
+        <button className="cell-link mapping-source-name" onClick={() => openRecord(row.source, sourceApplicationKey)}>
+          {row.source.name}
+        </button>
+      ),
+    },
+    ...sourceColumns.map((column): DataColumn<MappingCoverageRow> => ({
+      key: column,
+      label: attributeName(model, column),
+      cell: (row) => <SourceValue model={model} field={column} value={row.source.fields[column]} />,
+    })),
+    {
+      key: "state",
+      label: "Status",
+      alwaysShown: true,
+      cell: (row) => (
+        <StatusPill tone={STATE_TONES[row.state]}>
+          {STATE_LABELS[row.state]}
+          {row.targetCount > 1 && ` (${row.targetCount})`}
+        </StatusPill>
+      ),
+    },
+    {
+      key: "targets",
+      label: targetType.name,
+      alwaysShown: true,
+      className: "mapping-targets-cell",
+      cell: (row) => (
+        <TargetsCell
+          row={row}
+          targetColumns={targetColumns}
+          targetHue={targetHue}
+          workspaceKey={workspaceKey}
+          applicationKey={application.key}
+          viewKey={view.key}
+          config={config}
+          changeSetId={changeSet?.id}
+          onOpenTarget={openTarget}
+        />
+      ),
+    },
+  ];
 
   return (
     <div ref={root}>
@@ -256,94 +322,48 @@ export function MappingGridView({
         </div>
         {error && <InlineError message={error} onRetry={pages.retry} />}
         {(!error || pages.items.length > 0) && (
-          <ScrollWindow
+          <DataTable<MappingCoverageRow>
+            columns={columns}
             list={pages}
+            rowKey={(row) => row.source.id}
+            rowAttributes={rowAttributes}
+            actions={
+              readOnly
+                ? undefined
+                : {
+                    header: "Action",
+                    width: 96,
+                    className: "mapping-actions-col",
+                    cell: (row) => (
+                      <button
+                        data-row-focus
+                        className={row.state === "unmapped" ? "secondary accent-outline" : "secondary"}
+                        onClick={() => setEditingId(row.source.id)}
+                        aria-label={`Change mapping for ${row.source.name}`}
+                      >
+                        {row.state === "unmapped" ? "Map" : "Change"}
+                      </button>
+                    ),
+                  }
+            }
+            columnWidths={display.widths}
+            onColumnWidths={display.setWidths}
             label={`${view.name} mapping grid`}
             noun={["row", "rows"]}
             pageSize={pageSize}
             onAnchorChange={onAnchorChange}
-            className="table-wrap mapping-table"
-          >
-            {(drawn) => (
-              <table
-                aria-busy={loading || undefined}
-                aria-rowcount={pages.totalCount !== null && pages.items.length > 0 ? pages.totalCount + 1 : undefined}
-              >
-                <caption className="visually-hidden">{view.name}</caption>
-                <thead>
-                  <tr aria-rowindex={1}>
-                    <th scope="col">{sourceType.name}</th>
-                    {sourceColumns.map((col) => (
-                      <th key={col} scope="col" className="mobile-secondary-column">
-                        {attributeName(model, col)}
-                      </th>
-                    ))}
-                    <th scope="col">Status</th>
-                    <th scope="col">{targetType.name}</th>
-                    {!readOnly && (
-                      <th scope="col" className="mapping-actions-col">
-                        Action
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading && pages.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={columnCount} className="empty-row">
-                        Loading…
-                      </td>
-                    </tr>
-                  ) : pages.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={columnCount} className="empty-row">
-                        {proposed
-                          ? "No targets proposed by the AI in this change set"
-                          : query.mappingState
-                            ? "No results match these filters"
-                            : query.search
-                              ? "No results match this search"
-                              : `No ${sourceType.pluralName.toLowerCase()} in this workspace yet`}
-                      </td>
-                    </tr>
-                  ) : (
-                    <>
-                      <WindowSpacer as="tr" edge="before" height={drawn.before} columns={columnCount} />
-                      {drawn.rows.map(({ index, item: row, size }) =>
-                        row === undefined ? (
-                          <WindowPlaceholder
-                            key={`placeholder-${index}`}
-                            as="tr"
-                            index={index}
-                            size={size}
-                            cells={placeholderCells}
-                          />
-                        ) : (
-                          <CoverageRow
-                            key={row.source.id}
-                            rowRef={drawn.measure}
-                            index={index}
-                            row={row}
-                            sourceColumns={sourceColumns}
-                            targetColumns={targetColumns}
-                            targetHue={targetHue}
-                            workspaceKey={workspaceKey}
-                            applicationKey={application.key}
-                            viewKey={view.key}
-                            config={config}
-                            changeSetId={changeSet?.id}
-                            readOnly={readOnly}
-                            onEdit={() => setEditingId(row.source.id)}
-                          />
-                        ),
-                      )}
-                      <WindowSpacer as="tr" edge="after" height={drawn.after} columns={columnCount} />
-                    </>
-                  )}
-                </tbody>
-              </table>
-            )}
-          </ScrollWindow>
+            className="mapping-table"
+            oneLine
+            emptyMessage={
+              proposed
+                ? "No targets proposed by the AI in this change set"
+                : query.mappingState
+                  ? "No results match these filters"
+                  : query.search
+                    ? "No results match this search"
+                    : `No ${sourceType.pluralName.toLowerCase()} in this workspace yet`
+            }
+          />
         )}
       </Card>
       {proposing && assistant && !readOnly && (
@@ -397,11 +417,15 @@ const STATE_LABELS: Record<string, string> = {
   ambiguous: "Ambiguous",
 };
 
-function CoverageRow({
-  rowRef,
-  index,
+/** A source's own value; the name of the record above it (`ancestor:<type>`) is a chip in that type's colour. */
+function SourceValue({ model, field, value }: { model: EngineModel; field: string; value: unknown }) {
+  if (field.startsWith("ancestor:") && typeof value === "string" && value)
+    return <RecordChip hue={objectTypeHue(model, field.slice("ancestor:".length))}>{value}</RecordChip>;
+  return <>{formatValue(value)}</>;
+}
+
+function TargetsCell({
   row,
-  sourceColumns,
   targetColumns,
   targetHue,
   workspaceKey,
@@ -409,13 +433,9 @@ function CoverageRow({
   viewKey,
   config,
   changeSetId,
-  readOnly,
-  onEdit,
+  onOpenTarget,
 }: {
-  rowRef: Ref<HTMLTableRowElement>;
-  index: number;
   row: MappingCoverageRow;
-  sourceColumns: string[];
   targetColumns: string[];
   targetHue: Hue | undefined;
   workspaceKey: string;
@@ -423,100 +443,56 @@ function CoverageRow({
   viewKey: string;
   config: MappingGridViewDefinition["config"];
   changeSetId?: string;
-  readOnly?: boolean;
-  onEdit: () => void;
+  onOpenTarget: (target: MappingObjectSummary) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const inlineTargets = row.targets;
   const hasMore = row.targetCount > inlineTargets.length;
 
+  if (row.state === "unmapped") return <span className="muted">—</span>;
+  if (row.state === "mapped" && inlineTargets.length === 1)
+    return <TargetDisplay target={inlineTargets[0]} hue={targetHue} columns={targetColumns} onOpen={onOpenTarget} />;
   return (
-    <tr
-      ref={rowRef}
-      data-row-key={row.source.id}
-      data-row-index={index}
-      aria-rowindex={index + 2}
-      tabIndex={-1}
-      className={`mapping-row mapping-state-${row.state}${readOnly ? "" : " clickable-row"}`}
-      onClick={
-        readOnly
-          ? undefined
-          : (event) => {
-              // The row button is the keyboard path; the row is a larger pointer target.
-              if ((event.target as HTMLElement).closest("button, a, input, select, textarea, summary")) return;
-              if (window.getSelection()?.toString()) return;
-              onEdit();
-            }
-      }
-    >
-      <td>
-        <span className="mapping-source-name">{row.source.name}</span>
-      </td>
-      {sourceColumns.map((col) => (
-        <td key={col} className="mobile-secondary-column">
-          {formatValue(row.source.fields[col])}
-        </td>
+    <div className="mapping-targets-list">
+      {(expanded ? inlineTargets : inlineTargets.slice(0, 3)).map((target) => (
+        <TargetDisplay
+          key={target.relationId}
+          target={target}
+          hue={targetHue}
+          columns={targetColumns}
+          onOpen={onOpenTarget}
+        />
       ))}
-      <td>
-        <StatusPill tone={STATE_TONES[row.state]}>
-          {STATE_LABELS[row.state]}
-          {row.targetCount > 1 && ` (${row.targetCount})`}
-        </StatusPill>
-      </td>
-      <td className="mapping-targets-cell">
-        {row.state === "unmapped" ? (
-          <span className="muted">—</span>
-        ) : row.state === "mapped" && inlineTargets.length === 1 ? (
-          <TargetDisplay target={inlineTargets[0]} hue={targetHue} columns={targetColumns} />
-        ) : (
-          <div className="mapping-targets-list">
-            {(expanded ? inlineTargets : inlineTargets.slice(0, 3)).map((target) => (
-              <TargetDisplay key={target.relationId} target={target} hue={targetHue} columns={targetColumns} />
-            ))}
-            {expanded && hasMore && (
-              <TargetContinuation
-                workspaceKey={workspaceKey}
-                applicationKey={applicationKey}
-                viewKey={viewKey}
-                config={config}
-                changeSetId={changeSetId}
-                sourceObjectId={row.source.id}
-                mappingVersion={row.mappingVersion}
-                nextCursor={row.targetsNextCursor}
-                targetColumns={targetColumns}
-                targetHue={targetHue}
-              />
-            )}
-            {!expanded && (inlineTargets.length > 3 || hasMore) && (
-              <button
-                className="ghost mapping-expand"
-                onClick={() => setExpanded(true)}
-                aria-label={`Show all ${row.targetCount} targets for ${row.source.name}`}
-              >
-                {hasMore ? `Show all ${row.targetCount}…` : `Show all ${inlineTargets.length}`}
-              </button>
-            )}
-            {expanded && (
-              <button className="ghost mapping-expand" onClick={() => setExpanded(false)}>
-                Show fewer
-              </button>
-            )}
-          </div>
-        )}
-      </td>
-      {!readOnly && (
-        <td className="mapping-actions-col">
-          <button
-            data-row-focus
-            className={row.state === "unmapped" ? "secondary accent-outline" : "secondary"}
-            onClick={onEdit}
-            aria-label={`Change mapping for ${row.source.name}`}
-          >
-            {row.state === "unmapped" ? "Map" : "Change"}
-          </button>
-        </td>
+      {expanded && hasMore && (
+        <TargetContinuation
+          workspaceKey={workspaceKey}
+          applicationKey={applicationKey}
+          viewKey={viewKey}
+          config={config}
+          changeSetId={changeSetId}
+          sourceObjectId={row.source.id}
+          mappingVersion={row.mappingVersion}
+          nextCursor={row.targetsNextCursor}
+          targetColumns={targetColumns}
+          targetHue={targetHue}
+          onOpenTarget={onOpenTarget}
+        />
       )}
-    </tr>
+      {!expanded && (inlineTargets.length > 3 || hasMore) && (
+        <button
+          className="ghost mapping-expand"
+          onClick={() => setExpanded(true)}
+          aria-label={`Show all ${row.targetCount} targets for ${row.source.name}`}
+        >
+          {hasMore ? `Show all ${row.targetCount}…` : `Show all ${inlineTargets.length}`}
+        </button>
+      )}
+      {expanded && (
+        <button className="ghost mapping-expand" onClick={() => setExpanded(false)}>
+          Show fewer
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -840,15 +816,19 @@ function TargetDisplay({
   target,
   hue,
   columns,
+  onOpen,
 }: {
   target: MappingTargetSummary;
   hue: Hue | undefined;
   columns: string[];
+  onOpen: (target: MappingObjectSummary) => void;
 }) {
   return (
     <div className="mapping-target-block">
       <div className="mapping-target">
-        <RecordChip hue={hue}>{target.object.name}</RecordChip>
+        <RecordChip hue={hue} onOpen={() => onOpen(target.object)}>
+          {target.object.name}
+        </RecordChip>
         {columns.map((col) => (
           <span key={col} className="mapping-target-field mobile-secondary-column">
             {formatValue(target.object.fields[col])}
@@ -871,6 +851,7 @@ function TargetContinuation({
   nextCursor,
   targetColumns,
   targetHue,
+  onOpenTarget,
 }: {
   workspaceKey: string;
   applicationKey: string;
@@ -882,6 +863,7 @@ function TargetContinuation({
   nextCursor: string | null;
   targetColumns: string[];
   targetHue: Hue | undefined;
+  onOpenTarget: (target: MappingObjectSummary) => void;
 }) {
   const api = useDataApi();
   const [targets, setTargets] = useState<MappingTargetSummary[]>([]);
@@ -930,7 +912,13 @@ function TargetContinuation({
   return (
     <>
       {targets.map((target) => (
-        <TargetDisplay key={target.relationId} target={target} hue={targetHue} columns={targetColumns} />
+        <TargetDisplay
+          key={target.relationId}
+          target={target}
+          hue={targetHue}
+          columns={targetColumns}
+          onOpen={onOpenTarget}
+        />
       ))}
       {loading && <span className="muted">Loading more targets…</span>}
       {error && (

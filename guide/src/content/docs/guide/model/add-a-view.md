@@ -53,7 +53,11 @@ choose this view in **View** to [arrange it](/docs/guide/model/choose-table-colu
    at the other end. Changing the relationship or row end resets the column and search choices
    to Name: select them again afterwards.
 4. Choose and order **Columns of a row** and **Columns of the matched record**. Keep at
-   least one in each list. Fields holding JSON are not offered.
+   least one in each list. Fields holding JSON are not offered. In **Columns of a row**,
+   **From the parents** offers the types the row can stand beneath. Add one to show the name
+   of each row record's nearest parent of that type, even several levels above it. The type's
+   name heads the column. These parent names give context but are not searched when people
+   search the grid's rows.
 5. Choose **Find a record to match by**. Name and searchable attributes of the matched type
    are offered. This controls candidate searching, not a relationship’s eligibility rules.
 6. Enter the name, Apply and check the resulting view and type listings. The new grid starts

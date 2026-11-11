@@ -271,6 +271,13 @@ describe("the editor's operation descriptors (D38)", () => {
         },
       },
     });
+    // A grid's row columns offer the types above the rows, as a matrix's do.
+    const columns = add.fields!(target as never, outline).find((field) => field.name === "sourceColumns")!;
+    expect(
+      fieldOptions(columns as never, { binding: "stores|shelf|bin", rows: "from" }).filter((item) =>
+        String(item.value).startsWith("ancestor:"),
+      ),
+    ).toEqual([expect.objectContaining({ value: "ancestor:area", label: "Area" })]);
     // The matrix is still one of the kinds, with the preview beside it; the others have none.
     expect(add.preview!({ kind: "tree" }, target as never, outline)).toBeUndefined();
   });

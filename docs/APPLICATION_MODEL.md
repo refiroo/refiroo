@@ -439,7 +439,7 @@ replacement. Configuration:
 | `fromObjectTypeKey` | Must match a declared `objectTypeRelations` triple with the relation type |
 | `toObjectTypeKey` | Must match the same triple |
 | `direction` | `outgoing` or `incoming` — determines which side is the source (grid rows) |
-| `sourceColumns` | Built-in or attached fields on the source object type; must be non-empty and unique |
+| `sourceColumns` | Built-in, attached or `ancestor:<type>` fields of the source type, as a matrix's `rowColumns` are (`ancestor:<type>` reads the name of the record's nearest ancestor of that type); non-empty and unique. The coverage query searches the name and attached attributes among them, not an ancestor's name |
 | `targetDisplayColumns` | Built-in or attached fields on the target object type; must be non-empty and unique |
 | `candidateSearchFields` | `name` or searchable attached attributes on the target type; must be non-empty and unique |
 | `pageSize` | 1–100 |

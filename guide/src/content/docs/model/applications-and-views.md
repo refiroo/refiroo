@@ -163,6 +163,12 @@ size of 1–100.
 | Unlink | A required owner relationship cannot be removed on its own. |
 
 With no enabled cell actions, the matrix is read only. The form offers suitable actions; the
+**Columns of a row** offers the row's own fields and, under **From the parents**, the types
+it can stand beneath. Choosing a parent type adds a column headed by that type's name. It
+shows the name of the row record's nearest parent of that type, including a parent several
+levels above it. This gives context without changing the records being mapped. Row search
+looks at source names and the source's displayed attributes; it does not search parent names.
+**Columns of the matched record** offers that record's own fields, without parent columns.
 model's validation also rejects impossible declarations. Enabled actions still require each
 person's data permissions. If Create is missing despite a default on a required field, ask a
 specialist to inspect the declaration: the visual form checks that required fields are selected.

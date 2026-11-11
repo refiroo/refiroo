@@ -17,14 +17,10 @@ permissions.
 3. Search for the source records you need. Read their codes and other identifying fields.
    Select **Unmapped** for rows without a connection, **Mapped** for rows with a
    target, or, on a view where a source may hold only one, **Ambiguous** for rows with several. **All** removes the state restriction.
-4. Inspect each target's name and identifying fields. Decide whether the current state needs
-   changing. Clear search and select **All** if an expected row is absent. A read error needs
+4. Inspect each target's name and identifying fields. Select a source name or target chip to
+   open that record's page for a closer look. Decide whether the current state needs changing.
+   Clear search and select **All** if an expected row is absent. A read error needs
    a retry; it does not mean a row is unmapped.
-
-![A mapping grid restricted to the Ambiguous state](/docs/screens/mapping-grid-filter-ambiguous.png)
-
-*Above: Codes to stops in Systems shows only T-0300 of the fictional Regional ticketing system.
-Its two targets are Chur West and Chur. The code was deliberately given two connections.*
 
 ## Choose or replace a target
 

@@ -18,6 +18,15 @@ record's name when none does.
 A language can be a column, but so can a system or another model-defined type. A matrix does
 not automatically translate anything or create missing records.
 
+Drag the right edge of the row-heading column or any record column to change its width.
+With a keyboard, Tab to the edge and use the Left or Right arrow key. refiroo remembers these
+widths for this view in your browser on this device. If a cell value is cut off, point at the
+cell or move keyboard focus into it to read the full value in a box. The box usually appears
+below the cell, or above it when space is short. Opening the cell still opens its usual dialog.
+
+On a narrow screen, the matrix keeps all the columns currently shown. Scroll sideways to reach
+those outside the screen; use the column chooser to work with a smaller selection.
+
 ![A matrix comparing operators against languages, with filled and missing cells](/docs/screens/matrix-operator-names.png)
 
 *Above: Operator names in Names compares operators against five languages. French and German

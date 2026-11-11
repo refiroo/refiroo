@@ -15,6 +15,12 @@ export function objectTypeFor(model: EngineModel, key: string) {
   return model.objectTypes.find((item) => item.key === key);
 }
 
+/** The application that lists a type: the given one when it does, else the first that does. */
+export const listingApplication = (model: EngineModel, applicationKey: string, objectTypeKey: string) =>
+  model.applications.find((item) => item.key === applicationKey && item.objectTypeKeys.includes(objectTypeKey))?.key ??
+  model.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey))?.key ??
+  applicationKey;
+
 export interface RelationChoice {
   direction: "outgoing" | "incoming";
   relation: ObjectTypeRelationDefinition;

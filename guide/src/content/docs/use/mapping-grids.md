@@ -15,6 +15,20 @@ Each row identifies a source record, its mapping state and its connected targets
 show names with identifying fields chosen by the model. Read those fields before deciding that
 two similar names mean the same thing.
 
+Select the source record's name to open its record page. Each target chip opens that target's
+record page. When editing is permitted, clicking elsewhere on the row opens **Change mapping**,
+as do **Map** and **Change**.
+
+The model may also show the name of a source record's nearest parent of a chosen type, even
+several levels above it. The column heading is that type's name. Search looks at source names
+and the source's displayed attributes, not these parent names.
+
+Drag a column's right edge to change its width. With a keyboard, Tab to the edge and use the
+Left or Right arrow key. refiroo remembers widths for this view in your browser on this device.
+Rows keep their values on one line; a row with several targets lists them on separate lines.
+If a value is cut off, point at the cell or move keyboard focus into it to see the full value
+in a box beside the cell. The box usually appears below it and moves above when space is short.
+
 | State | Meaning |
 | --- | --- |
 | Unmapped | No target is connected through this view's relationship. |
@@ -28,11 +42,13 @@ source may hold at most one target, and describes multiple stored connections ra
 uncertainty about a suggested match. Decide whether one or several is correct for the data
 before replacing anything. An unmapped row can be intentional.
 
-![A mapping grid showing mapped, ambiguous and unmapped source codes](/docs/screens/mapping-grid-codes-to-stops.png)
+![A mapping grid showing a source code mapped to two stops, other mapped codes and an unmapped code](/docs/screens/mapping-grid-codes-to-stops.png)
 
 *Above: Codes to stops in Systems, searched for FICTIONAL, shows the invented Regional ticketing
-system. T-0300 connects to Chur West and Chur; T-0412 connects to Chur Wiesental; T-9999 is deliberately
-unmapped. These fictional codes demonstrate the three states.*
+system. T-0300 is Mapped (2), connected to Chur and Chur West; the other mapped codes each show
+one stop. T-9999 is deliberately Unmapped, with Map available. This view allows several stops
+per code, so its filters are All, Unmapped and Mapped. Select a name in the first column to open
+the source record.*
 
 **All**, **Unmapped**, **Mapped** and, where it applies, **Ambiguous** narrow the whole list, together with search.
 An empty result says nothing about rows excluded by these conditions. A loading failure is not

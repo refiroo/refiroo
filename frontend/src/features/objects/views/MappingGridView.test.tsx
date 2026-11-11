@@ -289,6 +289,40 @@ describe("MappingGridView", () => {
     expect(screen.getByText("MOT")).toBeInTheDocument();
   });
 
+  it("opens the record from the source name and from a target, and the mapping from the row", async () => {
+    const onOpen = vi.fn();
+    renderGrid({ onOpen });
+    fireEvent.click(await screen.findByRole("button", { name: "Connections" }));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: "s1", objectTypeKey: "domain" }));
+    expect(screen.queryByText(/Change mapping/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Timetable types" }));
+    expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: "t1", objectTypeKey: "codelist" }));
+    expect(screen.queryByText(/Change mapping/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("CLI"));
+    expect(await screen.findByText(/Change mapping — Connections/)).toBeInTheDocument();
+  });
+
+  it("shows a column of the record above, headed by that type, and sizes its columns", async () => {
+    vi.mocked(api.mappingCoverage).mockResolvedValue({
+      ...coveragePage,
+      items: coveragePage.items.map((row) => ({
+        ...row,
+        source: { ...row.source, fields: { ...row.source.fields, "ancestor:codelist": "Didok" } },
+      })),
+    });
+    renderGrid({
+      view: {
+        ...mappingView,
+        config: { ...mappingView.config, sourceColumns: ["name", "ancestor:codelist", "code"] },
+      },
+    });
+    await screen.findAllByText("Didok");
+    // The record above's column and the target column are both headed by the codelist type.
+    expect(screen.getAllByRole("columnheader", { name: "Codelist" })).toHaveLength(2);
+    expect(screen.getAllByText("Didok")).toHaveLength(coveragePage.items.length);
+    expect(screen.getAllByRole("separator", { name: "Resize Codelist column" })).toHaveLength(2);
+  });
+
   it("renders the direction label from the relation type", async () => {
     renderGrid();
 
@@ -373,7 +407,7 @@ describe("MappingGridView", () => {
     expect(screen.getByText("Target A")).toBeInTheDocument();
     expect(screen.getByText("Target B")).toBeInTheDocument();
 
-    const expandButton = screen.getByRole("button", { name: /Show all 4/ });
+    const expandButton = screen.getByRole("button", { name: /Show all 4 targets/ });
     expect(expandButton).toBeInTheDocument();
 
     fireEvent.click(expandButton);
@@ -585,7 +619,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     const onChanged = vi.fn();
     renderGrid({ onChanged });
 
-    fireEvent.click(await screen.findByText("Financial"));
+    fireEvent.click(await screen.findByText("FIN"));
     expect(await screen.findByText(/Change mapping — Financial/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("radio", { name: /Candidate Y/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save and next" }));

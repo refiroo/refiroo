@@ -25,8 +25,8 @@ import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { attributeName } from "@/model/fields";
 import { endFilterView } from "@/model/relationGrid";
 import { objectTypeHue, objectTypeTile } from "@/model/hues";
-import { isManagedRelation, objectTypeFor } from "@/model/lookup";
-import type { EngineModel, RelationGridColumn, RelationGridRow, RelationTableViewDefinition } from "@/types";
+import { isManagedRelation, listingApplication, objectTypeFor } from "@/model/lookup";
+import type { RelationGridColumn, RelationGridRow, RelationTableViewDefinition } from "@/types";
 import { Card } from "@/ui/Card";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
@@ -61,11 +61,6 @@ interface Shown {
   columnTotal: number;
   rowTotal: number;
 }
-
-const listingApplication = (model: EngineModel, applicationKey: string, objectTypeKey: string) =>
-  model.applications.find((item) => item.key === applicationKey && item.objectTypeKeys.includes(objectTypeKey))?.key ??
-  model.applications.find((item) => item.objectTypeKeys.includes(objectTypeKey))?.key ??
-  applicationKey;
 
 export function RelationGridView({
   model,

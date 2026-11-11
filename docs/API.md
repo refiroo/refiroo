@@ -5653,7 +5653,7 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 
 Coverage and candidates use the view's configured page size by default (an explicit `pageSize` must
 be 1–100). Search is a literal, case-insensitive substring, limited to 500 characters. Coverage searches
-name and attached attributes selected by `sourceColumns`; candidates search only `candidateSearchFields`.
+name and attached attributes selected by `sourceColumns` (a `sourceColumns` entry `ancestor:<type>` is returned in `source.fields` as the name of the source's ancestor of that type, or `null`, and is not searched); candidates search only `candidateSearchFields`.
 Coverage-state filters use the complete effective relation set, in both directions, before selecting
 the requested source page. Views select the returned fields independently of the physical binding. Candidate lookup removes
 occupied target-side objects for one-to-one bindings and outgoing one-to-many views; source-dependent

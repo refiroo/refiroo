@@ -352,7 +352,7 @@ record's detail declares, as chips in their types' colours that open the record;
 the panels' tables on the record's full page, one click away.
 
 A mapping grid shows each source value as mapped, unmapped or ambiguous across the whole list, with
-counts, target previews (chips in the target type's colour) and a state filter. Choosing, replacing or clearing a target is one atomic
+counts, target previews (chips in the target type's colour) and a state filter. It is drawn with the table every record list uses: the source's name and the target chips open the record, columns resize and keep their widths per view, a cut-off value shows whole when pointed at, and a column may show the name of the record above the source (a system value's system). Choosing, replacing or clearing a target is one atomic
 action that keeps the existing relationship's identity and fields; a concurrent change is reported with
 the current mapping instead of overwritten. This works live and in a change set; publishing refuses a
 change set whose mappings diverged from live data.

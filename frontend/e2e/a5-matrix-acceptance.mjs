@@ -63,7 +63,8 @@ function driver({ page, output, api }, part) {
     });
   async function enterGrid() {
     await page.getByRole("textbox", { name: "Search" }).first().focus();
-    for (let step = 0; step < 20; step++) {
+    // Each column's resize handle is a tab stop before the grid (ui/DataTable): a page of 20 columns has 21.
+    for (let step = 0; step < 40; step++) {
       await page.keyboard.press("Tab");
       if (await gridFocus()) return;
     }

@@ -4,7 +4,10 @@
  * headers, the continuous scroll window (ADR-030), the loading rows and the empty state, the row's
  * type colour (ADR-040) and the narrow layout's column toggle. What a row is, how it is keyed, what
  * its cells show and what can be done with it stay with the caller: `ui/ObjectTable` lists records,
- * `RelationsPanel` lists relationships, where one record may stand on two rows.
+ * `RelationsPanel` lists relationships, where one record may stand on two rows, the mapping grid
+ * lists sources with their targets and the relation matrix lists rows with a cell per column record
+ * (a column may be a row header, carry its own header content and cell attributes, and the table its
+ * own role and keyboard handler, which a grid needs).
  *
  * Column widths (UA4 revision): the table lays its columns out by their content until the user
  * sizes one. The first resize keeps every column at the width it had and changes only the one being
@@ -58,7 +61,24 @@ export interface DataColumn<Row> {
   label: string;
   /** The cell's content; `index` is the row's place in the whole list, for a cell that reads its neighbour. */
   cell: (row: Row, index: number) => ReactNode;
+  /** The header's content where it is more than the label (the matrix's column name under its label). */
+  header?: ReactNode;
+  /** Stays on narrow screens; when any column says so, the others are the "Show all" ones (the identity column always stays). */
+  alwaysShown?: boolean;
+  /** The column names the row: its cells are row headers (`th scope="row"`), not data cells. */
+  rowHeader?: boolean;
+  /** A class for the column's header and its cells. */
+  className?: string;
+  /** The header cell's own attributes (a title, a column index). */
+  headerProps?: CellAttributes;
+  /** A cell's own attributes: a grid's role, tab stop, click and focus handlers. */
+  cellProps?: (row: Row, index: number) => CellAttributes;
 }
+
+/** A header or data cell's attributes, `data-*` ones included. */
+export type CellAttributes = HTMLAttributes<HTMLTableCellElement> & {
+  [attribute: `data-${string}`]: string | number | boolean | undefined;
+};
 
 export function DataTable<Row>({
   columns,
@@ -85,6 +105,8 @@ export function DataTable<Row>({
   whole = false,
   oneLine = false,
   fill = false,
+  tableAttributes,
+  className,
 }: {
   columns: DataColumn<Row>[];
   /** The column that names a row; it stays on narrow screens. Defaults to the first. */
@@ -133,6 +155,10 @@ export function DataTable<Row>({
   oneLine?: boolean;
   /** The list fills its page, which does not scroll (`ScrollWindow`'s `fill`, 0.12 LS1, D372). */
   fill?: boolean;
+  /** The table's own attributes: a grid's role, its keyboard handler and its column count. */
+  tableAttributes?: HTMLAttributes<HTMLTableElement>;
+  /** A further class of the scroll window, for a view's own styles over the shared table. */
+  className?: string;
 }) {
   const [allColumns, setAllColumns] = useState(false);
   // A cut-off cell shows its whole value on hover, focus or a long press (ui/CellReveal).
@@ -141,9 +167,14 @@ export function DataTable<Row>({
   const resizers = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState<{ height: number; ends: Record<string, number> }>({ height: 0, ends: {} });
   const identity = identityColumn ?? columns[0]?.key;
-  const mobileKey = [identity, ...columns.map((column) => column.key).filter((key) => key !== identity)]
-    .slice(0, 3)
-    .join("\n");
+  const pinned = columns.filter((column) => column.alwaysShown).map((column) => column.key);
+  const mobileKeys = (
+    pinned.length
+      ? [identity, ...pinned]
+      : [identity, ...columns.map((column) => column.key).filter((key) => key !== identity)].slice(0, 3)
+  ).filter((key, position, all) => all.indexOf(key) === position);
+  const mobileKey = mobileKeys.join("\n");
+  const narrowToggle = columns.some((column) => !mobileKeys.includes(column.key));
   // Given to every row, so it changes only with the columns: a new one drew every row again.
   const secondary = useCallback(
     (key: string) => (!mobileKey.split("\n").includes(key) ? "mobile-secondary-column" : undefined),
@@ -153,7 +184,7 @@ export function DataTable<Row>({
   const columnCount = columns.length + Number(Boolean(actions)) + Number(Boolean(selection));
 
   // The widths the first rows laid out (see above), for these columns at this room.
-  const table = useRef<HTMLTableElement>(null);
+  const table = useRef<HTMLTableElement | null>(null);
   const [room, setRoom] = useState(0);
   const [frozen, setFrozen] = useState<{ key: string; room: number; widths: number[] }>();
   const freezeKey = [
@@ -284,7 +315,7 @@ export function DataTable<Row>({
 
   return (
     <>
-      {columns.length > 3 && (
+      {narrowToggle && (
         <div className="table-controls table-controls-narrow">
           <button
             className="secondary mobile-columns-toggle"
@@ -305,7 +336,7 @@ export function DataTable<Row>({
         onAnchorChange={onAnchorChange}
         fill={fill}
         {...(whole ? { edgeMarkers: "partial" as const, footer: false } : {})}
-        className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
+        className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}${className ? ` ${className}` : ""}`}
       >
         {(drawn) => (
           <>
@@ -331,6 +362,7 @@ export function DataTable<Row>({
               </div>
             )}
             <table
+              {...tableAttributes}
               ref={table}
               className={
                 [
@@ -372,12 +404,13 @@ export function DataTable<Row>({
                     const width = columnWidths[column.key] ?? (sized ? 180 : undefined);
                     return (
                       <th
+                        {...column.headerProps}
                         key={column.key}
                         ref={(node) => {
                           if (node) headers.current.set(column.key, node);
                           else headers.current.delete(column.key);
                         }}
-                        className={secondary(column.key)}
+                        className={cellClass(secondary(column.key), column.className, column.headerProps?.className)}
                         scope="col"
                         aria-sort={sorting && headerSort(sorting, column.key)}
                         style={
@@ -389,7 +422,7 @@ export function DataTable<Row>({
                         {sorting ? (
                           <SortHeader field={column.key} label={column.label} sorting={sorting} />
                         ) : (
-                          column.label
+                          (column.header ?? column.label)
                         )}
                       </th>
                     );
@@ -541,11 +574,22 @@ function DataRowContent<Row>({
         {...rowAttributes?.(row)}
       >
         {selection && <td className="selection-column">{selection.cell(row)}</td>}
-        {columns.map((column) => (
-          <td key={column.key} className={secondary(column.key)} data-reveal="">
-            <CellRoom.Provider value={rooms?.[column.key]}>{column.cell(row, index)}</CellRoom.Provider>
-          </td>
-        ))}
+        {columns.map((column) => {
+          const attributes = column.cellProps?.(row, index);
+          const Cell = column.rowHeader ? "th" : "td";
+          return (
+            <Cell
+              {...attributes}
+              key={column.key}
+              scope={column.rowHeader ? "row" : undefined}
+              className={cellClass(secondary(column.key), column.className, attributes?.className)}
+              // A row header wraps its name; only data cells end in an ellipsis and reveal their value.
+              data-reveal={column.rowHeader ? undefined : ""}
+            >
+              <CellRoom.Provider value={rooms?.[column.key]}>{column.cell(row, index)}</CellRoom.Provider>
+            </Cell>
+          );
+        })}
         {actions && (
           <td className={`actions-column ${actions.className ?? "record-actions-column"}`}>{actions.cell(row)}</td>
         )}
@@ -555,3 +599,5 @@ function DataRowContent<Row>({
 }
 
 const noSubscription = () => () => undefined;
+
+const cellClass = (...names: (string | undefined)[]) => names.filter(Boolean).join(" ") || undefined;

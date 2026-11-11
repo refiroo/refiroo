@@ -94,14 +94,19 @@ export function cellFieldOptions(outline: ModelDraftOutline, value: unknown): Op
 
 export function rowColumnOptions(outline: ModelDraftOutline, row: unknown): (Option & { group?: string })[] {
   const key = String(row ?? "");
+/** The types above a type as columns (`ancestor:<type>`), shared by a matrix's rows and a mapping grid's. */
+export function ancestorColumnOptions(outline: ModelDraftOutline, key: string): (Option & { group: string })[] {
+  return ancestorsOf(outline, key).map((ancestor) => ({
+    value: `ancestor:${ancestor}`,
+    label: typeName(outline, ancestor),
+    group: "From the parents",
+  }));
+}
+
   return [
     { value: "name", label: "Name" },
     ...(objectTypeOf(outline, key)?.attributes ?? []).map((item) => ({ value: item.attributeType, label: item.name })),
-    ...ancestorsOf(outline, key).map((ancestor) => ({
-      value: `ancestor:${ancestor}`,
-      label: typeName(outline, ancestor),
-      group: "From the parents",
-    })),
+    ...ancestorColumnOptions(outline, key),
   ];
 }
 

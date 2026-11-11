@@ -5,6 +5,7 @@
  * would accept (`application_rules._check_tree_view`, `_check_mapping_grid_view`), and a view is
  * changed property by property, as a matrix is (`matrixView.changeMatrix`).
  */
+import { ancestorColumnOptions } from "@/features/model-editor/matrixView";
 import { keyFromLabel, objectTypeOf, relationTypeOf, typeLabel, typeName } from "@/features/model-editor/outline";
 import type { DraftOperation, ModelDraftOutline, OutlineApplication, OutlineView } from "@/types";
 
@@ -188,8 +189,11 @@ function gridFields(outline: ModelDraftOutline, type: string, keep: (valueType: 
   ];
 }
 
-export const gridSourceOptions = (outline: ModelDraftOutline, values: Values) =>
-  gridFields(outline, gridEnds(values).source, (valueType) => valueType !== "json");
+/** The row type's fields, and the types above it, as a matrix's row columns offer them. */
+export const gridSourceOptions = (outline: ModelDraftOutline, values: Values): (Option & { group?: string })[] => [
+  ...gridFields(outline, gridEnds(values).source, (valueType) => valueType !== "json"),
+  ...ancestorColumnOptions(outline, gridEnds(values).source),
+];
 export const gridTargetOptions = (outline: ModelDraftOutline, values: Values) =>
   gridFields(outline, gridEnds(values).target, (valueType) => valueType !== "json");
 
