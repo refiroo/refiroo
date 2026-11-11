@@ -960,7 +960,12 @@ th[aria-sort] {
   .object-table table.one-line-rows td:has(.cell-editor),
   .object-table table.one-line-rows td:has(.mapping-targets-list, .ai-origin) {
     overflow: visible;
+    overflow-wrap: anywhere;
     white-space: normal;
+  }
+  /* A mapping grid's single target keeps to the row's one line with its fields. */
+  .object-table table.one-line-rows .mapping-target {
+    flex-wrap: nowrap;
   }
   .object-table table.sized-columns {
     table-layout: fixed;
@@ -990,13 +995,8 @@ th[aria-sort] {
   }
 }
 .relation-actions-column {
-    overflow-wrap: anywhere;
   white-space: nowrap;
 }
-  /* A mapping grid's single target keeps to the row's one line with its fields. */
-  .object-table table.one-line-rows .mapping-target {
-    flex-wrap: nowrap;
-  }
 .record-actions-column {
   width: 48px;
   padding: 4px 8px;
@@ -3590,6 +3590,7 @@ form .admin-hint {
   background: var(--surface-sunken);
 }
 .matrix-table tbody .matrix-row-header {
+  top: auto;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border-faint);
   color: var(--text-primary);
@@ -3598,6 +3599,10 @@ form .admin-hint {
   text-align: left;
   white-space: normal;
   cursor: pointer;
+}
+/* A row header's width is the user's once the columns are sized (ui/DataTable). */
+.matrix-table .sized-columns .matrix-row-header {
+  max-width: none;
 }
 .matrix-row-name {
   display: block;
@@ -3622,7 +3627,6 @@ form .admin-hint {
   font-weight: 400;
 }
 .matrix-cell {
-  top: auto;
   min-width: 132px;
   max-width: 220px;
   padding: 8px 12px;
@@ -3632,10 +3636,6 @@ form .admin-hint {
   background: var(--surface-hover);
 }
 .matrix-table [data-grid-col]:focus-visible {
-/* A row header's width is the user's once the columns are sized (ui/DataTable). */
-.matrix-table .sized-columns .matrix-row-header {
-  max-width: none;
-}
   outline: 2px solid var(--action-primary);
   outline-offset: -2px;
 }
