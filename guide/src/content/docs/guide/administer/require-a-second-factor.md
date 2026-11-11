@@ -5,13 +5,19 @@ reader: access-admin
 ---
 
 Use this policy when a password alone should not sign people in. You need **Security administration**.
-It applies to local password sign-in, including recovery administrators. Provider sign-ins
+It applies to local password sign-in, including recovery administrators, with the exception below. Provider sign-ins
 use their provider's own checks. Read [Sign-in and second factors](/docs/administer/sign-in/)
 for passkeys, sessions and recovery.
 
+An account whose sign-in is managed by an administrator cannot set up its own second factor.
+If it has neither an authenticator app nor a passkey, it is not asked to set one up: it signs
+in with its password alone even with this requirement on. Existing factors still apply.
+Review these accounts in [People and groups](/docs/administer/people-and-groups/#sign-in-managed-by-an-administrator)
+before relying on the policy to require a second step for everyone.
+
 ## Prepare people
 
-1. Tell people that password sign-in needs an authenticator app or passkey. They can prepare
+1. Tell people who manage their own sign-in that password sign-in needs an authenticator app or passkey. They can prepare
    on their own **Settings › Account** page using **Set up an authenticator app** or
    **Add a passkey**. See [Your account](/docs/use/account/).
 2. Ask people using an app to save the recovery codes shown at setup somewhere they can
@@ -25,12 +31,14 @@ for passkeys, sessions and recovery.
 1. Open **Settings › Security › Sign-in** and select **Local accounts**.
    Under **Second factor**, find **Require a second factor with a password**.
 2. Tick it. The **Require a second factor?** confirmation explains that people without a
-   factor must set up an app on the sign-in page before a session starts.
+   factor must set up an app on the sign-in page before a session starts. The administrator-managed
+   accounts described above are exempt from that setup.
 3. Choose **Require it** to apply the policy. **Cancel** leaves it unchanged.
    Wait for the setting to show as checked. There is no separate Save button.
 4. At the next password sign-in, check that someone with a factor is asked for the second
-   step. Someone with neither an app nor a passkey must complete setup and save the recovery
-   codes before continuing. A registered passkey also meets the requirement.
+   step. Someone who manages their own sign-in and has neither an app nor a passkey must complete setup and save the recovery
+   codes before continuing. A registered passkey also meets the requirement. For a managed
+   account with no factor, check that password sign-in continues without setup.
 
 ![Local accounts settings showing the second-factor requirement checkbox](/docs/screens/admin-signin-local.png)
 

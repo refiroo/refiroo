@@ -56,6 +56,32 @@ for everyone else. Reserve it for people responsible for recovery if the provide
 Changing it asks for confirmation. The last active person keeping local sign-in cannot
 lose that route while local sign-in is off. See [Sign-in](/docs/administer/sign-in/).
 
+## Sign-in managed by an administrator
+
+Use **An administrator manages this person’s sign-in** when you look after an account's
+sign-in for its users: for example, a shared reception account or an account on a kiosk or
+training machine. Only someone with **Security administration** sees and sets this checkbox
+in **New person** and **Edit…**. It is off by default. To change an existing person, choose
+**Edit…**, tick or clear the checkbox, then choose **Save**. **Cancel** leaves it unchanged.
+
+While it is on, the person cannot change their own password; set up, confirm or remove an
+authenticator app; make new recovery codes; or add, rename or remove a passkey. They cannot
+sign out other browsers or sign out everywhere, but can still sign out of the browser they
+are using. Their [Account](/docs/use/account/#when-an-administrator-manages-your-sign-in)
+page shows a message in place of those controls. Forgotten-password requests give the usual
+response and send no mail for this account.
+
+You can still make a password link for the account holder to choose a password, remove an
+authenticator app or passkey, and use **Sign out everywhere** on their People page. Follow
+[Help someone who lost a device](/docs/guide/administer/help-someone-who-lost-a-device/).
+Clearing the checkbox lets the person manage their own sign-in again.
+
+A managed account with no second factor signs in with its password alone even if the
+instance requires a second factor. Existing factors still apply. See
+[Sign-in and second factors](/docs/administer/sign-in/#second-factors-and-passkeys).
+Wrong passwords entered for the account's e-mail address slow sign-in for everyone using
+it, just as for any account. This matters when several people share one password.
+
 ## Groups
 
 A role granted to a group applies to every member. Leaving the group removes that source

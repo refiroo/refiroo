@@ -27,6 +27,21 @@ ends the current browser's sign-in.
 
 *Above: Guide Admin signed in with a password and has not set up an authenticator app.*
 
+### When an administrator manages your sign-in
+
+If Account says **An administrator manages the sign-in of this account.**, the password,
+passkeys, authenticator app and **Where you’re signed in** sections are not shown. Your
+profile and **Sign out** remain. You can sign out of this browser, but you cannot sign out
+other browsers or sign out everywhere.
+
+You cannot change your own password, set up, confirm or remove an authenticator app, make
+new recovery codes, or add, rename or remove passkeys. Ask a security administrator for a
+password-setting link or help with a lost device. **Forgotten your password?** gives the
+usual response but sends no mail for this account. See
+[Help someone who lost a device](/docs/guide/administer/help-someone-who-lost-a-device/).
+
+### When you manage your own sign-in
+
 The controls depend on how you signed in. If your organisation provides sign-in, its password
 is managed there. The local Password control appears when you signed in with your refiroo password.
 
@@ -161,7 +176,7 @@ check whether the provider still has an open session.
 
 **Forgotten your password?** asks for your e-mail address. It gives the same
 response whether or not that account exists. A reset message is sent only for an account
-with a local password and an email address. For a provider account, reset your password with
+with a local password and an email address whose sign-in is not managed by an administrator. For a provider account, reset your password with
 the organisation instead. An administrator can supply a one-time password-setting link
 when email recovery is unavailable.
 

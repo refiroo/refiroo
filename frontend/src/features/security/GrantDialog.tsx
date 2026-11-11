@@ -307,7 +307,8 @@ export function GrantDialog({
       eyebrow="Security"
       size="wide"
       busy={pending}
-      dirty={requests.length > 0 || (!!principal && principal !== who)}
+      // Compared by id: a page that builds `who` inline hands a new object on every render.
+      dirty={requests.length > 0 || (!!principal && principal.id !== who?.id)}
       onClose={finish}
     >
       {!roles || !catalogue || (!workspace && !workspaces) ? (

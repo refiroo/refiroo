@@ -16,12 +16,16 @@ provider, first sign-in creates their person instead; see
    too; **Restore** reactivates an existing person with their retained roles and groups.
 2. Choose **New person**. Enter **Name**, the display name used in lists and history, up to 200 characters.
 3. Enter **E-mail**, the address they sign in with. Another person cannot have the same address.
-4. Choose **Create and make a password link**. **Cancel** leaves the person uncreated.
+4. Leave **An administrator manages this person’s sign-in** unticked for someone who manages
+   their own password and sign-in methods. Tick it for an account whose sign-in you look after,
+   such as a shared reception account or an account on a training machine. Its help text explains
+   that they cannot change their password, second factor or passkeys, or sign out other browsers.
+   Only someone with **Security administration** can set this option. It is off by default.
+   Wrong passwords entered for a shared account's e-mail address slow sign-in for everyone
+   using it. See [People and groups](/docs/administer/people-and-groups/#sign-in-managed-by-an-administrator)
+   for the limits and recovery options.
+5. Choose **Create and make a password link**. **Cancel** leaves the person uncreated.
    If a field is refused, correct the named problem and submit again.
-
-![New person dialog with Name and E-mail](/docs/screens/admin-person-new.png)
-
-*Above: the reference instance's empty New person dialog, opened but not saved.*
 
 ## Pass on the password link
 
@@ -49,7 +53,9 @@ the same link dialog. Its example address is not one to reuse.*
 2. Ask them to open the link and set a password. A rejected password gives a reason;
    they must choose another. An expired, replaced or used link needs a new **Reset password** link.
 3. Ask them to sign in and check the expected workspace and actions. If the instance requires
-   a second factor, they set one up before their session starts. If the workspace is missing,
+   a second factor, someone who manages their own sign-in sets one up before their session starts.
+   An administrator-managed account with no factor signs in with the password alone, even
+   when the instance requires a second factor. If the workspace is missing,
    review the grant's workspace and whether its role includes Browse.
 
 Creating a person does not send them data or grant access automatically. Keep the e-mail address

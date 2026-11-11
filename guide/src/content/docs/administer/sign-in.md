@@ -15,8 +15,9 @@ decide what that identity may do afterwards.
 ## Local accounts
 
 With **Local accounts** on, people can use their refiroo e-mail address and password.
-They manage their password, passkeys and authenticator app on their own
-[Account](/docs/use/account/) page. Passwords normally need 15–128 characters. The operator can change the minimum. A password equal to the e-mail address or a common password is refused with a reason.
+Unless an administrator manages their sign-in, they manage their password, passkeys and
+authenticator app on their own [Account](/docs/use/account/) page. For shared, kiosk or training
+accounts, see [Sign-in managed by an administrator](/docs/administer/people-and-groups/#sign-in-managed-by-an-administrator). Passwords normally need 15–128 characters. The operator can change the minimum. A password equal to the e-mail address or a common password is refused with a reason.
 Repeated failed sign-ins are delayed, rather than permanently locking the account;
 the sign-in screen says how long to wait. Slowdown starts after five failed attempts for an account or twenty from an address. Waits double up to fifteen minutes; repeatedly retrying does not bypass them.
 
@@ -96,6 +97,9 @@ The retained provider preserves their identities while its sessions end.
 
 ## Second factors and passkeys
 
+Someone whose sign-in is managed by an administrator cannot add or change their own factors.
+The following Account controls are for people who manage their own sign-in.
+
 A local password must be set before a person adds an authenticator app or passkey. A provider-only account cannot add local factors. Adding or removing a passkey on Account requires proof with a password, authenticator code or recovery code; knowing an account’s name is insufficient. A person can register up to 25 passkeys.
 
 An authenticator app uses time-based one-time passwords (TOTP), adding a six-digit code after the password. Setup includes confirmation
@@ -110,9 +114,13 @@ A passkey belongs to the site's address; a change of host requires people to reg
 
 *Above: Local accounts is on in the reference instance; Require a second factor with a password is unchecked.*
 
-**Require a second factor with a password** applies to everyone using local passwords,
-including recovery administrators. Someone with neither an authenticator app nor a passkey
-must set up an app on the sign-in page before a session starts. Provider sign-ins use the
+**Require a second factor with a password** applies to local password sign-in,
+including recovery administrators. Someone who manages their own sign-in and has neither an
+authenticator app nor a passkey must set up an app on the sign-in page before a session starts.
+An account whose sign-in is managed by an administrator is exempt from this setup: with no
+factor, it signs in with the password alone even while the requirement is on. An existing
+authenticator app or passkey still applies; switching on administrator management does not
+remove it. Provider sign-ins use the
 provider's own checks, and clients are not asked for a second factor.
 This is the browser's administrative policy control; there are no separate session-duration
 or passkey-policy settings here. Follow [Require a second factor](/docs/guide/administer/require-a-second-factor/).
@@ -130,6 +138,8 @@ or 14 days overall; the operator can change these limits. Once it ends, the pers
 again and returns to the requested page.
 
 Only the person's own **Account › Where you’re signed in** lists individual sessions.
+This section is hidden for a person whose sign-in is managed by an administrator. They can
+sign out of their current browser, but need an administrator to end other sessions.
 Administrators have **Sign out everywhere** on the person's page, with confirmation.
 Deactivation and using a password-reset link also end their sessions. Changing one's own
 password keeps the current browser signed in and ends the others.
@@ -145,7 +155,7 @@ person's page. A password reset does not bypass a second factor. Follow
 [Help someone who lost a device](/docs/guide/administer/help-someone-who-lost-a-device/).
 
 When mail is configured, the sign-in page offers a forgotten-password link for local accounts.
-A person can request recovery there rather than asking an administrator to make a link. If it
+A person who manages their own sign-in can request recovery there rather than asking an administrator to make a link. If it
 is absent, use the administrator's reset procedure. The account-side password, session, passkey
 and recovery-code tasks are on [Your account](/docs/use/account/).
 
@@ -159,7 +169,7 @@ The next step depends on the methods available. **Enter your code** asks for an 
 
 Expired or invalid proof of access is refused before an operation runs. The browser normally renews a session automatically; if it cannot, sign in again. For an external system, have the integration owner follow [Signing in and tokens](/docs/integrate/signing-in-and-tokens/).
 
-With no mail server, the screen instead says **Forgotten your password? Ask a security administrator for a reset link.** With mail, the person requests a one-time link, enters **New password** and **Type it again**, then chooses **Set password**. **Your password is set. You were signed out everywhere.** leads back to **Sign in**. The request gives the same answer for known, unknown, provider-only and deactivated accounts; mail is sent only for a qualifying local account. An app or recovery code is still required afterwards when configured. See [Mail](/docs/administer/mail/#password-links).
+With no mail server, the screen instead says **Forgotten your password? Ask a security administrator for a reset link.** With mail, the person requests a one-time link, enters **New password** and **Type it again**, then chooses **Set password**. **Your password is set. You were signed out everywhere.** leads back to **Sign in**. The request gives the same answer for known, unknown, provider-only and deactivated accounts; mail is sent only for a qualifying local account. An account whose sign-in is managed by an administrator receives no recovery mail; ask an administrator to make a password link instead. An app or recovery code is still required afterwards when configured. See [Mail](/docs/administer/mail/#password-links).
 
 For the administrator’s tasks, follow [Add a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/), [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) and [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/). On the provider catalogue, **No provider yet: people sign in with a password.** describes an empty list, not a connection failure. Saved provider details include separate Enable, Disable and Delete actions; disabling or deleting one ends the sessions it started.
 

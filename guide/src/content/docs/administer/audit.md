@@ -50,6 +50,12 @@ it does not expose passwords, secrets or password links.
 *Above: Guide Admin's Recent activity begins below the groups section. All, Signing in,
 Roles and groups and Account are separate filters.*
 
+Changing only the setting for [administrator-managed sign-in](/docs/administer/people-and-groups/#sign-in-managed-by-an-administrator)
+records **Sign-in managed by an administrator** when it is turned on, or **Sign-in no longer
+managed** when it is turned off. Look on that person's **Recent activity** under **Account**
+or **All**. If name or e-mail details were saved in the same edit, the entry instead lists
+the changed details.
+
 Use **Load more** for older activity and **Show fewer** to shorten the displayed list.
 A failed load offers **Retry**; it is not evidence that no activity occurred.
 
