@@ -942,8 +942,8 @@ fieldset.settings-section legend {
 /* Main column */
 .workspace-main {
   --main-pad-top: 20px;
-  /* 32px up to a 1440px window, then growing with the window (about 49px at 2000px) up to 64px. */
-  --main-pad-x: clamp(32px, calc(32px + (100vw - 1440px) * 0.03), 64px);
+  /* 20px up to a 1440px window, then growing slowly with the window (about 31px at 2000px) up to 32px. */
+  --main-pad-x: clamp(20px, calc(20px + (100vw - 1440px) * 0.02), 32px);
   grid-column: 2;
   min-width: 0;
   padding: var(--main-pad-top) var(--main-pad-x) 48px;
