@@ -199,7 +199,13 @@ export function MigrationPage({
   const [staleRefused, setStaleRefused] = useState(false);
   const [staleClosed, setStaleClosed] = useState(false);
   // The change set the migration publishes (V2), read once: it is gone once published.
-  const [changeSet, setChangeSet] = useState<{ id: string; name: string; version: number; releaseId: string }>();
+  const [changeSet, setChangeSet] = useState<{
+    id: string;
+    name: string;
+    version: number;
+    releaseId: string;
+    submitted: boolean;
+  }>();
   const [publicationNumber, setPublicationNumber] = useState<number>();
   // The migration the model draft states, when the preview was started from it (0.13 MG).
   const [proposal, setProposal] = useState<DraftMigration>();
@@ -241,6 +247,7 @@ export function MigrationPage({
             name: loaded.name || "Untitled change set",
             version: loaded.version,
             releaseId: loaded.modelReleaseId,
+            submitted: loaded.submission?.state === "submitted",
           }),
       )
       .catch(() => undefined);
@@ -448,6 +455,12 @@ export function MigrationPage({
         {!done && !cancelled && (
           <p className="migration-unchanged">
             <strong>Nothing has changed yet.</strong>
+          </p>
+        )}
+        {moving && !done && !cancelled && changeSet?.submitted && (
+          <p className="migration-publishes">
+            {changeSetName} is submitted for publication. It stays submitted after the move, and approvers decide on the
+            moved version.
           </p>
         )}
         {changeSetId && !moving && !done && !cancelled && (

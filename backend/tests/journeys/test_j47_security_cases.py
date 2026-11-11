@@ -202,7 +202,16 @@ for _test, _routes in {
         "delete /relations/{relation_id}",
         "put /workspaces/{workspace_key}/mappings",
     ],
-    _BATCH: ["post /batches", "post /imports"],
+    _BATCH: [
+        "post /batches",
+        "post /imports",
+        # Many relationships, or a grid's selection, set as one write (0.13 RV, RG): each item is
+        # decided through the batch lookup, which tests its record types against the grant's
+        # allowance (live under Edit live, in a change set under Work in change sets): the path of
+        # a batch item.
+        "post /relations/batch",
+        "post /relations/grid-change",
+    ],
     _PUBLISH: ["post /change-sets/{change_set_id}/publication"],
     _RESHAPE: [
         "post /change-sets/{change_set_id}/restructurings/preview",
@@ -492,6 +501,11 @@ def test_asking_is_slowed_per_address_whatever_the_names(world, smtp):  # noqa: 
     assert send_mail(world) == 0 and smtp.messages == []
 
 
+def _plain(mail) -> list[str]:
+    """The decoded text/plain parts of a message."""
+    return [part.get_content() for part in mail.walk() if part.get_content_type() == "text/plain"]
+
+
 def _texts(mail) -> list[str]:
     """Every header and decoded text part of a message."""
     found = [str(value) for value in mail.values()]
@@ -507,7 +521,8 @@ def test_no_message_holds_a_password_a_code_or_a_record(world, smtp):  # noqa: F
     """Given a person with a password, a record and mail set up. When a reset is asked for, an
     administrator mails the person a link, the test message goes, the password is reset through the
     link and mail is sent, then no message holds either password or the record's name, and each
-    link's token appears once in its message, inside the one link."""
+    link's token appears once in its message's text, inside the one link (the HTML part of branded
+    mail shows that link twice, as the button's address and as the pasted fallback, a14be4bc)."""
     from urllib.parse import parse_qs, urlsplit
 
     from test_j39_sign_in import PASSWORD, _browser
@@ -521,10 +536,13 @@ def test_no_message_holds_a_password_a_code_or_a_record(world, smtp):  # noqa: F
     ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
     ok(world.api.post("/mail-settings/test", {"to": "ada@example.org"}))
     send_mail(world)
-    links = []
+    links, urls = [], {}
     for mail in smtp.messages:
-        lines = [line for text in _texts(mail) for line in text.splitlines() if "token=" in line]
-        links += [parse_qs(urlsplit(line.strip()).query)["token"][0] for line in lines]
+        lines = [line for text in _plain(mail) for line in text.splitlines() if "token=" in line]
+        for line in lines:
+            token = parse_qs(urlsplit(line.strip()).query)["token"][0]
+            links.append(token)
+            urls[token] = line.strip()
     assert len(links) == 2, "one link in each of the two reset messages"
     done = browser.post(
         "/oauth/sign-in/reset",
@@ -540,7 +558,11 @@ def test_no_message_holds_a_password_a_code_or_a_record(world, smtp):  # noqa: F
         for secret in forbidden:
             assert not any(secret in text for text in texts), (mail["Subject"], secret)
         for token in links:
-            assert sum(text.count(token) for text in texts) <= 1, mail["Subject"]
+            assert sum(text.count(token) for text in _plain(mail)) <= 1, mail["Subject"]
+            # In any part the token is only ever inside its whole link, however often it is shown.
+            assert sum(text.count(token) for text in texts) == sum(
+                text.count(urls[token]) for text in texts
+            ), mail["Subject"]
 
 
 # --- J47.7: every route the document does not list ----------------------------------------------------

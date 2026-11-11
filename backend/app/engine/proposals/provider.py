@@ -57,6 +57,10 @@ class ProviderError(Exception):
     kind: FailureKind
     message: str
     details: dict[str, Any] = field(default_factory=dict)
+    # What a failed call still used and was charged (Claude Code reports them on an error reply).
+    tokens_in: int | None = None
+    tokens_out: int | None = None
+    cost_usd: float | None = None
 
     def __str__(self) -> str:
         return self.message

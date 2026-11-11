@@ -3,6 +3,8 @@
 // tab back to where it was; every page;
 // every address the settings area replaced; the default table density from Appearance seen in two
 // views of different object types, with a view's own choice winning; and the keyboard order.
+// 0.13 release review: the keyboard order now has the top bar's Help link and the AI and Agent access entries, and the walk
+// back to Model counts from the asserted order, not a fixed number.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -250,6 +252,7 @@ try {
     "other:Skip to main content",
     `topbar:${productName} home`,
     ...tabNames.map((name) => `topbar:${name.trim()}`),
+    "topbar:Help (opens the documentation in a new tab)",
     "topbar:Inbox",
     "topbar:Settings",
     "topbar:Account",
@@ -261,6 +264,7 @@ try {
     "navigation:Model",
     "navigation:Deployment",
     "navigation:Operations",
+    "navigation:AI",
     "navigation:Import profiles",
     "navigation:Copy and move",
     "navigation:Jobs",
@@ -269,6 +273,7 @@ try {
     "navigation:Groups",
     "navigation:Roles",
     "navigation:Clients",
+    "navigation:Agent access",
     "navigation:Sign-in",
     "navigation:Signing keys",
     "navigation:Consumer APIs",
@@ -298,9 +303,10 @@ try {
     expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
     `keyboard order: ${order.join(" → ")}`,
   );
-  // Back past the resize handle, Integration's three pages, Security's six, Mail, Data operations' three,
-  // Operations and Deployment to Model, and open it.
-  for (let index = 0; index < 17; index += 1) await page.keyboard.press("Shift+Tab");
+  // Back past the resize handle and every navigation entry after Model (the order asserted above) to Model,
+  // and open it. The count follows the menu: the entries after Model, the resize handle and the first element of the page.
+  const stepsBack = order.length - 1 - order.indexOf("navigation:Model");
+  for (let index = 0; index < stepsBack; index += 1) await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Model" }).waitFor();
   checks.push(`keyboard order: ${order.join(" → ")}; Enter on a navigation link opens its page`);

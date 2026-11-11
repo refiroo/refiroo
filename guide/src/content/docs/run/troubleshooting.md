@@ -22,7 +22,7 @@ a healthy process repeatedly does not restore its database. With Operations acce
 
 | What you see | Meaning and recovery |
 | --- | --- |
-| `ENGINE_UNREACHABLE` in the browser | The browser cannot reach the engine through its configured address. Check public DNS, TLS, proxy upstream and engine liveness; Deployment shows the address the browser uses. |
+| A plain `502 Bad Gateway` or `504 Gateway Time-out` page, or a failing request with no engine error body | The engine is down, web cannot reach it, or the engine did not answer within the proxy’s time limit. Check `docker compose ps` and `docker compose logs --tail=100 engine`. Check that web’s `ENGINE_UPSTREAM` names the engine (`http://engine:8000` in the supplied Compose file). After an upgrade, confirm that the engine finished starting; see [startup checks](/docs/run/health-and-startup-checks/). |
 | `503 DATABASE_UNAVAILABLE`, `unreachable` | Database connectivity failed. Check server state, network and credentials. Workers retry; service recovers without restarting when the database returns. |
 | `503 DATABASE_UNAVAILABLE`, `poolExhausted` | The process waited for its pool. Inspect active work and [pool settings](/docs/run/database/) before increasing connections. Honor `Retry-After`. |
 | `503 DATABASE_UNAVAILABLE`, `tooManyConnections` | PostgreSQL reached its connection ceiling. Budget all instances, workers and maintenance clients together. |

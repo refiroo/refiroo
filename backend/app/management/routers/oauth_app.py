@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 
-from ...build_reference import build_reference
+from ...common.build_reference import build_reference
 from ...config import ENGINE_VERSION
 from ...engine.identity import (
     browser_sign_in,

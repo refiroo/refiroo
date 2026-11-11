@@ -124,7 +124,13 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
   compared with its base release, or without one with the newest installed release of its own model
   (`release.key`), or with nothing when it is a new model: then every element is new, no consumer
   contract needs a higher version and no data is affected (D37). Its profile is saved at installation
-  only when no other model's profile holds its key (D36).
+  only when no other model's profile holds its key (D36). **The release version it installs as**
+  (0.13 FX) is proposed by the engine, not worked out from the base alone: several drafts of one model
+  can install releases (a person's, each assistant task's), so the base's next version may already be
+  taken. The proposal is the next free version above every installed release of the model's key, the
+  same rule the assistant's own installs use. A version taken anyway is refused with the free one
+  named, and every place that installs (Apply, Install, Load, the model workbench) offers **Use
+  <version>**: a refused installation always has a step forward and never needs the JSON edited.
 - **From a model:** open a draft of the active release, or an empty one. No source file; the preview
   uses existing records instead of rows.
 - **From a saved profile:** upload the next version of a workbook to its profile. Only differences and

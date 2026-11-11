@@ -17,9 +17,13 @@ removes its reads without deleting records or stopping the other versions. Read
    [raise it first](/docs/guide/model/raise-a-contract-version/) if it needs a replacement.
 2. Agree a notice period with every consuming team, including owners of webhook receivers.
    You choose that period; refiroo does not enforce a minimum for your consumer contracts.
-3. Edit that row’s **Sunset day**. In **Sunset day (YYYY-MM-DD)**, enter the agreed calendar
-   date and choose **Save**. Clear the value and save to withdraw the announcement. A date
-   that is not a valid calendar day is refused; correct it or **Cancel** to leave it unchanged.
+3. Select that row's **Sunset day** value or its pencil. In **Sunset day (YYYY-MM-DD)**,
+   enter the agreed calendar date and choose **Save**. Clear it and save to withdraw the
+   announcement; the table shows a dash when no day is set. A date that is not a valid
+   calendar day stays in the form with **Not saved** and the reason; the previously saved
+   value remains unchanged. Correct it and save, or **Cancel**. The date announces the end
+   in the response's Sunset header after activation; the version stays served until you
+   stop it explicitly, whatever the day.
 4. Review and [install and activate](/docs/guide/model/install-and-activate-a-release/) the
    announcement in the intended workspaces. Integrators then see the planned end date in
    the contract’s documents and responses. The date alone never turns the version off.

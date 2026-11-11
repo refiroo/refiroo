@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
-from ...build_reference import build_reference
+from ...common.build_reference import build_reference
 from ...common.pagination import datetime_key, paginate_statement, text_key
 from ...common.prometheus import CONTENT_TYPE
 from ...common.time import as_utc

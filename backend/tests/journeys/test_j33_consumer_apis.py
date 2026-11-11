@@ -381,3 +381,28 @@ def test_with_model_administration_disabled_the_drafts_consumer_apis_are_absent(
     response = world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000/consumer-apis/any")
     assert response.status_code == 404, response.text
     assert "MODEL_DRAFT_NOT_FOUND" not in response.text
+
+
+@pytest.mark.journey("J33.13", "J25.9")
+@pytest.mark.structures("Capi")
+def test_a_key_change_is_rewritten_in_the_earlier_versions_the_model_keeps(world):
+    """Given a draft whose consumer API keeps version 1 beside version 2. When setKey re-keys an
+    attribute both read, then the kept version names the new key too, under the same public field
+    name, and the draft stays valid (R13-F14)."""
+    draft = _draft_of_active(world)
+    api = world.key("Capi")
+    raised = ok(_apply(world, draft, draft["version"], {"kind": "raiseConsumerApiVersion", "consumerApi": api}))
+    assert raised["valid"] is True, raised["diagnostics"]
+    model = _model(world, draft)
+    attributes = {item["key"] for item in model["attributeTypes"]}
+    (kept,) = _by_key(model["consumerApis"], api)["earlierVersions"]
+    name, old = next((n, v) for n, v in kept["object"]["fields"].items() if isinstance(v, str) and v in attributes)
+
+    renamed = ok(
+        _apply(world, draft, raised["version"], {"kind": "setKey", "element": {"attributeType": old}, "key": "j33-renamed"})
+    )
+    assert renamed["valid"] is True, renamed["diagnostics"]
+    (after,) = _by_key(_model(world, draft)["consumerApis"], api)["earlierVersions"]
+    assert after["object"]["fields"][name] == "j33-renamed"
+    current = _by_key(_model(world, draft)["consumerApis"], api)
+    assert current["object"]["fields"][name] == "j33-renamed"

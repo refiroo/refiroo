@@ -23,6 +23,7 @@ from ...engine.sources.store import (
     store_source_file,
 )
 from ...engine.sources.store import source_file_page as read_source_files
+from ...engine.workspaces.catalogue import load_workspace
 from ...errors import api_error
 from ...models.database import Job, SourceFile
 from ...models.sources import DryRunRequest, SourceFileRequest
@@ -180,9 +181,7 @@ def remove_source_file(
     """Delete the file, its staged cells and its profile (``409 VERSION_CONFLICT`` at another
     version)."""
     _usable(session, source_file_id, permissions, principal)
-    delete_source_file(
-        session, source_file_id, expected_version, files=request.app.state.job_files
-    )
+    delete_source_file(session, source_file_id, expected_version, files=request.app.state.job_files)
     return Response(status_code=204)
 
 
@@ -249,7 +248,11 @@ def list_source_cells(
 )
 @requires("model.author", at=INSTANCE)
 def run_dry_run(
-    draft_id: str, payload: DryRunRequest, request: Request, session: DbSession
+    draft_id: str,
+    payload: DryRunRequest,
+    request: Request,
+    session: DbSession,
+    permissions: CurrentPermissions,
 ) -> JSONResponse:
     """Run the import of one of the draft's source files against the draft's model, writing
     nothing (D65–D67); or, with ``items`` in place of ``sourceFileId`` (0.13 AB), preview those
@@ -263,8 +266,13 @@ def run_dry_run(
     Refused: ``422 INVALID_MODEL`` for a draft that does not compile (D71), ``422
     INVALID_IMPORT_PROFILE`` for a profile the draft's model does not fit, ``404
     SOURCE_FILE_NOT_FOUND`` for a file the draft does not own, ``409
-    SOURCE_FILE_PROFILE_NOT_READY`` before the file is profiled.
+    SOURCE_FILE_PROFILE_NOT_READY`` before the file is profiled. Items are previewed against the
+    workspace's stored records and their summary quotes them, so a dry run of items also needs
+    ``403 FORBIDDEN`` unless the caller may read records in that workspace (R13-F6).
     """
+    if payload.items is not None and not permissions.allows("browse", payload.workspaceKey):
+        load_workspace(session, payload.workspaceKey)
+        raise forbidden("records.read", ("browse",), payload.workspaceKey)
     limits: BatchLimits = request.app.state.batch_limits
     try:
         job = submit_dry_run(
@@ -316,7 +324,5 @@ def list_dry_run_rows(
 def _latest(session: Session, draft_id: str) -> Job:
     job = latest_dry_run(session, draft_id)
     if job is None:
-        raise api_error(
-            404, "DRY_RUN_NOT_FOUND", f"Model draft '{draft_id}' has no dry run yet"
-        )
+        raise api_error(404, "DRY_RUN_NOT_FOUND", f"Model draft '{draft_id}' has no dry run yet")
     return job

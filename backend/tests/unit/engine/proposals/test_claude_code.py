@@ -52,7 +52,8 @@ def test_one_call_with_no_tools_settings_or_session_returns_the_answer_tokens_an
         0.0123,
     )
     command = seen["command"]
-    assert command[1:3] == ["-p", json.dumps({"test": True})]
+    assert command[1] == "-p" and json.dumps({"test": True}) not in command
+    assert seen["kwargs"]["input"] == json.dumps({"test": True})
     assert command[command.index("--system-prompt") + 1] == "Say ready"
     assert command[command.index("--tools") + 1] == ""
     assert command[command.index("--setting-sources") + 1] == ""
@@ -89,3 +90,46 @@ def test_every_failure_is_named(monkeypatch, kwargs, kind, text):
     with pytest.raises(ProviderError, match=text) as raised:
         ClaudeCodeProvider("", 60).propose(REQUEST)
     assert raised.value.kind == kind
+
+
+def test_a_large_context_goes_on_stdin_and_argv_stays_small(monkeypatch):
+    seen = _run(monkeypatch, _reply())
+    big = ProposalRequest("p", "Say ready", "t/1", {"rows": ["x" * 100] * 5000}, Answer)
+    ClaudeCodeProvider("", 60).propose(big)
+    assert len(seen["kwargs"]["input"]) > 500_000
+    assert sum(len(part) for part in seen["command"]) < 10_000
+
+
+def test_the_child_gets_only_what_claude_code_needs(monkeypatch):
+    for name, value in {
+        "DATABASE_URL": "postgresql://secret",
+        "SECRETS_ENCRYPTION_KEY": "k",
+        "ANTHROPIC_API_KEY": "a",
+        "CLAUDE_CODE_OAUTH_TOKEN": "c",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin",
+    }.items():
+        monkeypatch.setenv(name, value)
+    seen = _run(monkeypatch, _reply())
+    ClaudeCodeProvider("", 60).propose(REQUEST)
+    env = seen["kwargs"]["env"]
+    assert "DATABASE_URL" not in env and "SECRETS_ENCRYPTION_KEY" not in env
+    assert env["ANTHROPIC_API_KEY"] == "a" and env["CLAUDE_CODE_OAUTH_TOKEN"] == "c"
+    assert env["LC_ALL"] == "C" and env["PATH"] == "/usr/bin"
+
+
+def test_a_failed_reply_carries_the_tokens_and_cost_it_was_charged(monkeypatch):
+    _run(
+        monkeypatch,
+        json.dumps(
+            {
+                "is_error": True,
+                "result": "limit",
+                "usage": {**USAGE, "output_tokens": 5},
+                "total_cost_usd": 0.5,
+            }
+        ),
+    )
+    with pytest.raises(ProviderError) as raised:
+        ClaudeCodeProvider("", 60).propose(REQUEST)
+    assert (raised.value.tokens_in, raised.value.tokens_out, raised.value.cost_usd) == (113, 5, 0.5)

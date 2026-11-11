@@ -399,11 +399,11 @@ def test_a_failed_move_changes_nothing(world, monkeypatch):
 
 @pytest.mark.journey("J37.7")
 @pytest.mark.structures(*BOTH)
-def test_moving_a_submitted_change_set_withdraws_its_submission_or_is_refused(world):
+def test_a_submitted_change_set_moves_and_stays_submitted_for_approval_on_the_moved_version(world):
     """Given a previewed move of a change set that is submitted for publication. When it is
-    confirmed without `withdrawSubmission=true`, then `409 CHANGE_SET_SUBMITTED` and the job keeps
-    waiting; with it, the move runs and the request reads as withdrawn, so no approver can publish
-    the moved content as submitted (0.12 R-F6)."""
+    confirmed (no `withdrawSubmission`), then the move runs, the change set is on the new release
+    one version later, and its publication request is still `submitted`, now for the moved version;
+    an approver approving that version publishes it. No withdrawal, resubmission or re-approval."""
     key, _made, _x1_id, x2_id, change_set, _new = _left_behind(world, _count_integer(world))
     job = _previewed(world, change_set)
     version = world.current(change_set)["version"]
@@ -419,14 +419,20 @@ def test_moving_a_submitted_change_set_withdraws_its_submission_or_is_refused(wo
         "acceptLoss": True,
     }
 
-    refused(world.api.post(f"/jobs/{job['id']}/confirm", request), 409, "CHANGE_SET_SUBMITTED")
-    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "awaiting_confirmation"
-    assert world.current(change_set)["submission"]["state"] == "submitted"
-
-    ok(world.api.post(f"/jobs/{job['id']}/confirm", request, withdrawSubmission=True), 202)
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", request), 202)
     _run(world)
     assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
     moved = world.current(change_set)
     assert moved["modelReleaseId"] == x2_id and moved["version"] == version + 1
+    assert moved["submission"]["state"] == "submitted"
     requests = ok(world.api.get(f"/workspaces/{key}/publication-requests"))["items"]
-    assert [item["state"] for item in requests] == ["withdrawn"]
+    assert [(item["state"], item["version"]) for item in requests] == [("submitted", version + 1)]
+
+    ok(
+        world.api.post(
+            f"/change-sets/{change_set['id']}/decisions",
+            {"outcome": "approve", "expectedChangeSetVersion": version + 1},
+        )
+    )
+    requests = ok(world.api.get(f"/workspaces/{key}/publication-requests"))["items"]
+    assert [item["state"] for item in requests] == ["approved"]

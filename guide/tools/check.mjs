@@ -2,20 +2,22 @@
 //   npm run check          the static checks: banned terms and the product name (needs no build)
 //   npm run check:terms | check:brand
 //   npm run check:links    links and anchors in the built site (run `npm run build` first)
-//   npm run verify         build, then every check including links
-//   node tools/check.mjs coverage   every inventory entry is named on a page or excluded (CP; not in verify yet)
+//   npm run check:sidebar  every sidebar slug has a page and every page is in the sidebar (needs no build)
+//   npm run verify         build, then every check: static checks, inventory, coverage, sidebar, links
+//   node tools/check.mjs coverage   every inventory entry is named on a page or excluded (CP; part of verify)
 // Each check prints what it found and exits 1 when it found a problem.
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CONTENT = join(ROOT, "src", "content", "docs");
 const DIST = process.env.GUIDE_OUT ? resolve(ROOT, process.env.GUIDE_OUT) : join(ROOT, "dist");
-const BASE = "/docs";
+// Where the built site is served: /docs, or the base of an older version (PUBLIC_GUIDE_BASE, as for the build).
+const BASE = (process.env.PUBLIC_GUIDE_BASE || "/docs").replace(/\/$/, "");
 // Paths the engine itself serves beside the documentation: links to them are not files in the built site.
-const ENGINE_PATHS = ["/docs/api", "/openapi.json", "/health", "/api/"];
+const ENGINE_PATHS = [`${BASE}/api`, "/openapi.json", "/health", "/api/"];
 // The application's own start page, which the shared header links to (exact path only).
 const APP_PATHS = ["/"];
 
@@ -179,6 +181,13 @@ function labelPattern(label) {
   return new RegExp(`${before}${text}${after}`, "i");
 }
 
+// A key stands on a page only as a whole word: AI_LOG_CONTENT is not on a page that has AI_LOG_CONTENT_DAYS, and
+// a path is not on a page that runs on into a longer one.
+function keyPattern(key) {
+  const after = key.includes("/") ? "(?![A-Za-z0-9_\\-/{])" : "(?![A-Za-z0-9_])";
+  return new RegExp(`${/^\w/.test(key) ? "(?<![A-Za-z0-9_])" : ""}${escapeRegExp(key)}${/\w$/.test(key) ? after : ""}`);
+}
+
 function exclusions() {
   const found = new Map();
   if (!existsSync(EXCLUSIONS)) return found;
@@ -212,17 +221,24 @@ function coverage() {
       cell.excluded += 1;
       continue;
     }
-    // A management operation is documented by the API reference at /docs/api, generated from the code with its summary;
-    // the Integrate pages explain the concepts and link there, so the guide does not name every path.
-    if (item.kind === "management-api" && item.summary) {
-      cell.covered += 1;
-      continue;
+    // A management operation is documented by the API reference at /docs/api, which the Integrate pages link to by
+    // tag (`/docs/api/?api=management#tag/<tag>`); a page that links its tag, names its operationId, or names its
+    // method and path covers it. FastAPI words a summary from the function's name when the code gives none, so a
+    // summary alone proves nothing; one written in the code (`writtenSummary`) is the operation's own text in the reference.
+    if (item.kind === "management-api") {
+      const tagged = (item.tags ?? []).map((tag) => new RegExp(`#tag/${escapeRegExp(encodeURIComponent(tag))}(?![\\w%-])`));
+      const named = item.operationId ? keyPattern(item.operationId) : null;
+      if (item.writtenSummary || texts.some((page) => tagged.some((pattern) => pattern.test(page.raw)) || (named && named.test(page.raw)))) {
+        cell.covered += 1;
+        continue;
+      }
     }
+    const key = keyPattern(item.key);
     const context = (item.context ?? []).map((word) => word.toLowerCase());
     const patterns = [...(item.labels ?? []), ...(item.aliases ?? [])].map(labelPattern);
     const hit = texts.some(
       (page) =>
-        page.raw.includes(item.key) ||
+        key.test(page.raw) ||
         (patterns.length > 0 && (!context.length || context.some((word) => page.low.includes(word))) && patterns.some((pattern) => pattern.test(page.flat))),
     );
     if (hit) cell.covered += 1;
@@ -263,10 +279,37 @@ function coverage() {
   if (uncovered.length) fail("coverage", "inventory", `${uncovered.length} entries are neither on a page nor excluded; see _coverage/inventory/uncovered.md`);
 }
 
+// --- the sidebar and the pages -----------------------------------------------------------------------
+
+// astro.config.mjs skips a sidebar slug whose page is missing and does not show a page its section leaves out
+// of its list (sidebar/<section>.mjs), so both would go unnoticed. Pages left out on purpose are named here.
+const UNLISTED = new Set(["index", "404"]);
+const SIDEBAR_SECTIONS = ["about", "journeys", "use", "model", "administer", "run", "integrate", "examples"];
+
+async function sidebar() {
+  const listed = new Set();
+  for (const section of SIDEBAR_SECTIONS) {
+    const file = join(ROOT, "sidebar", `${section}.mjs`);
+    if (!existsSync(file)) continue;
+    const groups = (await import(pathToFileURL(file).href)).default;
+    for (const [, items] of groups) {
+      for (const item of items) listed.add(Array.isArray(item) ? item[0] : item);
+    }
+  }
+  const slugs = new Set(walk(CONTENT, [".md", ".mdx"]).map((path) => relative(CONTENT, path).replace(/\.mdx?$/, "")));
+  for (const slug of [...listed].sort()) {
+    if (!slugs.has(slug)) fail("sidebar", slug, "is listed in the sidebar but has no page");
+  }
+  for (const slug of [...slugs].sort()) {
+    if (!listed.has(slug) && !UNLISTED.has(slug)) fail("sidebar", slug, "has a page that its section's sidebar list does not name");
+  }
+  notes.push(`sidebar: ${listed.size} listed slugs, ${slugs.size} pages`);
+}
+
 // --- running --------------------------------------------------------------------------------------
 
-const CHECKS = { terms, brand, links, coverage };
-const STATIC = ["terms", "brand"];
+const CHECKS = { terms, brand, links, coverage, sidebar };
+const STATIC = ["terms", "brand", "sidebar"];
 
 const [, , command, argument] = process.argv;
 if (command === "hash-term") {
@@ -282,7 +325,7 @@ if (!selected) {
   console.error(`usage: node tools/check.mjs <${["all", ...Object.keys(CHECKS), "hash-term"].join(" | ")}>`);
   process.exit(2);
 }
-for (const name of selected) CHECKS[name]();
+for (const name of selected) await CHECKS[name]();
 for (const note of notes) console.log(note);
 if (problems.length) {
   console.error(problems.join("\n"));

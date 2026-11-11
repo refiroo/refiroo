@@ -15,6 +15,7 @@ import integrate from "./sidebar/integrate.mjs";
 import examples from "./sidebar/examples.mjs";
 import { satteri } from "@astrojs/markdown-satteri";
 import rehypeBrand from "./tools/rehype-brand.mjs";
+import rewriteBaseLinks from "./tools/rewrite-base.mjs";
 
 // The sections, in reading order, named by the reader's goal. A section appears in the sidebar once it
 // holds a page; its directory under src/content/docs is the key.
@@ -117,6 +118,8 @@ export default defineConfig({
   // Every standalone "refiroo" in prose is marked as the brand name (see tools/rehype-brand.mjs).
   markdown: { processor: satteri({ hastPlugins: [rehypeBrand] }) },
   integrations: [
+    // Body links and images written as /docs/... follow the build's base (tools/rewrite-base.mjs).
+    rewriteBaseLinks(base),
     // Starlight adds the sitemap unless an integration of this name is present; it has use only with a public
     // host (PUBLIC_GUIDE_SITE_URL), so it is disabled otherwise with a stand-in of the same name.
     ...(siteUrl ? [] : [{ name: "@astrojs/sitemap", hooks: {} }]),

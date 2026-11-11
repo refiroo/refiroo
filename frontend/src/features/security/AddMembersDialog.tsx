@@ -71,7 +71,7 @@ export function AddMembersDialog({
       dirty={count > 0}
       onClose={onClose}
     >
-      <div className="add-members">
+      <div className="dialog-body add-members">
         <Tabs
           label="How to find people"
           selected={tab}
@@ -252,6 +252,7 @@ function PastePeople({ group, onFound }: { group: Group; onFound: (members: Grou
       <label className="add-members-paste">
         Usernames or e-mail addresses
         <textarea
+          className="field-input"
           rows={6}
           value={text}
           onChange={(event) => {

@@ -76,6 +76,7 @@ def ask(
         answer = request.answer.model_validate(data)
     except ProviderError as error:
         failure_kind, failure = error.kind, error.message
+        tokens_in, tokens_out, cost_usd = error.tokens_in, error.tokens_out, error.cost_usd
     except ValidationError as error:
         failure_kind = "malformed"
         failure = f"The answer does not have the shape asked for ({error.error_count()} problems)"

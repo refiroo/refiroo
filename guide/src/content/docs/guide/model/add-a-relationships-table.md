@@ -6,7 +6,8 @@ reader: model-admin
 
 Add a relationships table when people need to maintain values belonging to connections between
 records. Work in a draft with **Model authoring**. First [allow the relationship](/docs/guide/model/add-a-relationship/)
-and choose what it carries. See [Relationships tables](/docs/use/relationship-tables/) for the
+and choose what it carries. Read [columns and grouping](/docs/model/applications-and-views/#relationships-tables-columns-and-grouping)
+for the model rules, and [Relationships tables](/docs/use/relationship-tables/) for the
 result people use.
 
 ## Choose the relationship and columns
@@ -42,7 +43,7 @@ are also visible. This dialog has not been applied.*
 ## Understand the initial reading choices
 
 The form derives filters from selected fields marked Filterable. It offers sorting by both
-record names, selected endpoint fields and selected relationship attributes, starting with the
+record names, selected endpoint fields and selected non-JSON relationship attributes, starting with the
 from record's name. The reading size starts at 20. Filters, sort declarations and reading size
 are not separate fields in this dialog. A specialist can adjust them in the
 [JSON view](/docs/model/json-view/); the model checks their references and permits reading sizes

@@ -75,3 +75,14 @@ def test_content_is_kept_for_the_configured_days_only_when_asked():
         "answer": {"ready": True},
     }
     assert (row.content_expires_at - row.started_at).days == 7
+
+
+def test_a_failed_call_still_records_the_tokens_and_cost_it_was_charged():
+    error = ProviderError("failed", "limit", tokens_in=113, tokens_out=5, cost_usd=0.5)
+    _, row = _ask(error)
+    assert (row.outcome, row.tokens_in, row.tokens_out, row.cost_usd) == (
+        "failed",
+        113,
+        5,
+        Decimal("0.5"),
+    )

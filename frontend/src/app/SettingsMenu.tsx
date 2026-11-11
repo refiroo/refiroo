@@ -8,6 +8,7 @@
 
 import { signOut } from "@/api/session";
 import { useInbox } from "@/features/inbox/useInbox";
+import { Choice } from "@/ui/Choice";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon, type IconName } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
@@ -151,21 +152,13 @@ export function ThemeChoice({
   describedBy?: string;
 }) {
   return (
-    <div className="theme-choice">
-      {THEMES.map((option) => (
-        <label key={option.value} className={theme === option.value ? "selected" : undefined}>
-          <input
-            type="radio"
-            name={name}
-            value={option.value}
-            checked={theme === option.value}
-            aria-describedby={describedBy}
-            onChange={() => onChange(option.value)}
-          />
-          <Icon name={option.icon} size={15} />
-          {option.label}
-        </label>
-      ))}
-    </div>
+    <Choice
+      name={name}
+      value={theme}
+      options={THEMES.map((option) => [option.value, option.label, option.icon] as const)}
+      onChange={onChange}
+      describedBy={describedBy}
+      iconSize={15}
+    />
   );
 }

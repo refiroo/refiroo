@@ -44,7 +44,7 @@ const OPTIONS: SignInOptions = {
   passkey: false,
   reset: false,
   providers: [],
-  build: { version: "0.16.0", commit: "045b8cfe", tag: "v0.16.1-alpha.1" },
+  build: { version: "0.16.0", commit: "baf823b6", tag: "v0.16.1-alpha.1" },
 };
 const SECOND: SecondStep = {
   status: "second_factor",

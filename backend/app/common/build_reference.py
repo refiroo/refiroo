@@ -11,7 +11,7 @@ import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .config import PROJECT_ROOT
+from ..config import PROJECT_ROOT
 
 COMMIT_VARIABLE = "REFIROO_BUILD_COMMIT"
 TAG_VARIABLE = "REFIROO_BUILD_TAG"

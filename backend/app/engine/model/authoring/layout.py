@@ -306,6 +306,83 @@ def place_relation(document: Document, relation_key: str, from_key: str, to_key:
             _append_new(document, config + ["filterFields"], field)
 
 
+def drop_unreachable_ancestor_sorts(document: Document) -> None:
+    """Every relations panel keeps only the ancestor sorts its listed type still has: after a type
+    changed its place, a panel sorted by an ancestor type the related type no longer sits under
+    (the validator's rule: one related type, and the ancestor above it) loses that sort."""
+    parents: dict[str, set[str]] = {}
+    for key in (t["key"] for t in document.items("objectTypes")):
+        relations = (document.at(type_path(key)).get("behavior") or {}).get(
+            "parentRelationTypeKeys"
+        ) or []
+        parents[key] = {
+            b["fromObjectTypeKey"]
+            for b in document.items("objectTypeRelations")
+            if b.get("relationTypeKey") in relations and b.get("toObjectTypeKey") == key
+        }
+
+    def ancestors(key: str) -> set[str]:
+        found: set[str] = set()
+        pending = [key]
+        while pending:
+            for parent in parents.get(pending.pop(), set()) - found:
+                found.add(parent)
+                pending.append(parent)
+        return found
+
+    for application in document.items("applications"):
+        for detail in application.get("details") or []:
+            if not isinstance(detail, dict):
+                continue
+            base = application_path(application["key"]) + [
+                "details",
+                {"objectTypeKey": detail["objectTypeKey"]},
+            ]
+            for panel in detail.get("panels") or []:
+                config = panel.get("config") or {}
+                if panel.get("type") != "relations":
+                    continue
+                fields = [
+                    *(config.get("sortFields") or []),
+                    str(config.get("defaultSort") or "").removeprefix("-"),
+                ]
+                if not any(str(field).startswith("ancestor:") for field in fields):
+                    continue
+                listed = config.get("relationTypeKeys")
+                direction = config.get("direction") or "outgoing"
+                related = set()
+                for b in document.items("objectTypeRelations"):
+                    if listed and b.get("relationTypeKey") not in listed:
+                        continue
+                    if (
+                        direction in {"outgoing", "both"}
+                        and b.get("fromObjectTypeKey") == detail["objectTypeKey"]
+                    ):
+                        related.add(b["toObjectTypeKey"])
+                    if (
+                        direction in {"incoming", "both"}
+                        and b.get("toObjectTypeKey") == detail["objectTypeKey"]
+                    ):
+                        related.add(b["fromObjectTypeKey"])
+                if len(related) != 1:
+                    continue  # several types: the existing rule drops the sort when the panel grows
+                reachable = ancestors(next(iter(related)))
+                path = base + ["panels", {"key": panel["key"]}]
+
+                def lost(field: object, reachable: set[str] = reachable) -> bool:
+                    text = str(field).removeprefix("-")
+                    return text.startswith("ancestor:") and (
+                        text.removeprefix("ancestor:").split(".")[0] not in reachable
+                    )
+
+                sorts = config.get("sortFields") or []
+                kept = [field for field in sorts if not lost(field)]
+                if kept != sorts:
+                    document.set(path + ["config"], "sortFields", kept)
+                if lost(config.get("defaultSort") or ""):
+                    document.set(path + ["config"], "defaultSort", "name")
+
+
 def _drop_ancestor_sort(document: Document, panel: Path) -> None:
     config = document.at(panel).get("config") or {}
     sorts = config.get("sortFields") or []

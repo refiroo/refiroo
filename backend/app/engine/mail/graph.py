@@ -36,7 +36,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from ...models.commands import DEFAULT_AUTHORITY_URL, DEFAULT_GRAPH_URL
+from ...models.commands import DEFAULT_AUTHORITY_URL, DEFAULT_GRAPH_URL, is_microsoft_authority
 from .smtp import CONNECTION, LOGIN, REJECTED, SENDER, MailError
 
 __all__ = ["DEFAULT_AUTHORITY_URL", "DEFAULT_GRAPH_URL", "GraphConnection", "deliver"]
@@ -183,6 +183,7 @@ def _token(connection: GraphConnection, client: httpx.Client) -> str:
     cached = _cached(key)
     if cached is not None:
         return cached
+    _refuse_foreign_authority(connection)
     if connection.identity_mode == "direct":
         # The Azure host gives the Graph token itself: no tenant token request.
         token, lifetime = _host_token(client, connection.graph_url, connection.identity_client_id)
@@ -242,9 +243,21 @@ def exchange_audience(authority_url: str) -> str:
     return "api://AzureADTokenExchange"
 
 
+def _refuse_foreign_authority(connection: GraphConnection) -> None:
+    """A managed identity's host token is never sent to an authority that is not Microsoft's (the
+    saved address is checked when saved; this is the second check, before anything is sent)."""
+    if connection.identity_mode and not is_microsoft_authority(connection.authority_url):
+        raise MailError(
+            CONNECTION,
+            "A managed identity signs in only at Microsoft's own sign-in hosts; "
+            f"{urlsplit(connection.authority_url).netloc} is not one",
+        )
+
+
 def _identity_token(connection: GraphConnection, client: httpx.Client) -> str:
     """A federated managed identity's token, which stands in for the certificate's signed
     assertion in the client-credentials grant."""
+    _refuse_foreign_authority(connection)
     audience = exchange_audience(connection.authority_url)
     key = ("identity", audience, connection.identity_client_id or "")
     cached = _cached(key)

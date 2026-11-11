@@ -337,3 +337,25 @@ def test_add_panel_refuses_what_the_page_cannot_show(operation: dict, reason: st
         _apply(data, {"kind": "addPanel", "applicationKey": "network", **operation})
     assert refused.value.reason == reason
     assert data == before
+
+
+def test_a_type_moved_out_from_under_its_ancestor_leaves_no_panel_sorted_by_that_ancestor():
+    data = _example()
+    page = _page(data, "network", "stop")
+    panel = next(p for p in page["panels"] if p["key"] == "translations")
+    assert panel["config"]["defaultSort"] == "ancestor:language"
+
+    def sort_errors():
+        return [d.message for d in compile_model(data).diagnostics if "cannot sort by" in d.message]
+
+    assert not sort_errors()
+    applied = _apply(
+        data, {"kind": "setContainment", "objectType": "name-translation", "parent": None}
+    )
+    assert panel["config"]["sortFields"] == ["translated-name", "name"]
+    assert panel["config"]["defaultSort"] == "name"
+    assert not sort_errors()
+    # Undo puts the sort back with the place.
+    _apply(data, applied.inverse)
+    assert panel["config"]["defaultSort"] == "ancestor:language"
+    assert not sort_errors()

@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import exists, or_, select, tuple_, update
+from sqlalchemy import String, cast, exists, or_, select, tuple_, update
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -147,7 +147,13 @@ class EventDispatcher:
             exists()
             .where(
                 event.workspace_key == subscription.workspace_key,
-                event.consumer_api == subscription.consumer_api,
+                # An earlier version's events are stored under its own key (DF3, ``kept_store_key``).
+                event.consumer_api.in_(
+                    [
+                        subscription.consumer_api,
+                        subscription.consumer_api + "@v" + cast(subscription.contract_version, String),
+                    ]
+                ),
                 tuple_(event.position, event.ordinal)
                 > tuple_(subscription.acknowledged_position, subscription.acknowledged_ordinal),
                 event.position <= derived,

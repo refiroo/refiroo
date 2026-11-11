@@ -125,12 +125,17 @@ export function ApplyDialog({
   const moves = check?.classification === "migration_required";
   const canMigrate = Boolean(capabilities?.modelAdmin.activate && capabilities?.integrationJobs.createJobs);
   const ready = compilation?.valid && !nothing && !contractsBreak && workspace && (!modelChanged || identity.complete);
-  const offered = ready && (!moves || canMigrate);
   // The migration the draft states for this workspace (0.13 MG), read while the data must move.
-  const { migration } = useDraftMigration(draftId, workspaceKey, Boolean(compilation?.valid && moves), outline.version);
+  const {
+    migration,
+    error: migrationError,
+    pending: migrationPending,
+  } = useDraftMigration(draftId, workspaceKey, Boolean(compilation?.valid && moves), outline.version);
+  // Starting the migration without the draft's mappings would move the data wrongly: wait for them.
+  const offered = ready && (!moves || (canMigrate && !migrationPending && !migrationError));
 
   async function apply() {
-    if (!workspace) return;
+    if (!workspace || !offered) return;
     setPending(true);
     setError("");
     setFreeKey(undefined);
@@ -233,6 +238,11 @@ export function ApplyDialog({
                     <p className="muted">Nothing new: this draft's release has not reached {label} yet.</p>
                   )}
                 </section>
+                {moves && migrationError && (
+                  <Notice tone="error" title="The migration could not be read">
+                    {migrationError} Close this dialog and open it again.
+                  </Notice>
+                )}
                 {moves && migration ? (
                   <>
                     <DraftMigrationNotice

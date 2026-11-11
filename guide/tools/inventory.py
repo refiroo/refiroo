@@ -34,11 +34,14 @@ compared without their names), a setting's key is its name, and so on.
 from __future__ import annotations
 
 import ast
+import atexit
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -50,6 +53,17 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg://inventory:inventory@localhost/inventory"
 )
 os.environ.setdefault("SECRETS_ENCRYPTION_KEY", "x" * 43 + "=")
+# Every gated capability is on, so the inventory lists every operation the code can serve (model drafts,
+# jobs and imports, consumer subscriptions...). Job files go to a scratch directory, never an instance's.
+for _name in (
+    "MODEL_ADMIN_MUTATIONS_ENABLED",
+    "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+    "INTEGRATION_JOBS_ENABLED",
+    "CONSUMER_SUBSCRIPTIONS_ENABLED",
+):
+    os.environ[_name] = "true"
+os.environ["JOB_FILE_DIR"] = tempfile.mkdtemp(prefix="rdm-inventory-")
+atexit.register(shutil.rmtree, os.environ["JOB_FILE_DIR"], ignore_errors=True)
 
 SECTIONS = ("run", "administer", "model", "use", "integrate", "about")
 
@@ -185,6 +199,13 @@ def management() -> list[dict]:
                     management_section(operation.get("tags", []), path),
                     operationId=operation.get("operationId"),
                     summary=operation.get("summary"),
+                    # FastAPI words a summary from the function's name when the code gives none; a summary
+                    # that differs from that form was written in the code.
+                    writtenSummary=(
+                        operation.get("summary") != endpoint.__name__.replace("_", " ").title()
+                        if endpoint is not None
+                        else None
+                    ),
                     tags=operation.get("tags"),
                 )
             )
@@ -997,6 +1018,14 @@ def is_used(method: str, path: str, calls) -> bool:
 
 
 def main() -> int:
+    """Write the inventory; with ``--check``, write it to a scratch directory instead and fail when it differs
+    from the committed JSON (``npm run verify`` runs this, so a stale inventory never passes)."""
+    global OUT
+    committed = OUT
+    check = "--check" in sys.argv[1:]
+    if check:
+        OUT = Path(tempfile.mkdtemp(prefix="rdm-inventory-check-"))
+        atexit.register(shutil.rmtree, OUT, ignore_errors=True)
     OUT.mkdir(parents=True, exist_ok=True)
     data = ts()
     kinds = {
@@ -1016,6 +1045,34 @@ def main() -> int:
         (OUT / f"{kind}.json").write_text(json.dumps(entries, indent=1, ensure_ascii=False) + "\n")
         print(f"{kind}: {len(entries)}")
     (OUT / "gaps.md").write_text(gaps(data, kinds["model-feature"], kinds["management-api"]))
+    if check:
+
+        def content(path: Path) -> list:
+            # Line numbers in ``source`` move with every edit of the code behind an entry; what must match
+            # is which entries exist and what they say.
+            return [
+                {**item, "source": re.sub(r":\d+", "", item.get("source", ""))}
+                for item in json.loads(path.read_text())
+            ]
+
+        names = {path.name for path in OUT.glob("*.json")} | {
+            path.name for path in committed.glob("*.json")
+        }
+        stale = sorted(
+            name
+            for name in names
+            if not (OUT / name).is_file()
+            or not (committed / name).is_file()
+            or content(OUT / name) != content(committed / name)
+        )
+        if stale:
+            print(
+                f"the committed inventory is stale ({', '.join(stale)}); run "
+                "backend/.venv/bin/python guide/tools/inventory.py and commit the result",
+                file=sys.stderr,
+            )
+            return 1
+        print("the committed inventory matches the code")
     return 0
 
 

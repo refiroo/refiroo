@@ -52,6 +52,7 @@ from ...engine.model.releases import (
 )
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
+from ...engine.workspaces.catalogue import load_workspace
 from ...errors import api_error
 from ...models.database import ModelDraft, ModelDraftOperation
 from ..access import (
@@ -60,6 +61,7 @@ from ..access import (
     WORKSPACE_PATH,
     AuthorizedRoute,
     CurrentPermissions,
+    forbidden,
     requires,
 )
 from ..dependencies import DbSession, DefaultModelSnapshot
@@ -437,6 +439,7 @@ def list_model_draft_operations(
 def read_model_draft_migration(
     draft_id: str,
     session: DbSession,
+    permissions: CurrentPermissions,
     workspace_key: str | None = Query(default=None, alias="workspaceKey", max_length=160),
     against_release_id: str | None = Query(default=None, alias="againstReleaseId", max_length=36),
     to_release_id: str | None = Query(default=None, alias="toReleaseId", max_length=36),
@@ -451,7 +454,12 @@ def read_model_draft_migration(
     workspace's live records, every record checked and nothing written. Installing a draft bases it
     on the release it installed, so a migration read afterwards names the release it starts from
     (``againstReleaseId``, e.g. the one a workspace runs) and the release installed from the draft
-    (``toReleaseId``): the steps are read against the first and the models are the two releases'."""
+    (``toReleaseId``): the steps are read against the first and the models are the two releases'.
+    With ``workspaceKey`` the answer quotes that workspace's records (counts and examples), so it
+    also needs ``403 FORBIDDEN`` unless the caller may read records there (R13-F16)."""
+    if workspace_key is not None and not permissions.allows("browse", workspace_key):
+        load_workspace(session, workspace_key)
+        raise forbidden("records.read", ("browse",), workspace_key)
     draft = load_draft(session, draft_id)
     against = installed_release(session, against_release_id) if against_release_id else None
     to = installed_release(session, to_release_id) if to_release_id else None

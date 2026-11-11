@@ -1964,7 +1964,7 @@ def test_a_load_that_fails_after_writing_a_change_set_keeps_it_and_a_read_under_
     found = _assistant(world, tmp_path, monkeypatch, ledgers.workspace, api=True, batch=batch)
     still_open = lambda: world.api.get(f"/change-sets/{found['changeSet']}").status_code == 200
     with monkeypatch.context() as broken:
-        broken.setattr(agent, "_then_release", lambda session, task, words: None)
+        broken.setattr(agent, "_then_release", lambda session, task, words, change_set=None: None)
         task = _accept(world, _read(world, ledgers, accept=False))
     assert task["state"] == "failed", task["notes"]
     assert task["result"]["changeSetId"] == found["changeSet"]
@@ -1980,7 +1980,7 @@ def test_a_load_that_fails_after_writing_a_change_set_keeps_it_and_a_read_under_
     later.mkdir()
     found = _assistant(world, later, monkeypatch, ledgers.workspace, api=True, batch=batch)
     with monkeypatch.context() as broken:
-        broken.setattr(agent, "_then_release", lambda session, task, words: None)
+        broken.setattr(agent, "_then_release", lambda session, task, words, change_set=None: None)
         task = _accept(world, _read(world, ledgers, accept=False))
     assert task["state"] == "failed" and task["notes"]
     monkeypatch.setattr(

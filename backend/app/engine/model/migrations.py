@@ -830,7 +830,7 @@ _FILL = (
     """
     INSERT INTO migration_new_objects
     SELECT gen_random_uuid()::text, sp.spawn_index, sp.group_key, s.new_application, s.new_type,
-        (array_agg(sp.name ORDER BY sp.object_id))[1], min(sp.object_id)
+        left((array_agg(sp.name ORDER BY sp.object_id))[1], 500), min(sp.object_id)
     FROM migration_spawned sp JOIN migration_spawns s ON s.spawn_index = sp.spawn_index
     GROUP BY sp.spawn_index, sp.group_key, s.new_application, s.new_type
     """,
@@ -1117,7 +1117,8 @@ JOIN migration_audit a ON a.id = i.aggregate_id AND a.aggregate_type = 'relation
 WHERE i.aggregate_type = 'relation'
 """
 
-# The relation sets a removed relationship belonged to advance (0.9 B3), as a deletion's do.
+# The relation sets of every anchor whose relationships the migration removes, renames (the set it
+# leaves and the one it joins) or creates advance (0.9 B3), as a deletion's do.
 _SETS = """
 INSERT INTO relation_set_versions (workspace_key, change_set_id, relation_type_key,
     from_object_type_key, to_object_type_key, anchor_object_id, direction, version, created_at,
@@ -1130,6 +1131,28 @@ FROM (
     UNION ALL
     SELECT relation_type_key, from_type, to_type, to_object_id, 'incoming'
     FROM migration_relations WHERE lost_code IS NOT NULL
+    UNION ALL
+    SELECT relation_type_key, from_type, to_type, from_object_id, 'outgoing'
+    FROM migration_relations WHERE lost_code IS NULL AND target_relation_type_key <> relation_type_key
+    UNION ALL
+    SELECT relation_type_key, from_type, to_type, to_object_id, 'incoming'
+    FROM migration_relations WHERE lost_code IS NULL AND target_relation_type_key <> relation_type_key
+    UNION ALL
+    SELECT target_relation_type_key, from_type, to_type, from_object_id, 'outgoing'
+    FROM migration_relations WHERE lost_code IS NULL AND target_relation_type_key <> relation_type_key
+    UNION ALL
+    SELECT target_relation_type_key, from_type, to_type, to_object_id, 'incoming'
+    FROM migration_relations WHERE lost_code IS NULL AND target_relation_type_key <> relation_type_key
+    UNION ALL
+    SELECT r.relation_type_key, s.object_type_key, s.new_type, r.from_object_id, 'outgoing'
+    FROM migration_new_relations r
+    JOIN migration_new_objects n ON n.object_id = r.to_object_id
+    JOIN migration_spawns s ON s.spawn_index = n.spawn_index
+    UNION ALL
+    SELECT r.relation_type_key, s.object_type_key, s.new_type, r.to_object_id, 'incoming'
+    FROM migration_new_relations r
+    JOIN migration_new_objects n ON n.object_id = r.to_object_id
+    JOIN migration_spawns s ON s.spawn_index = n.spawn_index
 ) ends
 GROUP BY relation_type_key, from_type, to_type, anchor, direction
 ORDER BY relation_type_key, from_type, to_type, anchor, direction
@@ -1138,6 +1161,10 @@ ON CONFLICT (workspace_key, relation_type_key, from_object_type_key, to_object_t
 DO UPDATE SET version = relation_set_versions.version + EXCLUDED.version,
     updated_at = EXCLUDED.updated_at
 """
+
+# A record refused for want of an application is kept, never deleted: the refusal stops the run, and
+# a preview that executes the statements must not fail on its children (R13-F13).
+_GONE = "lost_code IS NOT NULL AND lost_code <> 'APPLICATION_TARGET_AMBIGUOUS'"
 
 _APPLY = (
     # The records a split or a conversion creates, with their values and relationships, before the
@@ -1213,17 +1240,14 @@ _APPLY = (
     """,
     (
         "DELETE FROM attribute_values WHERE object_id IN "
-        "(SELECT object_id FROM migration_objects WHERE lost_code IS NOT NULL)"
+        f"(SELECT object_id FROM migration_objects WHERE {_GONE})"
     ),
     # The parent key is RESTRICT: lost records are detached from each other first.
     (
         "UPDATE objects SET parent_object_id = NULL WHERE parent_object_id IS NOT NULL AND id IN "
-        "(SELECT object_id FROM migration_objects WHERE lost_code IS NOT NULL)"
+        f"(SELECT object_id FROM migration_objects WHERE {_GONE})"
     ),
-    (
-        "DELETE FROM objects WHERE id IN "
-        "(SELECT object_id FROM migration_objects WHERE lost_code IS NOT NULL)"
-    ),
+    (f"DELETE FROM objects WHERE id IN (SELECT object_id FROM migration_objects WHERE {_GONE})"),
     """
     UPDATE objects o SET object_type_key = m.target_type_key,
         application_key = m.target_application_key, version = o.version + 1,
@@ -1232,7 +1256,12 @@ _APPLY = (
     WHERE o.id = m.object_id AND m.changed
     """,
     """
-    UPDATE object_relations r SET version = r.version + 1, updated_at = CAST(:now AS timestamptz),
+    UPDATE object_relations r SET updated_at = CAST(:now AS timestamptz),
+        -- A relationship renamed to another relation type took its one step above (R13-F15).
+        version = r.version + CASE WHEN EXISTS (
+            SELECT 1 FROM migration_relations m WHERE m.relation_id = r.id AND m.lost_code IS NULL
+                AND m.target_relation_type_key <> m.relation_type_key
+        ) THEN 0 ELSE 1 END,
         attributes = (
             SELECT coalesce(json_object_agg(e.key, coalesce(c.after, e.value::json))
                 FILTER (WHERE c.outcome IS DISTINCT FROM 'loss'), '{}'::json)
@@ -1912,9 +1941,9 @@ def check_confirmation(
                 {"loss": counts["loss"]},
             )
         if moves_change_set(job):
-            # The move edits the change set's content and version: a submitted one is refused, or
-            # its submission withdrawn when the request says so, as for any edit (R-F6).
-            submissions.freeze(
+            # A submitted change set moves and stays submitted; only who may move it is checked
+            # here, so a person who may not is refused before the job runs.
+            submissions.require_may_move(
                 session, load_change_set(session, job.change_set_id, for_update=True)
             )
 

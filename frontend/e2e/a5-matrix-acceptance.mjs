@@ -10,6 +10,12 @@
 // A5_VOLUME_SCALE=1 for full volume) and repeats a fill through the container picker. Every write is
 // checked against the API in its context; the matrix reads the browser made are reported with their
 // times. The state inventory is docs/testing/UI_ACCEPTANCE.md.
+//
+// Brought up to date (0.13 R, block 4): a cell opens as a table, not into a form, and Active is the control
+// itself ("0.13 RV: matrix cell dialog as a table", 67044f34): the duplicate refusal is a notice over the
+// cell and the flag keeps its stored value; a cell shows the first cell field with a value ("matrix cells
+// show their fields", 89042b4d), so the Czech and filled English cells read the translated name and a linked cell the code; unlink
+// is a row's own button asking in the row.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -122,7 +128,11 @@ function driver({ page, output, api }, part) {
     if (!url.pathname.includes("/relation-matrix") || request.method() !== "GET") return;
     const timing = request.timing();
     if (timing.responseEnd > 0)
-      reads.push({ part, path: `${url.pathname.split("/relation-matrix")[1] || "/"}`, ms: Math.round(timing.responseEnd) });
+      reads.push({
+        part,
+        path: `${url.pathname.split("/relation-matrix")[1] || "/"}`,
+        ms: Math.round(timing.responseEnd),
+      });
   });
   const matrixRead = (workspace, view, query = "") =>
     api(`/workspaces/${workspace}/relation-matrix?applicationKey=${view}&pageSize=100${query}`);
@@ -153,18 +163,23 @@ try {
     cells.map((cell) => cell.state).join() === "one,none,historyOnly",
     `starting states are ${cells.map((cell) => cell.state)}`,
   );
-  expect(cells[2].publication?.number === seeded.publication.publicationNumber, "history cell names another publication");
+  expect(
+    cells[2].publication?.number === seeded.publication.publicationNumber,
+    "history cell names another publication",
+  );
   const gaps = await matrixRead("default", translations, `&columnIds=${languages.de.id}&state=one&search=Delivery`);
   expect(!gaps.items.length, "a history-only translation counts as current");
 
   // ---- 1. Delivery Methods by language, live, 1440px ----
   await openTranslationMatrix(page, uiUrl);
-  expect(/One.*Delivery Methods cs/.test((await cellText("Delivery Methods", "cs")) ?? ""), "Czech cell is not One");
+  expect(/One.*Způsoby doručení/.test((await cellText("Delivery Methods", "cs")) ?? ""), "Czech cell is not One");
   expect(/None/.test((await cellText("Delivery Methods", "en")) ?? ""), "English cell is not None");
   expect(/History only/.test((await cellText("Delivery Methods", "de")) ?? ""), "German cell is not History only");
   await shot("sc09-delivery-methods-live");
   await axe("a5-translations-live");
-  checks.push("SC-09: Delivery Methods by language shows a current Czech, a missing English and a history-only German cell");
+  checks.push(
+    "SC-09: Delivery Methods by language shows a current Czech, a missing English and a history-only German cell",
+  );
 
   // Fill English live.
   await enterGrid();
@@ -176,7 +191,7 @@ try {
   await page.keyboard.type("Delivery methods");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  await waitForCell("Delivery Methods", "en", /One.*Delivery Methods en/, "fill English");
+  await waitForCell("Delivery Methods", "en", /One.*Delivery methods$/, "fill English");
   read = await matrixRead("default", translations, `&columnIds=${languages.en.id}&search=Delivery`);
   const english = read.items.find((item) => item.row.id === deliveryMethods.id)?.cells[0];
   expect(
@@ -187,23 +202,21 @@ try {
 
   // Reject a duplicate: reactivating the superseded Czech translation beside the current one.
   dialog = await openCell("Delivery Methods", "cs");
-  await tabTo(dialog.getByRole("button", { name: "Edit Delivery Methods cs (old)" }), "Edit the superseded translation");
-  await page.keyboard.press("Enter");
-  const active = dialog.getByRole("checkbox", { name: "Active" });
-  await tabTo(active, "Active");
+  // The cell opens as a table, a row per record; Active is the control itself, so one key press flips
+  // and saves it, and the refusal is a notice over the cell (0.13 RV, 67044f34).
+  const active = dialog.getByRole("checkbox", { name: /^Active.*Delivery Methods cs \(old\)/ });
+  await tabTo(active, "Active of the superseded translation");
   await page.keyboard.press("Space");
-  await tabTo(dialog.getByRole("button", { name: "Save", exact: true }), "Save");
-  await page.keyboard.press("Enter");
   const refusal = dialog.getByRole("button", { name: "Open the translation already here" });
   await refusal.waitFor();
-  expect(await dialog.getByText("Not saved").isVisible(), "the refusal is not labelled");
+  expect(await dialog.getByText("The value was not saved").isVisible(), "the refusal is not labelled");
   expect(
     await dialog
       .getByText("Delivery Methods already has a translation in cs where Active is Yes, and only one may count there.")
       .isVisible(),
     "the refusal does not say which translation already counts",
   );
-  expect(await active.isChecked(), "the refusal dropped the entered value");
+  expect(!(await active.isChecked()), "the refusal left the flag changed");
   await shot("sc09-duplicate-refused");
   await axe("a5-duplicate-refused");
   const stored = await api(`/objects/translation/${superseded.id}?workspaceKey=default`);
@@ -215,12 +228,20 @@ try {
   await tabTo(refusal, "Open the translation already here");
   await page.keyboard.press("Enter");
   await page.waitForURL(new RegExp(czech.id));
-  checks.push("SC-09: duplicate active content is refused with the input kept and the current translation one step away");
+  checks.push(
+    "SC-09: duplicate active content is refused with the input kept and the current translation one step away",
+  );
 
   // ---- 2. Stage German from history in a change set and publish it, 1440px ----
-  const changeSet = await api("/workspaces/default/change-sets", { name: "Delivery translations", source: "currentLive" });
+  const changeSet = await api("/workspaces/default/change-sets", {
+    name: "Delivery translations",
+    source: "currentLive",
+  });
   await openTranslationMatrix(page, uiUrl, `&changeSetId=${changeSet.id}`);
-  expect(await page.getByText(/Saves to change set Delivery translations/).isVisible(), "the change set context is not shown");
+  expect(
+    await page.getByText(/Saves to change set Delivery translations/).isVisible(),
+    "the change set context is not shown",
+  );
   await enterGrid();
   dialog = await openCell("Delivery Methods", "de");
   expect(
@@ -234,7 +255,7 @@ try {
   await tabTo(dialog.getByRole("button", { name: "Create translation", exact: true }), "Create translation");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  await waitForCell("Delivery Methods", "de", /One.*Delivery Methods de/, "restore German");
+  await waitForCell("Delivery Methods", "de", /One.*Lieferarten$/, "restore German");
   const staged = await matrixRead(
     "default",
     `${translations}&changeSetId=${changeSet.id}`,
@@ -262,7 +283,10 @@ try {
   await page.getByText(/Reviewed changes are now live/).waitFor();
   read = await matrixRead("default", translations, `${columns}&search=Delivery`);
   cells = read.items.find((item) => item.row.id === deliveryMethods.id).cells;
-  expect(cells.map((cell) => cell.state).join() === "one,one,one", `after publishing, live states are ${cells.map((cell) => cell.state)}`);
+  expect(
+    cells.map((cell) => cell.state).join() === "one,one,one",
+    `after publishing, live states are ${cells.map((cell) => cell.state)}`,
+  );
   const publications = await api("/workspaces/default/publications?pageSize=1");
   const published = await matrixRead(
     "default",
@@ -274,9 +298,11 @@ try {
     "the new publication does not hold all three translations",
   );
   await openTranslationMatrix(page, uiUrl);
-  await waitForCell("Delivery Methods", "de", /One.*Delivery Methods de/, "published German live");
+  await waitForCell("Delivery Methods", "de", /One.*Lieferarten$/, "published German live");
   await shot("sc09-delivery-methods-published");
-  checks.push("SC-09: the change set is validated and published by keyboard; live and the new publication cover all three languages");
+  checks.push(
+    "SC-09: the change set is validated and published by keyboard; live and the new publication cover all three languages",
+  );
 
   // ---- 3. Mapping shape: Master values by system, live, 390px ----
   const homeDelivery = await api("/objects", {
@@ -309,19 +335,25 @@ try {
   await tabTo(dialog.getByRole("button", { name: "Link", exact: true }), "Link");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  await waitForCell("Home delivery", "system-0", /One.*Value Alpha/, "link");
+  await waitForCell("Home delivery", "system-0", /One.*VA$/, "link");
   const relations = () =>
     api(`/relations?objectId=${homeDelivery.id}&direction=incoming&relationTypeKey=system-value-maps-to-master`);
-  expect((await relations()).items.some((item) => item.object.id === valueAlpha.id), "live relations lack the link");
+  expect(
+    (await relations()).items.some((item) => item.object.id === valueAlpha.id),
+    "live relations lack the link",
+  );
   await shot("mapping-linked-narrow");
   dialog = await openCell("Home delivery", "system-0");
-  await tabTo(dialog.getByRole("button", { name: "Unlink", exact: true }), "Unlink");
+  await tabTo(dialog.getByRole("button", { name: /^Unlink / }), "Unlink");
   await page.keyboard.press("Enter");
-  await dialog.getByText(/The system value itself is kept/).waitFor();
+  await dialog.getByText(/The system value itself stays/).waitFor();
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
   await waitForCell("Home delivery", "system-0", /None/, "unlink");
-  expect(!(await relations()).items.some((item) => item.object.id === valueAlpha.id), "live relations keep the unlinked value");
+  expect(
+    !(await relations()).items.some((item) => item.object.id === valueAlpha.id),
+    "live relations keep the unlinked value",
+  );
   checks.push("mapping: a system value is linked to and unlinked from a master value by keyboard, live, 390px");
 } catch (error) {
   await harness?.page.screenshot({ path: `${harness.output}/failure.png`, fullPage: true }).catch(() => {});
@@ -365,7 +397,9 @@ try {
   const columnLabel = String(target.column.label);
   console.log(`A5 browser: generated model at scale ${scale}, ${first.totalCount} rows`);
 
-  await page.goto(`${uiUrl}/apps/vol-matrix/views/cells-by-column?workspaceKey=${workspace}&search=${encodeURIComponent(target.row.name)}`);
+  await page.goto(
+    `${uiUrl}/apps/vol-matrix/views/cells-by-column?workspaceKey=${workspace}&search=${encodeURIComponent(target.row.name)}`,
+  );
   await page.getByRole("rowheader", { name: new RegExp(target.row.name) }).waitFor();
   await enterGrid();
   const dialog = await openCell(target.row.name, columnLabel);
@@ -390,9 +424,16 @@ try {
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
   await waitForCell(target.row.name, columnLabel, /One/, "generated fill");
-  const after = await matrixRead(workspace, view, `&columnIds=${target.column.id}&search=${encodeURIComponent(target.row.name)}`);
+  const after = await matrixRead(
+    workspace,
+    view,
+    `&columnIds=${target.column.id}&search=${encodeURIComponent(target.row.name)}`,
+  );
   const filled = after.items.find((item) => item.row.id === target.row.id)?.cells[0];
-  expect(filled?.state === "one" && filled.records[0].fields["vol-code"] === "CELL-A5-FILL", "the generated fill is not in live");
+  expect(
+    filled?.state === "one" && filled.records[0].fields["vol-code"] === "CELL-A5-FILL",
+    "the generated fill is not in live",
+  );
   const created = await harness.api(`/objects/vol-cell/${filled?.records[0].id}?workspaceKey=${workspace}`);
   expect(created.parentObjectId === chosen, "the cell was not created in the chosen place");
   await shot("generated-filled");
@@ -412,7 +453,9 @@ console.log(`A5 browser evidence: ${evidence.join(", ")}`);
 console.log(`Checks: ${checks.length}`);
 for (const check of checks) console.log(`  ${check}`);
 const slowest = [...reads].sort((a, b) => b.ms - a.ms).slice(0, 3);
-console.log(`Matrix reads: ${reads.length}, slowest ${slowest.map((item) => `${item.part} ${item.path} ${item.ms} ms`).join("; ")}`);
+console.log(
+  `Matrix reads: ${reads.length}, slowest ${slowest.map((item) => `${item.part} ${item.path} ${item.ms} ms`).join("; ")}`,
+);
 if (failures.length) {
   for (const failure of failures) console.error(failure);
   process.exitCode = 1;

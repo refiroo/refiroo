@@ -823,10 +823,6 @@ def run_execution(
         summary=summary,
         for_update=True,
     )
-    # A change set submitted since the confirmation is not moved under the submission (R-F6).
-    submissions.freeze(
-        session, session.scalar(select(ChangeSet).where(ChangeSet.id == job.change_set_id))
-    )
     move = _Move.open(session, job)
     session.execute(text("DELETE FROM job_items WHERE job_id = :job"), {"job": job.sequence_id})
     move.prepare()
@@ -847,6 +843,13 @@ def run_execution(
             {"changeSetId": job.change_set_id, "reviewed": summary.get("counts"), "now": counts},
         )
     record_change_set_moved(session, move.change_set_row(), old_release, move, version, counts)
+    # A submitted change set stays submitted: its request follows it to the new version.
+    submissions.carry_over(
+        session,
+        move.change_set_row(),
+        from_version=version,
+        from_release_id=old_release.id,
+    )
     record_summary(job, counts)
     hold()
     complete_job(session, job, retention_days=retention_days)

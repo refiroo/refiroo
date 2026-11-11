@@ -1,5 +1,13 @@
 # Project status
 
+## 0.13 (the documentation release) — R run, release pending (2026-11-11)
+
+0.13's build acceptance R ran on 2026-11-10 and 2026-11-11 ([record](BASE_0_13_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)):
+the full review of every change since `v0.16.0` (R13-F1–F34, all fixed), every block of build acceptance run, and 11 more
+defects found by the runs fixed (R13-F36–F45 and the Add members dialog). 0.16 was released before 0.13 finished, so 0.13
+ships as **0.16.1-alpha.5**. The release commit and tag wait for the reference-list UI work the user placed in 0.13; then
+only the checks that work changes are rerun. Known limit recorded: assistant sessions in a container share one user.
+
 ## Current development baseline — Base 0.16 complete (2026-11-02)
 
 **Base 0.16 is complete**, build acceptance R included

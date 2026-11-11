@@ -5,6 +5,12 @@ set is refused ``409 CHANGE_SET_SUBMITTED`` unless the request carries ``withdra
 which withdraws the submission in the same transaction as the write (D426). The write unit's
 version claim (``ChangeSetWrites.claim``) calls ``freeze``, so every path is covered once; this
 module knows nothing of the write unit, so the unit can import it.
+
+The one edit that does not freeze is the move of a submitted change set onto its workspace's new
+model release: it is not a change of the request's content but of the release it is read under, so
+the request stays submitted and ``carry_over`` moves its submitted version with the change set;
+approvers decide the same request on the moved version. Who may move it is the rule of withdrawal
+(``require_may_move``).
 """
 
 from sqlalchemy import select
@@ -47,17 +53,23 @@ def open_submission(
     return session.scalar(statement.with_for_update() if for_update else statement)
 
 
+def _may_act_on(session: Session, submission: ChangeSetSubmission, workspace_key: str) -> bool:
+    """The submitter, or a holder of Approve publications in the workspace; the engine's own
+    writes (no writer, or no permissions) may."""
+    writer = writer_of(session)
+    if writer is None or writer.permissions is None:
+        return True
+    submitter = ref(submission.submitted_by_user_id, submission.submitted_by_client_id)
+    return submitter == writer.principal or writer.permissions.allows("approve", workspace_key)
+
+
 def require_may_withdraw(
     session: Session, submission: ChangeSetSubmission, workspace_key: str
 ) -> None:
     """The one rule for who withdraws a request, by ``DELETE …/submission`` and by an edit with
     ``withdrawSubmission=true`` alike: the person who submitted it, or a holder of Approve
     publications in the workspace; ``403 FORBIDDEN`` otherwise. The engine's own writes may."""
-    writer = writer_of(session)
-    if writer is None or writer.permissions is None:
-        return
-    submitter = ref(submission.submitted_by_user_id, submission.submitted_by_client_id)
-    if submitter == writer.principal or writer.permissions.allows("approve", workspace_key):
+    if _may_act_on(session, submission, workspace_key):
         return
     raise api_error(
         403,
@@ -69,6 +81,54 @@ def require_may_withdraw(
             "groups": ["approve"],
             "workspaceKey": workspace_key,
             "reason": "notSubmitter",
+        },
+    )
+
+
+def require_may_move(session: Session, change_set: ChangeSet) -> ChangeSetSubmission | None:
+    """Who may move a submitted change set onto a new model release: the rule of withdrawal (the
+    submitter, or a holder of Approve publications; ``403 FORBIDDEN`` otherwise, the engine's own
+    writes may). Returns the open submission, or None for a change set that is not submitted."""
+    submission = open_submission(session, change_set.id, for_update=True)
+    if submission is None or _may_act_on(session, submission, change_set.workspace_key):
+        return submission
+    raise api_error(
+        403,
+        "FORBIDDEN",
+        "Only the person who submitted a change set, or a holder of Approve publications, "
+        "can move it to a new model release while it is submitted",
+        {
+            "action": "change-sets.move",
+            "groups": ["approve"],
+            "workspaceKey": change_set.workspace_key,
+            "reason": "notSubmitter",
+        },
+    )
+
+
+def carry_over(
+    session: Session, change_set: ChangeSet, *, from_version: int, from_release_id: str
+) -> None:
+    """A move of the change set onto a new model release (its version already raised) keeps its
+    request submitted: the submitted version follows the change set's, and the step is audited
+    (``moved``). Nothing for a change set that is not submitted; no announcement, the request is
+    the same one."""
+    submission = require_may_move(session, change_set)
+    if submission is None:
+        return
+    submission.version_submitted = change_set.version
+    session.flush()
+    record_submission_event(
+        session,
+        submission=submission,
+        action="moved",
+        version=change_set.version,
+        changes={
+            "submissionId": submission.id,
+            "fromVersion": from_version,
+            "toVersion": change_set.version,
+            "fromReleaseId": from_release_id,
+            "toReleaseId": change_set.model_release_id,
         },
     )
 

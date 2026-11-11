@@ -4,6 +4,8 @@ import base64
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -285,3 +287,78 @@ def test_the_api_page_takes_a_hosts_theme_header(tmp_path):
 
     plain = render_page("bundled", "", sources, static=StaticSite(version="0.13"))
     assert 'class="rdm-header"' in plain and "--scalar-custom-header-height: 56px" in plain
+
+
+_SOURCES = [
+    {"title": "Management API", "slug": "management", "url": "/openapi.json", "default": True},
+    {
+        "title": "Stops · v1",
+        "slug": "consumer-stops-v1",
+        "url": "/api/consumer/stops/v1/openapi.json",
+    },
+]
+
+# Runs the page's sign-in script against a stand-in for the Scalar instance and prints what each
+# source ends up configured with, before and after a person is signed in.
+_HARNESS = """
+const source = require("fs").readFileSync(0, "utf8");
+let configuration = JSON.parse(process.argv[1]);
+const reference = {
+  getConfiguration: () => configuration,
+  updateConfiguration: (next) => { configuration = next; },
+};
+const location = { origin: "https://engine.example" };
+const fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ access_token: "session", expires_in: 3600 }) });
+const snapshot = () => Object.fromEntries(configuration.sources.map((s) => [s.slug, s.authentication]));
+new Function("window", "location", "fetch", source)({ rdmReference: reference }, location, fetch);
+const before = snapshot();
+setTimeout(() => { console.log(JSON.stringify({ before, after: snapshot(), top: configuration.authentication ?? null })); }, 50);
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node to run the page script")
+@pytest.mark.parametrize("root_path", ["", "/engine"])
+def test_a_source_gets_only_its_own_scheme_and_only_management_gets_the_session_token(root_path):
+    page = render_page("bundled", root_path, _SOURCES)
+    script = re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL)
+    sign_in = next(text for text in script if "console-token" in text)
+    configuration = _configuration(page)
+
+    ran = subprocess.run(
+        ["node", "-e", _HARNESS, json.dumps(configuration)],
+        input=sign_in,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    result = json.loads(ran.stdout)
+
+    token_url = f"https://engine.example{root_path}/oauth/token"
+    for stage in ("before", "after"):
+        consumer = result[stage]["consumer-stops-v1"]
+        assert consumer == {
+            "preferredSecurityScheme": "oauth2",
+            "securitySchemes": {
+                "oauth2": {
+                    "flows": {
+                        "clientCredentials": {"tokenUrl": token_url, "selectedScopes": ["consumer"]}
+                    }
+                }
+            },
+        }
+        management = result[stage]["management"]
+        assert management["preferredSecurityScheme"] == "engineOAuth"
+        assert list(management["securitySchemes"]) == ["engineOAuth"]
+
+    def management_flow(stage):
+        return result[stage]["management"]["securitySchemes"]["engineOAuth"]["flows"][
+            "clientCredentials"
+        ]
+
+    assert management_flow("before") == {"tokenUrl": token_url, "selectedScopes": ["management"]}
+    assert management_flow("after") == {
+        "tokenUrl": token_url,
+        "selectedScopes": ["management"],
+        "token": "session",
+    }
+    assert result["top"] is None

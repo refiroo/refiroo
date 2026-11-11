@@ -183,15 +183,17 @@ export function paneRows(
       });
       for (const { key, depth } of loose) rows.push(borrowedRow(key, 2 + depth, `borrowed:${application.key}:${key}`));
     }
-    if (application.unused.length) {
+    // A type placed in a navigation group stands in its group, so it is not listed here again.
+    const unused = application.unused.filter((key) => !grouped.has(key));
+    if (unused.length) {
       rows.push({
         id: `unused:${application.key}`,
         level: 2,
         label: "Listed, used by no view here",
-        note: String(application.unused.length),
+        note: String(unused.length),
         subhead: true,
       });
-      for (const key of application.unused)
+      for (const key of unused)
         rows.push({
           ...typeRow(key, 2, `unused:${application.key}:${key}`),
           note: application.unlistable.includes(key) ? "can be unlisted" : undefined,
@@ -240,9 +242,14 @@ export function paneRows(
  * shown: a type in a group stands there, so its children come up a level. */
 function looseBorrowed(application: OutlineApplication, grouped: Set<string>) {
   const result: { key: string; depth: number }[] = [];
+  const seen = new Set<string>();
   const walk = (node: OutlineTypeNode, depth: number) => {
-    const shown = !grouped.has(node.objectType);
-    if (shown) result.push({ key: node.objectType, depth });
+    // The pane shows each type once per application: a type several views borrow stands at its first place.
+    const shown = !grouped.has(node.objectType) && !seen.has(node.objectType);
+    if (shown) {
+      seen.add(node.objectType);
+      result.push({ key: node.objectType, depth });
+    }
     for (const child of node.children) walk(child, shown ? depth + 1 : depth);
   };
   for (const node of application.borrowedTree) walk(node, 0);

@@ -75,5 +75,16 @@ else:
     proposal = {"draftId": draft, "summary": plan["summary"], "questions": []}
     if plan.get("moves"):
         proposal["moves"] = plan["moves"]
+    if plan["mode"] == "parts":
+        # The engine offers no change that loses what the person did not ask to remove (2026-11-09): the type
+        # whose records a change set restructures into the others is listed with the person's own words.
+        proposal["removals"] = [
+            {
+                "kind": "objectType",
+                "key": plan["from"],
+                "words": plan["words"],
+                "movedTo": list(plan["targets"].values()),
+            }
+        ]
     Path("proposal.json").write_text(json.dumps(proposal))
     result("Ready.")

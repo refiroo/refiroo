@@ -3,7 +3,7 @@
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.10.0"
+    "version": "0.10.1"
   },
   "product": {
     "name": "RDM Engine",

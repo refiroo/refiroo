@@ -257,9 +257,13 @@ def _candidates(builder: _Builder, parameter: Any, value: str) -> Select[Any]:
         reference = split_ancestor_reference(match_field)
         attribute = split_relation_reference(match_field)
         if attribute is not None:
-            relation = builder.source.relation_alias()
+            relation, owner = builder.source.relation_alias(), builder.source.object_alias()
+            # Only relationships of this workspace's records count (R13-F17).
             selects.append(
-                select(relation.sequence_id.cast(String).label("id")).where(
+                select(relation.sequence_id.cast(String).label("id"))
+                .join(owner, owner.id == relation.from_object_id)
+                .where(
+                    owner.workspace_key == builder.source.workspace_key,
                     relation.relation_type_key == route.relation,
                     builder._relation_match(relation, attribute, [value]),
                 )

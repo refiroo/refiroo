@@ -10,6 +10,7 @@ engine gives it, so every permission and refusal is the engine's.
 
 import copy
 import json
+import re
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -745,10 +746,14 @@ def test_records_of_a_type_the_target_still_lists_are_moved_never_lost(
 
     crowded = Merge(world, tmp_path, monkeypatch, moves=None, elsewhere=True, shared="ambiguous")
     task = _accept(world, _proposed(world, crowded.workspace))
-    assert task["state"] == "loaded", task["notes"]
-    job = _previewed(
-        world, crowded.workspace, task["result"]["migration"]["releaseId"], typeMappings=[]
-    )
+    # The draft's migration names no application for records two own ones could take (R13-F12), so
+    # the assistant offers no migration to confirm and says which records the engine would refuse;
+    # the release it installed is still previewed, and refuses them by name.
+    assert task["state"] == "failed" and task["result"] is None, task["notes"]
+    warning = " ".join(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "APPLICATION_TARGET_AMBIGUOUS" in warning and f"{crowded.k.item}-also" in warning
+    release_id = re.search(r"RELEASE: (\S+)", " ".join(n["text"] for n in task["notes"])).group(1)
+    job = _previewed(world, crowded.workspace, release_id, typeMappings=[])
     counts = job["migration"]["counts"]
     assert counts["loss"] == 0 and counts["refused"] == 5, job["migration"]
     refusals = _rows(world, job["id"], status="refused")

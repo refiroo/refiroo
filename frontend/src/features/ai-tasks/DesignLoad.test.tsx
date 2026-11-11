@@ -190,6 +190,24 @@ describe("ModelProposal with a load", () => {
     expect(screen.getByRole("button", { name: "Give the assistant other words" })).toBeInTheDocument();
   });
 
+  it("keeps one Accept the model, with the journey id, when a load comes with moves, and does not promise the load (R13-F21)", () => {
+    const onAccept = vi.fn();
+    const task = proposal();
+    task.design!.moves = [{ from: "supplier", fromName: "Suppliers", to: "partner", toName: "Partners", records: 12 }];
+    task.design!.itemsLoad = false;
+    const { container } = render(
+      <ModelProposal task={task} pending={false} onAnswer={vi.fn()} onCorrect={vi.fn()} onAccept={onAccept} />,
+    );
+    const accept = screen.getByRole("button", { name: "Accept the model" });
+    expect(accept.closest("#journey-accept")).not.toBeNull();
+    expect(container.querySelectorAll("#journey-accept")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Accept and load to change set" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Accepting loads exactly this/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Accepting loads none of it/)).toBeInTheDocument();
+    fireEvent.click(accept);
+    expect(onAccept).toHaveBeenCalledTimes(1);
+  });
+
   it("offers no accept to someone who may not load", () => {
     render(
       <ModelProposal

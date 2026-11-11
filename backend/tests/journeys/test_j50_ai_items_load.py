@@ -15,6 +15,8 @@ import pytest
 from scenario import ok, refused
 from test_j24_job_stream import served  # noqa: F401  (the journey application over HTTP)
 from test_j34_onboard import _all
+from test_j40_authorization import _client
+from test_j46_mail import _database_write
 from test_j50_ai_reshape import _ask, _keys, _record, _shaped, _workspace
 from test_j50_ai_workbook_load import _assistant, _run, _task
 
@@ -443,3 +445,191 @@ def test_a_file_already_in_the_workspace_is_checked_and_accepting_it_loads_nothi
     live = _all(world, f"/objects/{k.supplier}", workspaceKey=partners.workspace)
     assert [item["name"] for item in live] == ["Supplier 0"]
     assert len(partners.turns()) == 1
+
+
+@pytest.mark.journey("J50.70")
+@pytest.mark.structures(*STRUCTURES)
+def test_an_items_dry_run_needs_read_access_to_its_workspace_and_a_check_of_another_workspace_is_no_check(
+    world,
+    tmp_path,
+    monkeypatch,
+):
+    """Given a draft, when a caller who may author models but may not read records in a workspace
+    sends an items dry run against it, then it is refused as FORBIDDEN (R13-F6), and one who may
+    read there is accepted; and an accepted task whose check was made against another workspace than
+    its own loads nothing: the task fails and no release or change set is made."""
+    partners = Partners(world, tmp_path, monkeypatch)
+    draft = partners.settings["draft"]
+    other = _workspace(world, partners.release)
+    authors = ok(
+        world.api.post("/roles", {"name": "Item authors", "actionGroups": ["model-authoring"]}),
+        201,
+    )
+    readers = ok(
+        world.api.post("/roles", {"name": "Item readers", "actionGroups": ["browse"]}), 201
+    )
+    _row, holder = _client(
+        world,
+        "Item author",
+        (authors["key"], {"instance": True}),
+        (readers["key"], {"workspaceKey": partners.workspace}),
+    )
+    body = {"workspaceKey": other, "items": partners.items[:3]}
+    error = refused(holder.api.post(f"/model-drafts/{draft}/dry-run", body), 403, "FORBIDDEN")
+    assert error["details"]["workspaceKey"] == other and error["details"]["groups"] == ["browse"]
+    ok(
+        holder.api.post(
+            f"/model-drafts/{draft}/dry-run", {**body, "workspaceKey": partners.workspace}
+        ),
+        202,
+    )
+
+
+@pytest.mark.journey("J50.69")
+@pytest.mark.structures(*STRUCTURES)
+def test_accepting_a_check_made_against_another_workspace_loads_nothing(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    partners = Partners(world, tmp_path, monkeypatch)
+    task = partners.proposed()
+    assert task["state"] == "checked", task["notes"]
+    other = _workspace(world, partners.release)
+    # The check the task holds is from a workspace that is not its own.
+    _database_write(
+        world,
+        f"UPDATE jobs SET workspace_key = '{other}' WHERE id = '{task['check']['dryRunJobId']}'",
+    )
+    releases = len(_all(world, "/model-releases"))
+    task = partners.accept(task)
+    assert task["state"] == "failed", task["notes"]
+    warning = next(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "another workspace" in warning and task["result"] is None
+    assert len(_all(world, "/model-releases")) == releases
+    changes = _all(world, f"/workspaces/{partners.workspace}/change-sets")
+    assert [c["id"] for c in changes] == [partners.settings["changeSet"]]
+
+
+@pytest.mark.journey("J50.68")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_second_accept_after_words_loads_against_the_release_the_items_were_checked_on(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given an accepted load that installed the draft's release (the draft is then based on it and
+    the workspace is not), when the person gives words and accepts again, then the new change set is
+    on that release, not on the workspace's, and the items load (R13-F7)."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    partners = Partners(world, tmp_path, monkeypatch)
+    task = partners.proposed()
+    first = partners.accept(task)
+    assert first["state"] == "loaded", first["notes"]
+    installed = ok(world.api.get(f"/change-sets/{first['result']['changeSetId']}"))[
+        "modelReleaseId"
+    ]
+    assert installed != partners.release
+    # The draft now holds exactly the release it was installed as: no model change to find.
+    _database_write(
+        world,
+        "UPDATE model_drafts SET model_json = r.model_json FROM model_releases r"
+        f" WHERE r.public_id = '{installed}' AND model_drafts.base_model_release_id = r.id",
+    )
+    ok(
+        world.api.post(
+            f"/ai/tasks/{first['id']}/model",
+            {"expectedVersion": first["version"], "correction": "Keep the same records."},
+        ),
+        202,
+    )
+    _run(world)
+    again = _task(world, first)
+    assert again["state"] == "checked", again["notes"]
+    second = partners.accept(again)
+    assert second["state"] == "loaded", second["notes"]
+    change_set = ok(world.api.get(f"/change-sets/{second['result']['changeSetId']}"))
+    assert change_set["modelReleaseId"] == installed
+    assert second["result"]["counts"]["created"] == 3
+
+
+@pytest.mark.journey("J50.69")
+@pytest.mark.structures(*STRUCTURES)
+def test_stopping_the_load_leaves_no_change_set_and_no_release(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given an accepted load that the person stops while it runs, then the change set it made is
+    discarded and the release it installed is withdrawn, as the task's note says (R13-F8)."""
+    from app.engine.tasks import items_load
+
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    partners = Partners(world, tmp_path, monkeypatch)
+    task = partners.proposed()
+    assert task["state"] == "checked", task["notes"]
+    releases = len(_all(world, "/model-releases"))
+    monkeypatch.setattr(items_load, "_stopped", lambda ctx: True)
+    stopped = partners.accept(task)
+    assert stopped["state"] == "checked", stopped["notes"]
+    assert stopped["result"] is None
+    assert any("discarded" in n["text"] for n in stopped["notes"])
+    changes = _all(world, f"/workspaces/{partners.workspace}/change-sets")
+    assert [c["id"] for c in changes] == [partners.settings["changeSet"]]
+    assert len(_all(world, "/model-releases")) == releases
+
+
+@pytest.mark.journey("J50.69")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_new_check_cannot_take_the_items_away_from_an_accept(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given an accepted task waiting to load, when another items dry run of its draft is sent, then
+    it is refused (the checked items stay); and if the items are gone anyway, the load fails naming
+    that, with no release and no change set left (R13-F11)."""
+    from app.engine.tasks import items_load
+
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    partners = Partners(world, tmp_path, monkeypatch)
+    task = partners.proposed()
+    assert task["state"] == "checked", task["notes"]
+    ok(world.api.post(f"/ai/tasks/{task['id']}/accept", {"expectedVersion": task["version"]}), 202)
+    error = refused(
+        world.api.post(
+            f"/model-drafts/{partners.settings['draft']}/dry-run",
+            {"workspaceKey": partners.workspace, "items": partners.items},
+        ),
+        409,
+        "AI_TASK_STATE",
+    )
+    assert "being loaded" in error["message"]
+    # The items vanish after the load read them (a check that slipped in): the load says so.
+    items = items_load.inputs_of
+    job_id = task["check"]["dryRunJobId"]
+
+    def stale(session, previewed):
+        found = items(session, previewed)
+        session.execute(
+            items_load.text("DELETE FROM job_inputs WHERE job_id = :job"),
+            {"job": previewed.sequence_id},
+        )
+        session.commit()
+        return found
+
+    monkeypatch.setattr(items_load, "inputs_of", stale)
+    releases = len(_all(world, "/model-releases"))
+    _run(world)
+    task = _task(world, task)
+    assert task["state"] == "failed", task["notes"]
+    warning = next(n["text"] for n in task["notes"] if n["kind"] == "warning")
+    assert "checked records are gone" in warning and job_id
+    assert len(_all(world, "/model-releases")) == releases
+    changes = _all(world, f"/workspaces/{partners.workspace}/change-sets")
+    assert [c["id"] for c in changes] == [partners.settings["changeSet"]]

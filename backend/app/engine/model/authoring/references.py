@@ -402,67 +402,77 @@ def consumer_slots(data: dict[str, Any]) -> Iterator[Slot]:
         if not isinstance(definition, dict):
             continue
         path: Path = ["consumerApis", identity(definition)]
-        exposed = _keys(tuple(definition.get("exposes") or ()))
-        yield from _strings(path, definition, "exposes", "objectType")
-        names = definition.get("publicNames")
-        if isinstance(names, dict):
-            for type_key in names:
-                yield Slot(path + ["publicNames"], type_key, "objectTypeMapKey", member=type_key)
-        shape = definition.get("object") if isinstance(definition.get("object"), dict) else {}
-        fields = shape.get("fields")
-        if isinstance(fields, dict):
-            for name, value in fields.items():
-                yield from _source(path + ["object", "fields"], fields, name, value, exposed)
-        related = shape.get("related")
-        if isinstance(related, dict):
-            for name, block in related.items():
-                if not isinstance(block, dict):
-                    continue
-                block_path = path + ["object", "related", name]
-                if isinstance(block.get("via"), str):
-                    yield Slot(block_path, "via", "relationType")
-                inner = block.get("fields")
-                if isinstance(inner, dict):
-                    for output in inner:
-                        yield from _field(block_path + ["fields"], inner, output, ())
-        operations = definition.get("operations") if isinstance(definition.get("operations"), dict) else {}
-        lists = operations.get("lists")
-        if isinstance(lists, dict):
-            for key, item in lists.items():
-                if not isinstance(item, dict):
-                    continue
-                list_path = path + ["operations", "lists", key]
-                if isinstance(item.get("of"), str):
-                    yield Slot(list_path, "of", "objectType")
-                yield from _field(list_path, item, "sortBy", _keys((item.get("of"),)))
-                if isinstance(item.get("within"), dict):
-                    yield from _strings(list_path + ["within"], item["within"], "types", "objectType")
-        xref = operations.get("xref") if isinstance(operations.get("xref"), dict) else {}
-        for position, rule in enumerate(_list(xref, "matchOn")):
-            if isinstance(rule, dict):
-                yield from _field(path + ["operations", "xref", "matchOn", position], rule, "field", exposed)
-        for position, through in enumerate(_list(xref, "alsoMatchThrough")):
-            if not isinstance(through, dict):
+        yield from _definition_slots(path, definition)
+        # Each earlier version the model keeps names elements too (DF3): a re-key rewrites it as it
+        # rewrites the current definition, so it goes on serving under its public names.
+        for position, kept in enumerate(definition.get("earlierVersions") or ()):
+            if isinstance(kept, dict):
+                yield from _definition_slots(path + ["earlierVersions", position], kept)
+
+
+def _definition_slots(path: Path, definition: dict[str, Any]) -> Iterator[Slot]:
+    """The slots of one definition, or of one earlier version of it, at ``path``."""
+    exposed = _keys(tuple(definition.get("exposes") or ()))
+    yield from _strings(path, definition, "exposes", "objectType")
+    names = definition.get("publicNames")
+    if isinstance(names, dict):
+        for type_key in names:
+            yield Slot(path + ["publicNames"], type_key, "objectTypeMapKey", member=type_key)
+    shape = definition.get("object") if isinstance(definition.get("object"), dict) else {}
+    fields = shape.get("fields")
+    if isinstance(fields, dict):
+        for name, value in fields.items():
+            yield from _source(path + ["object", "fields"], fields, name, value, exposed)
+    related = shape.get("related")
+    if isinstance(related, dict):
+        for name, block in related.items():
+            if not isinstance(block, dict):
                 continue
-            through_path = path + ["operations", "xref", "alsoMatchThrough", position]
-            yield from _strings(through_path, through, "preferTypes", "objectType")
-            for index, rule in enumerate(_list(through, "firstOf")):
-                if isinstance(rule, dict):
-                    yield from _field(through_path + ["firstOf", index], rule, "field", ())
-        events = operations.get("events") if isinstance(operations.get("events"), dict) else {}
-        for position, event in enumerate(_list(events, "custom")):
-            if isinstance(event, dict):
-                yield from _strings(path + ["operations", "events", "custom", position], event, "objectTypes", "objectType")
-        filters = definition.get("filters")
-        if isinstance(filters, dict):
-            for name, item in filters.items():
-                if not isinstance(item, dict):
-                    continue
-                filter_path = path + ["filters", name]
-                yield from _strings(filter_path, item, "under", "objectType")
-                yield from _strings(filter_path, item, "linkedTo", "objectType")
-                types = _keys(tuple(item.get("under") or item.get("linkedTo") or ()))
-                yield from _fields(filter_path, item, "matchOn", types)
+            block_path = path + ["object", "related", name]
+            if isinstance(block.get("via"), str):
+                yield Slot(block_path, "via", "relationType")
+            inner = block.get("fields")
+            if isinstance(inner, dict):
+                for output in inner:
+                    yield from _field(block_path + ["fields"], inner, output, ())
+    operations = definition.get("operations") if isinstance(definition.get("operations"), dict) else {}
+    lists = operations.get("lists")
+    if isinstance(lists, dict):
+        for key, item in lists.items():
+            if not isinstance(item, dict):
+                continue
+            list_path = path + ["operations", "lists", key]
+            if isinstance(item.get("of"), str):
+                yield Slot(list_path, "of", "objectType")
+            yield from _field(list_path, item, "sortBy", _keys((item.get("of"),)))
+            if isinstance(item.get("within"), dict):
+                yield from _strings(list_path + ["within"], item["within"], "types", "objectType")
+    xref = operations.get("xref") if isinstance(operations.get("xref"), dict) else {}
+    for position, rule in enumerate(_list(xref, "matchOn")):
+        if isinstance(rule, dict):
+            yield from _field(path + ["operations", "xref", "matchOn", position], rule, "field", exposed)
+    for position, through in enumerate(_list(xref, "alsoMatchThrough")):
+        if not isinstance(through, dict):
+            continue
+        through_path = path + ["operations", "xref", "alsoMatchThrough", position]
+        yield from _strings(through_path, through, "preferTypes", "objectType")
+        for index, rule in enumerate(_list(through, "firstOf")):
+            if isinstance(rule, dict):
+                yield from _field(through_path + ["firstOf", index], rule, "field", ())
+    events = operations.get("events") if isinstance(operations.get("events"), dict) else {}
+    for position, event in enumerate(_list(events, "custom")):
+        if isinstance(event, dict):
+            yield from _strings(path + ["operations", "events", "custom", position], event, "objectTypes", "objectType")
+    filters = definition.get("filters")
+    if isinstance(filters, dict):
+        for name, item in filters.items():
+            if not isinstance(item, dict):
+                continue
+            filter_path = path + ["filters", name]
+            yield from _strings(filter_path, item, "under", "objectType")
+            yield from _strings(filter_path, item, "linkedTo", "objectType")
+            types = _keys(tuple(item.get("under") or item.get("linkedTo") or ()))
+            yield from _fields(filter_path, item, "matchOn", types)
 
 
 def _source(path: Path, fields: dict[str, Any], name: str, value: Any, types: tuple[str, ...]) -> Iterator[Slot]:

@@ -9,6 +9,8 @@
 // every record with its ID and values; the three steps of a part-of-a-type move are each shown when they can
 // be done. Light and dark, 1440px and 390px without sideways scroll, axe on each state. Then a backend with no
 // assistant offers no item.
+// 0.13 release review: the engine offers no change that loses what the person did not ask to remove (2026-11-09), so the
+// stand-in lists the split type as a removal with the person's words and movedTo (`plan.words`).
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -276,6 +278,7 @@ async function scenario(configuration, index) {
         note: NOTE,
         targets: { part: t("part"), service: t("service") },
         summary: "Items split into Parts and Services by their note.",
+        words: "Split the items into parts and services",
       }),
     );
     await asking(
@@ -297,6 +300,7 @@ async function scenario(configuration, index) {
       "step 2 waits for step 1",
     );
     const open = page.getByRole("button", { name: "Open the release" });
+    await open.waitFor();
     assert.equal(await open.count(), 1, "only step 1 can be done");
     await shot("steps-1");
     await accessible(page, `ap12-${label}-steps-1`);

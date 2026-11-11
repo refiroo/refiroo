@@ -65,7 +65,7 @@ def _diagnostic(source: dict[str, Any]) -> tuple[str, str]:
 def test_the_starter_declares_its_period(renamed):
     source, k = starter_source(renamed)
     model = parse_model(source)
-    assert (model.schemaVersion, model.release.version) == ("0.10", "0.10.0")
+    assert (model.schemaVersion, model.release.version) == ("0.10", "0.10.1")
     declared = {item.key: item.effectivePeriod for item in model.objectTypes if item.effectivePeriod}
     assert list(declared) == [k("master-value")]
     period = declared[k("master-value")]

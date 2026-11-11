@@ -23,6 +23,7 @@ from test_j46_mail import PASSWORD, _database, _reset_mail, smtp  # noqa: F401  
 
 from app.engine.identity.resealing import reseal
 from app.engine.mail import graph
+from app.models import commands
 
 SECRET = "graph-client-secret-Z9"
 TENANT = "11111111-2222-3333-4444-555555555555"
@@ -35,6 +36,17 @@ def _no_cached_tokens():
     graph.forget_tokens()
     yield
     graph.forget_tokens()
+
+
+@pytest.fixture(autouse=True)
+def _stub_is_a_trusted_authority(monkeypatch):
+    """The fake sign-in host answers on this computer; a managed identity trusts only Microsoft's
+    hosts (R13-F3), so the stub's host is added for these tests."""
+    monkeypatch.setattr(
+        commands,
+        "MICROSOFT_AUTHORITY_HOSTS",
+        commands.MICROSOFT_AUTHORITY_HOSTS | {"127.0.0.1"},
+    )
 
 
 @pytest.fixture
@@ -489,3 +501,55 @@ def test_without_an_azure_host_a_managed_identity_is_a_shared_login_failure_and_
         422,
         "MAIL_CREDENTIAL_REQUIRED",
     )
+
+
+@pytest.mark.journey("J46.11")
+def test_a_managed_identity_is_never_signed_in_at_a_host_that_is_not_microsofts(world, monkeypatch):
+    """Given a managed identity, when an administrator saves an authority address that is not one of
+    Microsoft's sign-in hosts, then it is refused at its own field; and if such an address is
+    already saved, nothing is sent to it, the host's token included (R13-F3)."""
+    with FakeGraph(federated=True) as stub:
+        monkeypatch.setenv("IDENTITY_ENDPOINT", f"{stub.url}/identity")
+        monkeypatch.setenv("IDENTITY_HEADER", stub.identity_header)
+        body = _identity_settings(
+            stub, identityMode="federated", identityClientId="uai-0002", clientId=CLIENT,
+            tenantId=TENANT, authorityUrl="https://login.example.net",
+        )  # fmt: skip
+        error = refused(world.api.put("/mail-settings", body), 422, "REQUEST_VALIDATION_ERROR")
+        assert "authorityUrl" in json.dumps(error["details"])
+        refused(
+            world.api.put("/mail-settings", {**body, "identityMode": "direct", "tenantId": None,
+                                             "clientId": None}),
+            422,
+            "REQUEST_VALIDATION_ERROR",
+        )  # fmt: skip
+        ok(world.api.put("/mail-settings", {**body, "authorityUrl": stub.url}))
+        # An address saved before this check: the stub's host is no longer trusted at send time.
+        monkeypatch.setattr(commands, "MICROSOFT_AUTHORITY_HOSTS", frozenset({"login.example.org"}))
+        refused(
+            world.api.post("/mail-settings/test", {"to": "ada@example.org"}),
+            422,
+            "MAIL_SEND_FAILED",
+        )
+        assert stub.host_requests == [] and not [
+            r for r in stub.requests if r[1].endswith("/token")
+        ]
+
+
+@pytest.mark.journey("J46.11")
+def test_the_database_refuses_a_secret_or_certificate_credential_without_tenant_and_application(
+    world, stub
+):
+    """Given Microsoft 365 saved with a client secret, when a row loses its tenant or application ID
+    in the database, then the check constraint refuses it (R13-F5: a NULL identity mode once let
+    it pass)."""
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    _save(world, stub)
+    for column in ("ms_tenant_id", "ms_client_id"):
+        with (
+            world.api.client.app.state.session_factory() as session,
+            pytest.raises(IntegrityError, match="ck_mail_settings_microsoft365_fields"),
+        ):
+            session.execute(text(f"UPDATE mail_settings SET {column} = NULL"))

@@ -6,6 +6,9 @@ certificate (private key and certificate, with its thumbprint and expiry in the 
 authority and Graph addresses. The SMTP-only columns become nullable; check constraints keep each
 method's fields together and the other's empty. One transaction, so an interrupted run leaves the
 database at ``20261125_01``.
+
+The downgrade deletes the Microsoft 365 mail settings (a row whose method is ``microsoft365``), since
+older revisions can only hold SMTP settings.
 """
 
 import sqlalchemy as sa

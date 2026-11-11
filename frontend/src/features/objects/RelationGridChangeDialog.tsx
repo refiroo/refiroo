@@ -113,9 +113,11 @@ export function RelationGridChangeDialog({
   const attribute = attributes.find((item) => item.key === attributeKey) ?? attributes[0];
   const value: unknown =
     mode === "clear" ? null : (typed[attribute?.key ?? ""] ?? (attribute?.valueType === "boolean" ? false : undefined));
+  // An unreadable typed value matters only while "Set to" is chosen; Clear sends no typed value.
+  const unreadable = invalid && mode === "set";
   const toObjectIds = where === "all" ? columns.map((column) => column.id) : [where];
   const body: RelationGridChangeInput | undefined =
-    attribute && value !== undefined && !invalid && toObjectIds.length > 0
+    attribute && value !== undefined && !unreadable && toObjectIds.length > 0
       ? {
           applicationKey,
           viewKey,
@@ -213,7 +215,16 @@ export function RelationGridChangeDialog({
             <legend>Value</legend>
             <FormField label="Attribute of the relationship">
               {(control) => (
-                <select {...control} value={attribute?.key} onChange={(event) => setAttributeKey(event.target.value)}>
+                <select
+                  {...control}
+                  value={attribute?.key}
+                  onChange={(event) => {
+                    // Not a typed value: the form's own change handler must not read the old field again.
+                    event.stopPropagation();
+                    setAttributeKey(event.target.value);
+                    setInvalid(false);
+                  }}
+                >
                   {attributes.map((item) => (
                     <option key={item.key} value={item.key}>
                       {item.name}
@@ -259,7 +270,7 @@ export function RelationGridChangeDialog({
         </section>
         <Section title="The preview" description="Nothing is written until you apply.">
           {value === undefined && attribute && <p className="bulk-hint">Enter a value, or choose Clear.</p>}
-          {invalid && <Notice tone="error">That is not a valid value.</Notice>}
+          {unreadable && <Notice tone="error">That is not a valid value.</Notice>}
           {counted?.error && <Notice tone="error">{counted.error}</Notice>}
           {body && !result && !counted?.error && <p className="bulk-hint">Counting…</p>}
           {result && (

@@ -792,6 +792,28 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(screen.getByRole("dialog", { name: "Sizes · EA" })).toBeInTheDocument();
   });
 
+  it("makes a cell table's edit pencils tab stops, so a value is edited by keyboard (R13-F42)", async () => {
+    vi.mocked(api.updateRelation).mockResolvedValue({} as never);
+    renderMatrix(tagsView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    const table = within(dialog).getByRole("table");
+    const pencil = within(table).getByRole("button", { name: "Edit Weight of Size tag" });
+    // Not out of the tab order, as the pencils of a list are: this table has no row action to edit by.
+    expect(pencil).not.toHaveAttribute("tabindex", "-1");
+    expect(pencil.tabIndex).toBe(0);
+    pencil.focus();
+    expect(pencil).toHaveFocus();
+    // Enter on a focused button is a click.
+    fireEvent.click(pencil);
+    const input = within(table).getByLabelText("Weight");
+    fireEvent.change(input, { target: { value: "6" } });
+    // Enter in the field submits its form.
+    await act(async () => fireEvent.submit(input.closest("form")!));
+    expect(api.updateRelation).toHaveBeenCalledWith("rel-n5", { attributes: { weight: 6 }, expectedVersion: 1 });
+  });
+
   it("asks before dropping a changed relationship value when the dialog is closed (0.13 RV)", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     renderMatrix(tagsView);

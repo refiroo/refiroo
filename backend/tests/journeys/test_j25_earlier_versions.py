@@ -231,3 +231,60 @@ def test_a_kept_version_has_the_events_and_output_names_its_own_declaration_give
     assert ["title"] in renamed(second) and not any(
         old_name in changed for changed in renamed(second)
     )
+
+
+@pytest.mark.journey("J25.9", "J30.11")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_a_change_only_a_kept_version_sees_wakes_its_webhook(world, receiver):  # noqa: F811
+    """Given a webhook on version 1 for an event of every change, and a model that raises to version
+    2 keeping version 1 but narrowing the event to creations. When a record is renamed. Then version
+    2 has no event of it, yet the dispatcher wakes the webhook on version 1 and delivers it
+    (R13-F4)."""
+    _activate(world, "one")
+    ws = _workspace(world)
+    old = _subscribe(world, ws, receiver.url + "/v1", events=[EVERY])
+
+    def diverge(_model, definition):
+        earlier = {name: copy.deepcopy(definition[name]) for name in PARTS if name in definition}
+        definition["earlierVersions"] = [
+            {"contractVersion": 1, "deprecated": DEPRECATED, **earlier}
+        ]
+        definition["contractVersion"] = 2
+        events = definition["operations"]["events"]
+        events["custom"] = [
+            {**event, "changes": ["created"]} for event in events["custom"] if event["key"] == EVERY
+        ]
+
+    _activate(world, "two", change=diverge)
+    assert ok(world.api.get(f"/consumer-subscriptions/{old['id']}"))["status"] == "active"
+    record = world.made("R", "Ledger A", workspace=ws)
+    derive_events(world)
+    dispatch(world)
+    receiver.requests.clear()
+    _rename(world, "R", record["id"], ws, "Ledger B")
+    derive_events(world)
+    seen = ok(consumer_events(world, version=2, workspace=ws, after=0, pageSize=100))["items"]
+    assert [e["change"] for e in seen if e["event"] == EVERY] == ["created"]
+    dispatch(world)
+    sent = [e for r in receiver.requests if r["path"] == "/hook/v1" for e in r["body"]["events"]]
+    assert [e["change"] for e in sent] == ["updated"]
+
+
+@pytest.mark.journey("J25.9", "J28.15")
+@pytest.mark.structures(*LEDGER)
+def test_an_error_answered_before_the_read_still_announces_a_kept_version(world):
+    """Given version 1 kept beside version 2 with a sunset day. When a request for version 1 is
+    refused before any read (a page size the feed does not allow), then the error carries the
+    ``Deprecation`` and ``Sunset`` headers too, and version 2's does not (R13-F18)."""
+    _activate(world, "one")
+    ws = _workspace(world)
+    _activate(world, "two", change=_keep_version_one(world, sunset=SUNSET))
+
+    first = consumer_events(world, version=1, workspace=ws, after=0, pageSize=1000)
+    refused(first, 400, "INVALID_PAGE_SIZE")
+    assert first.headers["Deprecation"] == f"@{int(datetime(2026, 11, 1, tzinfo=UTC).timestamp())}"
+    assert first.headers["Sunset"] == "Wed, 30 Jun 2027 00:00:00 GMT"
+    second = consumer_events(world, version=2, workspace=ws, after=0, pageSize=1000)
+    refused(second, 400, "INVALID_PAGE_SIZE")
+    assert "Deprecation" not in second.headers and "Sunset" not in second.headers

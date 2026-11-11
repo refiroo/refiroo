@@ -132,7 +132,10 @@ try {
   await api(`/change-sets/${changeSet.id}/publication`, { expectedChangeSetVersion: changeSetDetail.version });
   await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=default`);
   await shown(page.getByText("Publication 1"));
-  await capture(page, "publications-view-light", output);
+  await capture(page, "publications-view-light", output, [
+    page.locator(".ruled-list-meta"),
+    page.locator(".ruled-list-facts dd").first(),
+  ]);
 
   // --- 8. Settings › Model (U3): the list page, and the active release's page ---
   await page.goto(`${uiUrl}/settings/model`);
@@ -195,7 +198,10 @@ try {
   await capture(page, "record-detail-system-dark", output);
   await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=default`);
   await shown(page.getByText("Publication 1"));
-  await capture(page, "publications-view-dark", output);
+  await capture(page, "publications-view-dark", output, [
+    page.locator(".ruled-list-meta"),
+    page.locator(".ruled-list-facts dd").first(),
+  ]);
   await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
   await shown(page.getByRole("button", { name: "Export JSON" }));
   await capture(page, "settings-release-detail-dark", output, [page.locator(".release-metadata dd")]);
@@ -332,6 +338,8 @@ try {
   const varying = () => [
     page.locator(".description-list dd:has-text(':'), .release-metadata dd:has-text(':')"),
     page.locator(".settings-note code").first(),
+    // About's Build row names the commit the harness was started on, which changes with every commit.
+    page.locator('a[href*="/commit/"]'),
   ];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

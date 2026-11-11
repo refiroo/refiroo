@@ -4,6 +4,12 @@
 // link and unlink a system value in the incoming mapping matrix (master values, live, 1440px) and in
 // the outgoing one (codelists, change set, 390px); then the publication is read-only. Every write is
 // checked against the API in its context. The state inventory is docs/testing/UI_ACCEPTANCE.md.
+//
+// Brought up to date (0.13 R, block 4): a matrix cell shows the first of the view's cell fields with a
+// value (the code, not the name; "matrix cells show their fields", 89042b4d), so the cell patterns
+// read the code. A cell with one record opens as a table, not straight into its fields: a value is
+// edited where it stands (the pencil is a tab stop, R13-F42) and unlink is a row's own button asking in the
+// row; "0.13 RV: matrix cell dialog as a table" (67044f34).
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -126,15 +132,33 @@ try {
   }
   const english = await create("rdm-translations", "language", "English", { "language-code": "en" });
   const czech = await create("rdm-translations", "language", "Czech", { "language-code": "cs" });
-  await create("rdm-translations", "translation-group", "EN core", { "group-code": "en-core" }, {
-    parentObjectId: english.id,
-  });
-  const csA = await create("rdm-translations", "translation-group", "CS A", { "group-code": "cs-a" }, {
-    parentObjectId: czech.id,
-  });
-  await create("rdm-translations", "translation-group", "CS B", { "group-code": "cs-b" }, {
-    parentObjectId: czech.id,
-  });
+  await create(
+    "rdm-translations",
+    "translation-group",
+    "EN core",
+    { "group-code": "en-core" },
+    {
+      parentObjectId: english.id,
+    },
+  );
+  const csA = await create(
+    "rdm-translations",
+    "translation-group",
+    "CS A",
+    { "group-code": "cs-a" },
+    {
+      parentObjectId: czech.id,
+    },
+  );
+  await create(
+    "rdm-translations",
+    "translation-group",
+    "CS B",
+    { "group-code": "cs-b" },
+    {
+      parentObjectId: czech.id,
+    },
+  );
   const present = await create(
     "rdm-translations",
     "translation",
@@ -145,30 +169,51 @@ try {
       initialRelations: [{ relationTypeKey: "object-has-translation", direction: "incoming", otherObjectId: alpha.id }],
     },
   );
-  const masterOne = await create("rdm-master", "master-value", "Master One", {
-    "master-id": "M-ONE",
-    "value-code": "M1",
-    "value-name": "Master One",
-  }, { parentObjectId: alpha.id });
-  await create("rdm-master", "master-value", "Master Two", {
-    "master-id": "M-TWO",
-    "value-code": "M2",
-    "value-name": "Master Two",
-  }, { parentObjectId: alpha.id });
+  const masterOne = await create(
+    "rdm-master",
+    "master-value",
+    "Master One",
+    {
+      "master-id": "M-ONE",
+      "value-code": "M1",
+      "value-name": "Master One",
+    },
+    { parentObjectId: alpha.id },
+  );
+  await create(
+    "rdm-master",
+    "master-value",
+    "Master Two",
+    {
+      "master-id": "M-TWO",
+      "value-code": "M2",
+      "value-name": "Master Two",
+    },
+    { parentObjectId: alpha.id },
+  );
   const valueAlpha = (await api("/objects/system-value?workspaceKey=default&pageSize=20")).items.find(
     (item) => item.name === "Value Alpha",
   );
-  const valueOne = await create("rdm-systems", "system-value", "Value One", {
-    "value-code": "V1",
-    "value-name": "Value One",
-  }, { parentObjectId: records.system[1].id });
+  const valueOne = await create(
+    "rdm-systems",
+    "system-value",
+    "Value One",
+    {
+      "value-code": "V1",
+      "value-name": "Value One",
+    },
+    { parentObjectId: records.system[1].id },
+  );
   console.log("A4 browser: fixtures ready");
 
   // ---- 1. Codelist translations, live, 1440px ----
   await page.goto(`${uiUrl}/apps/rdm-translations/views/codelist-translations?workspaceKey=default`);
   await grid().waitFor();
   await page.getByRole("rowheader", { name: /Codelist Alpha/ }).waitFor();
-  expect((await grid().getAttribute("aria-rowcount")) === String(codelists.items.length + 1), "aria-rowcount is not the row total + 1");
+  expect(
+    (await grid().getAttribute("aria-rowcount")) === String(codelists.items.length + 1),
+    "aria-rowcount is not the row total + 1",
+  );
   expect(/One/.test((await cellText("Codelist Alpha", "cs")) ?? ""), "the present translation does not show One");
   expect(/None/.test((await cellText("Codelist Alpha", "en")) ?? ""), "the empty translation does not show None");
   const legend = page.getByRole("list", { name: "Cell states" });
@@ -196,33 +241,53 @@ try {
   await page.keyboard.type("Codelist Alpha");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  await waitForCell("Codelist Alpha", "en", /One.*Codelist Alpha en/, "fill");
-  let live = await matrixRead("rdm-translations&viewKey=codelist-translations", `&columnIds=${english.id}&search=Alpha`);
+  // A cell shows the first of the view's cell fields with a value ("matrix cells show their fields", 89042b4d): the translated name.
+  await waitForCell("Codelist Alpha", "en", /One.*Codelist Alpha$/, "fill");
+  let live = await matrixRead(
+    "rdm-translations&viewKey=codelist-translations",
+    `&columnIds=${english.id}&search=Alpha`,
+  );
   const filled = live.items.find((item) => item.row.id === alpha.id)?.cells[0];
-  expect(filled?.state === "one" && filled.records[0].fields["translated-name"] === "Codelist Alpha", "live read lacks the filled translation");
+  expect(
+    filled?.state === "one" && filled.records[0].fields["translated-name"] === "Codelist Alpha",
+    "live read lacks the filled translation",
+  );
   expect(
     (await gridFocus())?.row === "Codelist Alpha",
     `focus did not return to the cell after saving: ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 200))}`,
   );
   checks.push("fill: an empty translation cell is created by keyboard in the column's only container, live");
 
-  // Correct the Czech one: a single record opens straight into its fields.
+  // Correct the Czech one: the cell opens as a table, a row per record, and the value is edited where
+  // it stands (0.13 RV "matrix cell dialog as a table", 67044f34); the save keeps the
+  // dialog open, and Close ends it.
   await arrowTo("Codelist Alpha", "cs");
   await page.keyboard.press("Enter");
   dialog = page.getByRole("dialog", { name: "Codelist Alpha · cs" });
   await dialog.waitFor();
+  const translatedCell = dialog.getByRole("row", { name: /Codelist Alpha cs/ });
+  expect((await translatedCell.textContent()).includes("Číselník Alfa"), "the cell's table lacks the stored value");
+  // The cell table's pencils are tab stops (R13-F42; a list's are not, it has a row action to edit by):
+  // Tab reaches the pencil, Enter opens the editor, then the keyboard types and saves.
+  const pencil = dialog.getByRole("button", { name: /^Edit Translated name/ });
+  await tabTo(pencil, "the Translated name pencil");
+  await page.keyboard.press("Enter");
   const translated = dialog.getByRole("textbox", { name: "Translated name" });
-  expect((await translated.inputValue()) === "Číselník Alfa", "edit form lacks the stored value");
-  await tabTo(translated, "Translated name");
+  expect((await translated.inputValue()) === "Číselník Alfa", "the in-place editor lacks the stored value");
   await selectAllAndType("Číselník Alfa (opraveno)");
   await page.keyboard.press("Enter");
+  await translatedCell.getByText("Číselník Alfa (opraveno)").waitFor();
+  await dialog.locator("button.secondary", { hasText: "Close" }).click();
   await dialog.waitFor({ state: "detached" });
   const corrected = await api(`/objects/translation/${present.id}?workspaceKey=default`);
   expect(
-    corrected.attributes.find((item) => item.attributeTypeKey === "translated-name")?.value === "Číselník Alfa (opraveno)",
+    corrected.attributes.find((item) => item.attributeTypeKey === "translated-name")?.value ===
+      "Číselník Alfa (opraveno)",
     "the corrected translation was not saved",
   );
-  checks.push("correct: a present translation is edited in place by keyboard, live");
+  checks.push(
+    "correct: a present translation is edited in place in the cell's table (pencil reached by Tab, opened by Enter, typed and saved by keyboard), live",
+  );
 
   // Filter to gaps across the whole list, from the Filter popover, by keyboard.
   await tabTo(page.getByRole("button", { name: "Filter" }), "Filter");
@@ -248,7 +313,10 @@ try {
     JSON.stringify(filteredRows) === JSON.stringify(filteredApi.items.map((item) => item.row.name)),
     `filtered rows ${filteredRows} differ from the API's ${filteredApi.items.map((item) => item.row.name)}`,
   );
-  expect(!filteredRows.includes("Codelist Alpha") && filteredRows.includes("Codelist Beta"), "gap filter kept a complete row");
+  expect(
+    !filteredRows.includes("Codelist Alpha") && filteredRows.includes("Codelist Beta"),
+    "gap filter kept a complete row",
+  );
   expect((await grid().getAttribute("aria-rowcount")) === String(filteredApi.totalCount + 1), "filtered aria-rowcount");
   await shot("a4-translations-gaps-wide");
   checks.push("filter: rows with an empty cell, decided across the list, match the API's state filter and total");
@@ -294,15 +362,26 @@ try {
   );
   const stagedCell = staged.items.find((item) => item.row.id === masterOne.id)?.cells[0];
   expect(stagedCell?.state === "one", "the change set does not hold the new translation");
-  live = await matrixRead("rdm-translations&viewKey=master-value-translations", `&columnIds=${czech.id}&search=Master One`);
-  expect(live.items.find((item) => item.row.id === masterOne.id)?.cells[0].state === "none", "the staged translation leaked into live");
-  checks.push("change set fill: a second row type, the container chosen by arrow keys, staged only in the change set, 390px");
+  live = await matrixRead(
+    "rdm-translations&viewKey=master-value-translations",
+    `&columnIds=${czech.id}&search=Master One`,
+  );
+  expect(
+    live.items.find((item) => item.row.id === masterOne.id)?.cells[0].state === "none",
+    "the staged translation leaked into live",
+  );
+  checks.push(
+    "change set fill: a second row type, the container chosen by arrow keys, staged only in the change set, 390px",
+  );
   await page.setViewportSize({ width: 1440, height: 900 });
 
   // ---- 3. Master values by system (incoming, many-to-many), live, 1440px ----
   await page.goto(`${uiUrl}/apps/rdm-systems/views/master-values-by-system?workspaceKey=default`);
   await page.getByRole("rowheader", { name: /Master One/ }).waitFor();
-  expect(!(await page.getByRole("list", { name: "Cell states" }).getByText("Inactive").count()), "incoming matrix offers Inactive");
+  expect(
+    !(await page.getByRole("list", { name: "Cell states" }).getByText("Inactive").count()),
+    "incoming matrix offers Inactive",
+  );
   await enterGrid();
   await arrowTo("Master One", "system-0");
   await page.keyboard.press("Enter");
@@ -319,22 +398,32 @@ try {
   await tabTo(dialog.getByRole("button", { name: "Link", exact: true }), "Link");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  await waitForCell("Master One", "system-0", /One.*Value Alpha/, "link");
-  const linked = await api(`/relations?objectId=${masterOne.id}&direction=incoming&relationTypeKey=system-value-maps-to-master`);
-  expect(linked.items.some((item) => item.object.id === valueAlpha.id), "live relations lack the link");
+  await waitForCell("Master One", "system-0", /One.*VA$/, "link");
+  const linked = await api(
+    `/relations?objectId=${masterOne.id}&direction=incoming&relationTypeKey=system-value-maps-to-master`,
+  );
+  expect(
+    linked.items.some((item) => item.object.id === valueAlpha.id),
+    "live relations lack the link",
+  );
   checks.push("link: a system value is linked to a master value by keyboard with the row's set claim, live");
 
   await page.keyboard.press("Enter");
   dialog = page.getByRole("dialog", { name: "Master One · system-0" });
   await dialog.waitFor();
-  await tabTo(dialog.getByRole("button", { name: "Unlink", exact: true }), "Unlink");
+  await tabTo(dialog.getByRole("button", { name: /^Unlink / }), "Unlink");
   await page.keyboard.press("Enter");
-  await dialog.getByText(/The system value itself is kept/).waitFor();
+  await dialog.getByText(/The system value itself stays/).waitFor();
   await page.keyboard.press("Enter"); // the confirmation's Unlink has focus
   await dialog.waitFor({ state: "detached" });
   await waitForCell("Master One", "system-0", /None/, "unlink");
-  const unlinked = await api(`/relations?objectId=${masterOne.id}&direction=incoming&relationTypeKey=system-value-maps-to-master`);
-  expect(!unlinked.items.some((item) => item.object.id === valueAlpha.id), "live relations still hold the unlinked value");
+  const unlinked = await api(
+    `/relations?objectId=${masterOne.id}&direction=incoming&relationTypeKey=system-value-maps-to-master`,
+  );
+  expect(
+    !unlinked.items.some((item) => item.object.id === valueAlpha.id),
+    "live relations still hold the unlinked value",
+  );
   checks.push("unlink: the same value is unlinked by keyboard after a confirmation, live");
 
   // ---- 4. Codelists by system (outgoing, second row type), change set, 390px ----
@@ -359,23 +448,30 @@ try {
   await tabTo(dialog.getByRole("button", { name: "Link", exact: true }), "Link");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
-  await waitForCell("Codelist Beta", "system-1", /One.*Value One/, "change set link");
+  await waitForCell("Codelist Beta", "system-1", /One.*V1$/, "change set link");
   const stagedLinks = await api(
     `/relations?objectId=${beta.id}&direction=outgoing&relationTypeKey=reference-has-system-representation&changeSetId=${changeSet.id}`,
   );
-  const liveLinks = await api(`/relations?objectId=${beta.id}&direction=outgoing&relationTypeKey=reference-has-system-representation`);
-  expect(stagedLinks.items.some((item) => item.object.id === valueOne.id), "the change set lacks the link");
+  const liveLinks = await api(
+    `/relations?objectId=${beta.id}&direction=outgoing&relationTypeKey=reference-has-system-representation`,
+  );
+  expect(
+    stagedLinks.items.some((item) => item.object.id === valueOne.id),
+    "the change set lacks the link",
+  );
   expect(!liveLinks.items.some((item) => item.object.id === valueOne.id), "the staged link leaked into live");
   await page.keyboard.press("Enter");
   dialog = page.getByRole("dialog", { name: "Codelist Beta · system-1" });
   await dialog.waitFor();
-  await tabTo(dialog.getByRole("button", { name: "Unlink", exact: true }), "Unlink");
+  await tabTo(dialog.getByRole("button", { name: /^Unlink / }), "Unlink");
   await page.keyboard.press("Enter");
-  await dialog.getByText(/The system value itself is kept/).waitFor();
+  await dialog.getByText(/The system value itself stays/).waitFor();
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
   await waitForCell("Codelist Beta", "system-1", /None/, "change set unlink");
-  checks.push("change set link and unlink: a second row type, the outgoing binding, staged only in the change set, 390px");
+  checks.push(
+    "change set link and unlink: a second row type, the outgoing binding, staged only in the change set, 390px",
+  );
 
   // Link again so the publication has something to show, then publish.
   await page.keyboard.press("Enter");
@@ -401,15 +497,21 @@ try {
   );
   await page.getByRole("rowheader", { name: /Codelist Beta/ }).waitFor();
   expect((await grid().getAttribute("aria-readonly")) === "true", "a publication grid is not read-only");
-  expect(await page.getByText("Publications are read-only.").isVisible(), "the publication does not say it is read-only");
-  await waitForCell("Codelist Beta", "system-1", /One.*Value One/, "publication");
+  expect(
+    await page.getByText("Publications are read-only.").isVisible(),
+    "the publication does not say it is read-only",
+  );
+  await waitForCell("Codelist Beta", "system-1", /One.*V1$/, "publication");
   await enterGrid();
   await arrowTo("Codelist Beta", "system-1");
   await page.keyboard.press("Enter");
   dialog = page.getByRole("dialog", { name: "Codelist Beta · system-1" });
   await dialog.waitFor();
   expect(await dialog.getByText("This cell is read-only here.").isVisible(), "a publication cell offers actions");
-  expect(!(await dialog.getByRole("button", { name: /Edit|Unlink|Link|Create/ }).count()), "a publication cell has write buttons");
+  expect(
+    !(await dialog.getByRole("button", { name: /Edit|Unlink|Link|Create/ }).count()),
+    "a publication cell has write buttons",
+  );
   await shot("a4-publication-read-only-wide");
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "detached" });

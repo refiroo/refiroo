@@ -250,9 +250,13 @@ the release must then be installed and activated in each workspace that serves i
 2. Make the breaking edits to the new current version. In **Earlier versions**, check the
    retained **Version**, **Superseded** day and **Sunset day**. Earlier versions keep their
    output shape but read current data; they are not historical copies of records.
-3. To announce an end date, edit **Sunset day**, enter a calendar date in year-month-day
-   form and save. Clear it to withdraw the announced date. The date is an announcement:
-   refiroo continues serving the version until you explicitly stop it.
+3. To announce an end date, select the row's **Sunset day** value or its pencil. In
+   **Sunset day (YYYY-MM-DD)**, enter the calendar date and choose **Save**. Emptying it and
+   saving withdraws the announcement; the table then shows a dash. A refused date stays in
+   the form with **Not saved** and its reason; the saved date is unchanged. Correct it and
+   save again, or **Cancel**. The day is announced to consumers in the response's Sunset
+   header after activation. It is an announcement: refiroo serves the version until you
+   explicitly stop it, whatever the date.
 4. Review Issues and the generated documents, then install and activate the release. Installing
    alone does not change a workspace. Existing consumers and webhooks on a retained version
    continue using that version's shape.

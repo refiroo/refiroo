@@ -123,6 +123,13 @@
   .data-context-band {
     position: static;
   }
+  /* On a phone the change set's name keeps a row of its own, so the pill and the button do not cut it to a few letters. */
+  .change-set-bar-main {
+    flex-wrap: wrap;
+  }
+  .change-set-bar-main h2 {
+    flex: 1 1 100%;
+  }
   /* A page fitted to the window (0.12 LS1, D371): the top bar, the rail's bar and the band stay,
      the rows scroll below them. */
   .app-shell.app-shell-fill {

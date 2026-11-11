@@ -201,6 +201,7 @@ async function walk(configuration) {
     const memberDialog = page.getByRole("dialog", { name: "Add members to Curators" });
     await memberDialog.getByLabel("Search people").fill(lena.name);
     await memberDialog.getByRole("checkbox", { name: `Add ${lena.name}` }).check();
+    await shot(page, "add-members-search");
     await memberDialog.getByRole("tab", { name: "Paste a list" }).click();
     await memberDialog
       .getByLabel("Usernames or e-mail addresses")
@@ -209,6 +210,7 @@ async function walk(configuration) {
     const checkedLines = memberDialog.getByRole("list", { name: "Lines checked" });
     await checkedLines.getByText("Added to the people to add").waitFor();
     await checkedLines.getByText("No person with this username or e-mail").waitFor();
+    await shot(page, "add-members-paste");
     await axe(page, `${tag}-add-members`);
     await memberDialog.getByRole("button", { name: "Add 1 member" }).click();
     await page.getByRole("group", { name: "Members" }).getByText(lena.username).waitFor();

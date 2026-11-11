@@ -672,6 +672,21 @@ def test_a_whole_model_edit_is_one_step_and_operations_continue_on_it(world):
     assert [entry["step"] for entry in every] == sorted(entry["step"] for entry in every)
 
 
+@pytest.mark.journey("J33.1")
+@pytest.mark.structures("A1")
+def test_a_relation_types_reverse_name_is_edited_in_place_by_set_label(world):
+    """Given a draft with a relation type that has a reverse name. When the editor's in-place edit of
+    the reverse name is applied as a `setLabel` operation with `reverseName`. Then the draft read back
+    shows the new reverse name and the name is untouched (R13-F40: `setLabel` refused `reverseName`
+    as an unknown parameter)."""
+    draft = _empty_draft(world)
+    made = ok(_apply(world, draft, draft["version"], {"kind": "addRelationType", "key": "j33-holds", "name": "Holds", "reverseName": "Held by"}))
+    answer = ok(_apply(world, draft, made["version"], {"kind": "setLabel", "element": {"relationType": "j33-holds"}, "reverseName": "Kept on"}))
+    relation = _by_key(_model(world, draft)["relationTypes"], "j33-holds")
+    assert (relation["name"], relation["reverseName"]) == ("Holds", "Kept on")
+    assert answer["version"] > made["version"]
+
+
 def _outline(world, draft: dict[str, Any]) -> dict[str, Any]:
     return ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))
 

@@ -78,6 +78,7 @@ Open **Settings › Administration › Operations › Last backup rehearsal**. B
 or **Failed**, the backup name when supplied, the copy's revision and the workspace results.
 **Records**, **Relationships**, **Open change sets** and **Publications** count the restored copy;
 **Live now** compares the current instance. Different counts alone do not fail the check.
+The same results are readable as JSON through the [backup rehearsal operation](/docs/run/monitoring/#backup-rehearsals), with its [API reference](/docs/api/?api=management#tag/system).
 
 Use **Show earlier rehearsals (N)** to expand older results, **Load more rehearsals** when offered,
 and **Hide earlier rehearsals** to collapse them. **How to rehearse a restore** gives the command

@@ -211,7 +211,7 @@ try {
     `rows layout: columns of both records and the four attributes; group headings "${bands.map((b) => b.replace(/\s+/g, " ")).join(" | ")}"; axe ${await axe("rv-table")} violations`,
   );
 
-  // The Yes/no filter (e696076c): the address carries it and the rows are the API's.
+  // The Yes/no filter (e6fb0afa): the address carries it and the rows are the API's.
   const filters = page.getByRole("group", { name: "Filters" });
   await filters.getByLabel("Confirmed").selectOption("true");
   const confirmed = await settle(rowsOf, (rows) => rows.length === 2);

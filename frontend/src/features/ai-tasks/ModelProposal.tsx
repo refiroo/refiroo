@@ -64,6 +64,9 @@ export function ModelProposal({
   const check = isDesignCheck(task.check) ? task.check : undefined;
   // The engine checked the assistant's items (0.13 AB): the card says what the load does, and accepting loads exactly that.
   const load = design.load ?? undefined;
+  // With moves, accepting installs the model for the migration; the load is not run (the bottom block is not shown).
+  const moving = (design.moves?.length ?? 0) > 0;
+  const accepts = !load || moving;
   return (
     <div className="task-check">
       <TaskNotes notes={task.notes} />
@@ -71,13 +74,13 @@ export function ModelProposal({
         title="The assistant’s proposal"
         actions={
           refusal ? undefined : (
-            <span id={load ? undefined : "journey-accept"}>
+            <span id={accepts ? "journey-accept" : undefined}>
               {draftId && onOpenEditor && (
                 <button type="button" className="secondary" disabled={pending} onClick={() => onOpenEditor(draftId)}>
                   Open in the model editor
                 </button>
               )}{" "}
-              {canLoad && !load && (
+              {canLoad && accepts && (
                 <button type="button" className="primary" disabled={pending} onClick={onAccept}>
                   {unchanged ? "Accept" : "Accept the model"}
                 </button>
@@ -157,7 +160,7 @@ export function ModelProposal({
           />
         </Disclosure>
       )}
-      {load && <DesignLoad load={load} names={names} stale={!!check?.draftChanged} />}
+      {load && <DesignLoad load={load} names={names} stale={!!check?.draftChanged} moves={moving} />}
       {checks.length > 0 && (
         <Section title="Checks" headingLevel={3}>
           <ul className="task-sheet-list" aria-label="The assistant’s checks">
@@ -193,7 +196,7 @@ export function ModelProposal({
           </ul>
         </Card>
       )}
-      {load && !refusal && canLoad && !design.moves?.length && (
+      {load && !refusal && canLoad && !moving && (
         <div className="load-accept" id="journey-accept" tabIndex={-1}>
           <p>
             <strong>Accept and load to change set.</strong> The engine{" "}

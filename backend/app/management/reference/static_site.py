@@ -26,6 +26,7 @@ import os
 import secrets
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 from ...config import reload_settings
@@ -54,25 +55,32 @@ _RESOLVE_MAX_ITEMS = 1_000
 
 def _management_document() -> dict:
     """The management API's document, from the application's code. Building the application needs the
-    engine's settings to be valid but touches no database; a throw-away key and no jobs satisfy them.
-    Both are put back afterwards: a caller in the same process (a test run) keeps its own settings."""
+    engine's settings to be valid but touches no database; a throw-away key satisfies them. Every gated
+    capability is switched on so the public reference lists every operation (model drafts, jobs, imports,
+    consumer subscriptions...); job files would go to a scratch directory, never an instance's.
+    The settings are put back afterwards: a caller in the same process (a test run) keeps its own."""
     from ...main import create_app
 
-    wanted = {
-        "SECRETS_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
-        "INTEGRATION_JOBS_ENABLED": "false",
-    }
-    saved = {key: os.environ.get(key) for key in wanted}
-    os.environ.update(wanted)
-    try:
-        return create_app().openapi()
-    finally:
-        for key, value in saved.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-        reload_settings()
+    with tempfile.TemporaryDirectory(prefix="rdm-reference-") as scratch:
+        wanted = {
+            "SECRETS_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
+            "INTEGRATION_JOBS_ENABLED": "true",
+            "MODEL_ADMIN_MUTATIONS_ENABLED": "true",
+            "WORKSPACE_ADMIN_MUTATIONS_ENABLED": "true",
+            "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
+            "JOB_FILE_DIR": scratch,
+        }
+        saved = {key: os.environ.get(key) for key in wanted}
+        os.environ.update(wanted)
+        try:
+            return create_app().openapi()
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+            reload_settings()
 
 
 _TEXT_SUFFIXES = {".html", ".css", ".js", ".mjs", ".json", ".svg"}

@@ -20,6 +20,9 @@
 //      bar offers to move the change set (by keyboard); the page names the change set and says live
 //      data stays as it is; accepted and confirmed by keyboard, the change set works under the
 //      workspace's release and opens again from the done notice; 390px; axe; light and dark.
+// Brought up to date (0.13 R, block 4): the migration page's done notice says "<change set> was
+// published with the move, as Publication N." in place of "Published as Publication N." (0.13 AB,
+// 5d97640e).
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -213,7 +216,7 @@ async function publishWithMigration(variant, key, label) {
   await confirm.focus();
   await page.keyboard.press("Enter");
   await page.getByText(/“Back to the earlier release” is live/).waitFor({ timeout: 30_000 });
-  await page.getByText(/Published as Publication 2\./).waitFor();
+  await page.getByText(/was published with the move, as Publication 2\./).waitFor();
   assert.equal((await api(`/workspaces/${key}/model`)).releaseId, x1.id);
   const renamed = await api(`/objects/${probe.objectTypeKey}/${probe.id}?workspaceKey=${key}`);
   assert.equal(renamed.name, "Renamed in the change set");

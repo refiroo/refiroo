@@ -383,3 +383,28 @@ def test_the_capabilities_report_the_capability_on(world):
         "delivery": DELIVERY,
         "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED",
     }
+
+
+@pytest.mark.journey("J30.2")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER, "Bscope", "Bscope.flag", "Bscope.note")
+def test_a_filter_value_a_relationship_holds_only_in_another_workspace_matches_nothing(world):
+    """Given a relationship attribute value held in one workspace. When a subscription in another
+    workspace filters by it, then it is refused FILTER_MATCHES_NOTHING, while the workspace that
+    holds the value accepts it (R13-F17)."""
+    from test_j30_consumer_events import _permit
+
+    _activate(world, "events")
+    other, ws = _workspace(world), _workspace(world)
+    watcher = world.made("R", "Watcher", workspace=other)
+    _region, permit = _permit(world, watcher["id"], other)
+    ok(world.relate("Bscope", watcher["id"], permit["id"], {"Bscope.note": "Front desk"}), 201)
+    label = world.key("Capi.label")
+
+    _subscribe(world, other, filters={label: "Front desk"})
+    error = refused(
+        world.api.post(PATH, _body(world, ws, filters={label: "Front desk"})),
+        400,
+        "FILTER_MATCHES_NOTHING",
+    )
+    assert error["details"]["pointer"] == f"/filters/{label}"

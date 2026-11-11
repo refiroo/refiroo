@@ -1302,6 +1302,12 @@ def _said(progress: _Progress) -> str:
     return f"{words[:6000]} ({seconds} s" + (f", ${cost:.2f})" if cost else ")")
 
 
+def _previewed_elsewhere(session: Session, task: Any, check: dict[str, Any]) -> bool:
+    """Whether the dry run of items the check comes from was made against another workspace."""
+    job = session.scalar(select(Job).where(Job.id == check.get("dryRunJobId")))
+    return job is not None and job.workspace_key != task.workspace_key
+
+
 def _retention(_ctx: Any) -> int:
     return get_settings().ai_task_retention_days
 
@@ -2185,6 +2191,19 @@ def _proposal_landed(
     check = check_of(session, draft)
     # A dry run of items (0.13 AB) is what accepting loads: its summary is the task's, in the design.
     previewed = check.pop("itemsSummary", None) if check else None
+    if previewed is not None and _previewed_elsewhere(session, task, check):
+        # An items dry run can be made against any workspace; accepting loads into the task's
+        # (R13-F6), so a check of another workspace's records is no check of this load.
+        note(
+            task,
+            "warning",
+            "The assistant checked its records against another workspace than this task's, so the "
+            "check says nothing about this load and nothing was changed. Give the assistant other "
+            "words to check again.",
+        )
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     records = _records_per_type(session, (check or {}).get("dryRunJobId"))
     related = records.pop(None, 0)
     if check and related and previewed is None:

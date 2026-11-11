@@ -823,7 +823,8 @@ Their shape, defaults, validation and contract rules are specified in
   the current one until it is removed from the model; the sunset day is announced in the `Sunset` header,
   not enforced. A kept version is validated like the current one, against the same release, at its own
   pointer (`/consumerApis/<key>/earlierVersions/<index>/…`) with the version named in the message, so a type
-  or attribute the model no longer has refuses the release naming it; and it is compared with the same
+  or attribute the model no longer has refuses the release naming it; a key change (`setKey`) in a draft is
+  rewritten in every kept version as in the current definition, so each keeps its public names (R13-F14); and it is compared with the same
   version in the active release (C-D2), so a kept version that would read differently is refused too
   (`CONSUMER_KEPT_VERSION_CHANGED`). Stopping to serve a version is a warning, as removing a definition is.
   The model editor raises the version with `raiseConsumerApiVersion`, which keeps the previous one by

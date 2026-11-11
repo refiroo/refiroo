@@ -5,7 +5,12 @@ import pytest
 from harness_identity import TestClient
 from model_support import MODEL_PATH
 
-from app.engine.model.compiler import ModelValidationError, compile_model, parse_model
+from app.engine.model.compiler import (
+    ModelValidationError,
+    canonical_model,
+    compile_model,
+    parse_model,
+)
 from app.engine.model.diff import semantic_diff
 from app.engine.model.loader import load_model
 from app.main import create_app
@@ -32,7 +37,7 @@ def test_starter_model_is_valid():
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
     assert model.schemaVersion == "0.10"
-    assert model.release.version == "0.10.0"
+    assert model.release.version == "0.10.1"
     assert {view.type for app in model.applications for view in app.views} == {
         "table",
         "mappingGrid",
@@ -138,11 +143,7 @@ def test_domain_and_codelist_system_representations_are_modelled_as_optional_ass
     assert relation.name == "Has system representation"
     assert relation.reverseName == "Represents reference structure"
 
-    allowed = [
-        item
-        for item in model.objectTypeRelations
-        if item.relationTypeKey == relation.key
-    ]
+    allowed = [item for item in model.objectTypeRelations if item.relationTypeKey == relation.key]
     assert {
         (item.fromObjectTypeKey, item.toObjectTypeKey, item.cardinality, item.required)
         for item in allowed
@@ -164,11 +165,11 @@ def test_domain_and_codelist_system_representations_are_modelled_as_optional_ass
         assert panel.config.showRelationshipColumn is False
 
     system_value_details = next(
-        item
-        for item in model.applications[1].details
-        if item.objectTypeKey == "system-value"
+        item for item in model.applications[1].details if item.objectTypeKey == "system-value"
     )
-    panel = next(item for item in system_value_details.panels if item.key == "represented-structures")
+    panel = next(
+        item for item in system_value_details.panels if item.key == "represented-structures"
+    )
     assert panel.config.direction == "incoming"
     assert panel.config.relationTypeKeys == (relation.key,)
     assert panel.config.showRelationshipColumn is False
@@ -356,9 +357,9 @@ def test_detail_composition_changes_are_preserved_without_renderer_changes():
             "Extra inputs are not permitted",
         ),
         (
-            lambda source: source["applications"][0]["details"][0]["panels"][1][
-                "config"
-            ].update({"columns": ["ancestor:missing"]}),
+            lambda source: source["applications"][0]["details"][0]["panels"][1]["config"].update(
+                {"columns": ["ancestor:missing"]}
+            ),
             "unknown ancestor object type",
         ),
     ],
@@ -472,7 +473,8 @@ def test_mapping_grid_rejects_containment_relation():
 def test_mapping_grid_rejects_required_ownership_binding():
     source = _mapping_grid_source()
     binding = next(
-        b for b in source["objectTypeRelations"]
+        b
+        for b in source["objectTypeRelations"]
         if b["relationTypeKey"] == "system-value-maps-to-master"
     )
     binding["required"] = True
@@ -497,7 +499,10 @@ def test_mapping_grid_rejects_nonsearchable_candidate_field():
     view["config"]["candidateSearchFields"] = ["name", "sort-order"]
     result = compile_model(source)
     assert not result.valid
-    assert "not attached to target" in result.diagnostics[0].message or "not searchable" in result.diagnostics[0].message
+    assert (
+        "not attached to target" in result.diagnostics[0].message
+        or "not searchable" in result.diagnostics[0].message
+    )
 
 
 def test_mapping_grid_rejects_extra_config_field():
@@ -643,7 +648,9 @@ def test_panel_sort_fields_must_not_be_empty():
         for detail_index, detail in enumerate(application["details"]):
             for panel_index, item in enumerate(detail["panels"]):
                 if item is panel:
-                    pointer = f"/applications/{app_index}/details/{detail_index}/panels/{panel_index}"
+                    pointer = (
+                        f"/applications/{app_index}/details/{detail_index}/panels/{panel_index}"
+                    )
     assert result.diagnostics[0].path == f"{pointer}/config/sortFields"
 
 
@@ -721,10 +728,20 @@ def test_starter_relation_matrices_cover_three_binding_shapes():
     owned = ("create", "edit")
     assert shapes == {
         ("rdm-translations", "codelist-translations"): (
-            "object-has-translation", "outgoing", "codelist", "language", "translation", owned
+            "object-has-translation",
+            "outgoing",
+            "codelist",
+            "language",
+            "translation",
+            owned,
         ),
         ("rdm-translations", "master-value-translations"): (
-            "object-has-translation", "outgoing", "master-value", "language", "translation", owned
+            "object-has-translation",
+            "outgoing",
+            "master-value",
+            "language",
+            "translation",
+            owned,
         ),
         ("rdm-systems", "codelists-by-system"): (
             "reference-has-system-representation",
@@ -946,7 +963,9 @@ def test_relation_matrix_shape_is_strict(field, value):
     result = compile_model(source)
     assert not result.valid
     # A JSON pointer into the document, without Pydantic's view-type tag (0.9 C15).
-    assert result.diagnostics[0].path.startswith(_shape_pointer(source, _matrix(source), f"config/{field}"))
+    assert result.diagnostics[0].path.startswith(
+        _shape_pointer(source, _matrix(source), f"config/{field}")
+    )
 
 
 def test_relation_matrix_accepts_a_differently_keyed_model():
@@ -962,8 +981,10 @@ def test_relation_matrix_accepts_a_differently_keyed_model():
     }
     text = json.dumps(source)
     for old, new in renames.items():
-        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"').replace(
-            f'"ancestor:{old}.', f'"ancestor:{new}.'
+        text = (
+            text.replace(f'"{old}"', f'"{new}"')
+            .replace(f'"ancestor:{old}"', f'"ancestor:{new}"')
+            .replace(f'"ancestor:{old}.', f'"ancestor:{new}.')
         )
     renamed = json.loads(text)
     assert compile_model(renamed).valid
@@ -971,6 +992,7 @@ def test_relation_matrix_accepts_a_differently_keyed_model():
 
 
 # --- Schema 0.7: tree view contract (Base 0.8 B1) ---
+
 
 def _tree(source, app_key="rdm-systems", view_key="system-hierarchy"):
     return _matrix(source, app_key, view_key)
@@ -1217,7 +1239,9 @@ def test_tree_shape_is_strict(field, value):
     _tree(source)["config"][field] = value
     result = compile_model(source)
     assert not result.valid
-    assert result.diagnostics[0].path.startswith(_shape_pointer(source, _tree(source), f"config/{field}"))
+    assert result.diagnostics[0].path.startswith(
+        _shape_pointer(source, _tree(source), f"config/{field}")
+    )
 
 
 def test_tree_accepts_a_differently_keyed_model():
@@ -1233,10 +1257,29 @@ def test_tree_accepts_a_differently_keyed_model():
     }
     text = json.dumps(source)
     for old, new in renames.items():
-        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"').replace(
-            f'"ancestor:{old}.', f'"ancestor:{new}.'
+        text = (
+            text.replace(f'"{old}"', f'"{new}"')
+            .replace(f'"ancestor:{old}"', f'"ancestor:{new}"')
+            .replace(f'"ancestor:{old}.', f'"ancestor:{new}.')
         )
     renamed = json.loads(text)
     assert compile_model(renamed).valid
     assert _tree(renamed)["config"]["objectTypeKeys"] == ["channel", "channel-folder", "listing"]
     assert _tree(renamed, *_DOMAINS)["config"]["rootObjectTypeKeys"] == ["department"]
+
+
+# The shipped starter's content hash, keyed by its release version. An installed release is never
+# overwritten, so a changed file with the same version is refused at startup on every upgraded
+# instance (R13-F36). Changing model/rdm-starter.json means raising release.version and adding the
+# new pair here.
+STARTER_RELEASE_HASHES = {
+    "0.10.1": "562071039480a33e7fc5833d06083c530e26491969cac5488e02a1924f7423f6",
+}
+
+
+def test_the_starter_file_changes_only_with_a_new_release_version():
+    model = load_model(MODEL_PATH)
+    assert STARTER_RELEASE_HASHES.get(model.release.version) == canonical_model(model)[1], (
+        "model/rdm-starter.json changed without a new release.version: raise it and record the "
+        "new hash in STARTER_RELEASE_HASHES"
+    )

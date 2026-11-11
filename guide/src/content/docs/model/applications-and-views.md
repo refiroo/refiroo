@@ -79,18 +79,53 @@ a separate choice.
 | Tree | Browse and move records through a declared hierarchy. |
 | Mapping grid | Connect source and target records through a relationship. |
 | Relation matrix | Read or edit related cell records at row and column intersections. |
+| Relationships table | Show both ends and the connection’s own attributes in rows or a grid. |
 
 A type created through the editor receives a table view. **Views** lists each view's kind,
 what it shows and its state. Use its menu's **Rename…** for a label change.
-Choose **Add a view…** in the application’s menu to add a Table, Tree, Mapping grid or
-Relation matrix. The kind list offers only views for which the model has suitable types and
-relationships. Existing trees and mapping grids have **Change…**; table layouts are arranged
-from the type’s Preview. Follow [Add a table, tree or mapping grid](/docs/guide/model/add-a-view/).
+Choose **Add a view…** in the application’s menu to add a Table, Tree, Mapping grid,
+Relation matrix or **Relationships table: each relationship in a row, with its own attributes**. The kind list offers only views for which the model has suitable types and
+relationships. Existing trees and mapping grids have **Change…**; ordinary collection table
+layouts are arranged from the type’s Preview. A relationships table has its own **Layout…** action. Follow [Add a table, tree or mapping grid](/docs/guide/model/add-a-view/).
 
 Application **Settings** has **Default view**, the view that opens first. Choose an existing
 view and Save. A collection's **Opens on** choice takes precedence when opening that collection.
 This changes the starting lens, not which types users can access. Icons,
 colours and free-form presentation settings still need the [JSON view](/docs/model/json-view/).
+
+## Relationships tables: columns and grouping
+
+A relationships table reads one declared, directed relationship between two types. It shows
+the from record, the to record and values carried by their connection. Containment is not
+eligible. Both endpoint types are listed in the application when needed; adding the view
+creates no records or relationships. Follow [Add a relationships table](/docs/guide/model/add-a-relationships-table/)
+for the steps through **Add a view…**.
+
+| Dialog field | What it controls |
+| --- | --- |
+| Relationships | The permitted pair and relationship, shown with an arrow from one type to the other. Changing this resets the field choices. |
+| Columns of the from record | An ordered, non-empty choice of Name or scalar fields attached to the from type. The initial choice is Name and the first suitable unique field, if one exists. |
+| Columns of the to record | The same choices for the to type. Their order is the displayed column order; the first labels each grid column group. |
+| Attributes of the relationship | Attributes carried by this specific pair, rather than ordinary fields of either record. None is allowed. JSON values can be columns here. |
+| Layout | **One row per relationship** lists existing connections. **Grid: each record once, a column group per related record** shows each from record once, with relationship attributes beneath each to-record group. |
+| Head the rows by | **Nothing: one list**, **The from record** or **The to record**. Headings collect rows under the selected record. This choice is ignored by the grid. |
+| Name | The label people see for this view. |
+
+Endpoint columns cannot repeat and cannot hold JSON. Relationship columns must be declared
+on the chosen pair and cannot repeat. The form derives filters from selected fields marked
+Filterable, excluding JSON. Sorting includes both record names, selected scalar endpoint fields
+and non-JSON relationship attributes. The initial sort is the from record's name and the
+reading size is 20. A specialist can adjust filters, sorts and reading size (1–100) in the
+[JSON view](/docs/model/json-view/#relationships-table-configuration).
+Grid row ordering uses sorts on the from record.
+
+If a saved declaration names a missing type, relationship, undeclared pair or unsuitable field,
+**Issues** explains the failed reference. Correct that choice before installing; the
+[specialist rules](/docs/model/json-view/#relationships-table-configuration) explain the diagnostic wording.
+The view's **Layout…** changes only its presentation. **Remove relationships table** removes
+the view and can stop listing types only it needed; read the confirmation. Stored connections
+remain. The workspace sees draft changes only after release activation, and the view grants
+no data permissions.
 
 ## A relation matrix needs a particular structure
 
@@ -236,6 +271,10 @@ applications[].views[].config.childSort
 applications[].views[].config.columnLabelField
 applications[].views[].config.columnObjectTypeKey
 applications[].views[].config.columns
+applications[].views[].config.fromColumns
+applications[].views[].config.toColumns
+applications[].views[].config.attributeColumns
+applications[].views[].config.groupBy
 applications[].views[].config.defaultSort
 applications[].views[].config.direction
 applications[].views[].config.filterFields

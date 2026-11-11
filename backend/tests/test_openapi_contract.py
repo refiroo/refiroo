@@ -454,10 +454,10 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `credential` on the response (a managed identity as a third Microsoft 365 credential).
     # Re-baselined for 0.13 BR (additive): `EngineInfo.build` and `BuildInfo` (`commit`, `tag`).
     # Re-baselined for 0.13 LB (additive): a table view's optional `availabilityField` in the model schema; the relation matrix read's `hideEmptyColumns` parameter and `RelationMatrixPage.emptyColumnsHidden`.
-    # Re-baselined for 0.16.1-alpha.2, alpha.3 and alpha.4: info.version only; with the previous version the document hashes to the previous lock.
+    # Re-baselined for 0.16.1-alpha.2, alpha.3, alpha.4 and alpha.5: info.version only; with the previous version the document hashes to the previous lock.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "642c68bb4703574b74372032d32577aedae40df407e0414db3d1407cac846d7f"
+        "36a72c180c868c142794d3436f0c619ab14fa2d196dc48a17fc333e47f9e87d1"
     )
 
 

@@ -52,6 +52,29 @@ import { activeRows, canHover, CellRoom, RowActive, type ActiveRows } from "@/ui
 const LOADING_ROWS = 6;
 /** Where the table lays out its columns (sized or frozen); below it, the narrow layout by content. */
 const WIDE_LAYOUT = "(min-width: 761px)";
+/** The narrowest a column is made when the table is fitted to its room. */
+const FIT_FLOOR = 120;
+
+/**
+ * The widths cut down to the room: the widest columns (never a fixed one) give up the excess until
+ * they meet the next widest, down to FIT_FLOOR. What cannot be cut scrolls (`.object-table`'s edge shade).
+ */
+function fitWidths(widths: number[], room: number, fixed: Set<number>): number[] {
+  const result = [...widths];
+  let excess = result.reduce((sum, width) => sum + width, 0) - room;
+  while (excess > 0.5) {
+    const open = result.map((width, index) => ({ width, index })).filter(({ index }) => !fixed.has(index));
+    const top = Math.max(...open.map(({ width }) => width));
+    if (top <= FIT_FLOOR) break;
+    const widest = open.filter(({ width }) => width > top - 0.01);
+    const next = Math.max(FIT_FLOOR, ...open.filter(({ width }) => width <= top - 0.01).map(({ width }) => width));
+    const cut = Math.min((top - next) * widest.length, excess);
+    for (const { index } of widest) result[index] = (result[index] ?? 0) - cut / widest.length;
+    excess -= cut;
+  }
+  return result;
+}
+
 /** The range a column may be sized to; a stored width outside it is ignored. */
 export const COLUMN_WIDTH = { min: 48, max: 800 } as const;
 
@@ -206,8 +229,16 @@ export function DataTable<Row>({
   useLayoutEffect(() => {
     const head = table.current?.tHead?.rows[0];
     if (shown || sized || !settledRows || !room || !head || !window.matchMedia?.(WIDE_LAYOUT).matches) return;
-    setFrozen({ key: freezeKey, room, widths: Array.from(head.cells, (cell) => cell.getBoundingClientRect().width) });
-  }, [shown, sized, settledRows, room, freezeKey]);
+    const laidOut = Array.from(head.cells, (cell) => cell.getBoundingClientRect().width);
+    // One-line cells end in an ellipsis, so the widest data columns give up what the first rows asked
+    // for beyond the room instead of pushing the last column and its actions out of sight.
+    const fixed = new Set([...(selection ? [0] : []), ...(actions ? [laidOut.length - 1] : [])]);
+    setFrozen({
+      key: freezeKey,
+      room,
+      widths: oneLine ? fitWidths(laidOut, room, fixed) : laidOut,
+    });
+  }, [shown, sized, settledRows, room, freezeKey, oneLine, selection, actions]);
   const leading = Number(Boolean(selection));
   // Each column's content width, read once from the first drawn row whenever the columns are laid
   // out anew (frozen or sized), so its cells need not measure themselves (ui/tableCell, 0.11 X6).

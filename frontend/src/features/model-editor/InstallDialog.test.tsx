@@ -178,6 +178,33 @@ describe("InstallDialog (A-D8, D18, D42)", () => {
     expect(onActivated).not.toHaveBeenCalled();
   });
 
+  it("blocks the install while the migration is being read, and says when it could not be (R13-F22)", async () => {
+    vi.mocked(api.compileModelDraft).mockResolvedValue({
+      ...compiled(true),
+      compatibility: {
+        classification: "migration_required",
+        activeReleaseId: "r1",
+        diagnostics: [],
+        workspaces: [
+          {
+            workspaceKey: "default",
+            classification: "migration_required",
+            diagnostics: [{ path: "/x", message: "Records of Bin have no place" }],
+          },
+        ],
+      },
+    } as unknown as ModelCompilation);
+    let fail: (cause: Error) => void = () => undefined;
+    vi.mocked(api.modelDraftMigration).mockReturnValue(new Promise((_, reject) => (fail = reject)));
+    renderDialog();
+    const name = "Install 1.2.1 and preview the migration…";
+    expect(((await screen.findByRole("button", { name })) as HTMLButtonElement).disabled).toBe(true);
+    fail(new Error("the migration is gone"));
+    expect(await screen.findByText("The migration could not be read")).toBeTruthy();
+    expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+    expect(api.installModelDraft).not.toHaveBeenCalled();
+  });
+
   it("does not offer to install a draft that does not validate", async () => {
     vi.mocked(api.compileModelDraft).mockResolvedValue(compiled(false));
     renderDialog();

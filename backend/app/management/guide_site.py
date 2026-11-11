@@ -11,6 +11,10 @@ document. The API reference page lives at ``/docs/api``; its route is registered
 mount, so the mount never shadows it.
 """
 
+import base64
+import hashlib
+import re
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
@@ -25,26 +29,50 @@ GUIDE_PATH = "/docs"
 _HERE = Path(__file__).resolve()
 BUILT_GUIDE_CANDIDATES = (_HERE.parents[3] / "guide" / "dist",)
 
-# Starlight writes inline scripts and styles and Pagefind's search runs WebAssembly, so those are
-# allowed from the page itself; everything else, fonts and images included, only from the engine.
-GUIDE_HEADERS = {
-    "Content-Security-Policy": (
-        "default-src 'none'; "
-        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; "
-        "font-src 'self'; "
-        "connect-src 'self'; "
-        "manifest-src 'self'; "
-        "object-src 'none'; "
-        "frame-ancestors 'none'; "
-        "base-uri 'self'; "
-        "form-action 'none'"
-    ),
+# Starlight writes inline scripts and Pagefind's search runs WebAssembly. A page's own inline scripts are
+# allowed by their hash (``_page_headers``), so a script that got into a page some other way does not run; inline
+# styles are allowed; everything else, fonts and images included, comes only from the engine.
+_POLICY = (
+    "default-src 'none'; "
+    "script-src 'self'{hashes} 'wasm-unsafe-eval'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "manifest-src 'self'; "
+    "object-src 'none'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'none'"
+)
+_FIXED_HEADERS = {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "same-origin",
 }
+GUIDE_HEADERS = {"Content-Security-Policy": _POLICY.format(hashes=""), **_FIXED_HEADERS}
+_INLINE_SCRIPT = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", re.DOTALL)
+
+
+@lru_cache(maxsize=1024)
+def _script_hashes(path: str, modified: int) -> str:
+    """The CSP sources naming each inline script of a built page (cached by file and modification time)."""
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    digests = {
+        base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
+        for script in _INLINE_SCRIPT.findall(text)
+    }
+    return "".join(f" 'sha256-{digest}'" for digest in sorted(digests))
+
+
+def _page_headers(response: Response) -> dict[str, str]:
+    """The guide's headers for an answer: a built HTML page names its own inline scripts by hash."""
+    path = getattr(response, "path", None)
+    if path is None or not str(path).endswith(".html"):
+        return GUIDE_HEADERS
+    hashes = _script_hashes(str(path), Path(path).stat().st_mtime_ns)
+    return {"Content-Security-Policy": _POLICY.format(hashes=hashes), **_FIXED_HEADERS}
+
 
 _NOT_BUILT = """<!doctype html>
 <html lang="en">
@@ -77,7 +105,7 @@ class GuideFiles(StaticFiles):
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
-        response.headers.update(GUIDE_HEADERS)
+        response.headers.update(_page_headers(response))
         return response
 
 

@@ -47,7 +47,7 @@ For the steward's submission, notices, decision and corrections, see
 
 ## Submission, decisions and visibility
 
-A person with **Work in change sets** uses **Submit for publication** after validation passes. Submission freezes the proposal: editing does not silently withdraw the request. Only its submitter or someone with **Approve publications** can **Withdraw submission** to return it to editing. This is different from withdrawing a publication already made.
+A person with **Work in change sets** uses **Submit for publication** after validation passes. Submission freezes the proposal: editing does not silently withdraw the request. Moving the change set to the workspace's new model release is the exception: it stays submitted and approvers decide it on the moved version. Only its submitter or someone with **Approve publications** can **Withdraw submission** to return it to editing. This is different from withdrawing a publication already made.
 
 An approver uses **Approve and publish**, which applies the change and records the decision together, or **Send back** with a comment so the author can correct it and submit again. With the second-person rule on, the submitter cannot approve their own request even if they hold Data owner. Holding multiple roles does not make one person two reviewers.
 

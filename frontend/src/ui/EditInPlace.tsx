@@ -71,7 +71,7 @@ export function EditInPlaceValue({
  * A list's cell that edits in place (0.10 A9, D133): the value as the list shows it (a click on it
  * opens the record, as anywhere in the row), then a pencil and, given `onRemove`, a trash. The cell
  * shows them while the pointer is over it, always on touch; they are out of the tab order, since the row's Edit record
- * and its menu are the keyboard's way.
+ * and its menu are the keyboard's way, unless `tabbable` (a table that has no such row action).
  *
  * In a table only the active row (pointer over it or focus in it, `RowActive`) draws the buttons; the
  * others keep their room empty, so nothing moves when the row becomes active (0.11 X6). The value is
@@ -81,6 +81,7 @@ export function EditInPlaceCell({
   name,
   record,
   disabled = false,
+  tabbable = false,
   cellRef,
   onEdit,
   onRemove,
@@ -90,6 +91,8 @@ export function EditInPlaceCell({
   name: string;
   record: string;
   disabled?: boolean;
+  /** The buttons are tab stops: for a table with no row action of its own to edit by (a matrix cell's dialog). */
+  tabbable?: boolean;
   cellRef?: Ref<HTMLSpanElement>;
   onEdit: () => void;
   onRemove?: () => void;
@@ -121,7 +124,7 @@ export function EditInPlaceCell({
           label={`Edit ${name} of ${record}`}
           tooltip={`Edit ${name}`}
           quiet
-          tabIndex={-1}
+          tabIndex={tabbable ? undefined : -1}
           disabled={disabled}
           onClick={onEdit}
         />
@@ -132,7 +135,7 @@ export function EditInPlaceCell({
             tooltip={`Remove ${name}`}
             tone="danger"
             quiet
-            tabIndex={-1}
+            tabIndex={tabbable ? undefined : -1}
             disabled={disabled}
             onClick={onRemove}
           />

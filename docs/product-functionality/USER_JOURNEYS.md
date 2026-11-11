@@ -1172,11 +1172,15 @@ lookup (J36.7) has no screen; migrating a workspace's data is J37.
   task names, else a new one (`201`). A remembered draft gives up the workspace when its model changed
   elsewhere. Model release in the draft's workspace is enough to install it; `403 FORBIDDEN` in another
   workspace or on a draft remembering none. `409 WORKSPACE_RETIRED`, `404 WORKSPACE_NOT_FOUND`.
+  **A version another draft took** (0.13 FX): when another draft of the same model (an assistant task's)
+  installed the version the base's next one would be, the outline's `suggestedReleaseVersion` proposes a
+  free one; installing at a taken version anyway is `409 RELEASE_IDENTITY_CONFLICT` with `freeVersion`,
+  and the dialog's **Use <version>** sets it and goes on. Apply is never left without a step forward.
 
 **Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
 `409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
 `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 COUNTERPARTS_ACROSS_MODELS`,
-`422 IMPORT_PROFILE_MODEL_MISMATCH`,
+`422 IMPORT_PROFILE_MODEL_MISMATCH`, `409 RELEASE_IDENTITY_CONFLICT` (with `freeVersion`),
 `503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace; `409 MODEL_RELEASE_RETIRED`,
 `409 MODEL_RELEASE_IS_DEFAULT`, `409 MODEL_RELEASE_IN_USE`, `409 MODEL_RELEASE_VERSION_CONFLICT` (J36.10–J36.11).
 

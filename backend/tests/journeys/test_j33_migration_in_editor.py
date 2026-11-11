@@ -7,6 +7,8 @@ with no mapping typed by hand. The tests name structures of the configuration (`
 ``Q``, ``H``, ``K``) and the elements they create themselves under ``j33m-`` keys.
 """
 
+import copy
+import json
 from typing import Any
 
 import pytest
@@ -88,6 +90,21 @@ def _related(world, record: dict[str, Any], relation_key: str) -> list[str]:
         if item["relation"]["relationTypeKey"] == relation_key
         and item["relation"]["fromObjectId"] == record["id"]
     )
+
+
+def _set_versions(world, relation_key: str) -> dict[tuple[str, str], int]:
+    """The relation set versions stored for a relation type: (direction, anchor record) to version."""
+    from sqlalchemy import text
+
+    with world.api.client.app.state.session_factory() as session:
+        rows = session.execute(
+            text(
+                "SELECT direction, anchor_object_id, version FROM relation_set_versions "
+                "WHERE relation_type_key = :key"
+            ),
+            {"key": relation_key},
+        ).all()
+    return {(direction, anchor): version for direction, anchor, version in rows}
 
 
 def _other_application(world, structure: str) -> str:
@@ -322,6 +339,13 @@ def test_a_split_creates_the_new_records_and_their_relationships(world):
     assert related["K one"] == related["K two"] and len(related["K one"]) == 1
     assert len(related["K three"]) == 1 and related["K three"] != related["K one"]
     assert related["K bare"] == []
+    # The relationship sets the split created advanced, at both ends (R13-F20).
+    advanced = _set_versions(world, "j33m-has-class")
+    for record in (first, second, third):
+        assert advanced[("outgoing", record["id"])] == 1
+    assert ("outgoing", bare["id"]) not in advanced
+    for record in (first, third):
+        assert advanced[("incoming", related[record["name"]][0])] >= 1
     new = ok(world.api.get(f"/objects/j33m-class/{related['K one'][0]}", workspaceKey=WORKSPACE))
     assert (
         next(a["value"] for a in new["attributes"] if a["attributeTypeKey"] == world.key("K.rank"))
@@ -450,3 +474,180 @@ def test_a_key_change_lists_the_consumer_apis_naming_the_old_key(world):
     named = [api["key"] for api in changes[world.key("R.u")]["consumerApis"]]
     assert named == [world.key("Capi")]
     assert changes[world.key("R.u")]["to"] == "j33m-code"
+
+
+@pytest.mark.journey("J33.19")
+@pytest.mark.structures("P", "H.code")
+def test_a_list_record_named_by_a_very_long_value_is_cut_to_the_name_limit(world):
+    """Given a P record whose code is 700 characters. When the editor converts the code into a list
+    type and the migration runs, then it completes and the list record's name is the first 500
+    characters of the value, not a database error (R13-F19)."""
+    long = "L" * 700
+    owner = world.made("P", "Estate long", values={"H.code": long})
+    draft = _draft_of_active(world, "Convert long code")
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {
+                "kind": "convertAttributeToListType",
+                "objectType": world.key("P"),
+                "attributeType": world.key("H.code"),
+                "key": "j33m-longs",
+                "name": "Long codes",
+                "relationType": {
+                    "key": "j33m-has-long",
+                    "name": "Has long",
+                    "reverseName": "Long of",
+                },
+            },
+        )
+    )
+    assert answer["valid"] is True, answer["diagnostics"]
+    migration = _migration(world, draft)
+    release = _installed(world, draft, "longed")
+    job = _previewed(world, WORKSPACE, release["id"], **_proposal(migration, draft))
+    assert job["migration"]["counts"]["loss"] == 0, _rows(world, job["id"])
+    ok(_confirm(world, job), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    [target] = _related(world, owner, "j33m-has-long")
+    code = ok(world.api.get(f"/objects/j33m-longs/{target}", workspaceKey=WORKSPACE))
+    assert code["name"] == long[:500]
+
+
+def _in_two_other_applications(world, structure: str) -> dict[str, Any]:
+    """The active model with the type of ``structure`` out of its application, which keeps no view
+    of it, and listed in two other applications."""
+    model = copy.deepcopy(_active(world))
+    key = world.key(structure)
+    own = next(a for a in model["applications"] if a["key"] == world.app(structure))
+    own["objectTypeKeys"].remove(key)
+    own["views"] = [v for v in own.get("views") or [] if key not in json.dumps(v)]
+    if own.get("defaultView") not in {v["key"] for v in own["views"]}:
+        own["defaultView"] = own["views"][0]["key"]
+    for application in [a for a in model["applications"] if a is not own][:2]:
+        application["objectTypeKeys"].append(key)
+    model["release"]["version"] += "-listed"
+    return model
+
+
+@pytest.mark.journey("J33.19")
+@pytest.mark.structures("P", "C", "H.code", "A1", "A2", "A3")
+def test_records_of_a_type_listed_in_several_new_applications_are_refused_not_deleted(world):
+    """Given a P record with a C record under it, and a draft whose model lists P in two other
+    applications, its own application dropping it. When the migration is read with the workspace, then P's records are refused
+    APPLICATION_TARGET_AMBIGUOUS and it answers 200 with that listed (R13-F13: a record with a child
+    once made it a server error); the preview job of the installed release lists the refusal and
+    finishes, the parent and child are still there."""
+    parent = world.made("P", "Parent", values={"H.code": "MG-AMB"})
+    child = world.made("C", "Child", parent=parent["id"], values={"H.code": "MG-AMB-C"})
+    model = _in_two_other_applications(world, "P")
+    release_id = world.workspace_model()["releaseId"]
+    draft = ok(
+        world.api.post(
+            "/model-drafts", {"name": "Ambiguous", "model": model, "baseReleaseId": release_id}
+        ),
+        201,
+    )
+    landing = _migration(world, draft, workspaceKey=WORKSPACE)["landing"]
+    assert landing["refused"], landing
+
+    release = world.install(model)
+    job = _previewed(world, WORKSPACE, release["id"])
+    assert job["state"] == "awaiting_confirmation", job
+    assert job["migration"]["counts"]["refused"] >= 1
+    codes = {row["code"] for row in _rows(world, job["id"], status="refused")}
+    assert "APPLICATION_TARGET_AMBIGUOUS" in codes
+    assert _read(world, WORKSPACE, parent)["name"] == "Parent"
+    assert _read(world, WORKSPACE, child)["name"] == "Child"
+
+
+@pytest.mark.journey("J33.19")
+@pytest.mark.structures("P", "C", "H.code", "A1", "A2")
+def test_the_migration_quoting_a_workspaces_records_needs_read_access_to_them(world):
+    """Given a draft and a caller who may author models at the instance but not read records. When
+    the migration is read, then it is answered; with ``workspaceKey`` it quotes that workspace's
+    records, so it is refused as FORBIDDEN, and one who may read there gets the landing
+    (R13-F16)."""
+    from test_j40_authorization import _client
+
+    draft = _draft_of_active(world, "Quoted")
+    _row, modeller = _client(world, "Modeller", ("model-admin", {"instance": True}))
+    ok(modeller.api.get(f"/model-drafts/{draft['id']}/migration"))
+    error = refused(
+        modeller.api.get(f"/model-drafts/{draft['id']}/migration", workspaceKey=WORKSPACE),
+        403,
+        "FORBIDDEN",
+    )
+    assert error["details"]["workspaceKey"] == WORKSPACE
+    assert error["details"]["groups"] == ["browse"]
+    ok(world.api.get(f"/model-drafts/{draft['id']}/migration", workspaceKey=WORKSPACE))
+
+
+def _renamed(node: Any, changes: dict[str, str]) -> Any:
+    """``node`` with every string that is a key in ``changes`` replaced."""
+    if isinstance(node, str):
+        return changes.get(node, node)
+    if isinstance(node, list):
+        return [_renamed(item, changes) for item in node]
+    if isinstance(node, dict):
+        return {key: _renamed(value, changes) for key, value in node.items()}
+    return node
+
+
+@pytest.mark.journey("J33.19")
+@pytest.mark.structures("R", "G", "D", "K", "Bown", "Bscope", "Bscope.flag", "Bscope.note")
+def test_a_relationship_renamed_and_converted_in_one_migration_is_one_version_ahead(world):
+    """Given a relationship with a value, and a release that renames its relation type and makes
+    the value text. When the migration runs with the relation type mapping, then the relationship
+    keeps its ID, its stored version is the one the feed says (one ahead, not two), and the sets of
+    both ends advanced under the old and the new relation type (R13-F15, R13-F20)."""
+    from sqlalchemy import text
+    from test_j30_consumer_events import _permit
+
+    owner = world.made("R", "Watcher")
+    _region, permit = _permit(world, owner["id"], WORKSPACE)
+    relation = ok(world.relate("Bscope", owner["id"], permit["id"], {"Bscope.flag": True}), 201)
+    old = world.key("Bscope")
+    model = copy.deepcopy(_active(world))
+    reverse = next(r["reverseKey"] for r in model["relationTypes"] if r["key"] == old)
+    moved = {old: f"{old}-moved", reverse: f"{reverse}-moved"}
+    model = _renamed(model, moved)
+    next(a for a in model["attributeTypes"] if a["key"] == world.key("Bscope.flag"))[
+        "valueType"
+    ] = "text"
+    for definition in model["consumerApis"]:
+        definition["contractVersion"] = definition.get("contractVersion", 1) + 1
+    model["release"]["version"] += "-moved"
+    release = world.install(model)
+
+    job = _previewed(
+        world,
+        WORKSPACE,
+        release["id"],
+        relationTypeMappings=[{"fromRelationTypeKey": old, "toRelationTypeKey": moved[old]}],
+    )
+    assert job["state"] == "awaiting_confirmation", job
+    head = job["migration"]["feedPosition"]
+    ok(_confirm(world, job, acceptLoss=True), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+
+    entries = ok(world.api.get(f"/workspaces/{WORKSPACE}/feed", after=head, pageSize=100))["items"]
+    [entry] = [e for e in entries if e["kind"] == "relation" and e["id"] == relation["id"]]
+    with world.api.client.app.state.session_factory() as session:
+        stored = session.scalar(
+            text("SELECT version FROM object_relations WHERE id = :id"), {"id": relation["id"]}
+        )
+    assert stored == relation["version"] + 1 == entry["version"]
+    # The old type's sets had advanced when the relationship was made, and advance again as it leaves.
+    assert _set_versions(world, old) == {
+        ("outgoing", owner["id"]): 2,
+        ("incoming", permit["id"]): 2,
+    }
+    assert _set_versions(world, moved[old]) == {
+        ("outgoing", owner["id"]): 1,
+        ("incoming", permit["id"]): 1,
+    }

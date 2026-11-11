@@ -168,15 +168,18 @@ try {
     `existing different mapping: ${beyond.name}, a candidate beyond page one, replaces the target in one save`,
   );
 
-  // ---- 3. Large ambiguous set: bounded preview, exact count, continuation, then resolve to one ----
+  // ---- 3. Large set of targets: bounded preview, exact count, continuation, then resolve to one ----
+  // Brought up to date in 0.13 R: the starter binding lets a source hold many targets, so a row with
+  // 25 targets is "mapped" with its count, not "ambiguous" (CHANGELOG [Unreleased], "A mapping row with
+  // several targets is "Mapped" where the relation lets a source hold many").
   const multiBefore = await starterRow("MULTI");
-  expect(multiBefore.state === "ambiguous" && multiBefore.targetCount === 25, "MULTI is not ambiguous with 25 targets");
+  expect(multiBefore.state === "mapped" && multiBefore.targetCount === 25, "MULTI is not mapped with 25 targets");
   expect(
     multiBefore.targets.length < multiBefore.targetCount && multiBefore.targetsNextCursor,
     "ambiguous preview is not bounded",
   );
   const multiRow = grid.locator("tr", { has: page.getByText("MULTI", { exact: true }) });
-  await multiRow.getByText("Ambiguous (25)").waitFor();
+  await multiRow.getByText("Mapped (25)").waitFor();
   await page.getByRole("button", { name: "Show all 25 targets for MULTI" }).click();
   while (await multiRow.getByRole("button", { name: "Load more…" }).count()) {
     await multiRow.getByRole("button", { name: "Load more…" }).click();

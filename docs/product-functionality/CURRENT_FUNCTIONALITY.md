@@ -630,7 +630,7 @@ to their new types, its records whose type changes, what the release has no plac
 the change set only once accepted), and what must be fixed first, including a record the change set
 changed that was also changed live since it started. Nothing live changes, and the workspace keeps
 its release. **Move change set** converts the change set's content and moves it in one step, or
-nothing; records it did not change then read as they are live, and it publishes as usual. Through
+nothing; records it did not change then read as they are live, and it publishes as usual. A change set submitted for publication moves too and stays submitted: approvers decide the same request on the moved version, with no withdrawal or resubmission (the page says so). Through
 the API this is a move of the change set, previewed and confirmed as a migration is.
 
 Workspaces may run models written in different versions of the model language at once: every

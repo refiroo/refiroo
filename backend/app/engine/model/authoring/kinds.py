@@ -42,6 +42,7 @@ from .layout import (
     children_panel,
     contained_types,
     detail_page,
+    drop_unreachable_ancestor_sorts,
     held_relations,
     keep_order,
     place_attribute,
@@ -380,9 +381,9 @@ def _group_path(context: Context, app: Any, group: Any, name: str = "") -> Path:
     return path
 
 
-@kind("setLabel", params=("element", "name", "description", "icon", "color", "pluralName", "title", "label"))
+@kind("setLabel", params=("element", "name", "reverseName", "description", "icon", "color", "pluralName", "title", "label"))
 def set_label(context: Context, raw: dict[str, Any]) -> Applied:
-    """Change the labels of an element named by `element`: the fields that kind of element has (name, description, icon, colour, plural name, title or label)."""
+    """Change the labels of an element named by `element`: the fields that kind of element has (name, reverse name, description, icon, colour, plural name, title or label)."""
     element_kind, path, element = element_reference(context, raw.get("element"))
     allowed = _LABEL_FIELDS[element_kind]
     params = Params(raw, ("element", *allowed))
@@ -1398,6 +1399,7 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
         stored_parent, created, parents = _set_parent(context, key, raw.get("parent"))
         stored["parent"] = stored_parent
         named |= {atom("objectType", p) for p in parents}
+    drop_unreachable_ancestor_sorts(context.document)
     applied = Applied(stored, {}, created=created, named=named, removed=_removed(before, _layout_items(context.document)))
     return restoring(context, {"kind": "setContainment", **stored}, applied)
 

@@ -54,6 +54,55 @@ Counterparts work only between workspaces running the same model. `COUNTERPARTS_
 
 `INVALID_IMPORT_PROFILE` requires fixing the reported binding paths; `IMPORT_PROFILE_NOT_FOUND` or `IMPORT_PROFILE_EXISTS` requires the intended profile key; `IMPORT_PROFILE_VERSION_CONFLICT` requires reading its latest version. `PROFILE_CHECK_NOT_FOUND` requires a current check, while `SOURCE_FILE_PROFILE_NOT_READY` means finish preparing its profile. `SOURCE_FILE_MISSING`, `SOURCE_FILE_NOT_FOUND` and `SOURCE_SHEET_NOT_FOUND` require the intended stored file and sheet. `MISSING_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `PARENT_NOT_FOUND` and `INVALID_ATTRIBUTE_VALUE` require correcting the named source cells. `INVALID_EXPORT_LAYOUT` requires a supported layout and consistent column choices. Refusals name paths or cells so a client can present the cause beside the source data.
 
+## Source files and their profile
+
+A source file is an XLSX or CSV workbook owned by a model draft or saved import profile.
+Uploading stores it and queues a job of kind `profile` to analyse its sheets, columns and cells;
+that analysis is separate from the import profile's mapping instructions. Use the
+[source-file operations](/docs/api/?api=management#tag/source%20files) in this order:
+
+1. `POST /api/v1/source-files` sends multipart `file` and a `request` JSON form field.
+   In that request, `owner` names exactly one `draftId` or `profileKey`; `format` can declare
+   XLSX or CSV, `csv` supplies the delimiter, and `workspaceKey` selects records for column
+   comparisons. Without a workspace, columns are compared only with each other. A 201 answer
+   contains the stored file and its profile job. A newer file supersedes the owner's previous
+   one (for a profile, within the same workspace); it is deleted `JOB_RETENTION_DAYS` after
+   replacement. Uploads over `IMPORT_MAX_BYTES` return `413 IMPORT_TOO_LARGE`; unsupported
+   formats return `422 UNSUPPORTED_FILE_FORMAT`; an unknown owner or workspace returns 404.
+2. `GET /api/v1/source-files` lists newest first, optionally filtered by `draftId` or
+   `profileKey`. `pageSize` defaults to 50, at most 500; follow the returned page links.
+   `GET /api/v1/source-files/{source_file_id}` reads one file, including its name, format,
+   byte size, SHA-256, owner, comparison workspace, delimiter, upload time, `supersededAt`
+   and `version`. Its `profile` reports the job ID, state and any error. Wait for `completed`;
+   queued, running, failed, cancelled or expired analysis is not ready for use.
+3. `GET /api/v1/source-files/{source_file_id}/profile/sheets` returns sheets in workbook
+   order, their row counts and `headerRow`. `laidOut` identifies a sheet arranged as lists;
+   its blocks give ranges, headers, titles and any note. Use a sheet's `headerRow` and the
+   intended block to set an import profile source's `headerRow` and `block`, rather than
+   assuming all sheets are one table starting on row 1.
+4. `GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns` returns
+   columns in block and column order, with filled/distinct counts, candidate-key evidence,
+   possible value types, frequent values, placeholders, delimiters and overlaps with other
+   columns or workspace records. Read the reported limits before treating overlap evidence
+   as exhaustive. `GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells?range=A100:C120`
+   returns filled rows of the rectangle in row order, with cells by column letter. Each cell
+   has staged text as used for matching and its value type. These reads are paged: sheets
+   default to 50, columns and cell rows to 100, each at most 500. Until profiling completes,
+   they return `409 SOURCE_FILE_PROFILE_NOT_READY`. An unknown sheet returns
+   `404 SOURCE_SHEET_NOT_FOUND`; a malformed, empty or out-of-sheet range returns `422 INVALID_RANGE`.
+5. `DELETE /api/v1/source-files/{source_file_id}?expectedVersion=N` removes the file,
+   staged cells and analysis, returning 204. It leaves the saved import profile and previously
+   loaded records. Read the current version first; `409 VERSION_CONFLICT` means another version
+   is current and needs inspection before retrying.
+
+These operations require `source-files.manage`. A profile's upload also requires **Bulk and
+import** in the named workspace. Its files are readable by their uploader and holders of
+that workspace's Bulk and import grant (at the instance for files naming no workspace),
+subject to the operation's permission check. Listings filter visibility accordingly.
+Upload and delete routes exist only with `INTEGRATION_JOBS_ENABLED`; reads remain registered.
+An assistant task's workbook is read through its task, not here: direct access returns
+`404 SOURCE_FILE_NOT_FOUND`.
+
 ## Prepare and diagnose a file
 
 Send an import as multipart form data with the file and its request description; the [import operation](/docs/api/?api=management#tag/imports) defines the request. Use a stored profile, an inline profile or a supported profile-free layout. Unreadable files, missing declared sheets or columns and unresolved bindings fail validation before execution. With atomic policy, a rejected bound row prevents the file’s writes.

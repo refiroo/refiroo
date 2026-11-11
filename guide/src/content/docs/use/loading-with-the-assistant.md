@@ -125,7 +125,9 @@ for publication to reach Live.
 
 A task's bar below the top bar names the current step and next action. It follows you into
 the model editor and change-set review opened from the task. You can leave while a turn works
-and return through its entry under **Settings › Jobs**; its completion is announced.
+and return through its entry under **Settings › Data operations › Jobs**; its completion is announced.
+See [Jobs grouped under a task or a draft](/docs/use/jobs/#jobs-grouped-under-a-task-or-a-draft)
+for the group’s state counts and **Open the task**.
 
 ## The next file and the saved profile
 

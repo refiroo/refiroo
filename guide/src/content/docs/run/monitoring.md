@@ -95,9 +95,85 @@ is read from stdin and is not printed. A 401 needs a fresh valid management toke
 needs the Operator grant. A public `/metrics` 404 is expected, even with a token. Keep the
 engine port private. Clear the temporary token with `unset ACCESS_TOKEN` after testing.
 
-The metrics response uses Prometheus text exposition format version `0.0.4`. JSON equivalents for
-processes, workspace readiness and instance totals are in the [system operations](/docs/api) of the
-API reference. Operational detail requires Operations access; basic system identity needs sign-in.
+The metrics response uses Prometheus text exposition format version `0.0.4`.
+
+## Read the same figures as JSON
+
+Use these read-only operations to investigate an incident or collect structured monitoring results.
+Send a management bearer token with the instance Operator grant, as for the scraper above.
+All four require **Operations** access (`operations.read`) at the instance; sign-in alone is
+not enough. See the [system field reference](/docs/api/?api=management#tag/system).
+They do not start jobs or restore backups. For paged results, follow the page's links until
+all items have been read before calculating totals.
+
+### Engine processes
+
+`GET /api/v1/system/processes` returns every engine process on this database in ID order.
+`pageSize` defaults to 100 and accepts at most 500. The answering process reports itself first,
+so its figures are current; other processes' figures date from their last heartbeat.
+Each item corresponds to a row under **Engine processes**:
+
+| JSON fields | What to read |
+| --- | --- |
+| `id`, `host`, `pid` | Identity: `host:pid:random`, host and operating-system process ID. A restart creates a new identity. |
+| `engineVersion`, `startedAt`, `heartbeatAt` | Engine version, start time and last report. |
+| `state`, `ready` | `live` or `silent`, and whether it serves at least one workspace's model. Silent readiness is historical. |
+| `threads` | **Background threads**: each has `name`, `state` (`running`, `failing`, `off`), optional failure `reason` and `since` time. |
+| `pool` | **Database connections**: `size`, `maxOverflow`, `inUse` (connections checked out when reported). |
+| `unavailableReleases` | **Releases it cannot serve**: each has `releaseId`, `schemaVersion` and `reason`. |
+| `counters` | **Requests since start**: `requests`, `serverErrors` (5xx answers), and `databaseUnavailable`, counts by reason. Counters reset with a new process. |
+
+Thread names are `jobWorker`, `exportWorker`, `assistantWorker`, `jobListener`, `eventDeriver`,
+`webhookDispatcher`, `mailSender` and `heartbeat`. Failure reasons are `poolExhausted`,
+`tooManyConnections`, `transactionEnded`, `unreachable` or `error`. An `off` thread has not
+started in this process: its capability may be disabled or no workspace may be servable.
+
+A process is `silent` after three `PROCESS_HEARTBEAT_SECONDS` intervals without a report.
+A clean stop removes it; a process that died remains listed silent for a day.
+Check the host and logs before relying on a silent process's old figures.
+
+### Workspace readiness
+
+`GET /api/v1/system/readiness` lists active workspaces in key order. `pageSize` defaults
+to 100, at most 500. Each item has `workspaceKey`, its `release` (`id`, `key`, `version`,
+`schemaVersion`, or `null` for none), `state` (`served` or `unavailable`) and `unavailableIn`.
+This is the **Workspaces** table; **Not served by** comes from `unavailableIn`, which lists
+live processes unable to serve the release, each with `processId`, `schemaVersion` and `reason`.
+
+`unsupportedSchema` means the schema is outside that engine's supported window; `invalid`
+means model validation failed; `notLoaded` means an activated release has not loaded in
+that process and needs a restart. No release also makes a workspace unavailable.
+Follow [startup recovery](/docs/run/health-and-startup-checks/) for the next action.
+
+### Instance totals
+
+`GET /api/v1/system/summary` is not paged. It counts the same instance figures as the
+instance gauges of `/metrics`, now: `processes` (`live`, `silent`), `workspaces` (`served`,
+`unavailable`), `jobs`, and `webhookSubscriptions` (`active`, `failing`, `suspended`).
+Each jobs entry has `kind`, `state` and `count`, for `queued`, `running` or
+`awaiting_confirmation`. Kind/state combinations with no jobs are omitted. Treat an omitted
+combination as zero in a dashboard rather than carrying forward an earlier count.
+
+### Backup rehearsals
+
+`GET /api/v1/system/backup-rehearsals` lists checks made with
+`python -m app.cli.restore_check` against backups restored into separate databases,
+newest first. `pageSize` defaults to 20, at most 200. These are the results in
+**Last backup rehearsal**, not a list of backup files on disk.
+
+Each gives `id`, `checkedAt`, `result` (`passed` or `failed`), supplied `backup` name,
+`dataAsOf` (the copy's newest audit change), `revisionBefore`, `revisionAfter`,
+`engineVersion` and `host`. Backup name and data time may be null; `revisionAfter`
+is null if the copy was not prepared. A failure includes `failure.code` and
+`failure.message`, explaining what recovery would meet and what to do.
+
+Each item in `workspaces` gives the copy's `workspaceKey`, `release`, `state` (`served`
+or `unavailable`), and `reason` (`unsupportedSchema`, `invalid`, `noRelease`, or null).
+`records`, `relations`, `openChangeSets` and `publications` count the restored copy;
+`liveRecords` counts that workspace's records in the live instance when checked.
+Relationships are counted by their source workspace. Different counts alone do not fail
+the rehearsal. Follow the [rehearsal procedure and failure-code actions](/docs/run/backup-and-restore/#rehearse-in-a-separate-database)
+for a failed or outdated check; reading this operation never performs one.
 
 ## Choose alerts
 

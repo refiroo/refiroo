@@ -135,6 +135,8 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         for type_key in types[:2]:
             yield {"kind": "attachAttribute", "objectType": type_key, "attributeType": attribute["key"]}
     for relation in model["relationTypes"]:
+        if relation.get("reverseName"):
+            yield {"kind": "setLabel", "element": {"relationType": relation["key"]}, "reverseName": "Zz back"}
         yield {"kind": "setKey", "element": {"relationType": relation["key"]}, "key": "zz-rel", "reverseKey": "zz-rel-back"}
     for binding in model["objectTypeRelations"]:
         triple = {"relationType": binding["relationTypeKey"], "from": binding["fromObjectTypeKey"], "to": binding["toObjectTypeKey"]}

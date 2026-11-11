@@ -6,16 +6,52 @@ reader: steward
 
 A job is work refiroo runs in the background, such as an import, export or change to many
 records. Open **Settings › Data operations › Jobs** to find the jobs you may see across
-workspaces, newest first. The list shows **Workspace**, **State**, **Items**, **Requested by**,
+workspaces, newest first. In **All jobs**, the list shows **Workspace**, **State**, **Items**, **Requested by**,
 **Created**, **Finished** and **Actions**. Open a job to read its progress and results.
 
-Jobs that belong together are grouped: an assistant task's jobs, with those its session queued,
-and a model draft's each make one row with the number of jobs and how many are in each state. Open
-a row to see its jobs under **‹ Jobs**; the state buttons narrow them, **Open the task** or **Open
-the draft** goes to what they belong to when you may open it, and Esc goes up a level. The
-**Grouped** and **All jobs** buttons above the list switch between this and the flat list, and the
-browser remembers the choice. A job without a task or draft is a row of its own.
 Follow [Follow and cancel a job](/docs/guide/use/follow-and-cancel-a-job/) for the steps.
+
+## Jobs grouped under a task or a draft
+
+Above the list, **Grouped** puts an assistant task's related work, including jobs queued by
+its session, in one row. A model draft's jobs also form one row. A job with neither owner
+remains a row of its own. **All jobs** shows the individual jobs instead. Your browser remembers
+this choice when you return to Jobs.
+
+The grouped table shows **Job or group**, **Workspace**, **Jobs**, **State**, **Latest** and
+**Actions**. A group is labelled **Assistant task** or **Model draft** and named after its
+workbook or draft. A workbook's extension appears beside its name. **Jobs** counts the group's
+visible jobs; **State** gives counts for states with jobs, such as running, failed and completed.
+**Latest** is the latest job time. These counts describe retained jobs you may see, not every
+job ever started or every job in the instance.
+
+Open the group name to see its jobs:
+
+1. The heading names the workbook or draft. Above it, **Assistant task** or **Model draft**
+   and the workspace identify the group; **‹ Jobs** returns to the main list.
+2. **Summary of the group** gives the job count and latest time. **All** shows the total;
+   state buttons show non-zero counts for **Running**, **Queued**, **Awaiting confirmation**,
+   **Failed**, **Completed**, **Cancelled** or **Expired**. Select one to narrow the table;
+   select **All** to restore every visible job. The selected state stays in the page's address.
+3. The **Jobs** table shows **Job**, **State**, **Items**, **Requested by**, **Created**,
+   **Finished** and **Actions**. Inspect processed, applied, rejected and unprocessed counts.
+   **Refresh** reads again; **Load more jobs** continues the list. **Cancel** is offered
+   for queued or running work where cancellation is available; it opens a confirmation.
+4. **Open the task** or **Open the draft** opens the owning work. The button appears only
+   after refiroo has confirmed you can read that task or draft. Seeing a group's jobs does
+   not itself grant access to its owner; a missing button is not a stopped job.
+5. Open a job to inspect its result. When opened from the group, its trail includes
+   **‹ Assistant task: [name]** or **‹ Model draft: [name]**. Use that link to return to
+   the group with the state choice preserved, or **Jobs** to return to the main list.
+
+**Esc** goes up one level: job to the group it was opened from, then group to Jobs. A job
+opened from the flat list returns directly to Jobs. Esc does not navigate while a dialog
+is open or you are editing a field.
+
+If the group says **This group has no jobs you can see**, its task or draft may have been
+removed or its jobs may have expired. Return to Jobs. **No jobs in this state** means the
+selected state has no visible rows; try **All** or **Refresh**. A read failure offers a retry;
+it does not establish that the group is empty.
 
 ## States and results
 
@@ -113,3 +149,8 @@ preview** returns to the preview. Discarding writes nothing and leaves the previ
 until expiry. On the Jobs list, the confirmation button is **Cancel job** instead.
 Results and files are normally kept for seven days; your deployment's **Limits** and the job's
 **Kept until** give the applicable retention.
+
+<!-- Inventory trace: reader-facing controls are explained above.
+route:aiTask
+route:modelDraft
+-->

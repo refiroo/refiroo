@@ -190,6 +190,14 @@ def _submit_items(
                     {"setting": setting, "maximum": maximum, unit: found},
                 )
     lock_job_subject(session, KIND, draft.public_id)
+    if _accepting(session, draft):
+        # Accepting loads the checked items, which a new check would take away (R13-F11).
+        raise api_error(
+            409,
+            "AI_TASK_STATE",
+            f"The checked records of model draft '{draft.public_id}' are being loaded by an "
+            "accepted assistant task; check again when it has finished",
+        )
     session.execute(
         update(Job)
         .where(
@@ -232,6 +240,23 @@ def _submit_items(
     store_inputs(session, job, items)
     session.commit()
     return job
+
+
+def _accepting(session: Session, draft: ModelDraft) -> bool:
+    """Whether an accepted assistant task of this draft is loading its checked items now: its
+    design is at the load stage with items and the job it waits for has not ended."""
+    return (
+        session.scalar(
+            text(
+                "SELECT 1 FROM ai_tasks t JOIN jobs j ON j.id = t.job_id"
+                " WHERE t.draft_id = :draft AND t.design ->> 'stage' = 'load'"
+                " AND t.design ->> 'itemsLoad' = 'true' AND j.state IN ('queued', 'running')"
+                " LIMIT 1"
+            ),
+            {"draft": draft.id},
+        )
+        is not None
+    )
 
 
 def dry_run_context(session: Session, job: Job) -> BatchContext:
@@ -295,8 +320,10 @@ def runs_dry_run(operations: list[dict[str, Any]]) -> bool:
         name = operation.get("kind")
         if name == "restoreElements":
             name = (operation.get("undoes") or {}).get("kind")
-        if name == "setProfile" and operation.get("kind") == "setProfile" and (
-            "sources" in operation or "valueMaps" in operation
+        if (
+            name == "setProfile"
+            and operation.get("kind") == "setProfile"
+            and ("sources" in operation or "valueMaps" in operation)
         ):
             # A whole profile changes the load (0.13 AQ); its key and name alone do not.
             return True
@@ -310,7 +337,9 @@ def superseded(session: Session, parameters: dict[str, Any]) -> bool:
     was sent that can change what the load writes (D79). A step that cannot, a rename or a layout
     change, queues no dry run of its own, so the running one goes on: stopping it left the drawer
     at Stopped with no result (0.10 R, found by the composed runner)."""
-    draft_id = session.scalar(select(ModelDraft.id).where(ModelDraft.public_id == parameters["draftId"]))
+    draft_id = session.scalar(
+        select(ModelDraft.id).where(ModelDraft.public_id == parameters["draftId"])
+    )
     if draft_id is None:
         return True
     steps = session.execute(
@@ -540,15 +569,15 @@ def _figures(entry: dict[str, Any]) -> dict[str, int]:
     return figures
 
 
-def _difference(
-    before: list[dict[str, Any]], after: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+def _difference(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Per source (by its sheet, the type it loads and its place among the sources sharing them),
     each figure that changed: what it is now and what it was. A source new or gone since compares
     with zeros. Several sources may load one type from one sheet: a list read block by block
     (D141), or translations by language (0.10 R-F2)."""
 
-    def keyed(entries: list[dict[str, Any]]) -> list[tuple[tuple[str | None, str, int], dict[str, Any]]]:
+    def keyed(
+        entries: list[dict[str, Any]],
+    ) -> list[tuple[tuple[str | None, str, int], dict[str, Any]]]:
         seen: dict[tuple[str | None, str], int] = {}
         found = []
         for entry in entries:
@@ -568,8 +597,12 @@ def _difference(
         }
         if figures:
             changed.append(
-                {"source": entry["source"], "objectTypeKey": entry["objectTypeKey"],
-                 "sheet": entry["sheet"], "figures": figures}
+                {
+                    "source": entry["source"],
+                    "objectTypeKey": entry["objectTypeKey"],
+                    "sheet": entry["sheet"],
+                    "figures": figures,
+                }
             )
     for (sheet, type_key, _place), was in old.items():
         figures = {name: {"now": 0, "was": count} for name, count in sorted(was.items()) if count}

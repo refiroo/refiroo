@@ -144,15 +144,55 @@ describe("ApplyDialog", () => {
     expect(run).toHaveBeenLastCalledWith([{ kind: "setRelease", key: "m", name: "Model", version: "1.3" }]);
   });
 
+  const emptyMigration = {
+    required: true,
+    baseReleaseId: "r1",
+    draftVersion: 5,
+    steps: [],
+    typeMappings: [],
+    relationTypeMappings: [],
+    splits: [],
+    listConversions: [],
+    rows: [],
+    keyChanges: [],
+    notes: [],
+    landing: null,
+  } as unknown as DraftMigration;
+
   it("installs and starts the preview when records must move, activating nothing", async () => {
     vi.mocked(api.startWorkspaceMigration).mockResolvedValue({ id: "job" } as never);
-    const { onMigrationStarted } = open(compiled("migration_required"));
-    await screen.findByText("Some records must move first");
-    expect(screen.getByText("Thing holds records")).toBeInTheDocument();
+    const { onMigrationStarted } = open(compiled("migration_required"), true, emptyMigration);
+    await screen.findByText("Activation needs a migration");
     fireEvent.click(screen.getByRole("button", { name: "Preview what happens to the records…" }));
     await waitFor(() => expect(onMigrationStarted).toHaveBeenCalledWith("job"));
-    expect(api.startWorkspaceMigration).toHaveBeenCalledWith("north", { targetReleaseId: "r2", expectedVersion: 3 });
+    expect(api.startWorkspaceMigration).toHaveBeenCalledWith("north", {
+      targetReleaseId: "r2",
+      expectedVersion: 3,
+      typeMappings: [],
+      relationTypeMappings: [],
+      splits: [],
+      listConversions: [],
+      draftId: "d1",
+    });
     expect(api.activateWorkspaceModel).not.toHaveBeenCalled();
+  });
+
+  it("waits for the draft's migration: no preview starts before it is read (R13-F22)", async () => {
+    let read: (value: DraftMigration) => void = () => undefined;
+    open(compiled("migration_required"));
+    vi.mocked(api.modelDraftMigration).mockReturnValue(new Promise((resolve) => (read = resolve)));
+    await screen.findByText("Some records must move first");
+    expect(screen.queryByRole("button", { name: "Preview what happens to the records…" })).toBeNull();
+    read(emptyMigration);
+    expect(await screen.findByRole("button", { name: "Preview what happens to the records…" })).toBeInTheDocument();
+  });
+
+  it("says the migration could not be read and starts nothing (R13-F22)", async () => {
+    open(compiled("migration_required"));
+    expect(await screen.findByText("The migration could not be read")).toBeInTheDocument();
+    expect(screen.getByText(/no migration/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview what happens to the records…" })).toBeNull();
+    expect(api.startWorkspaceMigration).not.toHaveBeenCalled();
   });
 
   it("states the migration the draft implies and previews it with the same mappings (0.13 MG)", async () => {

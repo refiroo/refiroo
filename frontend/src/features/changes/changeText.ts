@@ -34,6 +34,7 @@ const CHANGE_SET_ACTIONS: Record<string, string> = {
   discarded: "Discarded",
   derived: "Derived",
   "model-release-changed": "Moved to another model release:",
+  moved: "Kept the submitted request on the moved version of",
 };
 const DRAFT_ACTIONS: Record<string, string> = { created: "Created", updated: "Changed", deleted: "Deleted" };
 

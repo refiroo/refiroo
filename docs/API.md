@@ -276,7 +276,7 @@ for an empty model, read it):
   "engine": {
     "version": "0.9.0", "managementApi": "v1", "license": "AGPL-3.0-or-later",
     "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.9.0",
-    "build": { "commit": "045b8cfe", "tag": "v0.16.1-alpha.1" }
+    "build": { "commit": "baf823b6", "tag": "v0.16.1-alpha.1" }
   },
   "schemaLanguages": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
   "activeModelRelease": {
@@ -718,7 +718,12 @@ are not mutation-gated. Lifecycle errors use:
 - `404 MODEL_RELEASE_NOT_FOUND` for an unknown draft base, release, activation candidate or diff
   participant;
 - `409 VERSION_CONFLICT` for a stale draft version;
-- `409 RELEASE_IDENTITY_CONFLICT` for the same release key/version with different content;
+- `409 RELEASE_IDENTITY_CONFLICT` for the same release key/version with different content. Its
+  `details` carry `releaseKey`, `releaseVersion` (the taken one) and `freeVersion`: the version after
+  the highest any release of that key has, its last number raised (0.13 FX). The refusal always has a
+  way forward: `setRelease` with `freeVersion`, then install again. Another draft of the same model,
+  such as an assistant task's, may have installed the version the draft names; the draft's outline
+  proposes a free one up front (`suggestedReleaseVersion`, [the draft's outline](#the-drafts-outline));
 - `422 INVALID_MODEL` when installation recompilation fails, also for a schema 0.8 document that
   declares `consumerApis`, whose diagnostic is `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`
   naming schema 0.9; draft compile and `POST /model-validations` report the same diagnostic with
@@ -770,7 +775,11 @@ the OpenAPI document; the session's `oauth_refresh` cookie, read without renewin
 engine's own address only) and answers `{access_token, expires_in}` for the `management` audience;
 `401 not_signed_in` without a session, `403 access_denied` from another site. The console renews the
 token in its last minute; a token pasted over it, such as a client's, is sent as it is. Without a
-session the console starts empty. Because the page can mint that token, it carries a
+session the console starts empty. Each source offers only its own scheme: the Management API source
+`engineOAuth` (scope `management` ticked, the session token prefilled), every consumer source `oauth2`
+(Token URL prefilled, scope `consumer` ticked, no token: the session token is a `management` token and
+a consumer data route refuses it, so a consumer client's Client ID and Secret are entered and Authorize
+issues a `consumer` token). Because the page can mint that token, it carries a
 `Content-Security-Policy` (0.12 E1): scripts only from the engine (the bundled file, or the pinned CDN
 host with `RDM_API_REFERENCE_SCRIPT=cdn`) and the page's own two inline scripts, each named by its hash;
 no `unsafe-eval`; requests only to the engine; no plugins, no framing (`X-Frame-Options: DENY`), no form
@@ -4256,7 +4265,10 @@ when a step needs a migration or the draft implies a mapping. The answer holds:
   migration's request ([a workspace's data migrated](#a-workspaces-data-migrated-to-another-release-delivered-v1)),
   ready to send for a workspace running the base release. A type whose key changed or that was merged
   becomes the type it is now, its renamed attributes name their sources (`attributes`), and a type that
-  moved to another application names it (`toApplicationKey`). A split names the new type, the
+  moved to another application names it (`toApplicationKey`); where a type is newly listed in several
+  applications it names the one where the type is own (a `table` view of it or a `tree` view including it,
+  not one that only borrows it for a relation view), and none when there is no such single application, so
+  the preview refuses its records with `APPLICATION_TARGET_AMBIGUOUS` until a mapping chooses (R13-F12). A split names the new type, the
   moved attributes, the relation type and its cardinality; a conversion names the attribute, the list
   type and the relation type.
 - `rows`: each type the migration changes, for reading: its names, the applications it leaves and
@@ -4272,6 +4284,10 @@ when a step needs a migration or the draft implies a mapping. The answer holds:
   record checked and nothing written: `moved`, `createdRecords`, `createdRelationships`, `losses` and
   `refused` by type and reason. `null` when the draft is invalid or the workspace's model does not fit
   the mappings.
+
+With `workspaceKey` the answer quotes that workspace's records (counts, examples), so it needs read
+access to records there on top of Model authoring: `403 FORBIDDEN` (group Browse, `details.workspaceKey`)
+without it (R13-F16).
 
 Installing a draft bases it on the release it installed, so a migration read afterwards, by default
 against that base, is empty. `againstReleaseId` names the release the migration starts from (the one a
@@ -4380,6 +4396,12 @@ can be read, beside its diagnostics.
   removed: the relations a type starts are part of it, as its outgoing relations panel shows. The marks
   are those the class check reads, so a draft-only operation is refused on exactly the elements marked
   `released` or `changed`.
+- **`suggestedReleaseVersion`** (0.13 FX) is the version an editor proposes for the release the draft
+  installs as: the draft's own `release.version` when it differs from the base's and no installed
+  release of the key has it; otherwise the free version after the highest of the draft's, the base's and
+  every installed release's of that key (the rule the refusal's `freeVersion` and the assistant's
+  install use, `next_free_version`). Null when the draft names no release key. It is a proposal: the
+  draft's version changes only by `setRelease`.
 - **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
   Each group lists its `collections` (types) and its `entries` in their one order, each `{ "collection": key }`
   or `{ "view": key }` (a relation matrix); `navigation.opens` maps a collection to the view its
@@ -4670,7 +4692,10 @@ assistant task loads them as one atomic batch, up to `ATOMIC_JOB_MAX_ITEMS` (`41
 names the setting). The worker previews **every** item against the draft's compiled model in the
 workspace, in a transaction it rolls back, as the profile form previews the items a profile binds, and
 stores the items with the completed job (they stay until its retention ends; a newer items dry run of
-the draft removes the older ones'). A refused item is an outcome with its `ref`, as in a batch; it
+the draft removes the older ones'; one is refused with `409 AI_TASK_STATE` while an accepted assistant
+task of the draft is loading its items). The items are checked against the workspace's stored records
+and the summary quotes them, so the caller needs read access to records in `workspaceKey` (Browse there)
+as well as Model authoring: otherwise `403 FORBIDDEN` (R13-F6). A refused item is an outcome with its `ref`, as in a batch; it
 writes nothing and does not stop the others.
 
 `GET …/dry-run` then answers `summary: null`, `sourceFileId: null` and **`items`**:
@@ -5373,8 +5398,9 @@ with `acceptLoss` when it removes anything. A change set edited, a live write or
 the workspace since the preview is `409 MIGRATION_REVIEW_STALE` (D92). The execution converts the
 rows, replaces the base, moves the release and records one `model-release-changed` event on the
 change set naming the job and its counts, raising its version once (D94); live data, the workspace's
-release, its feed and its publications are never written. A failure changes nothing
-(`MIGRATION_FAILED`).
+release, its feed and its publications are never written. A change set submitted for publication moves
+too and stays submitted: its request follows it to the new version (`moved` step in the request's
+history), no withdrawal or resubmission is needed. A failure changes nothing (`MIGRATION_FAILED`).
 
 | Status | Code | When |
 | --- | --- | --- |
@@ -7041,7 +7067,12 @@ where one-time links go. Nothing is sent without saved settings.
   `client_assertion` of the client-credentials grant at the tenant. The host's token endpoint is
   `IDENTITY_ENDPOINT` with `IDENTITY_HEADER` (App Service, Container Apps), else the instance metadata
   service of a virtual machine. A secret or certificate with an identity mode is refused at its field;
-  saving a managed identity clears a saved secret or certificate. Where no Azure host answers, the test and
+  saving a managed identity clears a saved secret or certificate. With an `identityMode` the host's token
+  goes to the `authorityUrl`, so only Microsoft's sign-in hosts are accepted there
+  (`login.microsoftonline.com`, `login.microsoftonline.us`, `login.partner.microsoftonline.cn`,
+  `login.chinacloudapi.cn`): any other address is `422 REQUEST_VALIDATION_ERROR` at `body.authorityUrl`,
+  and mail is refused (`connection`) before anything is sent if a saved address is not one of them
+  (R13-F3). Where no Azure host answers, the test and
   queued mail fail as `login` with a sentence saying refiroo is not running with a managed identity on an
   Azure host. AKS workload identity (a token file) is not supported.
 - `DELETE /mail-settings`: removes the settings; `204`, or `409 MAIL_NOT_SET_UP`. Messages waiting stay
@@ -7114,7 +7145,14 @@ Change-set publication only (D232, ADR-045):
   restructuring, a batch or import into it, a discard) is refused `409 CHANGE_SET_SUBMITTED` unless
   the request carries the query parameter **`withdrawSubmission=true`** (accepted on every
   request, read once by the change set's version claim), which withdraws the submission in the same
-  transaction as the write. A publication's own claim is no edit. A change set read gains
+  transaction as the write. A publication's own claim is no edit. **A move of the change set onto its
+  workspace's new model release (`POST /change-sets/{id}/model-migrations`) is not refused and does not
+  withdraw:** the request stays `submitted`, its submitted version follows the change set's raised
+  version, and approvers decide it on the moved version. Who may move a submitted change set is the rule
+  of withdrawal (the submitter or a holder of `approve`, else `403 FORBIDDEN` at confirmation, nothing
+  moved); `withdrawSubmission=true` on that confirmation changes nothing. The request's history gains a
+  `moved` step (`submissionId`, `fromVersion`, `toVersion`, `fromReleaseId`, `toReleaseId`); it is not
+  announced. A change set read gains
   `submission`: its latest publication request whatever its state, or `null` if never submitted.
 - `POST /change-sets/{changeSetId}/decisions` `{outcome: "approve" | "sendBack", comment?,
   expectedChangeSetVersion, expectedActivePublicationId?}` (`change-sets.decide`, Approve
@@ -7438,7 +7476,7 @@ registered with `INTEGRATION_JOBS_ENABLED`.
 | `GET /ai/tasks/{id}/changes?source=0` | The records the latest check would change in a sheet of the check (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` for a source the check has no figures for |
 | `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. When **every answer is its question's `assumed` option** (0.13 AQ) the answers are recorded and nothing is queued: `202` with the task still `checked` and a new `version`, no job `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
 | `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}`: the person's words, in every state where a task can go on (0.16 AP13). Allowed when `checked` (the proposal, or a saved layout's load stage: a session starts on the same task and file, `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`), `failed` or `stopped` (the same session goes on; a session that never ran starts, with the task's words and the new ones; the task's notes, its old reasons, are cleared), or `loaded` with a change set not yet published (needs Work in change sets: the change set is discarded and the same session loads again from the proposal with the words; `409 AI_TASK_STATE` for a published or discarded change set or a session that ended). `202`, state `checking`: the session changes the model as the words say (kept in `design.corrections`, the newest last) and proposes again, or loads again. Same refusals |
-| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `403 FORBIDDEN` naming Work in change sets unless the proposal only moves whole types (it loads no change set); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. **When the proposal holds a dry run of items** (0.13 AB: the session sent `items` to its draft's dry run; the task shows the summary as `design.load` and has `design.itemsLoad: true`; [A dry run of items](#a-dry-run-of-items-013-ab)) no session turn runs: the engine itself installs the draft as one release (what `POST /model-drafts/{id}/installation` does; none when the draft does not change the model), makes a change set on it over the live data (on the workspace's current release when the model does not change), and runs the stored items into it as **one atomic batch**, then the task is `loaded` with `result.counts` (the change set's records and relationships), `result.importJobId` (the batch job) and the change set. A draft changed after the dry run (a step that can change what the load writes) has every item checked again first; a refusal then fails the task before anything is installed. A refusal at the atomic batch (the data moved since the check) writes nothing: the change set is discarded, the task is `failed` with a note naming the refused records and their cells, and `POST …/model` or `…/retry` goes to the session as a correction of the proposal, which checks the records again. The batch is the job `batch` of the task (its `parameters.taskId`). It never activates, migrates or publishes. A words-only task (no file) whose model does not change has a proposal without a draft (`draftId` null, `design.modelUnchanged` true, "no change to the model"): accepting installs and activates nothing, and the session makes the change set on the workspace's current live release; a workbook task always has a draft. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
+| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `403 FORBIDDEN` naming Work in change sets unless the proposal only moves whole types (it loads no change set); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. **When the proposal holds a dry run of items** (0.13 AB: the session sent `items` to its draft's dry run; the task shows the summary as `design.load` and has `design.itemsLoad: true`; [A dry run of items](#a-dry-run-of-items-013-ab)) no session turn runs: the engine itself installs the draft as one release (what `POST /model-drafts/{id}/installation` does; none when the draft does not change the model), makes a change set on it over the live data (on the workspace's current release when the model does not change), and runs the stored items into it as **one atomic batch**, then the task is `loaded` with `result.counts` (the change set's records and relationships), `result.importJobId` (the batch job) and the change set. The check must be of the task's own workspace: a task whose items dry run was made against another workspace fails, when the proposal lands and again at the accept, and loads nothing (R13-F6). When an earlier accept installed the draft's release and the draft is based on it while the workspace is not, a later accept (after words) makes its change set on that release, never on the workspace's (R13-F7). A stop during the load discards the change set and withdraws the release the accept installed (R13-F8); if the stored items are gone when the load starts, the task fails naming that (R13-F11). A draft changed after the dry run (a step that can change what the load writes) has every item checked again first; a refusal then fails the task before anything is installed. A refusal at the atomic batch (the data moved since the check) writes nothing: the change set is discarded, the task is `failed` with a note naming the refused records and their cells, and `POST …/model` or `…/retry` goes to the session as a correction of the proposal, which checks the records again. The batch is the job `batch` of the task (its `parameters.taskId`). It never activates, migrates or publishes. A words-only task (no file) whose model does not change has a proposal without a draft (`draftId` null, `design.modelUnchanged` true, "no change to the model"): accepting installs and activates nothing, and the session makes the change set on the workspace's current live release; a workbook task always has a draft. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
 | `POST /ai/tasks/{id}/retry` | `{expectedVersion, words?}`. A task that `failed` or `stopped` goes on from where the session was, its folder and session kept, with the person's `words` when there are some (no words: "go on from where you were"); a session that never ran starts again. A `checked` task with no session (a saved layout that does not fit) is read with the assistant, which starts on the same task and file. `409 AI_NOT_CONFIGURED`, `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/proposal` | `{expectedVersion}`. A saved layout's load stage (`checked`, `design.stage: load`, no session) goes back to its proposal; `200`, no job. `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/discard` | The way to end a task: it becomes `cancelled`, its draft, working folder and session client go, and a release its session installed that nothing uses is retired. Allowed when the task waits for the person, `failed`, `stopped`, or `loaded` and not published; a loaded task's change set is discarded with it (Work in change sets) and a note says so. `409 AI_TASK_STATE` otherwise |

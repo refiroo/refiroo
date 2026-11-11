@@ -273,6 +273,15 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
             "other words to check again.",
         )
         return
+    if previewed.workspace_key != task.workspace_key:
+        # An items dry run can be made against any workspace; this load goes into the task's (R13-F6).
+        _fail(
+            session,
+            task_id,
+            "The check was made against another workspace than this task's, so nothing was loaded. "
+            "Give the assistant other words to check again.",
+        )
+        return
     _discard_earlier(session, task_id)
     if superseded(session, previewed.parameters):
         # The draft changed after the check: every item is checked against it again first.
@@ -286,12 +295,16 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     try:
         task = load_task(session, task_id)
         draft = session.get(ModelDraft, task.draft_id)
-        release = (
-            _install(session, task_id, ctx)
-            if draft.base_model_release_id is None or design_job.changes_model(session, draft)
-            else None
-        )
         current = load_assignment(session, task.workspace_key)[1]
+        if draft.base_model_release_id is None or design_job.changes_model(session, draft):
+            release = _install(session, task_id, ctx)
+        elif draft.base_model_release_id != current.id:
+            # An earlier accept installed the draft's release and rebased the draft on it while the
+            # workspace stays on its own: the items were checked against the draft's release, so the
+            # change set is made on that one, not on the workspace's (R13-F7).
+            release = session.get(ModelRelease, draft.base_model_release_id)
+        else:
+            release = None
         selected = (
             selected_change_set_release(session, release.public_id, kept=(current.id,))
             if release is not None
@@ -317,8 +330,20 @@ def run(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     task.result = {"changeSetId": change_set.id, "changeSetName": change_set.name}
     session.commit()
     _show(session, task_id, "Loading the records into the change set", installed=True, loading=True)
-    batch = _batch(session, ctx, task_id, previewed, change_set)
-    failure = _run_batch(session, ctx, batch, previewed, items)
+    try:
+        batch = _batch(session, ctx, task_id, previewed, change_set)
+        failure = _run_batch(session, ctx, batch, previewed, items)
+    except JobCancelled:
+        # The person's Stop: the change set and the release this accept installed go, as with a
+        # refused load, before the stop is carried on (R13-F8).
+        _discard(session, change_set.id)
+        _withdraw(session, task_id)
+        raise
+    except ApiError as gone:
+        session.rollback()
+        _discard(session, change_set.id)
+        _fail(session, task_id, f"{gone.message}. Nothing was loaded.{_withdraw(session, task_id)}")
+        return
     if failure is not None:
         # An atomic batch that refused anything wrote nothing: the change set goes.
         _discard(session, change_set.id)
@@ -387,14 +412,26 @@ def _batch(session: Session, ctx: Any, task_id: str, previewed: Job, change_set:
         retention_days=ctx.retention_days,
         change_set_version=change_set.version,
     )
-    session.execute(
+    copied = session.execute(
         text(
             "INSERT INTO job_inputs (job_id, item_index, ref, item)"
             " SELECT :new, item_index, ref, item FROM job_inputs WHERE job_id = :old"
             " ORDER BY item_index"
         ),
         {"new": batch.sequence_id, "old": previewed.sequence_id},
-    )
+    ).rowcount
+    if copied != previewed.total:
+        # A newer check of the draft took the checked items away while this accept ran (R13-F11).
+        session.rollback()
+        session.execute(
+            text("DELETE FROM jobs WHERE sequence_id = :job"), {"job": batch.sequence_id}
+        )
+        session.commit()
+        raise ApiError(
+            409,
+            "AI_TASK_STATE",
+            "The checked records are gone: another check of the draft replaced them",
+        )
     session.commit()
     return session.get(Job, batch.sequence_id)
 

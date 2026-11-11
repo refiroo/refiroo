@@ -261,20 +261,28 @@ export function InstallDialog({
       : undefined;
   const moves = checked?.classification === "migration_required";
   // The migration the draft states for that workspace (0.13 MG), read while it needs one.
-  const { migration } = useDraftMigration(
+  const {
+    migration,
+    error: migrationError,
+    pending: migrationPending,
+  } = useDraftMigration(
     draftId,
     into.kind === "existing" ? into.workspaceKey : undefined,
     Boolean(compilation?.valid && moves),
     outline.version,
   );
   const migrates = Boolean(moves && canMigrate && onMigrationStarted);
+  // Starting the migration without the draft's mappings would move the data wrongly: wait for them.
+  const mappingsMissing = migrates && (migrationPending || Boolean(migrationError));
   const blocked =
+    mappingsMissing ||
     !compilation?.valid ||
     contractsBreak ||
     !identity.complete ||
     (into.kind === "new" ? !newWorkspace.complete : !target);
 
   async function confirm() {
+    if (mappingsMissing) return;
     setPending(true);
     setError("");
     setFreeVersion(undefined);
@@ -464,6 +472,11 @@ export function InstallDialog({
                   </Notice>
                 ) : checked ? (
                   <>
+                    {migrationError && (
+                      <Notice tone="error" title="The migration could not be read">
+                        {migrationError} Close this dialog and open it again.
+                      </Notice>
+                    )}
                     {migration ? (
                       <DraftMigrationNotice
                         migration={migration}

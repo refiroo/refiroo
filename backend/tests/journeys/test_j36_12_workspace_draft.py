@@ -157,7 +157,7 @@ def test_an_existing_draft_of_the_running_release_is_reused(world):
 
 @pytest.mark.journey("J36.12")
 @pytest.mark.structures(*STRUCTURES)
-@pytest.mark.settings(AI_PROVIDER=FAKE)
+@pytest.mark.settings(AI_PROVIDER=FAKE, AI_AGENT_COMMAND="true")
 def test_a_draft_an_assistant_task_names_is_not_taken_and_a_remembered_one_outlives_its_task(world):
     """Given only the draft of a task that ended, on the running release, when the draft is opened,
     then a new draft answers 201. Given a remembered draft a task came to name, when the task's

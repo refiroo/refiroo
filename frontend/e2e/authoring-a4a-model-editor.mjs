@@ -10,6 +10,11 @@
 // stale version answered by applying again; install and activate; the new collection opened and a
 // record created. On generated-b also an application built from an empty draft. Keyboard alone for
 // the pane, the matrix and Move to…; 1440px and 390px; axe on the editor's main states.
+//
+// Brought up to date (0.13 R, block 4): a type that contains itself no longer stands twice in the
+// pane; "Editor: borrowed types shown apart" (c120ff18) shows each type once per application, so the
+// check now asserts it stands once, chosen and selected, and that every pane row has its own key; a type
+// placed in a navigation group stands in the group only, not also in the tree (once 2, now 1 at level 3).
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -107,22 +112,33 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await assertFullSurface(page, ".model-editor", [".model-editor-model", ".model-editor-centre"], `${label} opened`);
     checks.push(`${label}: a draft of the active release opens in the editor, every element released`);
 
-    // A type that contains itself stands twice; the inner row is chosen and shown selected.
+    // A type that contains itself stands once in its application (the pane shows each type once per
+    // application, 0.13 "borrowed types shown apart", c120ff18); that row is chosen and shown selected.
     const items = pane.getByRole("treeitem");
     const rows = await items.evaluateAll((nodes) =>
       nodes.map((node) => ({
         text: node.querySelector(".model-pane-label")?.textContent,
         level: Number(node.getAttribute("aria-level")),
+        id: node.getAttribute("data-row"),
       })),
     );
-    const inner = rows.findIndex(
+    assert.equal(new Set(rows.map((row) => row.id)).size, rows.length, "every pane row has a key of its own");
+    const selfContaining = new Set(
+      model.objectTypeRelations
+        .filter((relation) => relation.fromObjectTypeKey === relation.toObjectTypeKey)
+        .map((relation) => model.objectTypes.find((type) => type.key === relation.fromObjectTypeKey)?.name),
+    );
+    assert.ok(selfContaining.size > 0, "the model holds a type that contains itself");
+    const twice = rows.findIndex(
       (row, index) => index > 0 && row.text === rows[index - 1].text && row.level > rows[index - 1].level,
     );
-    assert.ok(inner > 0, "the model holds a type that contains itself");
+    assert.equal(twice, -1, "a type under itself is not listed a second time beneath itself");
+    const inner = rows.findIndex((row, index) => index > 0 && selfContaining.has(row.text));
+    assert.ok(inner > 0, "the pane lists the type that contains itself");
     await items.nth(inner).click();
     assert.equal(await items.nth(inner).getAttribute("aria-selected"), "true");
     assert.equal(await items.nth(inner - 1).getAttribute("aria-selected"), "false");
-    checks.push(`${label}: a type under itself can be chosen at its inner place in the tree`);
+    checks.push(`${label}: a type that contains itself stands once and can be chosen in the tree`);
 
     // A type under the top-level type, with a new attribute (the pane by keyboard, the Add menu).
     await page.getByRole("button", { name: "Add to the model" }).click();
@@ -259,7 +275,10 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await dialog().getByLabel("Group").selectOption({ label: "Storage A4a" });
     await apply();
     await pane.getByRole("treeitem", { name: /^Storage A4a/ }).waitFor();
-    assert.equal(await pane.getByRole("treeitem", { name: /^Shelf A4a/ }).count(), 2);
+    // A grouped type stands in its group only (c120ff18), one level under the group row.
+    const shelfRows = pane.getByRole("treeitem", { name: /^Shelf A4a/ });
+    assert.equal(await shelfRows.count(), 1);
+    assert.equal(await shelfRows.first().getAttribute("aria-level"), "3");
     checks.push(`${label}: a navigation group added and the new collection placed in it`);
 
     // Undo and redo. The issues and history pane opens only by hand, and undo leaves it as it was.
@@ -274,7 +293,10 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     assert.equal(await pane.getByRole("treeitem", { name: /^Shelf A4a/ }).count(), 1);
     await page.getByRole("button", { name: "Redo", exact: true }).click();
     await page.getByText(/^Redid step/).waitFor();
-    assert.equal(await pane.getByRole("treeitem", { name: /^Shelf A4a/ }).count(), 2);
+    // A grouped type stands in its group only (c120ff18), one level under the group row.
+    const shelfRegrouped = pane.getByRole("treeitem", { name: /^Shelf A4a/ });
+    assert.equal(await shelfRegrouped.count(), 1);
+    assert.equal(await shelfRegrouped.first().getAttribute("aria-level"), "3");
     await shot("history-1440");
     await drawer.click();
     assert.equal(await drawer.getAttribute("aria-expanded"), "false");
@@ -326,11 +348,17 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await page.waitForFunction(
       () => document.querySelector('[data-row^="type:"][aria-level="2"]')?.closest("ul") !== null,
     );
-    const shelfLevel = await pane
-      .getByRole("treeitem", { name: /^Shelf A4a/ })
+    // Shelf stands in its group (a grouped type stands there only, c120ff18), so the pane no longer shows
+    // the move as a change of level; the history says it.
+    const historyDrawer = page.getByRole("button", { name: /^Issues and history/ });
+    if ((await historyDrawer.getAttribute("aria-expanded")) === "false") await historyDrawer.click();
+    await page.getByRole("tab", { name: "History" }).click();
+    await page
+      .getByText(/Moved Shelf A4a to the top level/)
       .first()
-      .getAttribute("aria-level");
-    assert.equal(shelfLevel, "2");
+      .waitFor();
+    assert.equal(await row("Shelf A4a").getAttribute("aria-level"), "3");
+    await historyDrawer.click();
     checks.push(`${label}: dragging a type to its application opens Move to… with the top level chosen, and moves it`);
 
     // Drag: Shelf onto another application (J33.15, found 2026-10-19), the pane scrolling while the
@@ -374,9 +402,15 @@ async function journey(label, source, { emptyDraft = false } = {}) {
         .click();
       await dialog().waitFor({ state: "hidden" });
       await page.locator(`[data-row^="type:${otherApp.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
-      assert.equal(await page.locator(`[data-row^="type:${application.key}:"]`, { hasText: "Shelf A4a" }).count(), 0);
+      assert.equal(
+        await page
+          .locator(`[data-row$=":${application.key}"], [data-row*=":${application.key}:"]`, { hasText: "Shelf A4a" })
+          .count(),
+        0,
+      );
       await page.getByRole("button", { name: "Undo", exact: true }).click();
-      await page.locator(`[data-row^="type:${application.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
+      // Back in its group, where a grouped type stands (c120ff18).
+      await page.locator(`[data-row^="collection:${application.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
       await page.setViewportSize(size);
       checks.push(
         `${label}: dragging a type onto another application moves it there, the pane scrolling at its edge during the drag, and Undo takes it back`,
@@ -400,7 +434,9 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await shot("marked-1440");
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await row(top.name).waitFor();
-    checks.push(`${label}: a key change of a released type applies, is marked as needing a migration in the history, and is undone`);
+    checks.push(
+      `${label}: a key change of a released type applies, is marked as needing a migration in the history, and is undone`,
+    );
 
     // A stale editor: another client applies a step first; the editor asks and applies again (D41).
     const draftId = new URL(page.url()).pathname.split("/")[4];

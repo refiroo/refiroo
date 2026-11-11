@@ -56,3 +56,25 @@ def test_the_build_writes_the_page_its_two_documents_and_the_script(tmp_path):
     assert json.loads((tmp_path / "api" / "stops.json").read_text())["openapi"].startswith("3.1")
     assert (tmp_path / "api" / "scalar" / "standalone.js").is_file()
     assert (tmp_path / "brand" / "refiroo-header.css").is_file()
+
+
+def test_the_management_document_lists_the_gated_operations_too():
+    paths = static_site._management_document()["paths"]
+
+    assert any("/model-drafts" in path for path in paths)
+    assert any("/consumer-subscriptions" in path for path in paths)
+    assert any("/jobs" in path for path in paths)
+
+
+def test_an_attributed_inline_script_of_a_host_theme_is_hashed_and_a_script_file_is_not():
+    page = (
+        '<html><head><meta charset="utf-8" />'
+        '<script type="module" data-host="x">window.host = 1;</script>'
+        '<script src="/theme/host.js" defer></script></head><body></body></html>'
+    )
+
+    policy = unescape(re.search(r'content="([^"]*)"', with_meta_policy("bundled", page)).group(1))
+
+    digest = base64.b64encode(hashlib.sha256(b"window.host = 1;").digest()).decode()
+    assert f"'sha256-{digest}'" in policy
+    assert policy.count("sha256-") == 1

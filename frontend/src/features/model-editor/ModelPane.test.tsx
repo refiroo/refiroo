@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ModelPane } from "@/features/model-editor/ModelPane";
+import { ModelPane, paneRows } from "@/features/model-editor/ModelPane";
 import { outlineFixture } from "@/test/draftOutline";
 import type { EditorSelection } from "@/types";
 
@@ -206,5 +206,29 @@ describe("ModelPane borrowed types", () => {
     const bin = rowsOf("archive").find((row) => row.getAttribute("data-row")?.startsWith("collection:"))!;
     fireEvent.click(bin);
     expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "bin", application: "shop" });
+  });
+
+  it("gives every row one key, also when several views of an application borrow the same type", () => {
+    const outline = borrowing();
+    const archive = outline.applications[1]!;
+    // Shelf comes up under two parents, as it does when two views borrow it.
+    archive.borrowedTree = [
+      { objectType: "shelf", children: [] },
+      { objectType: "bin", children: [{ objectType: "shelf", children: [] }] },
+    ];
+    archive.navigation.groups = [];
+    const ids = paneRows(outline, new Set()).map((row) => row.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.filter((id) => id === "borrowed:archive:shelf")).toHaveLength(1);
+  });
+
+  it("lists a type placed in a group in its group only, not again under the unused types", () => {
+    const outline = borrowing();
+    const archive = outline.applications[1]!;
+    archive.unused = ["area", "bin"];
+    const rows = paneRows(outline, new Set());
+    expect(rows.filter((row) => row.typeKey === "bin" && row.applicationKey === "archive")).toHaveLength(1);
+    const head = rows.find((row) => row.id === "unused:archive")!;
+    expect(head.note).toBe("1");
   });
 });

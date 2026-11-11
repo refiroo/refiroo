@@ -49,21 +49,23 @@ def test_workspaces_holding_a_group(world):
 @pytest.mark.journey("J40.12")
 def test_the_groups_held_anywhere(world):
     """Given the same caller. When the groups it holds anywhere are read, then they are Browse in
-    A and Integration administrator's groups (Integration administration and Feed, D230) in B and
-    nothing else; the administrator's are Security administration at the instance; after the grant
-    in B is removed, B is gone on the next request."""
+    A and Integration administrator's groups (Integration administration, Feed and Use AI
+    proposals: D230, API § predefined roles) in B and nothing else; the administrator's are
+    Security administration at the instance; after the grant in B is removed, B is gone on the
+    next request."""
     _, caller = _client(world, "Reader and integrator", ("reader", {"workspaceKey": W1}))
     client_id = ok(caller.api.get("/me"))["id"]
     in_b = _grant(world, "client", client_id, "integration-admin", workspaceKey=W2)
     _, security = _client(world, "Security only", ("security-admin", {"instance": True}))
 
     held = _held(caller)
-    assert set(held) == {"browse", "integration-admin", "feed"}
+    assert set(held) == {"browse", "integration-admin", "feed", "ai-proposals"}
     assert held["browse"]["name"] == "Browse" and held["browse"]["instance"] is False
     assert [where["key"] for where in held["browse"]["workspaces"]] == [W1]
     assert all(where["label"] for where in held["browse"]["workspaces"])
     assert [where["key"] for where in held["integration-admin"]["workspaces"]] == [W2]
     assert [where["key"] for where in held["feed"]["workspaces"]] == [W2]
+    assert [where["key"] for where in held["ai-proposals"]["workspaces"]] == [W2]
     assert _held(security) == {
         "security-admin": {
             "key": "security-admin",

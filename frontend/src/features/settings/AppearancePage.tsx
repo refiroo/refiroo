@@ -10,28 +10,29 @@ import { useDefaultTableDensity, type TableDensity } from "@/lib/tableDensity";
 import { useEditHint, type EditHint } from "@/lib/editHint";
 import { useSchemePreference, type ColourScheme } from "@/lib/scheme";
 import { usePalettePreference, type TypePalette } from "@/lib/palette";
+import { Choice } from "@/ui/Choice";
 import { FormField } from "@/ui/FormField";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 
-const DENSITIES: { value: TableDensity; label: string }[] = [
-  { value: "comfortable", label: "Comfortable" },
-  { value: "compact", label: "Compact" },
+const DENSITIES: [TableDensity, string][] = [
+  ["comfortable", "Comfortable"],
+  ["compact", "Compact"],
 ];
 
-const SCHEMES: { value: ColourScheme; label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "purple", label: "Website purple" },
+const SCHEMES: [ColourScheme, string][] = [
+  ["normal", "Normal"],
+  ["purple", "Website purple"],
 ];
 
-const PALETTES: { value: TypePalette; label: string }[] = [
-  { value: "b", label: "B: magenta and olive" },
-  { value: "a", label: "A: plum and gold" },
+const PALETTES: [TypePalette, string][] = [
+  ["b", "B: magenta and olive"],
+  ["a", "A: plum and gold"],
 ];
 
-const EDIT_HINTS: { value: EditHint; label: string }[] = [
-  { value: "hover", label: "On hover and focus" },
-  { value: "always", label: "Always, faintly" },
+const EDIT_HINTS: [EditHint, string][] = [
+  ["hover", "On hover and focus"],
+  ["always", "Always, faintly"],
 ];
 
 export function AppearancePage() {
@@ -52,46 +53,39 @@ export function AppearancePage() {
           label="Theme"
           help="Normal, or the colours of the refiroo website. Light and dark below apply to either."
         >
-          {() => (
-            <div className="theme-choice">
-              {SCHEMES.map((option) => (
-                <label key={option.value} className={scheme === option.value ? "selected" : undefined}>
-                  <input
-                    type="radio"
-                    name="appearance-scheme"
-                    value={option.value}
-                    checked={scheme === option.value}
-                    onChange={() => setScheme(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </div>
+          {(control) => (
+            <Choice
+              name="appearance-scheme"
+              value={scheme}
+              options={SCHEMES}
+              onChange={setScheme}
+              describedBy={control["aria-describedby"]}
+            />
           )}
         </FormField>
         <FormField group label="Light or dark" help="System follows your device's light or dark setting.">
-          {() => <ThemeChoice theme={theme} onChange={setTheme} name="appearance-theme" />}
+          {(control) => (
+            <ThemeChoice
+              theme={theme}
+              onChange={setTheme}
+              name="appearance-theme"
+              describedBy={control["aria-describedby"]}
+            />
+          )}
         </FormField>
         <FormField
           group
           label="Table density"
           help="The default for every table. A table's own choice in its Display menu overrides it."
         >
-          {() => (
-            <div className="theme-choice">
-              {DENSITIES.map((option) => (
-                <label key={option.value} className={density === option.value ? "selected" : undefined}>
-                  <input
-                    type="radio"
-                    name="appearance-density"
-                    value={option.value}
-                    checked={density === option.value}
-                    onChange={() => setDensity(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </div>
+          {(control) => (
+            <Choice
+              name="appearance-density"
+              value={density}
+              options={DENSITIES}
+              onChange={setDensity}
+              describedBy={control["aria-describedby"]}
+            />
           )}
         </FormField>
         <FormField
@@ -99,21 +93,14 @@ export function AppearancePage() {
           label="Type colours"
           help="The palette that colours each kind of record. The two differ in the third and fourth colours only."
         >
-          {() => (
-            <div className="theme-choice">
-              {PALETTES.map((option) => (
-                <label key={option.value} className={palette === option.value ? "selected" : undefined}>
-                  <input
-                    type="radio"
-                    name="appearance-palette"
-                    value={option.value}
-                    checked={palette === option.value}
-                    onChange={() => setPalette(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </div>
+          {(control) => (
+            <Choice
+              name="appearance-palette"
+              value={palette}
+              options={PALETTES}
+              onChange={setPalette}
+              describedBy={control["aria-describedby"]}
+            />
           )}
         </FormField>
         <FormField
@@ -121,21 +108,14 @@ export function AppearancePage() {
           label="Edit pencil"
           help="When a record's editable fields show their pencil. Touch screens always show it."
         >
-          {() => (
-            <div className="theme-choice">
-              {EDIT_HINTS.map((option) => (
-                <label key={option.value} className={hint === option.value ? "selected" : undefined}>
-                  <input
-                    type="radio"
-                    name="appearance-edit-hint"
-                    value={option.value}
-                    checked={hint === option.value}
-                    onChange={() => setHint(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </div>
+          {(control) => (
+            <Choice
+              name="appearance-edit-hint"
+              value={hint}
+              options={EDIT_HINTS}
+              onChange={setHint}
+              describedBy={control["aria-describedby"]}
+            />
           )}
         </FormField>
       </Section>

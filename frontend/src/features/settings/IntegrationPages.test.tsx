@@ -333,6 +333,15 @@ describe("Jobs grouped (0.13 JG)", () => {
     );
   });
 
+  it("says Cancel requested on a single job's row until it is cancelled", async () => {
+    vi.mocked(api.jobGroups).mockResolvedValue({
+      items: [{ job: job("solo", { state: "queued", cancelRequestedAt: "2026-10-07T08:00:03Z" }), group: null }],
+      nextCursor: null,
+    });
+    renderJobs();
+    expect(await screen.findByRole("row", { name: /solo/ })).toHaveTextContent("Cancel requested");
+  });
+
   it("switches to every job and remembers the choice", async () => {
     vi.mocked(api.jobs).mockResolvedValue({ items: [job("j1")], nextCursor: null });
     renderJobs();

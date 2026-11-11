@@ -178,7 +178,7 @@ def derive(
                         "relationTypeKey": relation,
                     }
                 )
-        elif entry.kind == "replaceModel":
+        elif entry.kind == "replaceModel" and not any(n["code"] == "MODEL_REPLACED" for n in notes):
             notes.append(
                 {
                     "code": "MODEL_REPLACED",
@@ -221,6 +221,8 @@ def derive(
         item["key"]: set(item.get("objectTypeKeys") or []) for item in _items(model, "applications")
     }
 
+    draft_owned = owned_in_applications(model)
+
     type_mappings: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     for base_key, base_type in base_types.items():
@@ -239,7 +241,7 @@ def derive(
             applications.now.get(app) for app, members in base_apps.items() if base_key in members
         }
         now_in = {app for app, members in draft_apps.items() if now in members}
-        to_application = application_target(was_in, now_in)
+        to_application = application_target(was_in, now_in, owned_in=draft_owned.get(now, set()))
         parent = _parent(base_type, draft_type)
         changed = (
             now != base_key or bool(sources) or to_application is not None or parent != "unchanged"
@@ -316,14 +318,45 @@ def _rewrite(
             item["attributes"] = [new if key == old else key for key in item["attributes"]]
 
 
-def application_target(was_in: set[str | None], now_in: set[str]) -> str | None:
+def owned_in_applications(model: dict[str, Any]) -> dict[str, set[str]]:
+    """For each object type, the applications in whose list it stands as *own*: it holds the type's
+    records through a ``table`` view of it or a ``tree`` view that includes it (an application that
+    only uses it in a relation view borrows it)."""
+    owned: dict[str, set[str]] = {}
+    for application in _items(model, "applications"):
+        listed = {key for key in application.get("objectTypeKeys") or [] if isinstance(key, str)}
+        for view in _items(application, "views"):
+            config = view.get("config") or {}
+            if view.get("type") == "table":
+                keys = [view.get("objectTypeKey")]
+            elif view.get("type") == "tree":
+                keys = config.get("objectTypeKeys") or []
+            else:
+                continue
+            for key in keys:
+                if isinstance(key, str) and key in listed:
+                    owned.setdefault(key, set()).add(application["key"])
+    return owned
+
+
+def application_target(
+    was_in: set[str | None], now_in: set[str], owned_in: set[str] | None = None
+) -> str | None:
     """The application the records of a type go to when it stands in another application now: the
-    one it gained, where it left one. A type that left no application keeps its records where they
-    are, and one that only left (the target lists it elsewhere) names no destination: the migration
-    sends its records to the one application that lists it, or lists them as lost."""
+    one it gained, where it left one. Where it gained several, the one where it is own (``owned_in``:
+    a table view of it or a tree view including it), as records are not moved to an application that
+    only borrows the type for a view; none or several own ones name no destination, and the preview
+    refuses with ``APPLICATION_TARGET_AMBIGUOUS``. A type that left no application keeps its records
+    where they are, and one that only left (the target lists it elsewhere) names no destination: the
+    migration sends its records to the one application that lists it, or lists them as lost."""
     left = {app for app in was_in if app} - now_in
     arrived = arrived_applications(was_in, now_in)
-    return arrived[0] if left and arrived else None
+    if not left or not arrived:
+        return None
+    if len(arrived) == 1:
+        return arrived[0]
+    own = [app for app in arrived if app in (owned_in or set())]
+    return own[0] if len(own) == 1 else None
 
 
 def _parent(before: dict[str, Any], after: dict[str, Any]) -> str:

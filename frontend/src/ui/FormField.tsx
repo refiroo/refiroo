@@ -33,7 +33,7 @@ export function FormField({
   const describedBy = [help ? helpId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined;
   const control: FieldControlProps = {
     id,
-    ...(describedBy && !group ? { "aria-describedby": describedBy } : {}),
+    ...(describedBy ? { "aria-describedby": describedBy } : {}),
     ...(error ? { "aria-invalid": true as const } : {}),
   };
   const notes = (

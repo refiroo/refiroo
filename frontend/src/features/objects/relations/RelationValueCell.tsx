@@ -25,6 +25,7 @@ export function RelationValueCell({
   onDirty,
   floating = false,
   saved = false,
+  tabbable = false,
 }: {
   attribute: AttributeTypeDefinition;
   relation: StoredRelation;
@@ -39,6 +40,8 @@ export function RelationValueCell({
   floating?: boolean;
   /** A yes/no value in a floating cell is the control itself; the parent says one was just saved. */
   saved?: boolean;
+  /** The edit pencil is a tab stop (a table with no row action to edit by). */
+  tabbable?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [changed, setChanged] = useState(false);
@@ -99,6 +102,7 @@ export function RelationValueCell({
       <EditInPlaceCell
         name={attribute.name}
         record={label}
+        tabbable={tabbable}
         onEdit={() => {
           edit.reset();
           setChanged(false);

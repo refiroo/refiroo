@@ -76,11 +76,14 @@ export function DesignLoad({
   load,
   names,
   stale = false,
+  moves = false,
 }: {
   load: AiTaskLoad;
   names: ModelNames;
   /** The draft changed after the check: accepting checks every record again first. */
   stale?: boolean;
+  /** The proposal moves records: accepting installs the model and loads nothing, the migration moves them. */
+  moves?: boolean;
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
@@ -93,8 +96,10 @@ export function DesignLoad({
   return (
     <Card as="section" title="What the load does" className="task-table">
       <p>
-        The engine checked every record and relationship below against the model and your data, writing nothing.
-        Accepting loads exactly this.
+        The engine checked every record and relationship below against the model and your data, writing nothing.{" "}
+        {moves
+          ? "Accepting loads none of it: the records move by the migration you confirm first."
+          : "Accepting loads exactly this."}
       </p>
       {stale && (
         <Notice tone="warning">

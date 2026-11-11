@@ -63,22 +63,38 @@ button.model-editor-crumb {
   min-height: 0;
 }
 .model-editor-model {
+  /* Height of the tab strip that stays at the top of the pane's scroll. */
+  --pane-tabs-height: 48px;
   position: relative;
+  scroll-padding-top: var(--pane-tabs-height);
   min-height: 0;
   border-right: 1px solid var(--border-subtle);
   background: var(--rail-surface);
-  padding: var(--space-2) var(--space-2) var(--space-3);
+  padding: 0 var(--space-2) var(--space-3);
   overflow: auto;
 }
 /* The pane's two tabs, Model and Consumer APIs, with ＋ at their end (0.10 A4c, D59). */
+/* The strip and ＋ stay in view while the rows scroll under them; the strip carries the pane's top
+   padding so nothing shows above it, and rows scrolled into view stop below it (scroll-padding-top). */
 .model-editor-model > div > .tab-list {
-  margin-bottom: var(--space-2);
-  padding-right: 40px;
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  box-sizing: border-box;
+  height: var(--pane-tabs-height);
+  margin: 0 calc(-1 * var(--space-2)) var(--space-2);
+  padding: var(--space-2) calc(40px + var(--space-2)) 0 var(--space-2);
+  background: var(--rail-surface);
 }
 .model-editor-pane-add {
-  position: absolute;
+  position: sticky;
+  z-index: 3;
   top: var(--space-2);
-  right: var(--space-2);
+  height: 0;
+  /* Lifted onto the strip, and the lift given back below, so the rows keep their place under it. */
+  margin: calc(-1 * (var(--pane-tabs-height) + var(--space-2))) 0 calc(var(--pane-tabs-height) + var(--space-2));
+  display: flex;
+  justify-content: flex-end;
 }
 .model-editor-pane-note {
   padding: var(--space-3) var(--space-2) 0;
@@ -176,12 +192,20 @@ button.model-editor-crumb {
   background: transparent;
 }
 /* A type the application lists for a relation view: the view, relation and home after its name. */
-.model-pane-row.borrowed .model-pane-label {
-  flex: 0 0 auto;
+/* A borrowed row has two lines: the name and status on the first, the kind chip and the detail
+   ("view · relation · from home") under the name, so neither is cut to make room. */
+.model-pane-row.borrowed {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 .model-pane-borrowed {
-  display: inline-flex;
-  flex: 1 1 auto;
+  grid-column: 2 / -1;
+  grid-row: 2;
+  display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
@@ -190,12 +214,14 @@ button.model-editor-crumb {
   font-weight: 400;
 }
 .model-pane-borrowed-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .model-pane-chip {
   flex: none;
+  white-space: nowrap;
   padding: 0 var(--space-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
@@ -1022,6 +1048,24 @@ button.model-editor-crumb {
   .model-pane-row {
     min-height: 44px;
   }
+  /* The page scrolls here, not the pane: its tab strip stays as it was. */
+  .model-editor-model {
+    scroll-padding-top: 0;
+  }
+  .model-editor-model > div > .tab-list {
+    position: static;
+    height: auto;
+    margin: 0 0 var(--space-2);
+    padding: 0 40px 0 0;
+    background: none;
+  }
+  .model-editor-pane-add {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    height: auto;
+    margin: 0;
+  }
   .editor-history-list li {
     grid-template-columns: 40px minmax(0, 1fr) 56px;
   }
@@ -1035,6 +1079,10 @@ button.model-editor-crumb {
   }
   .element-actions {
     margin-left: 0;
+  }
+  /* The title's width is its facts side by side, so a long fact sent it below the tile; it shares the row with the tile and the facts wrap inside it. */
+  .element-title {
+    flex: 1 1 12rem;
   }
 }
 

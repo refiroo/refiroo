@@ -79,8 +79,8 @@ For each feature, apply only the steps relevant to its scope:
    package IDs), design in `docs/ARCHITECTURE.md` (the system as it is, not its history), settings
    and runbooks in `docs/OPERATIONS.md`, contracts in `docs/API.md`, history in `CHANGELOG.md`.
    The README stays a landing page and links to them.
-   A change to user-visible behavior also updates the guide pages that describe it, and `npm run build`
-   in `guide/` passes.
+   A change to user-visible behavior also updates the guide pages that describe it, and `npm run verify`
+   in `guide/` passes (it builds the guide, then runs the static, inventory, coverage, sidebar and link checks).
 8. Run the validation required for the affected layer as defined below.
 
 Avoid speculative abstractions. Add a generalization after two real RDM cases demonstrate it. Keep API

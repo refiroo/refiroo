@@ -218,7 +218,9 @@ class RelationGridChange(BaseModel):
         if (self.fromObjectIds is None) == (not self.allMatching):
             raise ValueError("give either fromObjectIds or allMatching: true, not both or neither")
         if self.fromObjectIds is not None and (self.search or self.filters or self.exceptObjectIds):
-            raise ValueError("search, filters and exceptObjectIds select rows only with allMatching: true")
+            raise ValueError(
+                "search, filters and exceptObjectIds select rows only with allMatching: true"
+            )
         return self
 
 
@@ -1118,6 +1120,24 @@ class GrantCreate(BaseModel):
 
 
 DEFAULT_AUTHORITY_URL = "https://login.microsoftonline.com"
+# With a managed identity the host's token goes to the authority as a client assertion, so only
+# Microsoft's own sign-in hosts are accepted there (R13-F3); tests widen the set to their stub.
+MICROSOFT_AUTHORITY_HOSTS = frozenset(
+    {
+        "login.microsoftonline.com",
+        "login.microsoftonline.us",
+        "login.partner.microsoftonline.cn",
+        "login.chinacloudapi.cn",
+    }
+)
+
+
+def is_microsoft_authority(url: str) -> bool:
+    """Whether ``url``'s host is one of Microsoft's sign-in hosts (the scheme is checked apart:
+    ``_service_address`` allows http only for this computer)."""
+    return (urlsplit(url).hostname or "").lower() in MICROSOFT_AUTHORITY_HOSTS
+
+
 DEFAULT_GRAPH_URL = "https://graph.microsoft.com"
 _SMTP_ONLY = ("host", "port", "security", "username", "password")
 _MICROSOFT_ONLY = (
@@ -1275,7 +1295,17 @@ class MailSettingsUpdate(BaseModel):
         ):
             raise ValueError(f"is required with the {'SMTP' if smtp else 'Microsoft 365'} method")
         if name in ("authorityUrl", "graphUrl") and value is not None:
-            return _service_address(value)
+            address = _service_address(value)
+            if (
+                name == "authorityUrl"
+                and info.data.get("identityMode")
+                and not is_microsoft_authority(address)
+            ):
+                raise ValueError(
+                    "must be one of Microsoft's sign-in hosts with a managed identity "
+                    f"({', '.join(sorted(MICROSOFT_AUTHORITY_HOSTS))})"
+                )
+            return address
         return value
 
     @field_validator("applicationUrl")

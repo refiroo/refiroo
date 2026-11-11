@@ -21,20 +21,27 @@ export function useDraftMigration(
   enabled: boolean,
   version: number,
 ) {
-  const [migration, setMigration] = useState<DraftMigration>();
-  const [error, setError] = useState("");
+  // The state belongs to what it was read for: another draft, workspace or version starts unread.
+  const key = `${draftId}|${workspaceKey ?? ""}|${version}`;
+  const [read, setRead] = useState<{ key: string; migration?: DraftMigration; error?: string }>();
   useEffect(() => {
     if (!enabled) return;
     let active = true;
     api
       .modelDraftMigration(draftId, workspaceKey)
-      .then((loaded) => active && setMigration(loaded))
-      .catch((cause) => active && setError(errorMessage(cause)));
+      .then((loaded) => active && setRead({ key, migration: loaded }))
+      .catch((cause) => active && setRead({ key, error: errorMessage(cause) }));
     return () => {
       active = false;
     };
-  }, [draftId, workspaceKey, enabled, version]);
-  return { migration: enabled ? migration : undefined, error };
+  }, [draftId, workspaceKey, enabled, version, key]);
+  const current = enabled && read?.key === key ? read : undefined;
+  return {
+    migration: current?.migration,
+    error: current?.error ?? "",
+    /** Wanted and not read yet: nothing may start with the mappings missing. */
+    pending: enabled && !current,
+  };
 }
 
 /** The request fields of the workspace migration the draft states, with the draft that proposed them. */
@@ -120,8 +127,8 @@ export function DraftMigrationNotice({
           </ul>
         )}
         {!lines.length && reasons ? ` ${reasons}` : null}
-        {migration.notes.map((note) => (
-          <p key={note.code}>{note.message}.</p>
+        {migration.notes.map((note, position) => (
+          <p key={`${note.code}:${position}`}>{note.message}.</p>
         ))}
       </Notice>
       {landing && (

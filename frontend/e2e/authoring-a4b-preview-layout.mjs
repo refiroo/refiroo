@@ -9,6 +9,8 @@
 // removed and its default sort set; a new type's empty record; a step that leaves the draft invalid
 // shows the notice; install and activate, then the record screen and the active model hold the same
 // layout. No request the preview makes writes. Keyboard for one menu; 1440px and 390px; axe.
+// R13 release review: the drag scrolls the panel's grip into view first, as a person would (the page now
+// scrolls inside the window, so the grip could be out of view).
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -261,7 +263,9 @@ async function journey(label, source) {
 
     // By drag (mouse): the hidden panel dragged back into main.
     // As a person drags: press on the grip, start moving, then go to the target.
-    const grip = await frame(firstMain).locator(".layout-grip").first().boundingBox();
+    const gripLocator = frame(firstMain).locator(".layout-grip").first();
+    await gripLocator.scrollIntoViewIfNeeded();
+    const grip = await gripLocator.boundingBox();
     await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
     await page.mouse.down();
     await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 - 12, { steps: 3 });

@@ -35,14 +35,9 @@
       "region": "main",
       "order": 10,
       "config": {
-        "relationTypeKeys": [
-          "stop-served-by-mode"
-        ],
+        "relationTypeKeys": ["stop-served-by-mode"],
         "direction": "outgoing",
-        "columns": [
-          "name",
-          "mode-code"
-        ],
+        "columns": ["name", "mode-code"],
         "showRelationshipColumn": false
       }
     },
@@ -53,15 +48,9 @@
       "region": "main",
       "order": 20,
       "config": {
-        "relationTypeKeys": [
-          "stop-operated-by-operator"
-        ],
+        "relationTypeKeys": ["stop-operated-by-operator"],
         "direction": "outgoing",
-        "columns": [
-          "name",
-          "operator-code",
-          "operator-sboid"
-        ],
+        "columns": ["name", "operator-code", "operator-sboid"],
         "showRelationshipColumn": false
       }
     },
@@ -72,21 +61,11 @@
       "region": "main",
       "order": 30,
       "config": {
-        "relationTypeKeys": [
-          "system-code-maps-to"
-        ],
+        "relationTypeKeys": ["system-code-maps-to"],
         "direction": "incoming",
-        "columns": [
-          "name",
-          "ancestor:system",
-          "external-id",
-          "description"
-        ],
+        "columns": ["name", "ancestor:system", "external-id", "description"],
         "showRelationshipColumn": false,
-        "sortFields": [
-          "ancestor:system",
-          "name"
-        ],
+        "sortFields": ["ancestor:system", "name"],
         "defaultSort": "ancestor:system"
       }
     },
@@ -97,21 +76,11 @@
       "region": "main",
       "order": 40,
       "config": {
-        "relationTypeKeys": [
-          "object-has-translation"
-        ],
+        "relationTypeKeys": ["object-has-translation"],
         "direction": "outgoing",
-        "columns": [
-          "name",
-          "ancestor:language",
-          "translated-name",
-          "active"
-        ],
+        "columns": ["name", "ancestor:language", "translated-name", "active"],
         "showRelationshipColumn": false,
-        "sortFields": [
-          "ancestor:language",
-          "name"
-        ],
+        "sortFields": ["ancestor:language", "name"],
         "defaultSort": "ancestor:language"
       }
     }

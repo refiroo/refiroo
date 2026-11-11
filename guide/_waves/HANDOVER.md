@@ -106,7 +106,7 @@ Docker start may put Portainer on port 8000 (memory: user runs `docker stop port
 
 ## Git
 
-Committed up to 62731884 (`main`, ahead of `origin/main`, nothing pushed). Uncommitted at handover, this
+Committed up to 38fed932 (`main`, ahead of `origin/main`, nothing pushed). Uncommitted at handover, this
 work: the C7c/C5d pages and sidebar label, the C10 round-4 files and new pictures, `guide/tools/CODEX_TOOL.md`,
 `guide/tools/screens.mjs`, this handover, and this work's CHANGELOG entry ("Added (documentation: production
 deployment and AI)"). Other sessions have uncommitted changes in the same checkout (e.g.

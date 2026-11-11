@@ -38,10 +38,37 @@ replacing placeholders or ignoring a column changes those reading instructions; 
 or rewrite the source spreadsheet. refiroo records are the result of that mapping, rather than a
 copy of the workbook's presentation.
 
-The **source pane** lists sheets and profiles their columns: filled cells, distinct values,
-possible value types and candidate keys. Sheet counts can include header rows; the rows actually
-read are identified by the source and dry run. Check headers and loaded ranges before relying on
-those counts.
+Storing the file starts a background job that reads every sheet and column before mapping
+can use it. While it runs, **Source** says **Profiling [file name]: reading every sheet and
+column…**. If **The workbook was not profiled** appears, read its reason and upload the file
+again from the draft's menu. A check cannot use a file whose analysis has not finished.
+Oversized files and formats other than XLSX or CSV are refused; reduce the file or convert it
+before uploading again.
+
+Once ready, **Source** shows a tab for each sheet, with its row count. On a sheet arranged as
+several lists, select a list to inspect **Cells**, its header, **Under**, **Note** and **Loads**.
+The cell preview shows the range with surrounding cells: loaded cells are shaded and the
+header is darker. **Adjust list…** changes **Header row** and the range used for loading.
+Sheet counts can include headers; check the actual list range and dry run before relying on them.
+
+Select a column and read **Statistics**:
+
+- **Filled** gives filled rows and distinct values. **no value twice: a candidate key** means
+  every row is filled with a different value, not that it is the right business identifier.
+- **Values read as** shows which value types the cells can be read as; **Most frequent values**
+  lists common values and their counts.
+- **Placeholders** and **Delimiters**, when present, help identify empty-value spellings and
+  cells holding several values. Review them before choosing replacements or splitting.
+- **Shares values with** names other workbook columns or fields and names of records in the
+  comparison workspace, with shared-value counts and percentages. Shared values suggest a match;
+  they do not prove a relationship or identity.
+
+**Upload a newer workbook…** makes the earlier file superseded. The earlier copy remains for
+the job retention period measured from replacement, then is deleted. For a saved profile,
+replacement applies within the chosen workspace; it does not replace another workspace's file.
+A profile's stored file can be used by its uploader and people with **Bulk and import** in
+that workspace; files naming no workspace need that access at the instance. Keep the original
+outside refiroo if you need a lasting archive.
 
 ![The workbook source pane beside the proposed model and selected type](/docs/screens/use-wb-editor.png)
 

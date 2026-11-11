@@ -315,7 +315,10 @@ function GroupedRow({
         <td data-label="Workspace">{workspace}</td>
         <td data-label="Jobs">1 job</td>
         <td data-label="State">
-          <StatusPill tone={job.result === "partial" ? "warning" : state.tone}>{state.label}</StatusPill>
+          <span className="job-state">
+            <StatusPill tone={job.result === "partial" ? "warning" : state.tone}>{state.label}</StatusPill>
+            {job.cancelRequestedAt && job.state !== "cancelled" && <span>Cancel requested</span>}
+          </span>
         </td>
         <td data-label="Latest">{formatServerTime(job.createdAt)}</td>
         <td data-label="Actions">

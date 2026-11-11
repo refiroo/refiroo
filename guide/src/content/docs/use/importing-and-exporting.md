@@ -70,6 +70,26 @@ CSV or workbook that was not exported by refiroo. Profile setup belongs to
 [Workbook onboarding](/docs/model/workbook-onboarding/); a steward can
 [load its next version](/docs/guide/use/load-the-next-version-of-a-workbook/).
 
+Under **Settings › Data operations › Import profiles**, **Upload the next version…** stores
+an XLSX or CSV file and starts a job to read its sheets and columns. While waiting, the page
+says **Checking [file name]: profiling its sheets, then reading it through the profile…**.
+This reading step writes no records. If **The file could not be read** appears, follow its
+reason and upload a corrected file. A file that is too large or is neither XLSX nor CSV is
+refused. Checking and loading must wait until its analysis is finished.
+
+The profile page reports **Columns**, **Values**, **Records** and **Profile against the active
+release**. To inspect the source's sheets, detected lists, header rows, column statistics
+and cell ranges while changing the mapping, a model administrator uses the draft's
+[source pane](/docs/model/workbook-onboarding/#source-file-and-draft). Those statistics show
+filled and distinct values, candidate keys, frequent values, placeholders and shared values
+with other columns or records in the comparison workspace; they are evidence to review.
+
+A newer upload supersedes the earlier file for this profile in this workspace. The earlier
+file is kept for the job retention period after replacement, then deleted. It does not replace
+another workspace's upload. The stored file is shared with its uploader and holders of
+**Bulk and import** in its workspace; a file naming no workspace requires that access at the
+instance. Keep your own original if it needs to outlive this retention.
+
 A missing or ambiguous related name is refused. Parents can be resolved from existing records
 or the same file, and are loaded before children. Repeated keys with compatible filled cells,
 in one sheet or several sheets of the file, combine into one record; conflicting filled values refuse all contributing rows. Blank cells
@@ -205,7 +225,8 @@ Open **Settings › Data operations › Import profiles** and select the profile
 Deleting either item does not undo a load or remove records already loaded into a workspace.
 
 - **Delete the file…** asks **Delete <file name>?**. **Delete the file** removes that upload,
-  its stored cells and the analysis of its sheets and columns. A check still reading it is
+  its stored cells and the analysis of its sheets and columns. This analysis is not the saved
+  import profile that maps the columns. A check still reading it is
   asked to stop. The import profile stays. Upload the file again before checking or loading it.
 - **Delete the profile…** asks **Delete the profile <profile name>?**. **Delete the profile**
   removes the saved instructions for reading the workbook and returns you to the profile list.

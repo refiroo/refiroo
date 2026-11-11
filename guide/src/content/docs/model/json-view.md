@@ -74,6 +74,46 @@ and release checks before activation. Export preserves model definitions; it doe
 workspace records, files, access settings or history. Use the operator’s
 [backup and restore procedure](/docs/run/backup-and-restore/) for the installation.
 
+## Relationships table configuration
+
+Start with the [visual relationships-table form](/docs/guide/model/add-a-relationships-table/).
+A specialist maintaining its configuration uses `fromColumns` and `toColumns` as ordered,
+non-empty lists of `name` or scalar attribute keys attached to the respective endpoint type.
+Each list must contain unique fields. `attributeColumns` is an ordered list of attribute keys
+declared by that specific relationship binding; it may be empty but cannot repeat a key.
+A JSON relationship attribute may be a column, but cannot be a filter or sort.
+
+`groupBy` is `from`, `to` or null (no grouping). It heads the rows by the chosen record.
+`layout` is `rows` by default, or `grid`: each from record once, with a column group per to
+record, headed by the first `toColumns` field. The grid ignores `groupBy`; `from:` sorts
+order its rows.
+
+`filterFields` and `sortFields` identify the field's location as `from:<field>`, `to:<field>`
+or `relation:<attribute>`. Endpoint fields must be `name` or attached scalar attributes;
+relationship fields must be declared on the binding. Attribute filters require Filterable.
+The visual form derives these lists from selected columns, excluding JSON; it starts
+`defaultSort` at `from:name` and `pageSize` at 20. A specialist may declare other valid fields.
+`sortFields` must be non-empty, `defaultSort` must name an entry (optionally prefixed with
+`-` for descending), and `pageSize` must be 1–100.
+
+Validation identifies the offending location. The following quoted diagnostic fragments are
+from the validator; words in braces stand for the names in the affected declaration:
+
+| Diagnostic wording | Correction |
+| --- | --- |
+| “references unknown object type '{key}'” / “references unknown relation type '{key}'” | Use existing definitions for both ends and the relationship. |
+| “cannot use containment relation type '{key}'” | Choose a non-containment relationship. |
+| “references a relation binding ({relation}, {from} → {to}) that is not declared in objectTypeRelations” | Declare the directed pair or choose a permitted one. |
+| “View {list} must contain unique fields” | Remove repeats from the named column, filter or sort list. |
+| “{list} references '{field}', which is not 'name' or a scalar attribute attached to '{type}'” | Use a field of the correct endpoint type. |
+| “attributeColumns references '{field}', which binding ({relation}, {from} → {to}) does not declare in attributeTypeKeys” | Use an attribute carried by that pair. |
+| “{purpose} field '{ref}' must be from:&lt;field&gt;, to:&lt;field&gt; or relation:&lt;attribute&gt;” | Qualify the filter or sort with its location. |
+| “{purpose} field '{ref}': the binding does not declare attribute '{field}' in attributeTypeKeys” | Correct the relationship attribute reference. |
+| “{purpose} field '{ref}': '{field}' is not 'name' or a scalar attribute attached to '{type}'” | Correct the endpoint reference. |
+| “filter field '{ref}': attribute '{field}' is not filterable” | Remove the filter or enable filtering on that attribute. |
+| “{purpose} field '{ref}' holds JSON and cannot be used” | Keep JSON as a relationship column only. |
+| “defaultSort must name one of its sortFields” | Choose a declared sort field. |
+
 <!-- Inventory trace: reader-facing controls are explained above.
 product
 product.description

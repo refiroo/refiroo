@@ -17,6 +17,7 @@
 // `409 AI_NOT_CONFIGURED`. The proposal warns of new records beside held ones (`besideHeld`) and Accept still
 // works; the loaded page names the saved profile the engine saved from a keyed load, or says why none was
 // saved. Each by keyboard and at 390px with axe.
+// 0.13 CP (6feccc0f): the values send level reads "with no limit per column", no longer "up to 20 per column".
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -93,7 +94,7 @@ async function journey(label, source, level) {
       .getByText(
         structureOnly
           ? "Names, headers and types; no values"
-          : "Also the record values a feature needs, up to 20 per column",
+          : "Also the record values a feature needs, with no limit per column",
       )
       .waitFor();
     // One feature (targets for unmapped values): offered at the values level, unavailable at structure.

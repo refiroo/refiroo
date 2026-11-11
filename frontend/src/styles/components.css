@@ -632,6 +632,15 @@ li.window-placeholder {
 .table-wrap:focus-visible {
   outline-offset: -2px;
 }
+/* A table wider than its container shows it scrolls: a shade on the edge that has more beyond it.
+   The covers move with the content (`local`), so each shade ends where the scroll does. */
+.table-wrap.object-table {
+  background:
+    linear-gradient(to right, var(--surface-raised) 24px, transparent) left center / 48px 100% no-repeat local,
+    linear-gradient(to left, var(--surface-raised) 24px, transparent) right center / 48px 100% no-repeat local,
+    linear-gradient(to right, var(--border-subtle), transparent) left center / 10px 100% no-repeat scroll,
+    linear-gradient(to left, var(--border-subtle), transparent) right center / 10px 100% no-repeat scroll;
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -1429,7 +1438,8 @@ th[aria-sort] {
   opacity: 0;
   pointer-events: none;
 }
-td:hover .cell-edit-actions {
+td:hover .cell-edit-actions,
+.cell-edit-actions:has(:focus-visible) {
   opacity: 1;
   pointer-events: auto;
 }
@@ -2805,9 +2815,10 @@ button.history-line:hover {
   color: var(--text-secondary);
   font-size: var(--text-sm);
 }
-.change-set-bar-meta > span + span::before {
+/* The separator stays with the fact before it, so a wrapped line never starts with one. */
+.change-set-bar-meta > span:not(:last-child)::after {
   content: "·";
-  margin-right: 4px;
+  margin-left: 4px;
 }
 .change-set-bar-actions {
   display: flex;

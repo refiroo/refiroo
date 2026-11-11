@@ -112,6 +112,7 @@ export function EditableField({
   onRemove,
   describeError,
   floating = false,
+  tabbable = false,
   onOutside,
 }: {
   model: EngineModel;
@@ -137,6 +138,8 @@ export function EditableField({
   describeError?: (cause: unknown) => { message: string; action?: ReactNode } | undefined;
   /** In a cell: the editor floats over the cell, which keeps its value, so nothing in the table moves. */
   floating?: boolean;
+  /** In a cell: the pencil is a tab stop (the table has no row action to edit by). */
+  tabbable?: boolean;
   /** A floating editor: a press outside it (the caller closes it where nothing is unsaved). */
   onOutside?: () => void;
 }) {
@@ -234,6 +237,7 @@ export function EditableField({
         name={name}
         record={object.name}
         disabled={disabled || !!warning}
+        tabbable={tabbable}
         onEdit={onEdit}
         onRemove={onRemove && !empty && !editable.binding.required ? onRemove : undefined}
       >

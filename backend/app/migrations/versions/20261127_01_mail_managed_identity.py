@@ -7,6 +7,9 @@ organisation's tenant; ``federated``: a user-assigned identity as an app's feder
 one credential of the three, and the tenant and application IDs only where a tenant token is
 requested (not ``direct``). One transaction, so an interrupted run leaves the database at
 ``20261126_01``.
+
+The downgrade deletes the managed-identity mail settings (a row with ``ms_identity_mode`` set), since
+older revisions cannot hold one.
 """
 
 import sqlalchemy as sa

@@ -12,6 +12,7 @@ call, whatever the sign-in) come back on the answer, so ``ai_calls`` records the
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +21,20 @@ from typing import Any
 from .provider import ProposalRequest, ProviderAnswer, ProviderError, answer_schema
 
 logger = logging.getLogger(__name__)
+
+
+# What Claude Code needs from the engine's environment; the database URL, the encryption key and the
+# other secrets of the engine are not passed on.
+_KEPT = ("PATH", "HOME", "LANG", "TMPDIR", "USER", "LOGNAME", "SHELL")
+_KEPT_PREFIXES = ("LC_", "ANTHROPIC_", "CLAUDE_")
+
+
+def _environment() -> dict[str, str]:
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name in _KEPT or name.startswith(_KEPT_PREFIXES)
+    }
 
 
 class ClaudeCodeProvider:
@@ -34,7 +49,6 @@ class ClaudeCodeProvider:
         command = [
             self.binary,
             "-p",
-            json.dumps(request.context, ensure_ascii=False),
             "--output-format",
             "json",
             "--system-prompt",
@@ -50,10 +64,15 @@ class ClaudeCodeProvider:
         ]
         if self.model:
             command += ["--model", self.model]
+        # The context is the one part that grows with the data: it goes on stdin, not in argv (Linux
+        # caps one argument at 128 KiB, E2BIG). The flags carry only the fixed instructions and schema.
+        prompt = json.dumps(request.context, ensure_ascii=False)
         with tempfile.TemporaryDirectory(prefix="refiroo-claude-code-") as empty:
             try:
                 done = subprocess.run(
                     command,
+                    input=prompt,
+                    env=_environment(),
                     cwd=empty,
                     capture_output=True,
                     text=True,
@@ -93,10 +112,15 @@ class ClaudeCodeProvider:
             reply.get("duration_ms"),
         )
         if done.returncode != 0 or reply.get("is_error"):
+            # An error reply can still have been charged: the call's tokens and cost go with it.
+            failed_cost = reply.get("total_cost_usd")
             raise ProviderError(
                 "failed",
                 f"Claude Code failed ({reply.get('subtype') or done.returncode}): "
                 f"{str(reply.get('result') or done.stderr or '')[:200]}",
+                tokens_in=tokens_in if usage else None,
+                tokens_out=tokens_out if usage else None,
+                cost_usd=float(failed_cost) if isinstance(failed_cost, int | float) else None,
             )
         data = reply.get("structured_output")
         if data is None:

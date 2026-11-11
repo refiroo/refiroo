@@ -4,6 +4,9 @@ A built guide is served from its folder with headers that keep a page inside the
 build exists the engine's application still builds and ``/docs`` says how to build the guide.
 """
 
+import base64
+import hashlib
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -74,3 +77,23 @@ def test_the_engine_starts_whether_or_not_the_guide_is_built(monkeypatch, tmp_pa
         monkeypatch.setattr(guide_site, "BUILT_GUIDE_CANDIDATES", tuple(candidates))
         names[label] = {getattr(route, "name", None) for route in create_app().routes}
     assert "guide" in names["built"] and "guide" not in names["absent"]
+
+
+def test_a_built_page_names_its_own_inline_scripts_by_hash_and_allows_no_other(
+    monkeypatch, tmp_path
+):
+    built = _built(tmp_path / "built")
+    (built / "index.html").write_text(
+        '<script>window.a = 1;</script><script type="module">window.b = 2;</script>'
+        '<script src="/docs/_astro/x.js"></script>'
+    )
+    client = _served(monkeypatch, [built])
+
+    policy = client.get("/docs/").headers["content-security-policy"]
+
+    for text in (b"window.a = 1;", b"window.b = 2;"):
+        digest = base64.b64encode(hashlib.sha256(text).digest()).decode()
+        assert f"'sha256-{digest}'" in policy
+    assert policy.count("sha256-") == 2 and "unsafe-inline" not in policy.split("style-src")[0]
+    # A page without inline scripts allows none.
+    assert "sha256-" not in client.get("/docs/how/").headers["content-security-policy"]

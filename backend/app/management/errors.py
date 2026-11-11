@@ -23,7 +23,10 @@ from ..errors import ApiError
 logger = logging.getLogger(__name__)
 
 
-async def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
+async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
+    # An earlier contract version is announced in every answer, errors included (0.13 DF3,
+    # R13-F18): the consumer router leaves its ``Deprecation`` and ``Sunset`` headers on the request.
+    announced = getattr(request.state, "version_headers", None)
     return JSONResponse(
         status_code=exc.status,
         content={
@@ -33,7 +36,7 @@ async def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
                 **({"details": jsonable_encoder(exc.details)} if exc.details is not None else {}),
             }
         },
-        headers=exc.headers,
+        headers={**announced, **(exc.headers or {})} if announced else exc.headers,
     )
 
 

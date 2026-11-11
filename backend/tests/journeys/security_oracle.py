@@ -143,6 +143,8 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "get /api/v1/workspaces/{workspace_key}/relation-matrix",
             "get /api/v1/workspaces/{workspace_key}/relation-matrix/containers",
             "get /api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates",
+            # A relationships table as a grid reads records as the matrix and the edge list do (0.13 RG).
+            "get /api/v1/workspaces/{workspace_key}/relation-grid",
             "get /api/v1/workspaces/{workspace_key}/relations",
         ],
     ),
@@ -156,6 +158,10 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "patch /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
             "post /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
             "post /api/v1/relations",
+            # Many relationships, or a grid's selection, written as one unit live or in a change set:
+            # the right to write the relationships' types, as for one relationship (0.13 RV, RG).
+            "post /api/v1/relations/batch",
+            "post /api/v1/relations/grid-change",
             "delete /api/v1/relations/{relation_id}",
             "patch /api/v1/relations/{relation_id}",
             "put /api/v1/workspaces/{workspace_key}/mappings",
@@ -266,6 +272,8 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "post /api/v1/model-drafts/{draft_id}/inference/application",
             "post /api/v1/model-drafts/{draft_id}/inference/list",
             "get /api/v1/model-drafts/{draft_id}/inference/proposals",
+            # The migration a draft states; with a workspaceKey it also needs Browse there (R13-F16).
+            "get /api/v1/model-drafts/{draft_id}/migration",
             "get /api/v1/model-drafts/{draft_id}/model",
             "get /api/v1/model-drafts/{draft_id}/operations",
             "post /api/v1/model-drafts/{draft_id}/operations",

@@ -11,6 +11,7 @@
 // keyboard, only the chosen entry's fields visible and no sideways scroll at 390px. `M1_M365_ONLY=1` runs only that
 // section; `M1_MODELS=starter` limits the models. Section 7b (`microsoftSaved`): a saved Microsoft 365 configuration
 // (secret, then certificate) opens on its entry with the credential kept, not shown; switching entry and back.
+// 0.13 release review: the Settings navigation also lists "Notification email", so the Mail link is found by its exact name.
 import { writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -267,7 +268,7 @@ async function walk(configuration) {
     // 1. Mail is under Integration; nothing is set up.
     await page.goto(`${uiUrl}/settings/mail`);
     await page.getByRole("heading", { level: 1, name: "Mail" }).waitFor();
-    await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Mail" }).waitFor();
+    await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Mail", exact: true }).waitFor();
     await page.getByText("Mail is not set up", { exact: true }).waitFor();
     await page.getByText(/No messages yet/).waitFor();
     expect(

@@ -93,11 +93,11 @@ Built as planned, with three changes found in the work: - **AP-D32:** the stamp 
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:683 — AP11 in detail (planned 2026-11-01, for approval)
 
-Model shape is built; this plan is the rest: the time limits. **Requirement served:** "a few words + workbook → the model and the import", within 1 to 2 minutes for a workbook like Timetables and 5 at most for a complex one, without the person's wait. Reached from the existing task page; no other capability calls it. No screen changes, so no mock-up. **Where the time goes (read from the session logs still on disk and `ai_calls`, `jobs`; no new AI run):** | Run | Total | Model generating | Engi
+Model shape is built; this plan is the rest: the time limits. **Requirement served:** "a few words + workbook → the model and the import", within 1 to 2 minutes for a workbook like the example model and 5 at most for a complex one, without the person's wait. Reached from the existing task page; no other capability calls it. No screen changes, so no mock-up. **Where the time goes (read from the session logs still on disk and `ai_calls`, `jobs`; no new AI run):** | Run | Total | Model generating | Engi
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:734 — AP11 record (2026-11-01)
 
-**The time limits are not met.** The fixes are built and the results hold, but the time did not move. **Accepted and closed by the user on 2026-11-01 with the limits unmet.** Sonnet at medium, prompt `agent/4`, the user's words, fresh workspaces, none published. | Try | Proposal + load | Limit | Model generating, proposal | Engine jobs | Output tokens, proposal | Cost at API prices | Earlier run | | --- | --- | --- | --- | --- | --- | --- | --- | | Timetables, `ap11-mot` | 821 + 66 = 887 s | 
+**The time limits are not met.** The fixes are built and the results hold, but the time did not move. **Accepted and closed by the user on 2026-11-01 with the limits unmet.** Sonnet at medium, prompt `agent/4`, the user's words, fresh workspaces, none published. | Try | Proposal + load | Limit | Model generating, proposal | Engine jobs | Output tokens, proposal | Cost at API prices | Earlier run | | --- | --- | --- | --- | --- | --- | --- | --- | | The example model, `ap11-example` | 821 + 66 = 887 s | 
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:770 — AP12: Reshaping, and asking from the workspace
 
@@ -205,7 +205,7 @@ The user approved this plan and the mock-up (three boards: a question answered a
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:1697 — AG4 revision (2026-11-01): the user's report on the real provider
 
-**Closed by the user on 2026-11-01.** The user tried the question "show me all the trains types which are above 30 minute duration" on the `default` workspace's Timetable types and was refused ("above 30 minute duration": Duration is a relationship to records named 10 min, 15 min, 30 min, 45 min, 60 min and 180 min); "values changed last month without a CRM mapping" was refused because the view does not declare the relationship to mappings. His words: "I did not expect comparison, I
+**Closed by the user on 2026-11-01.** The user tried the question "show me all the services types which are above 30 minute duration" on the `default` workspace's example types and was refused ("above 30 minute duration": Duration is a relationship to records named 10 min, 15 min, 30 min, 45 min, 60 min and 180 min); "values changed last month without a CRM mapping" was refused because the view does not declare the relationship to mappings. His words: "I did not expect comparison, I
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:1712 — Track O: operations
 
@@ -237,7 +237,7 @@ Mock-up: [AO2 What changed](https://claude.ai/artifact/J1cg6aHNt4YNqGoJiKd1Fj) (
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:1903 — AO3: Notification digests
 
-**Journey:** a steward sets daily digests; the next morning one mail says "3 change sets wait for your approval, 1 job failed (import of the operators file, 14 rows rejected)", then lists the notices as today with their links. **Scope.** The `digest` setting per person, the scheduled job (an existing worker with the lease rules: one digest per person per period, no duplicates across nodes), the `digest` purpose (kinds, counts, titles; send level `structure`), the mail template, the outbox. With the
+**Journey:** a steward sets daily digests; the next morning one mail says "3 change sets wait for your approval, 1 job failed (import of the labels file, 14 rows rejected)", then lists the notices as today with their links. **Scope.** The `digest` setting per person, the scheduled job (an existing worker with the lease rules: one digest per person per period, no duplicates across nodes), the `digest` purpose (kinds, counts, titles; send level `structure`), the mail template, the outbox. With the
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:1915 — AO3 in detail (planned 2026-11-02, approved by the user the same day with the mock-up; AO-D38 and its place on the home page decided by the user)
 
@@ -329,7 +329,7 @@ What the assistant adds at each step of New from a workbook (MODEL_AUTHORING § 
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:2675 — AP6 progress (2026-10-29, in delivery)
 
-**The core is built and works on the user's own workbooks** (real tries in the AI usage log): - **Timetables** into an empty workspace (cases D/E), checked with nothing refused: - a new application, with an timetable type and an timetable category type and their attributes; - the translation join, made required as the model's other translation joins are; - the 7 languages and translation groups the structure needs; - 1,756 records and 1,500 translations; - one real question (category trans
+**The core is built and works on the user's own workbooks** (real tries in the AI usage log): - **The example model** into an empty workspace (cases D/E), checked with nothing refused: - a new application, with an example type and an example category type and their attributes; - the translation join, made required as the model's other translation joins are; - the 7 languages and translation groups the structure needs; - 1,756 records and 1,500 translations; - one real question (category trans
 
 ## docs/BASE_0_16_IMPLEMENTATION_PLAN.md:2799 — AP6a record (2026-10-29)
 

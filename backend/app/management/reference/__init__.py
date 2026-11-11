@@ -169,28 +169,42 @@ _THEME_WIRING = """
 
 
 # Signs the console in as the person signed in at this browser (0.12 C1, D240): the engine answers
-# their token from the session cookie, and the console is given it for both kinds of document (the
-# management API's scheme and the consumer APIs'). Without a session the console is as before, empty,
-# for a client's token to be pasted. A request that goes out carrying this token in its last minute
-# renews it first; a token pasted over it is never touched.
+# their token from the session cookie. Without a session the console is as before, empty, for a
+# client's token to be pasted. A request that goes out carrying this token in its last minute renews
+# it first; a token pasted over it is never touched.
+#
+# Each source gets only its own scheme, set on the source (0.13): the bundled Scalar lets a source
+# carry its own ``authentication`` over the page's (its ``sources`` are merged as ``{...page, ...source}``,
+# and ``updateConfiguration`` replaces the whole configuration, which the page reads again). The
+# management document declares ``engineOAuth`` (scopes management, consumer); the consumer documents
+# declare ``oauth2`` (client credentials, scope consumer). The session token is always for the
+# management API, so only the management source is given it; a consumer source shows Client ID,
+# Client Secret and the ticked ``consumer`` scope, for a consumer client's own token.
 _SIGN_IN = """
 (function () {
   var reference = window.rdmReference;
-  var schemes = ["engineOAuth", "oauth2"];
   var token = null;
   var expiresAt = 0;
   // The Token URL field shows this engine's own token endpoint, as the browser reaches it.
   var tokenUrl = location.origin + __ROOT__ + "/oauth/token";
-  function configured(credentials) {
+  function authentication(source) {
+    var management = source.slug === "management";
+    var name = management ? "engineOAuth" : "oauth2";
+    var flow = { tokenUrl: tokenUrl, selectedScopes: [management ? "management" : "consumer"] };
+    if (management && token) flow.token = token;
     var securitySchemes = {};
-    schemes.forEach(function (name) {
-      securitySchemes[name] = { flows: { clientCredentials: Object.assign({ tokenUrl: tokenUrl }, credentials) } };
-    });
-    return securitySchemes;
+    securitySchemes[name] = { flows: { clientCredentials: flow } };
+    return { preferredSecurityScheme: name, securitySchemes: securitySchemes };
   }
-  reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
-    authentication: { securitySchemes: configured({}) },
-  }));
+  function configure(extra) {
+    var current = reference.getConfiguration();
+    reference.updateConfiguration(Object.assign({}, current, extra, {
+      sources: (current.sources || []).map(function (source) {
+        return Object.assign({}, source, { authentication: authentication(source) });
+      }),
+    }));
+  }
+  configure({});
   function ask() {
     return fetch(__ROOT__ + "/oauth/console-token", { method: "POST", credentials: "same-origin" })
       .then(function (response) { return response.ok ? response.json() : null; })
@@ -199,15 +213,11 @@ _SIGN_IN = """
   function give(answer) {
     token = answer.access_token;
     expiresAt = Date.now() + answer.expires_in * 1000;
-    var securitySchemes = configured({ token: token });
-    reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
-      authentication: { preferredSecurityScheme: schemes[0], securitySchemes: securitySchemes },
-      onBeforeRequest: beforeRequest,
-    }));
+    configure({ onBeforeRequest: beforeRequest });
   }
   function beforeRequest(context) {
     var ours = (context.requestBuilder.security || []).filter(function (item) {
-      return item.value === token;
+      return token && item.value === token;
     });
     if (!ours.length || Date.now() < expiresAt - 60000) return;
     return ask().then(function (answer) {
@@ -470,7 +480,9 @@ def _static_parts(static: StaticSite | None) -> dict[str, str]:
 def _policy(script: ApiReferenceScript, page: str, *, header: bool) -> str:
     hashes = [
         "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
-        for text in re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL)
+        # Every inline script, attributed ones too (a host theme's head may write ``<script type=...>``);
+        # a script with a ``src`` is a file, covered by 'self'.
+        for text in re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", page, flags=re.DOTALL)
     ]
     sources = ["'self'", *(["https://cdn.jsdelivr.net"] if script == "cdn" else []), *hashes]
     return "; ".join(

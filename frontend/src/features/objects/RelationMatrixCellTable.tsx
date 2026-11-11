@@ -308,6 +308,7 @@ export function RelationMatrixCellTable({
                           onConflict={onRefresh}
                           describeError={describeError}
                           floating
+                          tabbable
                           onOutside={() => {
                             if (open && !open.changed) changeOpen(undefined);
                           }}
@@ -335,6 +336,7 @@ export function RelationMatrixCellTable({
                         void onRefresh();
                       }}
                       floating
+                      tabbable
                       onDirty={valuesDirty(`${record.relationId}:${attribute.key}`)}
                     />
                   </td>
