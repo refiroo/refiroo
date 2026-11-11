@@ -1,0 +1,60 @@
+{
+  "operation": "GET /api/v1/agent-access/clients",
+  "name": "firstPage",
+  "summary": "The agent clients with their calls of the last 30 days",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000025",
+          "name": "Reporting assistant",
+          "active": true,
+          "kind": "agent",
+          "version": 1,
+          "createdAt": "2026-11-02T12:16:00Z",
+          "updatedAt": "2026-11-02T12:16:00Z",
+          "lastUsedAt": "2026-11-02T12:16:00Z",
+          "secrets": [
+            {
+              "id": "00000000-0000-4000-8000-000000000026",
+              "createdAt": "2026-11-02T12:16:00Z",
+              "expiresAt": null,
+              "lastUsedAt": "2026-11-02T12:16:00Z",
+              "hint": "cret"
+            }
+          ],
+          "roles": [
+            {
+              "key": "agent",
+              "name": "Agent",
+              "instance": false,
+              "workspaces": [
+                {
+                  "key": "graubuenden",
+                  "label": "Graubünden"
+                }
+              ]
+            }
+          ],
+          "consumerApis": [],
+          "createdBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "Reference Administrator"
+          },
+          "calls30Days": 2,
+          "lastCallAt": "2026-11-02T12:16:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-20"
+    }
+  }
+}

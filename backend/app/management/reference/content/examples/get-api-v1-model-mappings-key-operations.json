@@ -1,0 +1,111 @@
+{
+  "operation": "GET /api/v1/model-mappings/{key}/operations",
+  "name": "firstPage",
+  "summary": "The first two operations of the mapping's history, in the order they were written",
+  "request": {
+    "path": {
+      "key": "stops-to-inventory"
+    },
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "sequence": 1,
+          "step": 1,
+          "kind": "mapType",
+          "parameters": {
+            "sourceType": "stop",
+            "targetType": "stop-point"
+          },
+          "inverse": {
+            "kind": "restoreElements",
+            "undoes": {
+              "kind": "mapType",
+              "sourceType": "stop",
+              "targetType": "stop-point"
+            },
+            "changes": [
+              {
+                "change": "remove",
+                "path": [
+                  "types"
+                ],
+                "item": {
+                  "source": "stop"
+                }
+              }
+            ]
+          },
+          "mappingVersion": 2,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:14:00Z",
+          "undone": false,
+          "origin": {
+            "type": "request"
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 2,
+          "step": 1,
+          "kind": "mapAttribute",
+          "parameters": {
+            "sourceType": "stop",
+            "attribute": "stop-number",
+            "target": "stop-number"
+          },
+          "inverse": {
+            "kind": "restoreElements",
+            "undoes": {
+              "kind": "mapAttribute",
+              "sourceType": "stop",
+              "attribute": "stop-number",
+              "target": "stop-number"
+            },
+            "changes": [
+              {
+                "change": "remove",
+                "path": [
+                  "types",
+                  {
+                    "source": "stop"
+                  },
+                  "attributes"
+                ],
+                "item": {
+                  "source": "stop-number"
+                }
+              }
+            ]
+          },
+          "mappingVersion": 2,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:14:00Z",
+          "undone": false,
+          "origin": {
+            "type": "request"
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "nextCursor": "cursor-2",
+      "prevCursor": null,
+      "anchor": "cursor-3"
+    }
+  }
+}

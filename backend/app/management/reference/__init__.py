@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ...config import ApiReferenceScript
@@ -30,6 +30,7 @@ from ...engine.model.consumer_openapi import consumer_openapi_path
 from ...engine.model.registry import resolve_model_snapshot
 from ...errors import ApiError
 from ..dependencies import DbSession
+from .content import example_bodies
 
 SCALAR_VERSION = "1.72.2"
 SCALAR_SCRIPT = Path(__file__).resolve().parent / "scalar" / "standalone.js"
@@ -56,8 +57,20 @@ _PAGE = """<!doctype html>
   </head>
   <body>
 {header_element}{older_element}    <div id="rdm-api-reference"></div>
+    <script>{anchor_script}</script>
     <script src="{script}"{integrity}></script>
-    <script>window.rdmReference = Scalar.createApiReference("#rdm-api-reference", {configuration});</script>
+    <script>
+      // Scalar resolves an example's file (``externalValue``) against the document's address only when that is
+      // absolute, so each source's address is made so here, from the page's own, which works on any host.
+      (function () {{
+        var create = Scalar.createApiReference;
+        Scalar.createApiReference = function (element, configuration) {{
+          configuration.sources.forEach(function (source) {{ source.url = new URL(source.url, location.href).href; }});
+          return create(element, configuration);
+        }};
+      }})();
+      window.rdmReference = Scalar.createApiReference("#rdm-api-reference", {configuration});
+    </script>
 {sign_in_element}    <script>{theme_wiring_script}</script>
   </body>
 </html>
@@ -168,6 +181,34 @@ _THEME_WIRING = """
 """
 
 
+# A link to an error code's entry (``#management/description/<code>``) lands on the entry. Scalar rewrites the
+# address when it starts and does not scroll to a heading of the introduction, whose text it renders in
+# its own time, so the page keeps the address it was opened with and, once the heading exists, scrolls to
+# it (and puts the address back). It stops at the first scroll, key or click of the reader, and after 20
+# seconds. It reads and writes only the page's own address and elements, so it works under a root path
+# and offline.
+_ANCHOR = """
+(function () {
+  var wanted = decodeURIComponent(location.hash.slice(1));
+  if (!/\\/description\\/./.test(wanted)) return;
+  var stop = false, tries = 0, landed = 0;
+  ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (name) {
+    addEventListener(name, function () { stop = true; }, { passive: true, capture: true });
+  });
+  (function seek() {
+    if (stop || ++tries > 80 || landed > 4) return;
+    var heading = document.getElementById(wanted);
+    if (heading) {
+      landed += 1;
+      heading.scrollIntoView({ block: "start" });
+      if (decodeURIComponent(location.hash.slice(1)) !== wanted) history.replaceState(null, "", "#" + wanted);
+    }
+    setTimeout(seek, heading ? 400 : 250);
+  })();
+})();
+"""
+
+
 # Signs the console in as the person signed in at this browser (0.12 C1, D240): the engine answers
 # their token from the session cookie. Without a session the console is as before, empty, for a
 # client's token to be pasted. A request that goes out carrying this token in its last minute renews
@@ -274,6 +315,14 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
         page = render_page(script, root_path, sources)
         return HTMLResponse(page, headers=page_headers(script, page))
 
+    @router.get("/docs/api/examples/{slug}/{part}.json")
+    def example_body(slug: str, part: str) -> JSONResponse:
+        """One recorded example's request or response body, which the document references."""
+        for name, found, body in example_bodies():
+            if name == slug and found == part:
+                return JSONResponse(body, headers={"Cache-Control": "public, max-age=3600"})
+        raise HTTPException(404, "No such example")
+
     @router.get(BUNDLED_SCRIPT_PATH)
     def bundled_script() -> FileResponse:
         return FileResponse(
@@ -327,6 +376,18 @@ OFFLINE_OPTIONS: dict = {
 
 # Scalar leaves room under the page's fixed refiroo header (56 px, as in the guide and the interface).
 HEADER_CSS = ":root { --scalar-custom-header-height: 56px; }"
+
+# The status badge the error catalogue puts before each entry (``<span class="rdm-status">Status 404</span>``,
+# content/errors.md): Scalar's own text and surface colours, so it reads in light and dark, with a bar
+# in the colour of the class of status.
+STATUS_CSS = (
+    ".rdm-status { display: inline-block; padding: 2px 10px; border-radius: 4px; "
+    "border: 1px solid var(--scalar-border-color); border-left: 4px solid var(--scalar-color-3); "
+    "background: var(--scalar-background-2); color: var(--scalar-color-1); "
+    "font: 600 12px/1.6 var(--scalar-font-code); letter-spacing: .03em; } "
+    ".rdm-status.rdm-4xx { border-left-color: var(--scalar-color-orange); } "
+    ".rdm-status.rdm-5xx { border-left-color: var(--scalar-color-red); }"
+)
 
 
 # The public site's page-to-page flights (DOC12, E4): the mascot flies into the guide's logo and the page's content
@@ -414,7 +475,7 @@ def render_page(
 ) -> str:
     """The page. With ``static`` it is the public site's copy: no sign-in script (no engine to ask),
     no "test request" button (nothing to send it to), and the header's links point inside the site."""
-    configuration = {**OFFLINE_OPTIONS, "customCss": HEADER_CSS, "sources": sources}
+    configuration = {**OFFLINE_OPTIONS, "customCss": HEADER_CSS + STATUS_CSS, "sources": sources}
     if static is not None:
         configuration["hideTestRequestButton"] = True
         # The line under the header (36 px) is part of what Scalar leaves room for; a host's header names its height.
@@ -422,9 +483,12 @@ def render_page(
             extra = " + 36px" if static.older else ""
             configuration["customCss"] = (
                 f":root {{ --scalar-custom-header-height: calc(var(--rdm-header-h, 56px){extra}); }}"
+                + STATUS_CSS
             )
         elif static.older:
-            configuration["customCss"] = ":root { --scalar-custom-header-height: 92px; }"
+            configuration["customCss"] = (
+                ":root { --scalar-custom-header-height: 92px; }" + STATUS_CSS
+            )
     if script == "cdn":
         source, integrity = (
             SCALAR_CDN_URL,
@@ -453,6 +517,7 @@ def render_page(
             "/*SCHEME*/", _NO_SCHEME if static is not None and static.theme is not None else _SCHEME
         ),
         theme_wiring_script=_THEME_WIRING,
+        anchor_script=_ANCHOR,
         sign_in_element="" if static is not None else f"    <script>{sign_in}</script>\n",
     )
 

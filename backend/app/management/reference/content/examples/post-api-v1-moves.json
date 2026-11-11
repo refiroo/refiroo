@@ -1,0 +1,142 @@
+{
+  "operation": "POST /api/v1/moves",
+  "name": "someStops",
+  "summary": "Queue the dry run of a move of the stops numbered from 8511000 into the inventory",
+  "request": {
+    "body": {
+      "sourceWorkspaceKey": "graubuenden",
+      "targetWorkspaceKey": "inventory",
+      "mapping": {
+        "key": "stops-to-inventory",
+        "expectedVersion": 5
+      },
+      "selection": {
+        "types": [
+          {
+            "objectTypeKey": "stop",
+            "where": [
+              {
+                "field": "stop-number",
+                "op": "gte",
+                "value": 8511000
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "kind": "move",
+      "workspaceKey": "inventory",
+      "changeSetId": null,
+      "changeSetVersion": null,
+      "policy": null,
+      "parameters": {
+        "sourceWorkspaceKey": "graubuenden",
+        "targetWorkspaceKey": "inventory",
+        "mapping": {
+          "key": "stops-to-inventory",
+          "version": 5
+        },
+        "mappingKey": "stops-to-inventory",
+        "mappingDefinition": {
+          "sourceReleaseId": "00000000-0000-4000-8000-000000000002",
+          "targetReleaseId": "00000000-0000-4000-8000-000000000003",
+          "types": [
+            {
+              "source": "stop",
+              "target": "stop-point",
+              "attributes": [
+                {
+                  "source": "stop-number",
+                  "target": "stop-number"
+                },
+                {
+                  "source": "valid-from",
+                  "target": "opened",
+                  "valueMap": "dates"
+                }
+              ],
+              "relations": [],
+              "defaults": {
+                "platforms": 1
+              },
+              "match": {
+                "attributeTypeKey": "stop-number"
+              }
+            }
+          ],
+          "valueMaps": {
+            "dates": {
+              "?": null,
+              "n/a": null
+            }
+          }
+        },
+        "selection": {
+          "types": [
+            {
+              "objectTypeKey": "stop",
+              "where": [
+                {
+                  "field": "stop-number",
+                  "op": "gte",
+                  "value": 8511000,
+                  "not_": false
+                }
+              ]
+            }
+          ]
+        },
+        "sourceAt": "live",
+        "sourceReleaseId": "00000000-0000-4000-8000-000000000002",
+        "targetReleaseId": "00000000-0000-4000-8000-000000000003",
+        "mode": "copy",
+        "stage": "preview"
+      },
+      "modelReleaseId": "00000000-0000-4000-8000-000000000003",
+      "state": "queued",
+      "stage": null,
+      "progress": {
+        "total": null,
+        "processed": 0
+      },
+      "counts": {
+        "applied": 0,
+        "rejected": 0,
+        "unprocessed": 0,
+        "created": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "deleted": 0
+      },
+      "result": null,
+      "error": null,
+      "createdAt": "2026-11-02T09:42:00Z",
+      "startedAt": null,
+      "finishedAt": null,
+      "expiresAt": "2026-11-02T09:49:00Z",
+      "cancelRequestedAt": null,
+      "leaseOwner": null,
+      "leaseExpiresAt": null,
+      "output": null,
+      "confirmedAt": null,
+      "preview": null,
+      "bindingReport": null,
+      "notices": null,
+      "migration": null,
+      "move": null,
+      "aiProposal": null,
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000004",
+        "name": "Reference Administrator"
+      },
+      "origin": null
+    }
+  }
+}

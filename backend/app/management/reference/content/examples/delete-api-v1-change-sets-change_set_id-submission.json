@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/change-sets/{change_set_id}/submission",
+  "name": "withdrawSubmission",
+  "summary": "Take the submission back",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000016"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

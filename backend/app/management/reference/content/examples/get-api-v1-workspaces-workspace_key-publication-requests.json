@@ -1,0 +1,100 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/publication-requests",
+  "name": "requests",
+  "summary": "The publication requests of the workspace, the newest first, with their decisions",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "pageSize": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000020",
+          "workspaceKey": "graubuenden",
+          "changeSetId": "00000000-0000-4000-8000-000000000016",
+          "changeSetName": "A bus stop for Davos",
+          "version": 2,
+          "state": "approved",
+          "submitter": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Reference Administrator"
+          },
+          "comment": "Named as the timetable does",
+          "submittedAt": "2026-11-02T09:35:00Z",
+          "publicationId": "00000000-0000-4000-8000-000000000018",
+          "decisions": [
+            {
+              "id": "00000000-0000-4000-8000-000000000021",
+              "outcome": "approve",
+              "version": 2,
+              "comment": "Checked against the timetable",
+              "decidedAt": "2026-11-02T09:35:00Z",
+              "decider": {
+                "kind": "user",
+                "id": "00000000-0000-4000-8000-000000000019",
+                "name": "Reference Approver"
+              }
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000022",
+          "workspaceKey": "graubuenden",
+          "changeSetId": "00000000-0000-4000-8000-000000000016",
+          "changeSetName": "A bus stop for Davos",
+          "version": 2,
+          "state": "withdrawn",
+          "submitter": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Reference Administrator"
+          },
+          "comment": null,
+          "submittedAt": "2026-11-02T09:28:00Z",
+          "publicationId": null,
+          "decisions": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000017",
+          "workspaceKey": "graubuenden",
+          "changeSetId": "00000000-0000-4000-8000-000000000016",
+          "changeSetName": "A bus stop for Davos",
+          "version": 2,
+          "state": "sentBack",
+          "submitter": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Reference Administrator"
+          },
+          "comment": "Ready for the timetable",
+          "submittedAt": "2026-11-02T09:21:00Z",
+          "publicationId": null,
+          "decisions": [
+            {
+              "id": "00000000-0000-4000-8000-000000000023",
+              "outcome": "sendBack",
+              "version": 2,
+              "comment": "Please name the stop as the timetable does",
+              "decidedAt": "2026-11-02T09:28:00Z",
+              "decider": {
+                "kind": "user",
+                "id": "00000000-0000-4000-8000-000000000019",
+                "name": "Reference Approver"
+              }
+            }
+          ]
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-5"
+    }
+  }
+}

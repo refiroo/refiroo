@@ -1,0 +1,69 @@
+{
+  "operation": "PATCH /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "name": "correctHeight",
+  "summary": "Correct the height",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000026",
+      "attribute_type_key": "height"
+    },
+    "body": {
+      "value": 1716.8,
+      "expectedVersion": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000026",
+      "workspaceKey": "graubuenden",
+      "applicationKey": "network",
+      "objectTypeKey": "stop",
+      "parentObjectId": "00000000-0000-4000-8000-000000000001",
+      "name": "Zuoz, Sportplatz",
+      "path": [
+        {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "name": "Graubünden",
+          "objectTypeKey": "canton"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "name": "Maloja",
+          "objectTypeKey": "district"
+        }
+      ],
+      "attributes": [
+        {
+          "id": "00000000-0000-4000-8000-000000000027",
+          "attributeTypeKey": "designation",
+          "name": "Designation",
+          "valueType": "text",
+          "value": "Sportplatz"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000028",
+          "attributeTypeKey": "stop-number",
+          "name": "Stop number (UIC)",
+          "valueType": "integer",
+          "value": 8599001
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000029",
+          "attributeTypeKey": "height",
+          "name": "Height (m)",
+          "valueType": "decimal",
+          "value": "1716.8"
+        }
+      ],
+      "version": 3,
+      "createdAt": "2026-11-02T09:21:00Z",
+      "updatedAt": "2026-11-02T09:35:00Z",
+      "changeSetVersion": null
+    }
+  },
+  "notes": [
+    "`path`: the first 2 of 4 items are shown."
+  ]
+}

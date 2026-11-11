@@ -35,6 +35,27 @@ def test_the_static_page_has_no_sign_in_and_covers_every_script_by_its_meta_poli
         assert f"'sha256-{digest}'" in policy
 
 
+def test_a_link_to_a_catalogue_entry_is_kept_and_scrolled_to_whatever_the_root_path():
+    """Scalar rewrites the address and does not scroll to the introduction's headings, so the page's own
+    script reads the address before Scalar starts and scrolls to the heading once it exists. It has to run
+    first, on the instance page (under a root path) and on the static build alike."""
+    sources = [
+        {"title": "Management API", "slug": "management", "url": "/docs/api/management.json"}
+    ]
+    for page in (
+        render_page("bundled", "/rdm", sources),
+        render_page("bundled", "", sources, static=StaticSite()),
+    ):
+        scripts = re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL)
+        anchor = next(text for text in scripts if "scrollIntoView" in text)
+        assert page.index(anchor) < page.index("createApiReference")
+        # It reads the address as opened and acts only on an entry of the catalogue.
+        assert "location.hash" in anchor and r"/description/" in anchor.replace("\\", "")
+        assert "getElementById(wanted)" in anchor and "history.replaceState" in anchor
+        # It gives up when the reader takes over, and after a bounded time.
+        assert "wheel" in anchor and "keydown" in anchor and "> 80" in anchor
+
+
 def test_the_build_writes_the_page_its_two_documents_and_the_script(tmp_path):
     (tmp_path / "index.html").write_text("<html></html>")
 
@@ -78,3 +99,17 @@ def test_an_attributed_inline_script_of_a_host_theme_is_hashed_and_a_script_file
     digest = base64.b64encode(hashlib.sha256(b"window.host = 1;").digest()).decode()
     assert f"'sha256-{digest}'" in policy
     assert policy.count("sha256-") == 1
+
+
+def test_the_build_serves_the_examples_the_document_references_under_its_base(tmp_path):
+    (tmp_path / "index.html").write_text("<html></html>")
+
+    static_site.build(tmp_path, base="/guide")
+
+    document = json.loads((tmp_path / "api" / "management.json").read_text())
+    reference = document["paths"]["/api/v1/workspaces/{workspace_key}"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["examples"]["graubuenden"]["externalValue"]
+    assert reference == "/guide/api/examples/get-api-v1-workspaces-workspace_key/response.json"
+    served = tmp_path / "api" / "examples" / "get-api-v1-workspaces-workspace_key" / "response.json"
+    assert json.loads(served.read_text())["key"] == "graubuenden"

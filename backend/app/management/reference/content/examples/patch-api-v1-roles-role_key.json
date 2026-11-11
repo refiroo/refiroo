@@ -1,0 +1,39 @@
+{
+  "operation": "PATCH /api/v1/roles/{role_key}",
+  "name": "addBulk",
+  "summary": "Add Bulk and import to the role; its holders gain it at their next request",
+  "request": {
+    "path": {
+      "role_key": "timetable-editor"
+    },
+    "body": {
+      "expectedVersion": 1,
+      "description": "Edits stops, prepares change sets and imports",
+      "actionGroups": [
+        "browse",
+        "edit-live"
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "timetable-editor",
+      "name": "Timetable editor",
+      "description": "Edits stops, prepares change sets and imports",
+      "predefined": false,
+      "actionGroups": [
+        "browse",
+        "edit-live"
+      ],
+      "grants": 0,
+      "version": 2,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "updatedAt": "2026-11-02T09:21:00Z"
+    }
+  },
+  "notes": [
+    "`request.actionGroups`: the first 2 of 4 items are shown.",
+    "`actionGroups`: the first 2 of 4 items are shown."
+  ]
+}

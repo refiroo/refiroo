@@ -1,0 +1,10 @@
+{
+  "operation": "GET /metrics",
+  "name": "metrics",
+  "summary": "The metrics in the Prometheus text format",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": "# HELP rdm_process_ready 1 when the process serves requests\n# TYPE rdm_process_ready gauge\n# HELP rdm_process_start_time_seconds When the process started\n# TYPE rdm_process_start_time_seconds gauge\n# HELP rdm_http_requests_total Requests answered, by method, route and status\n# TYPE rdm_http_requests_total counter\n# HELP rdm_http_request_duration_seconds Time to answer a request, by route\n# TYPE rdm_http_request_duration_seconds histogram\n# HELP rdm_database_unavailable_total Requests and background threads that got no database connection, by reason\n# TYPE rdm_database_unavailable_total counter\n# HELP rdm_database_pool_size DATABASE_POOL_SIZE\n# TYPE rdm_database_pool_size gauge\n..."
+  }
+}

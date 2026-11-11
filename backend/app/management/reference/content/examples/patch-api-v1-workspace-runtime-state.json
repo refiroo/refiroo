@@ -1,0 +1,19 @@
+{
+  "operation": "PATCH /api/v1/workspace-runtime-state",
+  "name": "makeWinterTheDefault",
+  "summary": "Make the winter workspace the default",
+  "request": {
+    "body": {
+      "defaultWorkspaceKey": "winter-timetable",
+      "expectedVersion": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "defaultWorkspaceKey": "winter-timetable",
+      "version": 3,
+      "updatedAt": "2026-11-02T09:35:00Z"
+    }
+  }
+}

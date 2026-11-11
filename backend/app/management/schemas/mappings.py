@@ -3,9 +3,11 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
 
 from .common import ApiErrorBody, CollectionPage, PrincipalResponse
+from .model import ModelDraftOperationMigration
+from .model_mapping_operations import MappingOperation
 
 
 class MappingProblem(BaseModel):
@@ -77,6 +79,28 @@ class ModelMappingPage(CollectionPage[ModelMappingSummary]):
     """Model mappings in key order."""
 
 
+class ModelMappingOperationsRequest(BaseModel):
+    """One step of a mapping's history: operations applied in order, all or none."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    # Described by the kinds registry; validated by the engine, which names what it refuses, so the
+    # items stay open objects at runtime.
+    operations: SkipValidation[list[MappingOperation]] = Field(min_length=1)
+
+    @field_validator("operations", mode="before")
+    @classmethod
+    def _are_objects(cls, value: Any) -> Any:
+        if (
+            not isinstance(value, list)
+            or not value
+            or not all(isinstance(item, dict) for item in value)
+        ):
+            raise ValueError("operations is a list of one or more objects")
+        return value
+
+
 class ModelMappingOperationEntry(BaseModel):
     """One operation in a mapping's history (D105), as a draft's."""
 
@@ -91,6 +115,16 @@ class ModelMappingOperationEntry(BaseModel):
     at: datetime
     undone: bool
     origin: dict[str, Any]
+    removed: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Views and panels the operation took away: none for a mapping's operation, "
+        "the field is the draft history entry's",
+    )
+    migration: list[ModelDraftOperationMigration] = Field(
+        default_factory=list,
+        description="The elements needing a migration: none for a mapping's operation, the "
+        "field is the draft history entry's",
+    )
 
 
 class ModelMappingOperationPage(CollectionPage[ModelMappingOperationEntry]):

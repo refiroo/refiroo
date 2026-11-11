@@ -1,0 +1,36 @@
+{
+  "operation": "GET /api/v1/me/notifications/{notification_id}",
+  "name": "one",
+  "summary": "One notice by ID, as a digest's link opens it",
+  "request": {
+    "path": {
+      "notification_id": "00000000-0000-4000-8000-000000000007"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "kind": "change-set.published",
+      "workspaceKey": "graubuenden",
+      "subject": {
+        "kind": "change-set",
+        "id": "00000000-0000-4000-8000-000000000008"
+      },
+      "details": {
+        "changeSetName": "Winter 2027: stop names",
+        "version": 3,
+        "comment": null,
+        "actor": {
+          "kind": "user",
+          "id": "00000000-0000-4000-8000-000000000005",
+          "name": "Reference Administrator"
+        },
+        "publicationId": "00000000-0000-4000-8000-000000000009"
+      },
+      "read": false,
+      "readAt": null,
+      "createdAt": "2026-11-02T09:28:00Z"
+    }
+  }
+}

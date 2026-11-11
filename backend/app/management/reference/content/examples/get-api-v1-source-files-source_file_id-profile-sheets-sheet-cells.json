@@ -1,0 +1,70 @@
+{
+  "operation": "GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells",
+  "name": "headerAndFirstRows",
+  "summary": "The header and the first rows of the sheet as an import reads them",
+  "request": {
+    "path": {
+      "source_file_id": "00000000-0000-4000-8000-000000000011",
+      "sheet": "Haltestellen"
+    },
+    "query": {
+      "range": "A3:D6",
+      "pageSize": 4
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "row": 3,
+          "cells": {
+            "A": {
+              "text": "Haltestelle",
+              "kind": "text"
+            },
+            "B": {
+              "text": "Gemeinde",
+              "kind": "text"
+            },
+            "C": {
+              "text": "Linien",
+              "kind": "text"
+            },
+            "D": {
+              "text": "UIC-Nr",
+              "kind": "text"
+            }
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": {
+              "text": "Chur Albula",
+              "kind": "text"
+            },
+            "B": {
+              "text": "Chur",
+              "kind": "text"
+            },
+            "C": {
+              "text": "2",
+              "kind": "text"
+            },
+            "D": {
+              "text": "8571924",
+              "kind": "text"
+            }
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-8"
+    }
+  },
+  "notes": [
+    "`items`: the first 2 of 4 items are shown."
+  ]
+}

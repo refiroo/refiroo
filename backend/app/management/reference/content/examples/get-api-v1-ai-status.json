@@ -1,0 +1,127 @@
+{
+  "operation": "GET /api/v1/ai/status",
+  "name": "fakeProvider",
+  "summary": "How the provider is set up, what each feature needs sent, the last call and the totals of the last 30 days",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "configured": true,
+      "assistant": true,
+      "provider": "fake",
+      "model": "fake-1",
+      "endpoint": null,
+      "keySet": false,
+      "sendLevel": "values",
+      "sampleValues": 20,
+      "minConfidence": 0.5,
+      "logContent": true,
+      "logContentDays": 7,
+      "timeoutSeconds": 60,
+      "features": [
+        {
+          "purpose": "mappingTarget",
+          "name": "Targets for the unmapped values of a mapping view",
+          "needs": "values",
+          "available": true
+        },
+        {
+          "purpose": "queryTranslation",
+          "name": "A question in words becomes the filters of a list",
+          "needs": "structure",
+          "available": true
+        }
+      ],
+      "lastCall": {
+        "id": "00000000-0000-4000-8000-000000000009",
+        "purpose": "impactSummary",
+        "provider": "fake",
+        "model": "fake-1",
+        "sendLevel": "structure",
+        "promptVersion": "impact-summary/2",
+        "requestedBy": {
+          "kind": "user",
+          "id": "00000000-0000-4000-8000-000000000002",
+          "name": "Reference Administrator"
+        },
+        "jobId": null,
+        "startedAt": "2026-11-02T09:28:00Z",
+        "durationMs": 0,
+        "bytesIn": 3631,
+        "bytesOut": 348,
+        "tokensIn": 100,
+        "tokensOut": 20,
+        "costUsd": null,
+        "taskId": null,
+        "outcome": "answered",
+        "failureKind": null,
+        "failure": null,
+        "content": {
+          "instructions": "You write a short account of what a change to a data model does, for the person who is about to activate it.\nThe context holds the facts: each has an id, a kind, a text and sometimes a count, a path, and for a change what it was before and after.\n- change: one difference between the model now and the model proposed.\n- data: a rule the workspace's data would break, with how many it breaks.\n- blocked: activation is refused until something else happens.\n- contract: what the change does to the consumer APIs that read this model.\n- records: how many records of a type the change touches stand in the workspace.\nWhere a kind has more facts than the context lists, `more` gives how many and an id for the group that you may cite; `totals` gives each kind's true number of facts. Write \"and 12 more\", never that facts were not shown or not sent to you: the reader has all of them.\nWrite 1 to 6 short statements in the language given by the context's language. Each statement says what the facts say and cites the ids of the facts it rests on in factIds, one or more.\n- Say only what the facts carry. Do not guess a consequence, a reason or an effect on records that no fact states; when a change has no data fact, say nothing about the data.\n- State what changes and by how much. Never say that a change is safe, risky, harmless, breaking, recommended or advisable, and give no advice.\n- Use the names in the facts as they are written, and numbers from the facts and the totals exactly: do not count the facts yourself.\n- A statement without a fact id is discarded.",
+          "context": {
+            "language": "en",
+            "totals": {
+              "change": 5,
+              "records": 1
+            },
+            "facts": [
+              {
+                "id": "ch-788a89b9",
+                "kind": "change",
+                "text": "Application 'Network': details › stop › panels › attributes › config › fields changes",
+                "path": "/applications/network/details/stop/panels/attributes/config/fields",
+                "before": "[\"stop-number\", \"sloid\", \"abbreviation\", \"designation\", \"latitude\", \"longitude\", \"height\", \"valid-from\", \"valid-to\"]",
+                "after": "[\"stop-number\", \"sloid\", \"abbreviation\", \"designation\", \"latitude\", \"longitude\", \"height\", \"valid-from\", \"valid-to\", \"step-free\"]"
+              },
+              {
+                "id": "ch-605989f0",
+                "kind": "change",
+                "text": "Application 'Network': views › stops › config › columns changes",
+                "path": "/applications/network/views/stops/config/columns",
+                "before": "[\"name\", \"stop-number\", \"abbreviation\", \"valid-from\", \"valid-to\", \"related:stop-served-by-mode\", \"related:stop-operated-by-operator\"]",
+                "after": "[\"name\", \"stop-number\", \"abbreviation\", \"valid-from\", \"valid-to\", \"related:stop-served-by-mode\", \"related:stop-operated-by-operator\", \"step-free\"]"
+              }
+            ],
+            "more": []
+          },
+          "answer": {
+            "statements": [
+              {
+                "text": "Application 'Network': details › stop › panels › attributes › config › fields changes",
+                "factIds": [
+                  "ch-788a89b9"
+                ]
+              },
+              {
+                "text": "Application 'Network': views › stops › config › columns changes",
+                "factIds": [
+                  "ch-605989f0"
+                ]
+              },
+              {
+                "text": "Attribute type 'Step-free access' is added",
+                "factIds": [
+                  "ch-fd796907"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "totals": {
+        "days": 30,
+        "calls": 8,
+        "failed": 0,
+        "tokensIn": 800,
+        "tokensOut": 160,
+        "bytesIn": 31088,
+        "bytesOut": 1561,
+        "costUsd": 0.0
+      }
+    }
+  },
+  "notes": [
+    "`features`: the first 2 of 4 items are shown.",
+    "`lastCall.content.context.facts`: the first 2 of 6 items are shown."
+  ]
+}

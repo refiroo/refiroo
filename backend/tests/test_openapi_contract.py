@@ -476,14 +476,103 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `derivedPlace.applicationKey`, and each container's `applicationKey`. The set of
     # fields an export may list a cell by (`ExportView.cellField`) widens to every text field, a rule, not
     # a schema change.
+    # Re-baselined for the reference text (0.14 V3, diffed against the document without it):
+    # `app.openapi()` merges `management/reference/content/` into the generated document. Only `info`,
+    # `tags`, `paths` and the property descriptions of `components.schemas` change; the set of operations
+    # and of schemas, every schema's type and every property's type do not. `info.description` gains the
+    # conventions and the error catalogue; `tags` lists every tag in first-use order, with the overview
+    # of `workspaces`, `system` and `changes`; the 21 operations of `workspaces`, `system`, `changes` and
+    # the two untagged ones gain their title (`summary`), their description in place of the code's, their
+    # parameter notes, their recorded example (parameter examples inline, the request and response bodies
+    # as `externalValue` files under /docs/api/examples) and their error responses; every operation that
+    # declares an action gains the 401, 422, 500 and 503 responses with the codes every operation can
+    # return, and its `X-Expected-Model-Release-Id` description; every page schema gains its navigation
+    # fields' descriptions. No parameter or schema changes, and no behaviour: the text and the added
+    # responses only document what the operations do.
     # Re-baselined for 0.17 SA1 (additive, pre-1.0): `MeResponse.signInManaged` and
     # `UserResponse.signInManaged` (required booleans in responses), the optional
     # `UserCreate.signInManaged` (default false) and `UserUpdate.signInManaged`; the description of the
-    # own-account routes naming `403 SIGN_IN_MANAGED`. No path, no request field that was required and
-    # no response field is removed.
+    # own-account routes naming `403 SIGN_IN_MANAGED`, and the error's catalogue text. No path, no
+    # request field that was required and no response field is removed.
+    # Re-baselined for the records text (0.14 V4, diffed against the document without it): the 13
+    # operations of `objects` and `attributes` gain their title, description, parameter notes, error
+    # responses and recorded example (request and response bodies as `externalValue` files, now written
+    # relative to the document so they follow a root path), and the schemas they use gain their field
+    # descriptions; `tags` gains the overviews of `objects` and `attributes`. Only descriptions,
+    # summaries, examples and responses change: every path, parameter, schema and property is as before.
+    # Re-baselined for the relations text (0.14 V5, diffed against the document without it): the 18
+    # operations of `relations`, `mapping` and `relation-matrix` gain their title, description,
+    # parameter notes, error responses and recorded example, and the schemas they use gain their field
+    # descriptions; `tags` gains the three overviews; the catalogue gains `RELATION_BATCH_REFUSED`
+    # (`info.description`). Only descriptions, summaries, examples and responses change.
+    # Re-baselined for the change sets text (0.14 V6, diffed against the document without it): the 23
+    # operations of `change-sets` gain their title, description, parameter notes, error responses and
+    # recorded example, and the schemas they use (the job, export, move and migration summaries
+    # included) gain their field descriptions; `tags` gains the overview; the text of the error
+    # `VERSION_CONFLICT` (`info.description`) names a publication's conflicts, and the status of the
+    # pinned-model refusals the earlier areas list is 409, as the catalogue says. Only descriptions,
+    # summaries, examples and responses change.
+    # Re-baselined for the jobs, imports and source files text (0.14 V7, diffed against the document
+    # without it): the 30 operations of those three tags gain their title, description, parameter
+    # notes, error responses and recorded example (a multipart request's parts are named in the
+    # example's notes); the schemas they use (the batch items, outcomes, import profile, check, dry run
+    # figures and source file profile among them) gain their field descriptions; `tags` gains the three
+    # overviews; the catalogue gains the codes of an import profile's problems, of an import file's
+    # mismatch, of an item's reason and of an import's notices (`info.description`). Only descriptions,
+    # summaries, examples and responses change.
+    # Re-baselined for the model text (0.14 V8, diffed against the document without it): the operations
+    # of `model`, `model administration`, `model mappings` and `moves` gain their title, description,
+    # parameter notes, error responses and recorded example; the model, draft, mapping, move, dry run
+    # and inference schemas gain their field descriptions; `tags` gains the four overviews; the draft
+    # kinds' schemas carry typed, described parameters with the required ones listed, and the mapping
+    # operations body becomes the union of the 12 mapping kinds (`Mapping<Kind>Operation`);
+    # `POST /imports` names `404`/`403` for a stored file it may not use. Only descriptions, summaries,
+    # examples, responses and the kinds' schemas change.
+    # Re-baselined for the security text (0.14 V11, diffed against the document without it): the
+    # operations of `security`, `oauth` and `agent-access` gain their title, description, parameter
+    # notes, error responses and recorded example (a form request's fields are named in the example's
+    # notes); the schemas they use gain their field descriptions; `tags` gains the three overviews;
+    # the model administration operations list `404 HTTP_ERROR` where they listed `405` (the addresses
+    # do not exist while the setting is off) and the catalogue's `HTTP_ERROR` entry says so
+    # (`info.description`). Only descriptions, summaries, examples and responses change.
+    # Re-baselined for the AI, mail and notifications text (0.14 V12, diffed against the document
+    # without it): the operations of `ai`, `mail` and `notifications` gain their title, description,
+    # parameter notes, error responses and recorded example (the task's multipart request names its
+    # parts in the example's notes); the schemas they use gain their field descriptions, among them the
+    # dry run of items' `Items*` schemas; `tags` gains the three overviews. Only descriptions,
+    # summaries, examples and responses change.
+    # Re-baselined for the close-out of the reference text (0.14 V9, diffed against the document without
+    # it): the schemas whose in-code description carried package or decision numbers (254 of them, the
+    # model, job, import, move, security, AI, mail and other schemas) now carry the description written
+    # in the content files, and 33 property descriptions and two parameter descriptions are rewritten
+    # without such numbers; the catalogue gains `APPLICATION_IN_USE` and `APPLICATION_OBJECT_TYPE_IN_USE`,
+    # `UNKNOWN_PARAMETER` and `UNKNOWN_OBJECT_TYPE` say where a subscription's filter answers them, ten
+    # entries are badged as no response status, and `POST /model-drafts/{id}/operations` lists
+    # `409 AI_TASK_DRAFT_HELD`. The routes of `consumer subscriptions` are not in this document (the
+    # capability is off by default); their text is held by `test_reference_complete.py`. Only descriptions,
+    # summaries and responses change.
+    # Re-baselined for the codes of a compatibility check and of a migration's items (0.14 V9, diffed
+    # against the document without it): the catalogue gains 29 entries (`info.description`), the 15
+    # diagnostics of a compatibility check, the 14 item codes of a migration (among them `VERSION_MISMATCH`
+    # of a publication's merge conflict), each badged as no response status. Nothing else changes.
+    # Re-baselined for the remaining code families (0.14 V9, diffed against the document without it): the
+    # catalogue gains 50 entries (`info.description`): a change set's whole-graph diagnostics and a
+    # publication's conflicts, a move's reasons, a mapping's problems, an import's row errors, a draft's
+    # profile warnings, an assistant check's and a dry run's findings, the consumer contract and model
+    # validation findings, a subscription's suspension reasons and a backup rehearsal's failures, each
+    # badged as no response status. Nothing else changes.
+    # Re-baselined for the API documentation discrepancies (0.14 VD): attribute POST and PATCH keep
+    # their response schema (the record's `path` is filled in a change set); GET
+    # /objects/{type}/{id}/parent-candidates loses its `publicationId` parameter; the removed
+    # assistant check shapes (TaskCheck, CheckTable, CheckFix, CheckSummary, RefusedGroup) leave the
+    # document and AiTaskResponse.check is DesignCheck; ModelMappingOperationEntry gains `removed`
+    # and `migration`; ModelCompatibilityResponse.classification lists compatible and
+    # migration_required (CandidateCompatibilityResponse keeps invalid); the descriptions of
+    # MailMessageResponse.kind and lastErrorKind and of POST /moves, and the reference text, change.
+    # The hash covers the tree as committed: the document the application at this commit builds.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "76571e3b3fc3759cdb7ab90165d56cbae0576fa365d724135cffa506a6d98dac"
+        "5e2de75a17d386fdb1dc9e2ace688230ede692fd96873ad161055419b8b378f8"
     )
 
 
@@ -506,6 +595,32 @@ def test_every_public_draft_operation_kind_has_its_schema(monkeypatch):
         assert schema["properties"]["kind"]["const"] == kind
         assert set(schema["properties"]) == {"kind", *PARAMETERS[kind]}
         assert schema["additionalProperties"] is False and schema["description"], kind
+    assert not set(INTERNAL_KINDS) & set(items["discriminator"]["mapping"])
+    for kind in public:
+        schema = schemas[operation_schema_name(kind)]
+        assert all(member.get("description") for member in schema["properties"].values()), kind
+
+
+def test_every_public_mapping_operation_kind_has_its_schema(monkeypatch):
+    """The mapping operations body is a list of one schema per public kind of the mapping registry,
+    discriminated by ``kind``, each parameter described; the kinds only the server writes are out."""
+    from app.engine.moves.mapping_kinds import INTERNAL_KINDS, KINDS, PARAMETERS
+    from app.management.schemas.model_mapping_operations import mapping_operation_schema_name
+
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("INTEGRATION_JOBS_ENABLED", "true")
+    schemas = create_app().openapi()["components"]["schemas"]
+    items = schemas["ModelMappingOperationsRequest"]["properties"]["operations"]["items"]
+    public = sorted(set(KINDS) - INTERNAL_KINDS)
+    assert set(PARAMETERS) == set(KINDS)
+    assert items["discriminator"]["propertyName"] == "kind"
+    assert sorted(items["discriminator"]["mapping"]) == public
+    for kind in public:
+        schema = schemas[mapping_operation_schema_name(kind)]
+        assert schema["properties"]["kind"]["const"] == kind
+        assert set(schema["properties"]) == {"kind", *PARAMETERS[kind]}
+        assert schema["additionalProperties"] is False and schema["description"], kind
+        assert all(member.get("description") for member in schema["properties"].values()), kind
     assert not set(INTERNAL_KINDS) & set(items["discriminator"]["mapping"])
 
 

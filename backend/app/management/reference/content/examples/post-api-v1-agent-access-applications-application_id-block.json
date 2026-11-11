@@ -1,0 +1,25 @@
+{
+  "operation": "POST /api/v1/agent-access/applications/{application_id}/block",
+  "name": "planningAssistant",
+  "summary": "Block an assistant: no one signs in with it and its sessions end",
+  "request": {
+    "path": {
+      "application_id": "00000000-0000-4000-8000-000000000030"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000030",
+      "name": "Planning assistant",
+      "source": "administrator",
+      "returnsTo": [
+        "assistant.example.org"
+      ],
+      "blocked": true,
+      "signedIn": 0,
+      "createdAt": "2026-11-02T12:30:00Z",
+      "lastUsedAt": null
+    }
+  }
+}

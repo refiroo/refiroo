@@ -1,0 +1,17 @@
+{
+  "operation": "POST /api/v1/change-sets/{change_set_id}/validation",
+  "name": "check",
+  "summary": "The change set checked as a whole: nothing to fix",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "valid": true,
+      "diagnostics": []
+    }
+  }
+}

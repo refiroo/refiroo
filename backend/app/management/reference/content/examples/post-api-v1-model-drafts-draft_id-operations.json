@@ -1,0 +1,129 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/operations",
+  "name": "threeKinds",
+  "summary": "A step of three operations: a new attribute type, attached to stops and described",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "expectedVersion": 2,
+      "operations": [
+        {
+          "kind": "addAttributeType",
+          "key": "step-free",
+          "name": "Step-free access",
+          "valueType": "boolean"
+        },
+        {
+          "kind": "attachAttribute",
+          "objectType": "stop",
+          "attributeType": "step-free"
+        },
+        {
+          "kind": "setLabel",
+          "element": {
+            "attributeType": "step-free"
+          },
+          "description": "Whether a passenger can board without steps"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 3,
+      "entries": [
+        {
+          "sequence": 1,
+          "step": 1,
+          "kind": "addAttributeType",
+          "parameters": {
+            "key": "step-free",
+            "name": "Step-free access",
+            "valueType": "boolean"
+          },
+          "inverse": {
+            "kind": "removeAttributeType",
+            "attributeType": "step-free"
+          },
+          "draftVersion": 3,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:21:00Z",
+          "undone": false,
+          "origin": {
+            "type": "request"
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 2,
+          "step": 1,
+          "kind": "attachAttribute",
+          "parameters": {
+            "objectType": "stop",
+            "attributeType": "step-free"
+          },
+          "inverse": {
+            "kind": "detachAttribute",
+            "objectType": "stop",
+            "attributeType": "step-free"
+          },
+          "draftVersion": 3,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:21:00Z",
+          "undone": false,
+          "origin": {
+            "type": "request"
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 3,
+          "step": 1,
+          "kind": "setLabel",
+          "parameters": {
+            "element": {
+              "attributeType": "step-free"
+            },
+            "description": "Whether a passenger can board without steps"
+          },
+          "inverse": {
+            "kind": "setLabel",
+            "element": {
+              "attributeType": "step-free"
+            },
+            "description": null
+          },
+          "draftVersion": 3,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:21:00Z",
+          "undone": false,
+          "origin": {
+            "type": "request"
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "valid": true,
+      "diagnostics": [],
+      "dryRun": null
+    }
+  }
+}

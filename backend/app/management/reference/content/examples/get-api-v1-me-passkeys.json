@@ -1,0 +1,32 @@
+{
+  "operation": "GET /api/v1/me/passkeys",
+  "name": "twoPasskeys",
+  "summary": "The person's passkeys by the name they gave them; never the credential",
+  "request": {
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "name": "Laptop",
+          "createdAt": "2026-11-02T10:45:00Z",
+          "lastUsedAt": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "name": "Phone",
+          "createdAt": "2026-11-02T10:45:00Z",
+          "lastUsedAt": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-12"
+    }
+  }
+}

@@ -1349,8 +1349,7 @@ def set_relation_type_property(context: Context, raw: dict[str, Any]) -> Applied
 
 @kind("setApplicationProperty", params=("applicationKey", "property", "value"))
 def set_application_property(context: Context, raw: dict[str, Any]) -> Applied:
-    """An application's default view. Its colour is set with ``setLabel``; its ``state`` is read by
-    nothing and is not offered."""
+    """Set an application's default view (`property` is `defaultView`); its colour is set with `setLabel`."""
     params = Params(raw)
     app, name = params.text("applicationKey"), params.text("property")
     application = context.application(app)
@@ -2045,9 +2044,7 @@ def insert_view_item(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("addPanel", params=("applicationKey", "detail", "show", "region", "title", "key"))
 def add_panel_kind(context: Context, raw: dict[str, Any]) -> Applied:
-    """A panel the server builds with the rule a type's page follows (0.13 RL, ADR-041): the records
-    of one of the type's relationships, in either direction, or its contained records. Its columns
-    change afterwards with ``insertViewItem`` and ``removeViewItem``; undone by ``removeViewItem``."""
+    """Add a panel to an object type's detail page, built by the server: the records of one of the type's relationships, in either direction, or its contained records. Change its columns afterwards with `insertViewItem` and `removeViewItem`."""
     params = Params(raw)
     app = params.text("applicationKey")
     path = _detail_path(context, app, raw.get("detail"))
@@ -2330,8 +2327,7 @@ def unlist_object_type(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("addDetailPage", params=("applicationKey", "objectType", "page", "position"))
 def add_detail_page(context: Context, raw: dict[str, Any]) -> Applied:
-    """A detail page for a type of the application that has none (0.10 A4b, D48): the page a new
-    type gets, or, as ``removeDetailPage``'s inverse, the ``page`` it removed at its ``position``."""
+    """Add a detail page for a type of the application that has none: the standard page, or the `page` given (what undoing removeDetailPage puts back, at its `position`)."""
     params = Params(raw)
     app = params.text("applicationKey")
     application = context.application(app)

@@ -1,0 +1,246 @@
+{
+  "operation": "GET /api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}",
+  "name": "aRequestWithItsAttempts",
+  "summary": "One request: its events, the body the receiver got and both attempts, the first answered 503",
+  "request": {
+    "path": {
+      "subscription_id": "00000000-0000-4000-8000-000000000001",
+      "delivery_id": "00000000-0000-4000-8000-000000000003"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "deliveryId": "00000000-0000-4000-8000-000000000003",
+      "batchId": "00000000-0000-4000-8000-000000000003",
+      "status": "succeeded",
+      "events": [
+        {
+          "eventId": "00000000-0000-4000-8000-000000000008",
+          "event": "stops-changed",
+          "change": "updated",
+          "objectType": "Stop",
+          "objectId": "00000000-0000-4000-8000-000000000009",
+          "position": 1232
+        },
+        {
+          "eventId": "00000000-0000-4000-8000-000000000006",
+          "event": "stops-changed",
+          "change": "created",
+          "objectType": "Stop",
+          "objectId": "00000000-0000-4000-8000-000000000007",
+          "position": 1233
+        },
+        {
+          "eventId": "00000000-0000-4000-8000-000000000004",
+          "event": "stops-changed",
+          "change": "created",
+          "objectType": "Stop",
+          "objectId": "00000000-0000-4000-8000-000000000005",
+          "position": 1234
+        }
+      ],
+      "requestBody": {
+        "deliveryId": "00000000-0000-4000-8000-000000000003",
+        "subscriptionId": "00000000-0000-4000-8000-000000000001",
+        "consumerApi": "stops",
+        "contractVersion": 1,
+        "workspaceKey": "graubuenden",
+        "events": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000008",
+            "position": 1232,
+            "occurredAt": "2026-11-02T09:07:00Z",
+            "event": "stops-changed",
+            "change": "updated",
+            "contractVersion": 1,
+            "objectType": "Stop",
+            "id": "00000000-0000-4000-8000-000000000009",
+            "code": "ch:1:sloid:9258",
+            "name": "Zuoz (Bahnhof)",
+            "changed": [
+              "name"
+            ],
+            "cause": {
+              "kind": "publication",
+              "id": "00000000-0000-4000-8000-000000000010"
+            },
+            "stateAt": 1237,
+            "object": {
+              "objectType": "Stop",
+              "id": "00000000-0000-4000-8000-000000000009",
+              "code": "ch:1:sloid:9258",
+              "name": "Zuoz (Bahnhof)",
+              "validFrom": "2025-10-14",
+              "validTo": null,
+              "stopNumber": 8509258,
+              "abbreviation": "ZUOZ",
+              "fsoNumber": null,
+              "latitude": "46.600018645224296",
+              "longitude": "9.961290001676481",
+              "height": "1691.887",
+              "sboid": null,
+              "parent": {
+                "objectType": "Municipality",
+                "id": "00000000-0000-4000-8000-000000000011",
+                "code": null,
+                "name": "Zuoz"
+              },
+              "path": "Graubünden/Maloja/Zuoz",
+              "operator": {
+                "id": "00000000-0000-4000-8000-000000000012",
+                "code": "RhB",
+                "name": "Rhätische Bahn",
+                "localName": null,
+                "isPrimary": null
+              },
+              "modes": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000013",
+                  "code": "TRAIN",
+                  "name": "Train"
+                }
+              ],
+              "systemCodes": [
+                {
+                  "system": "Wikidata: stations",
+                  "systemKey": "wikidata-stations",
+                  "code": "Q8075325",
+                  "name": "Q8075325 Zuoz"
+                }
+              ],
+              "translations": []
+            }
+          },
+          {
+            "eventId": "00000000-0000-4000-8000-000000000006",
+            "position": 1233,
+            "occurredAt": "2026-11-02T09:07:00Z",
+            "event": "stops-changed",
+            "change": "created",
+            "contractVersion": 1,
+            "objectType": "Stop",
+            "id": "00000000-0000-4000-8000-000000000007",
+            "code": null,
+            "name": "Zuoz, Post",
+            "changed": [],
+            "cause": {
+              "kind": "publication",
+              "id": "00000000-0000-4000-8000-000000000010"
+            },
+            "stateAt": 1237,
+            "object": {
+              "objectType": "Stop",
+              "id": "00000000-0000-4000-8000-000000000007",
+              "code": null,
+              "name": "Zuoz, Post",
+              "validFrom": null,
+              "validTo": null,
+              "stopNumber": 8599010,
+              "abbreviation": null,
+              "fsoNumber": null,
+              "latitude": null,
+              "longitude": null,
+              "height": null,
+              "sboid": null,
+              "parent": {
+                "objectType": "Municipality",
+                "id": "00000000-0000-4000-8000-000000000011",
+                "code": null,
+                "name": "Zuoz"
+              },
+              "path": "Graubünden/Maloja/Zuoz",
+              "operator": null,
+              "modes": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000013",
+                  "code": "TRAIN",
+                  "name": "Train"
+                }
+              ],
+              "systemCodes": [],
+              "translations": []
+            }
+          },
+          {
+            "eventId": "00000000-0000-4000-8000-000000000004",
+            "position": 1234,
+            "occurredAt": "2026-11-02T09:07:00Z",
+            "event": "stops-changed",
+            "change": "created",
+            "contractVersion": 1,
+            "objectType": "Stop",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "code": null,
+            "name": "Zuoz, Sportplatz",
+            "changed": [],
+            "cause": {
+              "kind": "publication",
+              "id": "00000000-0000-4000-8000-000000000010"
+            },
+            "stateAt": 1237,
+            "object": {
+              "objectType": "Stop",
+              "id": "00000000-0000-4000-8000-000000000005",
+              "code": null,
+              "name": "Zuoz, Sportplatz",
+              "validFrom": null,
+              "validTo": null,
+              "stopNumber": 8599016,
+              "abbreviation": null,
+              "fsoNumber": null,
+              "latitude": null,
+              "longitude": null,
+              "height": null,
+              "sboid": null,
+              "parent": {
+                "objectType": "Municipality",
+                "id": "00000000-0000-4000-8000-000000000011",
+                "code": null,
+                "name": "Zuoz"
+              },
+              "path": "Graubünden/Maloja/Zuoz",
+              "operator": null,
+              "modes": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000013",
+                  "code": "TRAIN",
+                  "name": "Train"
+                }
+              ],
+              "systemCodes": [],
+              "translations": []
+            }
+          }
+        ]
+      },
+      "requestBytes": 3246,
+      "createdAt": "2026-11-02T09:07:00Z",
+      "nextAttemptAt": null,
+      "resendOf": null,
+      "attempts": [
+        {
+          "number": 1,
+          "startedAt": "2026-11-02T09:07:00Z",
+          "completedAt": "2026-11-02T09:07:00Z",
+          "durationMs": 1,
+          "responseStatus": 503,
+          "error": {
+            "kind": "status",
+            "message": "503 Service Unavailable: Service Unavailable"
+          },
+          "responseBody": "Service Unavailable"
+        },
+        {
+          "number": 2,
+          "startedAt": "2026-11-02T09:56:00Z",
+          "completedAt": "2026-11-02T09:56:00Z",
+          "durationMs": 1,
+          "responseStatus": 200,
+          "error": null,
+          "responseBody": "ok"
+        }
+      ]
+    }
+  }
+}

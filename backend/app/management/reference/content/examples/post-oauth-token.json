@@ -1,0 +1,18 @@
+{
+  "operation": "POST /oauth/token",
+  "name": "clientCredentials",
+  "summary": "A client signs in with its ID and secret and gets an access token",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "access_token": "example-access-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "scope": "management"
+    }
+  },
+  "notes": [
+    "The request is a form, `grant_type=client_credentials&scope=management`, with the client's ID and secret as HTTP Basic credentials."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "operation": "GET /api/v1/me/notifications/events",
+  "name": "open",
+  "summary": "The stream as it opens: the unread count at once (the first event; a `notification` event follows for each new notice while the client stays)",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": "event: unread\ndata: {\"unreadCount\":1}\n\n"
+  }
+}

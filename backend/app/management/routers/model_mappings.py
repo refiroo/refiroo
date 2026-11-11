@@ -21,7 +21,6 @@ from ...models.mappings import (
     MappingInferenceApplication,
     MappingInferenceRequest,
     ModelMappingCreate,
-    ModelMappingOperationsRequest,
     ModelMappingUndoRequest,
     ModelMappingVersionRequest,
 )
@@ -38,6 +37,7 @@ from ..schemas.mappings import (
     MappingProposalResponse,
     ModelMappingOperationEntry,
     ModelMappingOperationPage,
+    ModelMappingOperationsRequest,
     ModelMappingPage,
     ModelMappingResponse,
     ModelMappingStepResponse,

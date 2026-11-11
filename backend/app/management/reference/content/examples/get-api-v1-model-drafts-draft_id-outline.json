@@ -1,0 +1,672 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/outline",
+  "name": "graubuenden",
+  "summary": "The draft's structure as the editor shows it",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 3,
+      "baseReleaseId": "00000000-0000-4000-8000-000000000023",
+      "workspaceKey": "graubuenden",
+      "suggestedReleaseVersion": "1.8.2",
+      "release": {
+        "key": "guide-reference-swiss",
+        "name": "Public transport stops of Graubünden",
+        "version": "1.8.1",
+        "schemaVersion": "0.10"
+      },
+      "baseRelease": {
+        "key": "guide-reference-swiss",
+        "name": "Public transport stops of Graubünden",
+        "version": "1.8.1"
+      },
+      "applications": [
+        {
+          "key": "network",
+          "name": "Network",
+          "icon": "route",
+          "color": "#1f6fb2",
+          "defaultView": "stops",
+          "objectTypeKeys": [
+            "canton",
+            "district"
+          ],
+          "tree": [
+            {
+              "objectType": "canton",
+              "children": [
+                {
+                  "objectType": "district",
+                  "children": [
+                    {
+                      "objectType": "municipality",
+                      "children": [
+                        {
+                          "objectType": "stop",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "objectType": "operator",
+              "children": []
+            },
+            {
+              "objectType": "mode",
+              "children": [
+                {
+                  "objectType": "mode",
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "ownTypes": [
+            "canton",
+            "district"
+          ],
+          "ownTree": [
+            {
+              "objectType": "canton",
+              "children": [
+                {
+                  "objectType": "district",
+                  "children": [
+                    {
+                      "objectType": "municipality",
+                      "children": [
+                        {
+                          "objectType": "stop",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "objectType": "operator",
+              "children": []
+            },
+            {
+              "objectType": "mode",
+              "children": [
+                {
+                  "objectType": "mode",
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "borrowed": [],
+          "borrowedTree": [],
+          "unused": [],
+          "navigation": {
+            "groups": [],
+            "ungrouped": [
+              "stop",
+              "canton"
+            ],
+            "opens": {}
+          },
+          "views": [
+            {
+              "key": "stops",
+              "name": "Stops",
+              "type": "table",
+              "collection": "stop",
+              "shows": [
+                "stop"
+              ],
+              "mark": "changed"
+            },
+            {
+              "key": "geography",
+              "name": "Geography",
+              "type": "tree",
+              "collection": "canton",
+              "shows": [
+                "canton",
+                "district"
+              ],
+              "config": {
+                "rootObjectTypeKeys": [
+                  "canton"
+                ],
+                "objectTypeKeys": [
+                  "canton",
+                  "district"
+                ],
+                "labelField": "name",
+                "secondaryField": "objectType",
+                "childSort": {
+                  "district": "name",
+                  "municipality": "name",
+                  "stop": "name"
+                },
+                "pageSize": 50,
+                "actions": [
+                  "createChild",
+                  "rename",
+                  "move"
+                ],
+                "availabilityField": null
+              },
+              "mark": "released"
+            }
+          ],
+          "unlistable": [],
+          "mark": "changed"
+        },
+        {
+          "key": "systems",
+          "name": "Systems",
+          "icon": "network",
+          "color": "#167d78",
+          "defaultView": "systems",
+          "objectTypeKeys": [
+            "system",
+            "system-code"
+          ],
+          "tree": [
+            {
+              "objectType": "system",
+              "children": [
+                {
+                  "objectType": "system-code",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "objectType": "municipality",
+              "children": [
+                {
+                  "objectType": "stop",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "objectType": "mode",
+              "children": [
+                {
+                  "objectType": "mode",
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "ownTypes": [
+            "system",
+            "system-code"
+          ],
+          "ownTree": [
+            {
+              "objectType": "system",
+              "children": [
+                {
+                  "objectType": "system-code",
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "borrowed": [
+            {
+              "objectType": "stop",
+              "home": "network",
+              "uses": [
+                {
+                  "view": "codes-to-stops",
+                  "viewName": "Codes to stops",
+                  "viewType": "mappingGrid",
+                  "role": "to",
+                  "relationType": "system-code-maps-to",
+                  "relationName": "Maps to"
+                }
+              ]
+            },
+            {
+              "objectType": "municipality",
+              "home": "network",
+              "uses": [
+                {
+                  "view": "codes-to-municipalities",
+                  "viewName": "Codes to municipalities",
+                  "viewType": "mappingGrid",
+                  "role": "to",
+                  "relationType": "system-code-maps-to",
+                  "relationName": "Maps to"
+                },
+                {
+                  "view": "municipalities-by-system",
+                  "viewName": "Municipalities by system",
+                  "viewType": "relationMatrix",
+                  "role": "rows",
+                  "relationType": "system-code-maps-to",
+                  "relationName": "Maps to"
+                }
+              ]
+            }
+          ],
+          "borrowedTree": [
+            {
+              "objectType": "municipality",
+              "children": [
+                {
+                  "objectType": "stop",
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "unused": [
+            "mode"
+          ],
+          "navigation": {
+            "groups": [],
+            "ungrouped": [
+              "system",
+              "system-code",
+              "municipality"
+            ],
+            "opens": {}
+          },
+          "views": [
+            {
+              "key": "systems",
+              "name": "Systems",
+              "type": "table",
+              "collection": "system",
+              "shows": [
+                "system"
+              ],
+              "mark": "released"
+            },
+            {
+              "key": "system-codes-tree",
+              "name": "System codes",
+              "type": "tree",
+              "collection": "system",
+              "shows": [
+                "system",
+                "system-code"
+              ],
+              "config": {
+                "rootObjectTypeKeys": [
+                  "system"
+                ],
+                "objectTypeKeys": [
+                  "system",
+                  "system-code"
+                ],
+                "labelField": "name",
+                "secondaryField": "objectType",
+                "childSort": {
+                  "system-code": "external-id"
+                },
+                "pageSize": 50,
+                "actions": [
+                  "createChild",
+                  "rename",
+                  "move"
+                ],
+                "availabilityField": null
+              },
+              "mark": "released"
+            }
+          ],
+          "unlistable": [],
+          "mark": "released"
+        },
+        {
+          "key": "names",
+          "name": "Names",
+          "icon": "languages",
+          "color": "#c66b2c",
+          "defaultView": "municipality-names",
+          "objectTypeKeys": [
+            "language",
+            "name-translation"
+          ],
+          "tree": [
+            {
+              "objectType": "language",
+              "children": [
+                {
+                  "objectType": "name-translation",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "objectType": "canton",
+              "children": []
+            }
+          ],
+          "ownTypes": [
+            "language",
+            "name-translation"
+          ],
+          "ownTree": [
+            {
+              "objectType": "language",
+              "children": [
+                {
+                  "objectType": "name-translation",
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "borrowed": [
+            {
+              "objectType": "municipality",
+              "home": "network",
+              "uses": [
+                {
+                  "view": "municipality-names",
+                  "viewName": "Municipality names",
+                  "viewType": "relationMatrix",
+                  "role": "rows",
+                  "relationType": "object-has-translation",
+                  "relationName": "Has name translation"
+                }
+              ]
+            },
+            {
+              "objectType": "operator",
+              "home": "network",
+              "uses": [
+                {
+                  "view": "operator-names",
+                  "viewName": "Operator names",
+                  "viewType": "relationMatrix",
+                  "role": "rows",
+                  "relationType": "object-has-translation",
+                  "relationName": "Has name translation"
+                }
+              ]
+            }
+          ],
+          "borrowedTree": [
+            {
+              "objectType": "municipality",
+              "children": []
+            },
+            {
+              "objectType": "operator",
+              "children": []
+            }
+          ],
+          "unused": [
+            "canton"
+          ],
+          "navigation": {
+            "groups": [],
+            "ungrouped": [
+              "language",
+              "name-translation"
+            ],
+            "opens": {}
+          },
+          "views": [
+            {
+              "key": "languages",
+              "name": "Languages",
+              "type": "table",
+              "collection": "language",
+              "shows": [
+                "language"
+              ],
+              "mark": "released"
+            },
+            {
+              "key": "translations",
+              "name": "Translations",
+              "type": "table",
+              "collection": "name-translation",
+              "shows": [
+                "name-translation"
+              ],
+              "mark": "released"
+            }
+          ],
+          "unlistable": [],
+          "mark": "released"
+        }
+      ],
+      "objectTypes": [
+        {
+          "key": "canton",
+          "name": "Canton",
+          "pluralName": "Cantons",
+          "icon": "map",
+          "description": "A Swiss canton (the root of the geography)",
+          "rootCreatable": true,
+          "parents": [],
+          "displayAttribute": "canton-abbreviation",
+          "effectivePeriod": null,
+          "atLeastOneOf": [],
+          "parentRelationTypeKeys": [],
+          "attributes": [
+            {
+              "attributeType": "canton-abbreviation",
+              "name": "Canton abbreviation",
+              "valueType": "text",
+              "required": true,
+              "readOnly": false,
+              "unique": true,
+              "sharedWith": [],
+              "hidden": false,
+              "helpText": null,
+              "mark": "released"
+            },
+            {
+              "attributeType": "fso-number",
+              "name": "FSO number",
+              "valueType": "integer",
+              "required": false,
+              "readOnly": false,
+              "unique": true,
+              "sharedWith": [
+                "district",
+                "municipality"
+              ],
+              "hidden": false,
+              "helpText": null,
+              "mark": "released"
+            }
+          ],
+          "home": "network",
+          "ownIn": [
+            "network"
+          ],
+          "borrowedIn": [],
+          "mark": "released"
+        },
+        {
+          "key": "district",
+          "name": "District",
+          "pluralName": "Districts",
+          "icon": "map-pin",
+          "description": "A district (Region) of the canton",
+          "rootCreatable": false,
+          "parents": [
+            "canton"
+          ],
+          "displayAttribute": null,
+          "effectivePeriod": null,
+          "atLeastOneOf": [],
+          "parentRelationTypeKeys": [
+            "canton-contains-district"
+          ],
+          "attributes": [
+            {
+              "attributeType": "fso-number",
+              "name": "FSO number",
+              "valueType": "integer",
+              "required": false,
+              "readOnly": false,
+              "unique": true,
+              "sharedWith": [
+                "canton",
+                "municipality"
+              ],
+              "hidden": false,
+              "helpText": null,
+              "mark": "released"
+            }
+          ],
+          "home": "network",
+          "ownIn": [
+            "network"
+          ],
+          "borrowedIn": [],
+          "mark": "released"
+        }
+      ],
+      "attributeTypes": [
+        {
+          "key": "stop-number",
+          "name": "Stop number (UIC)",
+          "valueType": "integer",
+          "features": {
+            "searchable": true,
+            "unique": true,
+            "filterable": true,
+            "sortable": true
+          },
+          "minimum": null,
+          "maximum": null,
+          "hidden": false,
+          "helpText": null,
+          "boundBy": [
+            "stop"
+          ],
+          "mark": "released"
+        },
+        {
+          "key": "sloid",
+          "name": "SLOID",
+          "valueType": "text",
+          "features": {
+            "unique": true,
+            "searchable": true,
+            "filterable": true
+          },
+          "minimum": null,
+          "maximum": null,
+          "hidden": false,
+          "helpText": null,
+          "boundBy": [
+            "stop"
+          ],
+          "mark": "released"
+        }
+      ],
+      "relationTypes": [
+        {
+          "key": "canton-contains-district",
+          "reverseKey": "district-belongs-to-canton",
+          "name": "Contains district",
+          "reverseName": "Belongs to canton",
+          "containment": true,
+          "isOriented": true,
+          "mark": "released"
+        },
+        {
+          "key": "district-contains-municipality",
+          "reverseKey": "municipality-belongs-to-district",
+          "name": "Contains municipality",
+          "reverseName": "Belongs to district",
+          "containment": true,
+          "isOriented": true,
+          "mark": "released"
+        }
+      ],
+      "relations": [
+        {
+          "relationType": "canton-contains-district",
+          "from": "canton",
+          "to": "district",
+          "cardinality": "one-to-many",
+          "required": false,
+          "containment": true,
+          "mark": "released"
+        },
+        {
+          "relationType": "district-contains-municipality",
+          "from": "district",
+          "to": "municipality",
+          "cardinality": "one-to-many",
+          "required": false,
+          "containment": true,
+          "mark": "released"
+        }
+      ],
+      "consumerApis": [
+        {
+          "key": "stops",
+          "name": "Stops API",
+          "description": "Stops of Graubünden with their municipality, operator, modes, system codes and names in five languages. XREF finds a stop by UIC number, abbreviation, name, a Wikidata item or another system's code, or by a translated name.",
+          "contractVersion": 1,
+          "exposes": [
+            {
+              "objectType": "stop",
+              "publicName": "Stop"
+            },
+            {
+              "objectType": "municipality",
+              "publicName": "Municipality"
+            }
+          ],
+          "counts": {
+            "fields": 12,
+            "related": 4,
+            "lists": 5,
+            "filters": 5,
+            "events": 1
+          },
+          "mark": "released",
+          "contract": {
+            "classification": "compatible",
+            "diagnostics": []
+          }
+        }
+      ],
+      "valid": true,
+      "diagnostics": []
+    }
+  },
+  "notes": [
+    "`applications[0].objectTypeKeys`: the first 2 of 6 items are shown.",
+    "`applications[0].ownTypes`: the first 2 of 6 items are shown.",
+    "`applications[0].navigation.ungrouped`: the first 2 of 6 items are shown.",
+    "`applications[0].views`: the first 2 of 8 items are shown.",
+    "`applications[0].views[1].shows`: the first 2 of 4 items are shown.",
+    "`applications[0].views[1].config.objectTypeKeys`: the first 2 of 4 items are shown.",
+    "`applications[1].objectTypeKeys`: the first 2 of 5 items are shown.",
+    "`applications[1].views`: the first 2 of 6 items are shown.",
+    "`applications[2].objectTypeKeys`: the first 2 of 5 items are shown.",
+    "`applications[2].tree`: the first 2 of 4 items are shown.",
+    "`applications[2].navigation.ungrouped`: the first 2 of 4 items are shown.",
+    "`applications[2].views`: the first 2 of 4 items are shown.",
+    "`objectTypes`: the first 2 of 10 items are shown.",
+    "`attributeTypes`: the first 2 of 26 items are shown.",
+    "`relationTypes`: the first 2 of 10 items are shown.",
+    "`relations`: the first 2 of 15 items are shown.",
+    "`consumerApis[0].exposes`: the first 2 of 4 items are shown."
+  ]
+}

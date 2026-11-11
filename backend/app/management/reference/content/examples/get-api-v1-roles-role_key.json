@@ -1,0 +1,28 @@
+{
+  "operation": "GET /api/v1/roles/{role_key}",
+  "name": "timetableEditor",
+  "summary": "The custom role, with how many grants give it",
+  "request": {
+    "path": {
+      "role_key": "timetable-editor"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "timetable-editor",
+      "name": "Timetable editor",
+      "description": "Edits stops and prepares change sets",
+      "predefined": false,
+      "actionGroups": [
+        "browse",
+        "edit-live",
+        "change-sets"
+      ],
+      "grants": 0,
+      "version": 1,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "updatedAt": "2026-11-02T09:14:00Z"
+    }
+  }
+}

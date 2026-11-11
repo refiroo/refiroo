@@ -1,0 +1,64 @@
+{
+  "operation": "GET /api/v1/roles",
+  "name": "firstPage",
+  "summary": "The predefined roles come first",
+  "request": {
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "key": "reader",
+          "name": "Reader",
+          "description": "Reads a workspace",
+          "predefined": true,
+          "actionGroups": [
+            "browse"
+          ],
+          "grants": 2,
+          "version": 1,
+          "createdAt": "2026-11-02T09:00:00Z",
+          "updatedAt": "2026-11-02T09:00:00Z"
+        },
+        {
+          "key": "contributor",
+          "name": "Contributor",
+          "description": "Reads a workspace and proposes changes in change sets",
+          "predefined": true,
+          "actionGroups": [
+            "browse",
+            "change-sets"
+          ],
+          "grants": 2,
+          "version": 1,
+          "createdAt": "2026-11-02T09:00:00Z",
+          "updatedAt": "2026-11-02T09:00:00Z"
+        },
+        {
+          "key": "steward",
+          "name": "Data steward",
+          "description": "Keeps a workspace's data: edits live, in change sets and in bulk, and publishes",
+          "predefined": true,
+          "actionGroups": [
+            "browse",
+            "edit-live"
+          ],
+          "grants": 2,
+          "version": 1,
+          "createdAt": "2026-11-02T09:00:00Z",
+          "updatedAt": "2026-11-02T09:00:00Z"
+        }
+      ],
+      "nextCursor": "cursor-1",
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  },
+  "notes": [
+    "`items[2].actionGroups`: the first 2 of 6 items are shown."
+  ]
+}

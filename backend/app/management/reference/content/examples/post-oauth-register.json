@@ -1,0 +1,33 @@
+{
+  "operation": "POST /oauth/register",
+  "name": "localAssistant",
+  "summary": "An assistant registers itself as a public client that returns to this computer",
+  "request": {
+    "body": {
+      "client_name": "Claude Code",
+      "redirect_uris": [
+        "http://localhost:43123/callback"
+      ]
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "client_id": "00000000-0000-4000-8000-000000000029",
+      "client_id_issued_at": 1793610000,
+      "client_name": "Claude Code",
+      "redirect_uris": [
+        "http://localhost:43123/callback"
+      ],
+      "grant_types": [
+        "authorization_code",
+        "refresh_token"
+      ],
+      "response_types": [
+        "code"
+      ],
+      "token_endpoint_auth_method": "none",
+      "scope": "agent"
+    }
+  }
+}

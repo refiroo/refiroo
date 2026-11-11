@@ -1,0 +1,48 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/mapping-targets",
+  "name": "targetsOfACode",
+  "summary": "The municipality the code is mapped to, with the mapping's values",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "applicationKey": "systems",
+      "viewKey": "codes-to-municipalities",
+      "relationTypeKey": "system-code-maps-to",
+      "fromObjectTypeKey": "system-code",
+      "toObjectTypeKey": "municipality",
+      "direction": "outgoing",
+      "sourceObjectId": "00000000-0000-4000-8000-000000000014",
+      "mappingVersion": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "relationId": "00000000-0000-4000-8000-000000000020",
+          "attributes": {
+            "confirmed": true,
+            "mapping-note": "Checked against the FSO list"
+          },
+          "object": {
+            "id": "00000000-0000-4000-8000-000000000016",
+            "objectTypeKey": "municipality",
+            "name": "Ilanz/Glion",
+            "fields": {
+              "name": "Ilanz/Glion",
+              "fso-number": 3619
+            }
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-6",
+      "mappingVersion": 3,
+      "targetCount": 1
+    }
+  }
+}

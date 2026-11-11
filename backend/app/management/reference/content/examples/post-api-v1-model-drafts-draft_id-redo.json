@@ -1,0 +1,50 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/redo",
+  "name": "latestStep",
+  "summary": "Redo it",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "expectedVersion": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 6,
+      "entries": [
+        {
+          "sequence": 6,
+          "step": 4,
+          "kind": "setRelease",
+          "parameters": {
+            "version": "1.9.0"
+          },
+          "inverse": {
+            "kind": "setRelease",
+            "version": "1.8.1"
+          },
+          "draftVersion": 6,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:35:00Z",
+          "undone": false,
+          "origin": {
+            "type": "redo",
+            "step": 3
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "valid": true,
+      "diagnostics": [],
+      "dryRun": null
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/consumer-subscriptions/{subscription_id}",
+  "name": "delete",
+  "summary": "Delete the subscription; its delivery log goes with it",
+  "request": {
+    "path": {
+      "subscription_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "query": {
+      "expectedVersion": 5
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

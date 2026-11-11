@@ -1,0 +1,40 @@
+{
+  "operation": "GET /api/v1/object-type-relations",
+  "name": "firstPage",
+  "summary": "The first two rules for which types a relationship may join",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000018",
+          "fromObjectTypeKey": "canton",
+          "toObjectTypeKey": "district",
+          "cardinality": "one-to-many",
+          "required": false,
+          "attributeTypeKeys": [],
+          "features": {},
+          "relationTypeKey": "canton-contains-district"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000020",
+          "fromObjectTypeKey": "district",
+          "toObjectTypeKey": "municipality",
+          "cardinality": "one-to-many",
+          "required": false,
+          "attributeTypeKeys": [],
+          "features": {},
+          "relationTypeKey": "district-contains-municipality"
+        }
+      ],
+      "nextCursor": "cursor-9",
+      "prevCursor": null,
+      "anchor": "cursor-10"
+    }
+  }
+}

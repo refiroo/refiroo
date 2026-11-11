@@ -1,0 +1,27 @@
+{
+  "operation": "GET /api/v1/token-signing-keys",
+  "name": "firstPage",
+  "summary": "The keys that sign access tokens, newest first; never a private key",
+  "request": {
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "kid": "signing-key-1",
+          "state": "current",
+          "createdAt": "2026-11-02T09:07:00Z",
+          "rotatedAt": null,
+          "retiredAt": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-16"
+    }
+  }
+}

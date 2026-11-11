@@ -1,0 +1,142 @@
+{
+  "operation": "GET /api/v1/change-sets/{change_set_id}/object-changes",
+  "name": "whatItDoesToRecords",
+  "summary": "The records the change set adds and changes",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "query": {
+      "pageSize": 10
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "kind": "changed",
+          "objectId": "00000000-0000-4000-8000-000000000004",
+          "objectTypeKey": "stop",
+          "applicationKey": "network",
+          "before": {
+            "objectTypeKey": "stop",
+            "name": "Davos Dorf",
+            "parentObjectId": "00000000-0000-4000-8000-000000000005",
+            "attributes": [
+              {
+                "id": "00000000-0000-4000-8000-000000000004:designation",
+                "attributeTypeKey": "designation",
+                "name": "Designation",
+                "valueType": "text",
+                "value": "Davos Dorf"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000004:stop-number",
+                "attributeTypeKey": "stop-number",
+                "name": "Stop number (UIC)",
+                "valueType": "integer",
+                "value": 8509072
+              }
+            ],
+            "version": 1
+          },
+          "after": {
+            "objectTypeKey": "stop",
+            "name": "Davos Dorf (Post)",
+            "parentObjectId": "00000000-0000-4000-8000-000000000005",
+            "attributes": [
+              {
+                "id": "00000000-0000-4000-8000-000000000004:designation",
+                "attributeTypeKey": "designation",
+                "name": "Designation",
+                "valueType": "text",
+                "value": "Davos Dorf"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000004:stop-number",
+                "attributeTypeKey": "stop-number",
+                "name": "Stop number (UIC)",
+                "valueType": "integer",
+                "value": 8509072
+              }
+            ],
+            "version": 2
+          },
+          "changedFields": [
+            "name"
+          ],
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000006",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000007",
+              "name": "Prättigau/Davos",
+              "objectTypeKey": "district"
+            }
+          ],
+          "beforePath": null
+        },
+        {
+          "kind": "added",
+          "objectId": "00000000-0000-4000-8000-000000000008",
+          "objectTypeKey": "stop",
+          "applicationKey": "network",
+          "before": null,
+          "after": {
+            "objectTypeKey": "stop",
+            "name": "Zuoz, Sportplatz",
+            "parentObjectId": "00000000-0000-4000-8000-000000000009",
+            "attributes": [
+              {
+                "id": "00000000-0000-4000-8000-000000000008:designation",
+                "attributeTypeKey": "designation",
+                "name": "Designation",
+                "valueType": "text",
+                "value": "Sportplatz"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000008:stop-number",
+                "attributeTypeKey": "stop-number",
+                "name": "Stop number (UIC)",
+                "valueType": "integer",
+                "value": 8599016
+              }
+            ],
+            "version": 1
+          },
+          "changedFields": [
+            "name",
+            "parent"
+          ],
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000006",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000010",
+              "name": "Maloja",
+              "objectTypeKey": "district"
+            }
+          ],
+          "beforePath": []
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  },
+  "notes": [
+    "`items[0].before.attributes`: the first 2 of 8 items are shown.",
+    "`items[0].after.attributes`: the first 2 of 8 items are shown.",
+    "`items[0].path`: the first 2 of 4 items are shown.",
+    "`items[1].changedFields`: the first 2 of 4 items are shown.",
+    "`items[1].path`: the first 2 of 4 items are shown."
+  ]
+}

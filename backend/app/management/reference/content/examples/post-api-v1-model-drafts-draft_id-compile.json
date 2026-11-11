@@ -1,0 +1,92 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/compile",
+  "name": "graubuenden",
+  "summary": "The draft compiles: what changes against the release it started from",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "expectedVersion": 11
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "valid": true,
+      "model": {
+        "schemaVersion": "0.10",
+        "release": {
+          "key": "guide-reference-swiss",
+          "name": "Public transport stops of Graubünden",
+          "version": "1.9.0"
+        },
+        "product": {
+          "name": "refiroo guide reference: stops of Graubünden",
+          "description": "Prototype of the user guide's reference domain: real public transport stops (Didok) with Wikidata names and codes"
+        }
+      },
+      "modelHash": "9814551842298f4e234792e59d091063195985558edee6db7f72758cb3af8ed1",
+      "diagnostics": [],
+      "compatibility": {
+        "classification": "compatible",
+        "activeReleaseId": "00000000-0000-4000-8000-000000000023",
+        "diagnostics": [],
+        "workspaces": [
+          {
+            "workspaceKey": "default",
+            "releaseId": "00000000-0000-4000-8000-000000000023",
+            "classification": "compatible",
+            "diagnostics": []
+          },
+          {
+            "workspaceKey": "graubuenden",
+            "releaseId": "00000000-0000-4000-8000-000000000023",
+            "classification": "compatible",
+            "diagnostics": []
+          }
+        ]
+      },
+      "againstReleaseId": "00000000-0000-4000-8000-000000000023",
+      "changes": [
+        {
+          "kind": "changed",
+          "path": "/applications/network/details/stop/panels/attributes/config/fields",
+          "before": [
+            "stop-number",
+            "sloid"
+          ],
+          "after": [
+            "stop-number",
+            "sloid"
+          ]
+        },
+        {
+          "kind": "changed",
+          "path": "/applications/network/views/stops/config/columns",
+          "before": [
+            "name",
+            "stop-number"
+          ],
+          "after": [
+            "name",
+            "stop-number"
+          ]
+        }
+      ],
+      "consumerContracts": {
+        "classification": "compatible",
+        "activeReleaseId": "00000000-0000-4000-8000-000000000023",
+        "diagnostics": []
+      }
+    }
+  },
+  "notes": [
+    "`model`: the model document, which `GET /model` shows in full; only its `schemaVersion`, `release` and `product` are shown here.",
+    "`changes`: the first 2 of 11 items are shown.",
+    "`changes[0].before`: the first 2 of 9 items are shown.",
+    "`changes[0].after`: the first 2 of 10 items are shown.",
+    "`changes[1].before`: the first 2 of 7 items are shown.",
+    "`changes[1].after`: the first 2 of 8 items are shown."
+  ]
+}

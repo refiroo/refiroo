@@ -108,7 +108,8 @@ def test_the_page_runs_only_the_scripts_it_ships_and_cannot_be_framed(monkeypatc
     response = client.get("/docs/api")
     policy = _directives(response.headers["content-security-policy"])
     scripts = re.findall(r"<script>(.*?)</script>", response.text, flags=re.DOTALL)
-    assert len(scripts) == 4  # theme, the reference, the console sign-in, the theme wiring
+    # theme, the catalogue link, the reference, the console sign-in, the theme wiring
+    assert len(scripts) == 5
     hashes = [
         "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
         for text in scripts

@@ -167,59 +167,6 @@ class TaskReading(BaseModel):
     summary: ReadingSummary | None = None
 
 
-class RefusedGroup(BaseModel):
-    code: str | None
-    rows: int
-    column: str | None = None
-    header: str | None = None
-    values: list[dict[str, Any]] | None = None
-    message: str | None = None
-
-
-class CheckTable(BaseModel):
-    table: str
-    sheet: str
-    typeName: str | None
-    rows: int
-    changed: int
-    unchanged: int
-    created: int
-    removed: int
-    skipped: int
-    translations: int = 0
-    nothingToDo: bool = False
-    refused: list[RefusedGroup]
-    leftOut: list[str]
-
-
-class CheckFix(BaseModel):
-    table: str
-    column: str
-    value: str
-    to: str | None
-    reason: str
-    origin: TaskOrigin | None = None
-
-
-class CheckSummary(BaseModel):
-    changed: int
-    unchanged: int
-    created: int
-    removed: int
-    refused: int
-    translations: int
-    tablesWithChanges: int
-
-
-class TaskCheck(BaseModel):
-    dryRunJobId: str
-    ranAt: str
-    tables: list[CheckTable]
-    summary: CheckSummary | None = None
-    fixes: list[CheckFix]
-    rounds: int
-
-
 class DesignQuestion(BaseModel):
     text: str
     options: list[str] = []
@@ -376,7 +323,7 @@ class AiTaskResponse(BaseModel):
     updatedAt: datetime
     requestedBy: PrincipalResponse | None
     reading: TaskReading | None
-    check: TaskCheck | DesignCheck | None
+    check: DesignCheck | None
     design: TaskDesign | None = None
     # The task's draft of the workspace's model (0.16 AP6), opened in the model editor.
     draftId: str | None = None

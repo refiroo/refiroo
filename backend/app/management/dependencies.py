@@ -59,6 +59,23 @@ def request_model_snapshot(
 RequestModelSnapshot = Annotated[ModelSnapshot, Depends(request_model_snapshot)]
 
 
+def workspace_model_snapshot(
+    session: DbSession,
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+) -> ModelSnapshot:
+    """The model for a request that reads live or in a change set and has no publication context:
+    the same authority as `request_model_snapshot`, without a `publicationId` parameter."""
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, None)
+    expected_release.check(
+        session, snapshot.workspace_key, snapshot.release_db_id, change_set_id=change_set_id
+    )
+    return snapshot
+
+
+WorkspaceModelSnapshot = Annotated[ModelSnapshot, Depends(workspace_model_snapshot)]
+
+
 def expect_model_release(
     session: DbSession,
     expected_model_release_id: str | None = Header(

@@ -73,7 +73,7 @@ class MailMessageResponse(BaseModel):
     """A message in the outbox. Its text is never answered: it holds a one-time link."""
 
     id: str
-    kind: str = Field(description="`activation`, `password-reset`, `test` or `notice`")
+    kind: str = Field(description="`activation`, `password-reset`, `test`, `notice` or `digest`")
     to: str
     subject: str
     status: Literal["pending", "sent", "failed"]
@@ -83,7 +83,7 @@ class MailMessageResponse(BaseModel):
     )
     lastErrorKind: str | None = Field(
         description="`connection`, `tls`, `login`, `recipient`, `sender`, `rejected`, "
-        "`not_set_up`, `unreadable` or `expired`"
+        "`not_set_up`, `unreadable`, `expired` or `stopped`"
     )
     createdAt: datetime
     nextAttemptAt: datetime | None = Field(description="While pending: when it is tried next")

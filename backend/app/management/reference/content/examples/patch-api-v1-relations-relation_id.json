@@ -1,0 +1,39 @@
+{
+  "operation": "PATCH /api/v1/relations/{relation_id}",
+  "name": "inspected",
+  "summary": "The operator's local name for the stop and when it was inspected",
+  "request": {
+    "path": {
+      "relation_id": "00000000-0000-4000-8000-000000000010"
+    },
+    "body": {
+      "attributes": {
+        "local-name": "Station office",
+        "inspected-on": "2026-03-12"
+      },
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "relationTypeKey": "stop-operated-by-operator",
+      "fromObjectId": "00000000-0000-4000-8000-000000000001",
+      "toObjectId": "00000000-0000-4000-8000-000000000011",
+      "attributes": {
+        "local-name": "Station office",
+        "inspected-on": "2026-03-12"
+      },
+      "changeSetId": null,
+      "expectedChangeSetVersion": null,
+      "expectedRelationSetVersion": null,
+      "relationSetDirection": null,
+      "id": "00000000-0000-4000-8000-000000000010",
+      "version": 2,
+      "createdAt": "2026-11-02T09:07:00Z",
+      "updatedAt": "2026-11-02T09:21:00Z",
+      "changeSetVersion": null,
+      "relationSetVersion": null
+    }
+  }
+}

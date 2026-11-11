@@ -183,8 +183,7 @@ def _rekeyable(context: Context, old: str, new: Any) -> None:
 
 @kind("insertConsumerApiPart", params=("consumerApi", "pointer", "key", "value", "position"))
 def insert_consumer_api_part(context: Context, raw: dict[str, Any]) -> Applied:
-    """``value`` into the list or keyed map at ``pointer`` (``key`` names a map's member) at
-    ``position`` (the end when left out). A map or list its parent object lacks is started."""
+    """Insert `value` into the list or keyed map at `pointer` (`key` names a map's member) at `position`, the end when left out; a list or map its parent object lacks is started."""
     params = Params(raw)
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
@@ -309,10 +308,7 @@ def _earlier_index(context: Context, path: Path, version: Any) -> int:
 
 @kind("raiseConsumerApiVersion", params=("consumerApi", "version", "keep", "deprecated"))
 def raise_consumer_api_version(context: Context, raw: dict[str, Any]) -> Applied:
-    """Raise the contract version to ``version`` (the next one without it). ``keep`` (default true)
-    freezes the definition as the base release served it (none when no release did), beside the new one, with the day it was
-    superseded (``deprecated``, today unless given), so consumers of it go on reading it; ``false``
-    stops serving it (DF3, DF-D1). The inverse puts the whole definition back."""
+    """Raise the contract version to `version` (the next one when left out). With `keep` (default true) the definition the base release served stays readable beside the new one, marked superseded on `deprecated` (today unless given); with `keep` false it stops being served."""
     params = Params(raw)
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
@@ -354,8 +350,7 @@ def raise_consumer_api_version(context: Context, raw: dict[str, Any]) -> Applied
 
 @kind("removeConsumerApiVersion", params=("consumerApi", "version"))
 def remove_consumer_api_version(context: Context, raw: dict[str, Any]) -> Applied:
-    """Stop serving the earlier contract version ``version`` (DF3); consumers of it get ``404
-    CONTRACT_VERSION_NOT_FOUND`` after the next activation. The inverse keeps it again."""
+    """Stop serving the earlier contract version `version`; its consumers get `404 CONTRACT_VERSION_NOT_FOUND` after the next activation."""
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
     index = _earlier_index(context, path, raw.get("version"))
@@ -367,8 +362,7 @@ def remove_consumer_api_version(context: Context, raw: dict[str, Any]) -> Applie
 
 @kind("setConsumerApiSunset", params=("consumerApi", "version", "sunset"))
 def set_consumer_api_sunset(context: Context, raw: dict[str, Any]) -> Applied:
-    """Announce the day the earlier version ``version`` stops (``YYYY-MM-DD``; ``null`` takes the
-    announcement back). The engine serves the version until it is removed, whatever the day (DF-D2)."""
+    """Announce the day (`YYYY-MM-DD`) the earlier version `version` stops; `null` takes the announcement back. The engine serves the version until it is removed, whatever the day."""
     key = raw.get("consumerApi")
     path = _definition_path(context, key)
     version = raw.get("version")
@@ -395,8 +389,7 @@ def set_consumer_api_sunset(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("addConsumerApi", params=("name", "key", "exposes", "position", "definition"))
 def add_consumer_api(context: Context, raw: dict[str, Any]) -> Applied:
-    """A consumer API exposing ``exposes``, started by the server (D53), or, as
-    ``removeConsumerApi``'s inverse, the stored ``definition``, at ``position``."""
+    """Add a consumer API exposing the object types in `exposes`, with a starting definition the server writes; or restore a stored `definition` at `position` (what undoing removeConsumerApi does)."""
     params = Params(raw)
     taken = {item.get("key") for item in _definitions(context)}
     stored = params.optional("definition", dict)

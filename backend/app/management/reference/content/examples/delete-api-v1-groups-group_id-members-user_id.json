@@ -1,0 +1,14 @@
+{
+  "operation": "DELETE /api/v1/groups/{group_id}/members/{user_id}",
+  "name": "removeReviewer",
+  "summary": "Take one person out of the group",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000003",
+      "user_id": "00000000-0000-4000-8000-000000000002"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

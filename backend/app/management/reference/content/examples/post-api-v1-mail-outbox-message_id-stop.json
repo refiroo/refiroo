@@ -1,0 +1,26 @@
+{
+  "operation": "POST /api/v1/mail-outbox/{message_id}/stop",
+  "name": "stop",
+  "summary": "Stop a message that has not gone yet: it fails at once and its text is erased",
+  "request": {
+    "path": {
+      "message_id": "00000000-0000-4000-8000-000000000002"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "kind": "activation",
+      "to": "ben@example.org",
+      "subject": "Your refiroo guide reference: stops of Graubünden account",
+      "status": "failed",
+      "attempts": 0,
+      "lastError": "Stopped by an administrator",
+      "lastErrorKind": "stopped",
+      "createdAt": "2026-11-02T09:14:00Z",
+      "nextAttemptAt": null,
+      "finishedAt": "2026-11-02T09:14:00Z"
+    }
+  }
+}

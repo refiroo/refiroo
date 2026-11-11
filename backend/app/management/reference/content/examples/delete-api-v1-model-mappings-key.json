@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/model-mappings/{key}",
+  "name": "spare",
+  "summary": "Delete the spare mapping with its history and proposals",
+  "request": {
+    "path": {
+      "key": "stops-proposed"
+    },
+    "query": {
+      "expectedVersion": 2
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/source-files/{source_file_id}",
+  "name": "superseded",
+  "summary": "Delete the first workbook, which the second superseded",
+  "request": {
+    "path": {
+      "source_file_id": "00000000-0000-4000-8000-000000000011"
+    },
+    "query": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

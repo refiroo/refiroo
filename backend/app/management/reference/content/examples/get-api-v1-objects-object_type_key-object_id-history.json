@@ -1,0 +1,117 @@
+{
+  "operation": "GET /api/v1/objects/{object_type_key}/{object_id}/history",
+  "name": "newestFirst",
+  "summary": "The three newest entries of the stop's history",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000026"
+    },
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "aggregateType": "object",
+          "aggregateId": "00000000-0000-4000-8000-000000000026",
+          "action": "updated",
+          "version": 6,
+          "changedFields": [
+            "parentObjectId"
+          ],
+          "attributeTypeKeys": [],
+          "occurredAt": "2026-11-02T09:56:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000033",
+            "name": "Reference Administrator"
+          },
+          "kind": "structure",
+          "values": [
+            {
+              "field": "parent",
+              "kind": "parent",
+              "from": "Zuoz",
+              "to": "Pontresina",
+              "fromKnown": true
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000034",
+          "aggregateType": "object",
+          "aggregateId": "00000000-0000-4000-8000-000000000026",
+          "action": "updated",
+          "version": 5,
+          "changedFields": [
+            "attributes",
+            "name"
+          ],
+          "attributeTypeKeys": [
+            "valid-from"
+          ],
+          "occurredAt": "2026-11-02T09:49:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000033",
+            "name": "Reference Administrator"
+          },
+          "kind": "values",
+          "values": [
+            {
+              "field": "name",
+              "kind": "name",
+              "from": "Zuoz, Sportplatz",
+              "to": "Zuoz, Sportplatz Mitte",
+              "fromKnown": true
+            },
+            {
+              "field": "valid-from",
+              "kind": "attribute",
+              "from": null,
+              "to": "2026-12-13",
+              "fromKnown": true
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000035",
+          "aggregateType": "object",
+          "aggregateId": "00000000-0000-4000-8000-000000000026",
+          "action": "updated",
+          "version": 4,
+          "changedFields": [
+            "attributes"
+          ],
+          "attributeTypeKeys": [
+            "height"
+          ],
+          "occurredAt": "2026-11-02T09:42:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000033",
+            "name": "Reference Administrator"
+          },
+          "kind": "values",
+          "values": [
+            {
+              "field": "height",
+              "kind": "attribute",
+              "from": 1716.8,
+              "to": null,
+              "fromKnown": true
+            }
+          ]
+        }
+      ],
+      "nextCursor": "cursor-6",
+      "prevCursor": null,
+      "anchor": "cursor-7"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "operation": "PATCH /api/v1/model-releases/{release_id}",
+  "name": "retire",
+  "summary": "Retire the spare release: it can no longer be chosen",
+  "request": {
+    "path": {
+      "release_id": "00000000-0000-4000-8000-000000000036"
+    },
+    "body": {
+      "status": "retired",
+      "expectedStatusVersion": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000036",
+      "key": "stop-inventory",
+      "name": "Stop inventory",
+      "version": "1.0.0",
+      "schemaVersion": "0.10",
+      "modelHash": "a59d0d0d0c4c1dcc2069110429e6d300f528a42fae231ecb4bab9de7541cdfc3",
+      "installedAt": "2026-11-02T10:17:00Z",
+      "assigned": false,
+      "workspaces": [],
+      "status": "retired",
+      "statusVersion": 2,
+      "retiredAt": "2026-11-02T10:24:00Z",
+      "deletable": true
+    }
+  }
+}

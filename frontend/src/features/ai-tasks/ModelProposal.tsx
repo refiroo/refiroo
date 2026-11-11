@@ -19,7 +19,7 @@ import { ProposalMoves } from "./ProposalMoves";
 import { TaskNotes } from "./TaskNotes";
 import { TellAssistant } from "./TellAssistant";
 import { changesModel, modelNames, proposalRefusal } from "./aiTaskDesign";
-import { isDesignCheck, notLoadedEntries } from "./aiTaskText";
+import { notLoadedEntries } from "./aiTaskText";
 import { count } from "@/features/settings/limits";
 
 export function ModelProposal({
@@ -61,7 +61,7 @@ export function ModelProposal({
   const corrections = design.corrections ?? [];
   const leftOut = notLoadedEntries(task, true);
   const refusal = proposalRefusal(task);
-  const check = isDesignCheck(task.check) ? task.check : undefined;
+  const check = task.check ?? undefined;
   // The engine checked the assistant's items (0.13 AB): the card says what the load does, and accepting loads exactly that.
   const load = design.load ?? undefined;
   // With moves, accepting installs the model for the migration; the load is not run (the bottom block is not shown).

@@ -1,0 +1,17 @@
+{
+  "operation": "DELETE /api/v1/objects/{object_type_key}/{object_id}",
+  "name": "removeAStop",
+  "summary": "Delete a stop that nothing depends on",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000039"
+    },
+    "query": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

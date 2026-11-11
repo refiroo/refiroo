@@ -1,0 +1,54 @@
+{
+  "operation": "GET /api/v1/object-types/{object_type_key}",
+  "name": "stop",
+  "summary": "The stop type: its attributes, its parent and its relationships",
+  "request": {
+    "path": {
+      "object_type_key": "stop"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "key": "stop",
+      "name": "Stop",
+      "pluralName": "Stops",
+      "description": "A Didok service point of the register (stop, station or operating point)",
+      "icon": "bus",
+      "displayAttributeTypeKey": "designation",
+      "attributes": [
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "attributeTypeKey": "designation",
+          "name": "Designation",
+          "valueType": "text",
+          "required": true,
+          "readOnly": false,
+          "order": 10
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000016",
+          "attributeTypeKey": "stop-number",
+          "name": "Stop number (UIC)",
+          "valueType": "integer",
+          "required": true,
+          "readOnly": false,
+          "order": 20
+        }
+      ],
+      "features": {
+        "rootCreatable": false
+      },
+      "behavior": {
+        "parentRelationTypeKeys": [
+          "municipality-contains-stop"
+        ]
+      },
+      "validation": {}
+    }
+  },
+  "notes": [
+    "`attributes`: the first 2 of 9 items are shown."
+  ]
+}

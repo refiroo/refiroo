@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/me/second-factor",
+  "name": "removeApp",
+  "summary": "Remove the app with a recovery code",
+  "request": {
+    "body": {
+      "code": "jklm-npqr-0001"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

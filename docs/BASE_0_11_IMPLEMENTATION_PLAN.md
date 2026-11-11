@@ -335,6 +335,8 @@ As in 0.10: each package is one vertical slice, delivered on the instruction **"
    when the user approves its screenshots.
 4. **Build** the slice: migration when the package names one, service, route, OpenAPI lock
    re-baseline (checked by diffing the document), frontend where the scope says so.
+   A change to a management route also updates its reference text and re-records its examples (0.14 V-D8,
+   `AGENTS.md`).
 5. **Test** the journeys the plan lists, written first and seen failing, plus unit tests for the new
    code's purpose. Run the package's groups and the changed boundary per
    [EXECUTION_GUIDE §2](testing/EXECUTION_GUIDE.md#2-changed-boundary--selected-checks) only. Test

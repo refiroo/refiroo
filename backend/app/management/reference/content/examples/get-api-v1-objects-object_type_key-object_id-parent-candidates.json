@@ -1,0 +1,49 @@
+{
+  "operation": "GET /api/v1/objects/{object_type_key}/{object_id}/parent-candidates",
+  "name": "municipalityPontresina",
+  "summary": "The municipalities named Pontresina the stop could move under",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000026"
+    },
+    "query": {
+      "search": "Pontresina",
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000031",
+          "objectTypeKey": "municipality",
+          "name": "Pontresina",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "name": "Maloja",
+              "objectTypeKey": "district"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000031",
+              "name": "Pontresina",
+              "objectTypeKey": "municipality"
+            }
+          ],
+          "eligible": true,
+          "reason": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-5"
+    }
+  }
+}

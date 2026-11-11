@@ -1,0 +1,24 @@
+{
+  "operation": "GET /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "name": "readHeight",
+  "summary": "The height and the version of the stop that holds it",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000026",
+      "attribute_type_key": "height"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000029",
+      "attributeTypeKey": "height",
+      "name": "Height (m)",
+      "valueType": "decimal",
+      "value": "1716.5",
+      "objectVersion": 2,
+      "changeSetVersion": null
+    }
+  }
+}

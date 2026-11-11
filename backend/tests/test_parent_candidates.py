@@ -389,3 +389,10 @@ def test_openapi_documents_the_route(client):
     assert {"workspaceKey", "changeSetId", "parentObjectTypeKey", "search", "cursor", "position", "includeTotal"} <= parameters
     schema = document["components"]["schemas"]["ParentCandidate"]
     assert set(json.dumps(schema["properties"]["reason"]).split('"')) >= {"self", "descendant", "currentParent"}
+
+
+def test_the_candidates_read_takes_no_publication_context(client, systems):
+    """Publications have no move targets: the read takes no ``publicationId``."""
+    answer = candidates(client, systems["G1"], 422, publicationId="any")
+    assert answer["code"] == "UNKNOWN_PARAMETER"
+    assert answer["details"]["parameters"] == ["publicationId"]

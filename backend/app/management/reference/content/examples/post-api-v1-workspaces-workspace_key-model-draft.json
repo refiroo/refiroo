@@ -1,0 +1,37 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/model/draft",
+  "name": "graubuenden",
+  "summary": "A draft of the model the Graubünden workspace runs",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000024",
+      "name": "The model of Graubünden",
+      "baseReleaseId": "00000000-0000-4000-8000-000000000023",
+      "workspaceKey": "graubuenden",
+      "model": {
+        "schemaVersion": "0.10",
+        "release": {
+          "key": "guide-reference-swiss",
+          "name": "Public transport stops of Graubünden",
+          "version": "1.8.1"
+        },
+        "product": {
+          "name": "refiroo guide reference: stops of Graubünden",
+          "description": "Prototype of the user guide's reference domain: real public transport stops (Didok) with Wikidata names and codes"
+        }
+      },
+      "version": 1,
+      "createdAt": "2026-11-02T09:07:00Z",
+      "updatedAt": "2026-11-02T09:07:00Z"
+    }
+  },
+  "notes": [
+    "`model`: the model document, which `GET /model` shows in full; only its `schemaVersion`, `release` and `product` are shown here."
+  ]
+}

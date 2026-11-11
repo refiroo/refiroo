@@ -1,0 +1,85 @@
+{
+  "operation": "POST /api/v1/ai/tasks/{task_id}/discard",
+  "name": "checked",
+  "summary": "End the task: it is cancelled and its working folder goes; nothing else is undone",
+  "request": {
+    "path": {
+      "task_id": "00000000-0000-4000-8000-000000000014"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000014",
+      "workspaceKey": "graubuenden",
+      "fileName": "",
+      "sourceFileId": "",
+      "words": "Check that every Davos stop has an abbreviation",
+      "title": "Check the abbreviations",
+      "state": "cancelled",
+      "version": 7,
+      "jobId": "00000000-0000-4000-8000-000000000017",
+      "phase": null,
+      "createdAt": "2026-11-02T10:03:00Z",
+      "updatedAt": "2026-11-02T10:31:00Z",
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "reading": null,
+      "check": null,
+      "design": {
+        "summary": "Every stop keeps its abbreviation.",
+        "moves": [],
+        "removals": [],
+        "consumerChanges": [],
+        "operations": [],
+        "records": [],
+        "profile": null,
+        "questions": [],
+        "answers": {},
+        "rounds": 0,
+        "origin": {
+          "kind": "ai",
+          "provider": "claude-code",
+          "model": null,
+          "promptVersion": "agent/20"
+        },
+        "outcome": {},
+        "leftOut": [],
+        "stage": "model",
+        "outline": [],
+        "checks": [],
+        "corrections": [
+          "Try again; the abbreviations may be empty",
+          "Also list the stops without one"
+        ],
+        "progress": null,
+        "agentSession": "00000000-0000-4000-8000-000000000016",
+        "modelUnchanged": true,
+        "load": null,
+        "itemsLoad": false
+      },
+      "draftId": null,
+      "notes": [
+        {
+          "kind": "note",
+          "text": "Ready. (0 s)",
+          "at": "2026-11-02T10:17:00Z"
+        },
+        {
+          "kind": "note",
+          "text": "You stopped the assistant. Its last proposal is as it was; what you sent was not made.",
+          "at": "2026-11-02T10:24:00Z"
+        }
+      ],
+      "result": null,
+      "canTell": false,
+      "ahead": null
+    }
+  },
+  "notes": [
+    "The assistant is the harness's stand-in session, a script that works through the API; in service Claude Code runs it. The answer is the engine's."
+  ]
+}

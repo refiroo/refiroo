@@ -1,0 +1,37 @@
+{
+  "operation": "GET /api/v1/groups/{group_id}/members",
+  "name": "firstPage",
+  "summary": "The group's members in the order they were made",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000003"
+    },
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "email": "editor@example.org",
+          "name": "Reference Editor (timetable)",
+          "active": true,
+          "seenAt": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "email": "reviewer@example.org",
+          "name": "Reference Reviewer",
+          "active": true,
+          "seenAt": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-5"
+    }
+  }
+}

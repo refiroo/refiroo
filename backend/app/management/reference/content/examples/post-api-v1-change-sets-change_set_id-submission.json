@@ -1,0 +1,34 @@
+{
+  "operation": "POST /api/v1/change-sets/{change_set_id}/submission",
+  "name": "submit",
+  "summary": "Submit the change set for approval, with a comment",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000016"
+    },
+    "body": {
+      "expectedChangeSetVersion": 2,
+      "comment": "Ready for the timetable"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000017",
+      "workspaceKey": "graubuenden",
+      "changeSetId": "00000000-0000-4000-8000-000000000016",
+      "changeSetName": "A bus stop for Davos",
+      "version": 2,
+      "state": "submitted",
+      "submitter": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "name": "Reference Administrator"
+      },
+      "comment": "Ready for the timetable",
+      "submittedAt": "2026-11-02T09:21:00Z",
+      "publicationId": null,
+      "decisions": []
+    }
+  }
+}

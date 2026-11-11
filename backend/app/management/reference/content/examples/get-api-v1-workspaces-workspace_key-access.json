@@ -1,0 +1,98 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/access",
+  "name": "graubuenden",
+  "summary": "Every grant that applies in the workspace, made there or at the instance",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "principal": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000001",
+            "name": "Reference Editor (timetable)"
+          },
+          "role": {
+            "key": "reader",
+            "name": "Reader"
+          },
+          "consumerApi": null,
+          "scope": {
+            "instance": false,
+            "workspaceKey": "graubuenden",
+            "applications": [],
+            "recordTypes": [],
+            "applicationNames": [],
+            "recordTypeNames": [],
+            "missingApplications": [],
+            "missingRecordTypes": []
+          },
+          "stale": false,
+          "createdAt": "2026-11-02T10:17:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000007",
+          "principal": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "Reference Administrator"
+          },
+          "role": {
+            "key": "reader",
+            "name": "Reader"
+          },
+          "consumerApi": null,
+          "scope": {
+            "instance": true,
+            "workspaceKey": null,
+            "applications": [],
+            "recordTypes": [],
+            "applicationNames": [],
+            "recordTypeNames": [],
+            "missingApplications": [],
+            "missingRecordTypes": []
+          },
+          "stale": false,
+          "createdAt": "2026-11-02T09:07:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000009",
+          "principal": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "Reference Administrator"
+          },
+          "role": {
+            "key": "contributor",
+            "name": "Contributor"
+          },
+          "consumerApi": null,
+          "scope": {
+            "instance": true,
+            "workspaceKey": null,
+            "applications": [],
+            "recordTypes": [],
+            "applicationNames": [],
+            "recordTypeNames": [],
+            "missingApplications": [],
+            "missingRecordTypes": []
+          },
+          "stale": false,
+          "createdAt": "2026-11-02T09:07:00Z"
+        }
+      ],
+      "nextCursor": "cursor-8",
+      "prevCursor": null,
+      "anchor": "cursor-9"
+    }
+  }
+}

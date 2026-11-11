@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/me/followed-workspaces/{workspace_key}",
+  "name": "unfollow",
+  "summary": "Stop following the workspace; harmless when it was not followed",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

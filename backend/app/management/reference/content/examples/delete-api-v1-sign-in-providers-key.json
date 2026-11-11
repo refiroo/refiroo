@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/sign-in-providers/{key}",
+  "name": "unusedProvider",
+  "summary": "Delete a provider nobody has signed in with",
+  "request": {
+    "path": {
+      "key": "spare-sso"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

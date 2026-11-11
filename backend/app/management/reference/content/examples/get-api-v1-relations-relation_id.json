@@ -1,0 +1,29 @@
+{
+  "operation": "GET /api/v1/relations/{relation_id}",
+  "name": "theNewRelation",
+  "summary": "The relationship that was added",
+  "request": {
+    "path": {
+      "relation_id": "00000000-0000-4000-8000-000000000009"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "relationTypeKey": "stop-served-by-mode",
+      "fromObjectId": "00000000-0000-4000-8000-000000000001",
+      "toObjectId": "00000000-0000-4000-8000-000000000008",
+      "attributes": {},
+      "changeSetId": null,
+      "expectedChangeSetVersion": null,
+      "expectedRelationSetVersion": null,
+      "relationSetDirection": null,
+      "id": "00000000-0000-4000-8000-000000000009",
+      "version": 1,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "updatedAt": "2026-11-02T09:14:00Z",
+      "changeSetVersion": null,
+      "relationSetVersion": null
+    }
+  }
+}

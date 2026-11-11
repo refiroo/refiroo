@@ -1,0 +1,84 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/inference/list",
+  "name": "manufacturers",
+  "summary": "Read the manufacturer column as a list",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "sheet": "Fahrzeuge",
+      "headerRow": 1,
+      "block": {
+        "firstColumn": "C",
+        "lastColumn": "C",
+        "lastRow": 9
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "pattern": "listBlock",
+      "sheet": "Fahrzeuge",
+      "columns": [
+        "Hersteller"
+      ],
+      "summary": "Hersteller (Fahrzeuge C1:C9) lists 8 values: a list Hersteller, read from its block by name.",
+      "evidence": {
+        "block": {
+          "range": "C1:C9",
+          "firstColumn": "C",
+          "lastColumn": "C",
+          "headerRow": 1,
+          "lastRow": 9,
+          "rows": 8
+        },
+        "header": "Hersteller",
+        "titles": [],
+        "note": null,
+        "values": 8,
+        "translations": [],
+        "empty": [],
+        "flags": [],
+        "attributes": [],
+        "list": true
+      },
+      "operations": [
+        {
+          "kind": "addObjectType",
+          "applicationKey": "vehicles",
+          "key": "hersteller",
+          "name": "Hersteller",
+          "pluralName": "Herstellers",
+          "parent": null
+        },
+        {
+          "kind": "addSource",
+          "id": "fahrzeuge-hersteller",
+          "sheet": "Fahrzeuge",
+          "objectType": "hersteller",
+          "applicationKey": "vehicles",
+          "headerRow": 1,
+          "block": {
+            "firstColumn": "C",
+            "lastColumn": "C",
+            "lastRow": 9
+          },
+          "key": {
+            "field": "name"
+          }
+        },
+        {
+          "kind": "mapColumn",
+          "source": "fahrzeuge-hersteller",
+          "column": "Hersteller",
+          "binding": {
+            "field": "name"
+          }
+        }
+      ],
+      "alternatives": []
+    }
+  }
+}

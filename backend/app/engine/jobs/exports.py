@@ -194,7 +194,9 @@ def submit_export(session: Session, request: ExportRequest, *, retention_days: i
         workspace_key=workspace.key,
         change_set_id=plan.change_set_id,
         model_release_id=snapshot.release_db_id,
-        parameters=request.model_dump(mode="json", exclude={"workspaceKey"}),
+        parameters=request.model_dump(
+            mode="json", by_alias=True, exclude_unset=True, exclude={"workspaceKey"}
+        ),
         total=None,
         retention_days=retention_days,
         queued=True,

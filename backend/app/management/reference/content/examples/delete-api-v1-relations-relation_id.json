@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/relations/{relation_id}",
+  "name": "removeAMode",
+  "summary": "The bus no longer serves the stop",
+  "request": {
+    "path": {
+      "relation_id": "00000000-0000-4000-8000-000000000009"
+    },
+    "query": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

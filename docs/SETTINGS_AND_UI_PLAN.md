@@ -909,7 +909,7 @@ both themes.
 
 ### Type palettes A and B
 
-_Their rework, so that they differ visibly, is [Base 0.14 UP1](BASE_0_14_IMPLEMENTATION_PLAN.md#up1-type-palettes-a-and-b-reworked) (2026-10-10)._
+_Dropped by the user 2026-11-11 (both stay as they are). Their rework was [Base 0.14 UP1](BASE_0_14_IMPLEMENTATION_PLAN.md#up1-type-palettes-a-and-b-reworked) (2026-10-10)._
 
 The eight type hues (U-D13) differ between the two palettes only in slots 3 and 4. **B is in the
 tokens** (chosen by the user, 2026-10-06, after seeing both beside a change set); **A** keeps both

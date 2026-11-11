@@ -1,0 +1,174 @@
+{
+  "operation": "POST /api/v1/batches",
+  "name": "threeKinds",
+  "summary": "Two new stops, one by ID and one by key, and the first served by the bus",
+  "request": {
+    "body": {
+      "workspaceKey": "graubuenden",
+      "policy": "independent",
+      "run": "inline",
+      "onExisting": "reject",
+      "items": [
+        {
+          "ref": "stop-1",
+          "applicationKey": "network",
+          "objectTypeKey": "stop",
+          "name": "Chur, Stadtbibliothek",
+          "parent": {
+            "objectTypeKey": "municipality",
+            "key": {
+              "attributeTypeKey": "fso-number",
+              "value": 3901
+            }
+          },
+          "attributes": [
+            {
+              "attributeTypeKey": "designation",
+              "value": "Chur, Stadtbibliothek"
+            },
+            {
+              "attributeTypeKey": "stop-number",
+              "value": 8599001
+            }
+          ],
+          "op": "create",
+          "id": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "ref": "stop-2",
+          "applicationKey": "network",
+          "objectTypeKey": "stop",
+          "name": "Chur, Kantonsschule",
+          "parent": {
+            "objectTypeKey": "municipality",
+            "key": {
+              "attributeTypeKey": "fso-number",
+              "value": 3901
+            }
+          },
+          "attributes": [
+            {
+              "attributeTypeKey": "designation",
+              "value": "Chur, Kantonsschule"
+            },
+            {
+              "attributeTypeKey": "stop-number",
+              "value": 8599002
+            }
+          ],
+          "op": "upsert",
+          "key": {
+            "attributeTypeKey": "stop-number"
+          }
+        },
+        {
+          "ref": "stop-1-bus",
+          "op": "ensureRelation",
+          "relationTypeKey": "stop-served-by-mode",
+          "from": {
+            "id": "00000000-0000-4000-8000-000000000001"
+          },
+          "to": {
+            "objectTypeKey": "mode",
+            "key": {
+              "attributeTypeKey": "mode-code",
+              "value": "BUS"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "index": 0,
+          "ref": "stop-1",
+          "status": "applied",
+          "action": "created",
+          "id": "00000000-0000-4000-8000-000000000001",
+          "objectTypeKey": "stop",
+          "version": 1
+        },
+        {
+          "index": 1,
+          "ref": "stop-2",
+          "status": "applied",
+          "action": "created",
+          "id": "00000000-0000-4000-8000-000000000002",
+          "objectTypeKey": "stop",
+          "version": 1
+        },
+        {
+          "index": 2,
+          "ref": "stop-1-bus",
+          "status": "applied",
+          "action": "created",
+          "version": 1,
+          "relationId": "00000000-0000-4000-8000-000000000003"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-1",
+      "job": {
+        "id": "00000000-0000-4000-8000-000000000004",
+        "kind": "batch",
+        "workspaceKey": "graubuenden",
+        "changeSetId": null,
+        "changeSetVersion": null,
+        "policy": "independent",
+        "parameters": {
+          "run": "inline",
+          "stage": "execute",
+          "onExisting": "reject",
+          "otherWorkspaceIds": "refuse"
+        },
+        "modelReleaseId": "00000000-0000-4000-8000-000000000005",
+        "state": "completed",
+        "stage": null,
+        "progress": {
+          "total": 3,
+          "processed": 3
+        },
+        "counts": {
+          "applied": 3,
+          "rejected": 0,
+          "unprocessed": 0,
+          "created": 3,
+          "updated": 0,
+          "unchanged": 0,
+          "deleted": 0
+        },
+        "result": "applied",
+        "error": null,
+        "createdAt": "2026-11-02T09:00:00Z",
+        "startedAt": "2026-11-02T09:00:00Z",
+        "finishedAt": "2026-11-02T09:00:00Z",
+        "expiresAt": "2026-11-02T10:17:00Z",
+        "cancelRequestedAt": null,
+        "leaseOwner": null,
+        "leaseExpiresAt": null,
+        "output": null,
+        "confirmedAt": null,
+        "preview": null,
+        "bindingReport": null,
+        "notices": null,
+        "migration": null,
+        "move": null,
+        "aiProposal": null,
+        "requestedBy": {
+          "kind": "user",
+          "id": "00000000-0000-4000-8000-000000000006",
+          "name": "Reference Administrator"
+        },
+        "origin": null
+      }
+    }
+  },
+  "notes": [
+    "Sent with the header `Idempotency-Key: chur-stops-2027-01`."
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/publications",
+  "name": "ofTheWorkspace",
+  "summary": "The publications of the workspace, the newest first",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "pageSize": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000018",
+          "workspaceKey": "graubuenden",
+          "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.8.1",
+          "publicationNumber": 2,
+          "status": "active",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": "00000000-0000-4000-8000-000000000015",
+          "createdAt": "2026-11-02T09:35:00Z",
+          "publishedAt": "2026-11-02T09:35:00Z",
+          "withdrawnAt": null,
+          "feedPosition": 1238,
+          "publishedBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000019",
+            "name": "Reference Approver"
+          },
+          "withdrawnBy": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "workspaceKey": "graubuenden",
+          "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.8.1",
+          "publicationNumber": 1,
+          "status": "withdrawn",
+          "derivedFromPublicationId": null,
+          "supersedesPublicationId": null,
+          "createdAt": "2026-11-02T09:14:00Z",
+          "publishedAt": "2026-11-02T09:14:00Z",
+          "withdrawnAt": "2026-11-02T09:35:00Z",
+          "feedPosition": 1235,
+          "publishedBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Reference Administrator"
+          },
+          "withdrawnBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000019",
+            "name": "Reference Approver"
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-6"
+    }
+  }
+}

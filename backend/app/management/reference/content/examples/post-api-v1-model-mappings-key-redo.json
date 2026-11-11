@@ -1,0 +1,117 @@
+{
+  "operation": "POST /api/v1/model-mappings/{key}/redo",
+  "name": "latestStep",
+  "summary": "Redo it",
+  "request": {
+    "path": {
+      "key": "stops-to-inventory"
+    },
+    "body": {
+      "expectedVersion": 4
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 5,
+      "entries": [
+        {
+          "sequence": 9,
+          "step": 4,
+          "kind": "setMatch",
+          "parameters": {
+            "sourceType": "stop",
+            "match": {
+              "attributeTypeKey": "stop-number"
+            }
+          },
+          "inverse": {
+            "kind": "restoreElements",
+            "undoes": {
+              "kind": "setMatch",
+              "sourceType": "stop",
+              "match": {
+                "attributeTypeKey": "stop-number"
+              }
+            },
+            "changes": [
+              {
+                "change": "set",
+                "path": [
+                  "types",
+                  {
+                    "source": "stop"
+                  }
+                ],
+                "field": "match",
+                "value": null
+              }
+            ]
+          },
+          "mappingVersion": 5,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:28:00Z",
+          "undone": false,
+          "origin": {
+            "type": "redo",
+            "step": 3
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 10,
+          "step": 4,
+          "kind": "setDefault",
+          "parameters": {
+            "sourceType": "stop",
+            "attribute": "platforms",
+            "value": 1
+          },
+          "inverse": {
+            "kind": "restoreElements",
+            "undoes": {
+              "kind": "setDefault",
+              "sourceType": "stop",
+              "attribute": "platforms",
+              "value": 1
+            },
+            "changes": [
+              {
+                "change": "set",
+                "path": [
+                  "types",
+                  {
+                    "source": "stop"
+                  },
+                  "defaults"
+                ],
+                "field": "platforms",
+                "value": null
+              }
+            ]
+          },
+          "mappingVersion": 5,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:28:00Z",
+          "undone": false,
+          "origin": {
+            "type": "redo",
+            "step": 3
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "problems": []
+    }
+  }
+}

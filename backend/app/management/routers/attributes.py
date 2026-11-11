@@ -3,7 +3,12 @@ from fastapi import APIRouter, Query, Response, status
 from ...engine.change_sets.access import ensure_change_set_writable
 from ...engine.change_sets.records import delete_change_set_attribute, patch_change_set_attribute
 from ...engine.model.registry import resolve_change_set_snapshot, resolve_record_snapshot
-from ...engine.reads.snapshot_reads import change_set_context, find_object, publication_context
+from ...engine.reads.snapshot_reads import (
+    change_set_context,
+    find_object,
+    object_path,
+    publication_context,
+)
 from ...engine.records.attributes import load_attribute_value
 from ...engine.records.context import load_active_projection
 from ...engine.records.objects import delete_live_attribute_value, set_live_attribute_value
@@ -91,9 +96,14 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
             raise api_error(404, "ATTRIBUTE_NOT_FOUND", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
         row = patch_change_set_attribute(session, change_set_id, object_id, attribute_type_key,
                                     payload.value, payload.expectedChangeSetVersion, payload.expectedVersion)
-        change_set = change_set_context(session, change_set_id).change_set
-        return change_set_object_response(row, change_set_id, resolve_change_set_snapshot(session, change_set_id).model).model_copy(
-            update={"workspaceKey": change_set.workspace_key, "changeSetVersion": change_set.version}
+        written = change_set_context(session, change_set_id)
+        return change_set_object_response(
+            row,
+            change_set_id,
+            resolve_change_set_snapshot(session, change_set_id).model,
+            path=object_path(session, written, row),
+        ).model_copy(
+            update={"workspaceKey": written.workspace_key, "changeSetVersion": written.change_set.version}
         )
     if delete:
         snapshot = snapshot or resolve_record_snapshot(session, object_id)

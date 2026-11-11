@@ -4,8 +4,6 @@ A mapping is created between two workspaces (the releases they run) or two relea
 operations at ``expectedVersion``, and proposed by an inference over two workspaces.
 """
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field
 
 MappingKey = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -22,15 +20,6 @@ class ModelMappingCreate(BaseModel):
     targetWorkspaceKey: str | None = None
     sourceReleaseId: str | None = None
     targetReleaseId: str | None = None
-
-
-class ModelMappingOperationsRequest(BaseModel):
-    """One step of a mapping's history: operations applied in order, all or none."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    expectedVersion: int = Field(ge=1)
-    operations: list[dict[str, Any]] = Field(min_length=1)
 
 
 class ModelMappingUndoRequest(BaseModel):

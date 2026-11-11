@@ -1,0 +1,20 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/approval-policy",
+  "name": "thePolicy",
+  "summary": "The policy, with how many may approve",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "workspaceKey": "graubuenden",
+      "requireApproval": true,
+      "secondPerson": true,
+      "version": 1,
+      "approverCount": 2
+    }
+  }
+}

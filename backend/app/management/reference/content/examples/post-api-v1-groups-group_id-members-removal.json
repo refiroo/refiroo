@@ -1,0 +1,34 @@
+{
+  "operation": "POST /api/v1/groups/{group_id}/members/removal",
+  "name": "removeReviewer",
+  "summary": "Take several people out at once",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000003"
+    },
+    "body": {
+      "userIds": [
+        "00000000-0000-4000-8000-000000000002"
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "input": "00000000-0000-4000-8000-000000000002",
+          "outcome": "removed",
+          "member": {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "email": "reviewer@example.org",
+            "name": "Reference Reviewer",
+            "active": true,
+            "seenAt": null
+          }
+        }
+      ],
+      "changed": 1
+    }
+  }
+}

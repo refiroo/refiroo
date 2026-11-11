@@ -91,6 +91,7 @@ GROUP_DESCRIPTIONS = {
     "workspace_models": "each workspace's model: assignment, resolution, activation and the commit guard per workspace (0.11 M1)",
     "migration": "a workspace's data migrated to another release: preview, confirmation, conversions (0.11 V1)",
     "docs": "the documentation served at /docs with its headers, built or absent (0.13 DOC1)",
+    "reference": "the management API's reference text merged into its document, and the examples recorded from a run on the guide's reference data",
     "move": "data moved between workspaces whose models differ: the model-to-model mapping, its inference (0.11 X1), a move's dry run (0.11 X2)",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
@@ -138,6 +139,18 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_error_codes.py": ("contract",),
     "test_api_journeys.py": ("contract",),
     "test_api_reference.py": ("contract",),
+    "test_reference_recording.py": ("reference",),
+    "test_reference_records.py": ("reference",),
+    "test_reference_relations.py": ("reference",),
+    "test_reference_change_sets.py": ("reference",),
+    "test_reference_jobs.py": ("reference",),
+    "test_reference_model.py": ("reference",),
+    "test_reference_mappings.py": ("reference",),
+    "test_reference_security.py": ("reference",),
+    "test_reference_mail.py": ("reference",),
+    "test_reference_ai.py": ("reference",),
+    "test_reference_webhooks.py": ("reference",),
+    "test_reference_complete.py": ("contract", "reference"),
     "test_encoding.py": ("records",),
     "test_rule_parity.py": ("records", "change_sets"),
     "test_volume_baseline.py": ("volume",),
@@ -203,6 +216,7 @@ UNIT_GROUPS: dict[str, tuple[str, ...]] = {
     "test_main.py": ("startup", "jobs"),
 }
 JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
+    "management/reference/test_content.py": ("reference",),
     "J01": ("records", "queries"),
     "J02": ("records",),
     "J03": ("records",),

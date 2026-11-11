@@ -1,0 +1,34 @@
+{
+  "operation": "POST /api/v1/roles",
+  "name": "timetableEditor",
+  "summary": "A custom role of three action groups",
+  "request": {
+    "body": {
+      "name": "Timetable editor",
+      "description": "Edits stops and prepares change sets",
+      "actionGroups": [
+        "browse",
+        "edit-live",
+        "change-sets"
+      ]
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "key": "timetable-editor",
+      "name": "Timetable editor",
+      "description": "Edits stops and prepares change sets",
+      "predefined": false,
+      "actionGroups": [
+        "browse",
+        "edit-live",
+        "change-sets"
+      ],
+      "grants": 0,
+      "version": 1,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "updatedAt": "2026-11-02T09:14:00Z"
+    }
+  }
+}

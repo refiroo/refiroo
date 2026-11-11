@@ -1,0 +1,54 @@
+{
+  "operation": "POST /api/v1/groups/{group_id}/members/batch",
+  "name": "threeInputs",
+  "summary": "Add several people at once: one already in, one by e-mail address, one nobody has",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000003"
+    },
+    "body": {
+      "userIds": [
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "identifiers": [
+        "Reviewer@Example.org",
+        "nobody@example.org"
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "input": "00000000-0000-4000-8000-000000000001",
+          "outcome": "alreadyMember",
+          "member": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "email": "editor@example.org",
+            "name": "Reference Editor (timetable)",
+            "active": true,
+            "seenAt": null
+          }
+        },
+        {
+          "input": "Reviewer@Example.org",
+          "outcome": "added",
+          "member": {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "email": "reviewer@example.org",
+            "name": "Reference Reviewer",
+            "active": true,
+            "seenAt": null
+          }
+        },
+        {
+          "input": "nobody@example.org",
+          "outcome": "notFound",
+          "member": null
+        }
+      ],
+      "changed": 1
+    }
+  }
+}

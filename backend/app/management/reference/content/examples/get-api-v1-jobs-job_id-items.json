@@ -1,0 +1,49 @@
+{
+  "operation": "GET /api/v1/jobs/{job_id}/items",
+  "name": "outcomes",
+  "summary": "What happened to each item, in item order",
+  "request": {
+    "path": {
+      "job_id": "00000000-0000-4000-8000-000000000009"
+    },
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "index": 0,
+          "ref": "rename",
+          "status": "applied",
+          "action": "updated",
+          "id": "00000000-0000-4000-8000-000000000001",
+          "objectTypeKey": "stop",
+          "version": 2
+        },
+        {
+          "index": 1,
+          "ref": "remove",
+          "status": "applied",
+          "action": "deleted",
+          "id": "00000000-0000-4000-8000-000000000002",
+          "objectTypeKey": "stop",
+          "impact": {
+            "objectCount": 1,
+            "objectsByType": {
+              "stop": 1
+            },
+            "relationshipCount": 1,
+            "retainedAssociationCount": 1,
+            "deletionPreviewToken": "eyJmaWx0ZXJzIjoiMjAzYTVkYTM3MzJlOWJlYTFkMzgwZGY1NmJhZWQ0OWY2YWViNjA3NzkzMzI1Y2FmMmVhYzhmOWY1NmFiMTQ0NCIsInBvc2l0aW9uIjpbImI0OTIyYWE3Mzg5NzVkM2U4YjE1YmQ2YzkwZjNjNDQ0ZjAwNTVkNmVjNjlhODI4NDgwM2I5NjJmMWZiYmU2MTgiXSwic2NvcGUiOiJsaXZlLWRlbGV0aW9uIiwic29ydCI6WyJkZWxldGlvbi1pbXBhY3QiXSwidmVyc2lvbiI6MX0.Q95ab3IzFX6JZ_DZga5_MlpbcfEjhX2vy04-FES2rQM"
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  }
+}

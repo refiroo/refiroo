@@ -1,5 +1,7 @@
 # API principles and contract
 
+**The reference for integrators is `/docs/api`**: every operation, parameter, field, error code and a recorded example, served by the engine. This document records what was decided and why.
+
 This is the API of **refiroo**, the application (see [OPERATORING.md](OPERATORING.md)); the API reference page at `/docs/api` carries the same name and mark. What of it is committed from 0.12.0, and how it changes, is in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Entity identifiers
@@ -263,7 +265,9 @@ guard, not an authorization mechanism. It works with any number of processes on 
 N1): installation takes a database lock, and a switch is served by every process from its next
 request.
 `workspaceAdmin.manageWorkspaces` follows `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, which defaults to true
-until authentication exists. It is a deployment capability and not evidence of caller authorization.
+and switches the operations on and off for the deployment. Who may use them is decided by Workspace
+administration (`workspaces.manage`) at the instance, which every request needs; the capability is not
+evidence of caller authorization.
 
 #### What the deployment runs (`GET /api/v1/system`, `GET /api/v1/system/configuration`)
 
@@ -320,7 +324,7 @@ they read the name here; `null` when this version cannot serve the default works
   or its schema upgraded.
 - `database.revision` is the migration revision the database is at.
 - `settings` lists every setting the engine reads, once, in the order and groups of
-  [OPERATIONS § Settings](OPERATIONS.md#settings) (`runtime`, `capabilities`, `limits`, `webhooks`).
+  [OPERATIONS § Settings](OPERATIONS.md#settings) (`runtime`, `capabilities`, `limits`, `webhooks`, `ai`).
   `value` and `default` keep their types (integers, booleans, lists). `source` is `environment` when
   the variable is set to a non-empty value, otherwise `default`. Values are those the process read at
   startup; they change only with a restart.
@@ -443,7 +447,10 @@ change set already on it keeps working (a change set may still name its own rele
 choose: active and of a schema this version reads. Every picker of the built-in interface reads `usable=true`.
 
 `PATCH /api/v1/model-releases/{releaseId}` with `{"status": "retired" | "active", "expectedStatusVersion": N}`
-(action `model.install`, instance-wide) retires a release or brings it back and answers the release. The
+(action `model.install`, instance-wide) retires a release or brings it back and answers the release; it
+changes nothing else (no name or description). `PATCH`, `DELETE` and `POST …/raising` are always
+registered: `MODEL_ADMIN_MUTATIONS_ENABLED` does not switch them, only `model.install` at the instance
+guards them (the draft and installation routes are the ones that setting switches). The
 default workspace's release is not retired, `409 MODEL_RELEASE_IS_DEFAULT`: a new workspace starts on it
 unless another is named. Asking for the status a release has changes nothing. Installing a retired release's
 exact model again brings it back.
@@ -1002,8 +1009,9 @@ refused when it commits (`404 WORKSPACE_NOT_FOUND` or `409 WORKSPACE_RETIRED`), 
 Create/update/delete/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`.
 The flag gates only this catalogue administration: the change-set and publication routes below are
 always registered and return `WORKSPACE_RETIRED` in a retired workspace.
-The flag defaults to true only for the pre-authentication development posture; exposed deployments
-must disable it or protect the API with external access control.
+The flag defaults to true and only switches these operations on and off for the deployment. Who may use
+them is decided by Workspace administration (`workspaces.manage`) at the instance, which these routes
+and `PATCH /workspace-runtime-state` need on top of a token.
 
 ## Change sets and publications — current API and accepted targets
 
@@ -1887,8 +1895,12 @@ flag.
 
 Value validation, type normalization and per-workspace uniqueness behave exactly as in the object
 create/update flows — `UNKNOWN_ATTRIBUTES`, `INVALID_ATTRIBUTE_VALUE`, numeric bounds and
-`DUPLICATE_ATTRIBUTE_VALUE` all apply. Object-level `atLeastOneOf` rules are also checked against the
-complete resulting attribute set. Stale `expectedVersion` values return `409 VERSION_CONFLICT`.
+`DUPLICATE_ATTRIBUTE_VALUE` all apply. Live, object-level `atLeastOneOf` rules are also checked against
+the complete resulting attribute set. In a change set a create and an attribute `DELETE` check the rule
+at once; an update and an attribute `POST` or `PATCH` check only the effective period and leave the rule
+to the change set's validation, which reports it before publishing. A change set's attribute `POST` and
+`PATCH` answer the full object response with its `path`, as the object writes do. Stale
+`expectedVersion` values return `409 VERSION_CONFLICT`.
 
 ### Error responses
 
@@ -1918,7 +1930,9 @@ without the header nothing changes. The browser sends it on its data writes; a b
 origin reads `X-Model-Release-Id` because the API exposes it (CORS `Access-Control-Expose-Headers`). A stale `expectedVersion` on a
 record or relation write (an update, a move, a delete or a single value's write, live or in a change
 set, and a batch item's) returns `409 VERSION_CONFLICT` with `details.currentVersion`, the version to
-read again before retrying (decided 2026-10-03, H4c).
+read again before retrying (decided 2026-10-03, H4c). A stale `expectedVersion` on a delete with
+`cascade=true` returns `409 DELETION_PREVIEW_CHANGED` instead, live and in a change set: the deletion
+it previewed is no longer what would be deleted.
 
 ```json
 {
@@ -1958,8 +1972,11 @@ refused by a single write's rule carries the same code in its outcome.
 | `INVALID_POSITION` | 422 | every paged collection | `position` below zero; `details.path` `/query/position` (J21.1) |
 | `WORKSPACE_RUNTIME_STATE_MISSING` | 500 | workspace reads and writes | The workspace catalogue's runtime row is missing: a damaged database, not a client error |
 | `WORKSPACE_KEY_REQUIRED` | 422 | `POST /objects` | A live create without `workspaceKey` (and without `changeSetId`) (J03) |
-| `UNKNOWN_APPLICATION` | 404 | `POST /objects`, batch items, `GET /applications/{key}`, `GET /objects` | `applicationKey` names no application of the model (J03.2, J20) |
-| `OBJECT_TYPE_NOT_IN_APPLICATION` | 422 | `POST /objects` | The application does not hold the object type (J03.2) |
+| `UNKNOWN_APPLICATION` | 404 | `POST /objects` (live), batch items, `GET /applications/{key}`, `GET /objects` | `applicationKey` names no application of the model (J03.2, J20) |
+| `INVALID_OBJECT_TYPE_FOR_APPLICATION` | 422 | `POST /objects` (live) | The application does not hold the object type (J03.2) |
+| `OBJECT_TYPE_NOT_IN_APPLICATION` | 422 | `POST /objects` in a change set | The change set's answer to an application that does not hold the type, and to an unknown application (J03.2) |
+| `UNKNOWN_OBJECT_TYPE` | 422 | `POST /objects` in a change set | The type is not in the change set's model (live: `404 UNKNOWN_OBJECT_TYPE`) |
+| `PARENT_WRONG_SCOPE` | 422 | `POST /objects` in a change set | The parent is not in the same application and workspace (live: `404 OBJECT_NOT_FOUND`) |
 | `UNKNOWN_ATTRIBUTE_TYPE` | 404 | `GET /attribute-types/{key}` | No attribute type with that key in the selected model (J20) |
 | `ATTRIBUTE_BELOW_MINIMUM`, `ATTRIBUTE_ABOVE_MAXIMUM` | 422 | every value write | A number outside the attribute's declared `minimum` or `maximum` (J02.5) |
 | `MISSING_REQUIRED_ATTRIBUTES` | 422 | create, update, type change | A value the type requires is absent; the message names the fields (J03) |
@@ -1969,7 +1986,6 @@ refused by a single write's rule carries the same code in its outcome.
 | `RELATION_WRONG_SCOPE` | 422 | relation create, `initialRelations` | The two records are in different workspaces (J13) |
 | `RELATION_CANDIDATE_REFUSED` | 422 | relation create, `initialRelations`, set replacement, batch and import items | An end of a new relationship does not meet the criteria the model's binding sets there (`candidates`); `details` `relationTypeKey`, `end`, `objectId`, `criteria` (0.9 K7, J13.9, J03.9) |
 | `RELATION_ENDPOINT_MISSING` | 422 | relation create, `initialRelations` | An end names a record the context does not hold, live and in a change set alike (decided 2026-10-03, H4c); change-set validation reports it as a diagnostic (J13.3, J05) |
-| `CHANGE_SET_SOURCE_INVALID` | 422 | `POST /workspaces/{key}/change-sets` | `source` is not `currentLive` or `publication`, a publication source lacks `sourcePublicationId`, or a current-live source names one (J05) |
 | `CHANGE_SET_BASE_INVALID` | 409 | mapping reads in a change set | The change set's base, or its base publication, is missing or belongs to another workspace: a damaged change set (J10) |
 | `CHILD_TYPE_NOT_ALLOWED` | 422 | `changeType`, restructuring | The new type cannot contain one of the record's children; the restructuring plan reports it as `noPossibleType` (J15) |
 | `REQUIRED_RELATION_WITHOUT_PLACE` | 422 | `changeType`, restructuring | The new type cannot hold a relationship another record requires (J15) |
@@ -3346,7 +3362,8 @@ the reader misses nothing. Or it exports live data (`details.export`, [Exports](
 and follows the feed from the export's `output.feedPosition`, which works in a workspace without a
 publication too (0.9 J1, D41). A workspace without a publication still keeps every entry (D54).
 
-A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
+A retired workspace's feed stays readable. Reading it needs the Feed action group (`feed.read`) in the
+workspace; a caller without it gets `403 FORBIDDEN`.
 
 ## Consumer API (Base 0.9 C2–C6, C10, C14–C16)
 
@@ -5863,6 +5880,8 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 ```json
 {
   "items": [{
+  - `seek` — jumps to a place in the list. On a relationships table it is a value of the first thing
+    the list orders by (see below); on the plain list it compares relationship IDs.
     "relationId": "relation-public-id",
     "relationTypeKey": "system-value-maps-to-master",
     "direction": "outgoing",
@@ -7409,7 +7428,7 @@ route that sends a provider free text. The provider is set in the environment an
   the last `totals.days` (30) days: `calls`, `failed`, `tokensIn`, `tokensOut`, `bytesIn`,
   `bytesOut`.
 - `GET /api/v1/ai/calls` (Operations at the instance): every call, newest first, cursor paged
-  (ADR-030). A call is `id`, `purpose` (`connectionTest`, `mappingTarget`), `provider`, `model` (as the
+  (ADR-030). A call is `id`, `purpose` (`connectionTest`, `mappingTarget`, `queryTranslation`, `impactSummary`, `historyAccount`, `workbookLoad`, `assistantSession`, or `modelNames` on a call recorded before that feature was removed), `provider`, `model` (as the
   provider answered it), `sendLevel`, `promptVersion`, `requestedBy` (a person or a client, as it
   reads now), `jobId`, `startedAt`, `durationMs`, `bytesIn`, `bytesOut`, `tokensIn`, `tokensOut`,
   `outcome` (`answered`, `failed`), `failureKind` (`unreachable`, `unauthorized`, `rateLimited`,
@@ -7648,7 +7667,8 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   decides whether a saved layout fits; a client has no need to show it.
 - `design` (`null` until a session has proposed): `summary` (two sentences a person reads), `questions`
   (`{text, options, assumed}`: what only a person can decide, with the option assumed), `answers`,
-  `outline` (`{objectTypeKey, name, text}`, one plain line per type the proposal adds, changes or loads,
+  `outline` (`{objectTypeKey, name, text}` in the assistant's own outline, `{objectTypeKey, text}` in the
+  engine's outline for a saved layout; one plain line per type the proposal adds, changes or loads,
   with its attributes and the records the check would write, computed by the engine from the draft and the
   dry run), `checks`, `stage` (`model` while the proposal waits; `load` once accepted), `corrections`,
   `moves` (`{from, fromName, to, toName, records, attributes, lost}` for each whole type the proposal turns into

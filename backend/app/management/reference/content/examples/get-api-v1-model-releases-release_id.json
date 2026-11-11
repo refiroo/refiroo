@@ -1,0 +1,34 @@
+{
+  "operation": "GET /api/v1/model-releases/{release_id}",
+  "name": "running",
+  "summary": "The release the workspaces run, without its model document",
+  "request": {
+    "path": {
+      "release_id": "00000000-0000-4000-8000-000000000023"
+    },
+    "query": {
+      "includeModel": false
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000023",
+      "key": "guide-reference-swiss",
+      "name": "Public transport stops of Graubünden",
+      "version": "1.8.1",
+      "schemaVersion": "0.10",
+      "modelHash": "685e4fe9a0126738d3aba4f6c05ac55c3c15ebd97a7a95c9314356bf0f4eaa5e",
+      "installedAt": "2026-11-02T09:00:00Z",
+      "assigned": true,
+      "workspaces": [
+        "default",
+        "graubuenden"
+      ],
+      "status": "active",
+      "statusVersion": 1,
+      "deletable": false,
+      "deleteBlockedBy": "running"
+    }
+  }
+}

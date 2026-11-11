@@ -1,0 +1,36 @@
+{
+  "operation": "PATCH /api/v1/change-sets/{change_set_id}/model-release",
+  "name": "moveToTheNewRelease",
+  "summary": "Move a change set onto the release the workspace now runs",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000025"
+    },
+    "body": {
+      "modelReleaseId": "00000000-0000-4000-8000-000000000026",
+      "expectedChangeSetVersion": 1
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000025",
+      "workspaceKey": "graubuenden",
+      "name": "Moves to the new release",
+      "modelReleaseId": "00000000-0000-4000-8000-000000000026",
+      "modelReleaseKey": "guide-reference-swiss",
+      "modelReleaseVersion": "1.8.2",
+      "source": "currentLive",
+      "derivedFromPublicationId": null,
+      "version": 2,
+      "createdAt": "2026-11-02T09:49:00Z",
+      "updatedAt": "2026-11-02T09:49:00Z",
+      "createdBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "name": "Reference Administrator"
+      },
+      "submission": null
+    }
+  }
+}

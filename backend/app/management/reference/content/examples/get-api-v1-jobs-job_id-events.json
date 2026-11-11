@@ -1,0 +1,14 @@
+{
+  "operation": "GET /api/v1/jobs/{job_id}/events",
+  "name": "finishedExport",
+  "summary": "A finished export: one event, then the stream ends",
+  "request": {
+    "path": {
+      "job_id": "00000000-0000-4000-8000-000000000007"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": "event: job\ndata: {\"id\":\"00000000-0000-4000-8000-000000000007\",\"kind\":\"export\",\"workspaceKey\":\"graubuenden\",\"changeSetId\":null,\"changeSetVersion\":null,\"policy\":null,\"parameters\":{\"scope\":{\"types\":[{\"objectTypeKey\":\"stop\",\"where\":[{\"field\":\"stop-number\",\"op\":\"gte\",\"value\":8599000}]}]},\"include\":{\"relations\":\"withinScope\"},\"format\":\"jsonl\"},\"modelReleaseId\":\"00000000-0000-4000-8000-000000000005\",\"state\":\"completed\",\"stage\":null,\"progress\":{\"total\":2,\"processed\":2},\"counts\":{\"applied\":0,\"rejected\":0,\"unprocessed\":0,\"created\":0,\"updated\":0,\"unchanged\":0,\"deleted\":0},\"result\":null,\"error\":null,\"createdAt\":\"2026-11-02T09:07:00Z\",\"startedAt\":\"2026-11-02T09:07:00Z\",\"finishedAt\":\"2026-11-02T09:07:00Z\",\"expiresAt\":\"2026-11-02T10:24:00Z\",\"cancelRequestedAt\":null,\"leaseOwner\":null,\"leaseExpiresAt\":null,\"output\":{\"format\":\"jsonl\",\"layout\":\"technical\",\"contentType\":\"application/x-ndjson\",\"counts\":{\"records\":{\"stop\":2},\"relations\":{}},\"context\":{\"workspaceKey\":\"graubuenden\",\"changeSetId\":null,\"changeSetVersion\":null,\"publicationId\":null},\"feedPosition\":1234,\"asOf\":null,\"asOfApplied\":[],\"modelReleaseId\":\"00000000-0000-4000-8000-000000000005\",\"bytes\":836,\"sha256\":\"8dac98459494e965ba29ebce799268a72bd8c9a5fe98df14f5b4749936bcd52e\"},\"confirmedAt\":null,\"preview\":null,\"bindingReport\":null,\"notices\":null,\"migration\":null,\"move\":null,\"aiProposal\":null,\"requestedBy\":{\"kind\":\"user\",\"id\":\"00000000-0000-4000-8000-000000000006\",\"name\":\"Reference Administrator\"},\"origin\":null}\n"
+  }
+}

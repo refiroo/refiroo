@@ -1,0 +1,17 @@
+{
+  "operation": "POST /api/v1/me/notifications/removal",
+  "name": "removeRead",
+  "summary": "Delete every read notice for good; what they were about stays",
+  "request": {
+    "body": {
+      "read": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "removed": 1,
+      "unreadCount": 1
+    }
+  }
+}

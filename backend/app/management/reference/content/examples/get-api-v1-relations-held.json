@@ -1,0 +1,36 @@
+{
+  "operation": "GET /api/v1/relations/held",
+  "name": "modesOfThreeStops",
+  "summary": "The modes three stops hold, with how many of the stops hold each",
+  "request": {
+    "query": {
+      "objectTypeKey": "stop",
+      "relationTypeKey": "stop-served-by-mode",
+      "direction": "outgoing",
+      "objectId": [
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000006",
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "pageSize": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "object": {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "Train",
+            "objectTypeKey": "mode"
+          },
+          "count": 3
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  }
+}

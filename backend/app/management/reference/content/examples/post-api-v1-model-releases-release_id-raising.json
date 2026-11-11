@@ -1,0 +1,28 @@
+{
+  "operation": "POST /api/v1/model-releases/{release_id}/raising",
+  "name": "aReleaseOfAnEarlierSchema",
+  "summary": "Bring a release stored in an earlier schema up to the present one",
+  "request": {
+    "path": {
+      "release_id": "00000000-0000-4000-8000-000000000036"
+    },
+    "body": {
+      "confirm": true,
+      "expectedModelHash": "273af518d9e83b0d9a6c86e16e0ca80dab0f9910901279b3054f084762170855"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "applied": true,
+      "releaseId": "00000000-0000-4000-8000-000000000036",
+      "releaseKey": "stop-inventory",
+      "releaseVersion": "1.0.0",
+      "schemaFrom": "0.9",
+      "schemaTo": "0.10",
+      "consumerApisRewritten": 0,
+      "modelHash": "a59d0d0d0c4c1dcc2069110429e6d300f528a42fae231ecb4bab9de7541cdfc3",
+      "workspaces": []
+    }
+  }
+}

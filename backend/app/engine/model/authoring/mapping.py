@@ -543,9 +543,7 @@ def remove_source(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("setMissing", params=("source", "missing"))
 def set_missing(context: Context, raw: dict[str, Any]) -> Applied:
-    """What a load does with the records of the source's type that no row names (0.10 A5c, D82):
-    ``report`` them (the default) or ``delete`` them, in a change set only. Deleting needs a source
-    that loads its records by a key."""
+    """Set what a load does with the records of the source's type that no row names: `report` them (the default) or `delete` them, in a change set only. Deleting needs a source that loads its records by a key."""
     params = Params(raw)
     source = _source(context, raw.get("source"))
     missing = params.text("missing")
@@ -688,9 +686,7 @@ def ignore_column(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("addValuesToList", params=("source", "column", "letter", "create"))
 def add_values_to_list(context: Context, raw: dict[str, Any]) -> Applied:
-    """A lookup or parent column creates the records it names that do not exist (D77); a flag
-    column, the records its set's flags stand for, and a related record's column, the parent it
-    names (0.10 A6, D93)."""
+    """Make a column create the records it names that do not exist: a lookup or parent column, a relation-flag column (the records its flags stand for) or a related record's column (the parent it names)."""
     params = Params(raw)
     source = _source(context, raw.get("source"))
     column = _ref(context, source, raw)
@@ -728,8 +724,7 @@ def add_values_to_list(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("unmapColumn", params=("source", "column", "letter"))
 def unmap_column(context: Context, raw: dict[str, Any]) -> Applied:
-    """The column's binding taken out of the source, also for a column the file no longer has (a
-    header renamed in a newer workbook, 0.10 A6); a column not bound is left as it is."""
+    """Take a column's binding out of the source, also for a column the file no longer has (a header renamed in a newer workbook); a column not bound is left as it is."""
     source = _source(context, raw.get("source"))
     if raw.get("letter") is not None:
         column = _ref(context, source, raw)

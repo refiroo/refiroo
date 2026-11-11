@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/model-drafts/{draft_id}",
+  "name": "scratch",
+  "summary": "Delete a draft nobody needs",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000037"
+    },
+    "query": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

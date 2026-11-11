@@ -1,0 +1,84 @@
+{
+  "operation": "GET /api/v1/relations",
+  "name": "modesOfAStop",
+  "summary": "The modes that serve a stop, with the version of that set",
+  "request": {
+    "query": {
+      "objectId": "00000000-0000-4000-8000-000000000001",
+      "relationTypeKey": "stop-served-by-mode",
+      "direction": "outgoing",
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "direction": "outgoing",
+          "relation": {
+            "relationTypeKey": "stop-served-by-mode",
+            "fromObjectId": "00000000-0000-4000-8000-000000000001",
+            "toObjectId": "00000000-0000-4000-8000-000000000002",
+            "attributes": {},
+            "changeSetId": null,
+            "expectedChangeSetVersion": null,
+            "expectedRelationSetVersion": null,
+            "relationSetDirection": null,
+            "id": "00000000-0000-4000-8000-000000000003",
+            "version": 1,
+            "createdAt": "2026-11-02T09:07:00Z",
+            "updatedAt": "2026-11-02T09:07:00Z",
+            "changeSetVersion": null,
+            "relationSetVersion": null
+          },
+          "object": {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "workspaceKey": "graubuenden",
+            "applicationKey": "network",
+            "objectTypeKey": "mode",
+            "parentObjectId": "00000000-0000-4000-8000-000000000004",
+            "name": "Train",
+            "path": [
+              {
+                "id": "00000000-0000-4000-8000-000000000004",
+                "name": "Rail-bound",
+                "objectTypeKey": "mode"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000002",
+                "name": "Train",
+                "objectTypeKey": "mode"
+              }
+            ],
+            "attributes": [
+              {
+                "id": "00000000-0000-4000-8000-000000000005",
+                "attributeTypeKey": "mode-code",
+                "name": "Mode code",
+                "valueType": "text",
+                "value": "TRAIN"
+              }
+            ],
+            "version": 1,
+            "createdAt": "2026-11-02T09:00:00Z",
+            "updatedAt": "2026-11-02T09:00:00Z",
+            "changeSetVersion": null
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-1",
+      "relationSets": [
+        {
+          "relationTypeKey": "stop-served-by-mode",
+          "fromObjectTypeKey": "stop",
+          "toObjectTypeKey": "mode",
+          "direction": "outgoing",
+          "relationSetVersion": 1
+        }
+      ]
+    }
+  }
+}

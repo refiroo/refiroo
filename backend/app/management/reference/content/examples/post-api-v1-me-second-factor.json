@@ -1,0 +1,14 @@
+{
+  "operation": "POST /api/v1/me/second-factor",
+  "name": "enrolment",
+  "summary": "A new secret for the authenticator app, shown once",
+  "request": {},
+  "response": {
+    "status": 201,
+    "body": {
+      "secret": "JBSWY3DPEHPK3PXP",
+      "otpauthUri": "otpauth://totp/Example:user@example.org?secret=JBSWY3DPEHPK3PXP&issuer=Example",
+      "qrSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><!-- the QR code --></svg>"
+    }
+  }
+}

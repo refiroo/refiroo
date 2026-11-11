@@ -1,0 +1,40 @@
+{
+  "operation": "POST /api/v1/change-sets/{change_set_id}/decisions",
+  "name": "approve",
+  "summary": "Approve: the change set is published as Publication 2",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000016"
+    },
+    "body": {
+      "outcome": "approve",
+      "comment": "Checked against the timetable",
+      "expectedChangeSetVersion": 2,
+      "expectedActivePublicationId": "00000000-0000-4000-8000-000000000015"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000018",
+      "workspaceKey": "graubuenden",
+      "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+      "modelReleaseKey": "guide-reference-swiss",
+      "modelReleaseVersion": "1.8.1",
+      "publicationNumber": 2,
+      "status": "active",
+      "derivedFromPublicationId": null,
+      "supersedesPublicationId": "00000000-0000-4000-8000-000000000015",
+      "createdAt": "2026-11-02T09:35:00Z",
+      "publishedAt": "2026-11-02T09:35:00Z",
+      "withdrawnAt": null,
+      "feedPosition": 1238,
+      "publishedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000019",
+        "name": "Reference Approver"
+      },
+      "withdrawnBy": null
+    }
+  }
+}

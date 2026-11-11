@@ -1,0 +1,31 @@
+{
+  "operation": "GET /api/v1/model-mappings",
+  "name": "ofTheGuideModel",
+  "summary": "The mappings out of the guide model, in key order",
+  "request": {
+    "query": {
+      "sourceModelKey": "guide-reference-swiss",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "key": "stops-to-inventory",
+          "name": "Stops of Graubünden into the stop inventory",
+          "sourceModelKey": "guide-reference-swiss",
+          "targetModelKey": "stop-inventory",
+          "sourceReleaseId": "00000000-0000-4000-8000-000000000002",
+          "targetReleaseId": "00000000-0000-4000-8000-000000000003",
+          "version": 5,
+          "updatedAt": "2026-11-02T09:28:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-1"
+    }
+  }
+}

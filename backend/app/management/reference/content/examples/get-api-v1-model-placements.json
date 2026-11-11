@@ -1,0 +1,93 @@
+{
+  "operation": "GET /api/v1/model/placements",
+  "name": "graubuenden",
+  "summary": "Where records of each type may stand, per application",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "applications": [
+        {
+          "applicationKey": "network",
+          "topLevelObjectTypeKeys": [
+            "canton",
+            "operator",
+            "mode"
+          ],
+          "parents": [
+            {
+              "objectTypeKey": "canton",
+              "childObjectTypeKeys": [
+                "district"
+              ],
+              "possibleObjectTypeKeys": [
+                "district"
+              ]
+            },
+            {
+              "objectTypeKey": "district",
+              "childObjectTypeKeys": [
+                "municipality"
+              ],
+              "possibleObjectTypeKeys": [
+                "municipality"
+              ]
+            }
+          ]
+        },
+        {
+          "applicationKey": "systems",
+          "topLevelObjectTypeKeys": [
+            "system",
+            "mode"
+          ],
+          "parents": [
+            {
+              "objectTypeKey": "system",
+              "childObjectTypeKeys": [
+                "system-code"
+              ],
+              "possibleObjectTypeKeys": [
+                "system-code"
+              ]
+            },
+            {
+              "objectTypeKey": "system-code",
+              "childObjectTypeKeys": [],
+              "possibleObjectTypeKeys": []
+            }
+          ]
+        },
+        {
+          "applicationKey": "names",
+          "topLevelObjectTypeKeys": [
+            "language",
+            "canton",
+            "operator"
+          ],
+          "parents": [
+            {
+              "objectTypeKey": "language",
+              "childObjectTypeKeys": [
+                "name-translation"
+              ],
+              "possibleObjectTypeKeys": [
+                "name-translation"
+              ]
+            },
+            {
+              "objectTypeKey": "name-translation",
+              "childObjectTypeKeys": [],
+              "possibleObjectTypeKeys": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`applications[0].parents`: the first 2 of 6 items are shown.",
+    "`applications[1].parents`: the first 2 of 5 items are shown.",
+    "`applications[2].parents`: the first 2 of 5 items are shown."
+  ]
+}

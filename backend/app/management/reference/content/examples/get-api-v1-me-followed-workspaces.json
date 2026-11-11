@@ -1,0 +1,21 @@
+{
+  "operation": "GET /api/v1/me/followed-workspaces",
+  "name": "followed",
+  "summary": "The workspaces the caller follows and may still browse",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "workspaceKey": "graubuenden",
+          "label": "Graubünden",
+          "since": "2026-11-02T09:21:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-3"
+    }
+  }
+}

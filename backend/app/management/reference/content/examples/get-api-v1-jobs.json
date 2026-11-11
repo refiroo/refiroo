@@ -1,0 +1,330 @@
+{
+  "operation": "GET /api/v1/jobs",
+  "name": "newestFinished",
+  "summary": "The workspace's finished jobs, the newest first",
+  "request": {
+    "query": {
+      "workspaceKey": "graubuenden",
+      "state": "completed",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "kind": "import",
+          "workspaceKey": "graubuenden",
+          "changeSetId": null,
+          "changeSetVersion": null,
+          "policy": "independent",
+          "parameters": {
+            "run": "background",
+            "onExisting": "reject",
+            "otherWorkspaceIds": "refuse",
+            "stage": "preview",
+            "profile": {
+              "key": "bus-stops-north",
+              "version": 1,
+              "definition": {
+                "sources": [
+                  {
+                    "sheet": "Haltestellen",
+                    "headerRow": 3,
+                    "applicationKey": "network",
+                    "objectTypeKey": "stop",
+                    "record": "upsert",
+                    "key": {
+                      "attributeTypeKey": "stop-number",
+                      "storedUnique": false
+                    },
+                    "columns": [
+                      {
+                        "column": "Haltestelle",
+                        "field": "name"
+                      },
+                      {
+                        "column": "Haltestelle",
+                        "attributeTypeKey": "designation"
+                      }
+                    ]
+                  }
+                ],
+                "valueMaps": {
+                  "dates": {
+                    "?": null,
+                    "n/a": null,
+                    "01.04.2021": "2021-04-01",
+                    "12.05.2021": "2021-05-12",
+                    "09.03.2022": "2022-03-09",
+                    "11.12.2022": "2022-12-11",
+                    "10.12.2023": "2023-12-10",
+                    "15.12.2024": "2024-12-15",
+                    "09.08.2025": "2025-08-09",
+                    "03.06.2026": "2026-06-03",
+                    "01.08.2026": "2026-08-01"
+                  },
+                  "municipalities": {
+                    "Coira": "Chur",
+                    "Cuira": "Chur"
+                  }
+                }
+              }
+            },
+            "file": {
+              "name": "Haltestellen_Busbetrieb_Nord.xlsx",
+              "format": "xlsx",
+              "bytes": 10322,
+              "sha256": "4b63aef3c00fb21d0c5e2b9827f97d0991b13bef001988fcb2f10ac222fd1d46"
+            }
+          },
+          "modelReleaseId": "00000000-0000-4000-8000-000000000005",
+          "state": "completed",
+          "stage": null,
+          "progress": {
+            "total": 51,
+            "processed": 51
+          },
+          "counts": {
+            "applied": 45,
+            "rejected": 6,
+            "unprocessed": 0,
+            "created": 45,
+            "updated": 0,
+            "unchanged": 0,
+            "deleted": 0
+          },
+          "result": "partial",
+          "error": null,
+          "createdAt": "2026-11-02T09:42:00Z",
+          "startedAt": "2026-11-02T09:42:00Z",
+          "finishedAt": "2026-11-02T09:49:00Z",
+          "expiresAt": "2026-11-02T10:59:00Z",
+          "cancelRequestedAt": null,
+          "leaseOwner": null,
+          "leaseExpiresAt": null,
+          "output": null,
+          "confirmedAt": "2026-11-02T09:49:00Z",
+          "preview": {
+            "coverage": "complete",
+            "items": {
+              "total": 51,
+              "previewed": 51
+            },
+            "rows": {
+              "total": 51,
+              "previewed": 51,
+              "rejected": 6
+            },
+            "counts": {
+              "created": 45,
+              "updated": 0,
+              "unchanged": 0,
+              "deleted": 0,
+              "rejected": 6
+            },
+            "result": "partial",
+            "previewedAt": "2026-11-02T09:42:00Z"
+          },
+          "bindingReport": [
+            {
+              "sheet": "Haltestellen",
+              "objectTypeKey": "stop",
+              "rows": 51,
+              "rejectedRows": 6,
+              "missingRecords": 117,
+              "skippedRows": 0,
+              "columns": [
+                {
+                  "column": "Haltestelle",
+                  "binding": "field",
+                  "target": "name",
+                  "cells": 51,
+                  "empty": 0,
+                  "converted": 51,
+                  "valueMapped": 0,
+                  "refused": 0,
+                  "reading": null
+                },
+                {
+                  "column": "Haltestelle",
+                  "binding": "attributeTypeKey",
+                  "target": "designation",
+                  "cells": 51,
+                  "empty": 0,
+                  "converted": 51,
+                  "valueMapped": 0,
+                  "refused": 0,
+                  "reading": null
+                }
+              ]
+            }
+          ],
+          "notices": [],
+          "migration": null,
+          "move": null,
+          "aiProposal": null,
+          "requestedBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000006",
+            "name": "Reference Administrator"
+          },
+          "origin": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "kind": "profileCheck",
+          "workspaceKey": "graubuenden",
+          "changeSetId": null,
+          "changeSetVersion": null,
+          "policy": "independent",
+          "parameters": {
+            "run": "background",
+            "stage": "preview",
+            "onExisting": "overwrite",
+            "otherWorkspaceIds": "refuse",
+            "profileKey": "bus-stops-north",
+            "sourceFileId": "00000000-0000-4000-8000-000000000011",
+            "profile": {
+              "key": "bus-stops-north",
+              "version": 1,
+              "definition": {
+                "sources": [
+                  {
+                    "sheet": "Haltestellen",
+                    "headerRow": 3,
+                    "applicationKey": "network",
+                    "objectTypeKey": "stop",
+                    "record": "upsert",
+                    "key": {
+                      "attributeTypeKey": "stop-number",
+                      "storedUnique": false
+                    },
+                    "columns": [
+                      {
+                        "column": "Haltestelle",
+                        "field": "name"
+                      },
+                      {
+                        "column": "Haltestelle",
+                        "attributeTypeKey": "designation"
+                      }
+                    ]
+                  }
+                ],
+                "valueMaps": {
+                  "dates": {
+                    "?": null,
+                    "n/a": null,
+                    "01.04.2021": "2021-04-01",
+                    "12.05.2021": "2021-05-12",
+                    "09.03.2022": "2022-03-09",
+                    "11.12.2022": "2022-12-11",
+                    "10.12.2023": "2023-12-10",
+                    "15.12.2024": "2024-12-15",
+                    "09.08.2025": "2025-08-09",
+                    "03.06.2026": "2026-06-03",
+                    "01.08.2026": "2026-08-01"
+                  },
+                  "municipalities": {
+                    "Coira": "Chur",
+                    "Cuira": "Chur"
+                  }
+                }
+              }
+            },
+            "file": {
+              "name": "Haltestellen_Busbetrieb_Nord.xlsx",
+              "format": "xlsx",
+              "bytes": 10322,
+              "sha256": "4b63aef3c00fb21d0c5e2b9827f97d0991b13bef001988fcb2f10ac222fd1d46"
+            }
+          },
+          "modelReleaseId": "00000000-0000-4000-8000-000000000005",
+          "state": "completed",
+          "stage": null,
+          "progress": {
+            "total": 51,
+            "processed": 51
+          },
+          "counts": {
+            "applied": 45,
+            "rejected": 6,
+            "unprocessed": 0,
+            "created": 45,
+            "updated": 0,
+            "unchanged": 0,
+            "deleted": 0
+          },
+          "result": "partial",
+          "error": null,
+          "createdAt": "2026-11-02T09:35:00Z",
+          "startedAt": "2026-11-02T09:35:00Z",
+          "finishedAt": "2026-11-02T09:35:00Z",
+          "expiresAt": "2026-11-02T10:45:00Z",
+          "cancelRequestedAt": null,
+          "leaseOwner": null,
+          "leaseExpiresAt": null,
+          "output": null,
+          "confirmedAt": null,
+          "preview": null,
+          "bindingReport": [
+            {
+              "sheet": "Haltestellen",
+              "objectTypeKey": "stop",
+              "rows": 51,
+              "rejectedRows": 6,
+              "missingRecords": 117,
+              "skippedRows": 0,
+              "columns": [
+                {
+                  "column": "Haltestelle",
+                  "binding": "field",
+                  "target": "name",
+                  "cells": 51,
+                  "empty": 0,
+                  "converted": 51,
+                  "valueMapped": 0,
+                  "refused": 0,
+                  "reading": null
+                },
+                {
+                  "column": "Haltestelle",
+                  "binding": "attributeTypeKey",
+                  "target": "designation",
+                  "cells": 51,
+                  "empty": 0,
+                  "converted": 51,
+                  "valueMapped": 0,
+                  "refused": 0,
+                  "reading": null
+                }
+              ]
+            }
+          ],
+          "notices": [],
+          "migration": null,
+          "move": null,
+          "aiProposal": null,
+          "requestedBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000006",
+            "name": "Reference Administrator"
+          },
+          "origin": null
+        }
+      ],
+      "nextCursor": "cursor-11",
+      "prevCursor": null,
+      "anchor": "cursor-12"
+    }
+  },
+  "notes": [
+    "`items[0].parameters.profile.definition.sources[0].columns`: the first 2 of 5 items are shown.",
+    "`items[0].bindingReport[0].columns`: the first 2 of 5 items are shown.",
+    "`items[1].parameters.profile.definition.sources[0].columns`: the first 2 of 5 items are shown.",
+    "`items[1].bindingReport[0].columns`: the first 2 of 5 items are shown."
+  ]
+}

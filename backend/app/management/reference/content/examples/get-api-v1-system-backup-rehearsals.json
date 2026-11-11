@@ -1,0 +1,19 @@
+{
+  "operation": "GET /api/v1/system/backup-rehearsals",
+  "name": "firstPage",
+  "summary": "The recorded backup rehearsals",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": null
+    }
+  }
+}

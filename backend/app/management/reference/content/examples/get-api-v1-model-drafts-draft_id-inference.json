@@ -1,0 +1,30 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/inference",
+  "name": "completed",
+  "summary": "The inference finished: five proposals are open",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000026",
+      "state": "completed",
+      "mode": "newApplication",
+      "draftVersion": 6,
+      "sourceFileId": "00000000-0000-4000-8000-000000000027",
+      "counts": {
+        "open": 5,
+        "applied": 0,
+        "held": 0,
+        "rejected": 0
+      },
+      "disagreements": [],
+      "warnings": [],
+      "proposed": [],
+      "error": null
+    }
+  }
+}

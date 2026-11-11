@@ -1,0 +1,38 @@
+{
+  "operation": "GET /api/v1/mail-settings",
+  "name": "saved",
+  "summary": "The saved settings, the address links point to and the outbox counts",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "configured": true,
+      "method": "smtp",
+      "host": "smtp.example.org",
+      "port": 587,
+      "security": "starttls",
+      "username": "mailer",
+      "passwordSet": true,
+      "credential": null,
+      "identityMode": null,
+      "identityClientId": null,
+      "tenantId": null,
+      "clientId": null,
+      "clientSecretSet": false,
+      "certificateThumbprint": null,
+      "certificateExpiresAt": null,
+      "authorityUrl": null,
+      "graphUrl": null,
+      "fromAddress": "refiroo@example.org",
+      "applicationUrl": "https://refiroo.example.org",
+      "applicationUrlIsDefault": false,
+      "outbox": {
+        "pending": 0,
+        "sent": 0,
+        "failed": 0
+      },
+      "version": 1,
+      "updatedAt": "2026-11-02T09:00:00Z"
+    }
+  }
+}

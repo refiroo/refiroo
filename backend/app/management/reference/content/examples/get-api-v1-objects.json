@@ -1,0 +1,143 @@
+{
+  "operation": "GET /api/v1/objects",
+  "name": "byName",
+  "summary": "Records of any type whose name starts with Zuoz, by type",
+  "request": {
+    "query": {
+      "filter.name.startsWith": "Zuoz",
+      "sort": "objectType",
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "workspaceKey": "graubuenden",
+          "applicationKey": "network",
+          "objectTypeKey": "municipality",
+          "parentObjectId": "00000000-0000-4000-8000-000000000002",
+          "name": "Zuoz",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "name": "Maloja",
+              "objectTypeKey": "district"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "name": "Zuoz",
+              "objectTypeKey": "municipality"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000004",
+              "attributeTypeKey": "fso-number",
+              "name": "FSO number",
+              "valueType": "integer",
+              "value": 3791
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-02T09:00:00Z",
+          "updatedAt": "2026-11-02T09:00:00Z",
+          "changeSetVersion": null,
+          "modelReleaseId": "00000000-0000-4000-8000-000000000005"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "workspaceKey": "graubuenden",
+          "applicationKey": "names",
+          "objectTypeKey": "name-translation",
+          "parentObjectId": "00000000-0000-4000-8000-000000000007",
+          "name": "Zuoz (de)",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000007",
+              "name": "German",
+              "objectTypeKey": "language"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000006",
+              "name": "Zuoz (de)",
+              "objectTypeKey": "name-translation"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000008",
+              "attributeTypeKey": "translated-name",
+              "name": "Translated name",
+              "valueType": "text",
+              "value": "Zuoz"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000009",
+              "attributeTypeKey": "active",
+              "name": "Active",
+              "valueType": "boolean",
+              "value": true
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-02T09:14:00Z",
+          "updatedAt": "2026-11-02T09:14:00Z",
+          "changeSetVersion": null,
+          "modelReleaseId": "00000000-0000-4000-8000-000000000005"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "workspaceKey": "graubuenden",
+          "applicationKey": "names",
+          "objectTypeKey": "name-translation",
+          "parentObjectId": "00000000-0000-4000-8000-000000000011",
+          "name": "Zuoz (en)",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000011",
+              "name": "English",
+              "objectTypeKey": "language"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000010",
+              "name": "Zuoz (en)",
+              "objectTypeKey": "name-translation"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000012",
+              "attributeTypeKey": "translated-name",
+              "name": "Translated name",
+              "valueType": "text",
+              "value": "Zuoz"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000013",
+              "attributeTypeKey": "active",
+              "name": "Active",
+              "valueType": "boolean",
+              "value": true
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-02T09:14:00Z",
+          "updatedAt": "2026-11-02T09:14:00Z",
+          "changeSetVersion": null,
+          "modelReleaseId": "00000000-0000-4000-8000-000000000005"
+        }
+      ],
+      "nextCursor": "cursor-1",
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  }
+}

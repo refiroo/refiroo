@@ -1,0 +1,25 @@
+{
+  "operation": "GET /api/v1/system/summary",
+  "name": "summary",
+  "summary": "The operator's summary of the instance",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "processes": {
+        "live": 0,
+        "silent": 0
+      },
+      "workspaces": {
+        "served": 2,
+        "unavailable": 0
+      },
+      "jobs": [],
+      "webhookSubscriptions": {
+        "active": 0,
+        "failing": 0,
+        "suspended": 0
+      }
+    }
+  }
+}

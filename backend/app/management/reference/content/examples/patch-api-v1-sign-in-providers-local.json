@@ -1,0 +1,21 @@
+{
+  "operation": "PATCH /api/v1/sign-in-providers/local",
+  "name": "requireSecondFactor",
+  "summary": "Require a second factor with a password",
+  "request": {
+    "body": {
+      "expectedVersion": 1,
+      "secondFactorRequired": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "secondFactorRequired": true,
+      "keptPeople": 0,
+      "version": 2,
+      "updatedAt": "2026-11-02T12:09:00Z"
+    }
+  }
+}

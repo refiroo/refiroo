@@ -13,19 +13,18 @@ from fastapi.responses import JSONResponse
 from pydantic import Json
 from sqlalchemy.orm import Session
 
-from ...engine.authorization.visibility import may_use_source_file, visible_source_files
+from ...engine.authorization.visibility import visible_source_files
 from ...engine.imports.submit import Upload
 from ...engine.jobs.inline import BatchLimits
 from ...engine.sources.dry_run import InvalidDraft, latest_dry_run, submit_dry_run
 from ...engine.sources.store import (
     delete_source_file,
-    load_source_file,
     store_source_file,
 )
 from ...engine.sources.store import source_file_page as read_source_files
 from ...engine.workspaces.catalogue import load_workspace
 from ...errors import api_error
-from ...models.database import Job, SourceFile
+from ...models.database import Job
 from ...models.sources import DryRunRequest, SourceFileRequest
 from ..access import (
     ANYWHERE,
@@ -56,32 +55,13 @@ from ..schemas.sources import (
     SourceFileResponse,
     SourceSheetPage,
 )
+from ..source_file_access import usable_source_file
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["source files"])
 write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["source files"])
 dry_run_router = APIRouter(
     route_class=AuthorizedRoute, prefix="/api/v1", tags=["model administration"]
 )
-
-
-def _usable(
-    session: Session,
-    source_file_id: str,
-    permissions: CurrentPermissions,
-    principal: CurrentPrincipal,
-) -> SourceFile:
-    """A source file the caller may use: a profile's by its uploader and by holders of Bulk and
-    import in its workspace, or at the instance for one naming none (0.12 Z2, D248, D295); a
-    draft's as before."""
-    source = load_source_file(session, source_file_id)
-    if source.task_id is not None:
-        # An assistant task's workbook is read through its task (0.16 AP6a).
-        raise api_error(404, "SOURCE_FILE_NOT_FOUND", f"Source file '{source_file_id}' not found")
-    if source.profile_key is not None and not may_use_source_file(
-        permissions, principal.kind, principal.row_id, source
-    ):
-        raise forbidden("source-files.manage", ("bulk",), source.workspace_key)
-    return source
 
 
 def _wake_worker(request: Request) -> None:
@@ -165,7 +145,7 @@ def get_source_file(
     permissions: CurrentPermissions,
     principal: CurrentPrincipal,
 ) -> SourceFileResponse:
-    return source_file_response(session, _usable(session, source_file_id, permissions, principal))
+    return source_file_response(session, usable_source_file(session, source_file_id, permissions, principal))
 
 
 @write_router.delete("/source-files/{source_file_id}", status_code=204)
@@ -180,7 +160,7 @@ def remove_source_file(
 ) -> Response:
     """Delete the file, its staged cells and its profile (``409 VERSION_CONFLICT`` at another
     version)."""
-    _usable(session, source_file_id, permissions, principal)
+    usable_source_file(session, source_file_id, permissions, principal)
     delete_source_file(session, source_file_id, expected_version, files=request.app.state.job_files)
     return Response(status_code=204)
 
@@ -197,7 +177,7 @@ def list_source_sheets(
 ) -> SourceSheetPage:
     """The file's sheets in workbook order, each with its rows, header row and blocks (D68);
     ``409 SOURCE_FILE_PROFILE_NOT_READY`` with the profile's state until it is stored."""
-    source = _usable(session, source_file_id, permissions, principal)
+    source = usable_source_file(session, source_file_id, permissions, principal)
     return sheet_page(session, source, paging, page_size)
 
 
@@ -217,7 +197,7 @@ def list_source_columns(
 ) -> SourceColumnPage:
     """A sheet's columns in column order with their statistics (D68–D70); ``404
     SOURCE_SHEET_NOT_FOUND`` for a sheet the file does not have."""
-    source = _usable(session, source_file_id, permissions, principal)
+    source = usable_source_file(session, source_file_id, permissions, principal)
     return column_page(session, source, sheet, paging, page_size)
 
 
@@ -239,7 +219,7 @@ def list_source_cells(
     """The rows of a range of a sheet that hold a cell, in row order, each with its cells by column
     letter: the staged text and its value type (0.10 A8b, D124). Refused: ``422 INVALID_RANGE``
     for a range that is malformed, empty or outside the sheet, ``404 SOURCE_SHEET_NOT_FOUND``."""
-    source = _usable(session, source_file_id, permissions, principal)
+    source = usable_source_file(session, source_file_id, permissions, principal)
     return cell_page(session, source, sheet, cell_range, paging, page_size)
 
 

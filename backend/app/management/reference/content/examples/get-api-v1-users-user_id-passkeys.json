@@ -1,0 +1,32 @@
+{
+  "operation": "GET /api/v1/users/{user_id}/passkeys",
+  "name": "referenceEditor",
+  "summary": "A person's passkeys, as an administrator reads them",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "name": "Work laptop",
+          "createdAt": "2026-11-02T10:45:00Z",
+          "lastUsedAt": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "name": "Phone",
+          "createdAt": "2026-11-02T10:45:00Z",
+          "lastUsedAt": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-12"
+    }
+  }
+}

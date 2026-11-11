@@ -1,0 +1,97 @@
+{
+  "operation": "GET /api/v1/model-mappings/{key}",
+  "name": "againstTheWorkspaces",
+  "summary": "The mapping with its problems and what it leaves unmapped, as the workspaces run",
+  "request": {
+    "path": {
+      "key": "stops-to-inventory"
+    },
+    "query": {
+      "sourceWorkspaceKey": "graubuenden",
+      "targetWorkspaceKey": "inventory"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "stops-to-inventory",
+      "name": "Stops of Graubünden into the stop inventory",
+      "sourceModelKey": "guide-reference-swiss",
+      "targetModelKey": "stop-inventory",
+      "sourceReleaseId": "00000000-0000-4000-8000-000000000002",
+      "targetReleaseId": "00000000-0000-4000-8000-000000000003",
+      "version": 5,
+      "updatedAt": "2026-11-02T09:28:00Z",
+      "types": [
+        {
+          "source": "stop",
+          "target": "stop-point",
+          "attributes": [
+            {
+              "source": "stop-number",
+              "target": "stop-number"
+            },
+            {
+              "source": "valid-from",
+              "target": "opened",
+              "valueMap": "dates"
+            }
+          ],
+          "relations": [],
+          "defaults": {
+            "platforms": 1
+          },
+          "parent": null,
+          "match": {
+            "attributeTypeKey": "stop-number"
+          }
+        }
+      ],
+      "valueMaps": {
+        "dates": {
+          "?": null,
+          "n/a": null
+        }
+      },
+      "problems": [],
+      "coverage": {
+        "types": [
+          "canton",
+          "district"
+        ],
+        "attributes": [
+          {
+            "sourceType": "stop",
+            "attributeTypeKey": "designation"
+          },
+          {
+            "sourceType": "stop",
+            "attributeTypeKey": "sloid"
+          }
+        ],
+        "relations": [
+          {
+            "sourceType": "stop",
+            "relationTypeKey": "stop-served-by-mode"
+          },
+          {
+            "sourceType": "stop",
+            "relationTypeKey": "stop-operated-by-operator"
+          },
+          {
+            "sourceType": "stop",
+            "relationTypeKey": "object-has-translation"
+          }
+        ],
+        "required": [],
+        "requiredRelations": [],
+        "parents": []
+      },
+      "createdAt": "2026-11-02T09:07:00Z"
+    }
+  },
+  "notes": [
+    "`coverage.types`: the first 2 of 9 items are shown.",
+    "`coverage.attributes`: the first 2 of 7 items are shown."
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "operation": "POST /api/v1/change-sets/{change_set_id}/publication",
+  "name": "publishDirectly",
+  "summary": "Publish the change set: its changes are live, as Publication 1",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "body": {
+      "expectedChangeSetVersion": 5,
+      "expectedActivePublicationId": null
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000015",
+      "workspaceKey": "graubuenden",
+      "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+      "modelReleaseKey": "guide-reference-swiss",
+      "modelReleaseVersion": "1.8.1",
+      "publicationNumber": 1,
+      "status": "active",
+      "derivedFromPublicationId": null,
+      "supersedesPublicationId": null,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "publishedAt": "2026-11-02T09:14:00Z",
+      "withdrawnAt": null,
+      "feedPosition": 1235,
+      "publishedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "name": "Reference Administrator"
+      },
+      "withdrawnBy": null
+    }
+  }
+}

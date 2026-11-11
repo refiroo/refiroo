@@ -1,0 +1,36 @@
+{
+  "operation": "PATCH /api/v1/change-sets/{change_set_id}",
+  "name": "rename",
+  "summary": "Rename the change set",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "body": {
+      "name": "Winter 2027: new and renamed stops",
+      "expectedVersion": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "workspaceKey": "graubuenden",
+      "name": "Winter 2027: new and renamed stops",
+      "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+      "modelReleaseKey": "guide-reference-swiss",
+      "modelReleaseVersion": "1.8.1",
+      "source": "currentLive",
+      "derivedFromPublicationId": null,
+      "version": 4,
+      "createdAt": "2026-11-02T09:00:00Z",
+      "updatedAt": "2026-11-02T09:07:00Z",
+      "createdBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "name": "Reference Administrator"
+      },
+      "submission": null
+    }
+  }
+}

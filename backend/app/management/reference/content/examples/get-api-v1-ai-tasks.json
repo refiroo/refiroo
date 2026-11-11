@@ -1,0 +1,195 @@
+{
+  "operation": "GET /api/v1/ai/tasks",
+  "name": "newest",
+  "summary": "The caller's tasks, newest first",
+  "request": {
+    "query": {
+      "pageSize": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "workspaceKey": "graubuenden",
+          "fileName": "",
+          "sourceFileId": "",
+          "words": "Check that every Davos stop has an abbreviation",
+          "title": "Check the abbreviations",
+          "state": "checked",
+          "version": 6,
+          "jobId": "00000000-0000-4000-8000-000000000017",
+          "phase": null,
+          "createdAt": "2026-11-02T10:03:00Z",
+          "updatedAt": "2026-11-02T10:24:00Z",
+          "requestedBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "Reference Administrator"
+          },
+          "reading": null,
+          "check": null,
+          "design": {
+            "summary": "Every stop keeps its abbreviation.",
+            "moves": [],
+            "removals": [],
+            "consumerChanges": [],
+            "operations": [],
+            "records": [],
+            "profile": null,
+            "questions": [],
+            "answers": {},
+            "rounds": 0,
+            "origin": {
+              "kind": "ai",
+              "provider": "claude-code",
+              "model": null,
+              "promptVersion": "agent/20"
+            },
+            "outcome": {},
+            "leftOut": [],
+            "stage": "model",
+            "outline": [],
+            "checks": [],
+            "corrections": [
+              "Try again; the abbreviations may be empty",
+              "Also list the stops without one"
+            ],
+            "progress": null,
+            "agentSession": "00000000-0000-4000-8000-000000000016",
+            "modelUnchanged": true,
+            "load": null,
+            "itemsLoad": false
+          },
+          "draftId": null,
+          "notes": [
+            {
+              "kind": "note",
+              "text": "Ready. (0 s)",
+              "at": "2026-11-02T10:17:00Z"
+            },
+            {
+              "kind": "note",
+              "text": "You stopped the assistant. Its last proposal is as it was; what you sent was not made.",
+              "at": "2026-11-02T10:24:00Z"
+            }
+          ],
+          "result": null,
+          "canTell": true,
+          "ahead": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "workspaceKey": "graubuenden",
+          "fileName": "",
+          "sourceFileId": "",
+          "words": "Add Bahnhof to the name of the stop Davos Dorf",
+          "title": "Add Bahnhof to a Davos stop's name",
+          "state": "loaded",
+          "version": 8,
+          "jobId": "00000000-0000-4000-8000-000000000018",
+          "phase": null,
+          "createdAt": "2026-11-02T09:35:00Z",
+          "updatedAt": "2026-11-02T10:03:00Z",
+          "requestedBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "Reference Administrator"
+          },
+          "reading": null,
+          "check": null,
+          "design": {
+            "summary": "One Davos stop's name gets the word Bahnhof.",
+            "moves": [],
+            "removals": [],
+            "consumerChanges": [],
+            "operations": [],
+            "records": [],
+            "profile": null,
+            "questions": [
+              {
+                "text": "Should the stop keep its abbreviation?",
+                "options": [
+                  "Yes",
+                  "No"
+                ],
+                "assumed": "Yes"
+              }
+            ],
+            "answers": {
+              "Should the stop keep its abbreviation?": "No"
+            },
+            "rounds": 0,
+            "origin": {
+              "kind": "ai",
+              "provider": "claude-code",
+              "model": null,
+              "promptVersion": "agent/20"
+            },
+            "outcome": {},
+            "leftOut": [],
+            "stage": "load",
+            "outline": [],
+            "checks": [],
+            "corrections": [
+              "Write Bahnhof in full, not Bf."
+            ],
+            "progress": null,
+            "agentSession": "00000000-0000-4000-8000-000000000012",
+            "modelUnchanged": true,
+            "load": null,
+            "itemsLoad": false
+          },
+          "draftId": null,
+          "notes": [
+            {
+              "kind": "note",
+              "text": "Ready. (0 s)",
+              "at": "2026-11-02T09:42:00Z"
+            },
+            {
+              "kind": "note",
+              "text": "Ready. (0 s)",
+              "at": "2026-11-02T09:49:00Z"
+            }
+          ],
+          "result": {
+            "changeSetId": "00000000-0000-4000-8000-000000000019",
+            "thenReleaseId": null,
+            "changeSetReleaseId": null,
+            "migration": null,
+            "releaseId": null,
+            "changeSetName": "Davos stop names",
+            "importJobId": null,
+            "profileKey": null,
+            "profileNotSaved": null,
+            "counts": {
+              "applied": 1,
+              "created": 0,
+              "updated": 1,
+              "deleted": 0,
+              "relationsCreated": 0,
+              "relationsUpdated": 0,
+              "relationsRemoved": 0,
+              "unchanged": 0,
+              "rejected": 0
+            },
+            "published": false,
+            "publicationId": null
+          },
+          "canTell": true,
+          "ahead": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-3"
+    }
+  },
+  "notes": [
+    "The assistant is the harness's stand-in session, a script that works through the API; in service Claude Code runs it. The answer is the engine's.",
+    "`items[1].notes`: the first 2 of 4 items are shown."
+  ]
+}

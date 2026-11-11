@@ -1,0 +1,30 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/model/activation",
+  "name": "secondRelease",
+  "summary": "Activate the second release in the Graubünden workspace",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "releaseId": "00000000-0000-4000-8000-000000000032",
+      "expectedVersion": 1,
+      "expectedReleaseId": "00000000-0000-4000-8000-000000000023"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "releaseId": "00000000-0000-4000-8000-000000000032",
+      "releaseKey": "guide-reference-swiss",
+      "releaseName": "Public transport stops of Graubünden",
+      "releaseVersion": "1.9.0",
+      "schemaVersion": "0.10",
+      "modelHash": "9814551842298f4e234792e59d091063195985558edee6db7f72758cb3af8ed1",
+      "version": 2,
+      "updatedAt": "2026-11-02T10:03:00Z",
+      "workspaceKey": "graubuenden",
+      "changeSetsLeftBehind": []
+    }
+  }
+}

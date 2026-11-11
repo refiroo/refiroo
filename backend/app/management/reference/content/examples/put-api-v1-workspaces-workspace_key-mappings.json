@@ -1,0 +1,33 @@
+{
+  "operation": "PUT /api/v1/workspaces/{workspace_key}/mappings",
+  "name": "mapACode",
+  "summary": "The code is mapped to the municipality and the mapping is confirmed",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "relationTypeKey": "system-code-maps-to",
+      "fromObjectTypeKey": "system-code",
+      "toObjectTypeKey": "municipality",
+      "direction": "outgoing",
+      "sourceObjectId": "00000000-0000-4000-8000-000000000014",
+      "expectedMappingVersion": 2,
+      "targetObjectId": "00000000-0000-4000-8000-000000000016",
+      "attributes": {
+        "confirmed": true,
+        "mapping-note": "Checked against the FSO list"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "sourceObjectId": "00000000-0000-4000-8000-000000000014",
+      "mappingVersion": 3,
+      "state": "mapped",
+      "relationId": "00000000-0000-4000-8000-000000000020",
+      "changeSetVersion": null
+    }
+  }
+}

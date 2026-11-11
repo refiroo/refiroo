@@ -1,0 +1,38 @@
+{
+  "operation": "GET /api/v1/me/action-groups",
+  "name": "heldAnywhere",
+  "summary": "Every action group the person holds anywhere, for what the interface shows them",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "key": "browse",
+          "name": "Browse",
+          "instance": false,
+          "workspaces": [
+            {
+              "key": "graubuenden",
+              "label": "Graubünden"
+            }
+          ]
+        },
+        {
+          "key": "edit-live",
+          "name": "Edit live",
+          "instance": false,
+          "workspaces": [
+            {
+              "key": "graubuenden",
+              "label": "Graubünden"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`items`: the first 2 of 4 items are shown."
+  ]
+}

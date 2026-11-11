@@ -1,0 +1,46 @@
+{
+  "operation": "GET /api/v1/agent-access/calls",
+  "name": "firstPage",
+  "summary": "Each tool call through /mcp, newest first; the names of its arguments, never their values",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000027",
+          "occurredAt": "2026-11-02T12:16:00Z",
+          "principal": "Reporting assistant",
+          "principalKind": "client",
+          "principalId": "00000000-0000-4000-8000-000000000025",
+          "application": null,
+          "tool": "tools/list",
+          "arguments": [],
+          "outcome": "answered",
+          "durationMs": 5,
+          "requestId": "example-request-id"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000028",
+          "occurredAt": "2026-11-02T12:16:00Z",
+          "principal": "Reporting assistant",
+          "principalKind": "client",
+          "principalId": "00000000-0000-4000-8000-000000000025",
+          "application": null,
+          "tool": "list_workspaces",
+          "arguments": [],
+          "outcome": "answered",
+          "durationMs": 9,
+          "requestId": "example-request-id"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-21"
+    }
+  }
+}

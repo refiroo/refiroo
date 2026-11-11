@@ -1,0 +1,83 @@
+{
+  "operation": "GET /api/v1/object-types",
+  "name": "firstPage",
+  "summary": "The first two object types, in key order",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "key": "canton",
+          "name": "Canton",
+          "pluralName": "Cantons",
+          "description": "A Swiss canton (the root of the geography)",
+          "icon": "map",
+          "displayAttributeTypeKey": "canton-abbreviation",
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000011",
+              "attributeTypeKey": "canton-abbreviation",
+              "name": "Canton abbreviation",
+              "valueType": "text",
+              "required": true,
+              "readOnly": false,
+              "order": 10
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000012",
+              "attributeTypeKey": "fso-number",
+              "name": "FSO number",
+              "valueType": "integer",
+              "required": false,
+              "readOnly": false,
+              "order": 20
+            }
+          ],
+          "features": {
+            "rootCreatable": true
+          },
+          "behavior": {},
+          "validation": {}
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "key": "district",
+          "name": "District",
+          "pluralName": "Districts",
+          "description": "A district (Region) of the canton",
+          "icon": "map-pin",
+          "displayAttributeTypeKey": null,
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000014",
+              "attributeTypeKey": "fso-number",
+              "name": "FSO number",
+              "valueType": "integer",
+              "required": false,
+              "readOnly": false,
+              "order": 10
+            }
+          ],
+          "features": {
+            "rootCreatable": false
+          },
+          "behavior": {
+            "parentRelationTypeKeys": [
+              "canton-contains-district"
+            ]
+          },
+          "validation": {}
+        }
+      ],
+      "nextCursor": "cursor-5",
+      "prevCursor": null,
+      "anchor": "cursor-6"
+    }
+  }
+}

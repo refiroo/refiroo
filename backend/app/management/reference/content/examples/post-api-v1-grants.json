@@ -1,0 +1,59 @@
+{
+  "operation": "POST /api/v1/grants",
+  "name": "teamEditsStops",
+  "summary": "Give the group the role in one workspace, writes narrowed to stops of the network",
+  "request": {
+    "body": {
+      "principal": {
+        "kind": "group",
+        "id": "00000000-0000-4000-8000-000000000003"
+      },
+      "role": "timetable-editor",
+      "scope": {
+        "workspaceKey": "graubuenden",
+        "applications": [
+          "network"
+        ],
+        "recordTypes": [
+          "stop"
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "principal": {
+        "kind": "group",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "name": "Timetable team"
+      },
+      "role": {
+        "key": "timetable-editor",
+        "name": "Timetable editor"
+      },
+      "consumerApi": null,
+      "scope": {
+        "instance": false,
+        "workspaceKey": "graubuenden",
+        "applications": [
+          "network"
+        ],
+        "recordTypes": [
+          "stop"
+        ],
+        "applicationNames": [
+          "Network"
+        ],
+        "recordTypeNames": [
+          "Stop"
+        ],
+        "missingApplications": [],
+        "missingRecordTypes": []
+      },
+      "stale": false,
+      "createdAt": "2026-11-02T10:10:00Z"
+    }
+  }
+}

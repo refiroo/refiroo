@@ -1,0 +1,13 @@
+{
+  "operation": "POST /api/v1/publications/{publication_id}/withdrawal",
+  "name": "withdraw",
+  "summary": "Withdraw the current publication; live data stays as it is",
+  "request": {
+    "path": {
+      "publication_id": "00000000-0000-4000-8000-000000000018"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "operation": "GET /api/v1/agent-access",
+  "name": "enabled",
+  "summary": "Whether assistants can reach the instance, where and under which limits",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "url": "http://localhost:8000/mcp",
+      "ratePerMinute": 120,
+      "openRegistration": true,
+      "redirectHosts": [],
+      "callsDays": 90,
+      "calls30Days": 0,
+      "lastCallAt": null
+    }
+  }
+}

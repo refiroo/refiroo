@@ -1,0 +1,140 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/inference/proposals",
+  "name": "firstPage",
+  "summary": "The first two proposals, in the order they apply",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000028",
+          "position": 0,
+          "pattern": "newApplication",
+          "sheet": null,
+          "columns": [],
+          "summary": "A new application, Vehicles, named after the file.",
+          "evidence": {
+            "name": "Vehicles"
+          },
+          "operations": [
+            {
+              "kind": "addApplication",
+              "key": "vehicles",
+              "name": "Vehicles"
+            }
+          ],
+          "alternatives": [],
+          "requires": [],
+          "status": "open"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000029",
+          "position": 1,
+          "pattern": "keyColumn",
+          "sheet": "Fahrzeuge",
+          "columns": [
+            "Fahrzeugnummer",
+            "Name"
+          ],
+          "summary": "Each row of Fahrzeuge is one Fahrzeuge: Fahrzeugnummer is filled and different on all 8 rows, and Name is its name.",
+          "evidence": {
+            "columns": [
+              {
+                "column": "Fahrzeugnummer",
+                "letter": "A",
+                "rows": 8,
+                "filled": 8,
+                "distinct": 8,
+                "values": [
+                  {
+                    "value": "10021",
+                    "count": 1
+                  },
+                  {
+                    "value": "10022",
+                    "count": 1
+                  }
+                ]
+              },
+              {
+                "column": "Name",
+                "letter": "B",
+                "rows": 8,
+                "filled": 8,
+                "distinct": 8,
+                "values": [
+                  {
+                    "value": "Bus Chur 1",
+                    "count": 1
+                  },
+                  {
+                    "value": "Bus Chur 2",
+                    "count": 1
+                  }
+                ]
+              }
+            ],
+            "key": {
+              "column": "Fahrzeugnummer",
+              "letter": "A",
+              "rows": 8,
+              "filled": 8,
+              "distinct": 8,
+              "values": [
+                {
+                  "value": "10021",
+                  "count": 1
+                },
+                {
+                  "value": "10022",
+                  "count": 1
+                }
+              ]
+            }
+          },
+          "operations": [
+            {
+              "kind": "addObjectType",
+              "applicationKey": "vehicles",
+              "key": "fahrzeuge",
+              "name": "Fahrzeuge",
+              "pluralName": "Fahrzeuges",
+              "parent": null
+            },
+            {
+              "kind": "addAttributeType",
+              "key": "fahrzeugnummer",
+              "name": "Fahrzeugnummer",
+              "valueType": "integer",
+              "features": {
+                "unique": true
+              }
+            }
+          ],
+          "alternatives": [],
+          "requires": [
+            "00000000-0000-4000-8000-000000000028"
+          ],
+          "status": "open"
+        }
+      ],
+      "nextCursor": "cursor-14",
+      "prevCursor": null,
+      "anchor": "cursor-15"
+    }
+  },
+  "notes": [
+    "`items[1].evidence.columns[0].values`: the first 2 of 5 items are shown.",
+    "`items[1].evidence.columns[1].values`: the first 2 of 5 items are shown.",
+    "`items[1].evidence.key.values`: the first 2 of 5 items are shown.",
+    "`items[1].operations`: the first 2 of 6 items are shown."
+  ]
+}

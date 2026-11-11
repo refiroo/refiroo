@@ -1,0 +1,240 @@
+{
+  "operation": "GET /api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns",
+  "name": "stopColumns",
+  "summary": "The first columns of the Haltestellen sheet with their statistics",
+  "request": {
+    "path": {
+      "source_file_id": "00000000-0000-4000-8000-000000000011",
+      "sheet": "Haltestellen"
+    },
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "sheet": "Haltestellen",
+          "letter": "A",
+          "header": "Haltestelle",
+          "block": 0,
+          "rows": 51,
+          "filled": 51,
+          "distinct": 51,
+          "valueTypes": {
+            "text": 51
+          },
+          "candidateKey": true,
+          "delimiters": [
+            {
+              "character": ",",
+              "cells": 41,
+              "share": 0.804
+            },
+            {
+              "character": "/",
+              "cells": 7,
+              "share": 0.137
+            }
+          ],
+          "placeholders": [],
+          "values": [
+            {
+              "value": "Chur Albula",
+              "count": 1
+            },
+            {
+              "value": "Chur Arlibonstrasse",
+              "count": 1
+            }
+          ],
+          "overlaps": [
+            {
+              "values": 18,
+              "share": 0.353,
+              "sheet": "Lokale Codes",
+              "column": "G",
+              "block": 1,
+              "header": null,
+              "workspaceKey": null,
+              "objectTypeKey": null,
+              "field": null,
+              "attributeTypeKey": null
+            },
+            {
+              "values": 18,
+              "share": 0.353,
+              "sheet": "Lokale Codes",
+              "column": "A",
+              "block": 0,
+              "header": "Eigene Haltestellencodes (FIKTIV)",
+              "workspaceKey": null,
+              "objectTypeKey": null,
+              "field": null,
+              "attributeTypeKey": null
+            }
+          ],
+          "limits": {
+            "overlapValues": 1000,
+            "overlapsListed": 5,
+            "placeholdersListed": 10,
+            "valuesListed": 10
+          }
+        },
+        {
+          "sheet": "Haltestellen",
+          "letter": "B",
+          "header": "Gemeinde",
+          "block": 0,
+          "rows": 51,
+          "filled": 51,
+          "distinct": 6,
+          "valueTypes": {
+            "text": 51
+          },
+          "candidateKey": false,
+          "delimiters": [
+            {
+              "character": "/",
+              "cells": 6,
+              "share": 0.118
+            }
+          ],
+          "placeholders": [],
+          "values": [
+            {
+              "value": "Chur",
+              "count": 12
+            },
+            {
+              "value": "Coira",
+              "count": 12
+            }
+          ],
+          "overlaps": [
+            {
+              "values": 4,
+              "share": 0.667,
+              "sheet": "Namen",
+              "column": "C",
+              "block": null,
+              "header": "IT",
+              "workspaceKey": null,
+              "objectTypeKey": null,
+              "field": null,
+              "attributeTypeKey": null
+            },
+            {
+              "values": 4,
+              "share": 0.667,
+              "sheet": "Namen",
+              "column": "A",
+              "block": null,
+              "header": "DE",
+              "workspaceKey": null,
+              "objectTypeKey": null,
+              "field": null,
+              "attributeTypeKey": null
+            }
+          ],
+          "limits": {
+            "overlapValues": 1000,
+            "overlapsListed": 5,
+            "placeholdersListed": 10,
+            "valuesListed": 10
+          }
+        },
+        {
+          "sheet": "Haltestellen",
+          "letter": "C",
+          "header": "Linien",
+          "block": 0,
+          "rows": 51,
+          "filled": 51,
+          "distinct": 8,
+          "valueTypes": {
+            "text": 51,
+            "integer": 21,
+            "decimal": 21
+          },
+          "candidateKey": false,
+          "delimiters": [
+            {
+              "character": ",",
+              "cells": 19,
+              "share": 0.373
+            },
+            {
+              "character": "/",
+              "cells": 4,
+              "share": 0.078
+            }
+          ],
+          "placeholders": [
+            {
+              "value": "?",
+              "count": 7
+            },
+            {
+              "value": "n/a",
+              "count": 4
+            }
+          ],
+          "values": [
+            {
+              "value": "2",
+              "count": 10
+            },
+            {
+              "value": "2, 4, 6",
+              "count": 10
+            }
+          ],
+          "overlaps": [
+            {
+              "values": 2,
+              "share": 0.25,
+              "sheet": "Haltestellen",
+              "column": "E",
+              "block": null,
+              "header": "gültig ab",
+              "workspaceKey": null,
+              "objectTypeKey": null,
+              "field": null,
+              "attributeTypeKey": null
+            },
+            {
+              "values": 2,
+              "share": 0.25,
+              "sheet": "Haltestellen",
+              "column": "F",
+              "block": null,
+              "header": "Barrierefrei J/N",
+              "workspaceKey": null,
+              "objectTypeKey": null,
+              "field": null,
+              "attributeTypeKey": null
+            }
+          ],
+          "limits": {
+            "overlapValues": 1000,
+            "overlapsListed": 5,
+            "placeholdersListed": 10,
+            "valuesListed": 10
+          }
+        }
+      ],
+      "nextCursor": "cursor-6",
+      "prevCursor": null,
+      "anchor": "cursor-7"
+    }
+  },
+  "notes": [
+    "`items[0].values`: the first 2 of 10 items are shown.",
+    "`items[1].values`: the first 2 of 6 items are shown.",
+    "`items[1].overlaps`: the first 2 of 5 items are shown.",
+    "`items[2].values`: the first 2 of 8 items are shown."
+  ]
+}

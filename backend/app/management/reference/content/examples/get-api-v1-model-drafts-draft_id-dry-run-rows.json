@@ -1,0 +1,49 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/dry-run/rows",
+  "name": "firstPage",
+  "summary": "The first two rows the dry run checked",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "ref": "Fahrzeuge!2",
+          "sheet": "Fahrzeuge",
+          "row": 2,
+          "status": "applied",
+          "actions": {
+            "created": 1,
+            "updated": 0,
+            "unchanged": 0,
+            "deleted": 0
+          },
+          "outcomes": []
+        },
+        {
+          "ref": "Fahrzeuge!3",
+          "sheet": "Fahrzeuge",
+          "row": 3,
+          "status": "applied",
+          "actions": {
+            "created": 1,
+            "updated": 0,
+            "unchanged": 0,
+            "deleted": 0
+          },
+          "outcomes": []
+        }
+      ],
+      "nextCursor": "cursor-18",
+      "prevCursor": null,
+      "anchor": "cursor-19"
+    }
+  }
+}

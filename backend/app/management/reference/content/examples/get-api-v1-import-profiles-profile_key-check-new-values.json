@@ -1,0 +1,31 @@
+{
+  "operation": "GET /api/v1/import-profiles/{profile_key}/check/new-values",
+  "name": "winterWorkbook",
+  "summary": "The check's findings",
+  "request": {
+    "path": {
+      "profile_key": "bus-stops-north"
+    },
+    "query": {
+      "workspaceKey": "graubuenden",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "source": 0,
+          "column": "Gemeinde",
+          "value": "Felsberg",
+          "created": false,
+          "cells": 6
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-13"
+    }
+  }
+}

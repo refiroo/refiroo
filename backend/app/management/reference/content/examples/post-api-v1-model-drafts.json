@@ -1,0 +1,133 @@
+{
+  "operation": "POST /api/v1/model-drafts",
+  "name": "fromADocument",
+  "summary": "Save a model document of another model as a draft",
+  "request": {
+    "body": {
+      "name": "Stop inventory",
+      "model": {
+        "schemaVersion": "0.10",
+        "release": {
+          "key": "stop-inventory",
+          "name": "Stop inventory",
+          "version": "1.0.0"
+        },
+        "product": {
+          "name": "Stop inventory",
+          "description": "The stop points a cantonal inventory counts"
+        },
+        "attributeTypes": [
+          {
+            "key": "stop-number",
+            "name": "Stop number",
+            "valueType": "integer",
+            "features": {
+              "searchable": true,
+              "unique": true,
+              "filterable": true,
+              "sortable": true
+            }
+          },
+          {
+            "key": "opened",
+            "name": "Opened on",
+            "valueType": "date"
+          },
+          {
+            "key": "platforms",
+            "name": "Platforms",
+            "valueType": "integer"
+          }
+        ],
+        "objectTypes": [
+          {
+            "key": "stop-point",
+            "name": "Stop point",
+            "pluralName": "Stop points",
+            "features": {
+              "rootCreatable": true
+            },
+            "attributes": [
+              {
+                "attributeTypeKey": "stop-number",
+                "order": 10,
+                "required": true
+              },
+              {
+                "attributeTypeKey": "opened",
+                "order": 20
+              },
+              {
+                "attributeTypeKey": "platforms",
+                "order": 30
+              }
+            ]
+          }
+        ],
+        "relationTypes": [],
+        "objectTypeRelations": [],
+        "applications": [
+          {
+            "key": "inventory",
+            "name": "Inventory",
+            "objectTypeKeys": [
+              "stop-point"
+            ],
+            "defaultView": "stop-points",
+            "views": [
+              {
+                "key": "stop-points",
+                "name": "Stop points",
+                "type": "table",
+                "objectTypeKey": "stop-point",
+                "config": {
+                  "columns": [
+                    "name",
+                    "stop-number"
+                  ],
+                  "filterFields": [
+                    "stop-number"
+                  ],
+                  "sortFields": [
+                    "name",
+                    "stop-number"
+                  ],
+                  "defaultSort": "name",
+                  "pageSize": 25
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Stop inventory",
+      "baseReleaseId": null,
+      "workspaceKey": null,
+      "model": {
+        "schemaVersion": "0.10",
+        "release": {
+          "key": "stop-inventory",
+          "name": "Stop inventory",
+          "version": "1.0.0"
+        },
+        "product": {
+          "name": "Stop inventory",
+          "description": "The stop points a cantonal inventory counts"
+        }
+      },
+      "version": 1,
+      "createdAt": "2026-11-02T09:00:00Z",
+      "updatedAt": "2026-11-02T09:00:00Z"
+    }
+  },
+  "notes": [
+    "`model`: the model document, which `GET /model` shows in full; only its `schemaVersion`, `release` and `product` are shown here.",
+    "`request.model.applications[0].views[0].config.columns`: the first 2 of 4 items are shown."
+  ]
+}

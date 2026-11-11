@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/change-sets/{change_set_id}",
+  "name": "discard",
+  "summary": "Discard a change set that is not wanted",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "query": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

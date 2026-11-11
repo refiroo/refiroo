@@ -1,0 +1,25 @@
+{
+  "operation": "PUT /api/v1/workspaces/{workspace_key}/approval-policy",
+  "name": "requireApproval",
+  "summary": "Require an approval, by a person other than the submitter",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "requireApproval": true,
+      "secondPerson": true,
+      "expectedVersion": 0
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "workspaceKey": "graubuenden",
+      "requireApproval": true,
+      "secondPerson": true,
+      "version": 1,
+      "approverCount": 2
+    }
+  }
+}

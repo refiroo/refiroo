@@ -1,0 +1,46 @@
+{
+  "operation": "GET /api/v1/change-sets/{change_set_id}/relation-changes",
+  "name": "whatItDoesToRelationships",
+  "summary": "The relationships the change set adds, without the parent edges",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "query": {
+      "containment": "false",
+      "pageSize": 10
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "kind": "added",
+          "relationId": "00000000-0000-4000-8000-000000000011",
+          "relationTypeKey": "stop-served-by-mode",
+          "containment": false,
+          "fromObject": {
+            "objectId": "00000000-0000-4000-8000-000000000008",
+            "objectTypeKey": "stop",
+            "name": "Zuoz, Sportplatz"
+          },
+          "toObject": {
+            "objectId": "00000000-0000-4000-8000-000000000012",
+            "objectTypeKey": "mode",
+            "name": "Train"
+          },
+          "before": null,
+          "after": {
+            "attributes": {},
+            "version": 1
+          },
+          "changedFields": []
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-3"
+    }
+  }
+}

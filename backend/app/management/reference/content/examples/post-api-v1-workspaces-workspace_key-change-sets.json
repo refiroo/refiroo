@@ -1,0 +1,36 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/change-sets",
+  "name": "fromLiveData",
+  "summary": "A change set started from the live data of the workspace",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "name": "Winter 2027: new stops",
+      "source": "currentLive"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "workspaceKey": "graubuenden",
+      "name": "Winter 2027: new stops",
+      "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+      "modelReleaseKey": "guide-reference-swiss",
+      "modelReleaseVersion": "1.8.1",
+      "source": "currentLive",
+      "derivedFromPublicationId": null,
+      "version": 1,
+      "createdAt": "2026-11-02T09:00:00Z",
+      "updatedAt": "2026-11-02T09:00:00Z",
+      "createdBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "name": "Reference Administrator"
+      },
+      "submission": null
+    }
+  }
+}

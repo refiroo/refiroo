@@ -1,0 +1,98 @@
+{
+  "operation": "POST /api/v1/exports",
+  "name": "newStops",
+  "summary": "The stops numbered from 8599000, as JSON Lines",
+  "request": {
+    "body": {
+      "workspaceKey": "graubuenden",
+      "scope": {
+        "types": [
+          {
+            "objectTypeKey": "stop",
+            "where": [
+              {
+                "field": "stop-number",
+                "op": "gte",
+                "value": 8599000
+              }
+            ]
+          }
+        ]
+      },
+      "include": {
+        "relations": "withinScope"
+      },
+      "format": "jsonl"
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "kind": "export",
+      "workspaceKey": "graubuenden",
+      "changeSetId": null,
+      "changeSetVersion": null,
+      "policy": null,
+      "parameters": {
+        "scope": {
+          "types": [
+            {
+              "objectTypeKey": "stop",
+              "where": [
+                {
+                  "field": "stop-number",
+                  "op": "gte",
+                  "value": 8599000
+                }
+              ]
+            }
+          ]
+        },
+        "include": {
+          "relations": "withinScope"
+        },
+        "format": "jsonl"
+      },
+      "modelReleaseId": "00000000-0000-4000-8000-000000000005",
+      "state": "queued",
+      "stage": null,
+      "progress": {
+        "total": null,
+        "processed": 0
+      },
+      "counts": {
+        "applied": 0,
+        "rejected": 0,
+        "unprocessed": 0,
+        "created": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "deleted": 0
+      },
+      "result": null,
+      "error": null,
+      "createdAt": "2026-11-02T09:07:00Z",
+      "startedAt": null,
+      "finishedAt": null,
+      "expiresAt": "2026-11-02T10:24:00Z",
+      "cancelRequestedAt": null,
+      "leaseOwner": null,
+      "leaseExpiresAt": null,
+      "output": null,
+      "confirmedAt": null,
+      "preview": null,
+      "bindingReport": null,
+      "notices": null,
+      "migration": null,
+      "move": null,
+      "aiProposal": null,
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000006",
+        "name": "Reference Administrator"
+      },
+      "origin": null
+    }
+  }
+}

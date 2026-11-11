@@ -1,0 +1,32 @@
+{
+  "operation": "POST /api/v1/import-profiles/{profile_key}/check",
+  "name": "winterWorkbook",
+  "summary": "Check the stored file of the profile again",
+  "request": {
+    "path": {
+      "profile_key": "bus-stops-north"
+    },
+    "query": {
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000015",
+      "state": "checking",
+      "profileKey": "bus-stops-north",
+      "profileVersion": null,
+      "sourceFileId": "00000000-0000-4000-8000-000000000016",
+      "previousSourceFileId": null,
+      "workspaceKey": "graubuenden",
+      "releaseId": null,
+      "valid": null,
+      "problems": [],
+      "sources": [],
+      "dryRun": null,
+      "bindingReport": null,
+      "error": null
+    }
+  }
+}

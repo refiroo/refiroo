@@ -1,0 +1,22 @@
+{
+  "operation": "POST /api/v1/me/second-factor/confirmation",
+  "name": "confirmed",
+  "summary": "The app's code confirms it; ten recovery codes come with it",
+  "request": {
+    "body": {
+      "code": "123456"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "recoveryCodes": [
+        "abcd-efgh-0001",
+        "abcd-efgh-0002"
+      ]
+    }
+  },
+  "notes": [
+    "`recoveryCodes`: the first 2 of 10 items are shown."
+  ]
+}

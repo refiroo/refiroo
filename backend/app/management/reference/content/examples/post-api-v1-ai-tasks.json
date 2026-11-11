@@ -1,0 +1,41 @@
+{
+  "operation": "POST /api/v1/ai/tasks",
+  "name": "workbook",
+  "summary": "A workbook with a few words: the task starts reading the file",
+  "request": {},
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000020",
+      "workspaceKey": "graubuenden",
+      "fileName": "Haltestellen_Busbetrieb_Nord_Winter.xlsx",
+      "sourceFileId": "00000000-0000-4000-8000-000000000021",
+      "words": "The next version of the bus company's stop list",
+      "title": null,
+      "state": "reading",
+      "version": 1,
+      "jobId": "00000000-0000-4000-8000-000000000022",
+      "phase": null,
+      "createdAt": "2026-11-02T10:38:00Z",
+      "updatedAt": "2026-11-02T10:38:00Z",
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "reading": null,
+      "check": null,
+      "design": null,
+      "draftId": null,
+      "notes": [],
+      "result": null,
+      "canTell": false,
+      "ahead": null
+    }
+  },
+  "notes": [
+    "The request part: `{\"workspaceKey\": \"graubuenden\", \"words\": \"The next version of the bus company's stop list\"}`.",
+    "The file part: `Haltestellen_Busbetrieb_Nord_Winter.xlsx`.",
+    "A saved layout read the workbook, so no assistant session ran; the answers are the engine's."
+  ]
+}

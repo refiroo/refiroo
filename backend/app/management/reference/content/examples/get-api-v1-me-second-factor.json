@@ -1,0 +1,16 @@
+{
+  "operation": "GET /api/v1/me/second-factor",
+  "name": "setUp",
+  "summary": "The app is set up and ten recovery codes are left",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "confirmedAt": "2026-11-02T10:38:00Z",
+      "recoveryCodesLeft": 10,
+      "passkeys": 0,
+      "required": false
+    }
+  }
+}

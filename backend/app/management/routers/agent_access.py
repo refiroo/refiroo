@@ -86,6 +86,11 @@ def _application(row: AgentApplication, signed_in: int) -> AgentApplicationRespo
     )
 
 
+def _counted(session: DbSession, row: AgentApplication, now: datetime) -> AgentApplicationResponse:
+    """The application with the people who have an open session for it now, as the list counts."""
+    return _application(row, applications.signed_in(session, [row.id], now).get(row.id, 0))
+
+
 @router.get("/agent-access/applications", response_model=AgentApplicationPage)
 @requires("agent-access.read", at=INSTANCE)
 def list_agent_applications(
@@ -119,7 +124,8 @@ def post_agent_application(
 def block_agent_application(application_id: str, session: DbSession) -> AgentApplicationResponse:
     """No one signs in with it any more and its sessions end, so it stops on its next call.
     ``404 AGENT_APPLICATION_NOT_FOUND``."""
-    return _application(applications.block(session, application_id, datetime.now(UTC)), 0)
+    now = datetime.now(UTC)
+    return _counted(session, applications.block(session, application_id, now), now)
 
 
 @router.post("/agent-access/applications/{application_id}/restore")
@@ -127,7 +133,7 @@ def block_agent_application(application_id: str, session: DbSession) -> AgentApp
 def restore_agent_application(application_id: str, session: DbSession) -> AgentApplicationResponse:
     """People may sign in with it again; the sessions blocking ended stay ended.
     ``404 AGENT_APPLICATION_NOT_FOUND``."""
-    return _application(applications.restore(session, application_id), 0)
+    return _counted(session, applications.restore(session, application_id), datetime.now(UTC))
 
 
 @router.get("/agent-access/calls", response_model=AgentCallPage)

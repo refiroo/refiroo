@@ -1,0 +1,16 @@
+{
+  "operation": "GET /api/v1/sign-in-providers/local",
+  "name": "passwordOn",
+  "summary": "Whether people sign in with a password, and whether it needs a second factor",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "secondFactorRequired": false,
+      "keptPeople": 0,
+      "version": 1,
+      "updatedAt": "2026-11-02T09:00:00Z"
+    }
+  }
+}

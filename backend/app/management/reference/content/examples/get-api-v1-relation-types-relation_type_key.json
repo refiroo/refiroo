@@ -1,0 +1,35 @@
+{
+  "operation": "GET /api/v1/relation-types/{relation_type_key}",
+  "name": "servedByMode",
+  "summary": "The relationship that says which modes serve a stop",
+  "request": {
+    "path": {
+      "relation_type_key": "stop-served-by-mode"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "key": "stop-served-by-mode",
+      "name": "Served by mode",
+      "reverseKey": "mode-serves-stop",
+      "reverseName": "Serves stop",
+      "isOriented": true,
+      "features": {
+        "searchable": true
+      },
+      "allowedPairs": [
+        {
+          "id": "00000000-0000-4000-8000-000000000022",
+          "fromObjectTypeKey": "stop",
+          "toObjectTypeKey": "mode",
+          "cardinality": "many-to-many",
+          "required": false,
+          "attributeTypeKeys": [],
+          "features": {}
+        }
+      ]
+    }
+  }
+}

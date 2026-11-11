@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/groups/{group_id}",
+  "name": "spareGroup",
+  "summary": "Delete a group with its memberships and grants",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000004"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/users/{user_id}/sessions",
+  "name": "editorEverywhere",
+  "summary": "An administrator signs a person out everywhere",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

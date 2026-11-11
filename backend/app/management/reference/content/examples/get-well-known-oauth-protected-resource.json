@@ -1,0 +1,21 @@
+{
+  "operation": "GET /.well-known/oauth-protected-resource",
+  "name": "resource",
+  "summary": "The MCP endpoint as a protected resource, and the server that signs assistants in",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "resource": "http://localhost:8000/mcp",
+      "authorization_servers": [
+        "http://localhost:8000"
+      ],
+      "scopes_supported": [
+        "agent"
+      ],
+      "bearer_methods_supported": [
+        "header"
+      ]
+    }
+  }
+}

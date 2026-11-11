@@ -1,0 +1,83 @@
+{
+  "operation": "POST /api/v1/objects/{object_type_key}/{object_id}/history/account",
+  "name": "oneStop",
+  "summary": "The same for one stop's own changes, worded in German",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000004"
+    },
+    "body": {
+      "since": "2026-11-02T09:00:00Z",
+      "until": "2026-11-02T11:06:00Z",
+      "language": "de"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "scope": "record",
+      "since": "2026-11-02T09:00:00Z",
+      "until": "2026-11-02T11:06:00Z",
+      "timeZone": "UTC",
+      "facts": [
+        {
+          "id": "rc-eb3482bb",
+          "kind": "records",
+          "text": "This record was created",
+          "count": 1,
+          "keys": {
+            "objectTypeKey": "stop",
+            "action": "created"
+          },
+          "link": null
+        },
+        {
+          "id": "rc-1a648cdf",
+          "kind": "records",
+          "text": "This record was changed once",
+          "count": 1,
+          "keys": {
+            "objectTypeKey": "stop",
+            "action": "updated"
+          },
+          "link": {
+            "kind": "history",
+            "id": null,
+            "query": {
+              "kind": "values",
+              "live": true
+            }
+          }
+        }
+      ],
+      "statements": [
+        {
+          "text": "This record was created",
+          "factIds": [
+            "rc-eb3482bb"
+          ]
+        },
+        {
+          "text": "This record was changed once",
+          "factIds": [
+            "rc-1a648cdf"
+          ]
+        },
+        {
+          "text": "Operated by: 1 relationship added",
+          "factIds": [
+            "rl-48bc05fa"
+          ]
+        }
+      ],
+      "removedStatements": 0,
+      "failure": null,
+      "cached": false,
+      "callId": "00000000-0000-4000-8000-000000000005"
+    }
+  },
+  "notes": [
+    "`facts`: the first 2 of 10 items are shown."
+  ]
+}

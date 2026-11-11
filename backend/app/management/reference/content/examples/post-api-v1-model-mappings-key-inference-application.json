@@ -1,0 +1,123 @@
+{
+  "operation": "POST /api/v1/model-mappings/{key}/inference/application",
+  "name": "theStopProposal",
+  "summary": "Apply the proposal for the stop type as a step of the mapping",
+  "request": {
+    "path": {
+      "key": "stops-proposed"
+    },
+    "body": {
+      "expectedVersion": 1,
+      "proposals": [
+        "00000000-0000-4000-8000-000000000006"
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 2,
+      "entries": [
+        {
+          "sequence": 1,
+          "step": 1,
+          "kind": "mapType",
+          "parameters": {
+            "sourceType": "stop",
+            "targetType": "stop-point"
+          },
+          "inverse": {
+            "kind": "restoreElements",
+            "undoes": {
+              "kind": "mapType",
+              "sourceType": "stop",
+              "targetType": "stop-point"
+            },
+            "changes": [
+              {
+                "change": "remove",
+                "path": [
+                  "types"
+                ],
+                "item": {
+                  "source": "stop"
+                }
+              }
+            ]
+          },
+          "mappingVersion": 2,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:35:00Z",
+          "undone": false,
+          "origin": {
+            "type": "proposal",
+            "proposalId": "00000000-0000-4000-8000-000000000006",
+            "inferenceId": "00000000-0000-4000-8000-000000000005",
+            "kind": "type",
+            "summary": "Type 'stop' becomes 'stop-point'",
+            "signature": "[{\"kind\": \"mapType\", \"sourceType\": \"stop\", \"targetType\": \"stop-point\"}, {\"attribute\": \"stop-number\", \"kind\": \"mapAttribute\", \"sourceType\": \"stop\", \"target\": \"stop-number\"}]"
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 2,
+          "step": 1,
+          "kind": "mapAttribute",
+          "parameters": {
+            "sourceType": "stop",
+            "attribute": "stop-number",
+            "target": "stop-number"
+          },
+          "inverse": {
+            "kind": "restoreElements",
+            "undoes": {
+              "kind": "mapAttribute",
+              "sourceType": "stop",
+              "attribute": "stop-number",
+              "target": "stop-number"
+            },
+            "changes": [
+              {
+                "change": "remove",
+                "path": [
+                  "types",
+                  {
+                    "source": "stop"
+                  },
+                  "attributes"
+                ],
+                "item": {
+                  "source": "stop-number"
+                }
+              }
+            ]
+          },
+          "mappingVersion": 2,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:35:00Z",
+          "undone": false,
+          "origin": {
+            "type": "proposal",
+            "proposalId": "00000000-0000-4000-8000-000000000006",
+            "inferenceId": "00000000-0000-4000-8000-000000000005",
+            "kind": "type",
+            "summary": "Type 'stop' becomes 'stop-point'",
+            "signature": "[{\"kind\": \"mapType\", \"sourceType\": \"stop\", \"targetType\": \"stop-point\"}, {\"attribute\": \"stop-number\", \"kind\": \"mapAttribute\", \"sourceType\": \"stop\", \"target\": \"stop-number\"}]"
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "problems": []
+    }
+  }
+}

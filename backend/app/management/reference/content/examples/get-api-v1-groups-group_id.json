@@ -1,0 +1,23 @@
+{
+  "operation": "GET /api/v1/groups/{group_id}",
+  "name": "timetableTeam",
+  "summary": "One group with its member count",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000003"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Timetable team",
+      "description": "People who edit the timetable",
+      "source": null,
+      "members": 0,
+      "version": 1,
+      "createdAt": "2026-11-02T09:56:00Z",
+      "updatedAt": "2026-11-02T09:56:00Z"
+    }
+  }
+}

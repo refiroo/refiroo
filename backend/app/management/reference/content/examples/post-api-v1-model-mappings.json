@@ -1,0 +1,44 @@
+{
+  "operation": "POST /api/v1/model-mappings",
+  "name": "betweenTwoWorkspaces",
+  "summary": "A mapping from the releases two workspaces run, with no type mapped yet",
+  "request": {
+    "body": {
+      "key": "stops-to-inventory",
+      "name": "Stops of Graubünden into the stop inventory",
+      "sourceWorkspaceKey": "graubuenden",
+      "targetWorkspaceKey": "inventory"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "key": "stops-to-inventory",
+      "name": "Stops of Graubünden into the stop inventory",
+      "sourceModelKey": "guide-reference-swiss",
+      "targetModelKey": "stop-inventory",
+      "sourceReleaseId": "00000000-0000-4000-8000-000000000002",
+      "targetReleaseId": "00000000-0000-4000-8000-000000000003",
+      "version": 1,
+      "updatedAt": "2026-11-02T09:07:00Z",
+      "types": [],
+      "valueMaps": {},
+      "problems": [],
+      "coverage": {
+        "types": [
+          "canton",
+          "district"
+        ],
+        "attributes": [],
+        "relations": [],
+        "required": [],
+        "requiredRelations": [],
+        "parents": []
+      },
+      "createdAt": "2026-11-02T09:07:00Z"
+    }
+  },
+  "notes": [
+    "`coverage.types`: the first 2 of 10 items are shown."
+  ]
+}

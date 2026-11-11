@@ -1,0 +1,53 @@
+{
+  "operation": "GET /api/v1/me/grants",
+  "name": "firstPage",
+  "summary": "The person's grants; a group's grant names the group",
+  "request": {
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000005",
+          "principal": {
+            "kind": "group",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Timetable team"
+          },
+          "role": {
+            "key": "timetable-editor",
+            "name": "Timetable editor"
+          },
+          "consumerApi": null,
+          "scope": {
+            "instance": false,
+            "workspaceKey": "graubuenden",
+            "applications": [
+              "network"
+            ],
+            "recordTypes": [
+              "stop"
+            ],
+            "applicationNames": [
+              "Network"
+            ],
+            "recordTypeNames": [
+              "Stop"
+            ],
+            "missingApplications": [],
+            "missingRecordTypes": []
+          },
+          "stale": false,
+          "createdAt": "2026-11-02T10:10:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-10"
+    }
+  }
+}

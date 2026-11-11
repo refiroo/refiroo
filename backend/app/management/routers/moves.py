@@ -25,18 +25,19 @@ router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["moves"]
 @router.post("/moves", response_model=JobResponse, status_code=202)
 @requires("moves.create", at=MOVE)
 def start_move(payload: MoveRequest, request: Request, session: DbSession) -> JobResponse:
-    """The dry run of a move (0.11 X2): what each record the ``selection`` names (the whole
-    workspace when empty; types with criteria, a subtree, records by ID, combined) becomes in the
-    target workspace through the mapping at ``mapping.expectedVersion``, read from the source's
-    live data or a publication (``sourceAt``). Answers 202 with a queued ``move`` job, which
-    completes with one row per record and relationship (``create``, ``update``, ``refused`` with
-    the target's refusal, ``notMoved`` with the mapping's reason) and writes nothing to either
-    workspace. Refused before a job exists: ``422 MOVE_SAME_WORKSPACE``, ``404
-    WORKSPACE_NOT_FOUND``, ``409 WORKSPACE_RETIRED``, ``404 MODEL_MAPPING_NOT_FOUND``, ``409
-    MOVE_MAPPING_CHANGED`` (with ``currentVersion``), ``422 MODEL_MAPPING_MODEL_MISMATCH``, ``422
-    MOVE_MAPPING_HAS_PROBLEMS`` (the mapping's problems against the releases the two workspaces
-    run), ``404 PUBLICATION_NOT_FOUND``, ``422 INVALID_QUERY`` and ``404 OBJECT_NOT_FOUND`` (at
-    ``details.path`` in the selection)."""
+    """Starts a move: what each record the ``selection`` names (the whole workspace when empty;
+    types with criteria, a subtree, records by ID, combined) becomes in the target workspace through
+    the mapping at ``mapping.expectedVersion``, read from the source's live data or a publication
+    (``sourceAt``). ``mode`` is ``copy`` (the source is untouched) or ``move`` (the copy, plus a
+    change set of the source deleting what was loaded). ``stage`` is ``preview`` (the default: a dry
+    run that writes nothing, completing with one row per record and relationship, which waits for
+    ``POST /jobs/{jobId}/confirm``) or ``execute`` (it loads at once). Either way it loads into a
+    new change set of the target. Answers 202 with a queued ``move`` job. Refused before a job
+    exists: ``422 MOVE_SAME_WORKSPACE``, ``404 WORKSPACE_NOT_FOUND``, ``409 WORKSPACE_RETIRED``,
+    ``404 MODEL_MAPPING_NOT_FOUND``, ``409 MOVE_MAPPING_CHANGED`` (with ``currentVersion``), ``422
+    MODEL_MAPPING_MODEL_MISMATCH``, ``422 MOVE_MAPPING_HAS_PROBLEMS`` (the mapping's problems
+    against the releases the two workspaces run), ``404 PUBLICATION_NOT_FOUND``, ``422
+    INVALID_QUERY`` and ``404 OBJECT_NOT_FOUND`` (at ``details.path`` in the selection)."""
     job = submit_move(
         session, payload, retention_days=request.app.state.batch_limits.retention_days
     )

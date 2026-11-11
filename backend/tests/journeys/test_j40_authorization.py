@@ -1196,3 +1196,57 @@ def test_a_change_set_on_an_installed_release(world):
         409,
         "CHANGE_SET_MODEL_RELEASE_CONFLICT",
     )
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_an_import_uses_only_the_source_files_the_caller_may_use(world):
+    """Given a profile's file uploaded for the second workspace and an assistant task's workbook,
+    when a person holding Bulk and import only in the first imports either by `sourceFileId`, then
+    the profile's file answers `403 FORBIDDEN` naming Bulk and the second workspace and the
+    workbook `404 SOURCE_FILE_NOT_FOUND`, and no job is stored; the uploader's own import of its
+    file is accepted."""
+    from test_j36_workspace_resources import _profile
+
+    from app.models.database import AiTask, Job, SourceFile
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, owner = _client(world, "Owner of two", ("steward", {"workspaceKey": W2}))
+    _, steward = _client(world, "Steward of one", ("steward", {"workspaceKey": W1}))
+    theirs = ok(_upload(owner, profile["key"], W2, "THEIRS"), 201)
+    workbook = ok(_upload(owner, profile["key"], W2, "WORKBOOK"), 201)
+    engine = create_engine(world.database, poolclass=NullPool)
+    with Session(engine) as session:
+        task = AiTask(
+            workspace_key=W2, state="read", expires_at=datetime.now(UTC) + timedelta(days=1)
+        )
+        session.add(task)
+        session.flush()
+        session.execute(
+            SourceFile.__table__.update()
+            .where(SourceFile.public_id == workbook["id"])
+            .values(profile_key=None, task_id=task.id)
+        )
+        session.commit()
+        jobs_before = session.query(Job).count()
+
+    def start(caller, workspace: str, source_file_id: str):
+        request = {
+            "workspaceKey": workspace,
+            "profileKey": profile["key"],
+            "policy": "independent",
+            "onExisting": "overwrite",
+            "stage": "execute",
+            "sourceFileId": source_file_id,
+        }
+        return caller.api.upload("/imports", {}, {"request": json.dumps(request)})
+
+    _forbidden(start(steward, W1, theirs["id"]), "source-files.manage", ["bulk"], W2)
+    refused(start(steward, W1, workbook["id"]), 404, "SOURCE_FILE_NOT_FOUND")
+    refused(start(owner, W2, workbook["id"]), 404, "SOURCE_FILE_NOT_FOUND")
+    with Session(engine) as session:
+        assert session.query(Job).count() == jobs_before
+    engine.dispose()
+
+    job = ok(start(owner, W2, theirs["id"]), 202)
+    assert job["kind"] == "import" and job["state"] == "queued"

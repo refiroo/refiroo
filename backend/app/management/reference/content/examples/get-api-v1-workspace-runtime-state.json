@@ -1,0 +1,14 @@
+{
+  "operation": "GET /api/v1/workspace-runtime-state",
+  "name": "current",
+  "summary": "The default workspace is the Graubünden workspace",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "defaultWorkspaceKey": "graubuenden",
+      "version": 2,
+      "updatedAt": "2026-11-02T09:07:00Z"
+    }
+  }
+}

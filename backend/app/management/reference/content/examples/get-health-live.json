@@ -1,0 +1,12 @@
+{
+  "operation": "GET /health/live",
+  "name": "alive",
+  "summary": "The process answers",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "status": "ok"
+    }
+  }
+}

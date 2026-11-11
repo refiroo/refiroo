@@ -1,0 +1,32 @@
+{
+  "operation": "GET /api/v1/import-profiles/{profile_key}/check/drift",
+  "name": "winterWorkbook",
+  "summary": "The check's findings",
+  "request": {
+    "path": {
+      "profile_key": "bus-stops-north"
+    },
+    "query": {
+      "workspaceKey": "graubuenden",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "source": 0,
+          "row": 41,
+          "recordId": "00000000-0000-4000-8000-000000000017",
+          "key": 8510601,
+          "name": "Domat/Ems, Ardisla Nord",
+          "recordName": "Domat/Ems, Ardisla"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-14"
+    }
+  }
+}

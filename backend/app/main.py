@@ -69,6 +69,7 @@ from .management.errors import (
 from .management.guide_site import mount_guide
 from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
+from .management.reference.content import install as install_reference_content
 from .management.routers import (
     agent_access,
     ai,
@@ -673,6 +674,8 @@ def create_app() -> FastAPI:
     application.include_router(consumer_router.router)
     if settings.mcp_enabled:
         mcp.mount(application)
+    # The reference text (management/reference/content/) is merged into the OpenAPI document.
+    install_reference_content(application)
     return application
 
 

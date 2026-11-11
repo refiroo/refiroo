@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/users/{user_id}/second-factor",
+  "name": "lostPhone",
+  "summary": "An administrator removes the second factor of someone who lost the phone",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

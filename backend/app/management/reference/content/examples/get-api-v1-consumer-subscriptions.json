@@ -1,0 +1,58 @@
+{
+  "operation": "GET /api/v1/consumer-subscriptions",
+  "name": "ofTheStopsApi",
+  "summary": "The subscriptions of the stops API, newest first; no list answers the signing key",
+  "request": {
+    "query": {
+      "consumerApi": "stops",
+      "pageSize": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "name": "Stops of Zuoz",
+          "source": "consumerApi",
+          "consumerApi": "stops",
+          "contractVersion": 1,
+          "workspaceKey": "graubuenden",
+          "events": [
+            "stops-changed"
+          ],
+          "filters": {
+            "municipality": [
+              "Zuoz"
+            ]
+          },
+          "url": "https://hooks.example.org/rdm/stops",
+          "maxEventsPerBatch": 10,
+          "payload": "full",
+          "format": "rdm",
+          "status": "active",
+          "suspension": null,
+          "acknowledgedThrough": 1231,
+          "delivery": {
+            "lastDeliveredAt": null,
+            "pending": null
+          },
+          "signingKeyCreatedAt": "2026-11-02T09:00:00Z",
+          "previousSigningKeyExpiresAt": null,
+          "version": 1,
+          "createdAt": "2026-11-02T09:00:00Z",
+          "updatedAt": "2026-11-02T09:00:00Z",
+          "owner": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "Reference Administrator"
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-1"
+    }
+  }
+}

@@ -228,7 +228,7 @@ class ModelChangeResponse(BaseModel):
 
 
 class ModelCompatibilityResponse(BaseModel):
-    classification: Literal["compatible", "migration_required", "invalid"]
+    classification: Literal["compatible", "migration_required"]
     activeReleaseId: str
     diagnostics: list[ModelDiagnosticResponse]
 
@@ -250,6 +250,7 @@ class CandidateCompatibilityResponse(ModelCompatibilityResponse):
     is empty."""
 
     workspaces: list[WorkspaceCompatibilityResponse]
+    classification: Literal["compatible", "migration_required", "invalid"]  # type: ignore[assignment]
 
 
 class ModelConsumerContractsResponse(BaseModel):

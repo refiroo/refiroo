@@ -1,0 +1,23 @@
+{
+  "operation": "POST /api/v1/groups/{group_id}/members",
+  "name": "addEditor",
+  "summary": "Add one person; adding one already in the group changes nothing",
+  "request": {
+    "path": {
+      "group_id": "00000000-0000-4000-8000-000000000003"
+    },
+    "body": {
+      "userId": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "email": "editor@example.org",
+      "name": "Reference Editor (timetable)",
+      "active": true,
+      "seenAt": null
+    }
+  }
+}

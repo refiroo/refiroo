@@ -1,0 +1,36 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/mapping-candidates",
+  "name": "municipalitiesLikeIlanz",
+  "summary": "The municipalities whose name contains the search text",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "applicationKey": "systems",
+      "viewKey": "codes-to-municipalities",
+      "objectTypeKey": "municipality",
+      "search": "Ilanz",
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000016",
+          "objectTypeKey": "municipality",
+          "name": "Ilanz/Glion",
+          "fields": {
+            "name": "Ilanz/Glion",
+            "fso-number": 3619
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-5"
+    }
+  }
+}

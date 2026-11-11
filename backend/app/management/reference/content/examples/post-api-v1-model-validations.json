@@ -1,0 +1,114 @@
+{
+  "operation": "POST /api/v1/model-validations",
+  "name": "validDocument",
+  "summary": "A small model document that compiles",
+  "request": {
+    "body": {
+      "model": {
+        "schemaVersion": "0.10",
+        "release": {
+          "key": "stop-inventory",
+          "name": "Stop inventory",
+          "version": "1.0.0"
+        },
+        "product": {
+          "name": "Stop inventory",
+          "description": "The stop points a cantonal inventory counts"
+        },
+        "attributeTypes": [
+          {
+            "key": "stop-number",
+            "name": "Stop number",
+            "valueType": "integer",
+            "features": {
+              "searchable": true,
+              "unique": true,
+              "filterable": true,
+              "sortable": true
+            }
+          },
+          {
+            "key": "opened",
+            "name": "Opened on",
+            "valueType": "date"
+          },
+          {
+            "key": "platforms",
+            "name": "Platforms",
+            "valueType": "integer"
+          }
+        ],
+        "objectTypes": [
+          {
+            "key": "stop-point",
+            "name": "Stop point",
+            "pluralName": "Stop points",
+            "features": {
+              "rootCreatable": true
+            },
+            "attributes": [
+              {
+                "attributeTypeKey": "stop-number",
+                "order": 10,
+                "required": true
+              },
+              {
+                "attributeTypeKey": "opened",
+                "order": 20
+              },
+              {
+                "attributeTypeKey": "platforms",
+                "order": 30
+              }
+            ]
+          }
+        ],
+        "relationTypes": [],
+        "objectTypeRelations": [],
+        "applications": [
+          {
+            "key": "inventory",
+            "name": "Inventory",
+            "objectTypeKeys": [
+              "stop-point"
+            ],
+            "defaultView": "stop-points",
+            "views": [
+              {
+                "key": "stop-points",
+                "name": "Stop points",
+                "type": "table",
+                "objectTypeKey": "stop-point",
+                "config": {
+                  "columns": [
+                    "name",
+                    "stop-number"
+                  ],
+                  "filterFields": [
+                    "stop-number"
+                  ],
+                  "sortFields": [
+                    "name",
+                    "stop-number"
+                  ],
+                  "defaultSort": "name",
+                  "pageSize": 25
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "valid": true,
+      "diagnostics": []
+    }
+  },
+  "notes": [
+    "`request.model.applications[0].views[0].config.columns`: the first 2 of 4 items are shown."
+  ]
+}

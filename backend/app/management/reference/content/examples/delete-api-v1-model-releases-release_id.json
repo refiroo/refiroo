@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/model-releases/{release_id}",
+  "name": "spare",
+  "summary": "Delete the spare release; nothing referred to it",
+  "request": {
+    "path": {
+      "release_id": "00000000-0000-4000-8000-000000000036"
+    },
+    "query": {
+      "expectedStatusVersion": 2
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

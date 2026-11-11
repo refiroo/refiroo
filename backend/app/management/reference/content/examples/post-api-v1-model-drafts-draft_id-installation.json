@@ -1,0 +1,35 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/installation",
+  "name": "secondRelease",
+  "summary": "Install the draft as a second release of the guide model",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "expectedVersion": 11
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000032",
+      "key": "guide-reference-swiss",
+      "name": "Public transport stops of Graubünden",
+      "version": "1.9.0",
+      "schemaVersion": "0.10",
+      "modelHash": "9814551842298f4e234792e59d091063195985558edee6db7f72758cb3af8ed1",
+      "installedAt": "2026-11-02T09:56:00Z",
+      "assigned": false,
+      "workspaces": [],
+      "status": "active",
+      "statusVersion": 1,
+      "deletable": false,
+      "deleteBlockedBy": "importProfile",
+      "importProfile": {
+        "key": "fahrzeuge",
+        "version": 1
+      }
+    }
+  }
+}

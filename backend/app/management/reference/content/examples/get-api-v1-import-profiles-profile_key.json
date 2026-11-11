@@ -1,0 +1,101 @@
+{
+  "operation": "GET /api/v1/import-profiles/{profile_key}",
+  "name": "busStops",
+  "summary": "The profile as it reads under the workspace's release",
+  "request": {
+    "path": {
+      "profile_key": "bus-stops-north"
+    },
+    "query": {
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "bus-stops-north",
+      "name": "Bus stops, Busbetrieb Nord",
+      "version": 1,
+      "checkedAgainst": "00000000-0000-4000-8000-000000000005",
+      "modelKey": "guide-reference-swiss",
+      "lastLoad": null,
+      "valid": true,
+      "problems": [],
+      "createdAt": "2026-11-02T09:28:00Z",
+      "updatedAt": "2026-11-02T09:28:00Z",
+      "sources": [
+        {
+          "sheet": "Haltestellen",
+          "headerRow": 3,
+          "block": null,
+          "applicationKey": "network",
+          "objectTypeKey": "stop",
+          "record": "upsert",
+          "key": {
+            "attributeTypeKey": "stop-number",
+            "column": null,
+            "field": null,
+            "versionColumn": null,
+            "nameColumn": null,
+            "storedUnique": false,
+            "attributeTypeKeys": null
+          },
+          "columns": [
+            {
+              "column": "Haltestelle",
+              "letter": null,
+              "columns": null,
+              "field": "name",
+              "attributeTypeKey": null,
+              "parent": null,
+              "relation": null,
+              "relationFlags": null,
+              "relatedRecord": null,
+              "ignore": null,
+              "valueMap": null
+            },
+            {
+              "column": "Haltestelle",
+              "letter": null,
+              "columns": null,
+              "field": null,
+              "attributeTypeKey": "designation",
+              "parent": null,
+              "relation": null,
+              "relationFlags": null,
+              "relatedRecord": null,
+              "ignore": null,
+              "valueMap": null
+            }
+          ],
+          "missing": null,
+          "rowsWithoutKey": null,
+          "parent": null,
+          "under": null
+        }
+      ],
+      "valueMaps": {
+        "dates": {
+          "?": null,
+          "n/a": null,
+          "01.04.2021": "2021-04-01",
+          "12.05.2021": "2021-05-12",
+          "09.03.2022": "2022-03-09",
+          "11.12.2022": "2022-12-11",
+          "10.12.2023": "2023-12-10",
+          "15.12.2024": "2024-12-15",
+          "09.08.2025": "2025-08-09",
+          "03.06.2026": "2026-06-03",
+          "01.08.2026": "2026-08-01"
+        },
+        "municipalities": {
+          "Coira": "Chur",
+          "Cuira": "Chur"
+        }
+      }
+    }
+  },
+  "notes": [
+    "`sources[0].columns`: the first 2 of 5 items are shown."
+  ]
+}

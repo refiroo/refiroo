@@ -1,0 +1,14 @@
+{
+  "operation": "GET /api/v1/jobs/{job_id}/output",
+  "name": "newStopsFile",
+  "summary": "The export's file: a batch item per line",
+  "request": {
+    "path": {
+      "job_id": "00000000-0000-4000-8000-000000000007"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": "{\"op\" : \"upsert\", \"objectTypeKey\" : \"stop\", \"applicationKey\" : \"network\", \"key\" : {\"id\" : \"00000000-0000-4000-8000-000000000001\"}, \"name\" : \"Chur, Stadtbibliothek\", \"parent\" : {\"id\" : \"00000000-0000-4000-8000-000000000008\"}, \"expectedVersion\" : 1, \"attributes\" : [{\"attributeTypeKey\" : \"designation\", \"value\" : \"Chur, Stadtbibliothek\"}, {\"attributeTypeKey\" : \"stop-number\", \"value\" : 8599001}], \"initialRelations\" : []}\n{\"op\" : \"upsert\", \"objectTypeKey\" : \"stop\", \"applicationKey\" : \"network\", \"key\" : {\"id\" : \"00000000-0000-4000-8000-000000000002\"}, \"name\" : \"Chur, Kantonsschule\", \"parent\" : {\"id\" : \"00000000-0000-4000-8000-000000000008\"}, \"expectedVersion\" : 1, \"attributes\" : [{\"attributeTypeKey\" : \"designation\", \"value\" : \"Chur, Kantonsschule\"}, {\"attributeTypeKey\" : \"stop-number\", \"value\" : 8599002}], \"initialRelations\" : []}"
+  }
+}

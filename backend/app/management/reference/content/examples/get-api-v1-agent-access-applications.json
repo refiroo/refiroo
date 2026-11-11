@@ -1,0 +1,44 @@
+{
+  "operation": "GET /api/v1/agent-access/applications",
+  "name": "firstPage",
+  "summary": "The assistants people sign in with, in the order they were registered",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000029",
+          "name": "Claude Code",
+          "source": "registered",
+          "returnsTo": [
+            "this computer (localhost)"
+          ],
+          "blocked": false,
+          "signedIn": 0,
+          "createdAt": "2026-11-02T12:23:00Z",
+          "lastUsedAt": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000030",
+          "name": "Planning assistant",
+          "source": "administrator",
+          "returnsTo": [
+            "assistant.example.org"
+          ],
+          "blocked": false,
+          "signedIn": 0,
+          "createdAt": "2026-11-02T12:30:00Z",
+          "lastUsedAt": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-22"
+    }
+  }
+}

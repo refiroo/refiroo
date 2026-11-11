@@ -1,0 +1,9 @@
+{
+  "operation": "DELETE /api/v1/me/sessions",
+  "name": "signOutEverywhere",
+  "summary": "Sign out everywhere, this session included",
+  "request": {},
+  "response": {
+    "status": 204
+  }
+}

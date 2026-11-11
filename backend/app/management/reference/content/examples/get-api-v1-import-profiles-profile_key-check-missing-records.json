@@ -1,0 +1,36 @@
+{
+  "operation": "GET /api/v1/import-profiles/{profile_key}/check/missing-records",
+  "name": "winterWorkbook",
+  "summary": "The check's findings",
+  "request": {
+    "path": {
+      "profile_key": "bus-stops-north"
+    },
+    "query": {
+      "workspaceKey": "graubuenden",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "source": 0,
+          "recordId": "00000000-0000-4000-8000-000000000018",
+          "name": "Acla da Fontauna",
+          "key": 8505180
+        },
+        {
+          "source": 0,
+          "recordId": "00000000-0000-4000-8000-000000000019",
+          "name": "Alp Grüm",
+          "key": 8509357
+        }
+      ],
+      "nextCursor": "cursor-15",
+      "prevCursor": null,
+      "anchor": "cursor-16"
+    }
+  }
+}

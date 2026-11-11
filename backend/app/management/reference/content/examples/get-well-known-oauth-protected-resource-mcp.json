@@ -1,0 +1,21 @@
+{
+  "operation": "GET /.well-known/oauth-protected-resource/mcp",
+  "name": "resource",
+  "summary": "The same document at the address derived from /mcp",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "resource": "http://localhost:8000/mcp",
+      "authorization_servers": [
+        "http://localhost:8000"
+      ],
+      "scopes_supported": [
+        "agent"
+      ],
+      "bearer_methods_supported": [
+        "header"
+      ]
+    }
+  }
+}

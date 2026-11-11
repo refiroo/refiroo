@@ -6,7 +6,7 @@
 
 import type { AiTask } from "@/types";
 import { changesModel, proposalRefusal } from "./aiTaskDesign";
-import { isDesignCheck, plural, waitingText } from "./aiTaskText";
+import { plural, waitingText } from "./aiTaskText";
 
 export type StepStatus = "done" | "current" | "todo" | "failed";
 
@@ -38,8 +38,7 @@ export const taskApplicationKey = (task: AiTask): string | undefined =>
   task.design?.profile?.sources.find((source) => source.applicationKey)?.applicationKey ??
   undefined;
 
-const refusedRows = (task: AiTask) =>
-  task.check ? (isDesignCheck(task.check) ? task.check.summary.refused : (task.check.summary?.refused ?? 0)) : 0;
+const refusedRows = (task: AiTask) => (task.check ? task.check.summary.refused : 0);
 
 export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; canLoad?: boolean } = {}): TaskJourney {
   const canLoad = options.canLoad ?? true;

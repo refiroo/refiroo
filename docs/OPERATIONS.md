@@ -1056,7 +1056,7 @@ offered.
   when its sources have keys; the task says why when it cannot (`result.profileNotSaved`). Unused model
   releases the session installed are retired when its task ends, and a session may not write a model draft
   another task holds.
-- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For a question in words (needs `structure`): the question, today's date and the list's fields, conditions and relationships with their labels and the names of the types they reach, never a record name, value or ID; the record a question names is found in the database after the answer. For mapping targets (needs `values`): the names and the view's displayed fields of
+- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For a question in words (needs `structure`): the question, today's date and the list's fields, conditions and relationships with their labels and the names of the types they reach; at `samples` and `values` also the record names of a relationship's types when the list holds at most 50 records (0.16 AG4), never a value or ID; the record a question names is found in the database after the answer. For mapping targets (needs `values`): the names and the view's displayed fields of
   the unmapped sources, 25 per call, and of their candidate targets (all eligible targets up to 100,
   otherwise each source's 20 closest by name). Reference data is treated as data: the instructions tell the model not to follow
   text found in it, and nothing it answers is applied unasked.

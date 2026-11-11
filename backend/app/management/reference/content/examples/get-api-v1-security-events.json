@@ -1,0 +1,75 @@
+{
+  "operation": "GET /api/v1/security-events",
+  "name": "clientEvents",
+  "summary": "Changes to clients and their secrets, newest first",
+  "request": {
+    "query": {
+      "aggregateType": [
+        "client"
+      ],
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000021",
+          "aggregateType": "client",
+          "aggregateId": "00000000-0000-4000-8000-000000000018",
+          "action": "secret-removed",
+          "version": 4,
+          "occurredAt": "2026-11-02T11:34:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "Reference Administrator"
+          },
+          "details": {
+            "secretId": "00000000-0000-4000-8000-000000000019"
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000022",
+          "aggregateType": "client",
+          "aggregateId": "00000000-0000-4000-8000-000000000018",
+          "action": "secret-added",
+          "version": 3,
+          "occurredAt": "2026-11-02T11:20:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "Reference Administrator"
+          },
+          "details": {
+            "secretId": "00000000-0000-4000-8000-000000000020",
+            "overlapHours": 24
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000023",
+          "aggregateType": "client",
+          "aggregateId": "00000000-0000-4000-8000-000000000018",
+          "action": "updated",
+          "version": 2,
+          "occurredAt": "2026-11-02T11:13:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "Reference Administrator"
+          },
+          "details": {
+            "changedFields": [
+              "name"
+            ],
+            "name": "Timetable export job"
+          }
+        }
+      ],
+      "nextCursor": "cursor-17",
+      "prevCursor": null,
+      "anchor": "cursor-18"
+    }
+  }
+}

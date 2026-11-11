@@ -1,0 +1,61 @@
+{
+  "operation": "GET /api/v1/model-mappings/{key}/inference/proposals",
+  "name": "ofTheStopType",
+  "summary": "The proposals for the stop type: the target type, then what depends on it",
+  "request": {
+    "path": {
+      "key": "stops-proposed"
+    },
+    "query": {
+      "sourceType": "stop",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "position": 3,
+          "kind": "type",
+          "sourceType": "stop",
+          "relation": null,
+          "target": "stop-point",
+          "score": 1.222,
+          "summary": "Type 'stop' becomes 'stop-point'",
+          "evidence": [
+            {
+              "kind": "keyTokens",
+              "share": 0.5
+            },
+            {
+              "kind": "attributes",
+              "matched": 1,
+              "of": 9
+            }
+          ],
+          "operations": [
+            {
+              "kind": "mapType",
+              "sourceType": "stop",
+              "targetType": "stop-point"
+            },
+            {
+              "kind": "mapAttribute",
+              "sourceType": "stop",
+              "attribute": "stop-number",
+              "target": "stop-number"
+            }
+          ],
+          "alternatives": [],
+          "requires": [],
+          "status": "open"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-4"
+    }
+  }
+}

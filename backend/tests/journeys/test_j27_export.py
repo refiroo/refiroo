@@ -548,3 +548,42 @@ def test_an_export_carries_a_relationship_filter_as_the_list_applies_it(world):
     exported = {line["key"]["id"] for line in _lines(world, job) if line["op"] == "upsert"}
     assert exported == {item["id"] for item in listed["items"]} == {holders["a"]}
 
+
+@pytest.mark.journey("J27.6")
+@pytest.mark.structures("H", "K", "Bnn")
+def test_an_exports_parameters_hold_the_request_as_sent_and_an_older_job_still_runs(world):
+    """Given an export whose filter carries ``not`` as a client sends it. When the job is read.
+    Then its parameters hold the request by alias, with no field the client left out, and a job
+    stored before with ``not_`` still runs and holds the same records."""
+    workspace = _workspace(world)
+    token = world.made("K", "Token", workspace=workspace, values={"K.code": "T-1"})["id"]
+    linked = world.made("H", "Linked", workspace=workspace)["id"]
+    alone = world.made("H", "Alone", workspace=workspace)["id"]
+    ok(world.relate("Bnn", linked, token, {"Bnn.weight": 1}), 201)
+    criterion = {
+        "not": True,
+        "related": {"relationTypeKey": world.key("Bnn"), "direction": "outgoing", "where": []},
+    }
+    job = _finished(world, workspace, [{"objectTypeKey": world.key("H"), "where": [criterion]}])
+    stored = job["parameters"]
+    assert stored["scope"]["types"][0]["where"] == [criterion]
+    assert set(stored) == {"scope", "format"}
+    assert {line["key"]["id"] for line in _lines(world, job) if line["op"] == "upsert"} == {alone}
+    # A job stored before the request was kept by alias holds `not_`.
+    old = ok(
+        _export(world, workspace, [{"objectTypeKey": world.key("H"), "where": [criterion]}]), 202
+    )
+    engine = create_engine(world.database, poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE jobs SET parameters = replace(parameters::text, '\"not\"', '\"not_\"')::json "
+                "WHERE id = :id"
+            ),
+            {"id": old["id"]},
+        )
+    engine.dispose()
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{old['id']}"))
+    assert done["state"] == "completed" and '"not_"' in json.dumps(done["parameters"])
+    assert {line["key"]["id"] for line in _lines(world, done) if line["op"] == "upsert"} == {alone}

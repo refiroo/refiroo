@@ -1,0 +1,121 @@
+{
+  "operation": "POST /api/v1/model-mappings/{key}/undo",
+  "name": "latestStep",
+  "summary": "Undo the latest step: the default and the match go",
+  "request": {
+    "path": {
+      "key": "stops-to-inventory"
+    },
+    "body": {
+      "expectedVersion": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 4,
+      "entries": [
+        {
+          "sequence": 7,
+          "step": 3,
+          "kind": "restoreElements",
+          "parameters": {
+            "undoes": {
+              "kind": "setDefault",
+              "sourceType": "stop",
+              "attribute": "platforms",
+              "value": 1
+            },
+            "changes": [
+              {
+                "change": "set",
+                "path": [
+                  "types",
+                  {
+                    "source": "stop"
+                  },
+                  "defaults"
+                ],
+                "field": "platforms",
+                "value": null
+              }
+            ]
+          },
+          "inverse": {
+            "kind": "setDefault",
+            "sourceType": "stop",
+            "attribute": "platforms",
+            "value": 1
+          },
+          "mappingVersion": 4,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:21:00Z",
+          "undone": false,
+          "origin": {
+            "type": "undo",
+            "steps": [
+              2
+            ]
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 8,
+          "step": 3,
+          "kind": "restoreElements",
+          "parameters": {
+            "undoes": {
+              "kind": "setMatch",
+              "sourceType": "stop",
+              "match": {
+                "attributeTypeKey": "stop-number"
+              }
+            },
+            "changes": [
+              {
+                "change": "set",
+                "path": [
+                  "types",
+                  {
+                    "source": "stop"
+                  }
+                ],
+                "field": "match",
+                "value": null
+              }
+            ]
+          },
+          "inverse": {
+            "kind": "setMatch",
+            "sourceType": "stop",
+            "match": {
+              "attributeTypeKey": "stop-number"
+            }
+          },
+          "mappingVersion": 4,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:21:00Z",
+          "undone": false,
+          "origin": {
+            "type": "undo",
+            "steps": [
+              2
+            ]
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "problems": []
+    }
+  }
+}

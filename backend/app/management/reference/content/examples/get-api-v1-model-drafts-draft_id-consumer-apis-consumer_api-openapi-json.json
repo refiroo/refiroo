@@ -1,0 +1,401 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json",
+  "name": "stops",
+  "summary": "The OpenAPI document the consumer tier serves for the Stops API",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024",
+      "consumer_api": "stops"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "openapi": "3.1.0",
+      "info": {
+        "title": "Stops API",
+        "version": "1",
+        "description": "Stops of Graubünden with their municipality, operator, modes, system codes and names in five languages. XREF finds a stop by UIC number, abbreviation, name, a Wikidata item or another system's code, or by a translated name.\n\nConsumer API `stops`, contract version 1, declared by the model release Public transport stops of Graubünden 1.8.1. A read takes the live data of a workspace (`workspace`, default: the deployment's default workspace) or one of its publications (`publication`: an ID or `latest`). Every `GET` answers an `ETag` and `304 Not Modified` to a matching `If-None-Match`."
+      },
+      "servers": [
+        {
+          "url": "/"
+        }
+      ],
+      "paths": {
+        "/api/consumer/stops/v1/objects/{id}": {
+          "get": {
+            "summary": "Get by ID",
+            "description": "The shared object of the record with this object ID. The definition's parameters filter it (`404 OBJECT_NOT_FOUND` when filtered out) and limit its projections.",
+            "parameters": [
+              {
+                "name": "id",
+                "in": "path",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "workspace",
+                "in": "query",
+                "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "The answer.",
+                "headers": {
+                  "RDM-Workspace": {
+                    "$ref": "#/components/headers/RDM-Workspace"
+                  },
+                  "RDM-Publication": {
+                    "$ref": "#/components/headers/RDM-Publication"
+                  },
+                  "RDM-As-Of-Applied": {
+                    "$ref": "#/components/headers/RDM-As-Of-Applied"
+                  },
+                  "ETag": {
+                    "$ref": "#/components/headers/ETag"
+                  }
+                },
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Object"
+                    }
+                  }
+                }
+              },
+              "304": {
+                "$ref": "#/components/responses/NotModified"
+              },
+              "400": {
+                "description": "A request error: INVALID_AS_OF, AS_OF_NOT_SUPPORTED, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  }
+                }
+              },
+              "401": {
+                "$ref": "#/components/responses/Unauthorized"
+              },
+              "403": {
+                "$ref": "#/components/responses/Forbidden"
+              },
+              "404": {
+                "description": "Not found: OBJECT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, TARGET_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  }
+                }
+              },
+              "409": {
+                "description": "Conflict: AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/api/consumer/stops/v1/lists/municipalities": {
+          "get": {
+            "summary": "List municipalities",
+            "description": "Every Municipality record, ordered by name, then creation order (in a publication, object ID). Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`; `pageSize` 1–100, default 20.",
+            "parameters": [
+              {
+                "name": "district",
+                "in": "query",
+                "description": "Object IDs of district records: keeps the records anywhere below any of them. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+                "style": "form",
+                "explode": true,
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "name": "workspace",
+                "in": "query",
+                "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "The answer.",
+                "headers": {
+                  "RDM-Workspace": {
+                    "$ref": "#/components/headers/RDM-Workspace"
+                  },
+                  "RDM-Publication": {
+                    "$ref": "#/components/headers/RDM-Publication"
+                  },
+                  "RDM-As-Of-Applied": {
+                    "$ref": "#/components/headers/RDM-As-Of-Applied"
+                  },
+                  "ETag": {
+                    "$ref": "#/components/headers/ETag"
+                  }
+                },
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/ListPage"
+                    }
+                  }
+                }
+              },
+              "304": {
+                "$ref": "#/components/responses/NotModified"
+              },
+              "400": {
+                "description": "A request error: UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  }
+                }
+              },
+              "401": {
+                "$ref": "#/components/responses/Unauthorized"
+              },
+              "403": {
+                "$ref": "#/components/responses/Forbidden"
+              },
+              "404": {
+                "description": "Not found: LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  }
+                }
+              },
+              "409": {
+                "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Projection_operator": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "localName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "isPrimary": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "code"
+            ]
+          },
+          "Projection_modes": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "name"
+            ]
+          },
+          "Projection_systemCodes": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "systemKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "system",
+              "systemKey"
+            ]
+          }
+        },
+        "headers": {
+          "ETag": {
+            "description": "The answer's version; send it back as `If-None-Match`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "RDM-Workspace": {
+            "description": "The workspace read.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "RDM-Publication": {
+            "description": "The publication read, on a pinned read.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "RDM-As-Of-Applied": {
+            "description": "On a read with `asOf`: the public types it dated, comma-separated.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "responses": {
+          "NotModified": {
+            "description": "Unchanged since the `If-None-Match` tag.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "Unauthorized": {
+            "description": "No access token (AUTHENTICATION_REQUIRED), or one refused (TOKEN_INVALID, with `details.reason`); with `WWW-Authenticate: Bearer`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "Forbidden": {
+            "description": "FORBIDDEN: the client holds no grant of this consumer API in the workspace read (`details`: `consumerApi`, `workspaceKey`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "securitySchemes": {
+          "oauth2": {
+            "type": "oauth2",
+            "description": "A client's credentials exchanged for a `consumer` access token; a read needs a grant of this consumer API in the workspace it reads.",
+            "flows": {
+              "clientCredentials": {
+                "tokenUrl": "http://localhost:8000/oauth/token",
+                "scopes": {
+                  "consumer": "Read the consumer APIs granted to the client"
+                }
+              }
+            }
+          }
+        }
+      },
+      "security": [
+        {
+          "oauth2": [
+            "consumer"
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`paths`: the first 2 of 10 paths are shown.",
+    "`components.schemas`: the first 3 of 19 schemas are shown.",
+    "`paths./api/consumer/stops/v1/objects/{id}.get.parameters`: the first 2 of 10 items are shown.",
+    "`paths./api/consumer/stops/v1/lists/municipalities.get.parameters`: the first 2 of 14 items are shown.",
+    "`components.schemas.Projection_operator.required`: the first 2 of 5 items are shown.",
+    "`components.schemas.Projection_systemCodes.required`: the first 2 of 4 items are shown."
+  ]
+}

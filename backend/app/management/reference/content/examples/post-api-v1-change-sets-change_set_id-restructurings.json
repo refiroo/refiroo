@@ -1,0 +1,40 @@
+{
+  "operation": "POST /api/v1/change-sets/{change_set_id}/restructurings",
+  "name": "applyTheMove",
+  "summary": "Apply the planned move",
+  "request": {
+    "path": {
+      "change_set_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "body": {
+      "operation": {
+        "kind": "move",
+        "objectId": "00000000-0000-4000-8000-000000000008",
+        "parentObjectId": "00000000-0000-4000-8000-000000000013"
+      },
+      "expectedChangeSetVersion": 4,
+      "planDigest": "e5e6677c3f578e0fb80ec3d09985839da03978ec892b1c115bbdf7f9c0c996ce"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "operationId": "00000000-0000-4000-8000-000000000014",
+      "changeSetId": "00000000-0000-4000-8000-000000000001",
+      "changeSetVersion": 5,
+      "summary": {
+        "recordCount": 1,
+        "typeChangeCount": 0,
+        "moveCount": 1,
+        "createdCount": 0,
+        "removedCount": 0,
+        "valuesWithoutPlaceCount": 0,
+        "relationshipsWithoutPlaceCount": 0,
+        "restoredCount": 0,
+        "inputsNeededCount": 0,
+        "refusalCount": 0
+      },
+      "createdObjectId": null
+    }
+  }
+}

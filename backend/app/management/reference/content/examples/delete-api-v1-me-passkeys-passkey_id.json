@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/me/passkeys/{passkey_id}",
+  "name": "removeLaptop",
+  "summary": "Remove the person's own passkey; the proof is their password or a code",
+  "request": {
+    "path": {
+      "passkey_id": "00000000-0000-4000-8000-000000000013"
+    },
+    "body": {
+      "proof": "example-password"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

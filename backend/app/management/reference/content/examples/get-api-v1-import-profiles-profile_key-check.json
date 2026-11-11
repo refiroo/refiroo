@@ -1,0 +1,127 @@
+{
+  "operation": "GET /api/v1/import-profiles/{profile_key}/check",
+  "name": "winterWorkbook",
+  "summary": "What the next workbook changes: a renamed column and what the load would do",
+  "request": {
+    "path": {
+      "profile_key": "bus-stops-north"
+    },
+    "query": {
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000015",
+      "state": "completed",
+      "profileKey": "bus-stops-north",
+      "profileVersion": 1,
+      "sourceFileId": "00000000-0000-4000-8000-000000000016",
+      "previousSourceFileId": "00000000-0000-4000-8000-000000000011",
+      "workspaceKey": "graubuenden",
+      "releaseId": "00000000-0000-4000-8000-000000000005",
+      "valid": true,
+      "problems": [],
+      "sources": [
+        {
+          "profileSource": 0,
+          "source": 0,
+          "sheet": "Haltestellen",
+          "objectTypeKey": "stop",
+          "missing": "report",
+          "sheetFound": true,
+          "columns": {
+            "new": [],
+            "missing": [],
+            "renamed": [
+              {
+                "from": "gültig ab",
+                "to": "gültig seit",
+                "letter": "E",
+                "shared": 1.0
+              }
+            ]
+          },
+          "newValues": 1,
+          "drift": 1,
+          "missingRecords": 118
+        }
+      ],
+      "dryRun": {
+        "coverage": "complete",
+        "rows": {
+          "total": 50,
+          "run": 50
+        },
+        "sources": [
+          {
+            "source": 0,
+            "profileSource": 0,
+            "sheet": "Haltestellen",
+            "objectTypeKey": "stop",
+            "rows": 50,
+            "records": {
+              "created": 0,
+              "updated": 1,
+              "unchanged": 43,
+              "deleted": 0
+            },
+            "values": 3,
+            "relationships": 0,
+            "relatedRecords": 0,
+            "missingRecords": 118,
+            "skippedRows": 0,
+            "rejections": [
+              {
+                "code": "REFERENCE_NOT_FOUND",
+                "rows": 6
+              }
+            ]
+          }
+        ],
+        "difference": null,
+        "previousJobId": null,
+        "ranAt": "2026-11-02T09:56:00Z"
+      },
+      "bindingReport": [
+        {
+          "sheet": "Haltestellen",
+          "objectTypeKey": "stop",
+          "rows": 50,
+          "rejectedRows": 6,
+          "missingRecords": 118,
+          "skippedRows": 0,
+          "columns": [
+            {
+              "column": "Haltestelle",
+              "binding": "field",
+              "target": "name",
+              "cells": 50,
+              "empty": 0,
+              "converted": 50,
+              "valueMapped": 0,
+              "refused": 0,
+              "reading": null
+            },
+            {
+              "column": "Haltestelle",
+              "binding": "attributeTypeKey",
+              "target": "designation",
+              "cells": 50,
+              "empty": 0,
+              "converted": 50,
+              "valueMapped": 0,
+              "refused": 0,
+              "reading": null
+            }
+          ]
+        }
+      ],
+      "error": null
+    }
+  },
+  "notes": [
+    "`bindingReport[0].columns`: the first 2 of 5 items are shown."
+  ]
+}

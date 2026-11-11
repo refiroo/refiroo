@@ -1,0 +1,34 @@
+{
+  "operation": "POST /api/v1/relations/grid-change",
+  "name": "markPrimary",
+  "summary": "The Rhätische Bahn is the primary operator of three stops",
+  "request": {
+    "body": {
+      "applicationKey": "network",
+      "viewKey": "stop-operators",
+      "fromObjectIds": [
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000006",
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "toObjectIds": [
+        "00000000-0000-4000-8000-000000000011"
+      ],
+      "attributeTypeKey": "is-primary",
+      "value": true,
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "dryRun": false,
+      "change": 3,
+      "same": 0,
+      "missing": 0,
+      "linked": 0,
+      "refused": [],
+      "changeSetVersion": null
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "operation": "GET /api/v1/sign-in-providers/{key}",
+  "name": "companySso",
+  "summary": "One provider with the address to register with it",
+  "request": {
+    "path": {
+      "key": "company-sso"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "company-sso",
+      "name": "Company SSO",
+      "issuer": "https://id.example.org",
+      "clientId": "reference-engine",
+      "clientSecretSet": true,
+      "groupsClaim": "groups",
+      "enabled": true,
+      "signOutOfProvider": false,
+      "redirectUri": "http://localhost:8000/oauth/providers/company-sso/callback",
+      "signedOutUri": "http://localhost:8000/oauth/providers/company-sso/signed-out",
+      "people": 0,
+      "lastSignInAt": null,
+      "version": 1,
+      "createdAt": "2026-11-02T11:48:00Z",
+      "updatedAt": "2026-11-02T11:48:00Z"
+    }
+  }
+}

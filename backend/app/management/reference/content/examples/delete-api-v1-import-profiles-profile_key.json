@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/import-profiles/{profile_key}",
+  "name": "unused",
+  "summary": "Delete a profile at the version read",
+  "request": {
+    "path": {
+      "profile_key": "dup"
+    },
+    "query": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

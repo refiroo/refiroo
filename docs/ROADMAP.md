@@ -661,21 +661,22 @@ expected to move after 1.0 later. The documentation release 0.13 is planned in
 ### Product outcome
 
 An integrator reading `/docs` learns what every management operation is for, how it behaves, what it
-refuses and what a real exchange looks like; a person tells the two type palettes apart at a glance.
+refuses and what a real exchange looks like. _(The palette part was dropped by the user 2026-11-11.)_
 
 ### Delivery scope
 
-- Track V's V3–V9, moved from 0.9: every management operation documented on `/docs` with its
-  purpose, behaviour, limitations, errors and a recorded example, an overview per area and an error
-  catalogue (V-D1–V-D10; V-D1 open)
-- The type palettes A and B reworked to differ visibly (UP1, moved from TODO)
-- Optional: an application opens on an empty start page asking to choose a list in the sidebar,
-  instead of its default view (UP2, asked 2026-10-15)
+- Track V (V3–V12; V3–V9 moved from 0.9; **complete, delivered 2026-11-11**, [closing record](BASE_0_14_IMPLEMENTATION_PLAN.md#v9-record-and-the-closing-record-of-track-v-2026-11-11)): every management operation (251 by default, 294 with the
+  optional surfaces, measured 2026-11-11) documented on `/docs/api` with its purpose, behaviour,
+  limitations, errors and a recorded example, an overview per area, the operation kinds of model drafts
+  and mappings (V10), and the error catalogue of every code (348), which 0.13's restart left here
+  (V-D1–V-D13, all decided)
+- _Dropped by the user 2026-11-11: the palette rework (UP1) and the Settings › Model redesign (UP3)._
+- _UP2 (an application opening on a start page) closed by 0.12's D336: Home is the first screen._
 
 ### Exit gate
 
-- No management operation is on the V-D6 gap list, and every error code has a catalogue entry.
-- Both palettes keep the contrast test in light and dark and are approved by the user on the real app.
+- No management operation is on the V-D6 gap list, and every error code has a catalogue entry. _Met 2026-11-11 (V9): the gap list is deleted and `test_reference_complete.py` holds it._
+- The reference reads as approved on the workspaces sample (2026-11-11) in every area.
 
 ## Product release 0.15 — Interface language
 

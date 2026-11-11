@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/roles/{role_key}",
+  "name": "unusedRole",
+  "summary": "Delete a custom role no grant gives",
+  "request": {
+    "path": {
+      "role_key": "spare-role"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

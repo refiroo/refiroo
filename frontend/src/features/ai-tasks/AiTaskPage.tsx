@@ -31,7 +31,7 @@ import { ReshapeSteps } from "./ReshapeSteps";
 import { TaskEnd } from "./TaskEnd";
 import { taskApplicationKey } from "./aiTaskJourney";
 import { rememberModelReviewed } from "./AiTaskJourneyBar";
-import { isDesignCheck, runningText, taskTitle, waitingText, wordsTaskName } from "./aiTaskText";
+import { runningText, taskTitle, waitingText, wordsTaskName } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
 import { useAssistantOffers } from "./useAssistantOffers";
 
@@ -171,7 +171,7 @@ export function AiTaskPage({
       ? { ...changeReviewFor(application, task.workspaceKey, task.result.changeSetId), journey }
       : undefined;
   const design = task.design;
-  const designCheck = isDesignCheck(task.check) ? task.check : undefined;
+  const designCheck = task.check ?? undefined;
   const run = (choice: LoadChoice) =>
     void write(() => ai.runTask(task.id, { expectedVersion: task.version, ...choice }));
   const answer = (answers: Record<string, string>) =>

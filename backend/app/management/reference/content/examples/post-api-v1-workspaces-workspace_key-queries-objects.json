@@ -1,0 +1,132 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/queries/objects",
+  "name": "trainStopsInPontresina",
+  "summary": "The stops of Pontresina that the train serves, with their modes",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "objectTypeKey": "stop",
+      "asOf": "2027-01-01",
+      "where": [
+        {
+          "field": "ancestor:municipality",
+          "op": "eq",
+          "value": "00000000-0000-4000-8000-000000000031"
+        },
+        {
+          "related": {
+            "relationTypeKey": "stop-served-by-mode",
+            "direction": "outgoing",
+            "where": [
+              {
+                "field": "name",
+                "op": "eq",
+                "value": "Train"
+              }
+            ]
+          }
+        }
+      ],
+      "sort": "-stop-number",
+      "select": [
+        "name",
+        "stop-number",
+        "ancestor:municipality"
+      ],
+      "expand": [
+        {
+          "relationTypeKey": "stop-served-by-mode",
+          "direction": "outgoing",
+          "select": [
+            "name"
+          ],
+          "limit": 3
+        }
+      ],
+      "pageSize": 2,
+      "includeTotal": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000026",
+          "objectTypeKey": "stop",
+          "version": 6,
+          "fields": {
+            "name": "Zuoz, Sportplatz Mitte",
+            "stop-number": 8599001,
+            "ancestor:municipality": {
+              "id": "00000000-0000-4000-8000-000000000031",
+              "name": "Pontresina"
+            }
+          },
+          "expanded": [
+            {
+              "relationTypeKey": "stop-served-by-mode",
+              "direction": "outgoing",
+              "count": 1,
+              "items": [
+                {
+                  "relationId": "00000000-0000-4000-8000-000000000036",
+                  "object": {
+                    "id": "00000000-0000-4000-8000-000000000025",
+                    "objectTypeKey": "mode",
+                    "version": 1,
+                    "fields": {
+                      "name": "Train"
+                    }
+                  }
+                }
+              ],
+              "nextCursor": null
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000037",
+          "objectTypeKey": "stop",
+          "version": 1,
+          "fields": {
+            "name": "Bernina Diavolezza",
+            "stop-number": 8519370,
+            "ancestor:municipality": {
+              "id": "00000000-0000-4000-8000-000000000031",
+              "name": "Pontresina"
+            }
+          },
+          "expanded": [
+            {
+              "relationTypeKey": "stop-served-by-mode",
+              "direction": "outgoing",
+              "count": 1,
+              "items": [
+                {
+                  "relationId": "00000000-0000-4000-8000-000000000038",
+                  "object": {
+                    "id": "00000000-0000-4000-8000-000000000025",
+                    "objectTypeKey": "mode",
+                    "version": 1,
+                    "fields": {
+                      "name": "Train"
+                    }
+                  }
+                }
+              ],
+              "nextCursor": null
+            }
+          ]
+        }
+      ],
+      "nextCursor": "cursor-8",
+      "prevCursor": null,
+      "anchor": "cursor-9",
+      "totalCount": 7,
+      "startIndex": 0
+    }
+  }
+}

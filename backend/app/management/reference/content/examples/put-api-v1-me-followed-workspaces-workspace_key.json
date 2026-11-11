@@ -1,0 +1,18 @@
+{
+  "operation": "PUT /api/v1/me/followed-workspaces/{workspace_key}",
+  "name": "follow",
+  "summary": "Follow a workspace: a notice arrives when a change set is published there",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "workspaceKey": "graubuenden",
+      "label": "Graubünden",
+      "since": "2026-11-02T09:21:00Z"
+    }
+  }
+}

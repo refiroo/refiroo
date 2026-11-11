@@ -1,0 +1,20 @@
+{
+  "operation": "GET /api/v1/me",
+  "name": "editor",
+  "summary": "Who the token belongs to, and how they signed in",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "kind": "user",
+      "name": "Reference Editor (timetable)",
+      "email": "editor@example.org",
+      "lastSignInAt": "2026-11-02T10:24:00Z",
+      "signedInWith": "password",
+      "signInProvider": null,
+      "sessionId": "00000000-0000-4000-8000-000000000010",
+      "signInManaged": false
+    }
+  }
+}

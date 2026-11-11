@@ -1,0 +1,75 @@
+{
+  "operation": "GET /api/v1/action-groups",
+  "name": "catalogue",
+  "summary": "The action groups roles are made of, each with its actions and their operations",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "key": "browse",
+          "name": "Browse",
+          "description": "Read a workspace: its model, records, relations, history, change sets and publications; export to a file",
+          "grantableAt": "workspace",
+          "narrowable": false,
+          "actions": [
+            {
+              "key": "model.read",
+              "description": "Read a workspace's model",
+              "operations": [
+                {
+                  "method": "GET",
+                  "path": "/api/v1/model"
+                },
+                {
+                  "method": "GET",
+                  "path": "/api/v1/model/placements"
+                }
+              ]
+            },
+            {
+              "key": "workspace.read",
+              "description": "Read a workspace",
+              "operations": [
+                {
+                  "method": "GET",
+                  "path": "/api/v1/workspaces/{workspace_key}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "edit-live",
+          "name": "Edit live",
+          "description": "Create, change and delete records, values and relationships without a change set",
+          "grantableAt": "workspace",
+          "narrowable": true,
+          "actions": [
+            {
+              "key": "records.write",
+              "description": "Change records, values and relationships: live, or in a change set",
+              "operations": [
+                {
+                  "method": "POST",
+                  "path": "/api/v1/objects"
+                },
+                {
+                  "method": "PATCH",
+                  "path": "/api/v1/objects/{object_type_key}/{object_id}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`items`: the first 2 of 16 items are shown.",
+    "`items[0].actions`: the first 2 of 7 items are shown.",
+    "`items[0].actions[0].operations`: the first 2 of 13 items are shown.",
+    "`items[1].actions[0].operations`: the first 2 of 13 items are shown."
+  ]
+}

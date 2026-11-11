@@ -143,63 +143,6 @@ export interface AiTaskReading {
   summary?: AiTaskReadingSummary;
 }
 
-export interface AiTaskRefusal {
-  code: string | null;
-  rows: number;
-  column?: string | null;
-  header?: string | null;
-  /** The cell values most often refused. */
-  values?: { value: unknown; count: number }[] | null;
-  message?: string | null;
-}
-
-export interface AiTaskCheckTable {
-  table: string;
-  sheet: string;
-  typeName: string | null;
-  rows: number;
-  changed: number;
-  unchanged: number;
-  created: number;
-  removed: number;
-  skipped: number;
-  /** The related records (translations, language records) the load writes. */
-  translations?: number;
-  /** No change and no refusal. */
-  nothingToDo?: boolean;
-  refused: AiTaskRefusal[];
-  leftOut: string[];
-}
-
-export interface AiTaskCheckSummary {
-  changed: number;
-  unchanged: number;
-  created: number;
-  removed: number;
-  /** Rows refused. */
-  refused: number;
-  translations: number;
-  tablesWithChanges: number;
-}
-
-export interface AiTaskFix {
-  table: string;
-  column: string;
-  value: string;
-  to: string | null;
-  reason: string;
-  origin?: AiOrigin | null;
-}
-
-export interface AiTaskCheck {
-  dryRunJobId: string;
-  ranAt: string;
-  tables: AiTaskCheckTable[];
-  summary?: AiTaskCheckSummary;
-  fixes: AiTaskFix[];
-  rounds: number;
-}
-
 /** One model-draft operation the assistant applied (0.16 AP6): its `kind` and the kind's own members. */
 export interface AiTaskOperation {
   kind: string;
@@ -401,7 +344,7 @@ export interface AiTaskDesignRefusal {
   examples: { row: number; message: string; details: unknown }[];
 }
 
-/** The check of a designed load (the check of a task without a design is `AiTaskCheck`). */
+/** The check of a designed load. */
 export interface AiTaskDesignCheck {
   /** `null` for a design of relationships alone: no rows, no dry run. */
   dryRunJobId: string | null;
@@ -520,7 +463,7 @@ export interface AiTask {
   updatedAt: string;
   requestedBy: Principal | null;
   reading: AiTaskReading | null;
-  check: AiTaskCheck | AiTaskDesignCheck | null;
+  check: AiTaskDesignCheck | null;
   /** The task's model draft, when the assistant designs. */
   draftId?: string | null;
   design?: AiTaskDesign | null;

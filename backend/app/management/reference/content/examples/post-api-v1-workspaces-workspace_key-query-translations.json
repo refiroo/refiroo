@@ -1,0 +1,24 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/query-translations",
+  "name": "stops",
+  "summary": "A question in words on the stops list, at the instance's send level",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "applicationKey": "network",
+      "viewKey": "stops",
+      "question": "stops with Post in the name"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "filters": [],
+      "search": "stops with Post in the name",
+      "notExpressed": [],
+      "applied": true
+    }
+  }
+}

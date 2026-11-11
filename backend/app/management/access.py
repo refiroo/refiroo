@@ -334,6 +334,24 @@ RECORD_READ = Where(
     "the query's context, or the record's workspace",
     _named_read(lambda context: _record_workspace(context, context.path("object_id"))),
 )
+
+
+def _live_or_change_set_read(context: Context, groups: tuple[str, ...]) -> Check:
+    """A read of a record live or in a change set, with no publication to name: the change set's
+    workspace, the workspace the query names, or the record's."""
+    change_set_id = context.query("changeSetId")
+    if change_set_id:
+        return Check(groups, (_change_set_workspace(context, change_set_id),))
+    keys = context.request.query_params.getlist("workspaceKey")
+    if keys:
+        return Check(groups, tuple(keys))
+    return Check(groups, (_record_workspace(context, context.path("object_id")),))
+
+
+RECORD_READ_NO_PUBLICATION = Where(
+    "the change set or workspace the query names, or the record's workspace",
+    _live_or_change_set_read,
+)
 RELATION_READ = Where(
     "the query's context, or the relationship's workspace",
     _named_read(lambda context: _relation_workspace(context, context.path("relation_id"))),

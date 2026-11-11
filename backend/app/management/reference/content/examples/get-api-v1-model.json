@@ -1,0 +1,947 @@
+{
+  "operation": "GET /api/v1/model",
+  "name": "graubuenden",
+  "summary": "The model the default workspace runs",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "schemaVersion": "0.10",
+      "release": {
+        "key": "guide-reference-swiss",
+        "name": "Public transport stops of Graubünden",
+        "version": "1.8.1"
+      },
+      "product": {
+        "name": "refiroo guide reference: stops of Graubünden",
+        "description": "Prototype of the user guide's reference domain: real public transport stops (Didok) with Wikidata names and codes"
+      },
+      "attributeTypes": [
+        {
+          "key": "stop-number",
+          "name": "Stop number (UIC)",
+          "description": null,
+          "valueType": "integer",
+          "default": null,
+          "features": {
+            "searchable": true,
+            "unique": true,
+            "filterable": true,
+            "sortable": true
+          },
+          "validation": {},
+          "ui": {}
+        },
+        {
+          "key": "sloid",
+          "name": "SLOID",
+          "description": null,
+          "valueType": "text",
+          "default": null,
+          "features": {
+            "unique": true,
+            "searchable": true,
+            "filterable": true
+          },
+          "validation": {},
+          "ui": {}
+        }
+      ],
+      "objectTypes": [
+        {
+          "key": "canton",
+          "name": "Canton",
+          "pluralName": "Cantons",
+          "description": "A Swiss canton (the root of the geography)",
+          "icon": "map",
+          "displayAttributeTypeKey": "canton-abbreviation",
+          "attributes": [
+            {
+              "attributeTypeKey": "canton-abbreviation",
+              "required": true,
+              "readOnly": false,
+              "order": 10,
+              "ui": {}
+            },
+            {
+              "attributeTypeKey": "fso-number",
+              "required": false,
+              "readOnly": false,
+              "order": 20,
+              "ui": {}
+            }
+          ],
+          "features": {
+            "rootCreatable": true
+          },
+          "behavior": {},
+          "validation": {}
+        },
+        {
+          "key": "district",
+          "name": "District",
+          "pluralName": "Districts",
+          "description": "A district (Region) of the canton",
+          "icon": "map-pin",
+          "displayAttributeTypeKey": null,
+          "attributes": [
+            {
+              "attributeTypeKey": "fso-number",
+              "required": false,
+              "readOnly": false,
+              "order": 10,
+              "ui": {}
+            }
+          ],
+          "features": {
+            "rootCreatable": false
+          },
+          "behavior": {
+            "parentRelationTypeKeys": [
+              "canton-contains-district"
+            ]
+          },
+          "validation": {}
+        }
+      ],
+      "relationTypes": [
+        {
+          "key": "canton-contains-district",
+          "reverseKey": "district-belongs-to-canton",
+          "name": "Contains district",
+          "reverseName": "Belongs to canton",
+          "isOriented": true,
+          "features": {
+            "parentOf": true,
+            "creatableOnChildAdd": true
+          }
+        },
+        {
+          "key": "district-contains-municipality",
+          "reverseKey": "municipality-belongs-to-district",
+          "name": "Contains municipality",
+          "reverseName": "Belongs to district",
+          "isOriented": true,
+          "features": {
+            "parentOf": true,
+            "creatableOnChildAdd": true
+          }
+        }
+      ],
+      "objectTypeRelations": [
+        {
+          "relationTypeKey": "canton-contains-district",
+          "fromObjectTypeKey": "canton",
+          "toObjectTypeKey": "district",
+          "cardinality": "one-to-many",
+          "required": false,
+          "attributeTypeKeys": [],
+          "features": {}
+        },
+        {
+          "relationTypeKey": "district-contains-municipality",
+          "fromObjectTypeKey": "district",
+          "toObjectTypeKey": "municipality",
+          "cardinality": "one-to-many",
+          "required": false,
+          "attributeTypeKeys": [],
+          "features": {}
+        }
+      ],
+      "applications": [
+        {
+          "key": "network",
+          "name": "Network",
+          "description": "The geography, stops, operators and modes of public transport in Graubünden",
+          "icon": "route",
+          "color": "#1f6fb2",
+          "state": "active",
+          "objectTypeKeys": [
+            "canton",
+            "district"
+          ],
+          "defaultView": "stops",
+          "views": [
+            {
+              "key": "stops",
+              "name": "Stops",
+              "type": "table",
+              "objectTypeKey": "stop",
+              "config": {
+                "columns": [
+                  "name",
+                  "stop-number"
+                ],
+                "filterFields": [
+                  "stop-number",
+                  "abbreviation"
+                ],
+                "sortFields": [
+                  "name",
+                  "stop-number"
+                ],
+                "defaultSort": "name",
+                "pageSize": 25
+              }
+            },
+            {
+              "key": "geography",
+              "name": "Geography",
+              "type": "tree",
+              "config": {
+                "rootObjectTypeKeys": [
+                  "canton"
+                ],
+                "objectTypeKeys": [
+                  "canton",
+                  "district"
+                ],
+                "labelField": "name",
+                "secondaryField": "objectType",
+                "childSort": {
+                  "district": "name",
+                  "municipality": "name",
+                  "stop": "name"
+                },
+                "pageSize": 50,
+                "actions": [
+                  "createChild",
+                  "rename",
+                  "move"
+                ],
+                "availabilityField": null
+              }
+            }
+          ],
+          "details": [
+            {
+              "objectTypeKey": "stop",
+              "breadcrumbs": {
+                "showApplication": true,
+                "showObjectType": true,
+                "showAncestors": true
+              },
+              "header": {
+                "titleField": "name",
+                "subtitleField": "stop-number",
+                "showObjectType": true
+              },
+              "panels": [
+                {
+                  "key": "modes",
+                  "title": "Modes",
+                  "region": "main",
+                  "order": 10,
+                  "visible": true,
+                  "type": "relations",
+                  "config": {
+                    "relationTypeKeys": [
+                      "stop-served-by-mode"
+                    ],
+                    "direction": "outgoing",
+                    "columns": [
+                      "name",
+                      "mode-code"
+                    ],
+                    "showRelationshipColumn": false
+                  }
+                },
+                {
+                  "key": "operator",
+                  "title": "Operator",
+                  "region": "main",
+                  "order": 20,
+                  "visible": true,
+                  "type": "relations",
+                  "config": {
+                    "relationTypeKeys": [
+                      "stop-operated-by-operator"
+                    ],
+                    "direction": "outgoing",
+                    "columns": [
+                      "name",
+                      "operator-code",
+                      "operator-sboid"
+                    ],
+                    "showRelationshipColumn": false
+                  }
+                }
+              ]
+            },
+            {
+              "objectTypeKey": "municipality",
+              "breadcrumbs": {
+                "showApplication": true,
+                "showObjectType": true,
+                "showAncestors": true
+              },
+              "header": {
+                "titleField": "name",
+                "subtitleField": "fso-number",
+                "showObjectType": true
+              },
+              "panels": [
+                {
+                  "key": "stops",
+                  "title": "Stops",
+                  "region": "main",
+                  "order": 10,
+                  "visible": true,
+                  "type": "children",
+                  "config": {
+                    "objectTypeKeys": [
+                      "stop"
+                    ],
+                    "columns": [
+                      "name",
+                      "stop-number"
+                    ],
+                    "pageSize": 25
+                  }
+                },
+                {
+                  "key": "system-codes",
+                  "title": "System codes",
+                  "region": "main",
+                  "order": 20,
+                  "visible": true,
+                  "type": "relations",
+                  "config": {
+                    "relationTypeKeys": [
+                      "system-code-maps-to"
+                    ],
+                    "direction": "incoming",
+                    "columns": [
+                      "ancestor:system",
+                      "name",
+                      "external-id"
+                    ],
+                    "showRelationshipColumn": false,
+                    "sortFields": [
+                      "ancestor:system",
+                      "external-id",
+                      "name"
+                    ],
+                    "defaultSort": "ancestor:system"
+                  }
+                }
+              ]
+            }
+          ],
+          "settings": {
+            "importEnabled": true,
+            "exportEnabled": true
+          }
+        },
+        {
+          "key": "systems",
+          "name": "Systems",
+          "description": "Codes of other systems (Wikidata, a fictional ticketing system) and what they map to",
+          "icon": "network",
+          "color": "#167d78",
+          "state": "active",
+          "objectTypeKeys": [
+            "system",
+            "system-code"
+          ],
+          "defaultView": "systems",
+          "views": [
+            {
+              "key": "systems",
+              "name": "Systems",
+              "type": "table",
+              "objectTypeKey": "system",
+              "config": {
+                "columns": [
+                  "name",
+                  "system-key",
+                  "description"
+                ],
+                "filterFields": [
+                  "system-key"
+                ],
+                "sortFields": [
+                  "name",
+                  "system-key"
+                ],
+                "defaultSort": "name",
+                "pageSize": 20
+              }
+            },
+            {
+              "key": "system-codes-tree",
+              "name": "System codes",
+              "type": "tree",
+              "config": {
+                "rootObjectTypeKeys": [
+                  "system"
+                ],
+                "objectTypeKeys": [
+                  "system",
+                  "system-code"
+                ],
+                "labelField": "name",
+                "secondaryField": "objectType",
+                "childSort": {
+                  "system-code": "external-id"
+                },
+                "pageSize": 50,
+                "actions": [
+                  "createChild",
+                  "rename",
+                  "move"
+                ],
+                "availabilityField": null
+              }
+            }
+          ],
+          "details": [
+            {
+              "objectTypeKey": "system",
+              "breadcrumbs": {
+                "showApplication": true,
+                "showObjectType": true,
+                "showAncestors": true
+              },
+              "header": {
+                "titleField": "name",
+                "subtitleField": "system-key",
+                "showObjectType": true
+              },
+              "panels": [
+                {
+                  "key": "codes",
+                  "title": "Codes",
+                  "region": "main",
+                  "order": 10,
+                  "visible": true,
+                  "type": "children",
+                  "config": {
+                    "objectTypeKeys": [
+                      "system-code"
+                    ],
+                    "columns": [
+                      "name",
+                      "external-id"
+                    ],
+                    "pageSize": 25
+                  }
+                },
+                {
+                  "key": "attributes",
+                  "title": "System details",
+                  "region": "side",
+                  "order": 10,
+                  "visible": true,
+                  "type": "attributes",
+                  "config": {
+                    "fields": [
+                      "system-key",
+                      "description"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "objectTypeKey": "system-code",
+              "breadcrumbs": {
+                "showApplication": true,
+                "showObjectType": true,
+                "showAncestors": true
+              },
+              "header": {
+                "titleField": "name",
+                "subtitleField": "external-id",
+                "showObjectType": true
+              },
+              "panels": [
+                {
+                  "key": "maps-to",
+                  "title": "Maps to",
+                  "region": "main",
+                  "order": 10,
+                  "visible": true,
+                  "type": "relations",
+                  "config": {
+                    "relationTypeKeys": [
+                      "system-code-maps-to"
+                    ],
+                    "direction": "outgoing",
+                    "columns": [
+                      "name",
+                      "objectType"
+                    ],
+                    "showRelationshipColumn": false
+                  }
+                },
+                {
+                  "key": "attributes",
+                  "title": "Code details",
+                  "region": "side",
+                  "order": 10,
+                  "visible": true,
+                  "type": "attributes",
+                  "config": {
+                    "fields": [
+                      "external-id",
+                      "description"
+                    ]
+                  }
+                },
+                {
+                  "key": "hierarchy",
+                  "title": "Hierarchy",
+                  "region": "side",
+                  "order": 20,
+                  "visible": true,
+                  "type": "hierarchy",
+                  "config": {
+                    "showParent": true,
+                    "showAncestors": true
+                  }
+                }
+              ]
+            }
+          ],
+          "settings": {
+            "importEnabled": true,
+            "exportEnabled": true
+          }
+        },
+        {
+          "key": "names",
+          "name": "Names",
+          "description": "Names of municipalities, the canton and operators in German, French, Italian, Romansh and English",
+          "icon": "languages",
+          "color": "#c66b2c",
+          "state": "active",
+          "objectTypeKeys": [
+            "language",
+            "name-translation"
+          ],
+          "defaultView": "municipality-names",
+          "views": [
+            {
+              "key": "languages",
+              "name": "Languages",
+              "type": "table",
+              "objectTypeKey": "language",
+              "config": {
+                "columns": [
+                  "name",
+                  "language-code",
+                  "active"
+                ],
+                "filterFields": [
+                  "language-code",
+                  "active"
+                ],
+                "sortFields": [
+                  "name",
+                  "language-code"
+                ],
+                "defaultSort": "name",
+                "pageSize": 20
+              }
+            },
+            {
+              "key": "translations",
+              "name": "Translations",
+              "type": "table",
+              "objectTypeKey": "name-translation",
+              "config": {
+                "columns": [
+                  "name",
+                  "translated-name",
+                  "active"
+                ],
+                "filterFields": [
+                  "active"
+                ],
+                "sortFields": [
+                  "name",
+                  "translated-name"
+                ],
+                "defaultSort": "name",
+                "pageSize": 25
+              }
+            }
+          ],
+          "details": [
+            {
+              "objectTypeKey": "language",
+              "breadcrumbs": {
+                "showApplication": true,
+                "showObjectType": true,
+                "showAncestors": true
+              },
+              "header": {
+                "titleField": "name",
+                "subtitleField": "language-code",
+                "showObjectType": true
+              },
+              "panels": [
+                {
+                  "key": "translations",
+                  "title": "Name translations",
+                  "region": "main",
+                  "order": 10,
+                  "visible": true,
+                  "type": "children",
+                  "config": {
+                    "objectTypeKeys": [
+                      "name-translation"
+                    ],
+                    "columns": [
+                      "name",
+                      "translated-name",
+                      "active"
+                    ],
+                    "pageSize": 25
+                  }
+                },
+                {
+                  "key": "attributes",
+                  "title": "Language details",
+                  "region": "side",
+                  "order": 10,
+                  "visible": true,
+                  "type": "attributes",
+                  "config": {
+                    "fields": [
+                      "language-code",
+                      "description",
+                      "active"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "objectTypeKey": "name-translation",
+              "breadcrumbs": {
+                "showApplication": true,
+                "showObjectType": true,
+                "showAncestors": true
+              },
+              "header": {
+                "titleField": "name",
+                "subtitleField": "translated-name",
+                "showObjectType": true
+              },
+              "panels": [
+                {
+                  "key": "target",
+                  "title": "Translated record",
+                  "region": "main",
+                  "order": 10,
+                  "visible": true,
+                  "type": "relations",
+                  "config": {
+                    "relationTypeKeys": [
+                      "object-has-translation"
+                    ],
+                    "direction": "incoming",
+                    "columns": [
+                      "name",
+                      "objectType"
+                    ],
+                    "showRelationshipColumn": false
+                  }
+                },
+                {
+                  "key": "attributes",
+                  "title": "Translation details",
+                  "region": "side",
+                  "order": 10,
+                  "visible": true,
+                  "type": "attributes",
+                  "config": {
+                    "fields": [
+                      "translated-name",
+                      "active"
+                    ]
+                  }
+                },
+                {
+                  "key": "hierarchy",
+                  "title": "Hierarchy",
+                  "region": "side",
+                  "order": 20,
+                  "visible": true,
+                  "type": "hierarchy",
+                  "config": {
+                    "showParent": true,
+                    "showAncestors": true
+                  }
+                }
+              ]
+            }
+          ],
+          "settings": {
+            "importEnabled": true,
+            "exportEnabled": true
+          }
+        }
+      ],
+      "consumerApis": [
+        {
+          "key": "stops",
+          "name": "Stops API",
+          "description": "Stops of Graubünden with their municipality, operator, modes, system codes and names in five languages. XREF finds a stop by UIC number, abbreviation, name, a Wikidata item or another system's code, or by a translated name.",
+          "contractVersion": 1,
+          "exposes": [
+            "stop",
+            "municipality"
+          ],
+          "publicNames": {
+            "stop": "Stop",
+            "municipality": "Municipality",
+            "operator": "Operator",
+            "mode": "Mode"
+          },
+          "object": {
+            "fields": {
+              "id": {
+                "role": "id"
+              },
+              "code": {
+                "from": [
+                  "sloid",
+                  "operator-code",
+                  "mode-code"
+                ],
+                "role": "code"
+              },
+              "name": {
+                "from": "name",
+                "role": "name"
+              },
+              "validFrom": {
+                "from": "valid-from",
+                "role": "validFrom"
+              },
+              "validTo": {
+                "from": "valid-to",
+                "role": "validTo"
+              },
+              "stopNumber": "stop-number",
+              "abbreviation": "abbreviation",
+              "fsoNumber": "fso-number",
+              "latitude": "latitude",
+              "longitude": "longitude",
+              "height": "height",
+              "sboid": "operator-sboid"
+            },
+            "parent": [
+              "objectType",
+              "id"
+            ],
+            "path": true,
+            "related": {
+              "operator": {
+                "via": "stop-operated-by-operator",
+                "fields": {
+                  "id": "id",
+                  "code": "operator-code",
+                  "name": "name",
+                  "localName": "relation:local-name",
+                  "isPrimary": "relation:is-primary"
+                }
+              },
+              "modes": {
+                "via": "stop-served-by-mode",
+                "fields": {
+                  "id": "id",
+                  "code": "mode-code",
+                  "name": "name"
+                }
+              },
+              "systemCodes": {
+                "via": "represented-by-system-code",
+                "fields": {
+                  "system": "ancestor:system.name",
+                  "systemKey": "ancestor:system.system-key",
+                  "code": "external-id",
+                  "name": "name"
+                }
+              },
+              "translations": {
+                "via": "object-has-translation",
+                "fields": {
+                  "languageCode": "ancestor:language.language-code",
+                  "translatedName": "translated-name",
+                  "isActive": "active"
+                }
+              }
+            }
+          },
+          "operations": {
+            "objects": {},
+            "xref": {
+              "matchOn": [
+                {
+                  "field": "id",
+                  "exact": 1000
+                },
+                {
+                  "field": "stop-number",
+                  "exact": 900
+                }
+              ],
+              "alsoMatchThrough": [
+                {
+                  "related": "systemCodes",
+                  "firstOf": [
+                    {
+                      "field": "external-id",
+                      "exact": 90
+                    },
+                    {
+                      "field": "name",
+                      "contains": 10
+                    }
+                  ]
+                },
+                {
+                  "related": "translations",
+                  "firstOf": [
+                    {
+                      "field": "translated-name",
+                      "exact": 60
+                    },
+                    {
+                      "field": "translated-name",
+                      "contains": 12
+                    }
+                  ]
+                }
+              ]
+            },
+            "resolve": {},
+            "lists": {
+              "municipalities": {
+                "of": "municipality",
+                "within": {
+                  "filter": "district"
+                }
+              },
+              "stops": {
+                "of": "stop",
+                "within": {
+                  "filter": "municipality"
+                },
+                "sortBy": "stop-number"
+              },
+              "all-stops": {
+                "of": "stop",
+                "sortBy": "stop-number"
+              },
+              "operators": {
+                "of": "operator"
+              },
+              "modes": {
+                "of": "mode"
+              }
+            },
+            "events": {
+              "custom": [
+                {
+                  "key": "stops-changed",
+                  "objectTypes": [
+                    "stop"
+                  ],
+                  "changes": [
+                    "created",
+                    "updated",
+                    "deleted"
+                  ],
+                  "watch": {
+                    "fields": [
+                      "code",
+                      "name"
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "filters": {
+            "district": {
+              "under": [
+                "district"
+              ],
+              "matchOn": [
+                "id",
+                "name",
+                "fso-number"
+              ]
+            },
+            "municipality": {
+              "under": [
+                "municipality"
+              ],
+              "matchOn": [
+                "id",
+                "name",
+                "fso-number"
+              ]
+            },
+            "operator": {
+              "onRelated": "operator",
+              "matchOn": [
+                "operator-code",
+                "name"
+              ],
+              "keepOnlyMatching": true
+            },
+            "mode": {
+              "onRelated": "modes",
+              "matchOn": [
+                "mode-code",
+                "name"
+              ],
+              "keepOnlyMatching": true
+            },
+            "system": {
+              "onRelated": "systemCodes",
+              "matchOn": [
+                "ancestor:system.system-key",
+                "ancestor:system.name"
+              ],
+              "keepOnlyMatching": true,
+              "scoreOnlyMatching": true,
+              "crosswalk": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`attributeTypes`: the first 2 of 25 items are shown.",
+    "`objectTypes`: the first 2 of 10 items are shown.",
+    "`relationTypes`: the first 2 of 10 items are shown.",
+    "`objectTypeRelations`: the first 2 of 15 items are shown.",
+    "`applications[0].objectTypeKeys`: the first 2 of 6 items are shown.",
+    "`applications[0].views`: the first 2 of 8 items are shown.",
+    "`applications[0].views[0].config.columns`: the first 2 of 7 items are shown.",
+    "`applications[0].views[0].config.filterFields`: the first 2 of 7 items are shown.",
+    "`applications[0].views[0].config.sortFields`: the first 2 of 6 items are shown.",
+    "`applications[0].views[1].config.objectTypeKeys`: the first 2 of 4 items are shown.",
+    "`applications[0].details`: the first 2 of 6 items are shown.",
+    "`applications[0].details[0].panels`: the first 2 of 6 items are shown.",
+    "`applications[0].details[1].panels`: the first 2 of 5 items are shown.",
+    "`applications[0].details[1].panels[0].config.columns`: the first 2 of 5 items are shown.",
+    "`applications[1].objectTypeKeys`: the first 2 of 5 items are shown.",
+    "`applications[1].views`: the first 2 of 6 items are shown.",
+    "`applications[1].details[1].panels[0].config.columns`: the first 2 of 4 items are shown.",
+    "`applications[2].objectTypeKeys`: the first 2 of 5 items are shown.",
+    "`applications[2].views`: the first 2 of 4 items are shown.",
+    "`consumerApis[0].exposes`: the first 2 of 4 items are shown.",
+    "`consumerApis[0].object.parent`: the first 2 of 4 items are shown.",
+    "`consumerApis[0].operations.xref.matchOn`: the first 2 of 8 items are shown.",
+    "`consumerApis[0].operations.events.custom[0].watch.fields`: the first 2 of 4 items are shown."
+  ]
+}

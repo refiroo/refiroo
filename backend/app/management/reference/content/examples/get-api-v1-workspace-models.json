@@ -1,0 +1,43 @@
+{
+  "operation": "GET /api/v1/workspace-models",
+  "name": "runningTheRelease",
+  "summary": "The workspaces that run the release, in key order",
+  "request": {
+    "query": {
+      "releaseKey": "guide-reference-swiss",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "releaseId": "00000000-0000-4000-8000-000000000001",
+          "releaseKey": "guide-reference-swiss",
+          "releaseName": "Public transport stops of Graubünden",
+          "releaseVersion": "1.8.1",
+          "schemaVersion": "0.10",
+          "modelHash": "685e4fe9a0126738d3aba4f6c05ac55c3c15ebd97a7a95c9314356bf0f4eaa5e",
+          "version": 1,
+          "updatedAt": "2026-11-02T09:07:00Z",
+          "workspaceKey": "default"
+        },
+        {
+          "releaseId": "00000000-0000-4000-8000-000000000001",
+          "releaseKey": "guide-reference-swiss",
+          "releaseName": "Public transport stops of Graubünden",
+          "releaseVersion": "1.8.1",
+          "schemaVersion": "0.10",
+          "modelHash": "685e4fe9a0126738d3aba4f6c05ac55c3c15ebd97a7a95c9314356bf0f4eaa5e",
+          "version": 1,
+          "updatedAt": "2026-11-02T09:07:00Z",
+          "workspaceKey": "graubuenden"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-1"
+    }
+  }
+}

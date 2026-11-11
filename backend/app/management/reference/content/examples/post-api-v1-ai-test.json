@@ -1,0 +1,43 @@
+{
+  "operation": "POST /api/v1/ai/test",
+  "name": "connection",
+  "summary": "A fixed request that holds no data: the call it made, answered",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "purpose": "connectionTest",
+      "provider": "fake",
+      "model": "fake-1",
+      "sendLevel": "values",
+      "promptVersion": "connection-test/1",
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "jobId": null,
+      "startedAt": "2026-11-02T09:07:00Z",
+      "durationMs": 0,
+      "bytesIn": 64,
+      "bytesOut": 15,
+      "tokensIn": 100,
+      "tokensOut": 20,
+      "costUsd": null,
+      "taskId": null,
+      "outcome": "answered",
+      "failureKind": null,
+      "failure": null,
+      "content": {
+        "instructions": "This is a connection test. Answer {\"ready\": true}.",
+        "context": {
+          "test": true
+        },
+        "answer": {
+          "ready": true
+        }
+      }
+    }
+  }
+}

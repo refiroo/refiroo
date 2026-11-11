@@ -1,0 +1,29 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/dry-run",
+  "name": "vehiclesFile",
+  "summary": "Check the vehicles file against the draft's model; nothing is written",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "sourceFileId": "00000000-0000-4000-8000-000000000027",
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000031",
+      "state": "checking",
+      "draftId": "00000000-0000-4000-8000-000000000024",
+      "draftVersion": 11,
+      "sourceFileId": "00000000-0000-4000-8000-000000000027",
+      "workspaceKey": "graubuenden",
+      "summary": null,
+      "bindingReport": null,
+      "error": null,
+      "items": null
+    }
+  }
+}

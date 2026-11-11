@@ -1,0 +1,69 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/model/migrations",
+  "name": "toTheThirdRelease",
+  "summary": "Queue the preview of a migration of the workspace's records to the third release",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "targetReleaseId": "00000000-0000-4000-8000-000000000034",
+      "expectedVersion": 2
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000035",
+      "kind": "migration",
+      "workspaceKey": "graubuenden",
+      "changeSetId": null,
+      "changeSetVersion": null,
+      "policy": null,
+      "parameters": {
+        "stage": "preview",
+        "targetReleaseId": "00000000-0000-4000-8000-000000000034",
+        "typeMappings": []
+      },
+      "modelReleaseId": "00000000-0000-4000-8000-000000000032",
+      "state": "queued",
+      "stage": null,
+      "progress": {
+        "total": null,
+        "processed": 0
+      },
+      "counts": {
+        "applied": 0,
+        "rejected": 0,
+        "unprocessed": 0,
+        "created": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "deleted": 0
+      },
+      "result": null,
+      "error": null,
+      "createdAt": "2026-11-02T10:10:00Z",
+      "startedAt": null,
+      "finishedAt": null,
+      "expiresAt": "2026-11-02T10:31:00Z",
+      "cancelRequestedAt": null,
+      "leaseOwner": null,
+      "leaseExpiresAt": null,
+      "output": null,
+      "confirmedAt": null,
+      "preview": null,
+      "bindingReport": null,
+      "notices": null,
+      "migration": null,
+      "move": null,
+      "aiProposal": null,
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000025",
+        "name": "Reference Administrator"
+      },
+      "origin": null
+    }
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "operation": "POST /api/v1/imports",
+  "name": "previewTheWorkbook",
+  "summary": "The workbook sent through the profile, as a preview that writes nothing",
+  "request": {},
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000013",
+      "kind": "import",
+      "workspaceKey": "graubuenden",
+      "changeSetId": null,
+      "changeSetVersion": null,
+      "policy": "independent",
+      "parameters": {
+        "run": "background",
+        "onExisting": "reject",
+        "otherWorkspaceIds": "refuse",
+        "stage": "preview",
+        "profile": {
+          "key": "bus-stops-north",
+          "version": 1,
+          "definition": {
+            "sources": [
+              {
+                "sheet": "Haltestellen",
+                "headerRow": 3,
+                "applicationKey": "network",
+                "objectTypeKey": "stop",
+                "record": "upsert",
+                "key": {
+                  "attributeTypeKey": "stop-number",
+                  "storedUnique": false
+                },
+                "columns": [
+                  {
+                    "column": "Haltestelle",
+                    "field": "name"
+                  },
+                  {
+                    "column": "Haltestelle",
+                    "attributeTypeKey": "designation"
+                  }
+                ]
+              }
+            ],
+            "valueMaps": {
+              "dates": {
+                "?": null,
+                "n/a": null,
+                "01.04.2021": "2021-04-01",
+                "12.05.2021": "2021-05-12",
+                "09.03.2022": "2022-03-09",
+                "11.12.2022": "2022-12-11",
+                "10.12.2023": "2023-12-10",
+                "15.12.2024": "2024-12-15",
+                "09.08.2025": "2025-08-09",
+                "03.06.2026": "2026-06-03",
+                "01.08.2026": "2026-08-01"
+              },
+              "municipalities": {
+                "Coira": "Chur",
+                "Cuira": "Chur"
+              }
+            }
+          }
+        },
+        "file": {
+          "name": "Haltestellen_Busbetrieb_Nord.xlsx",
+          "format": "xlsx",
+          "bytes": 10322,
+          "sha256": "4b63aef3c00fb21d0c5e2b9827f97d0991b13bef001988fcb2f10ac222fd1d46"
+        }
+      },
+      "modelReleaseId": "00000000-0000-4000-8000-000000000005",
+      "state": "queued",
+      "stage": null,
+      "progress": {
+        "total": null,
+        "processed": 0
+      },
+      "counts": {
+        "applied": 0,
+        "rejected": 0,
+        "unprocessed": 0,
+        "created": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "deleted": 0
+      },
+      "result": null,
+      "error": null,
+      "createdAt": "2026-11-02T09:42:00Z",
+      "startedAt": null,
+      "finishedAt": null,
+      "expiresAt": "2026-11-02T10:52:00Z",
+      "cancelRequestedAt": null,
+      "leaseOwner": null,
+      "leaseExpiresAt": null,
+      "output": null,
+      "confirmedAt": null,
+      "preview": null,
+      "bindingReport": null,
+      "notices": null,
+      "migration": null,
+      "move": null,
+      "aiProposal": null,
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000006",
+        "name": "Reference Administrator"
+      },
+      "origin": null
+    }
+  },
+  "notes": [
+    "The request part: `{\"workspaceKey\": \"graubuenden\", \"profileKey\": \"bus-stops-north\", \"policy\": \"independent\", \"onExisting\": \"reject\", \"stage\": \"preview\"}`.",
+    "The file part: `Haltestellen_Busbetrieb_Nord.xlsx`.",
+    "`parameters.profile.definition.sources[0].columns`: the first 2 of 5 items are shown."
+  ]
+}

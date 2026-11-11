@@ -1,0 +1,54 @@
+{
+  "operation": "POST /api/v1/users/{user_id}/identities",
+  "name": "linkSso",
+  "summary": "Move the identity a provider sign-in made onto the person who had an account",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "body": {
+      "expectedVersion": 4,
+      "fromUserId": "00000000-0000-4000-8000-000000000024"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Reference Editor (timetable)",
+      "email": "editor@example.org",
+      "active": true,
+      "hasPassword": true,
+      "version": 5,
+      "createdAt": "2026-11-02T09:28:00Z",
+      "updatedAt": "2026-11-02T12:02:00Z",
+      "lastSignInAt": "2026-11-02T10:45:00Z",
+      "roles": [
+        {
+          "key": "timetable-editor",
+          "name": "Timetable editor",
+          "instance": false,
+          "workspaces": [
+            {
+              "key": "graubuenden",
+              "label": "Graubünden"
+            }
+          ]
+        }
+      ],
+      "identities": [
+        {
+          "provider": {
+            "key": "company-sso",
+            "name": "Company single sign-on"
+          },
+          "subject": "sso-1"
+        }
+      ],
+      "localKept": false,
+      "secondFactor": null,
+      "passkeys": 0,
+      "signInManaged": false
+    }
+  }
+}

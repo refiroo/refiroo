@@ -1,0 +1,16 @@
+{
+  "operation": "DELETE /api/v1/workspaces/{workspace_key}",
+  "name": "emptyWorkspace",
+  "summary": "Delete the workspace; nothing referred to it",
+  "request": {
+    "path": {
+      "workspace_key": "winter-timetable"
+    },
+    "query": {
+      "expectedVersion": 3
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

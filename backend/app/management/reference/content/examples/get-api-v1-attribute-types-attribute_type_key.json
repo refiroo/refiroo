@@ -1,0 +1,29 @@
+{
+  "operation": "GET /api/v1/attribute-types/{attribute_type_key}",
+  "name": "stopNumber",
+  "summary": "The stop number: an integer that identifies a stop",
+  "request": {
+    "path": {
+      "attribute_type_key": "stop-number"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "key": "stop-number",
+      "name": "Stop number (UIC)",
+      "description": null,
+      "valueType": "integer",
+      "default": null,
+      "features": {
+        "searchable": true,
+        "unique": true,
+        "filterable": true,
+        "sortable": true
+      },
+      "validation": {},
+      "ui": {}
+    }
+  }
+}

@@ -165,6 +165,9 @@ As in 0.8: each package below is one vertical slice, delivered on the instructio
 3. **Build** the slice: migration when the package names one, service, route, OpenAPI lock
    re-baseline (checked by diffing the document), frontend only where the scope says so. Nothing
    branches on application, type, attribute or relation keys (principle 3).
+   A change that adds or changes a management route updates its reference text in the same change: its
+   section, error lines, catalogue entries and schema fields in `backend/app/management/reference/content/`,
+   and its examples re-recorded (0.14 V-D8).
 4. **Test** with the groups the package lists plus the changed boundary per
    [EXECUTION_GUIDE §2](testing/EXECUTION_GUIDE.md#2-changed-boundary--selected-checks). A new test
    module goes into `TEST_GROUPS` and the guide's table in the same change. No full suite before R.

@@ -1,0 +1,9 @@
+{
+  "operation": "DELETE /api/v1/mail-settings",
+  "name": "remove",
+  "summary": "Remove the settings: no mail is sent, and what needs mail answers 409",
+  "request": {},
+  "response": {
+    "status": 204
+  }
+}

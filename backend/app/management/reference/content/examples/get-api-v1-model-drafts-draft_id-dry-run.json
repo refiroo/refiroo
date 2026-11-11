@@ -1,0 +1,91 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/dry-run",
+  "name": "vehiclesFile",
+  "summary": "The dry run's summary: the eight vehicles would be created",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000031",
+      "state": "completed",
+      "draftId": "00000000-0000-4000-8000-000000000024",
+      "draftVersion": 11,
+      "sourceFileId": "00000000-0000-4000-8000-000000000027",
+      "workspaceKey": "graubuenden",
+      "summary": {
+        "coverage": "complete",
+        "rows": {
+          "total": 8,
+          "run": 8
+        },
+        "sources": [
+          {
+            "source": 0,
+            "profileSource": 0,
+            "sheet": "Fahrzeuge",
+            "objectTypeKey": "fahrzeuge",
+            "rows": 8,
+            "records": {
+              "created": 8,
+              "updated": 0,
+              "unchanged": 0,
+              "deleted": 0
+            },
+            "values": 32,
+            "relationships": 0,
+            "relatedRecords": 0,
+            "missingRecords": 0,
+            "skippedRows": 0,
+            "rejections": []
+          }
+        ],
+        "difference": [],
+        "previousJobId": "00000000-0000-4000-8000-000000000030",
+        "ranAt": "2026-11-02T09:49:00Z"
+      },
+      "bindingReport": [
+        {
+          "sheet": "Fahrzeuge",
+          "objectTypeKey": "fahrzeuge",
+          "rows": 8,
+          "rejectedRows": 0,
+          "missingRecords": 0,
+          "skippedRows": 0,
+          "columns": [
+            {
+              "column": "Fahrzeugnummer",
+              "binding": "attributeTypeKey",
+              "target": "fahrzeugnummer",
+              "cells": 8,
+              "empty": 0,
+              "converted": 8,
+              "valueMapped": 0,
+              "refused": 0,
+              "reading": null
+            },
+            {
+              "column": "Name",
+              "binding": "field",
+              "target": "name",
+              "cells": 8,
+              "empty": 0,
+              "converted": 8,
+              "valueMapped": 0,
+              "refused": 0,
+              "reading": null
+            }
+          ]
+        }
+      ],
+      "error": null,
+      "items": null
+    }
+  },
+  "notes": [
+    "`bindingReport[0].columns`: the first 2 of 5 items are shown."
+  ]
+}

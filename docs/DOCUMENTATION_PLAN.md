@@ -147,6 +147,7 @@ _Revised 2026-10-26: the management API reference is not written here at all; it
 
 - Translating the guide.
 - Video.
+- The management API reference at `/docs/api` (its conventions, area texts, error catalogue and examples) is written and kept by 0.14's Track V in `backend/app/management/reference/content/`, not here; the audit of the OpenAPI descriptions is done there (V-D9): **done 2026-11-11 (0.14 V9)**: every operation, parameter and schema field is described, no description names a package or a decision, and `backend/tests/test_reference_complete.py` holds it.
 - Rewriting API.md, CONSUMER_API or INTEGRATION_API: they stay the builders' contract and design
   record. The guide links to the generated reference instead.
 - Documentation of post-1.0 directions (composable domains, workspace groups).

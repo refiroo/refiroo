@@ -1,0 +1,111 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/inference/application",
+  "name": "everyOpenProposal",
+  "summary": "Apply every open proposal, each as a step of the draft",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "expectedVersion": 6
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 11,
+      "entries": [
+        {
+          "sequence": 7,
+          "step": 5,
+          "kind": "addApplication",
+          "parameters": {
+            "key": "vehicles",
+            "name": "Vehicles"
+          },
+          "inverse": {
+            "kind": "removeApplication",
+            "applicationKey": "vehicles"
+          },
+          "draftVersion": 7,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:42:00Z",
+          "undone": false,
+          "origin": {
+            "type": "proposal",
+            "proposalId": "00000000-0000-4000-8000-000000000028",
+            "inferenceId": "00000000-0000-4000-8000-000000000026",
+            "pattern": "newApplication",
+            "summary": "A new application, Vehicles, named after the file.",
+            "anchor": "cursor-16",
+            "signature": "newApplication|",
+            "keys": {
+              "application": "vehicles"
+            },
+            "created": []
+          },
+          "removed": [],
+          "migration": []
+        },
+        {
+          "sequence": 8,
+          "step": 6,
+          "kind": "addObjectType",
+          "parameters": {
+            "applicationKey": "vehicles",
+            "key": "fahrzeuge",
+            "name": "Fahrzeuge",
+            "pluralName": "Fahrzeuges",
+            "parent": null
+          },
+          "inverse": {
+            "kind": "removeObjectType",
+            "objectType": "fahrzeuge"
+          },
+          "draftVersion": 8,
+          "author": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          },
+          "at": "2026-11-02T09:42:00Z",
+          "undone": false,
+          "origin": {
+            "type": "proposal",
+            "proposalId": "00000000-0000-4000-8000-000000000029",
+            "inferenceId": "00000000-0000-4000-8000-000000000026",
+            "pattern": "keyColumn",
+            "summary": "Each row of Fahrzeuge is one Fahrzeuge: Fahrzeugnummer is filled and different on all 8 rows, and Name is its name.",
+            "anchor": "cursor-17",
+            "signature": "keyColumn|Fahrzeuge|Fahrzeugnummer|Name",
+            "keys": {
+              "type": "fahrzeuge",
+              "keyAttribute": "fahrzeugnummer",
+              "source": "fahrzeuge-fahrzeuge"
+            },
+            "created": [
+              "attributeBinding:fahrzeuge/fahrzeugnummer",
+              "attributeType:fahrzeugnummer"
+            ]
+          },
+          "removed": [],
+          "migration": []
+        }
+      ],
+      "valid": true,
+      "diagnostics": [],
+      "dryRun": {
+        "state": "checking",
+        "jobId": "00000000-0000-4000-8000-000000000030"
+      }
+    }
+  },
+  "notes": [
+    "`entries`: the first 2 of 16 items are shown.",
+    "`entries[1].origin.created`: the first 2 of 6 items are shown."
+  ]
+}

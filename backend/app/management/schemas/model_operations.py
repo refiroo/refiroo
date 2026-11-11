@@ -1,49 +1,36 @@
-"""The draft operations as the OpenAPI document describes them (Product 0.13 AQ).
+"""The draft operations as the OpenAPI document describes them.
 
 ``POST /model-drafts/{id}/operations`` takes a list of operations, each ``{"kind": …, …}``. The kinds
 and the parameters each allows live in one place, the registry in ``engine/model/authoring/kinds.py``
 (``KINDS``, ``PARAMETERS``, a kind's docstring); the engine checks an operation against it and refuses
-what it cannot apply. The schemas here are generated from that registry and only describe it: one
-object per public kind, discriminated by ``kind``, with the kind's docstring as its description.
+what it cannot apply, with its own codes. The schemas here describe the registry and validate
+nothing: one object per public kind, discriminated by ``kind``, its docstring as the description and
+each parameter typed and described by the table in ``model_operation_parameters.py``.
 """
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Union
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
-from pydantic.json_schema import JsonSchemaValue
+from pydantic import BaseModel, Field
 
-from ...engine.model.authoring.kinds import INTERNAL_KINDS, KINDS, PARAMETERS
-
-
-def _described(schema: JsonSchemaValue) -> None:
-    """A parameter is optional in the description (the kind decides which it needs); none has a default."""
-    for member in schema.get("properties", {}).values():
-        member.pop("default", None)
-    schema.pop("required", None)
-    schema["required"] = ["kind"]
-
-
-class _Operation(BaseModel):
-    model_config = ConfigDict(extra="forbid", json_schema_extra=_described)
+from ...engine.model.authoring.kinds import INTERNAL_KINDS, KINDS
+from .model_operation_parameters import PARAMETERS as DESCRIBED
+from .operation_description import operation_model
 
 
 def operation_schema_name(kind: str) -> str:
     return f"{kind[0].upper()}{kind[1:]}Operation"
 
 
-def _schema_of(kind: str) -> type[BaseModel]:
-    fields: dict[str, Any] = {name: (Any, Field(default=None)) for name in PARAMETERS[kind]}
-    return create_model(
-        operation_schema_name(kind),
-        __base__=_Operation,
-        __doc__=" ".join((KINDS[kind].__doc__ or "").split()),
-        kind=(Literal[kind], Field(description="The operation's kind")),
-        **fields,
-    )
+def kind_summary(function: object) -> str:
+    return " ".join((getattr(function, "__doc__", None) or "").split())
 
 
 OPERATION_SCHEMAS: dict[str, type[BaseModel]] = {
-    kind: _schema_of(kind) for kind in sorted(KINDS) if kind not in INTERNAL_KINDS
+    kind: operation_model(
+        operation_schema_name(kind), kind, kind_summary(KINDS[kind]), DESCRIBED[kind]
+    )
+    for kind in sorted(KINDS)
+    if kind not in INTERNAL_KINDS
 }
 
 DraftOperation = Annotated[

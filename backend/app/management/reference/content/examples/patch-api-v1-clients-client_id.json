@@ -1,0 +1,43 @@
+{
+  "operation": "PATCH /api/v1/clients/{client_id}",
+  "name": "rename",
+  "summary": "Rename a client",
+  "request": {
+    "path": {
+      "client_id": "00000000-0000-4000-8000-000000000018"
+    },
+    "body": {
+      "expectedVersion": 1,
+      "name": "Timetable export job"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000018",
+      "name": "Timetable export job",
+      "active": true,
+      "kind": "api",
+      "version": 2,
+      "createdAt": "2026-11-02T11:06:00Z",
+      "updatedAt": "2026-11-02T11:13:00Z",
+      "lastUsedAt": null,
+      "secrets": [
+        {
+          "id": "00000000-0000-4000-8000-000000000019",
+          "createdAt": "2026-11-02T11:06:00Z",
+          "expiresAt": null,
+          "lastUsedAt": null,
+          "hint": "cret"
+        }
+      ],
+      "roles": [],
+      "consumerApis": [],
+      "createdBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000008",
+        "name": "Reference Administrator"
+      }
+    }
+  }
+}

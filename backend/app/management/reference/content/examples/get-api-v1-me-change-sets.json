@@ -1,0 +1,41 @@
+{
+  "operation": "GET /api/v1/me/change-sets",
+  "name": "mine",
+  "summary": "The open change sets the caller started, with the workspace and how many changes each holds",
+  "request": {
+    "query": {
+      "pageSize": 5
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000024",
+          "workspaceKey": "graubuenden",
+          "name": "An idea that is dropped",
+          "modelReleaseId": "00000000-0000-4000-8000-000000000002",
+          "modelReleaseKey": "guide-reference-swiss",
+          "modelReleaseVersion": "1.8.1",
+          "source": "currentLive",
+          "derivedFromPublicationId": null,
+          "version": 1,
+          "createdAt": "2026-11-02T09:42:00Z",
+          "updatedAt": "2026-11-02T09:42:00Z",
+          "createdBy": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Reference Administrator"
+          },
+          "submission": null,
+          "workspaceLabel": "Graubünden",
+          "changeCount": 0
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-7"
+    }
+  }
+}

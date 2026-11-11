@@ -1,0 +1,42 @@
+{
+  "operation": "GET /api/v1/system/readiness",
+  "name": "firstPage",
+  "summary": "Whether each active workspace is served",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "workspaceKey": "default",
+          "release": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "key": "guide-reference-swiss",
+            "version": "1.8.1",
+            "schemaVersion": "0.10"
+          },
+          "state": "served",
+          "unavailableIn": []
+        },
+        {
+          "workspaceKey": "graubuenden",
+          "release": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "key": "guide-reference-swiss",
+            "version": "1.8.1",
+            "schemaVersion": "0.10"
+          },
+          "state": "served",
+          "unavailableIn": []
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-5"
+    }
+  }
+}

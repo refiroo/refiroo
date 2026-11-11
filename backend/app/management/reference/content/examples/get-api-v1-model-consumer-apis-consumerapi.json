@@ -1,0 +1,320 @@
+{
+  "operation": "GET /api/v1/model/consumer-apis/{consumerApi}",
+  "name": "stops",
+  "summary": "The Stops API definition with every default written out",
+  "request": {
+    "path": {
+      "consumerApi": "stops"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "stops",
+      "name": "Stops API",
+      "description": "Stops of Graubünden with their municipality, operator, modes, system codes and names in five languages. XREF finds a stop by UIC number, abbreviation, name, a Wikidata item or another system's code, or by a translated name.",
+      "contractVersion": 1,
+      "exposes": [
+        "stop",
+        "municipality"
+      ],
+      "publicNames": {
+        "stop": "Stop",
+        "municipality": "Municipality",
+        "operator": "Operator",
+        "mode": "Mode"
+      },
+      "object": {
+        "fields": {
+          "id": {
+            "role": "id",
+            "from": [
+              "id"
+            ]
+          },
+          "code": {
+            "role": "code",
+            "from": [
+              "sloid",
+              "operator-code",
+              "mode-code"
+            ]
+          },
+          "name": {
+            "role": "name",
+            "from": [
+              "name"
+            ]
+          },
+          "validFrom": {
+            "role": "validFrom",
+            "from": [
+              "valid-from"
+            ]
+          },
+          "validTo": {
+            "role": "validTo",
+            "from": [
+              "valid-to"
+            ]
+          },
+          "stopNumber": {
+            "from": [
+              "stop-number"
+            ]
+          },
+          "abbreviation": {
+            "from": [
+              "abbreviation"
+            ]
+          },
+          "fsoNumber": {
+            "from": [
+              "fso-number"
+            ]
+          },
+          "latitude": {
+            "from": [
+              "latitude"
+            ]
+          },
+          "longitude": {
+            "from": [
+              "longitude"
+            ]
+          },
+          "height": {
+            "from": [
+              "height"
+            ]
+          },
+          "sboid": {
+            "from": [
+              "operator-sboid"
+            ]
+          }
+        },
+        "parent": {
+          "output": "parent",
+          "fields": {
+            "objectType": {
+              "from": [
+                "objectType"
+              ]
+            },
+            "id": {
+              "from": [
+                "id"
+              ]
+            },
+            "code": {
+              "from": [
+                "code"
+              ]
+            },
+            "name": {
+              "from": [
+                "name"
+              ]
+            }
+          }
+        },
+        "path": "path",
+        "related": {
+          "operator": {
+            "via": "stop-operated-by-operator",
+            "fields": {
+              "id": "id",
+              "code": "operator-code",
+              "name": "name",
+              "localName": "relation:local-name",
+              "isPrimary": "relation:is-primary"
+            }
+          },
+          "modes": {
+            "via": "stop-served-by-mode",
+            "fields": {
+              "id": "id",
+              "code": "mode-code",
+              "name": "name"
+            }
+          },
+          "systemCodes": {
+            "via": "represented-by-system-code",
+            "fields": {
+              "system": "ancestor:system.name",
+              "systemKey": "ancestor:system.system-key",
+              "code": "external-id",
+              "name": "name"
+            }
+          },
+          "translations": {
+            "via": "object-has-translation",
+            "fields": {
+              "languageCode": "ancestor:language.language-code",
+              "translatedName": "translated-name",
+              "isActive": "active"
+            }
+          }
+        }
+      },
+      "operations": {
+        "objects": {},
+        "xref": {
+          "matchOn": [
+            {
+              "field": "id",
+              "exact": 1000
+            },
+            {
+              "field": "stop-number",
+              "exact": 900
+            }
+          ],
+          "alsoMatchThrough": [
+            {
+              "related": "systemCodes",
+              "firstOf": [
+                {
+                  "field": "external-id",
+                  "exact": 90
+                },
+                {
+                  "field": "name",
+                  "contains": 10
+                }
+              ],
+              "preferTypes": []
+            },
+            {
+              "related": "translations",
+              "firstOf": [
+                {
+                  "field": "translated-name",
+                  "exact": 60
+                },
+                {
+                  "field": "translated-name",
+                  "contains": 12
+                }
+              ],
+              "preferTypes": []
+            }
+          ]
+        },
+        "resolve": {},
+        "lists": {
+          "municipalities": {
+            "of": "municipality",
+            "within": {
+              "filter": "district",
+              "types": [
+                "district"
+              ]
+            }
+          },
+          "stops": {
+            "of": "stop",
+            "within": {
+              "filter": "municipality",
+              "types": [
+                "municipality"
+              ]
+            },
+            "sortBy": "stop-number"
+          },
+          "all-stops": {
+            "of": "stop",
+            "sortBy": "stop-number"
+          },
+          "operators": {
+            "of": "operator"
+          },
+          "modes": {
+            "of": "mode"
+          }
+        },
+        "events": {
+          "perType": false,
+          "custom": [
+            {
+              "key": "stops-changed",
+              "objectTypes": [
+                "stop"
+              ],
+              "changes": [
+                "created",
+                "updated",
+                "deleted"
+              ],
+              "watch": {
+                "fields": [
+                  "code",
+                  "name"
+                ],
+                "related": []
+              }
+            }
+          ]
+        }
+      },
+      "filters": {
+        "district": {
+          "under": [
+            "district"
+          ],
+          "matchOn": [
+            "id",
+            "name",
+            "fso-number"
+          ]
+        },
+        "municipality": {
+          "under": [
+            "municipality"
+          ],
+          "matchOn": [
+            "id",
+            "name",
+            "fso-number"
+          ]
+        },
+        "operator": {
+          "onRelated": "operator",
+          "matchOn": [
+            "operator-code",
+            "name"
+          ],
+          "keepOnlyMatching": true,
+          "scoreOnlyMatching": false,
+          "crosswalk": false
+        },
+        "mode": {
+          "onRelated": "modes",
+          "matchOn": [
+            "mode-code",
+            "name"
+          ],
+          "keepOnlyMatching": true,
+          "scoreOnlyMatching": false,
+          "crosswalk": false
+        },
+        "system": {
+          "onRelated": "systemCodes",
+          "matchOn": [
+            "ancestor:system.system-key",
+            "ancestor:system.name"
+          ],
+          "keepOnlyMatching": true,
+          "scoreOnlyMatching": true,
+          "crosswalk": true
+        }
+      }
+    }
+  },
+  "notes": [
+    "`exposes`: the first 2 of 4 items are shown.",
+    "`operations.xref.matchOn`: the first 2 of 8 items are shown.",
+    "`operations.events.custom[0].watch.fields`: the first 2 of 4 items are shown."
+  ]
+}

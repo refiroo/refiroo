@@ -1,0 +1,76 @@
+{
+  "operation": "GET /api/v1/me/permissions",
+  "name": "graubuenden",
+  "summary": "What the person may do in the workspace, and the grants it comes from",
+  "request": {
+    "query": {
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "workspaceKey": "graubuenden",
+      "workspaceLabel": "Graubünden",
+      "roles": [
+        {
+          "key": "timetable-editor",
+          "name": "Timetable editor"
+        }
+      ],
+      "actionGroups": [
+        {
+          "key": "browse",
+          "name": "Browse",
+          "applications": [],
+          "recordTypes": [],
+          "stale": false,
+          "sources": [
+            {
+              "grantId": "00000000-0000-4000-8000-000000000005",
+              "role": {
+                "key": "timetable-editor",
+                "name": "Timetable editor"
+              },
+              "scope": "workspace",
+              "group": {
+                "kind": "group",
+                "id": "00000000-0000-4000-8000-000000000003",
+                "name": "Timetable team"
+              }
+            }
+          ]
+        },
+        {
+          "key": "edit-live",
+          "name": "Edit live",
+          "applications": [
+            "network"
+          ],
+          "recordTypes": [
+            "stop"
+          ],
+          "stale": false,
+          "sources": [
+            {
+              "grantId": "00000000-0000-4000-8000-000000000005",
+              "role": {
+                "key": "timetable-editor",
+                "name": "Timetable editor"
+              },
+              "scope": "workspace",
+              "group": {
+                "kind": "group",
+                "id": "00000000-0000-4000-8000-000000000003",
+                "name": "Timetable team"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`actionGroups`: the first 2 of 4 items are shown."
+  ]
+}

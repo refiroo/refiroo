@@ -1,6 +1,6 @@
 /** Words for the assistant's load of a workbook (0.16 AP6a): its phases, a check's figures and what a load leaves out. */
 
-import type { AiTask, AiTaskDesignCheck, AiTaskPhase } from "@/types";
+import type { AiTask, AiTaskPhase } from "@/types";
 import { count } from "@/features/settings/limits";
 
 export const PHASE: Record<AiTaskPhase, string> = {
@@ -9,9 +9,6 @@ export const PHASE: Record<AiTaskPhase, string> = {
   checking: "Checking every row",
   designing: "The assistant is designing the model and the load",
 };
-
-/** A design's check (per sheet); a task recorded before the design holds a check per table, which this is not. */
-export const isDesignCheck = (check: AiTask["check"]): check is AiTaskDesignCheck => !!check && "sheets" in check;
 
 /** A task whose job waits for the assistant's worker says so (0.13 AQ): `ahead` counts the assistant jobs before it. */
 export function waitingText(ahead: number | null | undefined): string | null {

@@ -1,0 +1,16 @@
+{
+  "operation": "POST /api/v1/mail-settings/test",
+  "name": "test",
+  "summary": "A test message goes through the saved settings now",
+  "request": {
+    "body": {
+      "to": "ada@example.org"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "sentTo": "ada@example.org"
+    }
+  }
+}

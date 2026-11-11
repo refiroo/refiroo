@@ -1,0 +1,68 @@
+{
+  "operation": "GET /api/v1/consumer-subscriptions/{subscription_id}/deliveries",
+  "name": "newestFirst",
+  "summary": "What was delivered, one row per event; the three events of one request share its status and attempts",
+  "request": {
+    "path": {
+      "subscription_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "deliveryId": "00000000-0000-4000-8000-000000000003",
+          "eventId": "00000000-0000-4000-8000-000000000004",
+          "event": "stops-changed",
+          "change": "created",
+          "objectType": "Stop",
+          "objectId": "00000000-0000-4000-8000-000000000005",
+          "position": 1234,
+          "status": "succeeded",
+          "attempts": 2,
+          "responseStatus": 200,
+          "sentAt": "2026-11-02T09:56:00Z",
+          "nextAttemptAt": null,
+          "resendOf": null
+        },
+        {
+          "deliveryId": "00000000-0000-4000-8000-000000000003",
+          "eventId": "00000000-0000-4000-8000-000000000006",
+          "event": "stops-changed",
+          "change": "created",
+          "objectType": "Stop",
+          "objectId": "00000000-0000-4000-8000-000000000007",
+          "position": 1233,
+          "status": "succeeded",
+          "attempts": 2,
+          "responseStatus": 200,
+          "sentAt": "2026-11-02T09:56:00Z",
+          "nextAttemptAt": null,
+          "resendOf": null
+        },
+        {
+          "deliveryId": "00000000-0000-4000-8000-000000000003",
+          "eventId": "00000000-0000-4000-8000-000000000008",
+          "event": "stops-changed",
+          "change": "updated",
+          "objectType": "Stop",
+          "objectId": "00000000-0000-4000-8000-000000000009",
+          "position": 1232,
+          "status": "succeeded",
+          "attempts": 2,
+          "responseStatus": 200,
+          "sentAt": "2026-11-02T09:56:00Z",
+          "nextAttemptAt": null,
+          "resendOf": null
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  }
+}

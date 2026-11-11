@@ -1,0 +1,35 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/inference",
+  "name": "newApplication",
+  "summary": "Propose a new application from the vehicles file",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "mode": "newApplication",
+      "applicationKey": "vehicles",
+      "applicationName": "Vehicles"
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000026",
+      "state": "checking",
+      "mode": "newApplication",
+      "draftVersion": 6,
+      "sourceFileId": "00000000-0000-4000-8000-000000000027",
+      "counts": {
+        "open": 0,
+        "applied": 0,
+        "held": 0,
+        "rejected": 0
+      },
+      "disagreements": [],
+      "warnings": [],
+      "proposed": [],
+      "error": null
+    }
+  }
+}

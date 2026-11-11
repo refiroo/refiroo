@@ -1,0 +1,28 @@
+{
+  "operation": "POST /api/v1/agent-access/applications",
+  "name": "planningAssistant",
+  "summary": "Register an assistant that may return to an exact HTTPS address",
+  "request": {
+    "body": {
+      "name": "Planning assistant",
+      "redirectUris": [
+        "https://assistant.example.org/callback"
+      ]
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000030",
+      "name": "Planning assistant",
+      "source": "administrator",
+      "returnsTo": [
+        "assistant.example.org"
+      ],
+      "blocked": false,
+      "signedIn": 0,
+      "createdAt": "2026-11-02T12:30:00Z",
+      "lastUsedAt": null
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "operation": "GET /api/v1/consumer-subscriptions/{subscription_id}",
+  "name": "whileARequestIsRetried",
+  "summary": "A subscription whose last request failed: the request being retried and when it is due",
+  "request": {
+    "path": {
+      "subscription_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Stops of Zuoz",
+      "source": "consumerApi",
+      "consumerApi": "stops",
+      "contractVersion": 1,
+      "workspaceKey": "graubuenden",
+      "events": [
+        "stops-changed"
+      ],
+      "filters": {
+        "municipality": [
+          "Zuoz"
+        ]
+      },
+      "url": "https://hooks.example.org/rdm/stops",
+      "maxEventsPerBatch": 10,
+      "payload": "full",
+      "format": "rdm",
+      "status": "active",
+      "suspension": null,
+      "acknowledgedThrough": 1231,
+      "delivery": {
+        "lastDeliveredAt": null,
+        "pending": {
+          "deliveryId": "00000000-0000-4000-8000-000000000003",
+          "throughPosition": 1237,
+          "attempts": 1,
+          "failingSince": "2026-11-02T09:07:00Z",
+          "lastAttemptAt": "2026-11-02T09:07:00Z",
+          "nextAttemptAt": "2026-11-02T09:49:00Z",
+          "lastError": {
+            "kind": "status",
+            "status": 503,
+            "message": "503 Service Unavailable: Service Unavailable"
+          }
+        }
+      },
+      "signingKeyCreatedAt": "2026-11-02T09:00:00Z",
+      "previousSigningKeyExpiresAt": null,
+      "version": 1,
+      "createdAt": "2026-11-02T09:00:00Z",
+      "updatedAt": "2026-11-02T09:00:00Z",
+      "owner": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      }
+    }
+  },
+  "notes": [
+    "The times in the examples are placeholders in the order things happened, not the real gaps: the first retry follows the first failure after about 10 seconds."
+  ]
+}

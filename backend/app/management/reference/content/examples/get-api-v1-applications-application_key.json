@@ -1,0 +1,213 @@
+{
+  "operation": "GET /api/v1/applications/{application_key}",
+  "name": "network",
+  "summary": "The network application with the types it holds",
+  "request": {
+    "path": {
+      "application_key": "network"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "key": "network",
+      "name": "Network",
+      "description": "The geography, stops, operators and modes of public transport in Graubünden",
+      "icon": "route",
+      "color": "#1f6fb2",
+      "state": "active",
+      "objectTypeKeys": [
+        "canton",
+        "district"
+      ],
+      "defaultView": "stops",
+      "views": [
+        {
+          "key": "stops",
+          "name": "Stops",
+          "type": "table",
+          "objectTypeKey": "stop",
+          "config": {
+            "columns": [
+              "name",
+              "stop-number"
+            ],
+            "filterFields": [
+              "stop-number",
+              "abbreviation"
+            ],
+            "sortFields": [
+              "name",
+              "stop-number"
+            ],
+            "defaultSort": "name",
+            "pageSize": 25
+          },
+          "objectTypeId": "00000000-0000-4000-8000-000000000005"
+        },
+        {
+          "key": "geography",
+          "name": "Geography",
+          "type": "tree",
+          "config": {
+            "rootObjectTypeKeys": [
+              "canton"
+            ],
+            "objectTypeKeys": [
+              "canton",
+              "district"
+            ],
+            "labelField": "name",
+            "secondaryField": "objectType",
+            "childSort": {
+              "district": "name",
+              "municipality": "name",
+              "stop": "name"
+            },
+            "pageSize": 50,
+            "actions": [
+              "createChild",
+              "rename",
+              "move"
+            ],
+            "availabilityField": null
+          }
+        }
+      ],
+      "details": [
+        {
+          "objectTypeKey": "stop",
+          "breadcrumbs": {
+            "showApplication": true,
+            "showObjectType": true,
+            "showAncestors": true
+          },
+          "header": {
+            "titleField": "name",
+            "subtitleField": "stop-number",
+            "showObjectType": true
+          },
+          "panels": [
+            {
+              "key": "modes",
+              "title": "Modes",
+              "region": "main",
+              "order": 10,
+              "visible": true,
+              "type": "relations",
+              "config": {
+                "relationTypeKeys": [
+                  "stop-served-by-mode"
+                ],
+                "direction": "outgoing",
+                "columns": [
+                  "name",
+                  "mode-code"
+                ],
+                "showRelationshipColumn": false
+              }
+            },
+            {
+              "key": "operator",
+              "title": "Operator",
+              "region": "main",
+              "order": 20,
+              "visible": true,
+              "type": "relations",
+              "config": {
+                "relationTypeKeys": [
+                  "stop-operated-by-operator"
+                ],
+                "direction": "outgoing",
+                "columns": [
+                  "name",
+                  "operator-code",
+                  "operator-sboid"
+                ],
+                "showRelationshipColumn": false
+              }
+            }
+          ],
+          "objectTypeId": "00000000-0000-4000-8000-000000000005"
+        },
+        {
+          "objectTypeKey": "municipality",
+          "breadcrumbs": {
+            "showApplication": true,
+            "showObjectType": true,
+            "showAncestors": true
+          },
+          "header": {
+            "titleField": "name",
+            "subtitleField": "fso-number",
+            "showObjectType": true
+          },
+          "panels": [
+            {
+              "key": "stops",
+              "title": "Stops",
+              "region": "main",
+              "order": 10,
+              "visible": true,
+              "type": "children",
+              "config": {
+                "objectTypeKeys": [
+                  "stop"
+                ],
+                "columns": [
+                  "name",
+                  "stop-number"
+                ],
+                "pageSize": 25
+              }
+            },
+            {
+              "key": "system-codes",
+              "title": "System codes",
+              "region": "main",
+              "order": 20,
+              "visible": true,
+              "type": "relations",
+              "config": {
+                "relationTypeKeys": [
+                  "system-code-maps-to"
+                ],
+                "direction": "incoming",
+                "columns": [
+                  "ancestor:system",
+                  "name",
+                  "external-id"
+                ],
+                "showRelationshipColumn": false,
+                "sortFields": [
+                  "ancestor:system",
+                  "external-id",
+                  "name"
+                ],
+                "defaultSort": "ancestor:system"
+              }
+            }
+          ],
+          "objectTypeId": "00000000-0000-4000-8000-000000000006"
+        }
+      ],
+      "settings": {
+        "importEnabled": true,
+        "exportEnabled": true
+      }
+    }
+  },
+  "notes": [
+    "`objectTypeKeys`: the first 2 of 6 items are shown.",
+    "`views`: the first 2 of 8 items are shown.",
+    "`views[0].config.columns`: the first 2 of 7 items are shown.",
+    "`views[0].config.filterFields`: the first 2 of 7 items are shown.",
+    "`views[0].config.sortFields`: the first 2 of 6 items are shown.",
+    "`views[1].config.objectTypeKeys`: the first 2 of 4 items are shown.",
+    "`details`: the first 2 of 6 items are shown.",
+    "`details[0].panels`: the first 2 of 6 items are shown.",
+    "`details[1].panels`: the first 2 of 5 items are shown.",
+    "`details[1].panels[0].config.columns`: the first 2 of 5 items are shown."
+  ]
+}

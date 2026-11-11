@@ -1,0 +1,53 @@
+{
+  "operation": "GET /api/v1/ai/tasks/{task_id}/changes",
+  "name": "winterList",
+  "summary": "The records the check would change in the Haltestellen sheet, with each field now and after",
+  "request": {
+    "path": {
+      "task_id": "00000000-0000-4000-8000-000000000020"
+    },
+    "query": {
+      "source": 0,
+      "pageSize": 10
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "recordId": "00000000-0000-4000-8000-000000000025",
+          "name": "Davos Frauenkirch",
+          "table": "Haltestellen",
+          "fields": [
+            {
+              "field": "valid-from",
+              "label": "Valid from",
+              "now": "2025-10-14",
+              "after": "2021-04-01"
+            }
+          ]
+        },
+        {
+          "recordId": "00000000-0000-4000-8000-000000000026",
+          "name": "Davos Glaris",
+          "table": "Haltestellen",
+          "fields": [
+            {
+              "field": "valid-from",
+              "label": "Valid from",
+              "now": "2025-10-13",
+              "after": "2021-04-01"
+            }
+          ]
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-4"
+    }
+  },
+  "notes": [
+    "A saved layout read the workbook, so no assistant session ran; the answers are the engine's."
+  ]
+}

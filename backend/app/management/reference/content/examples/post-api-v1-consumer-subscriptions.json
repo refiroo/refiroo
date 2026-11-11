@@ -1,0 +1,66 @@
+{
+  "operation": "POST /api/v1/consumer-subscriptions",
+  "name": "create",
+  "summary": "Subscribe a receiver to the changes of the stops of Zuoz, up to ten events per request",
+  "request": {
+    "body": {
+      "name": "Stops of Zuoz",
+      "consumerApi": "stops",
+      "workspaceKey": "graubuenden",
+      "events": [
+        "stops-changed"
+      ],
+      "filters": {
+        "municipality": [
+          "Zuoz"
+        ]
+      },
+      "url": "https://hooks.example.org/rdm/stops",
+      "maxEventsPerBatch": 10
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Stops of Zuoz",
+      "source": "consumerApi",
+      "consumerApi": "stops",
+      "contractVersion": 1,
+      "workspaceKey": "graubuenden",
+      "events": [
+        "stops-changed"
+      ],
+      "filters": {
+        "municipality": [
+          "Zuoz"
+        ]
+      },
+      "url": "https://hooks.example.org/rdm/stops",
+      "maxEventsPerBatch": 10,
+      "payload": "full",
+      "format": "rdm",
+      "status": "active",
+      "suspension": null,
+      "acknowledgedThrough": 1231,
+      "delivery": {
+        "lastDeliveredAt": null,
+        "pending": null
+      },
+      "signingKeyCreatedAt": "2026-11-02T09:00:00Z",
+      "previousSigningKeyExpiresAt": null,
+      "version": 1,
+      "createdAt": "2026-11-02T09:00:00Z",
+      "updatedAt": "2026-11-02T09:00:00Z",
+      "owner": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "signingSecret": "rdmwh_example-signing-secret"
+    }
+  },
+  "notes": [
+    "The answer is the only one that holds `signingSecret`; no read returns it again. The recorded call went to a receiver on the same machine; the address shown is invented."
+  ]
+}

@@ -34,9 +34,10 @@ from ..access import (
     IMPORT_FORM,
     WORKSPACE_QUERY,
     AuthorizedRoute,
+    CurrentPermissions,
     requires,
 )
-from ..dependencies import DbSession
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import import_profile_page, import_profile_response, job_responses
 from ..projections.job_rows import job_row_page
@@ -50,6 +51,7 @@ from ..schemas.imports import (
     ProfileCheckResponse,
 )
 from ..schemas.jobs import JobResponse, JobRowPage
+from ..source_file_access import usable_source_file
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["imports"])
 write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["imports"])
@@ -141,6 +143,8 @@ def delete_import_profile(
 def create_import(
     request: Request,
     session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     payload: Annotated[
         Json[ImportRequest],
         Form(
@@ -175,8 +179,9 @@ def create_import(
     key repeated with other values) is rejected with the column. Under ``atomic`` such a row stops
     the import before anything is written. A file that does not fit the profile fails the job with
     every problem (``IMPORT_FILE_MISMATCH``). ``sourceFileId`` imports a stored source file (0.10
-    A3) instead of a file part. Refused before a job is stored: ``413
-    IMPORT_TOO_LARGE``, ``422 UNSUPPORTED_FILE_FORMAT``, ``422 INVALID_IMPORT_PROFILE`` and the
+    A3) instead of a file part. Refused before a job is stored: ``404 SOURCE_FILE_NOT_FOUND`` for
+    an unknown file or an assistant task's workbook, ``403 FORBIDDEN`` for a profile's file the
+    caller may not use, ``413 IMPORT_TOO_LARGE``, ``422 UNSUPPORTED_FILE_FORMAT``, ``422 INVALID_IMPORT_PROFILE`` and the
     context's codes.
     """
     limits: BatchLimits = request.app.state.batch_limits
@@ -188,6 +193,9 @@ def create_import(
             "Send the file part or name a stored source file in sourceFileId, not both",
             [{"loc": ["body", "file"], "msg": "file or request.sourceFileId, exactly one"}],
         )
+    if payload.sourceFileId is not None:
+        # The same rule as reading the file at /source-files/{id}.
+        usable_source_file(session, payload.sourceFileId, permissions, principal)
     with (
         stored_upload(
             session, payload.sourceFileId, files=files, max_bytes=limits.import_max_bytes

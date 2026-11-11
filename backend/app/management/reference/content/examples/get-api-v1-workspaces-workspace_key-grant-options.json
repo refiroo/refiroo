@@ -1,0 +1,48 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/grant-options",
+  "name": "graubuenden",
+  "summary": "What a grant in the workspace can name, from the workspace's model",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "applications": [
+        {
+          "key": "network",
+          "name": "Network"
+        },
+        {
+          "key": "systems",
+          "name": "Systems"
+        },
+        {
+          "key": "names",
+          "name": "Names"
+        }
+      ],
+      "recordTypes": [
+        {
+          "key": "canton",
+          "name": "Canton"
+        },
+        {
+          "key": "district",
+          "name": "District"
+        }
+      ],
+      "consumerApis": [
+        {
+          "key": "stops",
+          "name": "Stops API"
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`recordTypes`: the first 2 of 10 items are shown."
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/relation-matrix",
+  "name": "municipalitiesBySystem",
+  "summary": "Two municipalities against the systems that name them",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "applicationKey": "systems",
+      "viewKey": "municipalities-by-system",
+      "pageSize": 2,
+      "columnPageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "row": {
+            "id": "00000000-0000-4000-8000-000000000019",
+            "objectTypeKey": "municipality",
+            "name": "Albula/Alvra",
+            "fields": {
+              "name": "Albula/Alvra",
+              "fso-number": 3542
+            }
+          },
+          "relationSetVersion": 1,
+          "cells": [
+            {
+              "columnId": "00000000-0000-4000-8000-000000000037",
+              "state": "none",
+              "conflict": false,
+              "recordCount": 0,
+              "matchingCount": 0,
+              "records": [],
+              "publication": null
+            },
+            {
+              "columnId": "00000000-0000-4000-8000-000000000038",
+              "state": "one",
+              "conflict": false,
+              "recordCount": 1,
+              "matchingCount": 1,
+              "records": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000017",
+                  "name": "Q15890943 Albula/Alvra",
+                  "version": 1,
+                  "relationId": "00000000-0000-4000-8000-000000000018",
+                  "relationVersion": 1,
+                  "relationAttributes": {},
+                  "meetsCondition": true,
+                  "fields": {
+                    "external-id": "Q15890943",
+                    "description": null
+                  }
+                }
+              ],
+              "publication": null
+            },
+            {
+              "columnId": "00000000-0000-4000-8000-000000000039",
+              "state": "none",
+              "conflict": false,
+              "recordCount": 0,
+              "matchingCount": 0,
+              "records": [],
+              "publication": null
+            }
+          ]
+        },
+        {
+          "row": {
+            "id": "00000000-0000-4000-8000-000000000040",
+            "objectTypeKey": "municipality",
+            "name": "Arosa",
+            "fields": {
+              "name": "Arosa",
+              "fso-number": 3921
+            }
+          },
+          "relationSetVersion": 1,
+          "cells": [
+            {
+              "columnId": "00000000-0000-4000-8000-000000000037",
+              "state": "none",
+              "conflict": false,
+              "recordCount": 0,
+              "matchingCount": 0,
+              "records": [],
+              "publication": null
+            },
+            {
+              "columnId": "00000000-0000-4000-8000-000000000038",
+              "state": "one",
+              "conflict": false,
+              "recordCount": 1,
+              "matchingCount": 1,
+              "records": [
+                {
+                  "id": "00000000-0000-4000-8000-000000000041",
+                  "name": "Q63954 Arosa",
+                  "version": 1,
+                  "relationId": "00000000-0000-4000-8000-000000000042",
+                  "relationVersion": 1,
+                  "relationAttributes": {},
+                  "meetsCondition": true,
+                  "fields": {
+                    "external-id": "Q63954",
+                    "description": null
+                  }
+                }
+              ],
+              "publication": null
+            },
+            {
+              "columnId": "00000000-0000-4000-8000-000000000039",
+              "state": "none",
+              "conflict": false,
+              "recordCount": 0,
+              "matchingCount": 0,
+              "records": [],
+              "publication": null
+            }
+          ]
+        }
+      ],
+      "nextCursor": "cursor-11",
+      "prevCursor": null,
+      "anchor": "cursor-12",
+      "columns": [
+        {
+          "id": "00000000-0000-4000-8000-000000000037",
+          "name": "Regional ticketing (FICTIONAL)",
+          "label": "ticketing"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000038",
+          "name": "Wikidata: municipalities",
+          "label": "wikidata-municipalities"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000039",
+          "name": "Wikidata: stations",
+          "label": "wikidata-stations"
+        }
+      ],
+      "columnsNextCursor": null,
+      "columnsPrevCursor": null,
+      "emptyColumnsHidden": null
+    }
+  }
+}

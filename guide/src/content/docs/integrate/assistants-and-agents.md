@@ -10,7 +10,7 @@ This connection is separate from the [built-in assistant task API](/docs/integra
 
 ## Identity and permission
 
-MCP uses Streamable HTTP at `/mcp`, with protocol version `2025-11-25` and JSON answers. It accepts only tokens for the `agent` audience. Such a token cannot call management or consumer API routes. An API client cannot request an agent token; create a client of kind `agent` instead. See the [client operations](/docs/api/?api=management#tag/clients) and [OAuth operations](/docs/api/?api=management#tag/oauth).
+MCP uses Streamable HTTP at `/mcp`, with protocol version `2025-11-25` and JSON answers. It accepts only tokens for the `agent` audience. Such a token cannot call management or consumer API routes. An API client cannot request an agent token; create a client of kind `agent` instead. See the [client operations](/docs/api/?api=management#tag/security) and [OAuth operations](/docs/api/?api=management#tag/oauth).
 
 The connection acts as its person or client. Its management permissions are restricted to **Browse** and **Work in change sets**, even if that identity also holds Approve or Publish. Consumer API grants remain available. Tools outside its access are absent from the tool list and refused if called directly. Application and record-type restrictions still apply to writes.
 
@@ -34,7 +34,7 @@ Start by discovering the connection's tools rather than assuming that every tool
 | `list_changes` | Page through workspace changes, newest first; optionally narrow by kinds, actor and period. |
 | Generated `lookup_<key>` | Read one granted consumer contract using the operations and inputs described below. Discover its actual name from the connection. |
 
-These tools return the corresponding API shapes. Use the [record and query operations](/docs/api/?api=management#tag/objects), [mapping operations](/docs/api/?api=management#tag/mappings), [changes operations](/docs/api/?api=management#tag/changes) and [agent-access reference](/docs/api/?api=management#tag/agent-access) for the contracts.
+These tools return the corresponding API shapes. Use the [record and query operations](/docs/api/?api=management#tag/objects), [mapping operations](/docs/api/?api=management#tag/mapping), [changes operations](/docs/api/?api=management#tag/changes) and [agent-access reference](/docs/api/?api=management#tag/agent-access) for the contracts.
 
 `mapping_coverage` takes the application and view; refiroo reads the relationship binding from that view. `history_facts` reads a workspace or a record over a period whose start is included and end excluded, with an optional IANA time zone. `HISTORY_PERIOD_INVALID` means the dates or time zone need correcting. The assistant receives the facts and can word them itself; it cannot request a provider-written history account through this connection.
 

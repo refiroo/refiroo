@@ -1,0 +1,74 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/mapping-proposals",
+  "name": "proposeTargets",
+  "summary": "Targets for the codes the view lacks are proposed into a new change set",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "applicationKey": "systems",
+      "viewKey": "codes-to-stops",
+      "changeSetName": "Map the ticketing codes to stops"
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "kind": "aiProposal",
+      "workspaceKey": "graubuenden",
+      "changeSetId": "00000000-0000-4000-8000-000000000022",
+      "changeSetVersion": 1,
+      "policy": null,
+      "parameters": {
+        "applicationKey": "systems",
+        "viewKey": "codes-to-stops",
+        "relationTypeKey": "system-code-maps-to",
+        "parentObjectId": null,
+        "search": null,
+        "sendLevel": null,
+        "promptVersion": "mapping-targets/2"
+      },
+      "modelReleaseId": "00000000-0000-4000-8000-000000000023",
+      "state": "queued",
+      "stage": null,
+      "progress": {
+        "total": null,
+        "processed": 0
+      },
+      "counts": {
+        "applied": 0,
+        "rejected": 0,
+        "unprocessed": 0,
+        "created": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "deleted": 0
+      },
+      "result": null,
+      "error": null,
+      "createdAt": "2026-11-02T09:35:00Z",
+      "startedAt": null,
+      "finishedAt": null,
+      "expiresAt": "2026-11-02T09:42:00Z",
+      "cancelRequestedAt": null,
+      "leaseOwner": null,
+      "leaseExpiresAt": null,
+      "output": null,
+      "confirmedAt": null,
+      "preview": null,
+      "bindingReport": null,
+      "notices": null,
+      "migration": null,
+      "move": null,
+      "aiProposal": null,
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000024",
+        "name": "Reference Administrator"
+      },
+      "origin": null
+    }
+  }
+}

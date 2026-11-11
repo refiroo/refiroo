@@ -1,0 +1,78 @@
+{
+  "operation": "GET /api/v1/users/{user_id}/grants",
+  "name": "referenceEditor",
+  "summary": "The person's grants: their own and their group's, which names the group",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000005",
+          "principal": {
+            "kind": "group",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "Timetable team"
+          },
+          "role": {
+            "key": "timetable-editor",
+            "name": "Timetable editor"
+          },
+          "consumerApi": null,
+          "scope": {
+            "instance": false,
+            "workspaceKey": "graubuenden",
+            "applications": [
+              "network"
+            ],
+            "recordTypes": [
+              "stop"
+            ],
+            "applicationNames": [
+              "Network"
+            ],
+            "recordTypeNames": [
+              "Stop"
+            ],
+            "missingApplications": [],
+            "missingRecordTypes": []
+          },
+          "stale": false,
+          "createdAt": "2026-11-02T10:10:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "principal": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000001",
+            "name": "Reference Editor (timetable)"
+          },
+          "role": {
+            "key": "reader",
+            "name": "Reader"
+          },
+          "consumerApi": null,
+          "scope": {
+            "instance": false,
+            "workspaceKey": "graubuenden",
+            "applications": [],
+            "recordTypes": [],
+            "applicationNames": [],
+            "recordTypeNames": [],
+            "missingApplications": [],
+            "missingRecordTypes": []
+          },
+          "stale": false,
+          "createdAt": "2026-11-02T10:17:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-7"
+    }
+  }
+}

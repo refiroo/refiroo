@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/me/sessions/{session_id}",
+  "name": "otherSession",
+  "summary": "Sign out another session of the person",
+  "request": {
+    "path": {
+      "session_id": "00000000-0000-4000-8000-000000000010"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

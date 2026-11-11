@@ -1,0 +1,35 @@
+{
+  "operation": "GET /api/v1/me/notification-mail",
+  "name": "mine",
+  "summary": "Whether the caller is mailed, to which address, and how each kind of notice is",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "available": true,
+      "reason": null,
+      "email": "admin@example.org",
+      "kinds": [
+        {
+          "kind": "change-set.submitted",
+          "label": "A change set is waiting for your approval",
+          "delivery": "now"
+        },
+        {
+          "kind": "change-set.approved",
+          "label": "A change set you submitted was approved",
+          "delivery": "now"
+        }
+      ],
+      "digest": {
+        "every": "daily",
+        "timeZone": "Europe/Zurich",
+        "nextAt": "2026-11-02T09:35:00Z"
+      }
+    }
+  },
+  "notes": [
+    "`kinds`: the first 2 of 7 items are shown."
+  ]
+}

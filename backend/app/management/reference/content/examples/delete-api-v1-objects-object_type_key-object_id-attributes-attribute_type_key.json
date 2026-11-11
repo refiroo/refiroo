@@ -1,0 +1,18 @@
+{
+  "operation": "DELETE /api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
+  "name": "clearHeight",
+  "summary": "Remove the height again",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000026",
+      "attribute_type_key": "height"
+    },
+    "query": {
+      "expectedVersion": 3
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

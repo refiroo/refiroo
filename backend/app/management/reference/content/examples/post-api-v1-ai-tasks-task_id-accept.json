@@ -1,0 +1,408 @@
+{
+  "operation": "POST /api/v1/ai/tasks/{task_id}/accept",
+  "name": "savedLayout",
+  "summary": "Accept the proposal: every row is checked in a dry run, and nothing is loaded yet",
+  "request": {
+    "path": {
+      "task_id": "00000000-0000-4000-8000-000000000020"
+    },
+    "body": {
+      "expectedVersion": 1
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000020",
+      "workspaceKey": "graubuenden",
+      "fileName": "Haltestellen_Busbetrieb_Nord_Winter.xlsx",
+      "sourceFileId": "00000000-0000-4000-8000-000000000021",
+      "words": "The next version of the bus company's stop list",
+      "title": null,
+      "state": "checking",
+      "version": 2,
+      "jobId": "00000000-0000-4000-8000-000000000024",
+      "phase": null,
+      "createdAt": "2026-11-02T10:38:00Z",
+      "updatedAt": "2026-11-02T10:45:00Z",
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "reading": {
+        "tables": [
+          {
+            "table": "t1",
+            "sheet": "Haltestellen",
+            "range": "A3:J7",
+            "list": null,
+            "rows": 4,
+            "as": "update",
+            "objectTypeKey": "stop",
+            "applicationKey": "network",
+            "parentTypeKeys": [
+              "municipality"
+            ],
+            "typeName": "Stop",
+            "reason": "Read as the profile “Bus stops, Busbetrieb Nord” reads this layout",
+            "evidence": "The profile reads every row of this table as a new record: it holds no key to match the rows to stored records by.",
+            "owner": "profile",
+            "origin": null,
+            "profile": {
+              "key": "bus-stops-north",
+              "name": "Bus stops, Busbetrieb Nord",
+              "version": 1,
+              "source": 0
+            },
+            "keyColumn": null,
+            "key": null,
+            "keyOptions": [],
+            "matched": 0,
+            "new": 0,
+            "missing": 0,
+            "namesDiffer": 0,
+            "meaning": [],
+            "parent": null,
+            "notes": [],
+            "attention": [],
+            "leftOut": [
+              {
+                "column": "C",
+                "header": "Linien",
+                "reason": "The profile “Bus stops, Busbetrieb Nord” does not read it; the file it read before had it too"
+              },
+              {
+                "column": "F",
+                "header": "Barrierefrei J/N",
+                "reason": "The profile “Bus stops, Busbetrieb Nord” does not read it; the file it read before had it too"
+              }
+            ],
+            "columns": [
+              {
+                "column": "A",
+                "header": "Haltestelle",
+                "binding": {
+                  "attributeTypeKey": "designation"
+                },
+                "kind": "attributeTypeKey",
+                "label": "The attribute “Designation”",
+                "evidence": null,
+                "leftOut": null,
+                "known": false,
+                "owner": "profile",
+                "origin": null
+              },
+              {
+                "column": "B",
+                "header": "Gemeinde",
+                "binding": {
+                  "parent": {
+                    "objectTypeKey": "municipality",
+                    "matchBy": {
+                      "field": "name"
+                    }
+                  }
+                },
+                "kind": "parent",
+                "label": "Its parent: a Municipality found by name",
+                "evidence": null,
+                "leftOut": null,
+                "known": false,
+                "owner": "profile",
+                "origin": null
+              }
+            ],
+            "choices": {
+              "newRecords": {
+                "value": "create",
+                "owner": "rules"
+              },
+              "names": {
+                "value": "file",
+                "owner": "rules"
+              },
+              "missing": {
+                "value": "leave",
+                "owner": "rules"
+              },
+              "load": {
+                "value": true,
+                "owner": "rules"
+              }
+            }
+          },
+          {
+            "table": "t2",
+            "sheet": "Namen",
+            "range": "A3:D16",
+            "list": null,
+            "rows": 13,
+            "as": "update",
+            "objectTypeKey": "municipality",
+            "applicationKey": "network",
+            "parentTypeKeys": [
+              "district"
+            ],
+            "typeName": "Municipality",
+            "reason": "An update of Municipalities",
+            "evidence": "Its 'DE' column holds the records' names: 9 of 13 match. 4 keys are new. 35 stored records are not in the file.",
+            "owner": "rules",
+            "origin": null,
+            "profile": null,
+            "keyColumn": "A",
+            "key": {
+              "field": "name"
+            },
+            "keyOptions": [
+              {
+                "column": "A",
+                "header": "DE",
+                "key": {
+                  "field": "name"
+                },
+                "matched": 9
+              },
+              {
+                "column": "C",
+                "header": "IT",
+                "key": {
+                  "field": "name"
+                },
+                "matched": 8
+              }
+            ],
+            "matched": 9,
+            "new": 4,
+            "missing": 35,
+            "namesDiffer": 0,
+            "meaning": [],
+            "parent": null,
+            "notes": [
+              "New rows have no place to go: Municipality records stand under a parent, the stored ones do not share one and nothing in the file names one, so new keys are left out of this load by default"
+            ],
+            "attention": [
+              "newKeys",
+              "missing",
+              "noParent"
+            ],
+            "leftOut": [],
+            "columns": [
+              {
+                "column": "A",
+                "header": "DE",
+                "binding": {
+                  "field": "name"
+                },
+                "kind": "field",
+                "label": "The record's name",
+                "evidence": null,
+                "leftOut": null,
+                "known": false,
+                "owner": "rules",
+                "origin": null
+              },
+              {
+                "column": "B",
+                "header": "FR",
+                "binding": {
+                  "relatedRecord": {
+                    "relationTypeKey": "object-has-translation",
+                    "applicationKey": "names",
+                    "objectTypeKey": "name-translation",
+                    "parent": {
+                      "objectTypeKey": "language",
+                      "matchBy": {
+                        "field": "name"
+                      },
+                      "value": "FR",
+                      "missing": "create"
+                    },
+                    "field": "name"
+                  }
+                },
+                "kind": "relatedRecord",
+                "label": "The name of a related Name translation record (“Has name translation”) under the Language FR",
+                "evidence": "FR: the FR names of each Municipality, as translations: Name translation records under “FR” is created",
+                "leftOut": null,
+                "known": false,
+                "owner": "rules",
+                "origin": null
+              }
+            ],
+            "choices": {
+              "newRecords": {
+                "value": "leaveOut",
+                "owner": "rules"
+              },
+              "names": {
+                "value": "file",
+                "owner": "rules"
+              },
+              "missing": {
+                "value": "leave",
+                "owner": "rules"
+              },
+              "load": {
+                "value": true,
+                "owner": "rules"
+              }
+            }
+          }
+        ],
+        "sheets": [],
+        "titles": [],
+        "profile": {
+          "key": "bus-stops-north",
+          "name": "Bus stops, Busbetrieb Nord",
+          "version": 1
+        },
+        "summary": {
+          "tables": 4,
+          "sheets": 3,
+          "updates": 2,
+          "notLoaded": 2,
+          "needDecision": 3,
+          "types": 2,
+          "applications": 1
+        }
+      },
+      "check": null,
+      "design": {
+        "summary": "The saved profile “Bus stops, Busbetrieb Nord” reads this file. “Haltestellen”: 0 of 0 rows match stored records, 0 are new. Not read, as before: “Namen”, “Lokale Codes”, “Lokale Codes”.",
+        "moves": [],
+        "removals": [],
+        "consumerChanges": [],
+        "operations": [],
+        "records": [],
+        "profile": {
+          "sources": [
+            {
+              "sheet": "Haltestellen",
+              "headerRow": 3,
+              "applicationKey": "network",
+              "objectTypeKey": "stop",
+              "record": "upsert",
+              "key": {
+                "field": "name",
+                "storedUnique": false
+              },
+              "columns": [
+                {
+                  "column": "Haltestelle",
+                  "field": "name"
+                },
+                {
+                  "column": "Haltestelle",
+                  "attributeTypeKey": "designation"
+                }
+              ]
+            }
+          ],
+          "valueMaps": {
+            "dates": {
+              "?": null,
+              "n/a": null,
+              "01.04.2021": "2021-04-01",
+              "12.05.2021": "2021-05-12",
+              "09.03.2022": "2022-03-09",
+              "11.12.2022": "2022-12-11",
+              "10.12.2023": "2023-12-10",
+              "15.12.2024": "2024-12-15",
+              "09.08.2025": "2025-08-09",
+              "03.06.2026": "2026-06-03",
+              "01.08.2026": "2026-08-01",
+              "13.10.2025": "2025-10-13"
+            },
+            "municipalities": {
+              "Coira": "Chur",
+              "Cuira": "Chur"
+            }
+          }
+        },
+        "questions": [],
+        "answers": {},
+        "rounds": 0,
+        "origin": null,
+        "outcome": {
+          "modelOperations": {
+            "applied": 0,
+            "draftErrors": []
+          },
+          "draftErrors": [],
+          "profileProblems": [],
+          "checks": [
+            {
+              "id": "reuse:Haltestellen:Haltestelle:stop",
+              "kind": "reuse",
+              "text": "Column “Haltestelle” (Haltestellen) names 3 of 4 values the workspace holds as Stop: link those records, not new ones",
+              "open": true
+            },
+            {
+              "id": "reuse:Namen:DE:municipality",
+              "kind": "reuse",
+              "text": "Column “DE” (Namen) names 9 of 13 values the workspace holds as Municipality: link those records, not new ones",
+              "open": true
+            }
+          ]
+        },
+        "leftOut": [
+          {
+            "sheet": "Haltestellen",
+            "column": "Linien",
+            "reason": null
+          },
+          {
+            "sheet": "Haltestellen",
+            "column": "Barrierefrei J/N",
+            "reason": null
+          }
+        ],
+        "stage": "load",
+        "outline": [
+          {
+            "objectTypeKey": "stop",
+            "text": "from “Haltestellen”: 0 rows are stored records, 0 are new"
+          }
+        ],
+        "checks": [
+          {
+            "id": "reuse:Haltestellen:Haltestelle:stop",
+            "kind": "reuse",
+            "text": "Column “Haltestelle” (Haltestellen) names 3 of 4 values the workspace holds as Stop: link those records, not new ones",
+            "open": true
+          },
+          {
+            "id": "reuse:Namen:DE:municipality",
+            "kind": "reuse",
+            "text": "Column “DE” (Namen) names 9 of 13 values the workspace holds as Municipality: link those records, not new ones",
+            "open": true
+          }
+        ],
+        "corrections": [],
+        "progress": null,
+        "agentSession": null,
+        "modelUnchanged": false,
+        "load": null,
+        "itemsLoad": false
+      },
+      "draftId": "00000000-0000-4000-8000-000000000023",
+      "notes": [],
+      "result": null,
+      "canTell": false,
+      "ahead": null
+    }
+  },
+  "notes": [
+    "A saved layout read the workbook, so no assistant session ran; the answers are the engine's.",
+    "`reading.tables`: the first 2 of 4 items are shown.",
+    "`reading.tables[0].leftOut`: the first 2 of 6 items are shown.",
+    "`reading.tables[0].columns`: the first 2 of 10 items are shown.",
+    "`reading.tables[1].keyOptions`: the first 2 of 4 items are shown.",
+    "`reading.tables[1].columns`: the first 2 of 4 items are shown.",
+    "`design.profile.sources[0].columns`: the first 2 of 5 items are shown.",
+    "`design.outcome.checks`: the first 2 of 10 items are shown.",
+    "`design.leftOut`: the first 2 of 6 items are shown.",
+    "`design.checks`: the first 2 of 10 items are shown."
+  ]
+}

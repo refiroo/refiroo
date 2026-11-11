@@ -1,0 +1,37 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/migration",
+  "name": "forTheWorkspace",
+  "summary": "What the draft's steps would do to the Graubünden workspace's records",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "query": {
+      "workspaceKey": "graubuenden"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "baseReleaseId": "00000000-0000-4000-8000-000000000023",
+      "draftVersion": 3,
+      "required": false,
+      "steps": [],
+      "typeMappings": [],
+      "relationTypeMappings": [],
+      "splits": [],
+      "listConversions": [],
+      "rows": [],
+      "keyChanges": [],
+      "notes": [],
+      "landing": {
+        "workspaceKey": "graubuenden",
+        "moved": 0,
+        "createdRecords": 0,
+        "createdRelationships": 0,
+        "losses": [],
+        "refused": []
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "operation": "DELETE /api/v1/users/{user_id}/passkeys/{passkey_id}",
+  "name": "lostPhone",
+  "summary": "An administrator removes a passkey for someone who lost the device",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "passkey_id": "00000000-0000-4000-8000-000000000014"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

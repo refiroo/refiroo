@@ -1,0 +1,14 @@
+{
+  "operation": "DELETE /api/v1/users/{user_id}/identities/{provider}",
+  "name": "unlinkSso",
+  "summary": "Undo a link: the next sign-in with the provider makes a new person",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001",
+      "provider": "company-sso"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "operation": "GET /api/v1/users/{user_id}",
+  "name": "referenceEditor",
+  "summary": "One person with the roles they hold and where",
+  "request": {
+    "path": {
+      "user_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Reference Editor",
+      "email": "editor@example.org",
+      "active": true,
+      "hasPassword": true,
+      "version": 2,
+      "createdAt": "2026-11-02T09:28:00Z",
+      "updatedAt": "2026-11-02T09:42:00Z",
+      "lastSignInAt": null,
+      "roles": [],
+      "identities": [],
+      "localKept": false,
+      "secondFactor": null,
+      "passkeys": 0,
+      "signInManaged": false
+    }
+  }
+}

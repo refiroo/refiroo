@@ -1,0 +1,62 @@
+{
+  "operation": "POST /api/v1/model-releases/{release_id}/impact-summary",
+  "name": "secondRelease",
+  "summary": "The same for an installed release, at the lowest send level",
+  "request": {
+    "path": {
+      "release_id": "00000000-0000-4000-8000-000000000008"
+    },
+    "body": {
+      "workspaceKey": "graubuenden",
+      "sendLevel": "structure"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "facts": [
+        {
+          "id": "ch-788a89b9",
+          "kind": "change",
+          "text": "Application 'Network': details › stop › panels › attributes › config › fields changes",
+          "path": "/applications/network/details/stop/panels/attributes/config/fields",
+          "count": null
+        },
+        {
+          "id": "ch-605989f0",
+          "kind": "change",
+          "text": "Application 'Network': views › stops › config › columns changes",
+          "path": "/applications/network/views/stops/config/columns",
+          "count": null
+        }
+      ],
+      "statements": [
+        {
+          "text": "Application 'Network': details › stop › panels › attributes › config › fields changes",
+          "factIds": [
+            "ch-788a89b9"
+          ]
+        },
+        {
+          "text": "Application 'Network': views › stops › config › columns changes",
+          "factIds": [
+            "ch-605989f0"
+          ]
+        },
+        {
+          "text": "Attribute type 'Step-free access' is added",
+          "factIds": [
+            "ch-fd796907"
+          ]
+        }
+      ],
+      "removedStatements": 0,
+      "failure": null,
+      "cached": false,
+      "callId": "00000000-0000-4000-8000-000000000009"
+    }
+  },
+  "notes": [
+    "`facts`: the first 2 of 6 items are shown."
+  ]
+}

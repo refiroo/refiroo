@@ -14,7 +14,7 @@ Keep the returned model release identity. Use it to protect later requests built
 
 ## Discover a consumer contract
 
-Read the authenticated [consumer API index](/docs/api/?api=management#tag/consumer) for the intended workspace. It pages the available API names and contract versions and supplies their OpenAPI document addresses. Open the selected contract in the [API reference](/docs/api/). Each consumer API has its own OpenAPI 3.1 document; it is not part of the management OpenAPI document. The management document also describes the model document and its schema language.
+Read the authenticated [consumer API index](/docs/api/?api=management) for the intended workspace. It pages the available API names and contract versions and supplies their OpenAPI document addresses. Open the selected contract in the [API reference](/docs/api/). Each consumer API has its own OpenAPI 3.1 document; it is not part of the management OpenAPI document. The management document also describes the model document and its schema language.
 
 The management [consumer definition read](/docs/api/?api=management#tag/model) gives an expanded declaration with defaults made explicit and supports conditional reads. Use that for model inspection. Integrations consuming business data should bind to the declared contract, not reconstruct its output from source fields.
 

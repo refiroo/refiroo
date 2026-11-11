@@ -1,0 +1,13 @@
+{
+  "operation": "DELETE /api/v1/grants/{grant_id}",
+  "name": "directReader",
+  "summary": "Remove a grant; it stops applying on the person's next request",
+  "request": {
+    "path": {
+      "grant_id": "00000000-0000-4000-8000-000000000006"
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

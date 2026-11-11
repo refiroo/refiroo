@@ -1,0 +1,318 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json",
+  "name": "stops",
+  "summary": "The JSON Schema of the object message the Stops API serves",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024",
+      "consumer_api": "stops"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "Stops API",
+      "type": "object",
+      "properties": {
+        "objectType": {
+          "type": "string",
+          "enum": [
+            "Mode",
+            "Municipality"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "validFrom": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "validTo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "stopNumber": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "abbreviation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fsoNumber": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "latitude": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A decimal, written as a string to keep its digits"
+        },
+        "longitude": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A decimal, written as a string to keep its digits"
+        },
+        "height": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A decimal, written as a string to keep its digits"
+        },
+        "sboid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "objectType": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "objectType",
+            "id"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Projection_operator"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Projection_modes"
+          }
+        },
+        "systemCodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Projection_systemCodes"
+          }
+        },
+        "translations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Projection_translations"
+          }
+        },
+        "target": {
+          "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Projection_systemCodes"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Projection_systemCodes"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "objectType",
+        "id"
+      ],
+      "$defs": {
+        "Projection_operator": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "localName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "isPrimary": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "code"
+          ]
+        },
+        "Projection_modes": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "code",
+            "name"
+          ]
+        },
+        "Projection_systemCodes": {
+          "type": "object",
+          "properties": {
+            "system": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "systemKey": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "system",
+            "systemKey"
+          ]
+        },
+        "Projection_translations": {
+          "type": "object",
+          "properties": {
+            "languageCode": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "translatedName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "isActive": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "languageCode",
+            "translatedName",
+            "isActive"
+          ]
+        }
+      }
+    }
+  },
+  "notes": [
+    "`properties.objectType.enum`: the first 2 of 4 items are shown.",
+    "`properties.parent.required`: the first 2 of 4 items are shown.",
+    "`required`: the first 2 of 19 items are shown.",
+    "`$defs.Projection_operator.required`: the first 2 of 5 items are shown.",
+    "`$defs.Projection_systemCodes.required`: the first 2 of 4 items are shown."
+  ]
+}

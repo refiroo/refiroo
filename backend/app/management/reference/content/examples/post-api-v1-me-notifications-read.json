@@ -1,0 +1,19 @@
+{
+  "operation": "POST /api/v1/me/notifications/read",
+  "name": "markRead",
+  "summary": "Mark one notice read; the answer says how many changed and how many are still unread",
+  "request": {
+    "body": {
+      "ids": [
+        "00000000-0000-4000-8000-000000000007"
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "marked": 1,
+      "unreadCount": 1
+    }
+  }
+}

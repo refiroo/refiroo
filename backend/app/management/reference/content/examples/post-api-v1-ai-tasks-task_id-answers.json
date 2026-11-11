@@ -1,0 +1,94 @@
+{
+  "operation": "POST /api/v1/ai/tasks/{task_id}/answers",
+  "name": "oneQuestion",
+  "summary": "Answer the question with an option other than the assumed one: the assistant designs again",
+  "request": {
+    "path": {
+      "task_id": "00000000-0000-4000-8000-000000000010"
+    },
+    "body": {
+      "expectedVersion": 2,
+      "answers": {
+        "Should the stop keep its abbreviation?": "No"
+      }
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "workspaceKey": "graubuenden",
+      "fileName": "",
+      "sourceFileId": "",
+      "words": "Add Bahnhof to the name of the stop Davos Dorf",
+      "title": "Add Bahnhof to a Davos stop's name",
+      "state": "checking",
+      "version": 3,
+      "jobId": "00000000-0000-4000-8000-000000000011",
+      "phase": null,
+      "createdAt": "2026-11-02T09:35:00Z",
+      "updatedAt": "2026-11-02T09:42:00Z",
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "reading": null,
+      "check": null,
+      "design": {
+        "summary": "One Davos stop's name gets the word Bahnhof.",
+        "moves": [],
+        "removals": [],
+        "consumerChanges": [],
+        "operations": [],
+        "records": [],
+        "profile": null,
+        "questions": [
+          {
+            "text": "Should the stop keep its abbreviation?",
+            "options": [
+              "Yes",
+              "No"
+            ],
+            "assumed": "Yes"
+          }
+        ],
+        "answers": {
+          "Should the stop keep its abbreviation?": "No"
+        },
+        "rounds": 0,
+        "origin": {
+          "kind": "ai",
+          "provider": "claude-code",
+          "model": null,
+          "promptVersion": "agent/20"
+        },
+        "outcome": {},
+        "leftOut": [],
+        "stage": "model",
+        "outline": [],
+        "checks": [],
+        "corrections": [],
+        "progress": null,
+        "agentSession": "00000000-0000-4000-8000-000000000012",
+        "modelUnchanged": true,
+        "load": null,
+        "itemsLoad": false
+      },
+      "draftId": null,
+      "notes": [
+        {
+          "kind": "note",
+          "text": "Ready. (0 s)",
+          "at": "2026-11-02T09:42:00Z"
+        }
+      ],
+      "result": null,
+      "canTell": false,
+      "ahead": null
+    }
+  },
+  "notes": [
+    "The assistant is the harness's stand-in session, a script that works through the API; in service Claude Code runs it. The answer is the engine's."
+  ]
+}

@@ -95,6 +95,8 @@ def test_create_attribute_value_on_unset_optional_attribute():
         body = response.json()
         assert body["version"] == 2
         assert _attr_value(body["attributes"], "description") == "About reference data"
+        # A change set's write answers the record's path, as an object write does.
+        assert [step["id"] for step in body["path"]] == [domain["id"]]
 
         get_response = client.get(_path(domain["id"], "description"))
         assert get_response.status_code == 200
@@ -184,6 +186,7 @@ def test_update_attribute_value_updates_and_bumps_version():
         body = response.json()
         assert body["version"] == 3
         assert _attr_value(body["attributes"], "description") == "After"
+        assert [step["id"] for step in body["path"]] == [domain["id"]]
 
         get_response = client.get(_path(domain["id"], "description"))
         assert get_response.json()["value"] == "After"

@@ -1,0 +1,12 @@
+{
+  "operation": "POST /oauth/revoke",
+  "name": "signOut",
+  "summary": "A browser signs its session out with the refresh cookie it holds",
+  "request": {},
+  "response": {
+    "status": 200
+  },
+  "notes": [
+    "The request is a form with an optional `token` (a refresh token); without it the browser's cookie is used. An unknown token answers the same."
+  ]
+}

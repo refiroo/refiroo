@@ -1,0 +1,78 @@
+{
+  "operation": "GET /api/v1/jobs/{job_id}/rows",
+  "name": "rejectedRows",
+  "summary": "The rows the preview refused, in file order",
+  "request": {
+    "path": {
+      "job_id": "00000000-0000-4000-8000-000000000013"
+    },
+    "query": {
+      "status": "rejected",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "ref": "Haltestellen!46",
+          "sheet": "Haltestellen",
+          "row": 46,
+          "status": "rejected",
+          "actions": {
+            "created": 0,
+            "updated": 0,
+            "unchanged": 0,
+            "deleted": 0
+          },
+          "outcomes": [
+            {
+              "index": 0,
+              "ref": "Haltestellen!46",
+              "status": "rejected",
+              "error": {
+                "code": "REFERENCE_NOT_FOUND",
+                "message": "No municipality record matches \"Felsberg\" in column Gemeinde",
+                "details": {
+                  "count": 0,
+                  "column": "Gemeinde"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ref": "Haltestellen!47",
+          "sheet": "Haltestellen",
+          "row": 47,
+          "status": "rejected",
+          "actions": {
+            "created": 0,
+            "updated": 0,
+            "unchanged": 0,
+            "deleted": 0
+          },
+          "outcomes": [
+            {
+              "index": 1,
+              "ref": "Haltestellen!47",
+              "status": "rejected",
+              "error": {
+                "code": "REFERENCE_NOT_FOUND",
+                "message": "No municipality record matches \"Felsberg\" in column Gemeinde",
+                "details": {
+                  "count": 0,
+                  "column": "Gemeinde"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "nextCursor": "cursor-9",
+      "prevCursor": null,
+      "anchor": "cursor-10"
+    }
+  }
+}

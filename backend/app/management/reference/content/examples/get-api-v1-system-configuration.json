@@ -1,0 +1,35 @@
+{
+  "operation": "GET /api/v1/system/configuration",
+  "name": "settings",
+  "summary": "The settings in force, by group",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "database": {
+        "revision": "20261128_01"
+      },
+      "settings": [
+        {
+          "name": "DATABASE_URL",
+          "group": "runtime",
+          "description": "The PostgreSQL database the engine runs on",
+          "value": "postgresql+psycopg://rdm@db.example.org/rdm",
+          "default": null,
+          "source": "environment"
+        },
+        {
+          "name": "RDM_MODEL_PATH",
+          "group": "runtime",
+          "description": "The model file installed on a database's first start; not the active model",
+          "value": "/srv/rdm",
+          "default": "/srv/rdm",
+          "source": "environment"
+        }
+      ]
+    }
+  },
+  "notes": [
+    "`settings`: the first 2 of 64 items are shown."
+  ]
+}

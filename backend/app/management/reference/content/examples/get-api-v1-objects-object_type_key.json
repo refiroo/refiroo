@@ -1,0 +1,156 @@
+{
+  "operation": "GET /api/v1/objects/{object_type_key}",
+  "name": "inDavos",
+  "summary": "The stops of Davos, the highest stop number first",
+  "request": {
+    "path": {
+      "object_type_key": "stop"
+    },
+    "query": {
+      "parentObjectId": "00000000-0000-4000-8000-000000000014",
+      "sort": "-stop-number",
+      "pageSize": 3,
+      "includeTotal": true
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "workspaceKey": "graubuenden",
+          "applicationKey": "network",
+          "objectTypeKey": "stop",
+          "parentObjectId": "00000000-0000-4000-8000-000000000014",
+          "name": "Davos Kongress/Eisstadion",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000016",
+              "name": "Prättigau/Davos",
+              "objectTypeKey": "district"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000017",
+              "attributeTypeKey": "designation",
+              "name": "Designation",
+              "valueType": "text",
+              "value": "Davos Kongress/Eisstadion"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000018",
+              "attributeTypeKey": "stop-number",
+              "name": "Stop number (UIC)",
+              "valueType": "integer",
+              "value": 8511308
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-02T09:07:00Z",
+          "updatedAt": "2026-11-02T09:07:00Z",
+          "changeSetVersion": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000019",
+          "workspaceKey": "graubuenden",
+          "applicationKey": "network",
+          "objectTypeKey": "stop",
+          "parentObjectId": "00000000-0000-4000-8000-000000000014",
+          "name": "Davos Wiesen",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000016",
+              "name": "Prättigau/Davos",
+              "objectTypeKey": "district"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000020",
+              "attributeTypeKey": "designation",
+              "name": "Designation",
+              "valueType": "text",
+              "value": "Davos Wiesen"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000021",
+              "attributeTypeKey": "stop-number",
+              "name": "Stop number (UIC)",
+              "valueType": "integer",
+              "value": 8509078
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-02T09:07:00Z",
+          "updatedAt": "2026-11-02T09:07:00Z",
+          "changeSetVersion": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000022",
+          "workspaceKey": "graubuenden",
+          "applicationKey": "network",
+          "objectTypeKey": "stop",
+          "parentObjectId": "00000000-0000-4000-8000-000000000014",
+          "name": "Davos Monstein",
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "name": "Graubünden",
+              "objectTypeKey": "canton"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000016",
+              "name": "Prättigau/Davos",
+              "objectTypeKey": "district"
+            }
+          ],
+          "attributes": [
+            {
+              "id": "00000000-0000-4000-8000-000000000023",
+              "attributeTypeKey": "designation",
+              "name": "Designation",
+              "valueType": "text",
+              "value": "Davos Monstein"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000024",
+              "attributeTypeKey": "stop-number",
+              "name": "Stop number (UIC)",
+              "valueType": "integer",
+              "value": 8509077
+            }
+          ],
+          "version": 1,
+          "createdAt": "2026-11-02T09:07:00Z",
+          "updatedAt": "2026-11-02T09:07:00Z",
+          "changeSetVersion": null
+        }
+      ],
+      "nextCursor": "cursor-3",
+      "prevCursor": null,
+      "anchor": "cursor-4",
+      "totalCount": 9,
+      "startIndex": 0
+    }
+  },
+  "notes": [
+    "`items[0].path`: the first 2 of 4 items are shown.",
+    "`items[0].attributes`: the first 2 of 8 items are shown.",
+    "`items[1].path`: the first 2 of 4 items are shown.",
+    "`items[1].attributes`: the first 2 of 8 items are shown.",
+    "`items[2].path`: the first 2 of 4 items are shown.",
+    "`items[2].attributes`: the first 2 of 8 items are shown."
+  ]
+}

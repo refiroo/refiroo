@@ -1,0 +1,31 @@
+{
+  "operation": "GET /oauth/jwks",
+  "name": "published",
+  "summary": "The public keys that verify access tokens now",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "keys": [
+        {
+          "x": "example-public-value",
+          "y": "example-public-value",
+          "alg": "ES256",
+          "crv": "P-256",
+          "kid": "signing-key-2",
+          "kty": "EC",
+          "use": "sig"
+        },
+        {
+          "x": "example-public-value",
+          "y": "example-public-value",
+          "alg": "ES256",
+          "crv": "P-256",
+          "kid": "signing-key-1",
+          "kty": "EC",
+          "use": "sig"
+        }
+      ]
+    }
+  }
+}

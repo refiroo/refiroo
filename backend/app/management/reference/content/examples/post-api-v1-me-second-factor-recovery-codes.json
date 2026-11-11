@@ -1,0 +1,22 @@
+{
+  "operation": "POST /api/v1/me/second-factor/recovery-codes",
+  "name": "newCodes",
+  "summary": "Ten new recovery codes, answered once; a recovery code proves it is the person",
+  "request": {
+    "body": {
+      "code": "abcd-efgh-0001"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "recoveryCodes": [
+        "jklm-npqr-0001",
+        "jklm-npqr-0002"
+      ]
+    }
+  },
+  "notes": [
+    "`recoveryCodes`: the first 2 of 10 items are shown."
+  ]
+}

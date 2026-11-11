@@ -1,0 +1,46 @@
+{
+  "operation": "GET /api/v1/mail-outbox",
+  "name": "all",
+  "summary": "Every message, newest first: the stopped one failed, the other was sent",
+  "request": {
+    "query": {
+      "pageSize": 10
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "kind": "activation",
+          "to": "ben@example.org",
+          "subject": "Your refiroo guide reference: stops of Graubünden account",
+          "status": "failed",
+          "attempts": 0,
+          "lastError": "Stopped by an administrator",
+          "lastErrorKind": "stopped",
+          "createdAt": "2026-11-02T09:14:00Z",
+          "nextAttemptAt": null,
+          "finishedAt": "2026-11-02T09:14:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "activation",
+          "to": "ada@example.org",
+          "subject": "Your refiroo guide reference: stops of Graubünden account",
+          "status": "sent",
+          "attempts": 1,
+          "lastError": null,
+          "lastErrorKind": null,
+          "createdAt": "2026-11-02T09:07:00Z",
+          "nextAttemptAt": null,
+          "finishedAt": "2026-11-02T09:14:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-2"
+    }
+  }
+}

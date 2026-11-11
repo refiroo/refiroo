@@ -1,0 +1,24 @@
+{
+  "operation": "POST /api/v1/groups",
+  "name": "timetableTeam",
+  "summary": "A local group of people; a grant to it applies to its members",
+  "request": {
+    "body": {
+      "name": "Timetable team",
+      "description": "People who edit the timetable"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Timetable team",
+      "description": "People who edit the timetable",
+      "source": null,
+      "members": 0,
+      "version": 1,
+      "createdAt": "2026-11-02T09:56:00Z",
+      "updatedAt": "2026-11-02T09:56:00Z"
+    }
+  }
+}

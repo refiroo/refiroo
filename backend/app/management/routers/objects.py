@@ -61,11 +61,12 @@ from ..access import (
     CONTEXT,
     RECORD_CREATE,
     RECORD_READ,
+    RECORD_READ_NO_PUBLICATION,
     RECORD_WRITE,
     AuthorizedRoute,
     requires,
 )
-from ..dependencies import DbSession, RequestModelSnapshot
+from ..dependencies import DbSession, RequestModelSnapshot, WorkspaceModelSnapshot
 from ..paging import PageQuery, SeekablePageQuery
 from ..presenters import (
     audit_event_page,
@@ -815,12 +816,12 @@ _WITHIN_OBJECT_TYPE_KEY = Query(
 @router.get(
     "/objects/{object_type_key}/{object_id}/parent-candidates", response_model=ParentCandidatePage
 )
-@requires("records.read", at=RECORD_READ)
+@requires("records.read", at=RECORD_READ_NO_PUBLICATION)
 def get_parent_candidates(
     object_type_key: str,
     object_id: str,
     session: DbSession,
-    snapshot: RequestModelSnapshot,
+    snapshot: WorkspaceModelSnapshot,
     paging: PageQuery,
     page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),

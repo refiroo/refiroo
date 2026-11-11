@@ -1,0 +1,66 @@
+{
+  "operation": "GET /api/v1/jobs/{job_id}",
+  "name": "backgroundBatch",
+  "summary": "A background batch that ran to its end",
+  "request": {
+    "path": {
+      "job_id": "00000000-0000-4000-8000-000000000009"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "kind": "batch",
+      "workspaceKey": "graubuenden",
+      "changeSetId": null,
+      "changeSetVersion": null,
+      "policy": "atomic",
+      "parameters": {
+        "run": "background",
+        "stage": "execute",
+        "onExisting": "reject",
+        "otherWorkspaceIds": "refuse"
+      },
+      "modelReleaseId": "00000000-0000-4000-8000-000000000005",
+      "state": "completed",
+      "stage": null,
+      "progress": {
+        "total": 2,
+        "processed": 2
+      },
+      "counts": {
+        "applied": 2,
+        "rejected": 0,
+        "unprocessed": 0,
+        "created": 0,
+        "updated": 1,
+        "unchanged": 0,
+        "deleted": 1
+      },
+      "result": "applied",
+      "error": null,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "startedAt": "2026-11-02T09:14:00Z",
+      "finishedAt": "2026-11-02T09:14:00Z",
+      "expiresAt": "2026-11-02T10:31:00Z",
+      "cancelRequestedAt": null,
+      "leaseOwner": null,
+      "leaseExpiresAt": null,
+      "output": null,
+      "confirmedAt": null,
+      "preview": null,
+      "bindingReport": null,
+      "notices": null,
+      "migration": null,
+      "move": null,
+      "aiProposal": null,
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000006",
+        "name": "Reference Administrator"
+      },
+      "origin": null
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "operation": "GET /api/v1/me/sessions",
+  "name": "openSessions",
+  "summary": "The open sessions of the person; `current` marks this one",
+  "request": {
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "current": false,
+          "signedInWith": "password",
+          "application": null,
+          "userAgent": "testclient",
+          "createdAt": "2026-11-02T10:24:00Z",
+          "lastUsedAt": "2026-11-02T10:24:00Z",
+          "endsAt": "2026-11-02T12:37:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "current": true,
+          "signedInWith": "password",
+          "application": null,
+          "userAgent": "testclient",
+          "createdAt": "2026-11-02T10:31:00Z",
+          "lastUsedAt": "2026-11-02T10:31:00Z",
+          "endsAt": "2026-11-02T12:44:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000012",
+          "current": false,
+          "signedInWith": "password",
+          "application": null,
+          "userAgent": "testclient",
+          "createdAt": "2026-11-02T10:31:00Z",
+          "lastUsedAt": "2026-11-02T10:31:00Z",
+          "endsAt": "2026-11-02T12:44:00Z"
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-11"
+    }
+  }
+}

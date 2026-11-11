@@ -1,0 +1,34 @@
+{
+  "operation": "POST /api/v1/source-files",
+  "name": "busStopsWorkbook",
+  "summary": "The bus company's workbook, stored for the profile and queued for profiling",
+  "request": {},
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "name": "Haltestellen_Busbetrieb_Nord.xlsx",
+      "format": "xlsx",
+      "bytes": 10322,
+      "sha256": "4b63aef3c00fb21d0c5e2b9827f97d0991b13bef001988fcb2f10ac222fd1d46",
+      "owner": {
+        "draftId": null,
+        "profileKey": "bus-stops-north"
+      },
+      "workspaceKey": "graubuenden",
+      "csvDelimiter": null,
+      "uploadedAt": "2026-11-02T09:35:00Z",
+      "supersededAt": null,
+      "version": 1,
+      "profile": {
+        "state": "queued",
+        "jobId": "00000000-0000-4000-8000-000000000012",
+        "error": null
+      }
+    }
+  },
+  "notes": [
+    "The request part: `{\"owner\": {\"profileKey\": \"bus-stops-north\"}, \"workspaceKey\": \"graubuenden\"}`.",
+    "The file part: `Haltestellen_Busbetrieb_Nord.xlsx`."
+  ]
+}

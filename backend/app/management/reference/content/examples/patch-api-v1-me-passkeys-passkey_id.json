@@ -1,0 +1,22 @@
+{
+  "operation": "PATCH /api/v1/me/passkeys/{passkey_id}",
+  "name": "rename",
+  "summary": "Rename a passkey",
+  "request": {
+    "path": {
+      "passkey_id": "00000000-0000-4000-8000-000000000013"
+    },
+    "body": {
+      "name": "Work laptop"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000013",
+      "name": "Work laptop",
+      "createdAt": "2026-11-02T10:45:00Z",
+      "lastUsedAt": null
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "operation": "PUT /api/v1/me/notification-mail",
+  "name": "switchOn",
+  "summary": "Switch mail for the inbox on, choose the daily digest and how two kinds are mailed",
+  "request": {
+    "body": {
+      "enabled": true,
+      "digest": {
+        "every": "daily",
+        "timeZone": "Europe/Zurich"
+      },
+      "kinds": {
+        "change-set.published": "digest",
+        "job.completed": "off"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "enabled": true,
+      "available": true,
+      "reason": null,
+      "email": "admin@example.org",
+      "kinds": [
+        {
+          "kind": "change-set.submitted",
+          "label": "A change set is waiting for your approval",
+          "delivery": "now"
+        },
+        {
+          "kind": "change-set.approved",
+          "label": "A change set you submitted was approved",
+          "delivery": "now"
+        }
+      ],
+      "digest": {
+        "every": "daily",
+        "timeZone": "Europe/Zurich",
+        "nextAt": "2026-11-02T09:35:00Z"
+      }
+    }
+  },
+  "notes": [
+    "`kinds`: the first 2 of 7 items are shown."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "operation": "GET /api/v1/system/processes",
+  "name": "firstPage",
+  "summary": "The engine's processes",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": null
+    }
+  }
+}

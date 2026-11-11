@@ -1,0 +1,79 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/profile",
+  "name": "withTheVehiclesFile",
+  "summary": "The import profile the draft holds for the vehicles file",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "version": 11,
+      "profile": {
+        "key": "fahrzeuge",
+        "name": "Fahrzeuge",
+        "sources": [
+          {
+            "id": "fahrzeuge-fahrzeuge",
+            "sheet": "Fahrzeuge",
+            "headerRow": 1,
+            "applicationKey": "vehicles",
+            "objectTypeKey": "fahrzeuge",
+            "columns": [
+              {
+                "column": "Fahrzeugnummer",
+                "attributeTypeKey": "fahrzeugnummer"
+              },
+              {
+                "column": "Name",
+                "field": "name"
+              }
+            ],
+            "key": {
+              "attributeTypeKey": "fahrzeugnummer"
+            }
+          }
+        ],
+        "valueMaps": {}
+      },
+      "definition": {
+        "sources": [
+          {
+            "sheet": "Fahrzeuge",
+            "headerRow": 1,
+            "applicationKey": "vehicles",
+            "objectTypeKey": "fahrzeuge",
+            "columns": [
+              {
+                "column": "Fahrzeugnummer",
+                "attributeTypeKey": "fahrzeugnummer"
+              },
+              {
+                "column": "Name",
+                "field": "name"
+              }
+            ],
+            "key": {
+              "attributeTypeKey": "fahrzeugnummer"
+            }
+          }
+        ],
+        "valueMaps": {}
+      },
+      "valid": true,
+      "diagnostics": [],
+      "freeKey": null,
+      "sourceFile": {
+        "id": "00000000-0000-4000-8000-000000000027",
+        "name": "Fahrzeuge.xlsx",
+        "profile": "completed"
+      }
+    }
+  },
+  "notes": [
+    "`profile.sources[0].columns`: the first 2 of 5 items are shown.",
+    "`definition.sources[0].columns`: the first 2 of 5 items are shown."
+  ]
+}

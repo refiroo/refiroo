@@ -1,0 +1,34 @@
+{
+  "operation": "PATCH /api/v1/sign-in-providers/{key}",
+  "name": "rename",
+  "summary": "Change the button's name; the saved secret stays",
+  "request": {
+    "path": {
+      "key": "company-sso"
+    },
+    "body": {
+      "expectedVersion": 1,
+      "name": "Company single sign-on"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "key": "company-sso",
+      "name": "Company single sign-on",
+      "issuer": "https://id.example.org",
+      "clientId": "reference-engine",
+      "clientSecretSet": true,
+      "groupsClaim": "groups",
+      "enabled": true,
+      "signOutOfProvider": false,
+      "redirectUri": "http://localhost:8000/oauth/providers/company-sso/callback",
+      "signedOutUri": "http://localhost:8000/oauth/providers/company-sso/signed-out",
+      "people": 0,
+      "lastSignInAt": null,
+      "version": 2,
+      "createdAt": "2026-11-02T11:48:00Z",
+      "updatedAt": "2026-11-02T11:55:00Z"
+    }
+  }
+}

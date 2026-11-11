@@ -41,6 +41,7 @@ from . import (
     render_page,
     with_meta_policy,
 )
+from .content import EXAMPLES_URL, example_bodies, merge_content
 
 _REPOSITORY = Path(__file__).resolve().parents[4]
 EXAMPLE_MODEL = _REPOSITORY / "guide" / "samples" / "model.json"
@@ -53,14 +54,16 @@ EXAMPLE_FILE = f"api/{EXAMPLE_API}.json"
 _RESOLVE_MAX_ITEMS = 1_000
 
 
-def _management_document() -> dict:
+def _management_document(*, strict: bool = False, **settings: str) -> dict:
     """The management API's document, from the application's code. Building the application needs the
     engine's settings to be valid but touches no database; a throw-away key satisfies them. Every gated
     capability is switched on so the public reference lists every operation (model drafts, jobs, imports,
     consumer subscriptions...); job files would go to a scratch directory, never an instance's.
-    The settings are put back afterwards: a caller in the same process (a test run) keeps its own."""
-    from ...main import create_app
-
+    ``strict`` merges the text strictly (``merge_content``): text for something the document lacks fails.
+    ``settings`` replace the capability settings above (a test switches one surface off).
+    The settings are put back afterwards: a caller in the same process (a test run) keeps its own.
+    The application is imported only once they are set: importing it builds it, and a clean checkout has
+    no settings file to supply the key."""
     with tempfile.TemporaryDirectory(prefix="rdm-reference-") as scratch:
         wanted = {
             "SECRETS_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
@@ -68,12 +71,18 @@ def _management_document() -> dict:
             "MODEL_ADMIN_MUTATIONS_ENABLED": "true",
             "WORKSPACE_ADMIN_MUTATIONS_ENABLED": "true",
             "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
+            **settings,
             "JOB_FILE_DIR": scratch,
         }
         saved = {key: os.environ.get(key) for key in wanted}
         os.environ.update(wanted)
         try:
-            return create_app().openapi()
+            from ...main import create_app
+
+            application = create_app()
+            if strict:
+                return merge_content(application.state.generated_openapi(), strict=True)
+            return application.openapi()
         finally:
             for key, value in saved.items():
                 if value is None:
@@ -157,11 +166,19 @@ def build(
     ]
     page = with_meta_policy("bundled", render_page("bundled", "", sources, static=site))
 
+    # The document names the examples' bodies relative to itself; they are served under the build's base.
+    document = json.dumps(_management_document(), indent=2).replace(
+        f'"{EXAMPLES_URL}/', f'"{site.base}/api/examples/'
+    )
     files = {
         "api/index.html": page,
-        MANAGEMENT_FILE: json.dumps(_management_document(), indent=2) + "\n",
+        MANAGEMENT_FILE: document + "\n",
         EXAMPLE_FILE: json.dumps(example, indent=2) + "\n",
     }
+    for slug, part, body in example_bodies():
+        files[f"api/examples/{slug}/{part}.json"] = (
+            json.dumps(body, indent=2, ensure_ascii=False) + "\n"
+        )
     for name, text in files.items():
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)

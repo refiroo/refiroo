@@ -1,0 +1,96 @@
+{
+  "operation": "POST /api/v1/ai/tasks/{task_id}/retry",
+  "name": "afterAFailure",
+  "summary": "Go on with a task that failed, with a few words: the same session tries again",
+  "request": {
+    "path": {
+      "task_id": "00000000-0000-4000-8000-000000000014"
+    },
+    "body": {
+      "expectedVersion": 2,
+      "words": "Try again; the abbreviations may be empty"
+    }
+  },
+  "response": {
+    "status": 202,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000014",
+      "workspaceKey": "graubuenden",
+      "fileName": "",
+      "sourceFileId": "",
+      "words": "Check that every Davos stop has an abbreviation",
+      "title": null,
+      "state": "checking",
+      "version": 3,
+      "jobId": "00000000-0000-4000-8000-000000000015",
+      "phase": null,
+      "createdAt": "2026-11-02T10:03:00Z",
+      "updatedAt": "2026-11-02T10:10:00Z",
+      "requestedBy": {
+        "kind": "user",
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Reference Administrator"
+      },
+      "reading": null,
+      "check": null,
+      "design": {
+        "summary": "",
+        "moves": [],
+        "removals": [],
+        "consumerChanges": [],
+        "operations": [],
+        "records": [],
+        "profile": null,
+        "questions": [],
+        "answers": {},
+        "rounds": 0,
+        "origin": null,
+        "outcome": null,
+        "leftOut": [],
+        "stage": "model",
+        "outline": [],
+        "checks": [],
+        "corrections": [
+          "Try again; the abbreviations may be empty"
+        ],
+        "progress": {
+          "now": "Starting",
+          "seconds": 0,
+          "refused": null,
+          "milestones": [
+            {
+              "key": "draft",
+              "label": "Model draft started",
+              "done": false,
+              "running": false
+            },
+            {
+              "key": "operations",
+              "label": "Model changed",
+              "done": false,
+              "running": false
+            },
+            {
+              "key": "check",
+              "label": "Every row checked",
+              "done": false,
+              "running": false
+            }
+          ]
+        },
+        "agentSession": "00000000-0000-4000-8000-000000000016",
+        "modelUnchanged": false,
+        "load": null,
+        "itemsLoad": false
+      },
+      "draftId": null,
+      "notes": [],
+      "result": null,
+      "canTell": false,
+      "ahead": null
+    }
+  },
+  "notes": [
+    "The assistant is the harness's stand-in session, a script that works through the API; in service Claude Code runs it. The answer is the engine's."
+  ]
+}

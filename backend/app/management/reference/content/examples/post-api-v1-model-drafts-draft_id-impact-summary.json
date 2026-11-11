@@ -1,0 +1,62 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/impact-summary",
+  "name": "graubuenden",
+  "summary": "What activating the draft would do in the workspace, in the engine's facts and words",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000006"
+    },
+    "body": {
+      "workspaceKey": "graubuenden",
+      "expectedVersion": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "facts": [
+        {
+          "id": "ch-788a89b9",
+          "kind": "change",
+          "text": "Application 'Network': details › stop › panels › attributes › config › fields changes",
+          "path": "/applications/network/details/stop/panels/attributes/config/fields",
+          "count": null
+        },
+        {
+          "id": "ch-605989f0",
+          "kind": "change",
+          "text": "Application 'Network': views › stops › config › columns changes",
+          "path": "/applications/network/views/stops/config/columns",
+          "count": null
+        }
+      ],
+      "statements": [
+        {
+          "text": "Application 'Network': details › stop › panels › attributes › config › fields changes",
+          "factIds": [
+            "ch-788a89b9"
+          ]
+        },
+        {
+          "text": "Application 'Network': views › stops › config › columns changes",
+          "factIds": [
+            "ch-605989f0"
+          ]
+        },
+        {
+          "text": "Attribute type 'Step-free access' is added",
+          "factIds": [
+            "ch-fd796907"
+          ]
+        }
+      ],
+      "removedStatements": 0,
+      "failure": null,
+      "cached": false,
+      "callId": "00000000-0000-4000-8000-000000000007"
+    }
+  },
+  "notes": [
+    "`facts`: the first 2 of 6 items are shown."
+  ]
+}

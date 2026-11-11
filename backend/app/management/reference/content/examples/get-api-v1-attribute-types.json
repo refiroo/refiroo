@@ -1,0 +1,48 @@
+{
+  "operation": "GET /api/v1/attribute-types",
+  "name": "firstPage",
+  "summary": "The first two attribute types, in key order",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000007",
+          "key": "abbreviation",
+          "name": "Abbreviation",
+          "description": null,
+          "valueType": "text",
+          "default": null,
+          "features": {
+            "searchable": true,
+            "filterable": true,
+            "sortable": true
+          },
+          "validation": {},
+          "ui": {}
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000008",
+          "key": "active",
+          "name": "Active",
+          "description": null,
+          "valueType": "boolean",
+          "default": true,
+          "features": {
+            "filterable": true
+          },
+          "validation": {},
+          "ui": {}
+        }
+      ],
+      "nextCursor": "cursor-3",
+      "prevCursor": null,
+      "anchor": "cursor-4"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "operation": "GET /api/v1/model-mappings/{key}/inference",
+  "name": "completed",
+  "summary": "The inference finished: its proposals by status",
+  "request": {
+    "path": {
+      "key": "stops-proposed"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "jobId": "00000000-0000-4000-8000-000000000005",
+      "state": "completed",
+      "mappingVersion": 1,
+      "sourceWorkspaceKey": "graubuenden",
+      "targetWorkspaceKey": "inventory",
+      "sourceReleaseId": "00000000-0000-4000-8000-000000000002",
+      "targetReleaseId": "00000000-0000-4000-8000-000000000003",
+      "counts": {
+        "open": 4,
+        "applied": 0,
+        "held": 0,
+        "rejected": 0
+      },
+      "warnings": [
+        "No type of the target is like operator, mode, system, system-code, language, name-translation: map them by hand or leave them out"
+      ],
+      "error": null
+    }
+  }
+}

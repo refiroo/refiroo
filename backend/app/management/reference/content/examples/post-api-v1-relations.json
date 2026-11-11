@@ -1,0 +1,33 @@
+{
+  "operation": "POST /api/v1/relations",
+  "name": "addAMode",
+  "summary": "A bus also serves the stop; the write claims the set that was read",
+  "request": {
+    "body": {
+      "relationTypeKey": "stop-served-by-mode",
+      "fromObjectId": "00000000-0000-4000-8000-000000000001",
+      "toObjectId": "00000000-0000-4000-8000-000000000008",
+      "expectedRelationSetVersion": 1,
+      "relationSetDirection": "outgoing"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "relationTypeKey": "stop-served-by-mode",
+      "fromObjectId": "00000000-0000-4000-8000-000000000001",
+      "toObjectId": "00000000-0000-4000-8000-000000000008",
+      "attributes": {},
+      "changeSetId": null,
+      "expectedChangeSetVersion": null,
+      "expectedRelationSetVersion": null,
+      "relationSetDirection": null,
+      "id": "00000000-0000-4000-8000-000000000009",
+      "version": 1,
+      "createdAt": "2026-11-02T09:14:00Z",
+      "updatedAt": "2026-11-02T09:14:00Z",
+      "changeSetVersion": null,
+      "relationSetVersion": 2
+    }
+  }
+}

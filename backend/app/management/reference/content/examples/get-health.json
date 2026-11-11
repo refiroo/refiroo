@@ -1,0 +1,12 @@
+{
+  "operation": "GET /health",
+  "name": "healthy",
+  "summary": "The instance and its workspaces are served",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "status": "ok"
+    }
+  }
+}

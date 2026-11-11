@@ -1,0 +1,103 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/relation-grid",
+  "name": "stopsByOperator",
+  "summary": "Two stops with their relationship to each operator",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "applicationKey": "network",
+      "viewKey": "stop-operators",
+      "attribute": "is-primary",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "source": {
+            "id": "00000000-0000-4000-8000-000000000031",
+            "objectTypeKey": "stop",
+            "name": "Acla da Fontauna",
+            "fields": {
+              "name": "Acla da Fontauna",
+              "stop-number": 8505180
+            }
+          },
+          "mappingVersion": 1,
+          "relations": {
+            "00000000-0000-4000-8000-000000000032": {
+              "relationId": "00000000-0000-4000-8000-000000000033",
+              "version": 1,
+              "attributes": {},
+              "proposed": false
+            }
+          }
+        },
+        {
+          "source": {
+            "id": "00000000-0000-4000-8000-000000000034",
+            "objectTypeKey": "stop",
+            "name": "Alp Grüm",
+            "fields": {
+              "name": "Alp Grüm",
+              "stop-number": 8509357
+            }
+          },
+          "mappingVersion": 1,
+          "relations": {
+            "00000000-0000-4000-8000-000000000011": {
+              "relationId": "00000000-0000-4000-8000-000000000035",
+              "version": 1,
+              "attributes": {},
+              "proposed": false
+            }
+          }
+        }
+      ],
+      "nextCursor": "cursor-9",
+      "prevCursor": null,
+      "anchor": "cursor-10",
+      "columns": [
+        {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "objectTypeKey": "operator",
+          "name": "Matterhorn Gotthard Bahn (fo)",
+          "label": "Matterhorn Gotthard Bahn (fo)",
+          "fields": {
+            "name": "Matterhorn Gotthard Bahn (fo)",
+            "operator-code": "MGB-fo"
+          },
+          "linkedCount": 8
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "objectTypeKey": "operator",
+          "name": "Rhätische Bahn",
+          "label": "Rhätische Bahn",
+          "fields": {
+            "name": "Rhätische Bahn",
+            "operator-code": "RhB"
+          },
+          "linkedCount": 105
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000036",
+          "objectTypeKey": "operator",
+          "name": "Schweizerische Bundesbahnen SBB",
+          "label": "Schweizerische Bundesbahnen SBB",
+          "fields": {
+            "name": "Schweizerische Bundesbahnen SBB",
+            "operator-code": "SBB"
+          },
+          "linkedCount": 3
+        }
+      ],
+      "columnTotal": 3,
+      "rowTotal": 116
+    }
+  }
+}

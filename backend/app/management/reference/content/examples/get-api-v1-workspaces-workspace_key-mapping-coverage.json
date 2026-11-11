@@ -1,0 +1,90 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/mapping-coverage",
+  "name": "mappedCodes",
+  "summary": "The first two codes that are mapped, with their municipality",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "applicationKey": "systems",
+      "viewKey": "codes-to-municipalities",
+      "relationTypeKey": "system-code-maps-to",
+      "fromObjectTypeKey": "system-code",
+      "toObjectTypeKey": "municipality",
+      "direction": "outgoing",
+      "state": "mapped",
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "source": {
+            "id": "00000000-0000-4000-8000-000000000014",
+            "objectTypeKey": "system-code",
+            "name": "Q15056824 Ilanz/Glion",
+            "fields": {
+              "name": "Q15056824 Ilanz/Glion",
+              "external-id": "Q15056824"
+            }
+          },
+          "state": "mapped",
+          "mappingVersion": 1,
+          "targetCount": 1,
+          "targets": [
+            {
+              "relationId": "00000000-0000-4000-8000-000000000015",
+              "attributes": {},
+              "object": {
+                "id": "00000000-0000-4000-8000-000000000016",
+                "objectTypeKey": "municipality",
+                "name": "Ilanz/Glion",
+                "fields": {
+                  "name": "Ilanz/Glion",
+                  "fso-number": 3619
+                }
+              }
+            }
+          ],
+          "targetsNextCursor": null
+        },
+        {
+          "source": {
+            "id": "00000000-0000-4000-8000-000000000017",
+            "objectTypeKey": "system-code",
+            "name": "Q15890943 Albula/Alvra",
+            "fields": {
+              "name": "Q15890943 Albula/Alvra",
+              "external-id": "Q15890943"
+            }
+          },
+          "state": "mapped",
+          "mappingVersion": 1,
+          "targetCount": 1,
+          "targets": [
+            {
+              "relationId": "00000000-0000-4000-8000-000000000018",
+              "attributes": {},
+              "object": {
+                "id": "00000000-0000-4000-8000-000000000019",
+                "objectTypeKey": "municipality",
+                "name": "Albula/Alvra",
+                "fields": {
+                  "name": "Albula/Alvra",
+                  "fso-number": 3542
+                }
+              }
+            }
+          ],
+          "targetsNextCursor": null
+        }
+      ],
+      "nextCursor": "cursor-3",
+      "prevCursor": null,
+      "anchor": "cursor-4"
+    }
+  }
+}

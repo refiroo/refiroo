@@ -376,6 +376,23 @@ def test_where_a_self_registered_assistant_may_return(world):
 
 
 @pytest.mark.journey("J51.6")
+@pytest.mark.settings(**ON)
+def test_block_and_restore_answer_the_people_signed_in_as_the_list_does(world):
+    """Given a person signed in through an assistant. When the assistant is restored while not
+    blocked, the answer counts that person as the list does; when it is blocked, the sessions end
+    and the answer counts none."""
+    browser = _browser(world)
+    application = ok(_register(browser), 201)["client_id"]
+    person = _person(world, "quinn")
+    _grant(world, "user", person["id"], "reader")
+    ok(_sign_in(browser, application, "quinn"))
+    restored = ok(world.api.post(f"/agent-access/applications/{application}/restore", {}))
+    assert (restored["blocked"], restored["signedIn"]) == (False, 1)
+    blocked = ok(world.api.post(f"/agent-access/applications/{application}/block", {}))
+    assert (blocked["blocked"], blocked["signedIn"]) == (True, 0)
+
+
+@pytest.mark.journey("J51.6")
 @pytest.mark.settings(**ON, MCP_OPEN_REGISTRATION="false")
 def test_with_registration_closed_only_a_registered_assistant_signs_in(world):
     """With open registration off, an assistant cannot register itself and the metadata offers no

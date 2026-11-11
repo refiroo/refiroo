@@ -1,0 +1,85 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates",
+  "name": "codesZuozCouldGet",
+  "summary": "The codes of one system that a municipality could be mapped from",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "applicationKey": "systems",
+      "viewKey": "municipalities-by-system",
+      "rowId": "00000000-0000-4000-8000-000000000043",
+      "columnId": "00000000-0000-4000-8000-000000000038",
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "objectTypeKey": "system-code",
+          "name": "Q15056824 Ilanz/Glion",
+          "version": 1,
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000014",
+              "name": "Q15056824 Ilanz/Glion",
+              "objectTypeKey": "system-code"
+            }
+          ],
+          "fields": {
+            "external-id": "Q15056824",
+            "description": null
+          },
+          "eligible": true,
+          "reason": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000017",
+          "objectTypeKey": "system-code",
+          "name": "Q15890943 Albula/Alvra",
+          "version": 1,
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000017",
+              "name": "Q15890943 Albula/Alvra",
+              "objectTypeKey": "system-code"
+            }
+          ],
+          "fields": {
+            "external-id": "Q15890943",
+            "description": null
+          },
+          "eligible": true,
+          "reason": null
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000044",
+          "objectTypeKey": "system-code",
+          "name": "Q22465879 Bergün Filisur",
+          "version": 1,
+          "path": [
+            {
+              "id": "00000000-0000-4000-8000-000000000044",
+              "name": "Q22465879 Bergün Filisur",
+              "objectTypeKey": "system-code"
+            }
+          ],
+          "fields": {
+            "external-id": "Q22465879",
+            "description": null
+          },
+          "eligible": true,
+          "reason": null
+        }
+      ],
+      "nextCursor": "cursor-13",
+      "prevCursor": null,
+      "anchor": "cursor-14",
+      "relationSetVersion": 1
+    }
+  }
+}

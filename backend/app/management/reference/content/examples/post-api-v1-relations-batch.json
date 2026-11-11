@@ -1,0 +1,72 @@
+{
+  "operation": "POST /api/v1/relations/batch",
+  "name": "twoStops",
+  "summary": "Values on the operator relationships of two stops, in one write",
+  "request": {
+    "body": {
+      "workspaceKey": "graubuenden",
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000012",
+          "expectedVersion": 1,
+          "attributes": {
+            "local-name": "Station office",
+            "is-primary": false
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "expectedVersion": 1,
+          "attributes": {
+            "inspected-on": "2026-05-14"
+          }
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "relationTypeKey": "stop-operated-by-operator",
+          "fromObjectId": "00000000-0000-4000-8000-000000000006",
+          "toObjectId": "00000000-0000-4000-8000-000000000011",
+          "attributes": {
+            "local-name": "Station office",
+            "is-primary": false
+          },
+          "changeSetId": null,
+          "expectedChangeSetVersion": null,
+          "expectedRelationSetVersion": null,
+          "relationSetDirection": null,
+          "id": "00000000-0000-4000-8000-000000000012",
+          "version": 2,
+          "createdAt": "2026-11-02T09:07:00Z",
+          "updatedAt": "2026-11-02T09:28:00Z",
+          "changeSetVersion": null,
+          "relationSetVersion": null
+        },
+        {
+          "relationTypeKey": "stop-operated-by-operator",
+          "fromObjectId": "00000000-0000-4000-8000-000000000007",
+          "toObjectId": "00000000-0000-4000-8000-000000000011",
+          "attributes": {
+            "inspected-on": "2026-05-14"
+          },
+          "changeSetId": null,
+          "expectedChangeSetVersion": null,
+          "expectedRelationSetVersion": null,
+          "relationSetDirection": null,
+          "id": "00000000-0000-4000-8000-000000000013",
+          "version": 2,
+          "createdAt": "2026-11-02T09:07:00Z",
+          "updatedAt": "2026-11-02T09:28:00Z",
+          "changeSetVersion": null,
+          "relationSetVersion": null
+        }
+      ],
+      "changeSetVersion": null
+    }
+  }
+}

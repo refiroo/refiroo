@@ -1,0 +1,94 @@
+{
+  "operation": "GET /api/v1/source-files/{source_file_id}/profile/sheets",
+  "name": "workbookSheets",
+  "summary": "The workbook's sheets with their blocks",
+  "request": {
+    "path": {
+      "source_file_id": "00000000-0000-4000-8000-000000000011"
+    },
+    "query": {
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "index": 0,
+          "name": "Haltestellen",
+          "rows": 54,
+          "headerRow": 3,
+          "laidOut": false,
+          "blocks": [
+            {
+              "index": 0,
+              "range": "A3:J54",
+              "firstColumn": "A",
+              "lastColumn": "J",
+              "headerRow": 3,
+              "lastRow": 54,
+              "rows": 51,
+              "titles": [],
+              "note": null
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Namen",
+          "rows": 15,
+          "headerRow": 3,
+          "laidOut": false,
+          "blocks": [
+            {
+              "index": 0,
+              "range": "A3:D16",
+              "firstColumn": "A",
+              "lastColumn": "D",
+              "headerRow": 3,
+              "lastRow": 16,
+              "rows": 13,
+              "titles": [],
+              "note": null
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "name": "Lokale Codes",
+          "rows": 27,
+          "headerRow": 1,
+          "laidOut": true,
+          "blocks": [
+            {
+              "index": 0,
+              "range": "A1:C28",
+              "firstColumn": "A",
+              "lastColumn": "C",
+              "headerRow": 1,
+              "lastRow": 28,
+              "rows": 26,
+              "titles": [],
+              "note": null
+            },
+            {
+              "index": 1,
+              "range": "F1:H28",
+              "firstColumn": "F",
+              "lastColumn": "H",
+              "headerRow": 1,
+              "lastRow": 28,
+              "rows": 26,
+              "titles": [],
+              "note": null
+            }
+          ]
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-5"
+    }
+  }
+}

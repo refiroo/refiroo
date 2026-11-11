@@ -1,0 +1,151 @@
+{
+  "operation": "GET /api/v1/changes",
+  "name": "recentRecordChanges",
+  "summary": "The latest changes to records of one workspace",
+  "request": {
+    "query": {
+      "workspaceKey": "graubuenden",
+      "kind": "record",
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "occurredAt": "2026-11-02T09:14:00Z",
+          "kind": "record",
+          "action": "created",
+          "workspace": {
+            "key": "graubuenden",
+            "label": "Graubünden"
+          },
+          "changeSet": null,
+          "subject": {
+            "id": "00000000-0000-4000-8000-000000000011",
+            "name": "Matterhorn Gotthard Bahn (fo) (fr)",
+            "applicationKey": "names",
+            "objectTypeKey": "name-translation",
+            "objectTypeName": "Name translation",
+            "removed": false
+          },
+          "changedFields": [
+            "attributes",
+            "initialRelations",
+            "objectTypeKey"
+          ],
+          "attributes": [
+            {
+              "key": "active",
+              "name": "Active"
+            },
+            {
+              "key": "translated-name",
+              "name": "Translated name"
+            }
+          ],
+          "cause": {
+            "kind": "job",
+            "id": "00000000-0000-4000-8000-000000000012"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "Reference Administrator"
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "occurredAt": "2026-11-02T09:14:00Z",
+          "kind": "record",
+          "action": "created",
+          "workspace": {
+            "key": "graubuenden",
+            "label": "Graubünden"
+          },
+          "changeSet": null,
+          "subject": {
+            "id": "00000000-0000-4000-8000-000000000014",
+            "name": "Matterhorn Gotthard Bahn (fo) (de)",
+            "applicationKey": "names",
+            "objectTypeKey": "name-translation",
+            "objectTypeName": "Name translation",
+            "removed": false
+          },
+          "changedFields": [
+            "attributes",
+            "initialRelations",
+            "objectTypeKey"
+          ],
+          "attributes": [
+            {
+              "key": "active",
+              "name": "Active"
+            },
+            {
+              "key": "translated-name",
+              "name": "Translated name"
+            }
+          ],
+          "cause": {
+            "kind": "job",
+            "id": "00000000-0000-4000-8000-000000000012"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "Reference Administrator"
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "occurredAt": "2026-11-02T09:14:00Z",
+          "kind": "record",
+          "action": "created",
+          "workspace": {
+            "key": "graubuenden",
+            "label": "Graubünden"
+          },
+          "changeSet": null,
+          "subject": {
+            "id": "00000000-0000-4000-8000-000000000016",
+            "name": "Rhätische Bahn (fr)",
+            "applicationKey": "names",
+            "objectTypeKey": "name-translation",
+            "objectTypeName": "Name translation",
+            "removed": false
+          },
+          "changedFields": [
+            "attributes",
+            "initialRelations",
+            "objectTypeKey"
+          ],
+          "attributes": [
+            {
+              "key": "active",
+              "name": "Active"
+            },
+            {
+              "key": "translated-name",
+              "name": "Translated name"
+            }
+          ],
+          "cause": {
+            "kind": "job",
+            "id": "00000000-0000-4000-8000-000000000012"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "Reference Administrator"
+          }
+        }
+      ],
+      "nextCursor": "cursor-6",
+      "prevCursor": null,
+      "anchor": "cursor-7"
+    }
+  }
+}

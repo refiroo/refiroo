@@ -1,0 +1,66 @@
+{
+  "operation": "GET /api/v1/relation-types",
+  "name": "firstPage",
+  "summary": "The first two relation types, in key order",
+  "request": {
+    "query": {
+      "pageSize": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000017",
+          "key": "canton-contains-district",
+          "name": "Contains district",
+          "reverseKey": "district-belongs-to-canton",
+          "reverseName": "Belongs to canton",
+          "isOriented": true,
+          "features": {
+            "parentOf": true,
+            "creatableOnChildAdd": true
+          },
+          "allowedPairs": [
+            {
+              "id": "00000000-0000-4000-8000-000000000018",
+              "fromObjectTypeKey": "canton",
+              "toObjectTypeKey": "district",
+              "cardinality": "one-to-many",
+              "required": false,
+              "attributeTypeKeys": [],
+              "features": {}
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000019",
+          "key": "district-contains-municipality",
+          "name": "Contains municipality",
+          "reverseKey": "municipality-belongs-to-district",
+          "reverseName": "Belongs to district",
+          "isOriented": true,
+          "features": {
+            "parentOf": true,
+            "creatableOnChildAdd": true
+          },
+          "allowedPairs": [
+            {
+              "id": "00000000-0000-4000-8000-000000000020",
+              "fromObjectTypeKey": "district",
+              "toObjectTypeKey": "municipality",
+              "cardinality": "one-to-many",
+              "required": false,
+              "attributeTypeKeys": [],
+              "features": {}
+            }
+          ]
+        }
+      ],
+      "nextCursor": "cursor-7",
+      "prevCursor": null,
+      "anchor": "cursor-8"
+    }
+  }
+}

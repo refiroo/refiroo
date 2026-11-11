@@ -1,0 +1,97 @@
+{
+  "operation": "POST /api/v1/workspaces/{workspace_key}/history/account",
+  "name": "today",
+  "summary": "What changed in the workspace over a period: the facts the engine counted and the words for them",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "body": {
+      "since": "2026-11-02T09:00:00Z",
+      "until": "2026-11-02T11:06:00Z",
+      "timeZone": "Europe/Zurich"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "scope": "workspace",
+      "since": "2026-11-02T09:00:00Z",
+      "until": "2026-11-02T11:06:00Z",
+      "timeZone": "Europe/Zurich",
+      "facts": [
+        {
+          "id": "rc-561f5831",
+          "kind": "records",
+          "text": "Name translation: 231 records created (Albula/Alvra (de), Albula/Alvra (en), Albula/Alvra (fr), Albula/Alvra (it), Albula/Alvra (rm), Arosa (de), Arosa (en), Arosa (fr), Arosa (it), Arosa (rm) and 221 more)",
+          "count": 231,
+          "keys": {
+            "objectTypeKey": "name-translation",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "name-translation",
+              "action": "created",
+              "live": true
+            }
+          }
+        },
+        {
+          "id": "rc-9dee8211",
+          "kind": "records",
+          "text": "System code: 170 records created (Q10640057 Zernez, Q10640070 Surovas, Q10640085 Poschiavo, Q10640094 Miralago, Q10640193 Sedrun, Q10640384 Versam-Safien, Q10640399 Litzirüti, Q1089688 Chur West, Q140693179 Davos Kongress/Eisstadion, Q15056824 Ilanz/Glion and 160 more)",
+          "count": 170,
+          "keys": {
+            "objectTypeKey": "system-code",
+            "action": "created"
+          },
+          "link": {
+            "kind": "changes",
+            "id": null,
+            "query": {
+              "kind": [
+                "record"
+              ],
+              "objectTypeKey": "system-code",
+              "action": "created",
+              "live": true
+            }
+          }
+        }
+      ],
+      "statements": [
+        {
+          "text": "Name translation: 231 records created",
+          "factIds": [
+            "rc-561f5831"
+          ]
+        },
+        {
+          "text": "System code: 170 records created",
+          "factIds": [
+            "rc-9dee8211"
+          ]
+        },
+        {
+          "text": "Stop: 116 records created",
+          "factIds": [
+            "rc-eb3482bb"
+          ]
+        }
+      ],
+      "removedStatements": 0,
+      "failure": null,
+      "cached": false,
+      "callId": "00000000-0000-4000-8000-000000000003"
+    }
+  },
+  "notes": [
+    "`facts`: the first 2 of 23 items are shown."
+  ]
+}

@@ -42,7 +42,12 @@ include = ["app*"]
 
 [tool.setuptools.package-data]
 "app.migrations" = ["script.py.mako"]
-"app.management.reference" = ["scalar/standalone.js", "scalar/LICENSE"]
+"app.management.reference" = [
+  "scalar/standalone.js",
+  "scalar/LICENSE",
+  "content/*.md",
+  "content/examples/*.json",
+]
 "app.management" = ["passkey.js", "brand/*.png"]
 "app.engine.mail" = ["brand/*.png"]
 

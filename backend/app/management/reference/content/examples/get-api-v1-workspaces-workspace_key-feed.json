@@ -1,0 +1,112 @@
+{
+  "operation": "GET /api/v1/workspaces/{workspace_key}/feed",
+  "name": "fromTheStart",
+  "summary": "The first three changes to the workspace's live data",
+  "request": {
+    "path": {
+      "workspace_key": "graubuenden"
+    },
+    "query": {
+      "after": 0,
+      "pageSize": 3
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "position": 1,
+          "eventId": "00000000-0000-4000-8000-000000000002",
+          "occurredAt": "2026-11-02T09:07:00Z",
+          "kind": "object",
+          "action": "created",
+          "id": "00000000-0000-4000-8000-000000000003",
+          "version": 1,
+          "objectTypeKey": "canton",
+          "applicationKey": "network",
+          "changedFields": [
+            "attributes",
+            "initialRelations",
+            "objectTypeKey"
+          ],
+          "attributeTypeKeys": [
+            "canton-abbreviation",
+            "fso-number"
+          ],
+          "cause": {
+            "kind": "job",
+            "id": "00000000-0000-4000-8000-000000000004"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "Reference Administrator"
+          },
+          "modelReleaseId": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "position": 2,
+          "eventId": "00000000-0000-4000-8000-000000000006",
+          "occurredAt": "2026-11-02T09:07:00Z",
+          "kind": "object",
+          "action": "created",
+          "id": "00000000-0000-4000-8000-000000000007",
+          "version": 1,
+          "objectTypeKey": "district",
+          "applicationKey": "network",
+          "changedFields": [
+            "attributes",
+            "initialRelations",
+            "objectTypeKey"
+          ],
+          "attributeTypeKeys": [
+            "fso-number"
+          ],
+          "cause": {
+            "kind": "job",
+            "id": "00000000-0000-4000-8000-000000000004"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "Reference Administrator"
+          },
+          "modelReleaseId": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "position": 3,
+          "eventId": "00000000-0000-4000-8000-000000000008",
+          "occurredAt": "2026-11-02T09:07:00Z",
+          "kind": "object",
+          "action": "created",
+          "id": "00000000-0000-4000-8000-000000000009",
+          "version": 1,
+          "objectTypeKey": "district",
+          "applicationKey": "network",
+          "changedFields": [
+            "attributes",
+            "initialRelations",
+            "objectTypeKey"
+          ],
+          "attributeTypeKeys": [
+            "fso-number"
+          ],
+          "cause": {
+            "kind": "job",
+            "id": "00000000-0000-4000-8000-000000000004"
+          },
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "Reference Administrator"
+          },
+          "modelReleaseId": "00000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "nextAfter": 3,
+      "headPosition": 1231,
+      "earliestPosition": 1
+    }
+  }
+}

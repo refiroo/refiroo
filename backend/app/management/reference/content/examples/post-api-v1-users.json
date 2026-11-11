@@ -1,0 +1,31 @@
+{
+  "operation": "POST /api/v1/users",
+  "name": "referenceEditor",
+  "summary": "A person, named by the e-mail address they sign in with",
+  "request": {
+    "body": {
+      "name": "Reference Editor",
+      "email": "editor@example.org"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Reference Editor",
+      "email": "editor@example.org",
+      "active": true,
+      "hasPassword": false,
+      "version": 1,
+      "createdAt": "2026-11-02T09:28:00Z",
+      "updatedAt": "2026-11-02T09:28:00Z",
+      "lastSignInAt": null,
+      "roles": [],
+      "identities": [],
+      "localKept": false,
+      "secondFactor": null,
+      "passkeys": 0,
+      "signInManaged": false
+    }
+  }
+}

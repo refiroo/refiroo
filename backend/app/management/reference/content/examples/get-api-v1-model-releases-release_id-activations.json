@@ -1,0 +1,33 @@
+{
+  "operation": "GET /api/v1/model-releases/{release_id}/activations",
+  "name": "secondRelease",
+  "summary": "Where the second release was selected as a workspace's model",
+  "request": {
+    "path": {
+      "release_id": "00000000-0000-4000-8000-000000000032"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "eventId": "00000000-0000-4000-8000-000000000033",
+          "kind": "activated",
+          "previousReleaseId": "00000000-0000-4000-8000-000000000023",
+          "workspaceKey": "graubuenden",
+          "runtimeVersion": 2,
+          "occurredAt": "2026-11-02T10:03:00Z",
+          "actor": {
+            "kind": "user",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "name": "Reference Administrator"
+          }
+        }
+      ],
+      "nextCursor": null,
+      "prevCursor": null,
+      "anchor": "cursor-21"
+    }
+  }
+}
