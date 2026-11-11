@@ -177,7 +177,6 @@ export function ObjectToolbar({
           />
         ) : (
           <DebouncedSearchField
-            key={query.search}
             appliedValue={query.search}
             placeholder={placeholder}
             onApply={(search) => onChange({ ...query, search })}

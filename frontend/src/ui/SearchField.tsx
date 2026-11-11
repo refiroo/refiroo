@@ -50,7 +50,9 @@ export function SearchField({
 
 /**
  * A search box over a search held elsewhere (the URL): typing is applied, trimmed, 250ms after
- * the last key, and only when it differs from `appliedValue`.
+ * the last key, and only when it differs from `appliedValue`. The box stays mounted while its own
+ * search comes back, so focus and caret stay put; a search changed elsewhere (back, a clear
+ * button, an answer in words) replaces the text.
  */
 export function DebouncedSearchField({
   appliedValue,
@@ -64,10 +66,20 @@ export function DebouncedSearchField({
   placeholder: string;
 }) {
   const [value, setValue] = useState(appliedValue);
+  const [seen, setSeen] = useState(appliedValue);
+  // The search this box last applied, until it comes back as `appliedValue`.
+  const [sent, setSent] = useState<string>();
+  if (appliedValue !== seen) {
+    setSeen(appliedValue);
+    if (appliedValue === sent) setSent(undefined);
+    else setValue(appliedValue);
+  }
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const search = value.trim();
-      if (search !== appliedValue) onApply(search);
+      if (search === appliedValue) return;
+      setSent(search);
+      onApply(search);
     }, 250);
     return () => window.clearTimeout(timer);
   }, [appliedValue, onApply, value]);
