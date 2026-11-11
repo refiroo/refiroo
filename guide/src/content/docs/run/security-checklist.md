@@ -12,16 +12,19 @@ own; historical security tests do not certify your deployment.
   Check certificate renewal and HTTP redirection if port 80 is open. Public TCP 443 alone is
   sufficient for automatic certificates; port 80 may remain closed. See [HTTPS](/docs/run/https/).
 - **Private services:** publish only `web`, or Caddy with the automatic overlay. Keep PostgreSQL,
-  engine and metrics ports private. The engine trusts forwarded caller addresses from web.
+  engine and metrics ports private. Compose trusts forwarded caller addresses only from the private
+  ranges in `FORWARDED_ALLOW_IPS`, not every address. For another proxy, set that list in `.env`
+  to the addresses that connect to the engine and recreate it.
 - **Trusted balancers:** with `WEB_TLS=proxy`, restrict access to the balancer, replace untrusted
   forwarded headers there and set `WEB_TRUSTED_PROXIES` to its actual connecting range.
   Empty trusts nobody and combines users under the balancer's address for throttling.
 - **Browser origins:** keep `CORS_ORIGINS` to the exact intended origins. The session refresh cookie is
   HttpOnly, SameSite=Strict, scoped to `/oauth`, and Secure when `PUBLIC_URL` uses HTTPS.
   Provider redirect cookies use SameSite=Lax so the external sign-in return can work.
-- **Framing and scripts:** verify `Content-Security-Policy: frame-ancestors 'none'` and
-  `X-Frame-Options: DENY` on the web application. The engine's sign-in and API-reference pages
-  supply their own script policies. Keep these headers through your proxy.
+- **Framing and scripts:** verify the application's Content Security Policy restricts scripts and
+  requests to its own origin and includes `frame-ancestors 'none'`; check `X-Frame-Options: DENY`
+  too. The engine's sign-in pages, guide and API reference supply their own policies. Preserve
+  them through your proxy; see [content security policies](/docs/run/https/#preserve-the-content-security-policies).
 - **Secrets:** never commit environment files, keys or credentials, and never bake them into
   images. Keep backup keys outside PostgreSQL. Rehearse [resealing](/docs/run/secrets-and-keys/)
   as a planned operation; changing the key voids unused recovery codes.
@@ -36,13 +39,30 @@ own; historical security tests do not certify your deployment.
   another caller. Preserve real caller addresses and investigate repeated failures.
 - **Outbound connections:** permit only needed providers, SMTP, webhook receivers and optional AI.
   Preserve TLS verification and supply internal CAs where needed. Check the optional assistant's
-  [network and data boundaries](/docs/run/ai/) before enabling it.
+  [network and data boundaries](/docs/run/ai/) before enabling it. Webhooks refuse private and
+  loopback destinations by default. Enable `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` only for intended
+  internal receivers; link-local destinations remain refused. Check private receivers after an
+  upgrade, as existing subscriptions are subject to the same rule.
+- **Assistant sessions:** keep `AI_AGENT_SANDBOX=container` as supplied by the image and Compose.
+  Size the `ASSISTANT_USERS` build argument for the engine processes (default 8). Each task keeps
+  its transcript in its own folder. Permissions open that folder only to the user running the
+  turn and close it between turns. Each turn takes a free session user and resets that user's
+  processes, home and temporary files before and after running. Keep Compose's `init: true`, or
+  use `docker run --init` with the image.
+  The provider credential still reaches the session, and outbound connections are unrestricted.
+  Use a dedicated credential with a spending limit and your deployment's network restrictions.
+  Task isolation inside the container depends on Unix permissions and the reset; reviews are
+  not proof of isolation. A separate container per session is stronger and is not built in.
+  See [the assistant's session](/docs/run/ai/#the-assistants-session) for all three limits.
 - **Files and logs:** protect job files, delivery payloads, database backups and debug logs as
-  sensitive data. Prefer XLSX when opening untrusted text exports in spreadsheet software; CSV
-  text can be interpreted as formulas.
+  sensitive data. CSV exports prefix formula-like text with a single quote; keep that protection
+  when opening or returning a file. Other CSV sources may lack it. XLSX exports are unaffected.
+  See [CSV text rules](/docs/use/importing-and-exporting/#text-in-csv-files).
 - **Recovery and updates:** test a [restore](/docs/run/backup-and-restore/) and watch
   [readiness and failures](/docs/run/monitoring/). Use a release receiving security fixes;
-  before 1.0 that is the latest minor release.
+  before 1.0 that is the latest minor release. Keep image digests, the Claude Code build version,
+  Python constraints and npm lock files with your source; move them using the
+  [build-version procedure](/docs/run/upgrades/#maintain-build-versions).
 
 ## Repeat checks after a change
 

@@ -42,7 +42,7 @@ import { objectTypeFor } from "@/model/lookup";
 import { typeNames } from "@/model/restructuring";
 import { MOVE_REFUSAL_TEXT } from "@/model/treeDrop";
 import type { EngineModel, ObjectItem, ParentCandidate } from "@/types";
-import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -246,17 +246,15 @@ export function TreeMoveDialog({
         ) : (
           <p className="muted">{where ? `Now in ${where}.` : "Now at the top of the hierarchy."}</p>
         )}
-        <label className="search-box candidate-search">
-          <Icon name="search" />
-          <input
-            aria-label="Search new locations"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name…"
-            autoFocus
-            disabled={moving}
-          />
-        </label>
+        <SearchField
+          className="candidate-search"
+          label="Search new locations"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by name…"
+          autoFocus
+          disabled={moving}
+        />
         <fieldset className="candidate-list" aria-busy={candidates.loading || undefined} disabled={moving}>
           <legend className="visually-hidden">Choose where to move {label}</legend>
           {topLevel && (

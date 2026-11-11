@@ -502,3 +502,53 @@ def test_a_first_sign_in_needs_the_providers_email_and_a_free_address(world, idp
     _signed_in(world, idp, sub="p-1", name="Pat Provider", email="ana@example.org")
     pat = ok(world.api.get("/users", q="Pat Provider"))["items"][0]
     assert pat["email"] == "pat@example.org"
+
+
+@pytest.mark.journey("J39")
+def test_two_first_sign_ins_of_the_same_new_person_at_once_make_one_person(world, idp, monkeypatch):
+    """Given a provider and a person the engine has never seen who signs in twice at the same time
+    (two browsers), both having found no one with their address before either has made them. When
+    both answers come back, then both browsers get a code that gives a session, both sessions are
+    the same one person, and the person exists once with one identity."""
+    import threading
+
+    from app.engine.identity import provider_sign_in
+
+    _provider(world, idp)
+    both_looked = threading.Barrier(2)
+    holder = provider_sign_in._holder
+
+    def looked(session, email, **keywords):
+        found = holder(session, email, **keywords)
+        if not keywords:
+            both_looked.wait(timeout=20)
+        return found
+
+    monkeypatch.setattr(provider_sign_in, "_holder", looked)
+    sign_ins = []
+    for _ in range(2):
+        browser = _browser(world)
+        verifier, challenge = _pkce()
+        started = _start(browser, "harness", challenge)
+        assert started.status_code == 303
+        sign_ins.append((browser, verifier, idp.sign_in(started.headers["location"], **PAT)))
+    answers: list = [None, None]
+
+    def come_back(index: int) -> None:
+        browser, _, address = sign_ins[index]
+        answers[index] = _back(browser, address)
+
+    threads = [threading.Thread(target=come_back, args=(index,)) for index in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    people = set()
+    for (browser, verifier, _), answer in zip(sign_ins, answers, strict=True):
+        token = ok(_exchange(browser, _code(answer), verifier))["access_token"]
+        people.add(ok(world.api.client.get("/api/v1/me", headers=_bearer(token)))["id"])
+    assert len(people) == 1
+    [pat] = ok(world.api.get("/users", q="pat@example.org"))["items"]
+    assert [i["subject"] for i in pat["identities"]] == ["p-1"]
+    assert not _failures(world)

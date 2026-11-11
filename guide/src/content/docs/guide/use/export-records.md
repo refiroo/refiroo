@@ -22,7 +22,10 @@ Take a file of the data you need. Read
    shaped for the chosen view or types. **Technical** is offered for a table view, a type,
    an application or the workspace; it offers **Excel (XLSX)**, **CSV** or **JSON Lines**
    under **Format**. A matrix, tree, mapping grid or relationships table exports its view
-   as a workbook for editing.
+   as a workbook for editing. In CSV, text that could start a spreadsheet formula receives
+   one extra leading single quote, even when single quotes already precede the formula character.
+   Keep it if you return the CSV; import reads back the original text. XLSX is unaffected.
+   See [CSV text rules](/docs/use/importing-and-exporting/#text-in-csv-files).
 5. Read any notice about filters not carried into the file. A filter on a relationship's own
    values is not carried. The file can therefore include connections that filter hid.
    For a table workbook, **Advanced: columns and sheets** adjusts its columns and related sheets.

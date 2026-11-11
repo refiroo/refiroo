@@ -14,7 +14,7 @@ instead of **New webhook**. Ask the operator to enable delivery before starting 
 ## Choose what is sent
 
 1. Open **Settings › Integration › Webhooks** and choose **New webhook**. If webhooks are off, ask the operator to enable them. Workspace events need no consumer API declaration.
-2. In **Webhook**, enter a readable **Name** and the receiver’s **URL**. Use its final HTTPS address; redirects are not followed. Plain HTTP is accepted only for a localhost receiver.
+2. In **Webhook**, enter a readable **Name** and the receiver’s **URL**. Use its final HTTPS address; redirects are not followed. Private and localhost receivers need the operator to allow private destinations on this instance. Plain HTTP is accepted only for a localhost receiver when the operator has allowed private destinations. Link-local destinations are always refused. If the address is refused, ask the operator to review it before trying again.
 3. In **Source › Events from**, choose **Consumer API** for declared record changes, or **Workspace events** for change-set steps. If no consumer API declares events, only **Workspace events** is offered. For a consumer source, select **Consumer API** too.
 4. Select **Workspace**. The list offers active workspaces where you hold Integration administration. Check the source and workspace carefully: they cannot be changed after creation.
 5. Under **Events**, keep **All events**, or select **Chosen events**, then **Choose events** and the required entries. At least one event is required. For workspace events the choices are **change-set.submitted** (submitted for approval), **change-set.approved** (approved and published), and **change-set.sent-back** (returned to its author). **All events (3)** selects all three.

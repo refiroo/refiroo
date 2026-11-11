@@ -34,9 +34,18 @@ contract, filter and retained position again.
 ## Network and receiver requirements
 
 Allow direct outbound HTTPS from the engine to receivers. A redirect is not followed: configure
-the final URL. Private addresses are permitted; there is no host allowlist. Plain HTTP is accepted
-only for a loopback host in development. Every attempt resolves DNS again and refuses link-local
-addresses, and loopback addresses unless the URL itself names a loopback host.
+the final URL. By default, a destination is refused if its address, or any address its host name
+resolves to, is loopback, private, IPv6 unique-local, shared `100.64.0.0/10` or otherwise non-public.
+The check runs when a subscription is created or changed and again at every delivery attempt.
+Each attempt resolves DNS again and connects to the checked address. There is no host allowlist.
+
+For a receiver inside your network, set `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED=true` and recreate
+the engine. It is off by default. Plain HTTP is accepted only for `localhost`, `127.0.0.1` or
+`::1`, and also needs this setting on. Link-local addresses are always refused, even with the
+setting on. A refused delivery records an `address` attempt with its reason in the delivery log.
+After upgrading, existing subscriptions on private addresses stop delivering until the setting
+is on; check their attempts and resume any that became suspended after correcting the cause.
+
 Certificates must verify against the system trust store. For an internal CA, supply a bundle with
 `SSL_CERT_FILE`. Delivery does not use an outbound proxy.
 
@@ -130,8 +139,9 @@ and delivery throughput for that receiver are **not measured** by this guide.
 4. If delivery is failing, inspect the same pending batch and fix its cause. Do not delete and
    recreate the subscription merely to clear its state: that can abandon its recorded position.
 
-All three delivery-related environment settings are non-secret and need engine recreation:
-`CONSUMER_SUBSCRIPTIONS_ENABLED`, `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` and `FEED_RETENTION_DAYS`.
+These delivery-related environment settings are non-secret and need engine recreation:
+`CONSUMER_SUBSCRIPTIONS_ENABLED`, `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED`,
+`CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` and `FEED_RETENTION_DAYS`.
 The subscription's signing secret is secret database state sealed with the installation key.
 
 ## Recover a suspension in order

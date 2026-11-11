@@ -23,7 +23,10 @@ from test_j30_delivery import _now, _signed, receiver  # noqa: F401 - a fixture
 from test_j42_approvals import _actors, _decide, _edit, _proposal, _submit
 
 NOTICES = "/me/notifications"
-SUBSCRIPTIONS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
+SUBSCRIPTIONS = {
+    "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
+    "WEBHOOK_PRIVATE_ADDRESSES_ALLOWED": "true",  # the receiver listens on localhost
+}
 
 
 def _inbox(actor, **params) -> list[dict]:

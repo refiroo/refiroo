@@ -100,6 +100,15 @@ With mail set up and an e-mail address on the person, **New person** and **Reset
 
 The sign-in page offers **Forgotten your password?** when mail is configured. People enter **E-mail address** and choose **Mail me a link**. The answer is the same whether or not an account matches, and repeated requests are slowed. The one-use link opens **Choose a new password**; using it ends all sessions. An existing second factor remains required. An expired or already used link needs a fresh request.
 
+A request from **Forgotten your password?** replaces earlier links requested there, but leaves
+an administrator's link valid. A new link made by an administrator replaces every earlier
+password link for that person. Stopping a waiting message does not change these rules.
+
+When a valid link opens, its secret part is removed from the address bar before the password
+form appears. You can reload the page in the same browser without losing the link. If the form
+no longer opens, reopen the original link while it is valid. If it expired, was replaced or was
+used, make or request a fresh one.
+
 ## Notices and digests
 
 Each person controls their own delivery under **Settings › General › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.

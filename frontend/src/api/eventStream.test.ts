@@ -74,4 +74,24 @@ describe("openEventStream (0.12 I2, D247)", () => {
     stream.close();
     vi.useRealTimers();
   });
+
+  it("resumes from the last id it saw and says when a connection follows an earlier one (0.17 RF3)", async () => {
+    vi.useFakeTimers();
+    vi.mocked(authorizedFetch)
+      .mockResolvedValueOnce(streamed(["id: 7\nevent: job\ndata: {}\n\n"]))
+      .mockImplementation(async () => streamed([": hello\n\n"]));
+    const stream = openEventStream("http://engine/events");
+    const reconnected = vi.fn();
+    stream.addEventListener("reconnected", reconnected);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reconnected).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(reconnected).toHaveBeenCalledTimes(1);
+    const first = vi.mocked(authorizedFetch).mock.calls[0][1]?.headers as Record<string, string>;
+    const second = vi.mocked(authorizedFetch).mock.calls[1][1]?.headers as Record<string, string>;
+    expect(first["Last-Event-ID"]).toBeUndefined();
+    expect(second["Last-Event-ID"]).toBe("7");
+    stream.close();
+    vi.useRealTimers();
+  });
 });

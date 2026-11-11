@@ -72,7 +72,11 @@ AI confidence is a number from 0 to 1, and a configured AI context window needs 
 Compose's explicit environment entries override the file: it constructs `DATABASE_URL` and sets
 `CORS_ORIGINS` from `PUBLIC_URL`. It also supplies `AI_AGENT_API_URL=http://127.0.0.1:8000` unless
 you override that setting, so the assistant reaches the API inside the engine container. The image
-supplies the default model and job-file paths.
+supplies the default model and job-file paths. Both the image and Compose set
+`AI_AGENT_SANDBOX=container`; Compose's value cannot be turned off in `.env`.
+`FORWARDED_ALLOW_IPS` defaults in Compose to `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`.
+Behind another proxy, set it in `.env` to the proxy addresses that connect to the engine;
+see [HTTPS](/docs/run/https/#put-an-https-load-balancer-in-front).
 Custom model input must also be mounted where the engine can read it; naming a host path in the
 container's environment does not mount that file. [Troubleshooting](/docs/run/troubleshooting/) covers service failures.
 
@@ -174,6 +178,7 @@ links for the complete procedures.
 
 | Setting | Engine default | Secret? | What it changes | When to change |
 | --- | --- | --- | --- | --- |
+| `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` | false | No | Allows loopback, private, unique-local, shared 100.64.0.0/10 and other non-public webhook destinations. Link-local stays refused. | For internal receivers or localhost development. After upgrading, existing private receivers stop delivering until enabled; see [Webhook delivery](/docs/run/webhook-delivery/#network-and-receiver-requirements). |
 | `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` | 7 | No | Days the webhook delivery log keeps a request, its body and its attempts. | Raise for longer delivery diagnostics; bodies consume database space. |
 
 ### AI and agent settings

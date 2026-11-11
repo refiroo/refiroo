@@ -164,6 +164,70 @@ def test_asking_is_slowed_whatever_the_name_matches_and_sign_in_is_not_affected(
     assert ok(signed)["status"] == "signed_in"
 
 
+def _mailed_token(outbox, index: int) -> str:
+    body = outbox.messages[index].get_body(("plain",)).get_content()
+    return _token(next(line for line in body.splitlines() if "reset-password?token=" in line))
+
+
+@pytest.mark.journey("J46.8")
+def test_an_ask_by_address_does_not_cancel_a_link_an_administrator_made(world, smtp):  # noqa: F811
+    """Given an administrator's unexpired link for a person. When anyone asks for that person's
+    address, then the administrator's link still opens its page and sets the password, and the
+    message the ask sent carries a link of its own; when the address is asked for again, the first
+    mailed link is replaced by the second, one link from the mail flow."""
+    _save(world, smtp)
+    ada = _with_password(world, "ada", "ada@example.org")
+    theirs = _token(ok(world.api.post(f"/users/{ada['id']}/password-reset", {}), 201)["url"])
+    browser = _browser(world)
+
+    _ask(browser, "ada@example.org")
+    _ask(browser, "ada@example.org")
+    assert send_mail(world) == 2
+    first, second = _mailed_token(smtp, 0), _mailed_token(smtp, 1)
+    assert len({theirs, first, second}) == 3
+    assert browser.get(PAGE, params={"token": first}, headers=APP).status_code == 410
+    assert browser.get(PAGE, params={"token": second}, headers=APP).status_code == 200
+    assert browser.get(PAGE, params={"token": theirs}, headers=APP).status_code == 200
+    done = browser.post(
+        "/oauth/sign-in/reset",
+        json={"token": theirs, "password": SET_TO, "repeat": SET_TO},
+        headers=APP,
+    )
+    assert ok(done)["status"] == "password_set"
+
+
+@pytest.mark.journey("J46.8")
+def test_using_one_link_ends_the_persons_other_links(world, smtp):  # noqa: F811
+    """Given an administrator's link and one the person asked for. When the asked-for link sets the
+    password, then the administrator's link is gone, on its page and when used, and the password is
+    the one set."""
+    _save(world, smtp)
+    ada = _with_password(world, "ada", "ada@example.org")
+    theirs = _token(ok(world.api.post(f"/users/{ada['id']}/password-reset", {}), 201)["url"])
+    browser = _browser(world)
+    _ask(browser, "ada@example.org")
+    assert send_mail(world) == 1
+    mailed = _mailed_token(smtp, 0)
+
+    done = browser.post(
+        "/oauth/sign-in/reset",
+        json={"token": mailed, "password": SET_TO, "repeat": SET_TO},
+        headers=APP,
+    )
+    assert ok(done)["status"] == "password_set"
+    assert browser.get(PAGE, params={"token": theirs}, headers=APP).status_code == 410
+    again = browser.post(
+        "/oauth/sign-in/reset",
+        json={
+            "token": theirs,
+            "password": "yet-another-long-pass-9",
+            "repeat": "yet-another-long-pass-9",
+        },
+        headers=APP,
+    )
+    assert again.status_code == 410 and again.json()["error"] == "link_gone"
+
+
 @pytest.mark.journey("J46.8")
 def test_the_screen_offers_the_reset_only_where_it_can_finish(world, smtp):  # noqa: F811
     """Given no mail settings. Then the options do not offer a reset, the reset page says it is not

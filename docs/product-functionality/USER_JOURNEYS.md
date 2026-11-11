@@ -1643,7 +1643,9 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   each with its own criteria; only below one record; on a business date (types with a declared
   period are dated, the others exported as they are); with or without relationships; JSON Lines,
   CSV or XLSX. The job's `output` names the counts per type, the context, the feed position, the
-  release, the format, the size and the SHA-256 of the file.
+  release, the format, the size and the SHA-256 of the file. A CSV holds no text a spreadsheet runs as a
+  formula: a name or text value starting with `=`, `+`, `-`, `@`, a tab or a carriage return is written with
+  a single quote in front; numbers, dates and booleans are as stored, and an XLSX holds text as text (0.17 RF2).
 - **J27.2 The export as a baseline**: everything in the file was read at one instant; writes
   committed meanwhile are not in it and appear in the feed after the export's position. A reader
   whose position expired re-reads an export and follows the feed from its position.
@@ -2242,7 +2244,8 @@ C1 (2026-10-26): J39.11, the API reference signed in.
 - **J39.7 Sign in with a provider**: the person is found or created by the provider's issuer and
   subject; the provider's groups become provider groups. A first sign-in needs the provider's e-mail
   claim and an address no other person holds (0.17 EM1): without the claim, or with a taken address,
-  it is refused with what to ask for and of whom, and nobody is created.
+  it is refused with what to ask for and of whom, and nobody is created. The same new person signing
+  in twice at once is created once and both sign-ins succeed (0.17 RF2).
 - **J39.10 A passkey**: a signed-in person adds a passkey on the engine's own page and names it; it
   signs them in alone, with no e-mail address typed, or after a password as the second step; a passkey of another
   site, or used without the person verified, is refused and counted; they rename and remove theirs and
@@ -2535,7 +2538,8 @@ password by I6 and inbox notices by M2 (2026-10-27).
   the application's reset page is mailed only to an active person who has a local password and an
   address; no one else is written to and nothing shows who exists. Asking is slowed per name and per
   address, whatever the name matches, and sign-in is not. The link says who it is for, works once, is
-  replaced by a newer one, and sets a password that meets the engine's rules; the person's sessions end
+  replaced by a newer one it asked for (never one an administrator made, which stays valid until used or
+  expired, 0.17 RF2), and sets a password that meets the engine's rules; the person's sessions end
   and they sign in with the new password (a second factor is still asked for). Where mail is not set up
   the screen does not offer it and the ask is refused.
 - **J46.9 Stop a message** (0.12 M1): a message waiting for its next try can be stopped by Security

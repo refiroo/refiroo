@@ -668,6 +668,45 @@ def test_an_export_sent_back_without_a_profile_changes_nothing_and_an_edited_one
     assert world.value(world.record("H", added_record["id"], workspaceKey=ws), "H.code") == "ADD"
 
 
+@pytest.mark.journey("J27.3")
+@pytest.mark.structures("R", "R.u", "R.q")
+def test_a_csv_export_of_text_a_spreadsheet_would_run_comes_back_exactly(world):
+    """Given records whose name and text value start with `=`, `+`, `-`, `@`, a tab, or with a single
+    quote and then one of them. When they are exported as CSV and the unchanged file is sent back
+    without a profile, then every item is unchanged and the stored values are the originals; a
+    hand-made CSV row with `=x`, and one with `'=y`, imports as `=x` and `=y`."""
+    ws = _workspace(world)
+    texts = ["=1+1", "+5", "-5 apples", "@sum", "\tpad", "'=quoted", "''-twice", "'plain"]
+    made = [world.made("R", t, workspace=ws, values={"R.u": t}) for t in texts]
+    content = _export(world, ws, ("R",), "csv")
+    exported = {r["id"]: r for r in csv.DictReader(io.StringIO(content.decode("utf-8-sig")))}
+    assert exported[made[5]["id"]]["name"] == "''=quoted"
+    assert exported[made[7]["id"]]["name"] == "'plain"
+
+    job = _imported(world, "back.csv", content, _request(ws, onExisting="reject"))
+    assert job["state"] == "completed", job["error"]
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, job)} == {
+        ("applied", "unchanged")
+    }
+    for record, original in zip(made, texts, strict=True):
+        stored = world.record("R", record["id"], workspaceKey=ws)
+        assert stored["name"] == original and world.value(stored, "R.u") == original
+
+    header = list(next(iter(exported.values())).keys())
+    rows = [header]
+    for name, value in (("hand-1", "=x"), ("hand-2", "'=y")):
+        row = list(next(iter(exported.values())).values())  # a row of the export, as a template
+        row[header.index("id")] = row[header.index("version")] = ""
+        row[header.index("name")] = name
+        row[header.index(f"#{world.key('R.u')}")] = value
+        rows.append(row)
+    job = _imported(world, "hand.csv", _csv(rows), _request(ws, onExisting="reject"))
+    assert job["state"] == "completed", job["error"]
+    named = _named(world, "R", ws)
+    assert world.value(world.record("R", named["hand-1"]["id"], workspaceKey=ws), "R.u") == "=x"
+    assert world.value(world.record("R", named["hand-2"]["id"], workspaceKey=ws), "R.u") == "=y"
+
+
 @pytest.mark.journey("J27.9")
 @pytest.mark.structures("H", "H.code")
 def test_an_export_edited_and_sent_back_with_update_anyway_overwrites_a_record_changed_since(world):

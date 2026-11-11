@@ -189,6 +189,9 @@ class Settings(BaseModel):
     consumer_subscriptions_enabled: bool = False
     # How long the webhook delivery log keeps a request (U5a, C-D118).
     consumer_webhook_log_retention_days: int = Field(default=7, ge=1)
+    # Whether a webhook may go to a loopback, private or otherwise non-public address; link-local
+    # addresses stay refused (0.17 RF6, replacing C-D101's rule).
+    webhook_private_addresses_allowed: bool = False
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -306,6 +309,9 @@ class Settings(BaseModel):
             ),
             consumer_webhook_log_retention_days=_positive(
                 env, "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS", 7
+            ),
+            webhook_private_addresses_allowed=(
+                env.get("WEBHOOK_PRIVATE_ADDRESSES_ALLOWED", "false").strip().lower() in TRUTHY
             ),
         )
 
@@ -701,6 +707,14 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "consumer_webhook_log_retention_days",
         "webhooks",
         "Days the webhook delivery log keeps a request, its body and its attempts",
+    ),
+    CatalogueEntry(
+        "WEBHOOK_PRIVATE_ADDRESSES_ALLOWED",
+        "webhook_private_addresses_allowed",
+        "webhooks",
+        "Whether a webhook may go to a loopback, private (RFC 1918, unique-local, CGNAT) or other "
+        "non-public address; off, the default, refuses them at subscription and at delivery. "
+        "Link-local addresses (cloud metadata) are refused either way",
     ),
     CatalogueEntry(
         "AI_PROVIDER",

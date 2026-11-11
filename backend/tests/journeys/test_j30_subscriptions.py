@@ -1,7 +1,8 @@
 """J30.6–J30.7 — Subscribe to a consumer API's events (USER_JOURNEYS.md, Base 0.9 C11).
 
-Each test starts the application with the subscriptions capability on, an allowlist naming
-``hooks.example.test`` and ``localhost``, and a key to encrypt signing keys with, and activates a
+Each test starts the application with the subscriptions capability on, private addresses allowed
+(``WEBHOOK_PRIVATE_ADDRESSES_ALLOWED``, 0.17 RF6: the harness's receivers listen on ``localhost``;
+``PUBLIC_ONLY`` is the capability alone, the default for an instance), and a key to encrypt signing keys with, and activates a
 release whose ``Capi`` declares events, as J30 does. Nothing is delivered before C12: these tests
 manage subscriptions and check what suspends them. An expired position (J30.7) needs entries older
 than the retention period; the test moves their times back in the database, as J30.5 does.
@@ -25,7 +26,8 @@ from test_j30_consumer_events import (
     _workspace,
 )
 
-SUBSCRIPTIONS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
+PUBLIC_ONLY = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
+SUBSCRIPTIONS = {**PUBLIC_ONLY, "WEBHOOK_PRIVATE_ADDRESSES_ALLOWED": "true"}
 PATH = "/consumer-subscriptions"
 # How webhooks are delivered (C12, C-D103, C-D104), reported whether the capability is on or off.
 DELIVERY = {
@@ -65,12 +67,16 @@ def _read(world, subscription):
 
 def _suspend(world, subscription):
     current = _read(world, subscription)
-    return world.api.post(f"{PATH}/{current['id']}/suspend", {"expectedVersion": current["version"]})
+    return world.api.post(
+        f"{PATH}/{current['id']}/suspend", {"expectedVersion": current["version"]}
+    )
 
 
 def _resume(world, subscription, **body):
     current = _read(world, subscription)
-    return world.api.post(f"{PATH}/{current['id']}/resume", {"expectedVersion": current["version"], **body})
+    return world.api.post(
+        f"{PATH}/{current['id']}/resume", {"expectedVersion": current["version"], **body}
+    )
 
 
 def _feed_head(world, workspace):
@@ -113,38 +119,66 @@ def test_an_operator_subscribes_and_manages_the_subscription(world):
     secret = created.pop("signingSecret")
     assert secret.startswith("rdmwh_") and len(secret) > 40
     assert created["consumerApi"] == world.key("Capi") and created["workspaceKey"] == ws
-    assert (created["status"], created["suspension"], created["contractVersion"]) == ("active", None, 1)
+    assert (created["status"], created["suspension"], created["contractVersion"]) == (
+        "active",
+        None,
+        1,
+    )
     assert created["acknowledgedThrough"] == head
     assert created["filters"] == {kind: [world.key("Capi.R")], related: [token["name"]]}
-    assert (created["maxEventsPerBatch"], created["payload"], created["format"]) == (1, "identity", "rdm")
+    assert (created["maxEventsPerBatch"], created["payload"], created["format"]) == (
+        1,
+        "identity",
+        "rdm",
+    )
     assert created["events"] == [WATCHED, EVERY] and created["version"] == 1
     assert _read(world, created) == created
     engine = create_engine(world.database, poolclass=NullPool)
     with engine.connect() as connection:
         stored = connection.scalar(
-            text("SELECT signing_key FROM consumer_subscriptions WHERE public_id = :i"), {"i": created["id"]}
+            text("SELECT signing_key FROM consumer_subscriptions WHERE public_id = :i"),
+            {"i": created["id"]},
         )
     engine.dispose()
-    assert secret.encode() not in bytes(stored) and secret.removeprefix("rdmwh_").encode() not in bytes(stored)
+    assert secret.encode() not in bytes(stored) and secret.removeprefix(
+        "rdmwh_"
+    ).encode() not in bytes(stored)
 
     world.made("R", "Later", workspace=ws)
-    earlier = _subscribe(world, ws, startAfter=head - 1, maxEventsPerBatch=1000, format="cloudevents")
+    earlier = _subscribe(
+        world, ws, startAfter=head - 1, maxEventsPerBatch=1000, format="cloudevents"
+    )
     assert earlier["acknowledgedThrough"] == head - 1
-    assert (earlier["maxEventsPerBatch"], earlier["payload"], earlier["format"]) == (1000, "full", "cloudevents")
+    assert (earlier["maxEventsPerBatch"], earlier["payload"], earlier["format"]) == (
+        1000,
+        "full",
+        "cloudevents",
+    )
 
     edited = ok(
         world.api.patch(
             f"{PATH}/{created['id']}",
-            {"expectedVersion": 1, "url": "https://hooks.example.test/other", "filters": {kind: world.key("Capi.R2")}},
+            {
+                "expectedVersion": 1,
+                "url": "https://hooks.example.test/other",
+                "filters": {kind: world.key("Capi.R2")},
+            },
         )
     )
     assert edited["url"] == "https://hooks.example.test/other"
     assert edited["filters"] == {kind: [world.key("Capi.R2")]}
     assert edited["version"] == 2 and "signingSecret" not in edited
-    refused(world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": 1, "payload": "full"}), 409, "VERSION_CONFLICT")
+    refused(
+        world.api.patch(f"{PATH}/{created['id']}", {"expectedVersion": 1, "payload": "full"}),
+        409,
+        "VERSION_CONFLICT",
+    )
 
     suspended = ok(_suspend(world, created))
-    assert suspended["status"] == "suspended" and suspended["suspension"]["reason"] == "SUSPENDED_BY_USER"
+    assert (
+        suspended["status"] == "suspended"
+        and suspended["suspension"]["reason"] == "SUSPENDED_BY_USER"
+    )
     assert suspended["suspension"]["suspendedAt"]
     refused(_suspend(world, created), 409, "SUBSCRIPTION_ALREADY_SUSPENDED")
     listed = ok(world.api.get(PATH, consumerApi=world.key("Capi"), status="suspended"))
@@ -161,7 +195,11 @@ def test_an_operator_subscribes_and_manages_the_subscription(world):
     assert ok(world.api.get(PATH, consumerApi="no-such-api"))["items"] == []
 
     current = _read(world, created)
-    refused(world.api.delete(f"{PATH}/{created['id']}", expectedVersion=current["version"] - 1), 409, "VERSION_CONFLICT")
+    refused(
+        world.api.delete(f"{PATH}/{created['id']}", expectedVersion=current["version"] - 1),
+        409,
+        "VERSION_CONFLICT",
+    )
     deleted = world.api.delete(f"{PATH}/{created['id']}", expectedVersion=current["version"])
     assert deleted.status_code == 204, deleted.text
     refused(world.api.get(f"{PATH}/{created['id']}"), 404, "SUBSCRIPTION_NOT_FOUND")
@@ -193,9 +231,19 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
         ({"events": [EVERY, "no-such-event"]}, 400, "UNKNOWN_EVENT", "/events/1"),
         ({"filters": {"no-such-filter": "x"}}, 400, "UNKNOWN_PARAMETER", "/filters/no-such-filter"),
         ({"filters": {"asOf": "2026-01-01"}}, 400, "PARAMETER_NOT_SUPPORTED", "/filters/asOf"),
-        ({"filters": {f"to.{permit}": "x"}}, 400, "PARAMETER_NOT_SUPPORTED", f"/filters/to.{permit}"),
+        (
+            {"filters": {f"to.{permit}": "x"}},
+            400,
+            "PARAMETER_NOT_SUPPORTED",
+            f"/filters/to.{permit}",
+        ),
         ({"filters": {kind: "No such kind"}}, 400, "UNKNOWN_OBJECT_TYPE", f"/filters/{kind}"),
-        ({"filters": {related: [token["name"], "No such token"]}}, 400, "FILTER_MATCHES_NOTHING", f"/filters/{related}"),
+        (
+            {"filters": {related: [token["name"], "No such token"]}},
+            400,
+            "FILTER_MATCHES_NOTHING",
+            f"/filters/{related}",
+        ),
         ({"url": "http://hooks.example.test/rdm"}, 400, "INVALID_WEBHOOK_URL", "/url"),
         ({"url": "https://user:secret@hooks.example.test/rdm"}, 400, "INVALID_WEBHOOK_URL", "/url"),
         ({"workspaceKey": retired}, 404, "WORKSPACE_NOT_FOUND", "/workspaceKey"),
@@ -213,7 +261,9 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
     ):
         refused(world.api.post(PATH, _body(world, ws, **changes)), 422, "REQUEST_VALIDATION_ERROR")
 
-    local = _subscribe(world, ws, url="http://localhost:9000/hook", filters={related: token["name"]})
+    local = _subscribe(
+        world, ws, url="http://localhost:9000/hook", filters={related: token["name"]}
+    )
     assert local["url"] == "http://localhost:9000/hook"
     for changes, code, pointer in [
         ({"url": "http://hooks.example.test/rdm"}, "INVALID_WEBHOOK_URL", "/url"),
@@ -224,6 +274,65 @@ def test_a_subscription_the_definition_or_deployment_cannot_serve_is_refused(wor
         error = refused(world.api.patch(f"{PATH}/{local['id']}", body), 400, code)
         assert error["details"]["pointer"] == pointer
     assert _read(world, local)["version"] == local["version"]
+
+
+PRIVATE_URLS = [
+    "http://localhost:9000/hook",
+    "http://127.0.0.1:9000/hook",
+    "https://10.1.2.3/hook",
+    "https://192.168.0.7:8443/hook",
+    "https://[fd00::5]/hook",
+    "https://100.64.1.1/hook",
+    "https://[::ffff:10.0.0.1]/hook",
+]
+
+
+@pytest.mark.journey("J30.6")
+@pytest.mark.settings(**PUBLIC_ONLY)
+@pytest.mark.structures(*LEDGER)
+def test_an_address_on_a_private_range_is_refused_unless_the_instance_allows_it(world):
+    """Given the capability on and private addresses not allowed (the default). When an operator
+    subscribes to a loopback, private, unique-local, shared-range or link-local address, or edits a
+    subscription to one, then 400 `INVALID_WEBHOOK_URL` at `/url` saying private addresses are
+    refused on this instance, and nothing changes. A public address is accepted."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = _subscribe(world, ws)
+    for url in [*PRIVATE_URLS, "https://169.254.169.254/latest"]:
+        error = refused(world.api.post(PATH, _body(world, ws, url=url)), 400, "INVALID_WEBHOOK_URL")
+        assert error["details"]["pointer"] == "/url", url
+        assert "refused on this instance" in error["message"] or "link-local" in error["message"], (
+            url
+        )
+        body = {"expectedVersion": created["version"], "url": url}
+        refused(world.api.patch(f"{PATH}/{created['id']}", body), 400, "INVALID_WEBHOOK_URL")
+    assert _read(world, created)["version"] == created["version"]
+    assert _subscribe(world, ws, url="https://1.1.1.1/hook")["url"] == "https://1.1.1.1/hook"
+
+
+@pytest.mark.journey("J30.6")
+@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.structures(*LEDGER)
+def test_private_addresses_are_accepted_with_the_setting_on_and_link_local_never(world):
+    """Given the capability on and private addresses allowed. When an operator subscribes to each
+    private address then each is accepted, and an edit to one is accepted; a link-local address
+    (cloud metadata) is still refused."""
+    _activate(world, "events")
+    ws = _workspace(world)
+    created = None
+    for url in PRIVATE_URLS[2:]:
+        created = _subscribe(world, ws, url=url)
+        assert created["url"] == url
+    assert created is not None
+    edited = ok(
+        world.api.patch(
+            f"{PATH}/{created['id']}",
+            {"expectedVersion": created["version"], "url": "http://localhost:9000/hook"},
+        )
+    )
+    assert edited["url"] == "http://localhost:9000/hook"
+    for url in ("https://169.254.169.254/latest", "https://[fe80::1]/hook"):
+        refused(world.api.post(PATH, _body(world, ws, url=url)), 400, "INVALID_WEBHOOK_URL")
 
 
 @pytest.mark.journey("J30.7")
@@ -259,25 +368,39 @@ def test_a_model_activation_suspends_the_subscriptions_it_leaves_behind(world):
         definition["contractVersion"] = 2
         del definition["filters"][related]
 
-    _activate(world, "v2", events=[e for e in _events(world) if e["key"] != WATCHED], change=version_two)
+    _activate(
+        world, "v2", events=[e for e in _events(world) if e["key"] != WATCHED], change=version_two
+    )
     first, second, third, fourth = (_read(world, s) for s in (watched, narrowed, churn, paused))
     assert first["suspension"]["reason"] == "MODEL_CHANGED"
     assert [f["pointer"] for f in first["suspension"]["details"]["errors"]] == ["/events/0"]
     assert [f["code"] for f in first["suspension"]["details"]["errors"]] == ["UNKNOWN_EVENT"]
     assert second["suspension"]["reason"] == "MODEL_CHANGED"
-    assert [f["pointer"] for f in second["suspension"]["details"]["errors"]] == [f"/filters/{related}"]
+    assert [f["pointer"] for f in second["suspension"]["details"]["errors"]] == [
+        f"/filters/{related}"
+    ]
     assert third["suspension"]["reason"] == "CONTRACT_VERSION_CHANGED"
     assert third["suspension"]["details"] == {"contractVersion": 1, "servedContractVersion": 2}
     assert fourth["suspension"]["reason"] == "SUSPENDED_BY_USER"
     assert all(s["contractVersion"] == 1 for s in (first, second, third, fourth))
 
     error = refused(_resume(world, watched), 409, "SUBSCRIPTION_NEEDS_EDIT")
-    assert [(f["code"], f["pointer"]) for f in error["details"]["errors"]] == [("UNKNOWN_EVENT", "/events/0")]
-    edited = ok(world.api.patch(f"{PATH}/{first['id']}", {"expectedVersion": first["version"], "events": [EVERY]}))
+    assert [(f["code"], f["pointer"]) for f in error["details"]["errors"]] == [
+        ("UNKNOWN_EVENT", "/events/0")
+    ]
+    edited = ok(
+        world.api.patch(
+            f"{PATH}/{first['id']}", {"expectedVersion": first["version"], "events": [EVERY]}
+        )
+    )
     assert edited["status"] == "suspended"
     resumed = ok(_resume(world, watched))
     assert (resumed["status"], resumed["contractVersion"]) == ("active", 2)
-    ok(world.api.patch(f"{PATH}/{second['id']}", {"expectedVersion": second["version"], "filters": {}}))
+    ok(
+        world.api.patch(
+            f"{PATH}/{second['id']}", {"expectedVersion": second["version"], "filters": {}}
+        )
+    )
     for subscription in (narrowed, churn, paused):
         resumed = ok(_resume(world, subscription))
         assert (resumed["status"], resumed["contractVersion"]) == ("active", 2)
@@ -313,7 +436,10 @@ def test_retiring_a_workspace_suspends_its_subscriptions(world):
         "WORKSPACE_HAS_SUBSCRIPTIONS",
     )
     current = _read(world, subscription)
-    assert world.api.delete(f"{PATH}/{current['id']}", expectedVersion=current["version"]).status_code == 204
+    assert (
+        world.api.delete(f"{PATH}/{current['id']}", expectedVersion=current["version"]).status_code
+        == 204
+    )
     deleted = world.api.delete(f"/workspaces/{ws}", expectedVersion=_workspace_version(world, ws))
     assert deleted.status_code == 204, deleted.text
 

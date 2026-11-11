@@ -1,6 +1,8 @@
 # Both images build from the repository root; only what they copy is sent (0.12 DP2).
 *
 !backend/pyproject.toml
+!backend/constraints.txt
+!backend/refiroo-session-reset
 !backend/app
 !model/rdm-starter.json
 !frontend/package.json

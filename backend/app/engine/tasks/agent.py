@@ -12,17 +12,23 @@ The session is a process of the assistant worker in a folder of its own, kept fo
 stream says what it is doing now; what it has reached is read from what the engine recorded of it.
 """
 
+import fcntl
+import grp
 import ipaddress
 import json
 import logging
 import os
+import pwd
 import re
+import secrets
 import shlex
 import shutil
 import signal
 import ssl
+import stat
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from datetime import UTC, datetime, timedelta
@@ -32,7 +38,7 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
@@ -417,7 +423,22 @@ def _base_command() -> list[str]:
     return kept
 
 
-ASSISTANT_USER = "assistant"
+ASSISTANT_GROUP = "assistant"
+# The pool's users are named ``assistant-1`` to ``assistant-N`` (the image's ASSISTANT_USERS build
+# argument), all in the one group, each with a home of its own (0.17 RF5).
+_POOL_USER = re.compile(r"^assistant-(\d+)$")
+
+
+class SessionUserError(OSError):
+    """A turn cannot be given a session user, or its user's state cannot be reset."""
+
+
+class NoSessionUser(SessionUserError):
+    """Every user of the container's pool is running another turn."""
+
+
+class ResetFailed(SessionUserError):
+    """The reset between turns (``RESET_COMMAND``) did not finish."""
 
 
 def _container() -> bool:
@@ -425,17 +446,165 @@ def _container() -> bool:
     return os.environ.get("AI_AGENT_SANDBOX", "").strip().lower() == "container"
 
 
-def _as_assistant() -> list[str]:
+def _pool_users() -> list[str]:
+    """The users the image made for sessions: those named ``assistant-<number>`` that are members of
+    the group ``assistant``, in numeric order."""
+    try:
+        members = set(grp.getgrnam(ASSISTANT_GROUP).gr_mem)
+    except KeyError:
+        return []
+    found = [
+        (int(match.group(1)), user.pw_name)
+        for user in pwd.getpwall()
+        if user.pw_name in members and (match := _POOL_USER.match(user.pw_name))
+    ]
+    return [name for _, name in sorted(found)]
+
+
+def _take_session_user(slots: Path) -> tuple[str, Any]:
+    """The pool user a turn runs as, and the open lock file that holds it: the caller closes it when
+    the turn ends. A user is taken by an exclusive lock on a file of the same name in ``slots`` (a
+    folder only the engine's user enters), so two turns never share one, and a process that dies
+    frees its user (the turn's reset before the next one ends what it left running) (0.17 RF5)."""
+    users = _pool_users()
+    slots.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for user in users:
+        handle = open(slots / user, "a")  # noqa: SIM115 - the caller closes it
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            continue
+        return user, handle
+    shown = (
+        f"all {len(users)} assistant users are" if users else "no assistant user exists; none is"
+    )
+    raise NoSessionUser(
+        f"No session user is free: {shown} running another session now. Raise the image's "
+        "ASSISTANT_USERS build argument to at least the number of engine processes "
+        "(WEB_CONCURRENCY) and build it again."
+    )
+
+
+# What runs as the session user between turns (``backend/refiroo-session-reset``, installed by the image).
+RESET_COMMAND = "/usr/local/bin/refiroo-session-reset"
+RESET_DONE = "refiroo-session-reset-done"
+
+
+def _reset(user: str, config: Path | None = None, work: Path | None = None) -> None:
+    """Between turns, as the session user (never root): every process it runs ends, repeatedly, before
+    anything else is done; then its home and its files in the machine's scratch folders are emptied;
+    with the task's two folders given, its files in them become the group's to read and write; every
+    process ends once more. The folders go in on standard input, not on the command line. The script
+    survives its own kill, so its marker and its exit status are both the proof (0.17 RF5)."""
+    command = ["sudo", "-n", "-u", user, "--", RESET_COMMAND]
+    given = f"{config}\n{work}\n" if config is not None and work is not None else ""
+    try:
+        done = subprocess.run(
+            command, input=given, capture_output=True, text=True, timeout=120, check=False
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ResetFailed(f"The reset of session user {user} could not run: {error}") from error
+    if done.returncode != 0 or RESET_DONE not in done.stdout:
+        reason = (done.stderr or "").strip().splitlines()[-1:] or ["no reason given"]
+        raise ResetFailed(
+            f"The reset of session user {user} did not finish ({reason[0][:200]}). "
+            "Check that the image installs the reset command and lists it in its sudoers rule."
+        )
+
+
+def _open_gate(gate: Path, user: str) -> None:
+    """For the length of a turn, the task's folder belongs to the group of the user that runs it, and
+    only that group may enter it: no other session user can, whatever names it knows."""
+    descriptor = os.open(gate, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fchown(descriptor, -1, pwd.getpwnam(user).pw_gid)
+        os.fchmod(descriptor, 0o710)
+    finally:
+        os.close(descriptor)
+
+
+def _close_gate(gate: Path) -> None:
+    """Between turns the task's folder is the engine's alone."""
+    descriptor = os.open(gate, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fchmod(descriptor, 0o700)
+    finally:
+        os.close(descriptor)
+
+
+def _close_gates_of(root: Path, user: str) -> None:
+    """Before a turn opens its gate: every gate still open for this user's private group is closed.
+    One is left open when an engine process was killed between opening it and closing it; the user's
+    lock is held by the turn that calls this, so no turn of another process can have it open."""
+    gid = pwd.getpwnam(user).pw_gid
+    for path in root.iterdir():
+        try:
+            descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError:
+            continue
+        try:
+            found = os.fstat(descriptor)
+            if found.st_gid == gid and found.st_mode & 0o070:
+                os.fchmod(descriptor, 0o700)
+        except OSError as error:
+            raise ResetFailed(
+                f"A task's folder still open for session user {user} could not be closed: {error}"
+            ) from error
+        finally:
+            os.close(descriptor)
+
+
+def _close_idle_gates(root: Path, slots: Path) -> None:
+    """A gate left open by an engine process that died is closed again, unless a turn of another
+    process holds its user right now (a gate is open exactly while its user's lock is held). The gate
+    is read again through its open descriptor once the user's lock is held, so a gate a turn of
+    another process has just opened for another user is never closed."""
+    for path in root.iterdir():
+        try:
+            descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError:
+            continue
+        handle = None
+        try:
+            found = os.fstat(descriptor)
+            if not found.st_mode & 0o070:
+                continue
+            try:
+                owner = grp.getgrgid(found.st_gid).gr_name
+            except KeyError:
+                owner = ""
+            if _POOL_USER.match(owner):
+                slots.mkdir(mode=0o700, parents=True, exist_ok=True)
+                handle = open(slots / owner, "a")  # noqa: SIM115 - closed below
+                try:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    continue
+                again = os.fstat(descriptor)
+                if again.st_gid != found.st_gid or not again.st_mode & 0o070:
+                    continue
+            os.fchmod(descriptor, 0o700)
+        except OSError as error:
+            log.warning("A task's folder could not be closed: %s", error)
+        finally:
+            if handle is not None:
+                handle.close()
+            os.close(descriptor)
+
+
+def _as_assistant(user: str) -> list[str]:
     """In a container the session runs as a user of its own, which cannot read the engine's
-    environment or its job files (R-F45). ``sudo`` resets the environment and keeps only the names the
-    image's sudoers rule lists; the token is passed that way and not on the command line, which any
-    process of the container can read."""
-    return ["sudo", "-n", "-u", ASSISTANT_USER, "--"]
+    environment or its job files (R-F45), nor another session's (0.17 RF5). ``sudo`` resets the
+    environment and keeps only the names the image's sudoers rule lists; the token is passed that way
+    and not on the command line, which any process of the container can read."""
+    return ["sudo", "-n", "-u", user, "--"]
 
 
 def _agent_root(files: Any) -> Path:
     """Where the sessions' folders are. In a container they cannot lie in the job files, which only
-    the engine's user may enter: they lie in a folder shared by the group of the two users."""
+    the engine's user may enter: they lie in a folder the session users may enter but not list, so a
+    task's folder is found only by its name, which is long and random (0.17 RF5)."""
     if _container():
         return Path(
             os.environ.get("AI_AGENT_FOLDERS", "").strip()
@@ -444,10 +613,9 @@ def _agent_root(files: Any) -> Path:
     return Path(files.directory) / "agent"
 
 
-def _share(path: Path, mode: int) -> None:
-    """In a container the session's user, of the engine's group, may read and write it."""
-    if _container():
-        os.chmod(path, mode)
+def _slots(root: Path) -> Path:
+    """The folder of the pool's lock files, beside the sessions' root and the engine's alone."""
+    return root.with_name(f"{root.name}-slots")
 
 
 def _safeguards(url: str, folder: Path) -> list[str]:
@@ -459,16 +627,22 @@ def _safeguards(url: str, folder: Path) -> list[str]:
     port = f":{parsed.port}" if parsed.port else ""
     # In a container the container is the boundary: the sandbox's own isolation cannot run inside it.
     contained = _container()
-    settings = {
+    settings: dict[str, Any] = {
         "sandbox": {
             "enabled": not contained,
             "failIfUnavailable": not contained,
             "allowUnsandboxedCommands": False,
             "autoAllowBashIfSandboxed": True,
-            "filesystem": {"denyRead": ["~/"], "allowRead": [str(folder), sys.prefix]},
-            "network": {"allowedDomains": [host, f"{host}{port}"]},
         },
     }
+    # The sandbox's folder and network rules are inert in a container, and every process there reads
+    # a command line: the folder's path stays off it (0.17 RF5).
+    if not contained:
+        settings["sandbox"]["filesystem"] = {
+            "denyRead": ["~/"],
+            "allowRead": [str(folder), sys.prefix],
+        }
+        settings["sandbox"]["network"] = {"allowedDomains": [host, f"{host}{port}"]}
     # Claude Code's read block refuses any command that expands a variable inside a compound command
     # (a loop, `&&`, a pipe), `$REFIROO_TOKEN` in the Authorization header among them. Outside a
     # container the operating system's sandbox is the boundary for reads and the block stays; in a
@@ -503,24 +677,70 @@ def _safeguards(url: str, folder: Path) -> list[str]:
     ]
 
 
-# Of the server's environment, only what Claude Code itself needs: never its database or secrets.
-PASSED = re.compile(
-    r"^(HOME|USER|LANG|LC_\w+|TMPDIR|SHELL|ANTHROPIC_\w+|CLAUDE_\w+|AWS_\w+|NODE_\w+)$"
+# Of the server's environment, only what Claude Code itself needs, by name: never its database or
+# secrets (0.17 RF5). The same names, with ``LC_*`` and the Bedrock names, are the sudoers rule's
+# ``env_keep`` in ``backend/Dockerfile``; ``tests/unit/engine/tasks/test_agent.py`` holds the two equal.
+PASSED_NAMES = (
+    "REFIROO_TOKEN",
+    "LANG",
+    "TMPDIR",
+    # The task's own Claude Code folder, set per session (a container's image sets none).
+    "CLAUDE_CONFIG_DIR",
+    # How Claude Code signs in: an API key, a gateway's token or a subscription's token.
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    # The model Claude Code uses, and what its aliases stand for.
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "NODE_EXTRA_CA_CERTS",
 )
+PASSED_PREFIXES = ("LC_",)
+# Passed only when ``CLAUDE_CODE_USE_BEDROCK`` is on (``CLAUDE_CODE_USE_BEDROCK`` itself, when set).
+BEDROCK_NAMES = (
+    "CLAUDE_CODE_USE_BEDROCK",
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_PROFILE",
+)
+# Outside a container only: the session lives in the developer's own account and home.
+HOST_NAMES = ("HOME", "USER", "SHELL")
 
 
-def _session_environment(token: str, folder: Path | None = None) -> dict[str, str]:
+def _passed(environ: dict[str, str]) -> dict[str, str]:
+    """The named variables of ``environ`` that a session may see."""
+    names = set(PASSED_NAMES) | {"CLAUDE_CODE_USE_BEDROCK"}
+    if environ.get("CLAUDE_CODE_USE_BEDROCK", "").strip().lower() in ("1", "true", "yes", "on"):
+        names |= set(BEDROCK_NAMES)
+    if not _container():
+        names |= set(HOST_NAMES)
+    return {
+        name: value
+        for name, value in environ.items()
+        if name in names or name.startswith(PASSED_PREFIXES)
+    }
+
+
+def _session_environment(
+    token: str, folder: Path | None = None, config: Path | None = None
+) -> dict[str, str]:
     """What the session's process sees. Its scratch folder (``TMPDIR``) lies inside its own folder:
     a session that kept files in the machine's scratch folder had its next turn's command refused for
-    reading outside its folder, and the task failed (task 95)."""
+    reading outside its folder, and the task failed (task 95). In a container ``config`` is the task's
+    own Claude Code folder, where its transcripts are written. The engine makes no folder here: the
+    session can replace what lies in its working folder, so ``_ensure_tmp`` makes the scratch folder."""
     scratch: dict[str, str] = {}
     if folder is not None:
-        temporary = folder / "tmp"
-        temporary.mkdir(exist_ok=True)
-        _share(temporary, 0o2770)
-        scratch["TMPDIR"] = str(temporary)
+        scratch["TMPDIR"] = str(folder / "tmp")
+    if config is not None:
+        scratch["CLAUDE_CONFIG_DIR"] = str(config)
     return {
-        **{name: value for name, value in os.environ.items() if PASSED.match(name)},
+        **_passed(dict(os.environ)),
         **scratch,
         "REFIROO_TOKEN": token,
         "PATH": f"{Path(sys.prefix) / 'bin'}:{os.environ.get('PATH', '')}",
@@ -573,19 +793,218 @@ def resumable(files: Any, task: AiTask) -> bool:
     session_id = (task.design or {}).get("agentSession")
     if not session_id:
         return False
-    if not os.environ.get("CLAUDE_CONFIG_DIR", "").strip():
-        # Where Claude Code keeps transcripts is not this engine's to say (the image sets it).
+    if not _container() and not os.environ.get("CLAUDE_CONFIG_DIR", "").strip():
+        # Where Claude Code keeps transcripts is not this engine's to say.
         return True
-    transcript = _transcripts() / _transcript_name(folder_of(files, task)) / f"{session_id}.jsonl"
+    transcript = (
+        _transcripts(files, task) / _transcript_name(folder_of(files, task)) / f"{session_id}.jsonl"
+    )
     return transcript.exists()
 
 
+# Where a task's random folder name is kept, in its design (0.17 RF5).
+FOLDER_KEY = "agentFolder"
+
+
 def folder_of(ctx_files: Any, task: AiTask) -> Path:
-    return _agent_root(ctx_files) / task.public_id
+    """The folder the session works in. In a container the task's folder has a long random name, kept
+    in its design, and the working folder is ``work`` inside it, beside the task's own Claude Code
+    folder and its logs; a task whose folder is not yet renamed (``ensure_folder``) is still at the
+    name its ID gave it."""
+    root = _agent_root(ctx_files)
+    name = (task.design or {}).get(FOLDER_KEY) if _container() else None
+    return root / name / "work" if name else root / task.public_id
 
 
-def _transcripts() -> Path:
-    """Where Claude Code keeps a session's transcript: outside the folder and any retention."""
+def home_of(ctx_files: Any, task: AiTask) -> Path:
+    """Everything the task keeps: in a container its random folder, otherwise the working folder."""
+    folder = folder_of(ctx_files, task)
+    return folder.parent if _container() and (task.design or {}).get(FOLDER_KEY) else folder
+
+
+def ensure_folder(session: Session, files: Any, task_id: str) -> None:
+    """In a container, gives the task its random folder name before anything is written there, and
+    moves a folder named by the task's ID (made before 0.17) into it. The name is kept with the task
+    under its row lock and committed first, so two processes never give two names and a sweep that
+    finds the old folder meanwhile finishes the move instead of removing it. A transcript the earlier
+    version kept in the shared Claude Code folder is not moved: a task begun before the upgrade starts
+    a new session when it is told something, with its workbook and files kept (0.17 RF5)."""
+    if not _container():
+        return
+    task = load_task(session, task_id, for_update=True)
+    design = dict(task.design or {})
+    if design.get(FOLDER_KEY):
+        session.commit()
+        return
+    root = _agent_root(files)
+    _open_root(root)
+    name = secrets.token_urlsafe(24)
+    task.design = {**design, FOLDER_KEY: name}
+    public_id = task.public_id
+    session.commit()
+    _adopt_legacy(root, public_id, name)
+
+
+def _adopt_legacy(root: Path, public_id: str, name: str) -> None:
+    """The folder a task had before it had a random name becomes the working folder of its new one.
+    Idempotent: another process may be doing the same."""
+    legacy = root / public_id
+    if legacy.is_symlink():
+        legacy.unlink()
+        return
+    if not legacy.is_dir():
+        return
+    home = root / name
+    if (home / "work").exists():
+        shutil.rmtree(legacy, ignore_errors=True)
+        return
+    _create_task_folders(home, work=False)
+    try:
+        os.rename(legacy, home / "work")
+    except FileNotFoundError:
+        pass
+
+
+def _open_root(root: Path) -> None:
+    """The tasks' folder in a container: the engine's, with the sessions' group allowed to enter it
+    but not list it, whatever mode a volume of an earlier version kept (0.17 RF5)."""
+    root.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chown(root, -1, grp.getgrnam(ASSISTANT_GROUP).gr_gid)
+        os.chmod(root, 0o2710)
+    except (KeyError, OSError) as error:
+        log.warning("The assistant's folder %s could not be closed to listing: %s", root, error)
+
+
+def _shared_dir(path: Path) -> None:
+    """A folder of the common group, set-group-ID: what a session user writes in it is the group's."""
+    path.mkdir(exist_ok=True)
+    os.chown(path, -1, grp.getgrnam(ASSISTANT_GROUP).gr_gid)
+    os.chmod(path, 0o2770)
+
+
+def _create_task_folders(home: Path, *, work: bool = True) -> None:
+    """The task's folders, made once, before any session has run in them: the engine's own gate
+    (``home``, 0700) holding ``work`` and ``claude`` (and Claude Code's ``sessions`` folder, which it
+    makes readable by its user alone), shared with the session users' group, and later the engine's
+    logs. The session cannot write in the gate, so it cannot replace any of them."""
+    home.mkdir(exist_ok=True)
+    os.chmod(home, 0o700)
+    for path in (
+        *((home / "work", home / "work" / "tmp") if work else ()),
+        home / "claude",
+        home / "claude" / "sessions",
+    ):
+        _shared_dir(path)
+
+
+def _make_folders(folder: Path) -> None:
+    """The working folder of a task. In a container its folders are made once, with the gate around
+    them; a task whose folders exist is left as it is (a session has run in them)."""
+    if not _container():
+        folder.mkdir(parents=True, exist_ok=True)
+    elif not folder.exists():
+        _create_task_folders(folder.parent)
+
+
+def _directory(folder: Path) -> int:
+    """The working folder as an open directory, never through a symbolic link at its end."""
+    return os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+
+
+def _ensure_tmp(folder: Path) -> None:
+    """The session's scratch folder, ``tmp`` in the working folder. A session can replace it, so a
+    link or a file in its place is removed and never followed, and a folder that is there is left
+    as it is: the engine changes nothing a session may have shaped."""
+    descriptor = _directory(folder)
+    try:
+        try:
+            found = os.stat("tmp", dir_fd=descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            found = None
+        if found is not None and stat.S_ISDIR(found.st_mode):
+            return
+        if found is not None:
+            os.unlink("tmp", dir_fd=descriptor)
+        os.mkdir("tmp", 0o770, dir_fd=descriptor)
+        made = os.open("tmp", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+        try:
+            if _container():
+                os.fchown(made, -1, grp.getgrnam(ASSISTANT_GROUP).gr_gid)
+            os.fchmod(made, 0o2770 if _container() else 0o770)
+        finally:
+            os.close(made)
+    finally:
+        os.close(descriptor)
+
+
+def _put(folder: Path, name: str, data: bytes) -> None:
+    """A file the engine hands the session: made new, never through a link that is in its place."""
+    descriptor = _directory(folder)
+    try:
+        try:
+            os.unlink(name, dir_fd=descriptor)
+        except FileNotFoundError:
+            pass
+        made = os.open(
+            name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o660,
+            dir_fd=descriptor,
+        )
+        try:
+            os.fchmod(made, 0o660)
+            view = memoryview(data)
+            while view:
+                view = view[os.write(made, view) :]
+        finally:
+            os.close(made)
+    finally:
+        os.close(descriptor)
+
+
+def _drop(folder: Path, name: str) -> None:
+    """Remove a file of the working folder: a link is removed, never followed."""
+    descriptor = _directory(folder)
+    try:
+        os.unlink(name, dir_fd=descriptor)
+    except FileNotFoundError, IsADirectoryError, PermissionError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+READ_LIMIT = 8 * 1024 * 1024
+
+
+def _read_work(folder: Path, name: str, limit: int = READ_LIMIT) -> str | None:
+    """What the session wrote: a regular file of the working folder of at most ``limit`` bytes, opened
+    without following a link; otherwise nothing."""
+    try:
+        descriptor = _directory(folder)
+    except OSError:
+        return None
+    try:
+        opened = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor)
+    except OSError:
+        return None
+    finally:
+        os.close(descriptor)
+    try:
+        found = os.fstat(opened)
+        if not stat.S_ISREG(found.st_mode) or found.st_size > limit:
+            return None
+        with os.fdopen(opened, "rb", closefd=False) as handle:
+            return handle.read(limit + 1).decode(errors="replace")
+    finally:
+        os.close(opened)
+
+
+def _transcripts(files: Any = None, task: AiTask | None = None) -> Path:
+    """Where Claude Code keeps a session's transcript: outside the working folder and any retention.
+    In a container each task has a folder of its own, inside the task's folder."""
+    if _container():
+        return home_of(files, task) / "claude" / "projects"
     home = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
     return (Path(home) if home else Path.home() / ".claude") / "projects"
 
@@ -599,23 +1018,29 @@ def remove_folder(files: Any, task: AiTask) -> None:
     """The session's folder and its transcript (AP-D37). A session that ran and left no transcript
     where one is expected is said in the log: the name is Claude Code's, and may change."""
     folder = folder_of(files, task)
-    transcript = _transcripts() / _transcript_name(folder)
-    if (
-        (task.design or {}).get("agentSession")
-        and _transcripts().is_dir()
-        and not transcript.is_dir()
-    ):
+    transcripts = _transcripts(files, task)
+    transcript = transcripts / _transcript_name(folder)
+    if (task.design or {}).get("agentSession") and transcripts.is_dir() and not transcript.is_dir():
         log.warning("No transcript at %s for task %s", transcript, task.public_id)
-    shutil.rmtree(folder, ignore_errors=True)
-    shutil.rmtree(transcript, ignore_errors=True)
-    for log_file in folder.parent.glob(f"{folder.name}.*.log"):
-        log_file.unlink(missing_ok=True)
+    shutil.rmtree(home_of(files, task), ignore_errors=True)
+    if _container() and home_of(files, task).exists():
+        # A file of a mode the engine cannot remove (a folder a session user made for itself).
+        log.warning("Task %s's folder could not be removed in full", task.public_id)
+    if not _container():
+        shutil.rmtree(transcript, ignore_errors=True)
+        for log_file in folder.parent.glob(f"{folder.name}.*.log"):
+            log_file.unlink(missing_ok=True)
 
 
 def sweep(session: Session, files: Any) -> None:
     """What no task holds any more: the folder of a task that expired, and a transcript of this
-    instance's folders whose folder is gone (AP-D37). Removed after the expiry's commit."""
+    instance's folders whose folder is gone (AP-D37). Removed after the expiry's commit. In a
+    container a folder is known by the random name its task keeps, and one still named by a task's
+    ID is renamed (``ensure_folder``): the first sweep after the upgrade does it."""
     root = _agent_root(files)
+    if _container():
+        _sweep_container(session, files, root)
+        return
     if root.is_dir():
         names = [path.name for path in root.iterdir() if path.is_dir()]
         known = set(session.scalars(select(AiTask.public_id).where(AiTask.public_id.in_(names))))
@@ -631,6 +1056,40 @@ def sweep(session: Session, files: Any) -> None:
         for path in _transcripts().iterdir():
             if path.name.startswith(prefix) and not (root / path.name[len(prefix) :]).exists():
                 shutil.rmtree(path, ignore_errors=True)
+
+
+# A folder no task names is left alone this long: its task may be committing its name (0.17 RF5).
+FRESH_SECONDS = 3600
+
+
+def _sweep_container(session: Session, files: Any, root: Path) -> None:
+    if not root.is_dir():
+        return
+    _open_root(root)
+    names = [path.name for path in root.iterdir() if path.is_dir() and not path.is_symlink()]
+    rows = session.execute(
+        select(AiTask.public_id, AiTask.design[FOLDER_KEY].as_string()).where(
+            or_(AiTask.public_id.in_(names), AiTask.design[FOLDER_KEY].as_string().in_(names))
+        )
+    ).all()
+    named = {folder for _, folder in rows if folder}
+    old_names = dict(rows)
+    for name in names:
+        if name in named:
+            continue
+        if name in old_names:
+            # A task's folder under the name its ID gave it: moved into its random name, which is
+            # committed first, or the task is given one now.
+            if old_names[name]:
+                _adopt_legacy(root, name, old_names[name])
+            else:
+                ensure_folder(session, files, name)
+        elif time.time() - (root / name).lstat().st_mtime > FRESH_SECONDS:
+            shutil.rmtree(root / name, ignore_errors=True)
+    # The turns' logs lay beside the folders, named after the task, before 0.17.
+    for path in root.glob("*.log"):
+        path.unlink(missing_ok=True)
+    _close_idle_gates(root, _slots(root))
 
 
 def _call_in_words(command: str) -> str:
@@ -721,6 +1180,7 @@ class _Progress:
 
     def __init__(self, log: Path) -> None:
         self.log = log
+        self.handle: Any = None
         self.position = 0
         self.now = "Starting"
         self.result: dict[str, Any] = {}
@@ -728,23 +1188,43 @@ class _Progress:
         # Each message's usage by its ID, as the stream repeats a message while it grows (AP-D36).
         self.usage: dict[str, tuple[int, int]] = {}
 
+    def _open(self) -> bool:
+        """The log is opened once, as a regular file and not through a link, and read through that
+        descriptor: the path may be replaced by anything later."""
+        if self.handle is not None:
+            return True
+        try:
+            descriptor = os.open(self.log, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        except OSError:
+            return False
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            os.close(descriptor)
+            return False
+        self.handle = os.fdopen(descriptor, "r")
+        return True
+
     def read(self) -> bool:
-        if not self.log.exists():
+        if not self._open():
             return False
         moved = False
-        with self.log.open() as handle:
-            handle.seek(self.position)
-            while True:
-                line = handle.readline()
-                if not line or not line.endswith("\n"):
-                    break
-                self.position = handle.tell()
-                try:
-                    moved = self._line(line) or moved
-                except AttributeError, TypeError, KeyError:
-                    # The stream is another program's: a line of a shape not known only shows less.
-                    log.warning("A session's log line could not be read", exc_info=True)
+        handle = self.handle
+        handle.seek(self.position)
+        while True:
+            line = handle.readline()
+            if not line or not line.endswith("\n"):
+                break
+            self.position = handle.tell()
+            try:
+                moved = self._line(line) or moved
+            except AttributeError, TypeError, KeyError:
+                # The stream is another program's: a line of a shape not known only shows less.
+                log.warning("A session's log line could not be read", exc_info=True)
         return moved
+
+    def close(self) -> None:
+        if self.handle is not None:
+            self.handle.close()
+            self.handle = None
 
     def tokens(self) -> tuple[int | None, int | None]:
         if not self.usage:
@@ -994,7 +1474,7 @@ def _run_turn(
     _stop_earlier(earlier)
     _record_interrupted(session, task_key, folder, earlier)
     if first:
-        (folder / PROPOSAL).unlink(missing_ok=True)
+        _drop(folder, PROPOSAL)
     else:
         # A resumed session keeps the habits of its earlier turns: the folder rule is said every turn,
         # with the paths, or a command naming an old scratch path is refused and the turn is lost (task 95).
@@ -1036,9 +1516,13 @@ _VOICE = (
 )
 
 
-def _command(folder: Path, prompt: str, session_id: str, first: bool) -> list[str]:
-    """The session's command. The person's words are the last argument, after ``--``, so no word
-    of them is read as an option (R-F9)."""
+def _command(
+    folder: Path, prompt: str, session_id: str, first: bool, user: str | None = None
+) -> list[str]:
+    """The session's command. Outside a container the person's words are the last argument, after
+    ``--``, so no word of them is read as an option (R-F9). In a container every process reads a
+    command line, so neither the words nor the folder's path are on it: the words go to the session's
+    standard input (``_turn``). The session's ID stays: a stopped worker's session is found by it."""
     command = [
         *_base_command(),
         *_safeguards(_api_url(), folder),
@@ -1049,10 +1533,33 @@ def _command(folder: Path, prompt: str, session_id: str, first: bool) -> list[st
         "--append-system-prompt",
         _VOICE,
         *(["--session-id", session_id] if first else ["--resume", session_id]),
-        "--",
-        prompt,
     ]
-    return [*_as_assistant(), *command] if _container() else command
+    if not _container():
+        return [*command, "--", prompt]
+    return [*_as_assistant(user or ""), *command]
+
+
+def _reset_after(user: str | None, config: Path, work: Path) -> None:
+    """The reset at the end of a turn, the gate still open for its files and closed right after: a
+    failure is told in the log, as the turn has its own end, and the next turn under this user starts
+    with a reset of its own, whose failure it does not survive."""
+    if user is None:
+        return
+    try:
+        _reset(user, config, work)
+    except ResetFailed as error:
+        logging.getLogger(__name__).error("%s", error)
+
+
+def _feed(process: subprocess.Popen[str], prompt: str) -> None:
+    """The prompt to the session's standard input, then its end. A session that ends before it has
+    read it all is no failure of this."""
+    try:
+        assert process.stdin is not None
+        process.stdin.write(prompt)
+        process.stdin.close()
+    except OSError, ValueError:
+        pass
 
 
 def _turn(
@@ -1070,24 +1577,89 @@ def _turn(
     first: bool,
     load: bool,
 ) -> _Progress | None:
-    command = _command(folder, prompt, session_id, first)
-    log = folder.parent / f"{folder.name}.session-{uuid4().hex[:8]}.log"
+    """One turn. In a container the pool user's lock and the task's open gate are held until the turn
+    ends, and its user is reset after it, last of all (``holder`` is what to undo, in reverse)."""
+    holder: list[Any] = []
+    try:
+        return _turn_as(
+            session, job, ctx, task_key, folder, prompt, session_id, token, client, opened,
+            first=first, load=load, holder=holder,
+        )  # fmt: skip
+    finally:
+        for undo in reversed(holder):
+            try:
+                undo()
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Assistant task %s: the end of its turn could not be completed", task_key
+                )
+
+
+def _turn_as(
+    session: Session,
+    job: Job,
+    ctx: Any,
+    task_key: str,
+    folder: Path,
+    prompt: str,
+    session_id: str,
+    token: str,
+    client: int,
+    opened: list[str],
+    *,
+    first: bool,
+    load: bool,
+    holder: list[Any],
+) -> _Progress | None:
+    contained = _container()
+    user: str | None = None
+    # In a container the stream lies in the task's own folder, which only its session can find; the
+    # session never needs to read it (the engine does), so it is the engine's alone.
+    log = (
+        folder.parent / f"session-{uuid4().hex[:8]}.log"
+        if contained
+        else folder.parent / f"{folder.name}.session-{uuid4().hex[:8]}.log"
+    )
     progress = _Progress(log)
     started = time.monotonic()
     since = datetime.now(UTC)
-    with log.open("w") as output:
+    # Made new and never through a link, in the engine's own folder in a container.
+    with os.fdopen(
+        os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), "w"
+    ) as output:
         try:
+            config = folder.parent / "claude" if contained else None
+            if config is not None:
+                user, lock = _take_session_user(_slots(_agent_root(None)))
+                holder.append(lock.close)
+                gate = folder.parent
+                # Whatever the last turn under this user left running ends first, the gate still
+                # closed; only a reset that finished lets the gate open. After the turn the reset runs
+                # first, the gate still open for the user's files, and the gate closes right after it
+                # (what is undone last runs first: the reset, the gate, the lock), whether the turn
+                # ended well or not.
+                _reset(user)
+                _close_gates_of(_agent_root(None), user)
+                holder.append(lambda: _close_gate(gate))
+                holder.append(lambda: _reset_after(user, config, folder))
+                _open_gate(gate, user)
+            _ensure_tmp(folder)
+            command = _command(folder, prompt, session_id, first, user)
             process = subprocess.Popen(
                 command,
                 cwd=folder,
-                env=_session_environment(token, folder),
-                stdin=subprocess.DEVNULL,
+                env=_session_environment(token, folder, config),
+                stdin=subprocess.PIPE if contained else subprocess.DEVNULL,
                 stdout=output,
                 stderr=subprocess.STDOUT,
                 text=True,
                 start_new_session=True,
             )
+            if contained:
+                threading.Thread(target=_feed, args=(process, prompt), daemon=True).start()
         except OSError as error:
+            if isinstance(error, SessionUserError):
+                logging.getLogger(__name__).error("Assistant task %s: %s", task_key, error)
             _end(session, opened)
             _record_turn(
                 session,
@@ -1099,7 +1671,13 @@ def _turn(
                 ("failed", f"Could not start: {error}"),
             )
             task = load_task(session, task_key, for_update=True)
-            note(task, "warning", f"AI_AGENT_COMMAND could not start: {error}")
+            note(
+                task,
+                "warning",
+                str(error)
+                if isinstance(error, SessionUserError)
+                else f"AI_AGENT_COMMAND could not start: {error}",
+            )
             finish(task, "failed", _retention(ctx))
             session.commit()
             return None
@@ -1908,7 +2486,7 @@ def _send_back(
     task = load_task(session, task_id)
     session_id = (task.design or {})["agentSession"]
     session.commit()
-    (folder / PROPOSAL).unlink(missing_ok=True)
+    _drop(folder, PROPOSAL)
     again = _run_turn(session, job, ctx, task_id, folder, prompt, session_id, first=False)
     if again is not None:
         _proposal_landed(session, ctx, task_id, folder, again, check_of, job, round_ + 1)
@@ -2017,10 +2595,9 @@ def _proposal_landed(
 ) -> None:
     """The proposal the session wrote: the task shows it and waits, or fails with what was said."""
     task = load_task(session, task_id, for_update=True)
-    path = folder / PROPOSAL
     try:
-        proposal = json.loads(path.read_text())
-    except OSError, ValueError:
+        proposal = json.loads(_read_work(folder, PROPOSAL) or "")
+    except ValueError:
         proposal = None
     stated_title = title_of(proposal)
     if task.title is None and stated_title is not None:
@@ -2258,6 +2835,7 @@ def start(
 ) -> None:
     """The session's first turn: the workbook to a draft the person reviews. ``extra`` is what the
     person said when the session starts again on a task that had none, or whose first turn never ran."""
+    ensure_folder(session, ctx.files, task_id)
     task = load_task(session, task_id)
     workspace = task.workspace_key
     words = task.words
@@ -2267,15 +2845,12 @@ def start(
     folder = folder_of(ctx.files, task)
     # The task's row is not held across the copy and the call to the engine's own API (R-F20).
     session.commit()
-    folder.mkdir(parents=True, exist_ok=True)
-    _share(folder, 0o2770)
+    _make_folders(folder)
+    # Made new in a folder a session may have shaped: never through a link in the way.
     if workbook_path is not None:
-        shutil.copyfile(workbook_path, folder / "workbook.xlsx")
-    (folder / "model.json").write_text(model_json)
-    (folder / "openapi.json").write_bytes(_openapi(url))
-    for name in ("workbook.xlsx", "model.json", "openapi.json"):
-        if (folder / name).exists():
-            _share(folder / name, 0o660)
+        _put(folder, "workbook.xlsx", workbook_path.read_bytes())
+    _put(folder, "model.json", model_json.encode())
+    _put(folder, "openapi.json", _openapi(url))
     task = load_task(session, task_id, for_update=True)
     session_id = str(uuid4())
     design = {key: value for key, value in (task.design or {}).items() if key != "agentCost"}
@@ -2302,7 +2877,7 @@ def said(session: Session, job: Job, ctx: Any, task_id: str, words: str, check_o
     """The person's answers or corrections: the same session goes on."""
     task = load_task(session, task_id)
     folder = folder_of(ctx.files, task)
-    (folder / PROPOSAL).unlink(missing_ok=True)
+    _drop(folder, PROPOSAL)
     progress = _run_turn(
         session,
         job,

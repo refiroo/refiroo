@@ -1,7 +1,7 @@
 # The web image (0.12 DP2, D405–D407): the application built once, then served by nginx, which
 # forwards the engine's paths to the engine. Built from the repository root:
 #   docker build -f frontend/Dockerfile -t refiroo-web .
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:5b05da3f938f1c604b24c633646d48805a6667f378cb4908438616f3cc48a0bf AS build
 # The repository's layout: the type check reads the starter model from beside the frontend folder.
 WORKDIR /repo/frontend
 COPY model/rdm-starter.json /repo/model/rdm-starter.json
@@ -17,7 +17,7 @@ COPY frontend/src ./src
 RUN npm run build
 
 # Not root: this nginx listens on 8080 (HTTP) and 8443 (HTTPS); publish them as 80 and 443.
-FROM nginxinc/nginx-unprivileged:1.28-alpine
+FROM nginxinc/nginx-unprivileged:1.28-alpine@sha256:7377697a821c131a924a7105fafbe7414db4e9fcc77a6f08f776f33f141ec3f8
 USER root
 COPY --from=build /repo/frontend/dist /opt/refiroo/rdm-engine/frontend/dist
 COPY frontend/nginx/tls.conf.template frontend/nginx/proxy.conf.template /opt/refiroo/rdm-engine/frontend/nginx/

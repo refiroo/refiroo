@@ -57,6 +57,9 @@ function open() {
       arrivals: unreadCount === current.unreadCount ? current.arrivals : current.arrivals + 1,
     }));
   });
+  // The engine's stream cannot be resumed: a notice that arrived while it was down is not sent
+  // again, so a shown list is stale and reads again (the count it sends next corrects the badge).
+  stream.addEventListener("reconnected", () => update((current) => ({ ...current, arrivals: current.arrivals + 1 })));
   stream.addEventListener("notification", (event) => {
     const notice = JSON.parse(event.data) as Notification;
     update((current) => ({

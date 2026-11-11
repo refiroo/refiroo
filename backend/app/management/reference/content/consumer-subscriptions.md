@@ -239,7 +239,7 @@ A subscription to the events of a consumer API or of a workspace's change sets, 
 - workspaceKey: The workspace whose events are sent; the default workspace when omitted, stored as resolved.
 - events: 1 to 100 events to send, as the consumer API declares them; a workspace subscription names the change-set events above.
 - filters: Keep the events of some records: a parameter of the consumer API with one value or a list, each value matching a record now.
-- url: Where requests are posted: `https`, or `http` to `localhost`, `127.0.0.1` or `::1` alone; at most 2,048 characters, with no user information or fragment.
+- url: Where requests are posted: `https`, or `http` to `localhost`, `127.0.0.1` or `::1` alone; at most 2,048 characters, with no user information or fragment. An address that is, or whose host name resolves to, a loopback, private, unique-local, shared (100.64.0.0/10) or otherwise non-public address is refused unless the instance allows private addresses (`WEBHOOK_PRIVATE_ADDRESSES_ALLOWED`, off by default); a link-local address, where cloud metadata services listen, is refused always.
 - maxEventsPerBatch: 1 to 1,000, 1 by default. A request carries at most this many events and 1 MiB of body; an event over 1 MiB is sent alone.
 - payload: `full` (the default): each event carries its `object`. `identity`: the `object` is left out.
 - format: `rdm` (the default): a JSON envelope whose `events` holds the batch. `cloudevents`: CloudEvents 1.0, one structured event per request when `maxEventsPerBatch` is 1, otherwise a batched array.

@@ -38,7 +38,7 @@ import type {
   RestructuringSummary,
 } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
-import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { parseAttributeValue } from "@/ui/attributeForm";
 import { formatValue } from "@/ui/formatValue";
 import { InlineError } from "@/ui/InlineError";
@@ -1190,15 +1190,13 @@ function SiblingPicker({
             </select>
           </label>
         )}
-        <label className="search-box candidate-search">
-          <Icon name="search" />
-          <input
-            aria-label={`Search ${where ? `records in ${where}` : "top-level records"}`}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name…"
-          />
-        </label>
+        <SearchField
+          className="candidate-search"
+          label={`Search ${where ? `records in ${where}` : "top-level records"}`}
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by name…"
+        />
       </div>
       <div className="candidate-list" aria-busy={siblings.loading || undefined}>
         <ScrollWindow

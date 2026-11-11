@@ -570,9 +570,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # migration_required (CandidateCompatibilityResponse keeps invalid); the descriptions of
     # MailMessageResponse.kind and lastErrorKind and of POST /moves, and the reference text, change.
     # The hash covers the tree as committed: the document the application at this commit builds.
+    # Re-baselined for 0.17 RF2, RF3 and RF6 (descriptions only, no path, parameter or schema change):
+    # `POST /users/{id}/password-reset` says which links an administrator's link replaces; the engine's
+    # password page and the webhook address rule are described as they now behave.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "5e2de75a17d386fdb1dc9e2ace688230ede692fd96873ad161055419b8b378f8"
+        "38e02a739d8727e86a9e516a6e6adbf0765216c9ed1ec4edd4d5fd4ef0fc3f2e"
     )
 
 

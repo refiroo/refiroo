@@ -12,6 +12,9 @@ location ~ ^/(api/|oauth/|mcp$|\.well-known/|docs(/|$)|openapi\.json$|health(/|$
     proxy_read_timeout 1h;
     proxy_send_timeout 1h;
     include /etc/nginx/conf.d/snippets/headers.inc;
+    # The engine sends the policy of its sign-in pages, the guide and the API reference; this one only
+    # forbids framing.
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
 }
 
 location = /metrics {
@@ -22,6 +25,7 @@ location = /metrics {
 location /assets/ {
     add_header Cache-Control "public, max-age=31536000, immutable";
     include /etc/nginx/conf.d/snippets/headers.inc;
+    include /etc/nginx/conf.d/snippets/csp-app.inc;
     try_files $uri =404;
 }
 
@@ -29,5 +33,6 @@ location / {
     # The application's page is never cached, so a new release is picked up at once.
     add_header Cache-Control "no-cache";
     include /etc/nginx/conf.d/snippets/headers.inc;
+    include /etc/nginx/conf.d/snippets/csp-app.inc;
     try_files $uri /index.html;
 }

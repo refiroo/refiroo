@@ -2811,8 +2811,10 @@ class UserPasskey(Base):
 
 
 class PasswordResetLink(Base):
-    """A one-time link that sets a person's password (I2, D272), stored as its SHA-256. A newer
-    link replaces an older one; it is used once and lasts ``PASSWORD_RESET_HOURS``."""
+    """A one-time link that sets a person's password (I2, D272), stored as its SHA-256. An
+    administrator's link replaces every older one; a link the person asked for (``requested``)
+    replaces only the earlier ones they asked for. It is used once and lasts
+    ``PASSWORD_RESET_HOURS``."""
 
     __tablename__ = "password_reset_links"
     __table_args__ = (Index("ix_password_reset_links_user", "user_id"),)
@@ -2823,6 +2825,7 @@ class PasswordResetLink(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class SignInFailure(Base):

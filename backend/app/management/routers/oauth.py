@@ -64,6 +64,11 @@ _COOKIE_PATH = "/oauth"
 # redirect back is a navigation from another site.
 PROVIDER_COOKIE = "oauth_provider"
 _PROVIDER_PATH = "/oauth/providers"
+# A reset link's token, held while its page is open so the address bar and history never carry it
+# (RF3): set by the link's first visit, read by a reload, ended by the page that sets the password.
+RESET_COOKIE = "oauth_reset"
+_RESET_PATH = "/oauth/password"
+_RESET_MINUTES = 60
 # Where signing out of a provider returns the browser to once the provider sends it back (I4a).
 SIGNED_OUT_COOKIE = "oauth_signed_out"
 # Token responses are never cached (RFC 6749 §5.1).
@@ -1258,8 +1263,26 @@ def _link_gone(session: Session, settings: IdentitySettings) -> Response:
 def password_page(
     request: Request, session: DbSession, token: Annotated[str, Query(max_length=128)] = ""
 ) -> Response:
-    """The page a password-reset link opens: a new password for the person it names."""
+    """The page a password-reset link opens: a new password for the person it names. The link's
+    token is moved out of the address: a valid one is kept in a short-lived cookie bound to this
+    page and the browser is sent to the page without it, so it is in neither the address bar nor
+    the history; a reload shows the same page while the cookie lasts, else says the link is gone."""
     settings = _settings(request)
+    if token:
+        if resets.link_user(session, token) is None:
+            return _link_gone(session, settings)
+        response = RedirectResponse(_RESET_PATH, status_code=303, headers=_NO_STORE)
+        response.set_cookie(
+            RESET_COOKIE,
+            token,
+            max_age=_RESET_MINUTES * 60,
+            path=_RESET_PATH,
+            secure=settings.secure_cookies,
+            httponly=True,
+            samesite="lax",  # a mailed link is a navigation from another site
+        )
+        return response
+    token = request.cookies.get(RESET_COOKIE, "")
     user = resets.link_user(session, token) if token else None
     if user is None:
         return _link_gone(session, settings)
@@ -1318,9 +1341,17 @@ def password_form(
         return again(refusal.message)
     if not used:
         return _link_gone(session, settings)
-    return pages.password_set(
+    done = pages.password_set(
         product,
         app_url=settings.browser_origins[0] if settings.browser_origins else None,
         issuer=settings.issuer,
         redirect_origins=origins,
     )
+    done.delete_cookie(
+        RESET_COOKIE,
+        path=_RESET_PATH,
+        secure=settings.secure_cookies,
+        httponly=True,
+        samesite="lax",
+    )
+    return done

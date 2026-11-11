@@ -13,12 +13,11 @@ Keep the application version, `DATABASE_URL`, `RDM_MODEL_PATH`, capability setti
 `RDM_CURSOR_SIGNING_KEY` and `SECRETS_ENCRYPTION_KEY` with each recovery record. Losing the sealing
 key makes stored secrets unreadable. Backups made before a key change need the old key.
 
-The Compose installation also has an `assistant` volume for task working folders and an
-`assistant-claude` volume for Claude Code configuration and session logs. They mount at
-`/opt/refiroo/rdm-engine/data/assistant` and `/opt/refiroo/rdm-engine/data/assistant-claude`.
-A backup need not include these two volumes: losing them loses open tasks’ folders and session
-logs, not records. The database and job-file backup below does not copy them; after restoring
-without them, open tasks may lack the files they need to continue.
+The Compose installation also has an `assistant` volume at
+`/opt/refiroo/rdm-engine/data/assistant`. Each randomly named task folder holds its working files,
+Claude Code configuration, transcripts and turn logs. A backup may omit this volume: losing it
+loses open tasks’ folders and session logs, not records. The database and job-file backup below
+does not copy it; after restoring without it, open tasks may lack the files they need to continue.
 
 ## Take a database backup
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Icon, type IconName } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
+import { SearchField } from "@/ui/SearchField";
 
 export interface EntityFact {
   label: string;
@@ -82,16 +83,14 @@ export function EntityList({
   const nothing = settled && groups.every((group) => !group.rows.length);
   return (
     <div className="entity-list" ref={body} onKeyDown={(event) => moveBetweenRows(event, body.current)}>
-      <label className="search-box entity-search">
-        <Icon name="search" size={16} />
-        <input
-          type="search"
-          aria-label={`Search ${label}`}
-          placeholder={`Search ${label}`}
-          value={search}
-          onChange={(event) => onSearch(event.target.value)}
-        />
-      </label>
+      <SearchField
+        className="entity-search"
+        type="search"
+        label={`Search ${label}`}
+        placeholder={`Search ${label}`}
+        value={search}
+        onChange={onSearch}
+      />
       <div className="entity-groups">
         {groups.map((group) => (
           <EntityGroupSection key={group.key} group={group} label={label} />

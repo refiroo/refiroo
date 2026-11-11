@@ -9,7 +9,7 @@ const client = vi.hoisted(() => ({
 }));
 vi.mock("@/api/signInClient", () => client);
 
-const { ResetPasswordScreen } = await import("./ResetPasswordScreen");
+const { ResetPasswordScreen, takeResetToken } = await import("./ResetPasswordScreen");
 
 afterEach(() => {
   cleanup();
@@ -91,5 +91,21 @@ describe("the reset pages (0.12 I6)", () => {
     client.resetPage.mockRejectedValue(new Error("down"));
     render(<ResetPasswordScreen token="" />);
     await screen.findByText(/did not answer/);
+  });
+});
+
+describe("the reset token and the address bar (0.17 RF3)", () => {
+  it("leaves the address without the token and still finds it after a reload", () => {
+    window.history.replaceState(null, "", "/reset-password?token=abc123");
+    expect(takeResetToken()).toBe("abc123");
+    expect(window.location.search).toBe("");
+    expect(window.location.href).not.toContain("abc123");
+    // A reload keeps the history entry's state, not the address.
+    expect(takeResetToken()).toBe("abc123");
+  });
+
+  it("is the ask page when no link was opened", () => {
+    window.history.replaceState(null, "", "/reset-password");
+    expect(takeResetToken()).toBe("");
   });
 });

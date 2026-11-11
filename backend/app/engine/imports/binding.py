@@ -36,6 +36,7 @@ statements per import do not grow with its rows.
 """
 
 import json
+import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from functools import partial
@@ -61,7 +62,7 @@ from ..reads.context_sets import record_source, relation_source
 from ..reads.snapshot_reads import SnapshotContext, change_set_context
 from ..records.counterparts import counterpart
 from .cells import attribute_value, cell_text, flag_set, is_empty
-from .places import Place, resolve_place
+from .places import Place, PlaceReads, resolve_place
 from .profiles import check_profile, invalid_profile, source_order
 from .readers import Area, Table, TabularFile, jsonl_lines, open_tabular
 
@@ -627,10 +628,13 @@ def _bind_table_layout(
                     f"Sheet '{sheet}' has records but no applicationKey column",
                 )
                 mismatch.raise_if_any()
+            guarded = _guarded_positions(model, columns) if file_format == "csv" else ()
             for number, cells in found.rows:
                 rows.tick()
                 report.row(src)
                 ref = f"{sheet}!{number}"
+                if guarded:
+                    cells = _unquoted(cells, guarded)
                 try:
                     item = _layout_item(model, columns, cells, partial(report.cell, src))
                 except _RowError as error:
@@ -646,6 +650,33 @@ def _bind_table_layout(
         errors.flush()
     finally:
         book.close()
+
+
+# A CSV export writes a text starting with a formula character, or with quotes then one, with one
+# quote in front (``jobs/exports._csv_text``); the import takes exactly one off.
+_ESCAPED_TEXT = re.compile(r"^'+[=+\-@\t\r]")
+
+
+def _guarded_positions(model: EngineModel, columns: dict[str, int]) -> tuple[int, ...]:
+    """The positions of the CSV columns the export escapes: the name and the text attributes."""
+    positions = [columns["name"]] if "name" in columns else []
+    for name, position in columns.items():
+        if name.startswith("#"):
+            definition = model.attribute_type(name[1:])
+            if definition is not None and definition.valueType in {"text", "longText"}:
+                positions.append(position)
+    return tuple(positions)
+
+
+def _unquoted(cells: list[Any], positions: tuple[int, ...]) -> list[Any]:
+    """``cells`` with the export's single quote taken off the escaped texts."""
+    cells = list(cells)
+    for position in positions:
+        if position < len(cells):
+            value = cells[position]
+            if isinstance(value, str) and _ESCAPED_TEXT.match(value):
+                cells[position] = value[1:]
+    return cells
 
 
 def _layout_tables(book: TabularFile) -> list[tuple[str, Table]]:
@@ -905,6 +936,7 @@ class _ProfileBinding:
         self.match_cells = _Copy(session, "import_match_cells", ("src", "column_name", "match"))
         # Where new cell records go, by column record (0.17 PP-D24), and the places to create.
         self.places: dict[tuple[str, str, str, str, str], Place] = {}
+        self.place_reads = PlaceReads()
         self.new_places: dict[str, Place] = {}
         self.place_columns: dict[str, str] = {}
         # Per source and column, how a link-matrix column was read (PP-D26), for the report.
@@ -1985,6 +2017,7 @@ class _ProfileBinding:
             relation_type_key=relation_type_key,
             direction=direction,
             row_type_key=row_type,
+            reads=self.place_reads,
         )
         self.places[key] = place
         if place.new is not None and place.container_id is not None:

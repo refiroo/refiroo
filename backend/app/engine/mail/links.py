@@ -19,11 +19,13 @@ from . import settings as mail_settings
 
 
 def create_and_send(
-    session: Session, settings: IdentitySettings, user_public_id: str
+    session: Session, settings: IdentitySettings, user_public_id: str, *, requested: bool = False
 ) -> tuple[str, datetime, str]:
     """Make the person's link and queue it for their address: ``(link, expires, address)``. A
     person with no password is welcomed, one with a password is told a new one was asked for.
-    ``409 MAIL_NOT_SET_UP`` and ``409 NO_EMAIL`` leave the earlier link as it was. Commits."""
+    ``409 MAIL_NOT_SET_UP`` and ``409 NO_EMAIL`` leave the earlier link as it was. ``requested``: the
+    person asked for it themselves, so it leaves an administrator's link valid (``resets.create_link``).
+    Commits."""
     mail_settings.require(session)
     sent_to: list[str] = []
 
@@ -48,6 +50,7 @@ def create_and_send(
         base=mail_settings.reset_link_base(session, settings),
         check=check,
         before_commit=queue,
+        requested=requested,
     )
     return url, expires_at, sent_to[0]
 
@@ -64,7 +67,7 @@ def request_reset(
     whether anyone was written to: the ask is counted against the typed name and the address
     (slowed like sign-ins, D271) whatever it matches, and a link is sent only to an active person
     with a local password, a kept local sign-in and an address whose sign-in no administrator
-    manages (SA1), one link each. ``409
+    manages (SA1), one link each from this flow: an earlier link an administrator made stays valid. ``409
     MAIL_NOT_SET_UP`` when mail is not set up (it says nothing of any account). Commits."""
     mail_settings.require(session)
     wait = sign_in.seconds_to_wait(session, email, address, now, sign_in.RESET)
@@ -83,7 +86,7 @@ def request_reset(
     ).all()
     for public_id in people:
         try:
-            create_and_send(session, settings, public_id)
+            create_and_send(session, settings, public_id, requested=True)
         except ApiError:
             # No address, or local sign-in off for them: nothing is sent and nothing is said.
             session.rollback()

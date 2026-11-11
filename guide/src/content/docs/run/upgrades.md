@@ -104,15 +104,18 @@ a copied source directory under another project name can silently create empty v
 checked-in Compose project name is `refiroo`; preserve any explicit project override you use.
 Do not improvise a switch to a differently named project during cutover.
 
-With the same project and mounts, upgrading keeps `database`, `job-files`, `assistant` and
-`assistant-claude`, plus `caddy-data` when using automatic HTTPS. The `assistant` volume holds
-open tasks’ working folders at `/opt/refiroo/rdm-engine/data/assistant`; `assistant-claude` holds
-Claude Code configuration and session logs at `/opt/refiroo/rdm-engine/data/assistant-claude`.
-An upgrade from a version without `assistant-claude` creates that new volume; it is not
-a sign that the database or job files have been replaced. Keeping existing assistant volumes
-lets open tasks retain the files they need to continue after container replacement.
-A backup need not include these two assistant volumes: losing them loses open tasks’ folders and
-session logs, not records. Do not run `docker compose down -v`: it removes the named volumes.
+With the same project and mounts, upgrading keeps `database`, `job-files` and `assistant`,
+plus `caddy-data` when using automatic HTTPS. Each task's working files and session logs now
+live together in the `assistant` volume; see [Volumes and open assistant tasks](#volumes-and-open-assistant-tasks).
+A backup may omit that volume: losing it loses open tasks’ folders and session logs, not records.
+Do not run `docker compose down -v`: it removes the named volumes.
+
+Before reopening webhook integrations, check whether any receiver uses a private or localhost
+address. These destinations are now refused by default, including on existing subscriptions.
+An operator must set `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED=true` and recreate the engine if those
+receivers are intended. Link-local addresses stay refused. Check the delivery log for `address`
+attempts and resume subscriptions that became suspended once the cause is resolved. See
+[Webhook delivery](/docs/run/webhook-delivery/#network-and-receiver-requirements).
 
 After the explicit migration command, expect:
 
@@ -167,3 +170,66 @@ a backup from before raising. Its dry run can prepare/migrate the database befor
 changes. Invalid or duplicate raised models are skipped while eligible models may still be raised;
 read the per-release report, not only the total. Restoring the pre-maintenance backup with its
 matching engine is the recovery path if the raised stored state must be undone.
+
+## Volumes and open assistant tasks
+
+The `assistant` volume mounts at `/opt/refiroo/rdm-engine/data/assistant`. Each task has a randomly
+named folder containing its workbooks, files, Claude Code configuration, transcripts and turn logs.
+Keep this volume mounted if open tasks need to continue.
+
+When upgrading from the shared-transcript layout, the engine renames existing task folders to
+random names and keeps their workbooks and files. An existing task starts a new Claude Code session
+on its next turn. Earlier shared transcripts are not moved. The old `assistant-claude` volume is
+no longer mounted or needed by the new image. After checking the upgraded tasks and retaining any
+old logs required by your policy, remove only that obsolete volume if no longer needed:
+
+```bash
+docker volume rm refiroo_assistant-claude
+```
+
+That name assumes the default `refiroo` project; use your actual old volume name if you override
+the project. This removal deletes the old transcripts, so keep it until you no longer need them.
+Do not remove the current `assistant` volume as part of this cleanup.
+
+The image and Compose set `AI_AGENT_SANDBOX=container`. The image builds eight session users by
+default. If you run more engine processes in a container, rebuild with `ASSISTANT_USERS` at least
+as large as `WEB_CONCURRENCY`. A task that cannot obtain a user fails with a note naming the build
+argument. Users are taken per turn. Unix permissions close each task's folder between turns
+and open it only to the user running that turn; startup also closes folders left open by stopped
+turns. The engine resets the selected user's processes, home and temporary files around each turn.
+Keep Compose's `init: true`; when running the image directly, supply `docker run --init`.
+See [Set up AI](/docs/run/set-up-ai/#if-startup-or-a-request-fails) for reset and pool failures,
+and [the assistant's session](/docs/run/ai/#the-assistants-session) for the remaining limits.
+
+## Maintain build versions
+
+Release source files fix the versions used to build the images. Preserve them with the deployment
+record. When maintaining your own build, move each pin deliberately:
+
+- **Base images:** the Dockerfiles and Compose files name a tag and a SHA-256 digest. Pull the
+  chosen tag and read its digest with `docker buildx imagetools inspect <image:tag>` (the
+  `Digest:` line). Replace the digest in `backend/Dockerfile`, `frontend/Dockerfile`,
+  `compose.yml` or `compose.acme.yml`, as applicable, then rebuild. If maintaining CI too,
+  update its PostgreSQL digest in `.github/workflows/ci.yml`.
+- **Claude Code:** `CLAUDE_CODE_VERSION` in `backend/Dockerfile` names the installed version (default `2.1.295`).
+  Change that default, or run `docker compose build --build-arg CLAUDE_CODE_VERSION=<version> engine`.
+  `npm view @anthropic-ai/claude-code version` reports the newest published version; it does not
+  choose one for your build. Check the built version with
+  `docker compose run --rm --no-deps --entrypoint claude engine --version`, then recreate the
+  engine and check an assistant turn as described in [Set up AI](/docs/run/set-up-ai/).
+- **Python dependencies:** the engine image installs with `backend/constraints.txt`. After changing
+  `backend/pyproject.toml`, or to take newer dependencies, regenerate it from `backend/`:
+
+  ```bash
+  uv pip compile pyproject.toml --extra dev --universal --python-version 3.14 \
+    --no-header --annotation-style line -o constraints.txt
+  ```
+
+  Keep the file's comment header, review the version changes and run the relevant tests before
+  building. The ranges in `pyproject.toml` describe compatible versions; the constraints select
+  the installed versions.
+- **Browser application and guide:** `npm ci` installs the versions in each directory's
+  `package-lock.json`. Keep the matching lock file with any package change and rebuild the image.
+
+These changes need rebuilt images, not a container restart. Preserve the earlier source, build
+configuration and matching backup until the new build has passed your cutover checks.

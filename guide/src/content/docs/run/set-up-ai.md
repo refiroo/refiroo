@@ -57,10 +57,19 @@ AI_SEND_LEVEL=values
 The command selects Claude Code and its model. refiroo adds its own session restrictions and
 replaces the command's permission-mode option with the mode it enforces. The example does not
 remove those guards. `AI_AGENT_SANDBOX=container` runs the session without Claude Code's permission
-prompts so it can execute the shell commands needed for a task. The shipped image's separate
-`assistant` user is its boundary: it cannot read the engine's secrets or job files. Do not leave
-this setting unset in this installation. The container does not restrict outbound network access;
-apply any required restrictions in your deployment. `values` allows the assistant to read the
+prompts so it can execute the shell commands needed for a task. The image and Compose already
+set it to `container`; Compose overrides a different value in `.env`. Each turn takes
+one of the image's separate session users, which cannot read the engine's secrets or job files.
+Permissions open the task's folder only to that user for the turn and close it afterwards.
+The engine resets that user's processes, home and temporary files before and after the turn;
+a failed reset before a turn prevents it from starting. Compose supplies `init: true` to collect
+ended processes; a deployment using `docker run` needs `--init`.
+The pool has 8 users by default; see [session isolation](/docs/run/ai/#the-assistants-session).
+**The provider's key or token reaches the session, and the container does not restrict outbound
+network access.** Use a dedicated credential with a spending limit and apply any required network
+restrictions in your deployment. **Task isolation inside one container depends on Unix permissions
+and the reset around each turn.** Reviews found and fixed defects; they do not prove isolation.
+A separate container per session is stronger and is not built in. `values` allows the assistant to read the
 workbook and records needed by the task. Lower levels make the assistant unavailable.
 
 `AI_AGENT_API_URL` is the address the assistant's session uses to reach this engine's API.
@@ -98,13 +107,14 @@ CLAUDE_CODE_OAUTH_TOKEN=replace-with-the-token-from-claude-setup-token
 ```
 
 Leave `ANTHROPIC_API_KEY` unset in that file when using the subscription token. Claude Code reads
-these variables itself; refiroo forwards `ANTHROPIC_*` and `CLAUDE_*` environment names to its
-session. Creating the token on your computer does not automatically transfer it to the engine.
+these variables itself; refiroo passes only the [named session variables](/docs/run/ai/#the-assistants-session),
+not every variable with an `ANTHROPIC_` or `CLAUDE_` prefix. Creating the token on your computer
+does not automatically transfer it to the engine.
 See [Claude Code's authentication documentation](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token)
 for its token requirements and lifecycle.
 
-Keep the image's `CLAUDE_CONFIG_DIR=/opt/refiroo/rdm-engine/data/assistant-claude` unless you also arrange the required
-directory permissions. The image already gives the engine and assistant users access there.
+The engine sets `CLAUDE_CONFIG_DIR` separately for each task, inside its randomly named folder
+in the `assistant` volume. No shared Claude Code configuration folder needs mounting.
 
 ## 3. Enable the provider if needed
 
@@ -200,9 +210,10 @@ rebuilding the images or rerunning the data loader. Use `up` for the initial bui
 
 Changing the environment requires the engine container to be recreated; `up -d` applies those
 changes without rebuilding the image. A plain `docker compose restart` does not load an edited environment file.
-The shipped Compose file keeps task folders in `assistant` and Claude Code configuration and
-session logs in `assistant-claude`. Recreating the container, including during upgrades, keeps
-these named volumes, so open tasks retain the files they need to continue.
+The shipped Compose file keeps task folders, Claude Code configuration and session logs in the
+single `assistant` volume. Recreating the container keeps it. After upgrading from the earlier
+shared-transcript layout, existing tasks keep their files but start a new session on their next
+turn; see [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks).
 
 ## 6. Check the provider and assistant separately
 
@@ -233,9 +244,11 @@ these named volumes, so open tasks retain the files they need to continue.
 | The provider test says the key was refused. | Replace `AI_API_KEY` with a valid provider key, apply the settings, and test again. Changing the assistant's token does not fix this test. |
 | The provider cannot be reached or returns an answer in the wrong shape. | Check the displayed endpoint, outbound connectivity and gateway settings. A compatible endpoint must support JSON-schema answers. The failed call remains visible; ordinary work can continue without the proposal. |
 | The assistant action is missing. | Check `AI_AGENT_COMMAND`, `AI_SEND_LEVEL=values` and the person's grants. The provider switch and MCP switch do not make it appear. |
-| A task reports `AI_AGENT_COMMAND could not start`. | Check the command and the image being used. With the shipped image, use `claude` and `AI_AGENT_SANDBOX=container`; its executable and separate user are already installed. |
+| A task reports `AI_AGENT_COMMAND could not start`. | Check the command and the image being used. With the shipped image, use `claude` and `AI_AGENT_SANDBOX=container`; its executable and session users are already installed. |
+| A task reports that no session user is free and names `ASSISTANT_USERS`. | The image has fewer session users than engine processes need. Rebuild with a pool at least as large as `WEB_CONCURRENCY`: `docker compose build --build-arg ASSISTANT_USERS=16 engine`, then `docker compose up -d engine`. Choose the count for your process count, then retry the task. |
+| A task reports that its session user could not be reset. | The turn has not started. Check the engine log and that the image installs `/usr/local/bin/refiroo-session-reset` and permits the engine to run it as a session user through sudo. Restore the shipped image and its init-process setup, recreate the engine, then retry. A reset failure after a turn is logged; the next turn must pass its own reset. |
 | A task stops at once with an internal error. | Check `AI_AGENT_API_URL`: an unreachable engine API address can cause this failure. With the shipped Compose installation, remove an incorrect override so Compose supplies `http://127.0.0.1:8000`. On a host installation, use an address reachable from the engine's machine. Apply the settings, start another task and check that it reaches its proposal. |
-| A turn fails or says `The session ended without an answer.` | Check the task's warnings and its failed call. Verify the assistant's credential variable, token validity, network access and container sandbox setting. Inspect the task's session log if the message is insufficient; it is beside its folder under `/opt/refiroo/rdm-engine/data/assistant`. Treat logs as sensitive. Correct the configuration, apply it, then continue or start the task again. |
+| A turn fails or says `The session ended without an answer.` | Check the task's warnings and its failed call. Verify the assistant's credential variable, token validity, network access and container sandbox setting. Inspect the task's session log if the message is insufficient; it is inside its randomly named task folder under `/opt/refiroo/rdm-engine/data/assistant`. Treat logs as sensitive. Correct the configuration, apply it, then continue or start the task again. |
 | A task's note says the session took longer than the limit | The turn exceeded `AI_AGENT_TIMEOUT_SECONDS` (default 1800) and was stopped; the task is back at its last point. Check service availability, reduce the task or raise the limit, then continue or try again. `AI_TIMEOUT_SECONDS` controls provider calls, not this session limit. |
 | The task reports `AI_ASSISTANT_ROLE_CHANGED`. | An assistant role no longer has the required action groups. Follow the message to restore them or have an administrator delete that role so refiroo can recreate it, then try again. |
 
@@ -271,9 +284,9 @@ internal API address does not change the AI provider's endpoint.
 ## Maintain or remove the setup
 
 After a credential, endpoint or model change, recreate the engine and repeat the two independent
-checks in step 6. Keep task and session volumes mounted through replacement. To recover after a
-host failure, restore the matching database, job files and keys; preserve the assistant volumes
-as well if open sessions must retain their folders. Without those optional volumes, records remain
+checks in step 6. Keep the `assistant` volume mounted through replacement. To recover after a
+host failure, restore the matching database, job files and keys; preserve the `assistant` volume
+as well if open sessions must retain their folders. Without that optional volume, records remain
 but an open task can lack the files needed to continue.
 
 For planned switch-off, credential replacement and what stays stored, follow

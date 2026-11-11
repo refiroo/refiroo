@@ -59,6 +59,19 @@ sheet. Read it for the view or scope, workspace, context, search and filters, ex
 counts, relationships and load-back rules. It is for reading and is ignored on import.
 CSV and JSON Lines files have no sheets.
 
+### Text in CSV files
+
+In a CSV export, text beginning with `=`, `+`, `-`, `@`, a tab or a carriage return gets one
+extra leading single quote, so a spreadsheet shows it as text rather than a formula. The same
+rule applies when one or more single quotes already precede that character. For example,
+`=1+1` is written as `'=1+1`, and `'=1+1` as `''=1+1`.
+
+Keep that added quote when returning an exported CSV. With **Profile: None**, import removes
+exactly one protective quote from record names and text fields. Returning an unchanged export
+therefore leaves the original values unchanged, including their original quotes. Other quotes
+are kept. This reading applies to exported CSV layouts, not to an ordinary CSV read through a
+stored profile. XLSX files are unaffected; their values need no added quote.
+
 ### Matrix cells and new records
 
 Export does not ask where new matrix records go. The relationship's candidate rules limit

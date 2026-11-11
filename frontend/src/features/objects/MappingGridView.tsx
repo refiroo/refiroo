@@ -8,6 +8,7 @@ import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { useTableDisplay } from "@/ui/TableDisplay";
 import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
 import { RecordChip } from "@/ui/RecordChip";
@@ -685,16 +686,14 @@ function MappingActionDialog({
               </>
             )}
           </div>
-          <label className="search-box candidate-search">
-            <Icon name="search" />
-            <input
-              aria-label={`Search ${targetType.pluralName.toLowerCase()}`}
-              value={candidateSearch}
-              onChange={(e) => setCandidateSearch(e.target.value)}
-              placeholder={`Search ${targetType.pluralName.toLowerCase()}…`}
-              autoFocus
-            />
-          </label>
+          <SearchField
+            className="candidate-search"
+            label={`Search ${targetType.pluralName.toLowerCase()}`}
+            value={candidateSearch}
+            onChange={setCandidateSearch}
+            placeholder={`Search ${targetType.pluralName.toLowerCase()}…`}
+            autoFocus
+          />
           <fieldset className="candidate-list" aria-busy={candidates.loading || undefined}>
             <legend className="visually-hidden">Select {targetType.name.toLowerCase()}</legend>
             <ScrollWindow

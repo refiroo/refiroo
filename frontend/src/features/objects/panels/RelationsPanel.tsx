@@ -13,6 +13,7 @@ import { FieldValue } from "@/ui/FieldValue";
 import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { IconButton } from "@/ui/IconButton";
 import { InfoHint } from "@/ui/InfoHint";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
@@ -392,15 +393,13 @@ export function RelationsPanel({
         )}
       </h2>
       <div className="embedded-toolbar relation-toolbar">
-        <label className="search-box compact">
-          <Icon name="search" />
-          <input
-            aria-label={`Search ${panel.title.toLowerCase()}`}
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search related records"
-          />
-        </label>
+        <SearchField
+          className="compact"
+          label={`Search ${panel.title.toLowerCase()}`}
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Search related records"
+        />
         <TableDisplay
           model={model}
           columns={panel.config.columns}

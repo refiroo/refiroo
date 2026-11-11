@@ -9,7 +9,7 @@ name: refiroo
 
 services:
   database:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:e5d2edd28b1f8d40a0a6c0c9cdc545b19b56a0d5d88f94bc11a97d970d4700d0
     restart: unless-stopped
     environment:
       POSTGRES_DB: rdm
@@ -30,6 +30,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
+    # An init process as PID 1: it reaps what an assistant session leaves behind when the reset after a
+    # turn ends that session user's processes (0.17 RF5); the engine itself does not reap them.
+    init: true
     # Every setting set in .env reaches the engine (.env.example lists them all); the ones below
     # are worked out here and win over .env. RDM_ENV_FILE names another file (the one given to
     # `docker compose --env-file`, as the deployment runner does).
@@ -44,15 +47,18 @@ services:
       CORS_ORIGINS: ${PUBLIC_URL}
       # The assistant's session runs inside this container, where PUBLIC_URL may not be reachable (http://localhost:... names the container itself); the engine listens on 8000 here.
       AI_AGENT_API_URL: ${AI_AGENT_API_URL:-http://127.0.0.1:8000}
+      # The assistant's session runs only in a container: set here too, so a `.env` cannot turn it off.
+      AI_AGENT_SANDBOX: container
       # `web` is the only caller (the engine is not published), and it replaces what callers send.
-      FORWARDED_ALLOW_IPS: "*"
+      # Believed only from the compose network's private ranges, where `web` lies, never from every
+      # address. Another proxy or network: set FORWARDED_ALLOW_IPS in .env to its address range.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     volumes:
       - job-files:/opt/refiroo/rdm-engine/data/job-files
-      # The assistant's task folders and Claude Code's session logs: they must outlive a recreated
+      # The assistant's task folders, each with its Claude Code session logs: they must outlive a recreated
       # container (each upgrade), or open assistant tasks cannot continue. A named volume starts as
       # a copy of the image's folder, with its owner, group and setgid mode.
       - assistant:/opt/refiroo/rdm-engine/data/assistant
-      - assistant-claude:/opt/refiroo/rdm-engine/data/assistant-claude
     depends_on:
       database:
         condition: service_healthy
@@ -85,4 +91,3 @@ volumes:
   database:
   job-files:
   assistant:
-  assistant-claude:

@@ -107,9 +107,11 @@ def _findings(
     workspace_key: str | None,
     url: str,
     settings: SubscriptionSettings,
+    url_checked: UrlChecked | None = None,
 ) -> tuple[list[ApiError], Workspace | None]:
     """Every check's refusal, in the order a create reports them, and the workspace when it is
-    served."""
+    served. ``url_checked`` is the URL's check made before a row was locked, used when it is for
+    this URL."""
     findings = definition_findings(model, asked)
     resolved = _workspace(session, workspace_key)
     workspace = resolved if isinstance(resolved, Workspace) else None
@@ -124,10 +126,26 @@ def _findings(
             refusal = unmatched_values(session, model, definition, source, name, values, f"/filters/{name}")
             if refusal is not None:
                 findings.append(refusal)
-    url_refusal = check_webhook_url(url)
+    url_refusal = _url_refusal(url, url_checked)
     if url_refusal is not None:
         findings.append(url_refusal)
     return findings, workspace
+
+
+type UrlChecked = tuple[str, ApiError | None]
+
+
+def _url_refusal(url: str, checked: UrlChecked | None) -> ApiError | None:
+    """The URL's refusal: the check made earlier when it was for this URL, else made now."""
+    return checked[1] if checked is not None and checked[0] == url else check_webhook_url(url)
+
+
+def _checked_before_locking(session: Session, public_id: str, url: str | None) -> UrlChecked:
+    """The URL's check (a DNS lookup) made before the subscription's row is locked: the new URL, or
+    the stored one read without a lock. An edit that finds another URL stored checks again."""
+    if url is None:
+        url = load_subscription(session, public_id).url
+    return url, check_webhook_url(url)
 
 
 def is_workspace_source(subscription: ConsumerSubscription) -> bool:
@@ -137,7 +155,11 @@ def is_workspace_source(subscription: ConsumerSubscription) -> bool:
 
 
 def _workspace_findings(
-    session: Session, events: Sequence[str], workspace_key: str | None, url: str
+    session: Session,
+    events: Sequence[str],
+    workspace_key: str | None,
+    url: str,
+    url_checked: UrlChecked | None = None,
 ) -> tuple[list[ApiError], Workspace | None]:
     """The checks of a workspace-source subscription: its events are the workspace's, the workspace
     is active and the URL passes the allowlist."""
@@ -333,6 +355,7 @@ def update_subscription(
     session: Session, public_id: str, payload: ConsumerSubscriptionUpdate, settings: SubscriptionSettings
 ) -> ConsumerSubscription:
     """Edit what the subscription names, checked as a create; a suspended one stays suspended."""
+    checked = _checked_before_locking(session, public_id, payload.url)
 
     def change() -> ConsumerSubscription:
         subscription = _claimed(session, public_id, payload.expectedVersion)
@@ -347,7 +370,9 @@ def update_subscription(
                     "Filters and payload do not apply to a subscription to workspace events",
                     {"pointer": "/filters" if payload.filters else "/payload"},
                 )
-            findings, _workspace_found = _workspace_findings(session, events, subscription.workspace_key, url)
+            findings, _workspace_found = _workspace_findings(
+                session, events, subscription.workspace_key, url, checked
+            )
         else:
             model = resolve_model_snapshot(session, subscription.workspace_key).model
             asked = Asked(
@@ -357,7 +382,7 @@ def update_subscription(
                 asked_version(model, subscription.consumer_api, subscription.contract_version),
             )
             findings, _workspace_found = _findings(
-                session, model, asked, subscription.workspace_key, url, settings
+                session, model, asked, subscription.workspace_key, url, settings, checked
             )
         # The workspace is not edited; a retired one is the suspension's business, not the edit's.
         findings = [f for f in findings if f.code != "WORKSPACE_NOT_FOUND"]
@@ -416,6 +441,7 @@ def resume_subscription(
     refused when events since then expired (C-D93); with ``reset`` it starts after the workspace's
     feed head instead, as a new subscription does (C-D110). The contract version served becomes the
     one accepted."""
+    checked = _checked_before_locking(session, public_id, None)
 
     def change() -> ConsumerSubscription:
         subscription = _claimed(session, public_id, expected_version)
@@ -425,7 +451,7 @@ def resume_subscription(
             )
         if is_workspace_source(subscription):
             findings, _workspace_found = _workspace_findings(
-                session, subscription.event_keys, subscription.workspace_key, subscription.url
+                session, subscription.event_keys, subscription.workspace_key, subscription.url, checked
             )
             model = None
         else:
@@ -437,7 +463,7 @@ def resume_subscription(
                 asked_version(model, subscription.consumer_api, subscription.contract_version),
             )
             findings, _workspace_found = _findings(
-                session, model, asked, subscription.workspace_key, subscription.url, settings
+                session, model, asked, subscription.workspace_key, subscription.url, settings, checked
             )
         if findings:
             raise api_error(

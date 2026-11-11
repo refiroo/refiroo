@@ -2,7 +2,7 @@
  * The colour theme (package TH): Normal, or Website purple, chosen on Settings › Appearance and saved in this
  * browser. It is independent of the light and dark mode (`theme.ts`) and of the type palette (`palette.ts`):
  * Website purple sets `data-scheme="purple"` on the document element, which the design tokens key on, and Normal
- * sets nothing. The inline script in index.html applies the saved choice before the first paint; the guide and
+ * sets nothing. public/theme-init.js (linked from index.html) applies the saved choice before the first paint; the guide and
  * the API reference an instance serves read the same key, and a choice made there reaches an open application
  * tab through the storage event.
  */

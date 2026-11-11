@@ -8,6 +8,7 @@ import { useMemo, useRef, useState } from "react";
 import type { Grant, RouteState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { RouteLink } from "@/ui/RouteLink";
 import { routePath } from "@/routing/routes";
 import {
@@ -139,15 +140,13 @@ export function AccessList({
   return (
     <>
       <div className="access-toolbar">
-        <label className="search-box access-search">
-          <Icon name="search" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            aria-label="Search people, groups, clients"
-            placeholder="Search people, groups, clients"
-          />
-        </label>
+        <SearchField
+          className="access-search"
+          value={search}
+          onChange={setSearch}
+          label="Search people, groups, clients"
+          placeholder="Search people, groups, clients"
+        />
         <label className="toolbar-field access-filter">
           <span>Role</span>
           <select value={role} onChange={(event) => setRole(event.target.value)}>

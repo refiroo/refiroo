@@ -17,6 +17,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -724,15 +725,13 @@ function CreateCellRecord({
           {defaults && !defaults.id && !place && containers.items.length > 0 && (
             <p className="admin-hint">No group under {column.name} holds cells of this view yet. Choose one below.</p>
           )}
-          <label className="search-box candidate-search">
-            <Icon name="search" />
-            <input
-              aria-label="Search places"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search places…"
-            />
-          </label>
+          <SearchField
+            className="candidate-search"
+            label="Search places"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search places…"
+          />
           <ScrollWindow
             list={containers}
             label="Places to create it in"
@@ -896,16 +895,14 @@ function LinkCandidates({
           onLink(selected, setValues(relationValuesFromForm(event.currentTarget, relationAttributes)));
       }}
     >
-      <label className="search-box candidate-search">
-        <Icon name="search" />
-        <input
-          aria-label={`Search ${plural}`}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={`Search ${plural} under ${column.name}…`}
-          autoFocus
-        />
-      </label>
+      <SearchField
+        className="candidate-search"
+        label={`Search ${plural}`}
+        value={search}
+        onChange={setSearch}
+        placeholder={`Search ${plural} under ${column.name}…`}
+        autoFocus
+      />
       <fieldset className="candidate-list" aria-busy={candidates.loading || undefined}>
         <legend className="visually-hidden">Choose a {cellType.name.toLowerCase()} to link</legend>
         <ScrollWindow

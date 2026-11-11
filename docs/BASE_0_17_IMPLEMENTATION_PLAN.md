@@ -52,6 +52,11 @@ corrects that result, and the way to import when no provider is configured.
 | [CA1](#ca1-the-parent-carries-fields-and-related-blocks) | — | A consumer API's parent serves any field and related blocks of its own, a related block may be served only on request (`include`), and an On related filter may narrow a parent block |
 | [RF1](#rf1-review-findings) | — | Three engine defects from the project review of 2026-11-11: approve and publish lock in one order, a re-read never cancels a confirmed import, a failed file cleanup no longer keeps background work off |
 | [SA1](#sa1-sign-in-managed-by-an-administrator) | EM1 | A person whose sign-in an administrator manages cannot change their own password, second factor or passkeys, and sees and ends only their own session |
+| [RF2](#rf2-review-findings-engine) | RF1 | The engine findings of the review that need no new decision: CSV exports a spreadsheet cannot run, set-based placing of matrix cells, the provider first sign-in race, reset links |
+| [RF3](#rf3-review-findings-frontend) | RF1 | The frontend findings: the reset token leaves the address bar, one search box, no lost events on reconnect, pages loaded when opened |
+| [RF4](#rf4-review-findings-build-and-deployment) | RF1 | The build and deployment findings: pinned versions, a content security policy, CI permissions, safe forwarding defaults |
+| [RF5](#rf5-assistant-sessions-in-a-container) | RF1 | An assistant session in a container reads only its own task, and holds no more of the provider's credentials than it needs (plan first) |
+| [RF6](#rf6-webhook-addresses-on-private-ranges) | RF1 | A webhook address on a loopback or private range is refused unless an instance setting allows it |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
 **Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
@@ -517,9 +522,12 @@ goes):
   `permissions` block; `AI_AGENT_SANDBOX=container` is not set in the image or the compose file.
 - Frontend: the reset token stays in the address bar; search boxes copied beside `ui/SearchField`; the event
   stream loses events during a reconnect; no code splitting.
-- Website (its own repository): the public demo account can change its own password and owns its workspaces;
-  the demo's deploy still creates people by username; the early-access form and the sign-up lookups have no
-  rate limit.
+- Website (its own repository): the early-access form and the sign-up lookups have no rate limit. (The demo
+  account and the demo's deploy by username were covered by SA1 and the website's demo tooling, 2026-11-11.)
+
+_The user asked on 2026-11-11 to fix these._ They are packages RF2 to RF5 below; webhook addresses on loopback
+and private ranges are RF6 (the user's decision of 2026-11-11, which replaces C-D101's rule); the website items are delivered in the
+website's repository.
 
 ## SA1: Sign-in managed by an administrator
 
@@ -563,6 +571,267 @@ others out. Plan approved by the user the same day, with the session limits incl
   guide pages on the account and on People still describe the earlier behaviour (a Codex wave).
   **Decision, confirmed 2026-11-11:** a managed person without a second factor is not asked to set one up, even
   where the instance requires one, because enrolling is refused.
+
+## RF2: Review findings, engine
+
+_Added by the user on 2026-11-11_ ("fix them"), from the list under RF1. No new product decision is needed for
+these; each choice made in delivery is recorded here.
+
+- **A CSV export holds no value a spreadsheet runs as a formula.** A text value starting with `=`, `+`, `-`,
+  `@`, a tab or a carriage return is written so a spreadsheet shows it as text; numbers are untouched; a file
+  the engine reads back gives the original value.
+- **Placing new matrix cells in an import is set work.** `imports/places.py` reads whole record sets once per
+  column; it reads them once for the import, in PostgreSQL.
+- **Two first sign-ins through a provider at once** create one person and both succeed; an address the
+  provider has not verified is not matched to an existing person.
+- **An anonymous forgotten-password request does not cancel a reset link an administrator made.**
+- **Tests and docs:** one journey case per behaviour through the API; CHANGELOG; API.md where a contract is named.
+- **Delivered 2026-11-11.** `engine/jobs/exports.py` (`_csv_text`, `_csv_cell`: the quote is added by PostgreSQL in the
+  `COPY`); `engine/imports/places.py` (`PlaceReads`, used by `imports/binding.py`); `engine/identity/provider_sign_in.py`
+  (`_identity`, the creation in a savepoint); `engine/identity/resets.py`, `engine/mail/links.py` and migration
+  `20261130_01` (`password_reset_links.requested`). Four journey cases: `test_j27_export` (formula text),
+  `test_j39_provider_sign_in` (two first sign-ins at once; fails without the fix), `test_j46_reset_by_mail` (an ask
+  leaves an administrator's link valid). Checks run: `test_j27_export_views`, `test_j27_export`,
+  `test_j46_reset_by_mail`, `test_j39_provider_sign_in` (94 passed, then the formula case
+  corrected, 2 passed), then `test_foreign_keys`, `test_startup`, `test_schema_drift`, `test_j46_mail`,
+  `test_j39_managed_sign_in`, `test_j39_sign_in` (78 and 48 passed); Ruff on the changed files. `test_startup` expects
+  the new head. The contract lock is not affected (no route, schema or description changed).
+  **Decisions made in delivery:**
+  - The quote is added to text only: a name, a path, the `~` names and attributes of type `text` or `longText`.
+    Integers, decimals, booleans, dates, date-times and JSON are never prefixed, so a negative number stays a number.
+    No journey case holds a negative number (the generated models allow none); the rule is in the SQL.
+  - **The export escapes unambiguously and the import reverses it** (the coordinator, 2026-11-11, replacing an earlier
+    "not stripped"). The export prefixes one quote to a text matching `^'*[=+\-@\t\r]`; the CSV table-layout import
+    (`imports/binding._unquoted`, CSV only, the name and `text`/`longText` columns) strips exactly one quote from a
+    value matching `^'+[=+\-@\t\r]`. Every engine-written file round-trips exactly, a real `'=x` included; a
+    hand-made `=x` stays `=x` and a hand-made `'=x` becomes `=x`. XLSX writes every text as a text cell and is not
+    affected.
+  - **After review:** `use_link` deletes the person's other links on success; turning `signInManaged` on deletes
+    the `requested` links and `use_link`/`link_user` refuse a requested link of a managed person (`410`, no new
+    code); an administrator's link still works. Journey cases in `test_j46_reset_by_mail` and
+    `test_j39_managed_sign_in`.
+  - Placing reads once per import: the records of a set of types, the cell counts of every container and the
+    containers in use are each one statement kept in `PlaceReads`; the walk from a container up to its column
+    record stays in Python over the records once read.
+  - Provider first sign-in: a savepoint around the creation and a re-read by subject, not an advisory lock, so the
+    same person and two persons with one address are both handled (the second then gets `email_taken`).
+  - **`email_verified` is not added.** D363 and D377 already settle matching: a person is found by provider and
+    `sub`, never by e-mail, and an address another person holds is refused, not matched. Not changed. Left as it is:
+    the created person and each later sign-in take the token's `email` without looking at `email_verified`.
+  - A link made by a forgotten-password ask is marked (`requested`) and an ask replaces only such links; an
+    administrator's link, with or without `send`, replaces every earlier one as before, and a person may then hold
+    an administrator's link and one of their own. The route text of `POST /users/{id}/password-reset` and the
+    management reference still say a newer link replaces an older one for an administrator's, which stays true.
+
+## RF3: Review findings, frontend
+
+_Added by the user on 2026-11-11._
+
+- **The reset token leaves the address bar** once the page has read it, and is not kept in history.
+- **One search box:** the copies beside `ui/SearchField` use it; behaviour and look stay as they are.
+- **The event stream loses no event during a reconnect:** it resumes from the last event it saw.
+- **Pages load when opened:** routes are split so the first load does not carry every page.
+- **Checks:** Vitest for the changed components; the browser runners of the changed pages; the production build.
+- **Delivered 2026-11-11.** Reset token: `ResetPasswordScreen.tsx` (`takeResetToken`, `forgetResetToken`; `main.tsx`
+  passes the token) replaces the address and keeps the token in the history entry's state; the engine's
+  `GET /oauth/password` (`routers/oauth.py`, `RESET_COOKIE`) answers a valid token with `303` and a `Lax` cookie.
+  Decisions: a reload shows the page while the state or cookie lasts (cookie 60 minutes), else the link-gone or ask
+  page; `Lax` because a mailed link is a cross-site navigation. Search: ten copies use `ui/SearchField` (new props
+  `type`, `autoFocus`, `disabled`); left as they are, with their own classes and look: `RecordChecklist`,
+  `FieldMenu`, the matrix cell filter. Stream: `api/eventStream.ts` resumes with `Last-Event-ID` if a stream sends
+  `id:` (the engine's send none and offer no cursor), dispatches `reconnected`, and `useInbox` reads again on it;
+  the job stream resends the whole job on connecting. Splitting: `App.tsx` lazy routes with a `Skeleton` fallback,
+  `main.tsx` lazy `App`; entry 2,108.8 kB (600.7 kB gzip) before, 208.7 kB (65.7 kB gzip) after, with the
+  application chunk 677 kB and Settings 898 kB loaded when needed. Checks: `npm run build`; Vitest over sign-in,
+  event stream, inbox, `ui`, security, objects and app (84 files, 642 tests); `tests/journeys/test_j39_sign_in.py`
+  and `test_j46_mail.py` (54 passed); `test:browser:reset` (24 checks, gained the address and reload check),
+  `test:browser:sign-in` (36 checks), `test:browser:lb`. `docs/API.md` still describes `GET /oauth/password?token=`
+  as the page itself and needs the redirect named.
+
+## RF4: Review findings, build and deployment
+
+_Added by the user on 2026-11-11._
+
+- **Pinned versions:** Claude Code is installed at a named version; base images are pinned by digest; the
+  backend image installs from a lock file.
+- **A content security policy** beyond `frame-ancestors`, checked in the browser on the app, the sign-in
+  pages, the guide and the API reference.
+- **`ci.yml` has a `permissions` block** granting what its jobs need and no more.
+- **`AI_AGENT_SANDBOX=container`** is set where the image runs the assistant; forwarded headers are trusted
+  from the proxy only, not from every address.
+- **Docs:** OPERATIONS and the deployment notes; CHANGELOG.
+
+- **Delivered 2026-11-11.** Done: Claude Code pinned
+  (`ARG CLAUDE_CODE_VERSION=2.1.295`, the version installed on the development machine; the newest was 2.1.322);
+  every base image pinned by digest (Dockerfiles, `compose.yml`, `compose.acme.yml`, CI's postgres service);
+  `backend/constraints.txt` made with `uv pip compile --universal` (runtime and dev extra), used by the image and by
+  CI (`.dockerignore` lets it into the build); `permissions: contents: read` in `ci.yml` (`images.yml` and
+  `images-cleanup.yml` already had theirs); `AI_AGENT_SANDBOX=container` in the image `ENV` and in `compose.yml`;
+  `FORWARDED_ALLOW_IPS` is the private ranges (overridable from `.env`), not `*`. The application's policy is
+  `frontend/nginx/snippets/csp-app.inc.template`, sent on the application's own locations only; the engine's
+  locations keep `frame-ancestors 'none'` and the engine's own policies (sign-in pages, guide, API reference)
+  apply unchanged. Checks run: `docker build -f backend/Dockerfile` succeeded, `claude --version` in the image
+  prints 2.1.295, `AI_AGENT_SANDBOX` is `container` in it, `pip check` is clean; `docker compose config` parses
+  (also with `compose.acme.yml`). `npm run test:deployment` (it builds both images, serves the policy from nginx and, as extended, opens the
+  application signed out and in, the engine's sign-in page, the guide with its search and the API reference,
+  light and dark, failing on any console policy violation) passed with 12 checks on its third run: the first
+  showed a font embedded as inline data refused, the second the component library's style element refused; each
+  was followed by one change to the policy. The backend header tests were not run, as no backend code changed. Decisions made in
+  delivery: (1) the theme script moved out of `index.html` into `public/theme-init.js`, so scripts need no
+  `'unsafe-inline'`; (2) styles are `style-src 'self' 'unsafe-inline'` and fonts `font-src 'self' data:`: the deployment
+  runner showed the component library adds a style element when the signed-in application starts, and the
+  build embeds a font as inline data; scripts stay without `'unsafe-inline'`; (3) the policy
+  is a file, not a setting (no existing settings pattern covers web's nginx); (4) the engine's pages keep their
+  own policies rather than one policy in `web`, since a second, stricter one in `web` would apply on top;
+  (5) the compose default for `FORWARDED_ALLOW_IPS` is the three private ranges, as `compose.acme.yml` already
+  uses for `web`; (6) constraints cover the dev extra too, so CI and the image share one file.
+
+## RF5: Assistant sessions in a container
+
+_Added by the user on 2026-11-11._ Plan shown and approved by the user the same day, without a provider relay.
+
+- **Outcome:** a session started for one task cannot read another task's folder or transcript, whoever asks
+  it to; a session cannot read another running session's environment; the session's environment holds no
+  provider credential beyond what Claude Code needs to run.
+- **Revised 2026-11-11 after the independent review.** The first design made a task's random folder name the
+  barrier between tasks. The review showed that does not hold: the engine followed links a session planted
+  and could be made to open the tasks' folder to every session user; one session user served every task of an
+  engine process, so a process or a start-up file left by one task ran beside the next; and the names show in
+  process arguments once Claude Code runs tools. Permissions are the barrier now; the mechanism below
+  replaces the first one and serves the same Outcome.
+- **A gate per task:** each task has a folder only the engine can enter outside a turn. For a turn it is
+  opened to the one session user that runs it, through that user's own group, and closed when the turn ends
+  and at every engine start. Another session user cannot enter it, whatever names it knows. The folder keeps
+  a random name under a folder session users cannot list.
+- **What the engine creates, the session cannot replace:** the task's working folder, its Claude Code folder
+  and the engine's log are made once, at the task's creation, inside the gate, where a session has no write
+  right. Afterwards the engine does not change modes or write there by following a path a session controls,
+  and what it reads from the session's folder is opened as a plain file, never through a link.
+- **A reset around every turn:** before and after a turn the engine runs one fixed command as the session
+  user (never as root): it ends every process of that user, empties that user's home, and makes what the
+  session wrote readable for the next turn, which another session user may run. The sudo rule names the
+  Claude Code binary and this command only.
+- **A pool of session users** (build argument, default 8), each with a group of its own; two sessions running
+  at once are different users.
+- **Nothing secret on the command line** the engine builds: the prompt goes in on standard input.
+- **A named list of passed variables** in place of the `ANTHROPIC_*`, `CLAUDE_*`, `AWS_*` and `NODE_*`
+  patterns, in the engine and in the sudo rule: the provider's key or subscription token, its base address
+  and model settings, the Bedrock names only when Bedrock is on.
+- **Upgrade:** existing tasks' folders are moved into the new layout at the first start; the new name is
+  stored before the folder is moved, so a clean-up running beside it cannot remove it.
+- **Not covered (known limits, in OPERATIONS):** the provider's key or token still reaches the session, since
+  Claude Code calls the provider itself; nothing limits where a session connects. A relay in the engine that
+  keeps the key from the session was offered and left out by the user's choice of 2026-11-11.
+- **Checks:** unit tests for the command, the environment and the folders; one try in the built image where a
+  session user cannot list the tasks' folder, cannot read another task's folder or transcript, and cannot
+  read another session user's process environment; one real assistant turn in the container, with its tokens
+  and cost reported, to show a session still works and resumes. OPERATIONS, CHANGELOG.
+- **Delivered 2026-11-11.** **The first design was replaced after the independent review**, which showed it did not
+  hold (the engine followed links a session planted, one session user served every task of a process, folder names
+  showed in process arguments, a resume under another user could not read a 0600 transcript, a sweep could remove a
+  folder mid-move, an orphan group outlived an engine crash, and the engine reopened the log by path); the first
+  design's code was rewritten, and its container try and its first real turn were discarded with it. Code:
+  `engine/tasks/agent.py` (gate, reset, pool, safe file access, folders, sweep, `_Progress`), `design_job.py`
+  (`run_turns` gives the folder its name first), `backend/refiroo-session-reset` (new), `backend/Dockerfile`,
+  `.dockerignore`, `compose.yml`, OPERATIONS, CHANGELOG. Checks: `tests/unit/engine/tasks/test_agent.py`, 35 tests
+  (planted links at `work/tmp`, `claude/sessions`, `workbook.xlsx` and `proposal.json` not followed; the gate opened
+  for the turn's group and closed; idle gates closed unless a turn holds the user; the reset before and after a turn
+  and a failing one failing the turn; the name committed before the move; the sweep; `_Progress` through its
+  descriptor; the sudoers names and its two commands), run with `--noconftest` as the shared test server was busy;
+  `ruff` on the changed files. **Container try** in the built image (own tag), as two pool users: while `assistant-1`
+  ran a turn, `assistant-2` could neither list nor traverse the task's folder by its full path (`Permission denied`);
+  after the turn the gate was 0700 and `assistant-1` could not enter either; a process left behind with `setsid`, a
+  `.bashrc` in the user's home and a file in `/tmp` were gone after the turn; a `work/tmp` link to `../..` planted
+  during a turn was replaced by a folder at the next turn and `data/assistant` stayed 2710; the second turn under
+  `assistant-2` read and appended the transcript `assistant-1` wrote (mode 0660 after the reset); no process argument
+  held the folder's path, the prompt or a token. **Real turn and resume** (the reference instance's subscription token,
+  passed through the environment, with the user's approval): a workbook task reached `checked` as `assistant-1` (54 s,
+  real proposal); after an engine restart, with `assistant-1` held, the correction resumed the same session as
+  `assistant-2` (same session ID in both stream logs, no error; 24 s); discarding the task left no folder and empty
+  homes. Tokens and cost are in the AI usage log of the 0.16 plan.
+  Decisions in delivery: (1) the pool is found from the system's users named `assistant-<n>` that are members of
+  `assistant`; (2) a pool user's lock is held per turn, not for the process's life, so the gate and the reset belong
+  to one turn, and any free user runs the next turn (the transcript is readable to all after the reset); (3) the
+  engine's writes into `work/` after creation are `workbook.xlsx`, `model.json` and `openapi.json` (at `start`, and
+  again when a session starts anew) and the scratch folder `work/tmp`; all through a directory descriptor with
+  `O_NOFOLLOW`, replacing what is there, and it removes `proposal.json` the same way; (4) it reads only
+  `proposal.json` from `work/`, as a regular file of at most 8 MiB; (5) the reset's marker line, not its exit
+  status, is the proof it ran (it ends every process of its user, and so itself); a reset that does not finish
+  before a turn fails the turn with a note, after a turn it is logged; (6) a folder no task names is removed by the
+  sweep only after an hour; (7) the session's ID stays on the command line for `_stop_earlier`; (8) transcripts of
+  tasks begun before the upgrade are not moved: such a task starts a new session, with its files; (9) the words go
+  to standard input in a container only, as the journey tests' scripted commands read them as the last argument;
+  (10) the model variables passed are `ANTHROPIC_MODEL` and the three `ANTHROPIC_DEFAULT_*_MODEL`.
+  **After the second review** (no defect found in links, log, locks, sudoers, sweep or upgrade; one serious in the
+  reset's order, three low): the script now ends the user's processes first, repeatedly until none is left, then
+  cleans (home, `/tmp`, `/var/tmp`, `/dev/shm`), then the group chmod when folders are given, then ends processes
+  again, and exits non-zero with a message if any remain (`kill -9 -1` spares the calling process, confirmed, so
+  the marker and the exit status are both the proof; `kill -0 -1` cannot tell whether others exist, so the script
+  scans `/proc`); the engine resets before opening the gate and, after a turn, resets with the gate still open and
+  then closes it, and a failed pre-turn reset opens no gate; `_close_idle_gates` re-reads the gate through its
+  descriptor once the user's lock is held; the task's folders go to the reset on standard input, not its
+  command line; `compose.yml` has `init: true` (the coordinator's) as a reaper. Container try: a session left a
+  loop rewriting `~/.bashrc` and a continuously forking process (42, then 86 live processes) plus files in `/tmp`,
+  `/dev/shm` and the home; after the turn 0 live processes, home 0 entries, none of the uid's files in the scratch
+  folders, gate 0700, reset and close in 0.1 s; run directly, the script printed the marker and exited 0, with a
+  bad path it exited 2. 36 unit tests (`--noconftest`; the shared test server was busy). The try used an image built
+  before the script's last edit, the repo's script copied in. Known limit added: isolation between tasks inside
+  one container rests on Unix permissions and the reset around each turn, reviewed twice with defects found each
+  time; a container per session is the stronger form and is not built.
+  **After the third review** (rework sound, two plausible weaknesses): a turn that holds its user's lock closes every other
+  gate open for that user's group before it opens its own (`_close_gates_of`; a gate left open by a killed engine could
+  otherwise face the next task's session); the reset also removes the user's SysV shm, semaphores and message queues
+  (`/proc/sysvipc` with `ipcrm`, present in the image) and its files in `/run/lock`, `/dev/mqueue` and `/var/mail`
+  (the image's world-writable folders are `/tmp`, `/var/tmp`, `/run/lock`; `/dev/shm` and `/dev/mqueue` are memory
+  file systems). Try in an image built from the tree, with `--init`: planted files in each place, a POSIX queue and ids
+  in all three SysV kinds were all gone after a turn's reset, a stale gate was 0700 while the new turn's was 0710, no
+  zombies. `/var/mail/assistant-1` (made by root for the test; a session user cannot write there) stays. 37 unit tests
+  (`--noconftest`, the shared test server being busy).
+  **After the check of the last fixes:** the reset's clean-up hid every failure (`2>/dev/null || true`), so a folder the
+  session made unreadable (also one nested in another) stayed with its files while the marker printed; it now makes
+  the user's own folders usable again (repeating, bounded) before it deletes, passes `find` only existing places,
+  checks afterwards that nothing of the user is left in them or in the home, and fails on a failing `ipcrm` or
+  listing; and `_close_gates_of` raises when a stale gate cannot be closed, failing the turn. Try in a built image
+  with `--init`: unreadable folders (one nested) in `/tmp` and the home were removed, exit 0 and the marker; a
+  uid-owned file the user cannot remove (`/var/mail`) gave `rm: cannot remove ... Permission denied`, exit 1, no
+  marker. 38 unit tests (`--noconftest`, the shared test server being busy).
+  Not verified: Claude Code's other folders in a very long real session; the reset under many concurrent turns;
+  the container's first process does not collect orphans that a session leaves (zombies stay until the container
+  restarts; `docker run --init` or an init in the image would collect them).
+
+## RF6: Webhook addresses on private ranges
+
+_Decided by the user on 2026-11-11_ ("Refuse by default"), replacing the rule of C-D101, which allowed every
+address but link-local ones.
+
+- **The rule:** a webhook address that names, or resolves to, a loopback, private, unique-local or otherwise
+  non-public address is refused, when a subscription is created or changed and again at each delivery (the
+  name may resolve differently later), unless the instance setting that allows private addresses is on. The
+  setting is off by default. Link-local addresses stay refused whatever the setting says.
+- **Existing subscriptions** on such addresses stop delivering until the setting is on; the delivery log says why.
+- **Tests and docs:** journey cases through the API (refused by default; allowed with the setting; a delivery
+  to a name that now resolves privately is refused and logged); API.md, the settings reference, OPERATIONS,
+  CHANGELOG; the guide pages on webhooks (a Codex wave).
+- **Delivered 2026-11-11.** One rule, `address_refusal` in `engine/events/webhook_urls.py` (every non-public
+  address via `ipaddress`, IPv4-mapped included; link-local always), used by `check_webhook_url` (create and
+  edit; a name is resolved and every address checked, an unresolvable name passes) and by the delivery client
+  (`post`, every resolved address checked, connection to a checked address, no second resolution; redirects
+  were never followed). Setting `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` (off) in `config.py`, the catalogue,
+  `.env.example`, OPERATIONS, API_JOURNEYS. A refused delivery is an `address` attempt in the log; no new code.
+  Checks: unit tests of the rule, the URL check and the client; journey cases J30.6 (refused by default;
+  accepted with the setting, link-local never) and J30.9 (a name that now resolves privately is refused,
+  logged, and delivered once the setting is on); the J30 delivery, log, acceptance and J42 files with the
+  harness's receivers given the setting; `test_api_journeys`, `test_reference_webhooks`: 176 passed after one
+  rerun (the first run's database failures were collisions with another session's run).
+  Decisions in delivery: a sign-in provider's requests (`exchange` with no `private_allowed`) keep their own
+  rule; at delivery one refused address among several refuses the attempt; unspecified addresses follow the
+  setting, as the brief listed them; a name that does not resolve at subscription time is accepted.
+  **After review:** NAT64 `64:ff9b::/96` is judged by its embedded IPv4 address (the simpler rule would have let a
+  link-local one through under the setting); the local-use `64:ff9b:1::/48` is refused unless the setting is on,
+  its embedding place varying. The author's refusal says the host resolves to a non-public address without
+  naming it; the delivery log named it before RF6 and still does. The subscription check's DNS lookup now runs
+  before the row lock for an edit's new URL and for the stored URL of an edit or a resume (re-checked if the
+  stored URL changed meanwhile).
 
 ## R: Build acceptance and release
 

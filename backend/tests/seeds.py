@@ -323,11 +323,19 @@ def application_environment(url: URL, model_path: Path | None = None) -> Iterato
         model_registry.clear()
 
 
+# The identity modules the harness's client, person and signing key are made by.
+_HARNESS_MAKERS = ("clients.py", "keys.py", "passwords.py", "settings.py", "users.py")
+
+
 def _migrations() -> list[str | Path]:
-    # With the harness's client and signing key (0.12 I1, D263): what makes them is an input too.
+    # With the harness's client, person and signing key (0.12 I1, D263): what makes them is an input
+    # too. Only the modules that make them (harness_identity.create_harness_client), not the whole
+    # identity package: an edit to sign-in, sessions or resets changes nothing a seed holds, and
+    # counting it rebuilt every seed under the runs using them (0.17 RF, 2026-11-11).
+    identity = APP / "engine" / "identity"
     return [
         *sorted((APP / "migrations").rglob("*.py")),
-        *sorted((APP / "engine" / "identity").glob("*.py")),
+        *(identity / name for name in _HARNESS_MAKERS),
         *sorted((APP / "engine" / "authorization").glob("*.py")),
         TESTS / "harness_identity.py",
     ]

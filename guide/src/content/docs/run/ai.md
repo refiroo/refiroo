@@ -72,9 +72,37 @@ administrators manage them on **Settings › Security › Agent access**.
 
 ## The assistant's session
 
-In the shipped engine container, the assistant runs as a separate operating-system user,
-`assistant`. Each task has its own working folder under `/opt/refiroo/rdm-engine/data/assistant`. Claude Code keeps its
-configuration and transcripts under `/opt/refiroo/rdm-engine/data/assistant-claude`, set by `CLAUDE_CONFIG_DIR`.
+In the shipped engine container, sessions run as users from a pool, `assistant-1` to
+`assistant-N`. Each turn takes a free user until it ends. An engine process runs one session at a time,
+so sessions running at the same time use different users. They cannot read each other's process
+environment. The image's `ASSISTANT_USERS` build argument sets the pool size, default 8; it must
+cover the engine processes in the container (`WEB_CONCURRENCY`). If no user is free, the task
+fails with a note naming `ASSISTANT_USERS`; rebuild with a larger pool before trying again.
+
+Each task has a randomly named folder under `/opt/refiroo/rdm-engine/data/assistant`. Session
+users can enter that parent folder but cannot list it to discover another task. Inside the task's
+folder, `work` holds working files and `claude` holds its own Claude Code configuration and
+transcripts. The engine sets `CLAUDE_CONFIG_DIR` for each session. Turn logs are kept inside the
+same task folder and are readable only by the engine.
+
+Unix permissions separate the tasks. Between turns, only the engine can enter a task's folder.
+For a turn, the engine opens it only to the session user running that turn, then closes it
+again afterwards. At engine startup it also closes folders left open by stopped turns; a folder
+held by another running turn stays open for that turn. Knowing a folder's name gives another
+session no access.
+
+Before each turn, while the task folder is closed, the engine runs
+`/usr/local/bin/refiroo-session-reset` as the selected session user, never as root. The reset
+repeatedly ends that user's processes until none remain, then empties its home and its files in
+`/tmp`, `/var/tmp` and `/dev/shm`. Only a successful reset allows the task folder to open and the
+turn to start. After the turn, the reset runs again while the folder is still open. It also makes
+that user's files in `work` and `claude` readable and writable by the group, so another session
+user can continue the task, and ends the user's processes once more. The engine then closes the
+folder. A failed reset before a turn fails the turn; a failure afterwards is logged, and the next
+turn under that user must pass its own reset.
+
+Compose runs the engine with `init: true` to collect ended processes. If you run the image directly,
+use `docker run --init`.
 
 Each task has a separate client, workspace scope and jobs; concurrent tasks do not share them.
 A task is visible only to its requester and the workspace's administrators. The session receives a dedicated refiroo client and temporary grants drawn from the requesting
@@ -82,16 +110,32 @@ person's permissions. It cannot publish a change set or activate a model release
 person can. A person reviews the result and takes those steps. Grants end with the session's turn.
 
 The engine does not pass its database address, encryption key or other server secrets to the
-session. It does pass the environment names Claude Code needs, including `ANTHROPIC_*`,
-`CLAUDE_*`, `AWS_*` and `NODE_*` names; treat credentials placed there as available to the session. The assistant user
-cannot read the engine's job-file directory or its process environment.
+session. It passes only named variables: the temporary API token, `LANG`, `LC_*`,
+`TMPDIR`, `CLAUDE_CONFIG_DIR`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`,
+`ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`,
+`ANTHROPIC_DEFAULT_HAIKU_MODEL` and `NODE_EXTRA_CA_CERTS`. The switch
+`CLAUDE_CODE_USE_BEDROCK` is passed when set; only when it is on are `AWS_REGION`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` and `AWS_PROFILE`
+passed too. Other variables, including `HTTPS_PROXY`, are not passed. The session user cannot
+read the engine's job-file directory or its process environment.
+
+**The provider's key or token still reaches the session.** Claude Code calls the provider itself.
+A session steered by text in a workbook could use or send that credential. Use a dedicated
+credential with a spending limit and no unrelated access.
 
 With `AI_AGENT_SANDBOX=container`, Claude Code's own operating-system sandbox is off because it
 cannot run there. The session runs with Claude Code's permission prompts off so it can execute
-shell commands. The separate `assistant` user, which cannot read the engine's secrets or job files,
+shell commands. The separate session user, which cannot read the engine's secrets or job files,
 is its boundary inside the container. **The container does not restrict the session's network
 access.** Apply any required outbound network restrictions in your deployment. Outside a container,
 refiroo requires the operating-system sandbox; an unavailable sandbox refuses the session.
+
+**Isolation between tasks inside one container rests on Unix permissions and the reset around
+each turn.** This has been reviewed twice, with defects found and fixed each time; those reviews
+are not proof of isolation. A separate container for each session is a stronger boundary and is
+not built into refiroo. Together with the provider credential and unrestricted network access
+above, this is a limit to consider before enabling the assistant.
 
 A turn running longer than `AI_AGENT_TIMEOUT_SECONDS` (30 minutes) is stopped like a person's Stop. The task returns to where it can be continued or tried again. Text in records is treated as data, but AI output can still be wrong; review
 proposals before accepting them.
@@ -133,12 +177,16 @@ provider, appears in the call log and may incur usage. It does not test the assi
 Enable call-content logging only while needed: it can contain reference data. These settings do not
 control the provider's own retention.
 
-The shipped Compose file persists the assistant’s working folders in the `assistant` volume at
-`/opt/refiroo/rdm-engine/data/assistant`, and Claude Code configuration and session logs in
-`assistant-claude` at `/opt/refiroo/rdm-engine/data/assistant-claude`. Container replacement and
-upgrades keep these volumes, so open tasks retain the files they need to continue. A backup need
-not include these two volumes: losing them loses open tasks’ folders and session logs, not records.
-Normal task cleanup still applies.
+The shipped Compose file persists each task's working files, Claude Code configuration,
+transcripts and turn logs in the `assistant` volume at `/opt/refiroo/rdm-engine/data/assistant`.
+Container replacement keeps that volume. A backup may omit it: losing it loses open tasks'
+folders and session logs, not records. Normal task cleanup still applies.
+
+When upgrading from the earlier shared-transcript layout, the engine gives existing task folders
+random names and keeps their workbooks and files. A task begun before the upgrade starts a new
+Claude Code session on its next turn; the old shared transcripts are not moved. The obsolete
+`assistant-claude` volume is no longer mounted. See [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks)
+before removing it.
 
 ## Provider and assistant settings
 
@@ -161,7 +209,7 @@ service. **Settings › Administration › AI** displays them; it does not edit 
 | `AI_CONTEXT_TOKENS` | Empty | Actual context window of a small model, at least 256 tokens. Mapping requests are sized to half this window; too small a window can refuse even one source. Empty uses the feature's own batch limit. |
 | `AI_TASK_RETENTION_DAYS` | `90` | Positive number of days to retain tasks after completion or last change; see retention above. |
 | `AI_AGENT_COMMAND` | Empty | Claude Code command, for example `claude --model sonnet`. Empty disables the assistant. refiroo enforces its own tools and permission mode even if the command supplies another. |
-| `AI_AGENT_SANDBOX` | Empty | `container` in the shipped image; otherwise the operating-system sandbox. Do not use `container` on a host to bypass sandbox requirements. |
+| `AI_AGENT_SANDBOX` | Empty | `container` is set in both the shipped image and Compose; Compose overrides any .env value. Otherwise the operating-system sandbox is used. Do not use `container` on a host to bypass sandbox requirements. |
 | `AI_AGENT_TIMEOUT_SECONDS` | `1800` | Longest one turn of the assistant's session may take; a turn over it is stopped like a person's Stop and the task goes back to its last point. |
 | `AI_AGENT_API_URL` | `http://127.0.0.1:8000` in Compose; otherwise `PUBLIC_URL` | Address the session uses to reach this engine's API. Compose supplies the address inside the engine container unless overridden. Outside Compose, unset or empty uses `PUBLIC_URL`; override it if the engine's machine cannot reach that address. See [Set up AI](/docs/run/set-up-ai/). |
 
@@ -213,7 +261,7 @@ to the accepted proposal. With no proposal yet, the task is stopped and takes wo
 After a failure or stop, give corrected instructions or choose **Try again as it was**. The same
 session continues, or starts if it never ran. If the worker died during a turn, the next turn records
 that earlier call as `interrupted` from the session log. Look for **Failed** and the failure sentence
-in **Calls**, not only at the latest successful turn. Logs sit beside the task folder, not inside it.
+in **Calls**, not only at the latest successful turn. In the container, turn logs sit inside the task folder beside `work` and `claude`; on a host they sit beside the task folder.
 
 On a loaded task, **Discard and load again** discards the unpublished change set, including manual
 edits, and asks the assistant to reload with the new words. **Discard this task** ends the task;

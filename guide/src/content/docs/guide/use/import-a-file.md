@@ -16,7 +16,10 @@ file to an AI assistant.
    choose the workspace and **Load into** context.
 2. Choose **File**. The chooser accepts Excel workbooks, CSV and supported technical export
    files. Choose the stored **Profile** for an ordinary workbook or CSV, or **None** for a
-   file exported by refiroo. Read any profile problems before continuing.
+   file exported by refiroo. Read any profile problems before continuing. For an exported CSV,
+   keep the protective single quotes added to formula-like text. With **None**, import removes
+   exactly one such quote from names and text fields; an unchanged export changes nothing.
+   XLSX is unaffected. See [CSV text rules](/docs/use/importing-and-exporting/#text-in-csv-files).
 3. Under **Rows that cannot load**, choose **Load the rows that can load** or **Load nothing
    unless every row loads**. Under **Records the file finds**, decide whether to update or
    refuse them. For an export, **Only if unchanged since the export** protects newer work;

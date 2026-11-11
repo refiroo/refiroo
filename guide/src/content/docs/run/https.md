@@ -226,8 +226,12 @@ from the balancer and shares an address for sign-in throttling. A malformed rang
 startup with a message; correct the setting and recreate it.
 
 The balancer must replace untrusted forwarded headers. Keep `PUBLIC_URL` as the external HTTPS
-origin. Do not publish the engine directly: Compose sets `FORWARDED_ALLOW_IPS=*` because only the
-private web service is supposed to reach it.
+origin. Do not publish the engine directly. Compose defaults `FORWARDED_ALLOW_IPS` to
+`10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`, the private ranges containing the web service.
+For another proxy or network, set `FORWARDED_ALLOW_IPS` in `.env` to the addresses or ranges
+that connect directly to the engine, then recreate it. This is separate from
+`WEB_TRUSTED_PROXIES`, which controls the balancer-to-web hop. A connection outside the engine's
+trusted ranges keeps its connected address rather than the forwarded one.
 
 ## Ports and uploads
 
@@ -330,3 +334,22 @@ For proxy mode, protocol policy belongs to Caddy or your organisation's HTTPS te
 Hashed files under `/assets/` are cached for one year with `immutable`; a changed build gives them
 new names. The application page uses `Cache-Control: no-cache` so browsers check for an updated
 page. Preserve these rules in a custom proxy to avoid serving an old page after an upgrade.
+
+## Preserve the content security policies
+
+The application sends a Content Security Policy that permits scripts and requests only to its
+own origin. Inline scripts stay blocked. Inline styles are allowed, including style attributes
+and the component library's own style element. Fonts may come from the same origin or be embedded
+as inline data. Images may also use `data:` and `blob:` URLs. Plug-ins and framing are blocked,
+and forms submit only to the same origin. Keep the browser application and API on that one origin.
+
+The engine's sign-in pages, guide and API reference send their own policies. Sign-in permits its
+own passkey script where needed and forms to the engine and checked return address. The guide
+and API reference authorise their inline scripts by hash; the guide also permits WebAssembly
+search. These surfaces allow inline styles. Web adds a framing restriction to engine responses
+without replacing their policies.
+
+An organisation's proxy must preserve these headers. The application's policy is in
+`frontend/nginx/snippets/csp-app.inc.template` in the web image, not an environment setting.
+Changing it requires rebuilding web; check the affected pages through the public origin after
+any proxy or image change.

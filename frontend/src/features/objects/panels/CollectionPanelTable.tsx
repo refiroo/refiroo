@@ -20,6 +20,7 @@ import { ObjectTable } from "@/ui/ObjectTable";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { Icon } from "@/ui/Icon";
+import { SearchField } from "@/ui/SearchField";
 import type { PanelProps } from "./types";
 
 export function CollectionPanelTable({
@@ -109,15 +110,13 @@ export function CollectionPanelTable({
   return (
     <div className="embedded-table">
       <div className="embedded-toolbar">
-        <label className="search-box compact">
-          <Icon name="search" />
-          <input
-            aria-label={`Search ${objectType.pluralName.toLowerCase()}`}
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
-          />
-        </label>
+        <SearchField
+          className="compact"
+          label={`Search ${objectType.pluralName.toLowerCase()}`}
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
+        />
         <TableDisplay
           model={model}
           columns={columns}

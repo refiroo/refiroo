@@ -1,0 +1,134 @@
+#!/bin/sh
+# Run by the engine as one of the assistant's session users, never as root (0.17 RF5):
+#   sudo -n -u assistant-N -- /usr/local/bin/refiroo-session-reset      [<claude folder>, <work folder> on stdin]
+# It touches only what that user owns or runs. In this order: every process the user runs ends (repeated until
+# none is left, so a process that forks meanwhile cannot slip past one kill); the user's home, its files in
+# /tmp, /var/tmp, /run/lock, /dev/shm, /dev/mqueue, /var/mail and its System V IPC are emptied; if the two task folders are given (one per line on standard input,
+# not as arguments, which every process of the container reads) the user's files in them become readable and
+# writable by the group, so the next turn under another user can resume the session; every process ends once
+# more. The last line is the marker; any failure ends with a message on standard error and a non-zero status.
+# Symbolic links are never followed or changed. kill -9 -1 signals every process the user may signal except
+# this script, so the script outlives it. The engine runs it before a turn (no folders, the gate closed) and
+# after a turn (folders given, the gate still open, closed right after).
+set -eu
+
+claude=""
+work=""
+if IFS= read -r claude; then
+    IFS= read -r work || { echo "expected two folders on standard input" >&2; exit 2; }
+fi
+for path in "$claude" "$work"; do
+    [ -z "$path" ] && [ -z "$claude" ] && continue
+    case "$path" in
+        /*) ;;
+        *) echo "not an absolute path: $path" >&2; exit 2 ;;
+    esac
+    case "$path" in
+        *..*) echo "not a plain path: $path" >&2; exit 2 ;;
+    esac
+done
+
+me="$(id -u)"
+
+# The live processes of this user other than this script and what it started itself (zombies are gone
+# already). kill -0 -1 cannot tell: it succeeds with none there.
+others() {
+    for dir in /proc/[0-9]*; do
+        pid="${dir#/proc/}"
+        [ "$pid" = "$$" ] && continue
+        [ "$(stat -c %u "$dir" 2>/dev/null)" = "$me" ] || continue
+        fields="$(sed 's/^.*) //' "$dir/stat" 2>/dev/null)" || continue
+        state="${fields%% *}"
+        rest="${fields#* }"
+        [ "$state" = "Z" ] && continue
+        [ "${rest%% *}" = "$$" ] && continue
+        echo "$pid"
+    done
+}
+
+# Ends every other process of this user, again and again until none is left (bounded), so a process
+# that forks while one kill runs cannot slip past it.
+end_processes() {
+    tries=0
+    while :; do
+        kill -9 -1 2>/dev/null || true
+        sleep 0.05
+        [ -z "$(others)" ] && return 0
+        tries=$((tries + 1))
+        if [ "$tries" -ge 100 ]; then
+            echo "processes of user $me remain after $tries attempts" >&2
+            return 1
+        fi
+    done
+}
+
+end_processes
+
+# Makes this user's own folders in the given places usable again (a session may have made one unreadable,
+# and a folder inside it only shows once the outer one is fixed, so this repeats, bounded). Errors from
+# folders that are not this user's are expected here; whether it worked is checked by the clean-up itself.
+make_usable() {
+    rounds=0
+    while [ "$rounds" -lt 20 ]; do
+        found="$(find "$@" -xdev -user "$me" -type d ! -perm -u=rwx -print -exec chmod u+rwx {} + 2>/dev/null)" || true
+        [ -z "$found" ] && return 0
+        rounds=$((rounds + 1))
+    done
+    echo "folders of user $me could not be made usable" >&2
+    return 1
+}
+
+home="$(getent passwd "$(id -un)" | cut -d: -f6)"
+if [ -n "$home" ] && [ "$home" != "/" ] && [ -d "$home" ]; then
+    make_usable "$home"
+    find "$home" -xdev -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+    if [ -n "$(find "$home" -mindepth 1 -maxdepth 1 | head -n 1)" ]; then
+        echo "the home of user $me could not be emptied" >&2
+        exit 1
+    fi
+fi
+
+# Every place a session user may leave something in: the world-writable folders of the image (/tmp,
+# /var/tmp, /run/lock), the two memory file systems (/dev/shm, /dev/mqueue) and the mail spool; only
+# the places that exist, so an error is a real one. What this user created there is removed, and a
+# check afterwards finds nothing of it left, or the script fails.
+places=""
+for place in /tmp /var/tmp /run/lock /dev/shm /dev/mqueue /var/mail; do
+    if [ -d "$place" ]; then
+        places="$places $place"
+    fi
+done
+# shellcheck disable=SC2086
+make_usable $places
+# shellcheck disable=SC2086
+find $places -xdev -mindepth 1 -maxdepth 1 -user "$me" -exec rm -rf -- {} +
+# shellcheck disable=SC2086
+if [ -n "$(find $places -xdev -mindepth 1 -maxdepth 1 -user "$me" | head -n 1)" ]; then
+    echo "files of user $me remain in the shared folders" >&2
+    exit 1
+fi
+
+# System V shared memory, semaphores and message queues of this user (owner or creator). A listing that
+# is not there is not an error; a listing or a removal that fails is.
+command -v ipcrm >/dev/null || { echo "ipcrm is needed (util-linux)" >&2; exit 1; }
+remove_ipc() {
+    [ -r "$2" ] || return 0
+    ids="$(awk -v u="$me" -v c="$3" 'NR > 1 && ($c == u || $(c + 2) == u) { print $2 }' "$2")"
+    for id in $ids; do
+        ipcrm "-$1" "$id"
+    done
+}
+remove_ipc m /proc/sysvipc/shm 8
+remove_ipc s /proc/sysvipc/sem 5
+remove_ipc q /proc/sysvipc/msg 8
+
+if [ -n "$claude" ]; then
+    for path in "$claude" "$work"; do
+        if [ -d "$path" ] && [ ! -L "$path" ]; then
+            find "$path" -xdev ! -type l -user "$me" -exec chmod g+rwX {} +
+        fi
+    done
+fi
+
+end_processes
+echo "refiroo-session-reset-done"

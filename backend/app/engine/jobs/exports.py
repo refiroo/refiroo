@@ -1028,6 +1028,28 @@ def _cell(source: str, key: str, value_type: str) -> sql.Composable:
     return sql.SQL("{}::text").format(value) if value_type == "json" else value
 
 
+# A text starting with a formula character, or with quotes and then one (so the import can take
+# off exactly the one quote the export put on).
+_ESCAPED = "^'*[-=+@\t\r]"
+
+
+def _csv_text(expression: sql.Composable) -> sql.Composable:
+    """A text value as a CSV cell a spreadsheet shows as text: a value starting with ``=``, ``+``,
+    ``-``, ``@``, a tab or a carriage return gets a single quote in front (the OWASP rule), and so
+    does one with quotes before such a character, so the import takes off exactly one quote. Typed
+    values (numbers, dates, booleans) never go through it."""
+    return sql.SQL("(CASE WHEN {0} ~ {1} THEN '''' || {0} ELSE {0} END)").format(
+        expression, sql.Literal(_ESCAPED)
+    )
+
+
+def _csv_cell(source: str, key: str, value_type: str) -> sql.Composable:
+    """An attribute's canonical text for CSV: a text value guarded against formulas
+    (:func:`_csv_text`), every other type as :func:`_cell` writes it."""
+    cell = _cell(source, key, value_type)
+    return _csv_text(cell) if value_type in {"text", "longText"} else cell
+
+
 def _write_csv(
     session: Session, file: Any, type_order: list[str], columns: _Columns, control: ExportControl
 ) -> None:
@@ -1048,19 +1070,24 @@ def _write_csv(
     relation_values = dict(columns.relations)
     record_cells = [
         sql.SQL(
-            "r.object_type_key, r.application_key, NULL, r.object_id, r.version, r.name,"
+            "r.object_type_key, r.application_key, NULL, r.object_id, r.version, {},"
             " r.parent_object_id, NULL, NULL"
-        ),
-        *(_cell("r", key, kind) if key in record_values else null for key, kind in attributes),
-        sql.SQL("r.path, NULL, NULL, NULL, NULL"),
+        ).format(_csv_text(sql.SQL("r.name"))),
+        *(_csv_cell("r", key, kind) if key in record_values else null for key, kind in attributes),
+        sql.SQL("{}, NULL, NULL, NULL, NULL").format(_csv_text(sql.SQL("r.path"))),
     ]
     relation_cells = [
         sql.SQL(
             "NULL, NULL, x.relation_type_key, x.relation_id, x.version, NULL, NULL, x.from_id,"
             " x.to_id"
         ),
-        *(_cell("x", key, kind) if key in relation_values else null for key, kind in attributes),
-        sql.SQL("NULL, x.from_name, x.from_type, x.to_name, x.to_type"),
+        *(
+            _csv_cell("x", key, kind) if key in relation_values else null
+            for key, kind in attributes
+        ),
+        sql.SQL("NULL, {}, x.from_type, {}, x.to_type").format(
+            _csv_text(sql.SQL("x.from_name")), _csv_text(sql.SQL("x.to_name"))
+        ),
     ]
     records = sql.SQL("COPY (SELECT {} FROM export_records r {}) TO STDOUT (FORMAT csv)").format(
         sql.SQL(", ").join(record_cells), record_order

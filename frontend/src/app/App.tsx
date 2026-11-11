@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { bulkSelectionFor } from "@/features/objects/SelectionBar";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
@@ -14,7 +14,6 @@ import {
 import { applicationFor } from "@/model/lookup";
 import type { ApplicationDefinition, ApplicationRoute, CollectionQueryState, ObjectItem, Workspace } from "@/types";
 import { AppShell } from "./AppShell";
-import { SettingsArea } from "./SettingsArea";
 import { useRouter, type Router } from "./useRouter";
 import { InstanceProductContext, useLoadInstanceProduct } from "./instanceProduct";
 import { WorkspaceDataProvider, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -26,12 +25,9 @@ import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
 import { HomePage } from "@/features/home/HomePage";
 import { ChangesPage } from "@/features/changes/ChangesPage";
-import { NotificationsPage } from "@/features/inbox/NotificationsPage";
 import { continueAddressFor, rememberContinueAddress } from "@/features/home/continueAddress";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
-import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
-import { NavigationGroupPage } from "@/features/objects/NavigationGroupPage";
 import { NotInModel } from "@/features/workspaces/NotInModel";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
@@ -49,6 +45,27 @@ import { useAssistantOffers } from "@/features/ai-tasks/useAssistantOffers";
 import { useWorkspaceAssistantOffer } from "@/features/settings/useWorkspaceAiOffer";
 import { BrandMascot } from "@/ui/ProductMark";
 import { useCapabilities } from "@/features/settings/useSystem";
+import { Skeleton } from "@/ui/Skeleton";
+
+// Pages load when they are opened (0.17 RF3): each route that is not the first screen is its own
+// chunk, so the first load carries the shell, Home and the workspace's lists and records only.
+const SettingsArea = lazy(() => import("./SettingsArea").then((module) => ({ default: module.SettingsArea })));
+const NotificationsPage = lazy(() =>
+  import("@/features/inbox/NotificationsPage").then((module) => ({ default: module.NotificationsPage })),
+);
+const ChangeSetReview = lazy(() =>
+  import("@/features/workspaces/ChangeSetReview").then((module) => ({ default: module.ChangeSetReview })),
+);
+const NavigationGroupPage = lazy(() =>
+  import("@/features/objects/NavigationGroupPage").then((module) => ({ default: module.NavigationGroupPage })),
+);
+
+/** While a page's code loads: the loading screen the model's load shows, in the same place. */
+const PAGE_LOADING = (
+  <div className="center-message">
+    <Skeleton label="Loading the page" lines={3} />
+  </div>
+);
 
 export default function App() {
   const router = useRouter();
@@ -75,29 +92,31 @@ export default function App() {
     <InstanceProductContext.Provider value={product}>
       <ToastProvider>
         <JobNotificationsProvider model={model} onNavigate={router.navigate}>
-          {isSettingsRoute(route) ? (
-            // Settings are not workspace data: their own shell, and no workspace or data context (U3).
-            <SettingsArea router={router} model={model} route={route} />
-          ) : route.kind === "home" ? (
-            // Home spans the workspaces the person may browse, each on its own model (0.12 HM1).
-            <HomePage model={model} onNavigate={router.navigate} />
-          ) : route.kind === "changes" ? (
-            // One person's changes span workspaces too, each named from its own model (0.12 Z6).
-            <ChangesPage model={model} route={route} onNavigate={router.navigate} />
-          ) : route.kind === "notifications" ? (
-            // The person's notices span workspaces too (0.12 NT1).
-            <NotificationsPage model={model} noticeId={route.noticeId} onNavigate={router.navigate} />
-          ) : (
-            <WorkspaceDataProvider
-              key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
-              changeSetId={routeChangeSetId(route)}
-              publicationId={routePublicationId(route)}
-              workspaceKey={route.workspaceKey}
-              model={model}
-            >
-              <AppContent router={router} route={route} shownWorkspaceRef={shownWorkspaceRef} />
-            </WorkspaceDataProvider>
-          )}
+          <Suspense fallback={PAGE_LOADING}>
+            {isSettingsRoute(route) ? (
+              // Settings are not workspace data: their own shell, and no workspace or data context (U3).
+              <SettingsArea router={router} model={model} route={route} />
+            ) : route.kind === "home" ? (
+              // Home spans the workspaces the person may browse, each on its own model (0.12 HM1).
+              <HomePage model={model} onNavigate={router.navigate} />
+            ) : route.kind === "changes" ? (
+              // One person's changes span workspaces too, each named from its own model (0.12 Z6).
+              <ChangesPage model={model} route={route} onNavigate={router.navigate} />
+            ) : route.kind === "notifications" ? (
+              // The person's notices span workspaces too (0.12 NT1).
+              <NotificationsPage model={model} noticeId={route.noticeId} onNavigate={router.navigate} />
+            ) : (
+              <WorkspaceDataProvider
+                key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
+                changeSetId={routeChangeSetId(route)}
+                publicationId={routePublicationId(route)}
+                workspaceKey={route.workspaceKey}
+                model={model}
+              >
+                <AppContent router={router} route={route} shownWorkspaceRef={shownWorkspaceRef} />
+              </WorkspaceDataProvider>
+            )}
+          </Suspense>
         </JobNotificationsProvider>
       </ToastProvider>
     </InstanceProductContext.Provider>
@@ -682,7 +701,13 @@ function AppContent({
           <p>Loading {route && routeChangeSetId(route) ? "change set" : "publication"}…</p>
         </Card>
       ) : (
-        <>
+        <Suspense
+          fallback={
+            <Card flush className="panel">
+              <Skeleton label="Loading the page" lines={3} />
+            </Card>
+          }
+        >
           {activeRoute.kind === "changeSetChanges" ? (
             <ChangeSetReview
               model={model}
@@ -879,7 +904,7 @@ function AppContent({
               )}
             </div>
           )}
-        </>
+        </Suspense>
       )}
       {exportStart && (
         <ExportDialog

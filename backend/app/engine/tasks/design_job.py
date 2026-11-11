@@ -128,6 +128,10 @@ def run_turns(
     layout's proposal, or its accepted working copy going to the dry run. The caller completes the
     job."""
     task = load_task(session, task_id)
+    if (task.design or {}).get("agentSession"):
+        # In a container the task's folder gets its random name before anything looks in it (0.17 RF5).
+        agent.ensure_folder(session, ctx.files, task_id)
+        task = load_task(session, task_id)
     current = dict(task.design or {})
     # Kept until the turn is recorded: a worker that stops mid-turn finds them again (R-F18).
     words = current.get("pendingWords")

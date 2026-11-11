@@ -66,10 +66,15 @@ capture, so the removal buttons described above are absent.*
 1. With the intended person still selected, choose **Reset password** if they need a new
    local password. It makes a link at once; there is no confirmation first.
 2. Copy and pass on the link in **Pass on the password link** before choosing **I have copied it**.
-   If available, use **Mail it to …** and check the sent-to message. A newer link replaces
-   the previous one; give them the newest link. Read its expiry.
-3. Have them open it and set a new password. Using it ends their refiroo sessions everywhere.
-   A configured second factor remains in force. If the link expired or was used, make another.
+   If available, use **Mail it to …** and check the sent-to message. A new administrator link replaces
+   every earlier password link for that person; give them the newest administrator link.
+   A later **Forgotten your password?** request does not cancel this administrator link.
+   Read its expiry.
+3. Have them open it and set a new password. The secret part of the link leaves the address
+   bar before the form appears. They can reload the page in the same browser without losing
+   the link. If the form no longer opens, reopen the original link while it is valid. Using it ends their refiroo
+   sessions everywhere. A configured second factor remains in force. If the link expired,
+   was replaced or was used, make another.
 4. If the lost device may still hold a signed-in session, choose **Sign out everywhere**
    on the person's page and confirm. Every refiroo session ends at its next request.
    They can sign in again with their remaining or replacement methods. This does not sign

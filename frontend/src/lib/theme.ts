@@ -1,7 +1,7 @@
 /**
  * Colour theme preference. "system" follows the operating system; "light" and "dark" pin the
  * theme through `data-theme` on the document element, which the design tokens key on. The same
- * storage key is read by the inline script in index.html so the first paint uses the saved theme.
+ * storage key is read by public/theme-init.js (linked from index.html) so the first paint uses the saved theme.
  *
  * The account popover and Settings › Appearance can be open together, so the choice is one store
  * that every user of the hook follows.

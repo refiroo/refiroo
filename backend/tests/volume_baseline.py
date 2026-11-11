@@ -161,9 +161,16 @@ def _matrix_scenarios(
     """
     path = f"/api/v1/workspaces/{WORKSPACE}/relation-matrix"
     base = {
-        key: value for key, value in context_params(context, dataset).items() if key != "workspaceKey"
+        key: value
+        for key, value in context_params(context, dataset).items()
+        if key != "workspaceKey"
     }
-    outgoing = {**base, "applicationKey": MATRIX_APPLICATION, "viewKey": CELLS_BY_COLUMN, "pageSize": PAGE_SIZE}
+    outgoing = {
+        **base,
+        "applicationKey": MATRIX_APPLICATION,
+        "viewKey": CELLS_BY_COLUMN,
+        "pageSize": PAGE_SIZE,
+    }
     incoming = {**outgoing, "viewKey": MARKS_BY_COLUMN}
     columns = dataset.matrix_column_ids
 
@@ -174,7 +181,11 @@ def _matrix_scenarios(
 
     return [
         ("matrix: first page, 20 columns, total", path, {**outgoing, "includeTotal": True}),
-        ("matrix: position ¾ deep, total", path, {**outgoing, "position": dataset.shape.groups * 3 // 4, "includeTotal": True}),
+        (
+            "matrix: position ¾ deep, total",
+            path,
+            {**outgoing, "position": dataset.shape.groups * 3 // 4, "includeTotal": True},
+        ),
         (
             "matrix: inactive in 10 columns, jump, total",
             path,
@@ -208,7 +219,9 @@ def _read_scenarios(
     _, total = object_cursor(engine, context, dataset, parent=None, offset=1)
     middle, _ = object_cursor(engine, context, dataset, parent=None, offset=total // 2)
     last, _ = object_cursor(engine, context, dataset, parent=None, offset=total - PAGE_SIZE)
-    _, heavy_total = object_cursor(engine, context, dataset, parent=dataset.heavy_group_id, offset=1)
+    _, heavy_total = object_cursor(
+        engine, context, dataset, parent=dataset.heavy_group_id, offset=1
+    )
     heavy_middle, _ = object_cursor(
         engine, context, dataset, parent=dataset.heavy_group_id, offset=heavy_total // 2
     )
@@ -217,7 +230,10 @@ def _read_scenarios(
         engine, context, dataset, parent=None, offset=total // 2, direction="before"
     )
     citations = {**base, "objectId": dataset.cited_group_id, "pageSize": PAGE_SIZE}
-    item_columns = [f"{ITEM_CITES_GROUP}.{CODE}", f"{GROUP_CONTAINS_ITEM}-reverse.ancestor:{GROUP}.{CODE}"]
+    item_columns = [
+        f"{ITEM_CITES_GROUP}.{CODE}",
+        f"{GROUP_CONTAINS_ITEM}-reverse.ancestor:{GROUP}.{CODE}",
+    ]
     node_columns = [f"{NODE_HAS_CHILD}.ancestor:{GROUP}.{CODE}", f"{NODE_HAS_CHILD}-reverse.name"]
     return [
         ("objects: first page", items, page),
@@ -242,10 +258,22 @@ def _read_scenarios(
         ),
         ("record: single read", f"{items}/{dataset.live_item_id}", base),
         # S3 and S4 reads.
-        ("objects: last page by from=end, total", items, {**page, "from": "end", "includeTotal": True}),
+        (
+            "objects: last page by from=end, total",
+            items,
+            {**page, "from": "end", "includeTotal": True},
+        ),
         ("objects: backward page from the middle", items, {**page, "cursor": before_middle}),
-        ("objects: seek by name, total", items, {**page, "seek": "Item 0005", "includeTotal": True}),
-        ("objects: position ¾ deep, total", items, {**page, "position": total * 3 // 4, "includeTotal": True}),
+        (
+            "objects: seek by name, total",
+            items,
+            {**page, "seek": "Item 0005", "includeTotal": True},
+        ),
+        (
+            "objects: position ¾ deep, total",
+            items,
+            {**page, "position": total * 3 // 4, "includeTotal": True},
+        ),
         (
             "children: heavy parent, position ¾ deep, total",
             items,
@@ -275,7 +303,12 @@ def _read_scenarios(
         (
             "relations: 1,500-relation record by group, total",
             "/api/v1/relations",
-            {**citations, "relationTypeKey": ITEM_CITES_GROUP, "sort": "ancestor:vol-group", "includeTotal": True},
+            {
+                **citations,
+                "relationTypeKey": ITEM_CITES_GROUP,
+                "sort": "ancestor:vol-group",
+                "includeTotal": True,
+            },
         ),
         (
             "relations: heavy parent by rank",
@@ -314,17 +347,33 @@ def _read_scenarios(
         ),
         # S7: a name search over a whole type, as the sidebar tree's search sends it (the browser
         # runner saw it as the slowest tree read). A contains-match cannot use a name index.
-        ("objects: search by name, total", items, {**page, "search": "Item 00432", "includeTotal": True}),
+        (
+            "objects: search by name, total",
+            items,
+            {**page, "search": "Item 00432", "includeTotal": True},
+        ),
         # S8: a value-only match read through the trigram index, a phrase in every record, whose
         # value look-up falls back to each record, and a two-character search the index cannot
         # serve.
-        ("objects: search by code, total", items, {**page, "search": "ITEM-0043", "includeTotal": True}),
+        (
+            "objects: search by code, total",
+            items,
+            {**page, "search": "ITEM-0043", "includeTotal": True},
+        ),
         ("objects: common search, total", items, {**page, "search": "Item", "includeTotal": True}),
-        ("objects: two-character search, total", items, {**page, "search": "m ", "includeTotal": True}),
+        (
+            "objects: two-character search, total",
+            items,
+            {**page, "search": "m ", "includeTotal": True},
+        ),
         ("record: deep node", f"/api/v1/objects/{NODE}/{dataset.deep_node_id}", base),
         # 0.9 Q1: the cross-type lookup over every record of the workspace, and over two types.
         ("lookup: first page, every type", "/api/v1/objects", page),
-        ("lookup: search by name, total", "/api/v1/objects", {**page, "search": "Item 00432", "includeTotal": True}),
+        (
+            "lookup: search by name, total",
+            "/api/v1/objects",
+            {**page, "search": "Item 00432", "includeTotal": True},
+        ),
         (
             "lookup: two types, first page",
             "/api/v1/objects",
@@ -338,7 +387,11 @@ def _read_scenarios(
         # and at 200 rows. Items' related records sit under no group; nodes' children sit up to
         # seven levels under one, so their ancestor value walks the chain.
         *(
-            (f"objects: relation columns, {size} rows", items, {**page, "pageSize": size, "expand": item_columns})
+            (
+                f"objects: relation columns, {size} rows",
+                items,
+                {**page, "pageSize": size, "expand": item_columns},
+            )
             for size in (PAGE_SIZE, WIDE_PAGE)
         ),
         *(
@@ -378,18 +431,33 @@ def _query_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, di
             **base,
             "objectTypeKey": GROUP,
             "where": [{"field": "id", "op": "eq", "value": group_id}],
-            "expand": [{"relationTypeKey": relation, "direction": direction, "select": ["name", CODE], "limit": 20}],
+            "expand": [
+                {
+                    "relationTypeKey": relation,
+                    "direction": direction,
+                    "select": ["name", CODE],
+                    "limit": 20,
+                }
+            ],
         }
 
     return [
-        ("query: one-hop criterion, total", {**base, "objectTypeKey": ITEM, "where": [citing], "includeTotal": True}),
-        ("query: inverted hop, first page", {**base, "objectTypeKey": ITEM, "where": [{**citing, "not": True}]}),
+        (
+            "query: one-hop criterion, total",
+            {**base, "objectTypeKey": ITEM, "where": [citing], "includeTotal": True},
+        ),
+        (
+            "query: inverted hop, first page",
+            {**base, "objectTypeKey": ITEM, "where": [{**citing, "not": True}]},
+        ),
         (
             "query: ancestor criterion, total",
             {
                 **base,
                 "objectTypeKey": ITEM,
-                "where": [{"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}],
+                "where": [
+                    {"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}
+                ],
                 "includeTotal": True,
             },
         ),
@@ -403,12 +471,20 @@ def _query_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, di
                 **base,
                 "objectTypeKey": ITEM,
                 "asOf": AS_OF,
-                "where": [{"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}],
+                "where": [
+                    {"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}
+                ],
                 "includeTotal": True,
             },
         ),
-        ("query: 20-row expansion of 1,500 citations", group(dataset.cited_group_id, ITEM_CITES_GROUP, "incoming")),
-        ("query: 20-row expansion of 20,000 children", group(dataset.heavy_group_id, GROUP_CONTAINS_ITEM, "outgoing")),
+        (
+            "query: 20-row expansion of 1,500 citations",
+            group(dataset.cited_group_id, ITEM_CITES_GROUP, "incoming"),
+        ),
+        (
+            "query: 20-row expansion of 20,000 children",
+            group(dataset.heavy_group_id, GROUP_CONTAINS_ITEM, "outgoing"),
+        ),
     ]
 
 
@@ -457,8 +533,16 @@ def _move_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, str
     group = f"/api/v1/objects/{GROUP}/{dataset.heavy_group_id}/parent-candidates"
     node = f"/api/v1/objects/{NODE}/{dataset.deep_node_id}/parent-candidates"
     return [
-        ("parent candidates: 20,000-descendant record, total", group, {**base, "includeTotal": True}),
-        ("parent candidates: search, total", group, {**base, "search": "Group 00043", "includeTotal": True}),
+        (
+            "parent candidates: 20,000-descendant record, total",
+            group,
+            {**base, "includeTotal": True},
+        ),
+        (
+            "parent candidates: search, total",
+            group,
+            {**base, "search": "Group 00043", "includeTotal": True},
+        ),
         ("parent candidates: deep node, two types, total", node, {**base, "includeTotal": True}),
         (
             "parent candidates: deep node, position ¾ deep",
@@ -468,7 +552,14 @@ def _move_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, str
     ]
 
 
-def _move(client, dataset: VolumeDataset, context: str, object_type: str, object_id: str, parents: list[str]):
+def _move(
+    client,
+    dataset: VolumeDataset,
+    context: str,
+    object_type: str,
+    object_id: str,
+    parents: list[str],
+):
     """Setup and write callables that move a record between ``parents``, one step per call."""
     path = f"/api/v1/objects/{object_type}/{object_id}"
     state: dict[str, Any] = {"step": 0}
@@ -517,7 +608,9 @@ def _timed(
     return status, statistics.median(timings), statements, rows
 
 
-def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+def run_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> list[Measurement]:
     """Measure every read in each context, then one live and one change set write."""
     results = []
     for context in CONTEXTS:
@@ -531,9 +624,7 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
             status, milliseconds, statements, rows = _timed(
                 engine, lambda path=path, params=params: client.get(path, params=params), repeat
             )
-            results.append(
-                Measurement(context, scenario, status, milliseconds, statements, rows)
-            )
+            results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
         results += query_scenarios(client, engine, dataset, context, repeat=repeat)
 
     path = f"/api/v1/objects/{ITEM}/{dataset.edited_item_id}"
@@ -556,8 +647,14 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
             },
         )
 
-    status, milliseconds, statements, rows = _timed(engine, change_set_write, repeat, change_set_versions)
-    results.append(Measurement("change_set", "write: rename one record", status, milliseconds, statements, rows))
+    status, milliseconds, statements, rows = _timed(
+        engine, change_set_write, repeat, change_set_versions
+    )
+    results.append(
+        Measurement(
+            "change_set", "write: rename one record", status, milliseconds, statements, rows
+        )
+    )
 
     live_path = f"/api/v1/objects/{ITEM}/{dataset.live_item_id}"
 
@@ -571,22 +668,37 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
         )
 
     status, milliseconds, statements, rows = _timed(engine, live_write, repeat, live_version)
-    results.append(Measurement("live", "write: rename one record", status, milliseconds, statements, rows))
+    results.append(
+        Measurement("live", "write: rename one record", status, milliseconds, statements, rows)
+    )
 
     # B2: only the moved record's parent and edge change, whatever lies under it.
     for context in ("live", "change_set"):
         before, write = _move(
-            client, dataset, context, GROUP, dataset.heavy_group_id,
+            client,
+            dataset,
+            context,
+            GROUP,
+            dataset.heavy_group_id,
             [dataset.small_group_id, dataset.cited_group_id],
         )
         status, milliseconds, statements, rows = _timed(engine, write, repeat, before)
         results.append(
-            Measurement(context, "write: move a 20,000-descendant record", status, milliseconds, statements, rows)
+            Measurement(
+                context,
+                "write: move a 20,000-descendant record",
+                status,
+                milliseconds,
+                statements,
+                rows,
+            )
         )
     return results
 
 
-def known_exceptions(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+def known_exceptions(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> list[Measurement]:
     """Requests recorded over budget (D29), measured by the script, not held by the tests.
 
     A first-level container of the outgoing matrix moves to the next column and back: each move
@@ -610,7 +722,14 @@ def known_exceptions(client, engine: Engine, dataset: VolumeDataset, *, repeat: 
         )
         status, milliseconds, statements, rows = _timed(engine, write, repeat, before)
         results.append(
-            Measurement(context, "write: move a container of ~2,500 cells", status, milliseconds, statements, rows)
+            Measurement(
+                context,
+                "write: move a container of ~2,500 cells",
+                status,
+                milliseconds,
+                statements,
+                rows,
+            )
         )
     return results
 
@@ -618,7 +737,9 @@ def known_exceptions(client, engine: Engine, dataset: VolumeDataset, *, repeat: 
 QUERY_PATH = f"/api/v1/workspaces/{WORKSPACE}/queries/objects"
 
 
-def dated_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+def dated_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> list[Measurement]:
     """0.9 T1: only the dated reads, in every context (``--only-dated``)."""
     results = []
     for context in CONTEXTS:
@@ -627,17 +748,23 @@ def dated_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: i
                 status, milliseconds, statements, rows = _timed(
                     engine, lambda path=path, params=params: client.get(path, params=params), repeat
                 )
-                results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+                results.append(
+                    Measurement(context, scenario, status, milliseconds, statements, rows)
+                )
         for scenario, body in _query_scenarios(context, dataset):
             if "dated" in scenario:
                 status, milliseconds, statements, rows = _timed(
                     engine, lambda body=body: client.post(QUERY_PATH, json=body), repeat
                 )
-                results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+                results.append(
+                    Measurement(context, scenario, status, milliseconds, statements, rows)
+                )
     return results
 
 
-def relation_column_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+def relation_column_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> list[Measurement]:
     """0.11 X6 (D159): only the lists read with relation columns, in every context
     (``--only-relation-columns``)."""
     results = []
@@ -647,14 +774,18 @@ def relation_column_scenarios(client, engine: Engine, dataset: VolumeDataset, *,
                 status, milliseconds, statements, rows = _timed(
                     engine, lambda path=path, params=params: client.get(path, params=params), repeat
                 )
-                results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+                results.append(
+                    Measurement(context, scenario, status, milliseconds, statements, rows)
+                )
     return results
 
 
 CONSUMER_LISTS = f"/api/consumer/{CONSUMER_API}/v1/lists"
 
 
-def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+def consumer_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> list[Measurement]:
     """0.9 C3: consumer list reads, live (``--only-consumer``); C6a: the same reads pinned to the
     seed's publication. The next page and the position jump are read through the cursor and position
     the first page and the total name. C16: the first page with a total and the position jump, dated
@@ -670,7 +801,11 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
         scenarios = [
             (f"{label}: first page of every item by rank", ranked, base),
             (f"{label}: next cursor page", ranked, {**base, "cursor": first["nextCursor"]}),
-            (f"{label}: position jump to the middle", ranked, {**base, "position": first["totalCount"] // 2}),
+            (
+                f"{label}: position jump to the middle",
+                ranked,
+                {**base, "position": first["totalCount"] // 2},
+            ),
             (
                 f"{label}: 20,000 items under a parent",
                 f"{CONSUMER_LISTS}/{ITEMS_BY_GROUP}",
@@ -681,7 +816,11 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
                 ranked,
                 {**base, WITHIN_GROUP: dataset.heavy_group_id, "includeTotal": "true"},
             ),
-            (f"{label}: dated, first page with includeTotal", ranked, {**dated, "includeTotal": "true"}),
+            (
+                f"{label}: dated, first page with includeTotal",
+                ranked,
+                {**dated, "includeTotal": "true"},
+            ),
             (
                 f"{label}: dated, position jump to the middle",
                 ranked,
@@ -700,7 +839,10 @@ CONSUMER_EVENTS = f"/api/consumer/{CONSUMER_API}/v1/events"
 SUBSCRIPTIONS_PATH = "/api/v1/consumer-subscriptions"
 # The subscriptions capability (0.9 C11, C12) as the delivery scenarios need it: on; signing keys
 # are sealed with the harness's SECRETS_ENCRYPTION_KEY (0.12 D253).
-SUBSCRIPTION_SETTINGS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
+SUBSCRIPTION_SETTINGS = {
+    "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
+    "WEBHOOK_PRIVATE_ADDRESSES_ALLOWED": "true",  # the receiver listens on localhost
+}
 CAUGHT_UP_SUBSCRIPTIONS = 100
 EVENT_PAGE = 100
 
@@ -713,12 +855,17 @@ def activate_events(client) -> None:
     (definition,) = model["consumerApis"]
     definition["operations"]["events"] = {
         "custom": [
-            {"key": "catalogue-changed", "objectTypes": [GROUP, ITEM], "changes": ["created", "updated", "deleted"]}
+            {
+                "key": "catalogue-changed",
+                "objectTypes": [GROUP, ITEM],
+                "changes": ["created", "updated", "deleted"],
+            }
         ]
     }
     draft = client.post("/api/v1/model-drafts", json={"name": "Events", "model": model}).json()
     release = client.post(
-        f"/api/v1/model-drafts/{draft['id']}/installation", json={"expectedVersion": draft["version"]}
+        f"/api/v1/model-drafts/{draft['id']}/installation",
+        json={"expectedVersion": draft["version"]},
     )
     assert release.status_code == 201, release.text
     # Into the default workspace and the volume workspace, each running its own release (0.11 M1).
@@ -736,7 +883,12 @@ def activate_events(client) -> None:
 
 
 def event_scenarios(
-    client, engine: Engine, dataset: VolumeDataset, *, repeat: int, caught_up: int = CAUGHT_UP_SUBSCRIPTIONS
+    client,
+    engine: Engine,
+    dataset: VolumeDataset,
+    *,
+    repeat: int,
+    caught_up: int = CAUGHT_UP_SUBSCRIPTIONS,
 ) -> tuple[list[Measurement], int]:
     """0.9 C10 (``--only-events``): deriving a page of 500 live creations, and the heavy group's rename,
     which updates every group and item below it (C-D82's fan-out); then the pull feed's first page with
@@ -752,7 +904,11 @@ def event_scenarios(
     def derived(scenario: str) -> None:
         with measure(engine) as cost:
             assert deriver.derive(WORKSPACE)
-        results.append(Measurement("live", scenario, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded))
+        results.append(
+            Measurement(
+                "live", scenario, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded
+            )
+        )
 
     items = [
         {
@@ -766,7 +922,8 @@ def event_scenarios(
         for index in range(500)
     ]
     batch = client.post(
-        "/api/v1/batches", json={"workspaceKey": WORKSPACE, "policy": "atomic", "run": "inline", "items": items}
+        "/api/v1/batches",
+        json={"workspaceKey": WORKSPACE, "policy": "atomic", "run": "inline", "items": items},
     )
     assert batch.status_code == 200, batch.text
     derived("events: derive 500 live creations")
@@ -774,7 +931,9 @@ def event_scenarios(
 
     path = f"/api/v1/objects/{GROUP}/{dataset.heavy_group_id}"
     heavy = client.get(path, params={"workspaceKey": WORKSPACE}).json()
-    renamed = client.patch(path, json={"expectedVersion": heavy["version"], "name": f"{heavy['name']} renamed"})
+    renamed = client.patch(
+        path, json={"expectedVersion": heavy["version"], "name": f"{heavy['name']} renamed"}
+    )
     assert renamed.status_code == 200, renamed.text
     with Session(engine) as session:
         position = session.scalar(select(Workspace.feed_position).where(Workspace.key == WORKSPACE))
@@ -798,8 +957,6 @@ def event_scenarios(
         results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
     results += delivery_scenarios(client, engine, position, repeat=repeat, caught_up=caught_up)
     return results, told
-
-
 
 
 class _Receiver:
@@ -861,7 +1018,9 @@ def delivery_scenarios(
 
     def remove(subscription: str) -> None:
         version = client.get(f"{SUBSCRIPTIONS_PATH}/{subscription}").json()["version"]
-        response = client.delete(f"{SUBSCRIPTIONS_PATH}/{subscription}", params={"expectedVersion": version})
+        response = client.delete(
+            f"{SUBSCRIPTIONS_PATH}/{subscription}", params={"expectedVersion": version}
+        )
         assert response.status_code == 204, response.text
 
     def step(now: datetime) -> tuple[list[int], Any]:
@@ -893,13 +1052,18 @@ def delivery_scenarios(
             remove(subscription)
 
         for payload in ("full", "identity"):
-            subscription = subscribe(payload=payload, maxEventsPerBatch=EVENT_PAGE, startAfter=position - 1)
+            subscription = subscribe(
+                payload=payload, maxEventsPerBatch=EVENT_PAGE, startAfter=position - 1
+            )
             sent = receiver.requests
             timings, total_ms, total_statements = [], 0.0, 0
             for run in range(repeat + 1):
                 claimed, cost = step(datetime.now(UTC))
                 assert len(claimed) == 1 and receiver.requests == sent + run + 1
-                total_ms, total_statements = total_ms + cost.seconds * 1000, total_statements + cost.statements
+                total_ms, total_statements = (
+                    total_ms + cost.seconds * 1000,
+                    total_statements + cost.statements,
+                )
                 if run or not repeat:
                     timings.append(cost.seconds * 1000)
             results.append(
@@ -927,7 +1091,9 @@ def delivery_scenarios(
             )
             remove(subscription)
 
-        subscription = subscribe(maxEventsPerBatch=EVENT_PAGE, format="cloudevents", startAfter=position - 1)
+        subscription = subscribe(
+            maxEventsPerBatch=EVENT_PAGE, format="cloudevents", startAfter=position - 1
+        )
         sent = receiver.requests
         claimed, cost = step(datetime.now(UTC))
         assert len(claimed) == 1 and receiver.requests == sent + 1
@@ -950,7 +1116,9 @@ def delivery_scenarios(
 CONSUMER_XREF = f"/api/consumer/{CONSUMER_API}/v1/xref"
 
 
-def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+def consumer_xref_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> list[Measurement]:
     """0.9 C4: XREF lookups, live (``--only-consumer``), and since C6a pinned to the seed's
     publication: an item's code in another case, the cited
     group's code (its own match and the citing items it promotes), a 4-character contains, the
@@ -976,31 +1144,55 @@ def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, r
         base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE, **pinned}
         scenarios = [
             (f"{label}: an item's code, another case", {**base, "query": item_code}, None),
-            (f"{label}: a group's code promoted to its citing items", {**base, "query": codes[dataset.cited_group_id]}, None),
+            (
+                f"{label}: a group's code promoted to its citing items",
+                {**base, "query": codes[dataset.cited_group_id]},
+                None,
+            ),
             (f"{label}: 4-character contains", {**base, "query": "0099"}, None),
-            (f"{label}: expect=one", {"workspace": WORKSPACE, **pinned, "query": item_code, "expect": "one"}, None),
+            (
+                f"{label}: expect=one",
+                {"workspace": WORKSPACE, **pinned, "query": item_code, "expect": "one"},
+                None,
+            ),
             (
                 f"{label}: a group's code, within the heavy group",
-                {**base, "query": codes[dataset.cited_group_id], WITHIN_GROUP: dataset.heavy_group_id},
+                {
+                    **base,
+                    "query": codes[dataset.cited_group_id],
+                    WITHIN_GROUP: dataset.heavy_group_id,
+                },
                 None,
             ),
             (
                 f"{label}: a group's code, scoresFrom on the group",
-                {**base, "query": codes[dataset.cited_group_id], CITING: codes[dataset.cited_group_id]},
+                {
+                    **base,
+                    "query": codes[dataset.cited_group_id],
+                    CITING: codes[dataset.cited_group_id],
+                },
                 None,
             ),
             # Ten a page: at the smallest test shape the dated lookup holds 18 results, under one page
             # of 20, which the pager counts without a statement; every size then reads more than a page.
             (
                 f"{label}: a group's code, dated",
-                {**base, "pageSize": PAGE_SIZE // 2, "query": codes[dataset.cited_group_id], "asOf": AS_OF},
+                {
+                    **base,
+                    "pageSize": PAGE_SIZE // 2,
+                    "query": codes[dataset.cited_group_id],
+                    "asOf": AS_OF,
+                },
                 None,
             ),
             (f"{label}: a term in every item, too broad", {**base, "query": "item"}, 400),
         ]
         for scenario, params, refused in scenarios:
             status, milliseconds, statements, rows = _timed(
-                engine, lambda params=params: client.get(CONSUMER_XREF, params=params), repeat, refused=refused
+                engine,
+                lambda params=params: client.get(CONSUMER_XREF, params=params),
+                repeat,
+                refused=refused,
             )
             results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
     return results
@@ -1045,12 +1237,16 @@ def _resolve_bodies(engine: Engine, dataset: VolumeDataset, size: int) -> dict[s
     with Session(engine) as session:
         items = codes_of(session, RdmObject.object_type_key == ITEM, limit=size)
         groups = codes_of(
-            session, RdmObject.object_type_key == GROUP, RdmObject.id != dataset.cited_group_id, limit=size
+            session,
+            RdmObject.object_type_key == GROUP,
+            RdmObject.id != dataset.cited_group_id,
+            limit=size,
         )
         heavy = codes_of(session, RdmObject.parent_object_id == dataset.heavy_group_id, limit=size)
         cited = session.scalar(
             select(AttributeValue.text_value).where(
-                AttributeValue.attribute_type_key == CODE, AttributeValue.object_id == dataset.cited_group_id
+                AttributeValue.attribute_type_key == CODE,
+                AttributeValue.object_id == dataset.cited_group_id,
             )
         )
 
@@ -1079,7 +1275,9 @@ def _resolve_bodies(engine: Engine, dataset: VolumeDataset, size: int) -> dict[s
     per_set = (size - 6) // 3
     three_sets = [
         item
-        for values, hit, own in zip(sets, (budgeted[4]["query"], heavy[0][1], cited), fitting, strict=True)
+        for values, hit, own in zip(
+            sets, (budgeted[4]["query"], heavy[0][1], cited), fitting, strict=True
+        )
         for item in (
             [{"query": f"nothing-in-{len(values)}-{hit}", **values}, {"query": hit, **values}]
             + [{**item, **values} for item in (own * size)[:per_set]]
@@ -1134,7 +1332,9 @@ def consumer_resolve_scenarios(
                 body = bodies[family]
             status, milliseconds, statements, rows = _timed(
                 engine,
-                lambda body=body, params=params: client.post(CONSUMER_RESOLVE, json=body, params=params),
+                lambda body=body, params=params: client.post(
+                    CONSUMER_RESOLVE, json=body, params=params
+                ),
                 repeat,
             )
             scenario = f"consumer resolve: {family}, {len(body['items'])} items"
@@ -1250,7 +1450,9 @@ def deletion_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[M
             {
                 "op": "delete",
                 "target": {"id": group_id},
-                "expectedVersion": client.get(f"/api/v1/objects/{GROUP}/{group_id}", params=params).json()["version"],
+                "expectedVersion": client.get(
+                    f"/api/v1/objects/{GROUP}/{group_id}", params=params
+                ).json()["version"],
                 "cascade": True,
             }
             for group_id in chosen
@@ -1261,39 +1463,71 @@ def deletion_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[M
             worker.run_until_idle()
         job = client.get(f"/api/v1/jobs/{job_id}").json()
         return (
-            Measurement(context, scenario, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded),
+            Measurement(
+                context, scenario, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded
+            ),
             job,
         )
 
     results = []
     live = client.post(
         "/api/v1/batches",
-        json={"workspaceKey": WORKSPACE, "policy": "independent", "run": "background", "stage": "preview",
-              "items": items({"workspaceKey": WORKSPACE})},
+        json={
+            "workspaceKey": WORKSPACE,
+            "policy": "independent",
+            "run": "background",
+            "stage": "preview",
+            "items": items({"workspaceKey": WORKSPACE}),
+        },
     )
     assert live.status_code == 202, live.text
     measurement, job = run(live.json()["id"], "", "live")
     deleted = job["preview"]["deletion"]["objectCount"]
-    results.append(Measurement(**{**measurement.__dict__, "scenario": f"delete preview: {len(chosen)} groups, {deleted:,} records"}))
+    results.append(
+        Measurement(
+            **{
+                **measurement.__dict__,
+                "scenario": f"delete preview: {len(chosen)} groups, {deleted:,} records",
+            }
+        )
+    )
     client.post(f"/api/v1/jobs/{job['id']}/cancel")
 
     in_change_set = {"changeSetId": dataset.change_set_id}
     version = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()["version"]
     staged = client.post(
         "/api/v1/batches",
-        json={"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": version, "policy": "independent",
-              "run": "background", "stage": "preview", "items": items(in_change_set)},
+        json={
+            "changeSetId": dataset.change_set_id,
+            "expectedChangeSetVersion": version,
+            "policy": "independent",
+            "run": "background",
+            "stage": "preview",
+            "items": items(in_change_set),
+        },
     )
     assert staged.status_code == 202, staged.text
     measurement, job = run(staged.json()["id"], "", "change_set")
     deleted = job["preview"]["deletion"]["objectCount"]
-    results.append(Measurement(**{**measurement.__dict__, "scenario": f"delete preview: {len(chosen)} groups, {deleted:,} records"}))
+    results.append(
+        Measurement(
+            **{
+                **measurement.__dict__,
+                "scenario": f"delete preview: {len(chosen)} groups, {deleted:,} records",
+            }
+        )
+    )
     confirmed = client.post(f"/api/v1/jobs/{job['id']}/confirm")
     assert confirmed.status_code in (200, 202), confirmed.text
     measurement, job = run(job["id"], "", "change_set")
     assert job["state"] == "completed", job
     results.append(
-        Measurement(**{**measurement.__dict__, "scenario": f"delete executed: {job['counts']['deleted']:,} items applied"})
+        Measurement(
+            **{
+                **measurement.__dict__,
+                "scenario": f"delete executed: {job['counts']['deleted']:,} items applied",
+            }
+        )
     )
     return results
 
@@ -1318,7 +1552,9 @@ def move_target_model() -> dict[str, Any]:
     ]
     used = {item["relationTypeKey"] for item in model["objectTypeRelations"]}
     model["relationTypes"] = [item for item in model["relationTypes"] if item["key"] in used]
-    model["applications"] = [app for app in model["applications"] if not set(app["objectTypeKeys"]) & left_out]
+    model["applications"] = [
+        app for app in model["applications"] if not set(app["objectTypeKeys"]) & left_out
+    ]
     model["consumerApis"] = []
     model["attributeTypes"].append({"key": "cat-owner", "name": "Owner"})
     item = next(entry for entry in model["objectTypes"] if entry["key"] == "cat-item")
@@ -1326,7 +1562,9 @@ def move_target_model() -> dict[str, Any]:
     return model
 
 
-def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list[Measurement], dict[str, Any]]:
+def move_scenarios(
+    client, engine: Engine, dataset: VolumeDataset
+) -> tuple[list[Measurement], dict[str, Any]]:
     """0.11 X5, D151–D153, run once (``--only-move``): the whole volume workspace copied into a
     workspace on :func:`move_target_model` through a proposed mapping completed by one hand step;
     the inference, the application of its proposals, the dry run (each stage), the load and the
@@ -1349,7 +1587,9 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
         spent = time.perf_counter() - began_at.pop(id(cursor), time.perf_counter())
         if spent > 0.5:
             slow.append((round(spent, 1), " ".join(statement.split())[:600]))
-            print(f"  slow statement {spent:.1f} s: {' '.join(statement.split())[:300]}", flush=True)
+            print(
+                f"  slow statement {spent:.1f} s: {' '.join(statement.split())[:300]}", flush=True
+            )
 
     event.listen(engine, "before_cursor_execute", before_statement)
     event.listen(engine, "after_cursor_execute", after_statement)
@@ -1378,37 +1618,64 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
             stage = job(job_id)["stage"] or stage
         for name, (seconds, statements, rows, chunks) in stages.items():
             results.append(
-                Measurement("move", f"{label}: {name} ({chunks} chunks)", 200, seconds * 1000, statements, rows)
+                Measurement(
+                    "move",
+                    f"{label}: {name} ({chunks} chunks)",
+                    200,
+                    seconds * 1000,
+                    statements,
+                    rows,
+                )
             )
-            print(f"  {label}: {name} {seconds:.1f} s, {statements} statements, {chunks} chunks", flush=True)
+            print(
+                f"  {label}: {name} {seconds:.1f} s, {statements} statements, {chunks} chunks",
+                flush=True,
+            )
         return job(job_id)
 
     def timed(label: str, call: Callable[[], Any]) -> Any:
         with measure(engine) as cost:
             answer = call()
-        results.append(Measurement("move", label, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded))
+        results.append(
+            Measurement("move", label, 200, cost.seconds * 1000, cost.statements, cost.rows_loaded)
+        )
         print(f"  {label}: {cost.seconds:.1f} s, {cost.statements} statements", flush=True)
         return answer
 
     with engine.connect() as connection:
         by_type = dict(
             connection.execute(
-                text("SELECT object_type_key, count(*) FROM objects WHERE workspace_key = :w GROUP BY 1"),
+                text(
+                    "SELECT object_type_key, count(*) FROM objects WHERE workspace_key = :w GROUP BY 1"
+                ),
                 {"w": WORKSPACE},
             ).all()
         )
         relationships = connection.execute(
-            text("SELECT count(*) FROM object_relations r JOIN objects o ON o.id = r.from_object_id"
-                 " WHERE o.workspace_key = :w"),
+            text(
+                "SELECT count(*) FROM object_relations r JOIN objects o ON o.id = r.from_object_id"
+                " WHERE o.workspace_key = :w"
+            ),
             {"w": WORKSPACE},
         ).scalar_one()
     facts["source records"] = by_type
     facts["source relationships"] = relationships
-    print(f"  source: {sum(by_type.values()):,} records {by_type}, {relationships:,} relationships", flush=True)
+    print(
+        f"  source: {sum(by_type.values()):,} records {by_type}, {relationships:,} relationships",
+        flush=True,
+    )
 
-    draft = ok(client.post(f"{api}/model-drafts", json={"name": "Catalogue", "model": move_target_model()}), 201)
+    draft = ok(
+        client.post(
+            f"{api}/model-drafts", json={"name": "Catalogue", "model": move_target_model()}
+        ),
+        201,
+    )
     release = ok(
-        client.post(f"{api}/model-drafts/{draft['id']}/installation", json={"expectedVersion": draft["version"]}),
+        client.post(
+            f"{api}/model-drafts/{draft['id']}/installation",
+            json={"expectedVersion": draft["version"]},
+        ),
         201,
     )
     ok(
@@ -1421,8 +1688,12 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
     mapping = ok(
         client.post(
             f"{api}/model-mappings",
-            json={"key": "volume-move", "name": "Volume move", "sourceWorkspaceKey": WORKSPACE,
-                  "targetWorkspaceKey": MOVE_TARGET},
+            json={
+                "key": "volume-move",
+                "name": "Volume move",
+                "sourceWorkspaceKey": WORKSPACE,
+                "targetWorkspaceKey": MOVE_TARGET,
+            },
         ),
         201,
     )
@@ -1439,12 +1710,18 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
     current = ok(client.get(f"{api}/model-mappings/{key}"))
     timed(
         "apply the proposals",
-        lambda: ok(client.post(f"{api}/model-mappings/{key}/inference/application",
-                               json={"expectedVersion": current["version"]})),
+        lambda: ok(
+            client.post(
+                f"{api}/model-mappings/{key}/inference/application",
+                json={"expectedVersion": current["version"]},
+            )
+        ),
     )
     current = ok(
-        client.get(f"{api}/model-mappings/{key}", params={"sourceWorkspaceKey": WORKSPACE,
-                                                          "targetWorkspaceKey": MOVE_TARGET})
+        client.get(
+            f"{api}/model-mappings/{key}",
+            params={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET},
+        )
     )
     facts["types proposed"] = {entry["source"]: entry["target"] for entry in current["types"]}
     # The hand steps. The inference proposes the matrix types as the target's nearest type (code
@@ -1454,43 +1731,66 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
             current = ok(
                 client.post(
                     f"{api}/model-mappings/{key}/operations",
-                    json={"expectedVersion": current["version"],
-                          "operations": [{"kind": "unmapType", "sourceType": entry["source"]}]},
+                    json={
+                        "expectedVersion": current["version"],
+                        "operations": [{"kind": "unmapType", "sourceType": entry["source"]}],
+                    },
                 )
             )
     current = ok(
-        client.get(f"{api}/model-mappings/{key}", params={"sourceWorkspaceKey": WORKSPACE,
-                                                          "targetWorkspaceKey": MOVE_TARGET})
+        client.get(
+            f"{api}/model-mappings/{key}",
+            params={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET},
+        )
     )
     # The required attribute nothing fills gets a default.
     for need in current["coverage"]["required"]:
-        source_type = next(entry["source"] for entry in current["types"] if entry["target"] == need["targetType"])
+        source_type = next(
+            entry["source"] for entry in current["types"] if entry["target"] == need["targetType"]
+        )
         current = ok(
             client.post(
                 f"{api}/model-mappings/{key}/operations",
-                json={"expectedVersion": current["version"], "operations": [
-                    {"kind": "setDefault", "sourceType": source_type, "attribute": need["attributeTypeKey"],
-                     "value": "Unassigned"}]},
+                json={
+                    "expectedVersion": current["version"],
+                    "operations": [
+                        {
+                            "kind": "setDefault",
+                            "sourceType": source_type,
+                            "attribute": need["attributeTypeKey"],
+                            "value": "Unassigned",
+                        }
+                    ],
+                },
             )
         )
     current = ok(
-        client.get(f"{api}/model-mappings/{key}", params={"sourceWorkspaceKey": WORKSPACE,
-                                                          "targetWorkspaceKey": MOVE_TARGET})
+        client.get(
+            f"{api}/model-mappings/{key}",
+            params={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET},
+        )
     )
     facts["mapping problems"] = current.get("problems")
     sent = ok(
         client.post(
             f"{api}/moves",
-            json={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET,
-                  "mapping": {"key": key, "expectedVersion": current["version"]}, "selection": {}},
+            json={
+                "sourceWorkspaceKey": WORKSPACE,
+                "targetWorkspaceKey": MOVE_TARGET,
+                "mapping": {"key": key, "expectedVersion": current["version"]},
+                "selection": {},
+            },
         ),
         202,
     )
     preview = run(sent["id"], "dry run")
     assert preview["state"] == "awaiting_confirmation", preview
     summary = preview["move"]
-    facts["dry run"] = {"rows": summary["rows"], "counts": summary["counts"],
-                        "reasons": summary["reasons"][:10]}
+    facts["dry run"] = {
+        "rows": summary["rows"],
+        "counts": summary["counts"],
+        "reasons": summary["reasons"][:10],
+    }
     print(f"  dry run: {summary['rows']:,} rows {summary['counts']}", flush=True)
     ok(client.post(f"{api}/jobs/{sent['id']}/confirm"), 202)
     loaded = run(sent["id"], "load")
@@ -1499,17 +1799,27 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
     version = ok(client.get(f"{api}/change-sets/{change_set}"))["version"]
     timed(
         f"publish the target's change set ({summary['rows']:,} rows)",
-        lambda: ok(client.post(f"{api}/change-sets/{change_set}/publication",
-                               json={"expectedChangeSetVersion": version, "expectedActivePublicationId": None})),
+        lambda: ok(
+            client.post(
+                f"{api}/change-sets/{change_set}/publication",
+                json={"expectedChangeSetVersion": version, "expectedActivePublicationId": None},
+            )
+        ),
     )
 
     # D153: the service's case. The worker on its own thread, a 20-record move of items already
     # copied (so 20 updates by counterpart), sent with stage execute; its timeline polled.
     with engine.connect() as connection:
-        ids = connection.execute(
-            text("SELECT id FROM objects WHERE workspace_key = :w AND object_type_key = :t ORDER BY id LIMIT 20"),
-            {"w": WORKSPACE, "t": ITEM},
-        ).scalars().all()
+        ids = (
+            connection.execute(
+                text(
+                    "SELECT id FROM objects WHERE workspace_key = :w AND object_type_key = :t ORDER BY id LIMIT 20"
+                ),
+                {"w": WORKSPACE, "t": ITEM},
+            )
+            .scalars()
+            .all()
+        )
     current = ok(client.get(f"{api}/model-mappings/{key}"))
     worker.start()
     timeline: list[tuple[float, str, str | None]] = []
@@ -1519,10 +1829,14 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
         small = ok(
             client.post(
                 f"{api}/moves",
-                json={"sourceWorkspaceKey": WORKSPACE, "targetWorkspaceKey": MOVE_TARGET,
-                      "mapping": {"key": key, "expectedVersion": current["version"]},
-                      "selection": {"objectIds": [str(item) for item in ids]}, "mode": "move",
-                      "stage": "execute"},
+                json={
+                    "sourceWorkspaceKey": WORKSPACE,
+                    "targetWorkspaceKey": MOVE_TARGET,
+                    "mapping": {"key": key, "expectedVersion": current["version"]},
+                    "selection": {"objectIds": [str(item) for item in ids]},
+                    "mode": "move",
+                    "stage": "execute",
+                },
             ),
             202,
         )
@@ -1530,8 +1844,10 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
             queued_before = [
                 tuple(row)
                 for row in connection.execute(
-                    text("SELECT kind, state FROM jobs WHERE state IN ('queued', 'running')"
-                         " AND sequence_id < (SELECT sequence_id FROM jobs WHERE id = :id)"),
+                    text(
+                        "SELECT kind, state FROM jobs WHERE state IN ('queued', 'running')"
+                        " AND sequence_id < (SELECT sequence_id FROM jobs WHERE id = :id)"
+                    ),
                     {"id": small["id"]},
                 ).all()
             ]
@@ -1546,17 +1862,26 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
                 break
             with engine.connect() as connection:
                 blocked = connection.execute(
-                    text("SELECT a.pid, a.wait_event_type, a.wait_event, left(a.query, 160)"
-                         " FROM pg_stat_activity a WHERE a.datname = current_database()"
-                         " AND a.wait_event_type = 'Lock'")
+                    text(
+                        "SELECT a.pid, a.wait_event_type, a.wait_event, left(a.query, 160)"
+                        " FROM pg_stat_activity a WHERE a.datname = current_database()"
+                        " AND a.wait_event_type = 'Lock'"
+                    )
                 ).all()
             if blocked:
-                waits.append((round(time.perf_counter() - began, 2), [tuple(row) for row in blocked]))
+                waits.append(
+                    (round(time.perf_counter() - began, 2), [tuple(row) for row in blocked])
+                )
             time.sleep(0.1)
     finally:
         worker.stop()
-    facts["small move"] = {"timeline": timeline, "lock waits": waits[:20], "queued before": queued_before,
-                           "result": state["state"], "counts": state.get("counts")}
+    facts["small move"] = {
+        "timeline": timeline,
+        "lock waits": waits[:20],
+        "queued before": queued_before,
+        "result": state["state"],
+        "counts": state.get("counts"),
+    }
     print(f"  20-record move: {timeline}; lock waits {len(waits)}", flush=True)
     event.remove(engine, "before_cursor_execute", before_statement)
     event.remove(engine, "after_cursor_execute", after_statement)
@@ -1567,7 +1892,9 @@ def move_scenarios(client, engine: Engine, dataset: VolumeDataset) -> tuple[list
 EXPORT_FORMATS = ("jsonl", "csv", "xlsx")
 
 
-def export_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[tuple[Measurement, int]]:
+def export_scenarios(
+    client, engine: Engine, dataset: VolumeDataset
+) -> list[tuple[Measurement, int]]:
     """0.9 J1: the whole live workspace exported in each format with its relationships, timed once
     each (D56), with the rows each wrote. The export runs in this thread, so its statements are
     counted; the export worker's own thread is stopped first so it cannot take the job."""
@@ -1604,7 +1931,9 @@ def export_scenarios(client, engine: Engine, dataset: VolumeDataset) -> list[tup
     return results
 
 
-def change_list_scenarios(client, engine: Engine, review: ReviewChangeSet, *, repeat: int) -> list[Measurement]:
+def change_list_scenarios(
+    client, engine: Engine, review: ReviewChangeSet, *, repeat: int
+) -> list[Measurement]:
     """P2a: both change lists of the review change set, paged every way a reviewer reaches a row."""
     results = []
     for records, extra in (("object", {}), ("relation", {"containment": "false"})):
@@ -1620,14 +1949,21 @@ def change_list_scenarios(client, engine: Engine, review: ReviewChangeSet, *, re
             ("kind filter (removed), total", {**page, "kind": "removed", "includeTotal": True}),
         ]
         if extra:
-            scenarios.append(("containment edges left out, total", {**page, **extra, "includeTotal": True}))
+            scenarios.append(
+                ("containment edges left out, total", {**page, **extra, "includeTotal": True})
+            )
         for scenario, params in scenarios:
             status, milliseconds, statements, rows = _timed(
                 engine, lambda path=path, params=params: client.get(path, params=params), repeat
             )
             results.append(
                 Measurement(
-                    "change_set", f"{records} changes: {scenario}", status, milliseconds, statements, rows
+                    "change_set",
+                    f"{records} changes: {scenario}",
+                    status,
+                    milliseconds,
+                    statements,
+                    rows,
                 )
             )
     return results
@@ -1794,13 +2130,21 @@ def main() -> None:
                 engine = get_engine()
                 server_version = engine.dialect.server_version_info
                 if arguments.only_restructuring:
-                    results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
+                    results, _count = restructuring_scenarios(
+                        engine, dataset, repeat=arguments.repeat
+                    )
                 elif arguments.only_consumer:
                     results = consumer_scenarios(client, engine, dataset, repeat=arguments.repeat)
-                    results += consumer_xref_scenarios(client, engine, dataset, repeat=arguments.repeat)
-                    results += consumer_resolve_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                    results += consumer_xref_scenarios(
+                        client, engine, dataset, repeat=arguments.repeat
+                    )
+                    results += consumer_resolve_scenarios(
+                        client, engine, dataset, repeat=arguments.repeat
+                    )
                 elif arguments.only_events:
-                    results, told = event_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                    results, told = event_scenarios(
+                        client, engine, dataset, repeat=arguments.repeat
+                    )
                     dataset.counts["events told by the heavy group's rename"] = told
                 elif arguments.only_deletion:
                     results = deletion_scenarios(client, engine, dataset)
@@ -1810,7 +2154,9 @@ def main() -> None:
                 elif arguments.only_exports:
                     results = [item for item, _rows in export_scenarios(client, engine, dataset)]
                 elif arguments.only_relation_columns:
-                    results = relation_column_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                    results = relation_column_scenarios(
+                        client, engine, dataset, repeat=arguments.repeat
+                    )
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:
@@ -1824,17 +2170,23 @@ def main() -> None:
                         )
                     ]
                 else:
-                    results = [] if arguments.only_change_lists else run_scenarios(
-                        client, engine, dataset, repeat=arguments.repeat
+                    results = (
+                        []
+                        if arguments.only_change_lists
+                        else run_scenarios(client, engine, dataset, repeat=arguments.repeat)
                     )
                     # Seeded after the other scenarios, so none of them runs beside it.
                     review = seed_review_change_set(engine, dataset)
                     dataset.counts.update(
                         {f"review.{key}": value for key, value in review.counts.items()}
                     )
-                    results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
+                    results += change_list_scenarios(
+                        client, engine, review, repeat=arguments.repeat
+                    )
                     if not arguments.only_change_lists:
-                        results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
+                        results += known_exceptions(
+                            client, engine, dataset, repeat=arguments.repeat
+                        )
                         # Last: it publishes, so live data and the active publication change. A
                         # failure is reported after the table, which it must not lose.
                         try:

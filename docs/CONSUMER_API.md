@@ -898,8 +898,13 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   `rotate-secret` (0.12 K1) makes a new one, answered once; the previous one keeps signing beside it
   for the overlap, then stops.
 - **Target hosts:** any host and port over HTTPS; plain HTTP only to `localhost`, `127.0.0.1` or
-  `::1` (C-D101 revised). There is no host allowlist; the dispatcher refuses link-local addresses
-  when it connects (C-D107).
+  `::1` (C-D101 revised). There is no host allowlist. An address that is, or whose host name
+  resolves to, a loopback, private, unique-local, shared (100.64.0.0/10), unspecified, multicast,
+  reserved or IPv4-mapped one of these is refused when a subscription is created or changed and at
+  each delivery (the name may resolve differently later), unless the instance setting
+  `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` is on; link-local addresses are refused whatever it says
+  (C-D101, replaced by the 0.17 RF6 decision of 2026-11-11; C-D107's address rule is the same one).
+  The plain-HTTP exception for `localhost` therefore works only with the setting on.
 - **State** (C-D98): `active` or `suspended`, and a suspension always has a reason:
   `SUSPENDED_BY_USER` (`suspend`), `MODEL_CHANGED` and `CONTRACT_VERSION_CHANGED` (an activation,
   C-D99), `WORKSPACE_RETIRED` (a retirement, C-D99); C12 adds `DELIVERY_FAILED`,
@@ -1176,7 +1181,8 @@ prerequisite: XREF scores the consumer definition's matches itself, not through 
 10. _0.12:_ signature verification succeeds with the current key and fails after rotation with the
     old one.
 11. A disallowed or non-HTTPS target is rejected at create and update (plain HTTP is accepted only to a
-    listed loopback host, C-D101).
+    loopback host, C-D101), and so is an address that is, or resolves to, a non-public one while the
+    instance does not allow private addresses (0.17 RF6).
 12. A model release that removes a subscribed event suspends the subscription with a reason.
 13. The pull feed returns the same events as webhooks, and `410` beyond retention.
 
@@ -1323,7 +1329,7 @@ C-D94 revised for C12; C-D112–C-D114 for C13 the same day.
 | C-D98 | One switch, or `enabled` and suspension | **Decided 2026-10-06 (C11).** One: `active` or `suspended`, with a reason; `enabled` dropped. `suspend` sets `SUSPENDED_BY_USER`; `resume` undoes every reason after re-running create's checks (`409 SUBSCRIPTION_NEEDS_EDIT` listing them) and C-D93's loss check, and accepts the contract version served |
 | C-D99 | When a model change or a retirement suspends | **Decided 2026-10-06 (C11).** In the transaction that causes it. Activation: a missing consumer API, event or filter parameter is `MODEL_CHANGED` with each finding; otherwise a raised contract version `CONTRACT_VERSION_CHANGED`. A suspended subscription keeps its reason. Retirement: `WORKSPACE_RETIRED`; undelivered events stay until retention. A workspace with subscriptions cannot be deleted (`409 WORKSPACE_HAS_SUBSCRIPTIONS`) |
 | C-D100 | A filter value that matches nothing at create | **Decided 2026-10-06 (C11).** Refused `400 FILTER_MATCHES_NOTHING` at create, edit and resume, at `/filters/{name}`; a type name the API does not expose is `400 UNKNOWN_OBJECT_TYPE` |
-| C-D101 | What the host allowlist accepts | **Revised 2026-10-07, by the user:** no host allowlist; any host over HTTPS, plain HTTP only to `localhost`, `127.0.0.1` or `::1`. `CONSUMER_WEBHOOK_ALLOWED_HOSTS`, `allowedHosts` in capabilities, `WEBHOOK_HOST_NOT_ALLOWED` and the `HOST_NOT_ALLOWED` suspension are removed: webhook targets are not deployment configuration that needs a restart. The dispatcher's address checks (C-D107) stay. Was: **Decided 2026-10-06 (C11).** Host names ignoring case, exact or `*.` and a domain (any depth below, not the domain itself); IP addresses as written; any port. Absolute HTTPS, no user information or fragment, at most 2,048 characters; plain HTTP only to a listed `localhost`, `127.0.0.1` or `::1`. Empty allows nothing. Reported in capabilities. A host removed later is C12's (`HOST_NOT_ALLOWED`) |
+| C-D101 | What the host allowlist accepts | **Replaced 2026-11-11 by the 0.17 RF6 decision of the user ("Refuse by default"):** a webhook address that is, or whose host name resolves to, a loopback, private or otherwise non-public address is refused at create, edit and each delivery unless `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` is on; link-local always; the rest below stands (RF6, [the 0.17 plan](BASE_0_17_IMPLEMENTATION_PLAN.md#rf6-webhook-addresses-on-private-ranges)). **Revised 2026-10-07, by the user:** no host allowlist; any host over HTTPS, plain HTTP only to `localhost`, `127.0.0.1` or `::1`. `CONSUMER_WEBHOOK_ALLOWED_HOSTS`, `allowedHosts` in capabilities, `WEBHOOK_HOST_NOT_ALLOWED` and the `HOST_NOT_ALLOWED` suspension are removed: webhook targets are not deployment configuration that needs a restart. The dispatcher's address checks (C-D107) stay. Was: **Decided 2026-10-06 (C11).** Host names ignoring case, exact or `*.` and a domain (any depth below, not the domain itself); IP addresses as written; any port. Absolute HTTPS, no user information or fragment, at most 2,048 characters; plain HTTP only to a listed `localhost`, `127.0.0.1` or `::1`. Empty allows nothing. Reported in capabilities. A host removed later is C12's (`HOST_NOT_ALLOWED`) |
 | C-D102 | What the subscriptions capability gates | **Decided 2026-10-06 (C11).** The whole group: off, no subscription route is served (reads included) and C12 delivers nothing; stored subscriptions are kept |
 | C-D103 | The retry schedule | **Decided 2026-10-06 (C12).** After a failed attempt the next waits 10 s, 30 s, 1 min, 2 min, 5 min, 10 min, 30 min, then every hour, each ±20 %, until 24 hours after the batch's first failure; then `DELIVERY_FAILED` with the delivery ID, attempts and last error. A success resets it. Constants, reported in capabilities; documented in full (the user's request) |
 | C-D104 | The byte limit of a batch | **Decided 2026-10-06 (C12).** 1 MiB of body: events in order while the body stays within it; an event alone over it is sent alone. Documented in full with what a receiver's server must accept (the user's request) |

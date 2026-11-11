@@ -3,14 +3,14 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import ApiError, api_error
 from ...models.commands import UserCreate, UserUpdate
-from ...models.database import User
+from ...models.database import PasswordResetLink, User
 from ..authorization.administration import (
     grant_roles,
     refuse_last_administrator,
@@ -128,6 +128,14 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
                 providers.refuse_last_kept(session, user)
             user.local_kept = payload.localKept
         if "signInManaged" in fields and payload.signInManaged is not None:
+            if payload.signInManaged and not user.sign_in_managed:
+                # Links the person asked for stop working; an administrator's link stays.
+                session.execute(
+                    delete(PasswordResetLink).where(
+                        PasswordResetLink.user_id == user.id,
+                        PasswordResetLink.requested.is_(True),
+                    )
+                )
             user.sign_in_managed = payload.signInManaged
         now = datetime.now(UTC)
         if "active" in fields and payload.active is not None:

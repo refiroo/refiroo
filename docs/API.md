@@ -2604,8 +2604,12 @@ or `id` apart from the built-in columns. `~` columns are for orientation and an 
   `parentObjectId`, `fromId`, `toId`, the `#` columns, the `~` columns); records first, then relationships, a row
   being a record when `objectTypeKey` is filled. Values in the API's canonical text (dates ISO 8601,
   decimals as the API writes them, `true`/`false`, a JSON value as JSON text); an empty cell is no
-  value. Text is written as stored: a spreadsheet opening the file may read a value beginning with
-  `=` as a formula.
+  value. A text value (a name, a path, an attribute of type `text` or `longText`) starting with `=`, `+`, `-`,
+  `@`, a tab or a carriage return, or with quotes and then one of them, is written with a single quote in
+  front, so a spreadsheet shows it as text (0.17 RF2); numbers, dates, booleans and JSON are written as
+  stored. An import of the table layout from CSV takes exactly one such quote off those columns (name and
+  text attributes), so an unchanged export sent back changes nothing, a real `'=x` (written `''=x`)
+  included; a hand-made CSV with `=x` imports as `=x` and with `'=x` as `=x`. XLSX is read as stored.
 - **XLSX** (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`): the sheets
   `Records` and `Relationships`, each one named table (`records`, `relationships`) whose header row
   is the column keys, below a row of readable labels. Cells are typed: text as text (never a number
@@ -3960,7 +3964,12 @@ and `reset` (default false).
   events; each event is declared; each filter names a definition parameter (a read's own names and
   `to.` targets are not filters) and each value matches a record now; the URL is absolute HTTPS on
   an allowed host, without user information or fragment, at most 2,048 characters, or HTTP to a
-  listed loopback host (`localhost`, `127.0.0.1`, `::1`); the workspace exists and is active.
+  loopback host (`localhost`, `127.0.0.1`, `::1`); the address is not private: a URL that names, or
+  whose host name resolves to, a loopback, private (RFC 1918), unique-local, shared (100.64.0.0/10),
+  unspecified, multicast, reserved, IPv4-mapped or NAT64 (`64:ff9b::/96` by its embedded IPv4 address,
+  `64:ff9b:1::/48` always) one is refused unless the instance sets
+  `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` (off by default), and a link-local address (cloud metadata) is
+  refused always (0.17 RF6, replacing C-D101's rule); the workspace exists and is active.
 - **The signing key** is answered once, as `signingSecret` (`rdmwh_` and 43 base64url characters),
   and never by a read; keep it to verify deliveries (C12). It is stored sealed with the deployment
   key. [Rotating it](#webhook-signing-key-rotation-product-012-k1) answers a new one the same way.
@@ -3995,7 +4004,7 @@ and `reset` (default false).
 | 400 | `CONSUMER_API_NOT_FOUND`, `EVENTS_NOT_DECLARED` | at `/consumerApi` |
 | 400 | `UNKNOWN_EVENT` | at `/events/{i}` |
 | 400 | `UNKNOWN_PARAMETER`, `PARAMETER_NOT_SUPPORTED`, `UNKNOWN_OBJECT_TYPE`, `FILTER_MATCHES_NOTHING` | at `/filters/{name}` |
-| 400 | `INVALID_WEBHOOK_URL` | at `/url`: not absolute HTTPS (plain HTTP only to `localhost`, `127.0.0.1` or `::1`), user information, a fragment, or over 2,048 characters |
+| 400 | `INVALID_WEBHOOK_URL` | at `/url`: not absolute HTTPS (plain HTTP only to `localhost`, `127.0.0.1` or `::1`), user information, a fragment, over 2,048 characters, or an address that is, or whose host name resolves to, a private or otherwise non-public address while `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` is off (the message says private addresses are refused on this instance) |
 | 404 | `WORKSPACE_NOT_FOUND` | at `/workspaceKey`: unknown or retired |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | the ID |
 | 409 | `VERSION_CONFLICT` | `expectedVersion` is stale; `details.currentVersion` |
@@ -4134,7 +4143,11 @@ of them (`application/cloudevents-batch+json; charset=utf-8`), also when a batch
 
 **The receiver's answer:** any `2xx` acknowledges. Anything else fails the attempt: another status, a
 redirect (not followed), no answer within 10 s, a connection or TLS failure, or a refused address
-(link-local always; loopback unless the URL names a loopback host). A failed batch is retried with
+(`kind: "address"`: the host resolves to any link-local address, always, or to any loopback, private
+or otherwise non-public address while `WEBHOOK_PRIVATE_ADDRESSES_ALLOWED` is off; the address is
+checked at every attempt and the request goes to the address that was checked). A subscription saved
+while private addresses were allowed stops delivering when the setting is turned off: its batches
+fail with `address` and the delivery log says so until the setting is on again. A failed batch is retried with
 the same events and `deliveryId` after 10 s, 30 s, 1, 2, 5, 10 and 30 min, then hourly, each ±20 %,
 for 24 hours from its first failure; then the subscription is suspended `DELIVERY_FAILED`. Delivery
 is at least once: deduplicate by `eventId`.
@@ -6480,8 +6493,10 @@ Outside `/api/v1`, needing no token:
 - `POST /oauth/sign-in/reset-request`, `GET /oauth/sign-in/reset`, `POST /oauth/sign-in/reset` (I6,
   D420; not in the OpenAPI document): a forgotten password. `reset-request {email}` (an e-mail address, in any
   letters) answers `202 {status: "requested", message}` whether or not anyone matches; only an
-  active person with a local password, a kept local sign-in and an address is written to, one link each.
-  Asks are counted per typed name (the first 3 cost nothing) and per address (the first 20), counted apart
+  active person with a local password, a kept local sign-in and an address is written to, one link each
+  from this route: a newer ask replaces the earlier link an ask made, never a link an administrator made
+  (`POST /users/{id}/password-reset`), which stays valid until used or expired. Using a link removes the
+  person's others, and switching `signInManaged` on removes the links an ask made (an administrator's stays). Asks are counted per typed name (the first 3 cost nothing) and per address (the first 20), counted apart
   from failed sign-ins; from the next, an ask is refused `429 slowed` with `waitSeconds` until 1 s after
   the last one, then 2 s, 4 s and so on up to 15 minutes (D271); `409 mail_not_set_up` when mail is not set up. `GET reset`
   without a token answers `{product, available}`; with one `{product, email, minLength}` or `410
@@ -6515,7 +6530,7 @@ Outside `/api/v1`, needing no token:
   the address to register with it (`redirectUri`). The engine exchanges the code with the client
   secret (`client_secret_basic`, or `client_secret_post` when the provider offers only that), checks
   the ID token (signature against the provider's keys, RS256, PS256 or ES256; `iss`, `aud`, `azp`,
-  `exp`, `iat`, `nonce`), finds the person by the provider and `sub` or creates them (D363; never by e-mail, 0.17 EM1), sets
+  `exp`, `iat`, `nonce`), finds the person by the provider and `sub` or creates them (D363; never by e-mail, 0.17 EM1; two first sign-ins of one new person at once make one person and both succeed, 0.17 RF2), sets
   their memberships in the provider's groups (D364), and redirects (`303`) to the browser's
   `redirect_uri` with a one-time code and its `state`, as the form does; the session's
   `signedInWith` is the provider's key. Parameters the provider adds of its own (`session_state`, ...) are ignored; an `iss` (RFC 9207) must equal the provider's issuer, else the sign-in is refused (reason `issuer`). A sign-in that cannot finish shows "*name* could not sign
@@ -6579,7 +6594,10 @@ Outside `/api/v1`, needing no token:
   `SECRETS_ENCRYPTION_KEY`, only while it is open and its provider has the setting on.
 - `GET /oauth/password?token=`, `POST /oauth/password` (I2): the page a password-reset link opens
   (D272): a new password, typed twice, under the rules below. A used, replaced or expired link answers
-  `410` on the page.
+  `410` on the page. A valid link answers `303` to `/oauth/password` without the token and keeps it in the
+  `oauth_reset` cookie (HttpOnly, `SameSite=Lax`, path `/oauth/password`, 60 minutes), so the token does
+  not stay in the address bar or the history; the page answers from the cookie, also after a reload, and
+  setting the password clears it (0.17 RF3).
 - `POST /oauth/token`: grant types `authorization_code` (the browser), `refresh_token` (the browser,
   read from the cookie) and `client_credentials` (a client, `client_secret_basic` or
   `client_secret_post`). The answer is RFC 6749's: `access_token`, `token_type: "Bearer"`,
@@ -6898,8 +6916,8 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   left without one, also when restoring one who has none); a deactivated person may have none, which
   frees the address (PP-D16), and `email` is `null` in their read. A missing person is `404 USER_NOT_FOUND`.
   Deactivating a person ends their sessions. _Delivered by I2:_ `POST /users/{id}/password-reset`
-  (`201 {url, expiresAt}`, answered once; valid `PASSWORD_RESET_HOURS`, once; a newer link replaces an
-  older one, D272) and `DELETE /users/{id}/sessions` (`204`). _Delivered by SP1:_ every read of a
+  (`201 {url, expiresAt}`, answered once; valid `PASSWORD_RESET_HOURS`, once; a newer link replaces every
+  older one, D272; a forgotten-password ask replaces only links earlier asks made, 0.17 RF2) and `DELETE /users/{id}/sessions` (`204`). _Delivered by SP1:_ every read of a
   person also answers `roles` (D298): each role they hold, directly or through a group, as `key`,
   `name`, `instance` (held for the whole instance, then no workspaces are named) and `workspaces`
   (`key`, `label`, by label); predefined roles first in the catalogue's order, then custom ones by

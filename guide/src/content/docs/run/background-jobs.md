@@ -222,11 +222,13 @@ proposals already written. Neither publishes to live data.
 Tasks use `AI_TASK_RETENTION_DAYS` (90 by default), separately from ordinary job retention. Session
 folders, logs and transcripts stay while a task can continue; the next read after publication,
 discard or confirmed migration removes them, and expiry also cleans them. In the shipped image,
-folders are under `/opt/refiroo/rdm-engine/data/assistant` and transcripts under
-`/opt/refiroo/rdm-engine/data/assistant-claude`, alongside Claude Code configuration. The shipped
-Compose file mounts them as the `assistant` and `assistant-claude` named volumes, so container
-replacement and upgrades keep them until normal cleanup. Backups may omit these two volumes;
-losing them loses open tasks’ folders and session logs, not records.
+each task has a randomly named folder under `/opt/refiroo/rdm-engine/data/assistant`, with
+working files in `work`, Claude Code configuration and transcripts in `claude`, and turn logs
+inside the same task folder. Session users cannot list the parent folder to find other tasks.
+Compose persists this in the single `assistant` volume across container replacement, until normal
+cleanup. Backups may omit it; losing it loses open tasks’ folders and session logs, not records.
+After upgrading from the earlier shared-transcript layout, existing files are kept but the next
+turn starts a new session. See [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks).
 **Calls** on **Settings › Administration › AI** keeps turn outcomes and usage separately. See
 [AI retention and recovery](/docs/run/ai/#what-is-kept) before maintenance or a retry.
 

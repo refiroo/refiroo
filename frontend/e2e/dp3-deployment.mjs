@@ -8,7 +8,7 @@
 // plain HTTP behind a balancer. Everything it starts is removed at the end, containers, volumes and
 // images included. Slow and heavy (Docker builds): run once per package and at R, announced.
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -26,6 +26,9 @@ const failures = [];
 const expect = (condition, message) => {
   if (!condition) failures.push(message);
 };
+
+// The application's Content-Security-Policy as web is configured to send it (0.17 RF4).
+const appPolicy = readFileSync(resolve(root, "frontend/nginx/snippets/csp-app.inc.template"), "utf8").match(/add_header Content-Security-Policy "([^"]+)"/)[1];
 
 const freePort = () =>
   new Promise((done) => {
@@ -111,6 +114,58 @@ async function signedIn(browser, viewport, tag) {
   await context.close();
 }
 
+// 0.17 RF4: every surface of the installation, light and dark, opened in a browser with the console
+// watched for Content-Security-Policy violations: the application signed out and signed in, the sign-in
+// page the engine serves, the guide (its search dialog too) and the API reference. Each surface sends
+// its own policy (the application's from web, the others from the engine); none may be violated.
+async function policySurfaces(browser) {
+  const title = (await (await fetch(`${publicUrl}/openapi.json`)).json()).info.title;
+  const authorize = `${publicUrl}/oauth/authorize?${new URLSearchParams({ response_type: "code", client_id: "browser", redirect_uri: `${publicUrl}/signed-in`, code_challenge: "x".repeat(43), code_challenge_method: "S256", state: "s" })}`;
+  const seen = [];
+  for (const colorScheme of ["light", "dark"]) {
+    const context = await browser.newContext({ ignoreHTTPSErrors: true, colorScheme, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    page.setDefaultTimeout(20000);
+    let surface = "";
+    page.on("console", (message) => {
+      if (/Content Security Policy|Refused to/i.test(message.text())) failures.push(`CSP ${colorScheme} ${surface}: ${message.text().slice(0, 300)}`);
+    });
+    page.on("pageerror", (error) => failures.push(`${colorScheme} ${surface}: ${error.message}`));
+    const open = async (name, url) => {
+      surface = name;
+      seen.push(`${name} ${colorScheme}`);
+      // "load", not "networkidle": the signed-in application keeps its event stream open.
+      const response = await page.goto(url, { waitUntil: "load" });
+      expect(response?.ok(), `${colorScheme} ${name}: ${response?.status()}`);
+    };
+    await open("application sign-in", publicUrl);
+    await page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
+    await open("engine sign-in page", authorize);
+    await page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
+    await open("guide", `${publicUrl}/docs/use/records/`);
+    await page.getByRole("heading", { level: 1, name: "Records" }).waitFor();
+    await page.getByRole("button", { name: "Search" }).first().click();
+    await page.locator("dialog[open] input").first().fill("change set");
+    await page.locator("dialog[open] a").first().waitFor();
+    await open("API reference", `${publicUrl}/docs/api`);
+    await page.getByRole("heading", { name: title, level: 1 }).waitFor();
+    await page.getByText("/oauth/jwks", { exact: true }).locator("visible=true").first().waitFor();
+    await open("application", publicUrl);
+    await page.getByLabel("E-mail address").fill("ada@example.org");
+    await page.getByLabel("Password").fill(PASSWORD);
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Account" }).waitFor();
+    await page.locator(".home-app").first().click();
+    await page.locator(".data-context-band").waitFor();
+    for (const path of ["/settings/account", "/settings/model"]) {
+      await open(`application ${path}`, `${publicUrl}${path}`);
+      await page.getByRole("button", { name: "Account" }).waitFor();
+    }
+    await context.close();
+  }
+  return seen;
+}
+
 // A failed password sign-in at `base`, carrying `forwarded` as X-Forwarded-For when given. The sign-in
 // throttle then records the address the engine saw (D271), which is what the checks below read.
 async function failedSignIn(base, email, forwarded) {
@@ -176,7 +231,7 @@ try {
   const spoof = await fetched("/health", { headers: { "X-Forwarded-For": "6.6.6.6" } });
   expect(spoof.status === 200, "a forged forwarded address broke a request");
   const appPage = await fetched("/settings/account");
-  expect(appPage.headers.get("content-security-policy") === "frame-ancestors 'none'", `the application page's CSP is ${appPage.headers.get("content-security-policy")}`);
+  expect(appPage.headers.get("content-security-policy") === appPolicy, `the application page's CSP is ${appPage.headers.get("content-security-policy")}`);
   expect(appPage.headers.get("x-frame-options") === "DENY", `the application page's X-Frame-Options is ${appPage.headers.get("x-frame-options")}`);
   checks.push("public paths answer at the address, /metrics is 404, HTTP redirects to PUBLIC_URL, the engine and database are not published");
 
@@ -185,6 +240,9 @@ try {
   await signedIn(browser, { width: 1440, height: 900 }, "desktop");
   await signedIn(browser, { width: 390, height: 844 }, "phone");
   checks.push(`signed in, reloaded and opened an application at ${publicUrl}, desktop and 390px, with every request on that one address`);
+
+  const surfaces = await policySurfaces(browser);
+  checks.push(`no Content-Security-Policy violation on ${surfaces.length} page visits: application (signed out and in), engine sign-in page, guide with search, API reference; light and dark`);
 
   // 6. A forged forwarded address is not what the sign-in throttle counts: a wrong password carrying
   // X-Forwarded-For is recorded under the address nginx saw, never under the forged one.
@@ -218,7 +276,7 @@ try {
   const balancer = await (await fetch(`${plain}/.well-known/oauth-authorization-server`, { headers: { "X-Forwarded-Proto": "https" } })).json();
   expect(balancer.issuer === publicUrl, `WEB_TLS=proxy: the issuer is ${balancer.issuer}`);
   expect((await fetch(`${plain}/settings/account`)).headers.get("x-frame-options") === "DENY", "WEB_TLS=proxy: the application page can be framed");
-  expect((await fetch(`${plain}/settings/account`)).headers.get("content-security-policy") === "frame-ancestors 'none'", "WEB_TLS=proxy: no frame-ancestors");
+  expect((await fetch(`${plain}/settings/account`)).headers.get("content-security-policy") === appPolicy, "WEB_TLS=proxy: the application's policy is not sent");
   checks.push("WEB_TLS=proxy served plain HTTP with no certificate, /metrics kept inside and the issuer unchanged");
 
   // 9b. With WEB_TRUSTED_PROXIES empty nobody is trusted: the forged address is ignored and the caller

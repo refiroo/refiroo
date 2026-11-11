@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...common.sealing import SealError, seal, unseal
@@ -236,13 +237,42 @@ def finish(
             failure.kind, _UNCONFIRMED.format(name=provider.name), detail=str(failure)
         ) from None
     subject = str(claims["sub"])[:255]
-    found = session.execute(
-        select(User, UserIdentity)
-        .join(UserIdentity, UserIdentity.user_id == User.id)
-        .where(UserIdentity.provider_id == provider.id, UserIdentity.subject == subject)
-        .with_for_update(of=UserIdentity)
-    ).one_or_none()
-    if found is not None:
+    found = _identity(session, provider, subject)
+    created: User | None = None
+    if found is None:
+        email = _email(claims)
+        if email is None:
+            raise fail(
+                "no_email",
+                f"{provider.name} did not send an e-mail address, and refiroo needs it to know who "
+                f"you are. Ask whoever manages {provider.name} to add the e-mail claim to what it "
+                "sends to this application, then sign in again.",
+            )
+
+        def taken() -> SignInFailed:
+            return fail(
+                "email_taken",
+                f"Another person in refiroo already has the e-mail address {email}. A security "
+                "administrator resolves this: ask one, then sign in again.",
+                detail=f"{email} belongs to another person",
+            )
+
+        if _holder(session, email) is not None:
+            raise taken()
+        try:
+            # In a savepoint: when the same person signs in twice at once, the second insert waits
+            # for the first, then fails on the address or the subject, and finds the person the
+            # first made.
+            with session.begin_nested():
+                created = _create_person(session, provider, claims, subject, now, email)
+        except IntegrityError:
+            found = _identity(session, provider, subject)
+            if found is None:
+                raise taken() from None
+    if created is not None:
+        user = created
+    else:
+        assert found is not None
         user, identity = found
         if not user.active:
             raise fail(
@@ -252,23 +282,6 @@ def finish(
             )
         _refresh(session, user, claims, now)
         identity.last_sign_in_at = now
-    else:
-        email = _email(claims)
-        if email is None:
-            raise fail(
-                "no_email",
-                f"{provider.name} did not send an e-mail address, and refiroo needs it to know who "
-                f"you are. Ask whoever manages {provider.name} to add the e-mail claim to what it "
-                "sends to this application, then sign in again.",
-            )
-        if _holder(session, email) is not None:
-            raise fail(
-                "email_taken",
-                f"Another person in refiroo already has the e-mail address {email}. A security "
-                "administrator resolves this: ask one, then sign in again.",
-                detail=f"{email} belongs to another person",
-            )
-        user = _create_person(session, provider, claims, subject, now, email)
     _sync_groups(session, provider, user, claims, now)
     provider.last_sign_in_at = now
     security_events.record(
@@ -344,6 +357,19 @@ def _name(claims: dict[str, Any], fallback: str) -> str:
 def _email(claims: dict[str, Any]) -> str | None:
     email = _text(claims, "email", 320)
     return email if email and _ADDRESS.match(email) else None
+
+
+def _identity(
+    session: Session, provider: SignInProvider, subject: str
+) -> tuple[User, UserIdentity] | None:
+    """The person the provider's ``subject`` is, with the identity, locked."""
+    row = session.execute(
+        select(User, UserIdentity)
+        .join(UserIdentity, UserIdentity.user_id == User.id)
+        .where(UserIdentity.provider_id == provider.id, UserIdentity.subject == subject)
+        .with_for_update(of=UserIdentity)
+    ).one_or_none()
+    return None if row is None else (row[0], row[1])
 
 
 def _holder(session: Session, email: str, *, except_id: int | None = None) -> User | None:

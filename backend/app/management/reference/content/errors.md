@@ -1124,7 +1124,7 @@ An attribute mapping for a change of object type does not fit: the target attrib
 
 <span class="rdm-status rdm-4xx">Status 400</span>
 
-The URL of a subscription is not allowed. It must be an absolute `https` URL of at most 2,048 characters, without user information or a fragment; plain `http` is accepted only for `localhost`, `127.0.0.1` and `::1`. `details.pointer` is `/url`. It is raised when a subscription is created or edited (`POST /api/v1/consumer-subscriptions`, `PATCH /api/v1/consumer-subscriptions/{subscriptionId}`); when several things are wrong, the first is answered. Send a valid URL.
+The URL of a subscription is not allowed. It must be an absolute `https` URL of at most 2,048 characters, without user information or a fragment; plain `http` is accepted only for `localhost`, `127.0.0.1` and `::1`. An address that is, or whose host name resolves to, a private or otherwise non-public address is refused too, unless the instance allows private addresses (`WEBHOOK_PRIVATE_ADDRESSES_ALLOWED`, off by default); a link-local address is refused always. `details.pointer` is `/url`. It is raised when a subscription is created or edited (`POST /api/v1/consumer-subscriptions`, `PATCH /api/v1/consumer-subscriptions/{subscriptionId}`); when several things are wrong, the first is answered. Send a valid URL.
 
 ### JOB_CANCELLED
 

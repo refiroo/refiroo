@@ -242,15 +242,13 @@ export function Explorer({
         <p className="nav-label" id={`${application.key}-browse-label`}>
           Browse records
         </p>
-        <label className="search-box compact">
-          <Icon name="search" />
-          <input
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            aria-label="Search this explorer"
-            placeholder="Find a record"
-          />
-        </label>
+        <SearchField
+          className="compact"
+          value={searchInput}
+          onChange={setSearchInput}
+          label="Search this explorer"
+          placeholder="Find a record"
+        />
         <RecordTree
           model={model}
           application={application}

@@ -1,7 +1,7 @@
 /**
  * The type palette (U-D13): B (magenta and olive in slots 3 and 4, the default) or A (plum and
  * gold), chosen on Settings › Appearance and saved in this browser. A sets `data-palette="a"` on
- * the document element, which the design tokens key on; the inline script in index.html applies the
+ * the document element, which the design tokens key on; public/theme-init.js (linked from index.html) applies the
  * saved choice before the first paint, as it does the theme.
  */
 

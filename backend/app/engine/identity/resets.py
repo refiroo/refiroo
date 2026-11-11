@@ -6,7 +6,7 @@ and the person's other sessions end.
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -31,8 +31,11 @@ def create_link(
     base: str | None = None,
     check: Callable[[User], None] | None = None,
     before_commit: Callable[[User, str, bool], None] | None = None,
+    requested: bool = False,
 ) -> tuple[str, datetime]:
-    """A one-time link that sets this person's password, replacing any earlier one; answered once.
+    """A one-time link that sets this person's password, answered once. An administrator's link
+    replaces every earlier one; a link the person asked for (``requested``) replaces only the
+    earlier ones they asked for, so it never cancels an administrator's.
     Refused while local sign-in is off for a person who does not keep it (I3, D365). ``check``
     may refuse before the earlier link is replaced; ``before_commit`` gets the person, the link
     and whether the link was sent (SP3: it queues the mail), so both commit together. ``base`` is
@@ -43,12 +46,19 @@ def create_link(
     if check is not None:
         check(user)
     now = datetime.now(UTC)
-    session.execute(delete(PasswordResetLink).where(PasswordResetLink.user_id == user.id))
+    replaced = delete(PasswordResetLink).where(PasswordResetLink.user_id == user.id)
+    if requested:
+        replaced = replaced.where(PasswordResetLink.requested.is_(True))
+    session.execute(replaced)
     token = new_token()
     expires_at = now + timedelta(hours=settings.password_reset_hours)
     session.add(
         PasswordResetLink(
-            token_hash=digest(token), user_id=user.id, created_at=now, expires_at=expires_at
+            token_hash=digest(token),
+            user_id=user.id,
+            created_at=now,
+            expires_at=expires_at,
+            requested=requested,
         )
     )
     # The link itself is never recorded (D317).
@@ -74,13 +84,16 @@ def link_user(session: Session, token: str) -> User | None:
             PasswordResetLink.used_at.is_(None),
             PasswordResetLink.expires_at > datetime.now(UTC),
             User.active.is_(True),
+            # A link a person asked for is gone once an administrator manages their sign-in.
+            or_(PasswordResetLink.requested.is_(False), User.sign_in_managed.is_(False)),
         )
     )
 
 
 def use_link(session: Session, settings: IdentitySettings, token: str, password: str) -> bool:
     """Set the password a valid link names and end the person's sessions; ``False`` when the link
-    is used, replaced, expired or unknown. A password the rules refuse raises
+    is used, replaced, expired or unknown, or one the person asked for while an administrator manages
+    their sign-in; using a link removes the person's other links. A password the rules refuse raises
     ``422 PASSWORD_REJECTED`` and leaves the link as it was. Commits."""
     now = datetime.now(UTC)
     row = session.execute(
@@ -94,9 +107,18 @@ def use_link(session: Session, settings: IdentitySettings, token: str, password:
     link, user = row
     if link.used_at is not None or now >= link.expires_at or not user.active:
         return False
+    if link.requested and user.sign_in_managed:
+        return False
     check_password(password, user.email, settings.password_min_length)
     _set(user, password, now)
     link.used_at = now
+    # Using one link ends the person's others, so a link asked for beside an administrator's cannot
+    # set the password again.
+    session.execute(
+        delete(PasswordResetLink).where(
+            PasswordResetLink.user_id == user.id, PasswordResetLink.id != link.id
+        )
+    )
     sessions.end_all(session, user.id, "passwordReset", now)
     security_events.record(
         session, "user", user.public_id, "password-set", about=[user.public_id],

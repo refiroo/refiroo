@@ -3,6 +3,12 @@
  * `EventSource` cannot send a header, and a token in a URL is excluded (C-D1). It reads the same
  * `text/event-stream` format and, like `EventSource`, connects again a few seconds after the
  * engine closes the stream, until `close()`.
+ *
+ * Nothing is lost between two connections (0.17 RF3). A stream that sends `id:` lines is resumed
+ * with `Last-Event-ID`, as `EventSource` does; the engine's streams send none (each job event
+ * carries the whole job; the notification stream sends the unread count when it connects), so a
+ * connection that follows an earlier one also dispatches a local `reconnected` event, on which a
+ * reader reads again what the stream describes.
  */
 
 import { authorizedFetch } from "@/api/session";
@@ -19,6 +25,8 @@ export interface EventStream {
 class FetchEventStream implements EventStream {
   private readonly listeners = new Map<string, ((event: MessageEvent<string>) => void)[]>();
   private readonly abort = new AbortController();
+  private lastEventId = "";
+  private connections = 0;
 
   constructor(readonly url: string) {
     void this.run();
@@ -43,12 +51,16 @@ class FetchEventStream implements EventStream {
       let opened = false;
       try {
         const response = await authorizedFetch(this.url, {
-          headers: { Accept: "text/event-stream" },
+          headers: {
+            Accept: "text/event-stream",
+            ...(this.lastEventId ? { "Last-Event-ID": this.lastEventId } : {}),
+          },
           signal: this.abort.signal,
         });
         if (response.ok && response.body) {
           // A stream that opened is a healthy engine: the next retry starts short again.
           opened = true;
+          if (this.connections++ > 0) this.dispatch("reconnected", "");
           await this.read(response.body);
         }
       } catch {
@@ -68,6 +80,7 @@ class FetchEventStream implements EventStream {
     let buffer = "";
     let type = "message";
     let data: string[] = [];
+    let id = "";
     for (;;) {
       const { value, done } = await reader.read();
       if (done) return;
@@ -76,15 +89,18 @@ class FetchEventStream implements EventStream {
       buffer = lines.pop() ?? "";
       for (const line of lines) {
         if (line === "") {
+          if (id) this.lastEventId = id;
           if (data.length) this.dispatch(type, data.join("\n"));
           type = "message";
           data = [];
+          id = "";
         } else if (!line.startsWith(":")) {
           const colon = line.indexOf(":");
           const field = colon < 0 ? line : line.slice(0, colon);
           const text = colon < 0 ? "" : line.slice(colon + 1).replace(/^ /, "");
           if (field === "event") type = text;
           else if (field === "data") data.push(text);
+          else if (field === "id" && !text.includes("\0")) id = text;
         }
       }
     }

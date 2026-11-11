@@ -10,6 +10,9 @@ export function SearchField({
   clearOnEscape = false,
   onSubmit,
   className,
+  type,
+  autoFocus,
+  disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -21,12 +24,20 @@ export function SearchField({
   onSubmit?: (value: string) => void;
   /** A treatment the surface adds, such as `candidate-search` inside a dialog. */
   className?: string;
+  /** `search` gives the browser's own clear button, as the entity lists have it. */
+  type?: "search";
+  /** The box takes focus when it opens, as a dialog's candidate search does. */
+  autoFocus?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <label className={className ? `search-box ${className}` : "search-box"}>
       <Icon name="search" />
       <input
+        type={type}
         aria-label={label}
+        autoFocus={autoFocus}
+        disabled={disabled}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={

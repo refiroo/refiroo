@@ -125,6 +125,12 @@ async function walk(configuration) {
     await page.goto(link);
     await page.getByRole("heading", { level: 1, name: "Choose a new password" }).waitFor();
     await page.getByText(email, { exact: true }).waitFor();
+    // The token leaves the address bar once read, and a reload (before the password is set) still works.
+    expect(!page.url().includes("token"), `${tag}: the address no longer carries the token: ${page.url()}`);
+    await page.reload();
+    await page.getByRole("heading", { level: 1, name: "Choose a new password" }).waitFor();
+    await page.getByText(email, { exact: true }).waitFor();
+    checks.push(`${tag}: the token left the address bar; a reload still shows the page for the same person`);
     await shot(page, "choose");
     await axe(page, `${tag}-choose`);
     await page.getByLabel("New password").fill("short");

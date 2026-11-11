@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { forgetWorkspaceModel } from "@/model/workspaceModels";
 import { ApiError } from "@/api/errors";
@@ -10,6 +10,12 @@ import { capabilitiesFixture } from "@/test/capabilities";
 import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { findTreeItem } from "@/test/tree";
 import App, { releaseChangedText } from "./App";
+
+// Pages load when opened (0.17 RF3): the Settings chunk is read once here, not inside a test's 5 s.
+beforeAll(async () => {
+  await import("./SettingsArea");
+  await import("@/features/inbox/NotificationsPage");
+}, 60_000);
 
 vi.mock("@/api/client", () => ({
   api: {

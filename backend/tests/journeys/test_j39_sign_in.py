@@ -424,11 +424,16 @@ def test_a_reset_link_sets_a_password_once(world):
     replaced, token = _reset_link(world, person), _reset_link(world, person)
     gone = browser.get("/oauth/password", params={"token": replaced})
     assert gone.status_code == 410 and "used, replaced by a newer one" in gone.text
-    page = browser.get("/oauth/password", params={"token": token})
+    opened = browser.get("/oauth/password", params={"token": token}, follow_redirects=False)
+    assert opened.status_code == 303 and opened.headers["location"] == "/oauth/password"
+    assert token not in opened.headers["location"]
+    page = browser.get("/oauth/password")  # the page without the token, and again on a reload
     assert page.status_code == 200 and "gil" in page.text
+    assert browser.get("/oauth/password").status_code == 200
     short = _set_password(browser, token, "short")
     assert short.status_code == 422 and "at least 15" in short.text
     assert _set_password(browser, token).status_code == 200
+    assert browser.get("/oauth/password").status_code == 410  # the page's hold on the link ended
     used = _set_password(browser, token)
     assert used.status_code == 410 and "used, replaced by a newer one" in used.text
     assert ok(world.api.get(f"/users/{person['id']}"))["hasPassword"] is True

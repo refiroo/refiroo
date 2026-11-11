@@ -77,8 +77,12 @@ def _ids(world, structure, **context):
 def _hierarchy(world, ws):
     """Three levels of H, two K tokens and the middle H related to both through Bnn."""
     top = world.made("H", "Export top", workspace=ws, values={"H.code": "XT"})
-    middle = world.made("H", "Export middle", parent=top["id"], workspace=ws, values={"H.code": "XM"})
-    leaf = world.made("H", "Export leaf", parent=middle["id"], workspace=ws, values={"H.code": "XL"})
+    middle = world.made(
+        "H", "Export middle", parent=top["id"], workspace=ws, values={"H.code": "XM"}
+    )
+    leaf = world.made(
+        "H", "Export leaf", parent=middle["id"], workspace=ws, values={"H.code": "XL"}
+    )
     tokens = [
         world.made("K", f"Export token {n}", workspace=ws, values={"K.code": f"XK{n}"})
         for n in (1, 2)
@@ -117,7 +121,11 @@ def test_a_live_export_holds_the_stated_scope_parents_first_with_its_manifest(wo
     assert len(lines) == len(records) + len(relations)
     assert lines[: len(records)] == records
     assert {r["key"]["id"] for r in records} == {
-        high["id"], top["id"], middle["id"], leaf["id"], *(t["id"] for t in tokens)
+        high["id"],
+        top["id"],
+        middle["id"],
+        leaf["id"],
+        *(t["id"] for t in tokens),
     }
     seen = set()
     for record in records:
@@ -126,7 +134,10 @@ def test_a_live_export_holds_the_stated_scope_parents_first_with_its_manifest(wo
         seen.add(record["key"]["id"])
     by_id = {r["key"]["id"]: r for r in records}
     assert by_id[leaf["id"]]["parent"] == {"id": middle["id"]}
-    assert by_id[leaf["id"]]["expectedVersion"] == world.record("H", leaf["id"], workspaceKey=ws)["version"]
+    assert (
+        by_id[leaf["id"]]["expectedVersion"]
+        == world.record("H", leaf["id"], workspaceKey=ws)["version"]
+    )
     assert by_id[high["id"]]["objectTypeKey"] == world.key("R")
     assert by_id[high["id"]]["applicationKey"] == world.app("R")
     assert {"attributeTypeKey": world.key("R.n"), "value": 90} in by_id[high["id"]]["attributes"]
@@ -165,13 +176,22 @@ def test_change_sets_publications_subtrees_and_dates_each_export_what_they_hold(
     cs = world.change_set(workspace=ws)
     world.made("H", "Published extra", workspace=ws, change_set=world.current(cs))
     publication = world.publish(cs, workspace=ws)
-    ok(world.update("H", top["id"], world.record("H", top["id"], workspaceKey=ws)["version"], name="Renamed live"))
+    ok(
+        world.update(
+            "H",
+            top["id"],
+            world.record("H", top["id"], workspaceKey=ws)["version"],
+            name="Renamed live",
+        )
+    )
     staged_cs = world.change_set(workspace=ws)
     staged = world.made("H", "Only staged", workspace=ws, change_set=world.current(staged_cs))
 
     job = _finished(world, ws, [_type(world, "H")], context={"changeSetId": staged_cs["id"]})
     names = {line["name"] for line in _lines(world, job)}
-    assert "Only staged" in names and staged["id"] in {line["key"]["id"] for line in _lines(world, job)}
+    assert "Only staged" in names and staged["id"] in {
+        line["key"]["id"] for line in _lines(world, job)
+    }
     assert job["output"]["context"]["changeSetId"] == staged_cs["id"]
     assert job["output"]["context"]["changeSetVersion"] == world.current(staged_cs)["version"]
     assert job["output"]["feedPosition"] is None
@@ -186,11 +206,11 @@ def test_change_sets_publications_subtrees_and_dates_each_export_what_they_hold(
     assert [line["key"]["id"] for line in _lines(world, job)] == [leaf["id"]]
 
     current = world.made("E", "Current rate", workspace=ws, values={"E.from": "2026-01-01"})
-    world.made("E", "Ended rate", workspace=ws, values={"E.from": "2025-01-01", "E.to": "2025-12-31"})
-    fee = world.made("F", "Plain fee", workspace=ws)
-    job = _finished(
-        world, ws, [_type(world, "E"), _type(world, "F")], scope={"asOf": "2026-06-01"}
+    world.made(
+        "E", "Ended rate", workspace=ws, values={"E.from": "2025-01-01", "E.to": "2025-12-31"}
     )
+    fee = world.made("F", "Plain fee", workspace=ws)
+    job = _finished(world, ws, [_type(world, "E"), _type(world, "F")], scope={"asOf": "2026-06-01"})
     assert {line["key"]["id"] for line in _lines(world, job)} == {current["id"], fee["id"]}
     assert job["output"]["asOf"] == "2026-06-01"
     assert job["output"]["asOfApplied"] == [world.key("E")]
@@ -210,7 +230,12 @@ def test_writes_during_an_export_are_not_in_it_and_follow_its_position(world, mo
     def write_once(*args, **kwargs):
         if not written:
             written["new"] = world.made("H", "Written meanwhile", workspace=ws)
-            renamed = world.update("H", top["id"], world.record("H", top["id"], workspaceKey=ws)["version"], name="Renamed meanwhile")
+            renamed = world.update(
+                "H",
+                top["id"],
+                world.record("H", top["id"], workspaceKey=ws)["version"],
+                name="Renamed meanwhile",
+            )
             written["renamed"] = ok(renamed)
         return check(*args, **kwargs)
 
@@ -252,7 +277,8 @@ def test_a_reader_whose_position_expired_recovers_from_an_export(world):
     held = {line["key"]["id"] for line in _lines(world, job)}
     world.made("H", "After export", workspace=ws)
     gone = world.api.delete(
-        f"/objects/{world.key('H')}/{leaf['id']}", expectedVersion=world.record("H", leaf["id"], workspaceKey=ws)["version"]
+        f"/objects/{world.key('H')}/{leaf['id']}",
+        expectedVersion=world.record("H", leaf["id"], workspaceKey=ws)["version"],
     )
     assert gone.status_code == 204, gone.text
     after = job["output"]["feedPosition"]
@@ -266,8 +292,12 @@ def test_a_reader_whose_position_expired_recovers_from_an_export(world):
 
 
 @pytest.mark.journey("J27.3")
-@pytest.mark.structures("R", "R.u", "G", "D", "Bown", "H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
-def test_an_export_sent_back_changes_nothing_and_an_edited_one_updates_only_unchanged_records(world):
+@pytest.mark.structures(
+    "R", "R.u", "G", "D", "Bown", "H", "H.code", "K", "K.code", "Bnn", "Bnn.weight"
+)
+def test_an_export_sent_back_changes_nothing_and_an_edited_one_updates_only_unchanged_records(
+    world,
+):
     """Given H, K and Bnn records, and a D record that requires its Bown relationship from an R.
     When everything is exported as JSON Lines and the file is sent back as a background batch with
     the default onExisting. Then every item is applied unchanged and the feed head does not move; the
@@ -290,7 +320,9 @@ def test_an_export_sent_back_changes_nothing_and_an_edited_one_updates_only_unch
     lines = _lines(world, job)
     line = next(item for item in lines if item.get("key", {}).get("id") == dependant["id"])
     assert {
-        "relationTypeKey": world.key("Bown"), "direction": "incoming", "object": {"id": owner["id"]}
+        "relationTypeKey": world.key("Bown"),
+        "direction": "incoming",
+        "object": {"id": owner["id"]},
     } in [{k: v for k, v in r.items() if k != "attributes"} for r in line["initialRelations"]]
 
     head = _head(world, ws)
@@ -298,7 +330,14 @@ def test_an_export_sent_back_changes_nothing_and_an_edited_one_updates_only_unch
     assert {(status, action) for status, action, _ in outcomes} == {("applied", "unchanged")}
     assert _head(world, ws) == head
 
-    ok(world.update("H", leaf["id"], world.record("H", leaf["id"], workspaceKey=ws)["version"], name="Changed meanwhile"))
+    ok(
+        world.update(
+            "H",
+            leaf["id"],
+            world.record("H", leaf["id"], workspaceKey=ws)["version"],
+            name="Changed meanwhile",
+        )
+    )
     edited = []
     for item in lines:
         if item.get("key", {}).get("id") == middle["id"]:
@@ -317,7 +356,9 @@ def test_an_export_sent_back_changes_nothing_and_an_edited_one_updates_only_unch
 
 
 @pytest.mark.journey("J27.1", "J27.3")
-@pytest.mark.structures("R", "R.u", "R.n", "R.b", "R.dt", "H", "H.code", "K", "K.code", "Bnn", "Bnn.weight")
+@pytest.mark.structures(
+    "R", "R.u", "R.n", "R.b", "R.dt", "H", "H.code", "K", "K.code", "Bnn", "Bnn.weight"
+)
 def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     """Given R records with a leading-zero code, a number, a boolean and a date, and H and K records
     with Bnn relationships. When they are exported as JSON Lines, CSV and XLSX. Then the CSV is one
@@ -327,13 +368,17 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     same records with the same versions."""
     ws = _workspace(world)
     coded = world.made(
-        "R", "Coded", workspace=ws,
+        "R",
+        "Coded",
+        workspace=ws,
         values={"R.u": "007", "R.n": 42, "R.b": True, "R.dt": "2026-03-04"},
     )
     _, middle, _, tokens = _hierarchy(world, ws)
     types = [_type(world, "R"), _type(world, "H"), _type(world, "K")]
     jsonl = _lines(world, _finished(world, ws, types))
-    versions = {line["key"]["id"]: line["expectedVersion"] for line in jsonl if line["op"] == "upsert"}
+    versions = {
+        line["key"]["id"]: line["expectedVersion"] for line in jsonl if line["op"] == "upsert"
+    }
 
     job = _finished(world, ws, types, format="csv")
     response = _download(world, job)
@@ -342,8 +387,15 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
     header = list(rows[0].keys())
     assert header[:9] == [
-        "objectTypeKey", "applicationKey", "relationTypeKey", "id", "version", "name",
-        "parentObjectId", "fromId", "toId",
+        "objectTypeKey",
+        "applicationKey",
+        "relationTypeKey",
+        "id",
+        "version",
+        "name",
+        "parentObjectId",
+        "fromId",
+        "toId",
     ]
     assert f"#{world.key('R.u')}" in header and "~parentPath" in header
     records = [row for row in rows if row["objectTypeKey"]]
@@ -357,7 +409,9 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     assert row[f"#{world.key('R.b')}"] == "true"
     assert row[f"#{world.key('R.dt')}"] == "2026-03-04"
     assert row[f"#{world.key('H.code')}"] == ""
-    assert {(r["fromId"], r["toId"]) for r in relations} == {(middle["id"], t["id"]) for t in tokens}
+    assert {(r["fromId"], r["toId"]) for r in relations} == {
+        (middle["id"], t["id"]) for t in tokens
+    }
 
     job = _finished(world, ws, types, format="xlsx")
     response = _download(world, job)
@@ -367,7 +421,14 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     table = sheet.tables["records"]
     cells = list(sheet[table.ref])
     keys = [cell.value for cell in cells[0]]
-    assert keys[:6] == ["objectTypeKey", "applicationKey", "id", "version", "name", "parentObjectId"]
+    assert keys[:6] == [
+        "objectTypeKey",
+        "applicationKey",
+        "id",
+        "version",
+        "name",
+        "parentObjectId",
+    ]
     rows = [dict(zip(keys, (cell.value for cell in row), strict=True)) for row in cells[1:]]
     assert {row["id"]: row["version"] for row in rows} == versions
     row = next(row for row in rows if row["id"] == coded["id"])
@@ -380,6 +441,40 @@ def test_csv_and_xlsx_hold_the_same_rows_in_one_table_layout(world):
     keys = [cell.value for cell in cells[0]]
     pairs = {(row[keys.index("fromId")].value, row[keys.index("toId")].value) for row in cells[1:]}
     assert pairs == {(middle["id"], t["id"]) for t in tokens}
+
+
+@pytest.mark.journey("J27.1")
+@pytest.mark.structures("R", "R.u", "R.n")
+def test_a_csv_export_holds_no_text_a_spreadsheet_runs_as_a_formula(world):
+    """Given records whose name and text value start with `=`, `+`, `-`, `@` or a tab, one that
+    starts with a letter, one with a quote then `=`, one with a quote then a letter, each holding the number 5. When they are exported as CSV, then each
+    such text starts with a single quote, the plain text and the number are as stored, and
+    the XLSX export holds the same text as text cells, with no formula."""
+    ws = _workspace(world)
+    texts = ["=1+1", "+5", "-5 apples", "@sum", "\tpad", "plain", "'=quoted", "'plain"]
+    made = [world.made("R", name, workspace=ws, values={"R.u": name, "R.n": 5}) for name in texts]
+    types = [_type(world, "R")]
+
+    response = _download(world, _finished(world, ws, types, format="csv"))
+    rows = {
+        row["id"]: row for row in csv.DictReader(io.StringIO(response.content.decode("utf-8-sig")))
+    }
+    for record, written in zip(made, texts, strict=True):
+        row = rows[record["id"]]
+        expected = f"'{written}" if written.lstrip("'")[0] in "=+-@\t" else written
+        assert row["name"] == row[f"#{world.key('R.u')}"] == expected
+        assert row[f"#{world.key('R.n')}"] == "5"
+
+    book = load_workbook(
+        io.BytesIO(_download(world, _finished(world, ws, types, format="xlsx")).content)
+    )
+    sheet = book["Records"]
+    cells = list(sheet[sheet.tables["records"].ref])
+    keys = [cell.value for cell in cells[0]]
+    by_name = {row[keys.index("name")].value: row for row in cells[1:]}
+    for written in texts:
+        cell = by_name[written][keys.index(f"#{world.key('R.u')}")]
+        assert cell.value == written and cell.data_type != "f"
 
 
 @pytest.mark.journey("J27.4")
@@ -419,9 +514,16 @@ def test_a_cancelled_failed_or_expired_export_serves_no_file(world):
     directory = world.api.client.app.state.job_files.directory
     assert sorted(path.name for path in directory.iterdir()) == []
 
-    item = {"op": "create", "applicationKey": world.app("H"), "objectTypeKey": world.key("H"), "name": "Batched"}
+    item = {
+        "op": "create",
+        "applicationKey": world.app("H"),
+        "objectTypeKey": world.key("H"),
+        "name": "Batched",
+    }
     batch = ok(
-        world.api.post("/batches", {"workspaceKey": ws, "policy": "atomic", "run": "inline", "items": [item]})
+        world.api.post(
+            "/batches", {"workspaceKey": ws, "policy": "atomic", "run": "inline", "items": [item]}
+        )
     )
     refused(world.api.get(f"/jobs/{batch['job']['id']}/output"), 404, "JOB_HAS_NO_OUTPUT")
 
@@ -444,7 +546,9 @@ def test_requests_the_model_or_the_workspace_cannot_answer_are_refused(world):
     )
     assert error["details"]["path"] == "/scope/types/1/where/0/field"
     refused(
-        _export(world, ws, [_type(world, "F")], scope={"asOf": "2026-01-01"}), 422, "AS_OF_NOT_SUPPORTED"
+        _export(world, ws, [_type(world, "F")], scope={"asOf": "2026-01-01"}),
+        422,
+        "AS_OF_NOT_SUPPORTED",
     )
     refused(
         _export(world, ws, [_type(world, "H")], scope={"parentObjectId": str(uuid4())}),
@@ -477,7 +581,12 @@ def _batch(world, workspace, items):
     job = ok(
         world.api.post(
             "/batches",
-            {"workspaceKey": workspace, "policy": "independent", "run": "background", "items": items},
+            {
+                "workspaceKey": workspace,
+                "policy": "independent",
+                "run": "background",
+                "items": items,
+            },
         ),
         202,
     )
@@ -485,7 +594,7 @@ def _batch(world, workspace, items):
     outcomes, cursor = [], None
     while True:
         page = ok(world.api.get(f"/jobs/{job['id']}/items", pageSize=500, cursor=cursor))
-        for item, sent in zip(page["items"], items[len(outcomes):], strict=False):
+        for item, sent in zip(page["items"], items[len(outcomes) :], strict=False):
             ref = sent["key"]["id"] if "key" in sent else ("relation", sent["to"]["id"])
             outcome = item.get("action") or item.get("error", {}).get("code")
             outcomes.append((item["status"], outcome, ref))
@@ -526,8 +635,16 @@ def test_an_export_carries_a_relationship_filter_as_the_list_applies_it(world):
     the browser sends it (a related criterion naming a by ID). Then the file holds exactly the
     records the list gives."""
     workspace = _workspace(world)
-    tokens = {name: world.made("K", f"Token {name}", workspace=workspace, values={"K.code": f"T-{name}"})["id"] for name in ("a", "b")}
-    holders = {name: world.made("H", f"Holder {name}", workspace=workspace)["id"] for name in ("a", "b", "none")}
+    tokens = {
+        name: world.made("K", f"Token {name}", workspace=workspace, values={"K.code": f"T-{name}"})[
+            "id"
+        ]
+        for name in ("a", "b")
+    }
+    holders = {
+        name: world.made("H", f"Holder {name}", workspace=workspace)["id"]
+        for name in ("a", "b", "none")
+    }
     for name in ("a", "b"):
         ok(world.relate("Bnn", holders[name], tokens[name], {"Bnn.weight": 1}), 201)
     listed = ok(

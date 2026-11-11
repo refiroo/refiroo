@@ -1,14 +1,16 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import App from "@/app/App";
 import { API_URL } from "@/api/address";
 import { startSession } from "@/api/session";
-import { ResetPasswordScreen } from "@/features/sign-in/ResetPasswordScreen";
+import { ResetPasswordScreen, takeResetToken } from "@/features/sign-in/ResetPasswordScreen";
 import { SignInScreen } from "@/features/sign-in/SignInScreen";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 import "@fontsource-variable/instrument-sans/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./styles.css";
+
+// The application loads once a session exists: the sign-in screens do not carry it (0.17 RF3).
+const App = lazy(() => import("@/app/App"));
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
@@ -39,7 +41,7 @@ async function start() {
     // Asking for a new password, or choosing it with a link (0.12 I6): the person has no session.
     root.render(
       <React.StrictMode>
-        <ResetPasswordScreen />
+        <ResetPasswordScreen token={takeResetToken()} />
       </React.StrictMode>,
     );
     return;
@@ -62,7 +64,9 @@ async function start() {
   root.render(
     <React.StrictMode>
       <ErrorBoundary>
-        <App />
+        <Suspense fallback={<Starting />}>
+          <App />
+        </Suspense>
       </ErrorBoundary>
     </React.StrictMode>,
   );

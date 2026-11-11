@@ -1,0 +1,9 @@
+# The application's Content-Security-Policy (0.17 RF4), for the pages and files web serves itself (not for
+# what the engine answers: it sends the policy of its own pages). The application is one built bundle on
+# one origin: scripts and styles only from it (the theme is applied by public/theme-init.js, no inline
+# script), requests only to it (the engine is reached on the same address, D404), images and fonts from
+# it and inline data, no plug-ins, no other base address, forms only to itself, and no frame.
+# Styles may be inline: the components set style attributes (a width, a position) and the component
+# library adds a style element of its own when the application starts (found by the deployment runner).
+# No script is allowed inline.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;

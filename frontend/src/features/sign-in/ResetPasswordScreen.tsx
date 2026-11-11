@@ -27,13 +27,42 @@ function refusalText(refused: ResetRefused): string {
   return refused.message;
 }
 
-export function ResetPasswordScreen({ token = new URLSearchParams(window.location.search).get("token") ?? "" }) {
+/**
+ * The token of the link this page was opened with, taken out of the address: read from `?token=`,
+ * then the address is replaced by the bare path so the token is in neither the address bar nor the
+ * history. It is kept in this entry's history state, so a reload of the page (before the password
+ * is set) still finds it; a page opened without one is the "ask for a link" page.
+ */
+export function takeResetToken(): string {
+  const fromAddress = new URLSearchParams(window.location.search).get("token");
+  if (fromAddress !== null) {
+    window.history.replaceState(
+      { ...(window.history.state ?? {}), resetToken: fromAddress },
+      "",
+      window.location.pathname,
+    );
+    return fromAddress;
+  }
+  const kept = (window.history.state as { resetToken?: unknown } | null)?.resetToken;
+  return typeof kept === "string" ? kept : "";
+}
+
+/** The link is spent or refused: this entry no longer keeps its token, so the page is the ask page again. */
+function forgetResetToken() {
+  window.history.replaceState(null, "");
+}
+
+export function ResetPasswordScreen({ token }: { token: string }) {
   const [page, setPage] = useState<ResetPage>();
   const [loadError, setLoadError] = useState("");
   useEffect(() => {
     let current = true;
     resetPage(token)
-      .then((answer) => current && setPage(answer))
+      .then((answer) => {
+        if (!current) return;
+        if (!answer.ok && answer.error === "link_gone") forgetResetToken();
+        setPage(answer);
+      })
       .catch(() => current && setLoadError(`The engine at ${API_URL} did not answer. Check that it is running.`));
     return () => {
       current = false;
@@ -148,9 +177,13 @@ function NewPassword({ token, email, minLength }: { token: string; email: string
     setMessage("");
     try {
       const answer = await setPasswordWithLink(token, password, repeat);
-      if (answer.ok) setDone(true);
-      else if (answer.error === "link_gone") setGone(true);
-      else setMessage(refusalText(answer));
+      if (answer.ok) {
+        forgetResetToken();
+        setDone(true);
+      } else if (answer.error === "link_gone") {
+        forgetResetToken();
+        setGone(true);
+      } else setMessage(refusalText(answer));
     } catch {
       setMessage(`The engine at ${API_URL} did not answer. Try again.`);
     } finally {

@@ -307,10 +307,10 @@ AI proposals and agent access stay off until you enable them. See [Set up AI](/d
 
 Take a backup before loading important data and before every upgrade. Protect both PostgreSQL
 and `job-files`: the latter holds imports, exports and model-authoring source files. A database
-dump alone does not protect those files. The `assistant` volume holds assistant task folders;
-`assistant-claude` holds Claude Code configuration and session logs. A backup need not include
-these two volumes: losing them loses open tasks’ folders and session logs, not records. The
-backup commands below omit them.
+dump alone does not protect those files. The `assistant` volume holds each task's working files,
+Claude Code configuration, transcripts and turn logs in its own randomly named folder. A backup
+may omit this volume: losing it loses open tasks’ folders and session logs, not records. The
+backup commands below omit it.
 
 Pause traffic and integrations that write. Stop the engine so its workers cannot change or clean
 up files between the two copies; leave PostgreSQL running:
@@ -365,11 +365,17 @@ curl --fail -sS https://refiroo.example.org/health
 Compose reports the engine started; wait for readiness to return `{"status":"ok"}` and check
 sign-in before reopening writers. For an upgrade, keep writers paused and continue below.
 
+The image versions and dependencies are pinned. To change those pins rather than take them from
+a release, follow [Maintain build versions](/docs/run/upgrades/#maintain-build-versions).
+
 ## 8. Upgrade to the next tag
 
-An upgrade keeps the named volumes: `database`, `job-files`, `assistant` and `assistant-claude`,
-plus `caddy-data` with automatic HTTPS. Keep the same Compose project name and mounts so open
-assistant tasks retain their folders and session logs.
+An upgrade keeps the named volumes: `database`, `job-files` and `assistant`, plus `caddy-data`
+with automatic HTTPS. Keep the same Compose project name and mounts so open assistant tasks
+retain their folders and session logs. When upgrading from the earlier shared-transcript layout,
+existing files are kept but the next turn starts a new session. Follow
+[Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks) for the obsolete transcript volume
+and the private webhook receivers that need an operator setting before delivery resumes.
 
 Read the target version's compatibility notes and rehearse it on a copy of your data. Take the
 backup in step 7 first, keeping the old tag and matching configuration for recovery. Keep writers
@@ -462,8 +468,8 @@ Fill it in the selected file and validate again.
 The images keep application files under `/opt/refiroo/rdm-engine`, separate from the host checkout.
 The engine runs from `backend/`; its bootstrap model is `model/rdm-starter.json`, its built
 documentation is `guide/dist`. The engine’s named volumes mount at `data/job-files` (`job-files`),
-`data/assistant` (`assistant`, task folders) and `data/assistant-claude` (`assistant-claude`, Claude
-Code configuration and session logs) under that image root. The web image mounts file-mode
+`data/assistant` (`assistant`, task folders including Claude Code configuration and session logs)
+under that image root. The web image mounts file-mode
 certificates at `frontend/certs`. Use these paths for custom mounts; mounting a volume elsewhere
 leaves the actual files unprotected.
 
@@ -478,6 +484,6 @@ started, then repeat readiness and sign-in checks. Keep the named volumes; recov
 [matching backup](/docs/run/backup-and-restore/).
 
 `docker compose down` also keeps named volumes. Adding `-v` removes `database`, `job-files`,
-`assistant` and `assistant-claude`, plus `caddy-data` with the HTTPS overlay. That deletes records,
+`assistant`, plus `caddy-data` with the HTTPS overlay. That deletes records,
 job files, assistant task folders and session logs, and Caddy’s certificates and account. Do not
 use `docker compose down -v` to repair the installation.

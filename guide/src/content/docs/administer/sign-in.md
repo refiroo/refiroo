@@ -159,6 +159,15 @@ A person who manages their own sign-in can request recovery there rather than as
 is absent, use the administrator's reset procedure. The account-side password, session, passkey
 and recovery-code tasks are on [Your account](/docs/use/account/).
 
+A forgotten-password request replaces only earlier links requested from the sign-in page. It
+does not cancel a link made by an administrator. Making a new administrator link replaces all
+earlier password links for that person.
+
+Opening a valid link takes the secret part out of the address bar before showing the password
+form. You can reload the page in the same browser without losing the link. If the form no longer
+opens, reopen the original link while it is valid; an expired, replaced or used link
+needs a new one. Keep the original link private rather than sharing the address shown after it opens.
+
 ## Help with the sign-in screen
 
 The screen shows the refiroo mark and **Reference data that stays in step.** People enter **E-mail address** and **Password**, then **Sign in**; **Signing in…** means it is waiting for an answer. Provider buttons say **Continue with …**. **Sign in with a passkey** uses a registered passkey and the device’s own confirmation.

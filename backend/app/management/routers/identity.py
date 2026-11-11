@@ -398,7 +398,8 @@ def post_password_reset(
     payload: PasswordResetRequest | None = None,
 ) -> PasswordResetLinkResponse:
     """A one-time link that sets the person's password, answered this once and valid for
-    ``PASSWORD_RESET_HOURS``; it replaces any earlier link. Using it ends their sessions (D272).
+    ``PASSWORD_RESET_HOURS``; it replaces every earlier link (a link from a forgotten-password
+    request replaces only earlier requested ones). Using it ends their sessions (D272).
     With ``send: true`` it is also queued as mail to the person's address and ``sentTo`` names it
     (SP3, D418); ``409 MAIL_NOT_SET_UP`` and ``409 NO_EMAIL`` leave the earlier link as it was.
     While local sign-in is off, refused for a person who does not keep it

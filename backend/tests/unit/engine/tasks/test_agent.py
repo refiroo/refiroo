@@ -1,6 +1,8 @@
 """The assistant's session in its folder, and its checklist from what the engine recorded."""
 
+import fcntl
 import json
+import os
 import signal
 import subprocess
 from datetime import UTC, datetime, timedelta
@@ -229,30 +231,627 @@ def test_the_persons_words_are_the_last_argument_after_the_end_of_the_options(
     assert "proposal.json" in voice and "CHANGE_SET:" in voice
 
 
-def test_in_a_container_the_session_runs_as_the_assistant_user_through_sudo(monkeypatch, tmp_path):
-    """R-F45: the command is prefixed to run as its own user; outside a container it is not."""
+def test_in_a_container_the_session_runs_as_a_pool_user_through_sudo_with_nothing_secret_on_its_command_line(
+    monkeypatch, tmp_path
+):
+    """R-F45, 0.17 RF5: the command runs as one user of the pool; the folder's path and the person's
+    words are no argument (any process of the container reads those), and the token is not either."""
     from app.engine.tasks.agent import _command, _session_environment
 
     monkeypatch.setenv("AI_AGENT_COMMAND", "claude --model sonnet")
     monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
     monkeypatch.setenv("DATABASE_URL", "postgresql://secret")
-    command = _command(tmp_path, "Words", "s-1", False)
-    assert command[:6] == ["sudo", "-n", "-u", "assistant", "--", "claude"]
-    assert command[-2:] == ["--", "Words"] and "--resume" in command
+    folder = tmp_path / "random-name" / "work"
+    command = _command(folder, "Words that are private", "s-1", False, "assistant-3")
+    assert command[:6] == ["sudo", "-n", "-u", "assistant-3", "--", "claude"]
+    assert "--resume" in command and command[command.index("--resume") + 1] == "s-1"
+    shown = " ".join(command)
+    assert "random-name" not in shown and str(tmp_path) not in shown
+    assert "Words that are private" not in shown and "--" not in command[6:]
     # The sandbox of the operating system is off in a container, and the token is no argument.
     settings = json.loads(command[command.index("--settings") + 1])
     assert settings["sandbox"]["enabled"] is False
+    assert "filesystem" not in settings["sandbox"] and "network" not in settings["sandbox"]
     environment = _session_environment("tok-1")
     assert "DATABASE_URL" not in environment and environment["REFIROO_TOKEN"] == "tok-1"
-    assert "tok-1" not in " ".join(command)
+    assert "tok-1" not in shown
     # Its scratch folder is inside its own folder, the only place every turn may read (task 95).
+    # The engine names its scratch folder and makes none: a session may have replaced what is there.
     assert _session_environment("tok-1", tmp_path)["TMPDIR"] == str(tmp_path / "tmp")
-    assert (tmp_path / "tmp").is_dir()
+    assert not (tmp_path / "tmp").exists()
     from app.engine.tasks.agent import _folder_rule
 
     assert f"$TMPDIR is {tmp_path / 'tmp'}" in _folder_rule(tmp_path)
     monkeypatch.setenv("AI_AGENT_SANDBOX", "")
     assert _command(tmp_path, "Words", "s-1", False)[0] == "claude"
+
+
+def test_the_words_go_to_the_sessions_standard_input_in_a_container(monkeypatch, tmp_path):
+    from app.engine.tasks import agent
+
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    process = subprocess.Popen(["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    agent._feed(process, "Words\nof two lines")
+    assert process.stdout.read() == "Words\nof two lines"
+    process.wait()
+    # A session that has ended before it read the words is no failure of the feeding.
+    gone = subprocess.Popen(["true"], stdin=subprocess.PIPE, text=True)
+    gone.wait()
+    agent._feed(gone, "x" * 200_000)
+
+
+def test_the_session_sees_only_the_named_variables(monkeypatch, tmp_path):
+    from app.engine.tasks import agent
+
+    # The machine's own environment must not leak into what is asserted.
+    machine = {"PATH": "/usr/bin", "AI_AGENT_SANDBOX": "container"}
+    monkeypatch.setattr(agent.os, "environ", machine)
+    machine.update(
+        {
+            "ANTHROPIC_API_KEY": "k",
+            "CLAUDE_CODE_OAUTH_TOKEN": "o",
+            "ANTHROPIC_BASE_URL": "https://gateway",
+            "ANTHROPIC_MODEL": "m",
+            "NODE_EXTRA_CA_CERTS": "/ca.pem",
+            "LC_ALL": "C.UTF-8",
+            "LANG": "C.UTF-8",
+            # Not on the list, whatever their prefix: nothing else of Claude Code's, AWS's or Node's.
+            "ANTHROPIC_FUTURE_THING": "x",
+            "CLAUDE_CODE_SOMETHING": "x",
+            "AWS_SECRET_ACCESS_KEY": "aws-secret",
+            "AWS_REGION": "eu-west-1",
+            "NODE_OPTIONS": "--require /x",
+            "SECRETS_ENCRYPTION_KEY": "never",
+            "HOME": "/home/engine",
+        }
+    )
+    seen = agent._session_environment("t", tmp_path, tmp_path / "claude")
+    assert set(seen) == {
+        "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL",
+        "NODE_EXTRA_CA_CERTS", "LC_ALL", "LANG", "REFIROO_TOKEN", "PATH", "TMPDIR",
+        "CLAUDE_CONFIG_DIR",
+    }  # fmt: skip
+    assert seen["CLAUDE_CONFIG_DIR"] == str(tmp_path / "claude")
+    # Bedrock's names only when Bedrock is on.
+    machine["CLAUDE_CODE_USE_BEDROCK"] = "1"
+    bedrock = agent._session_environment("t")
+    assert bedrock["AWS_SECRET_ACCESS_KEY"] == "aws-secret" and bedrock["AWS_REGION"] == "eu-west-1"
+    assert "NODE_OPTIONS" not in bedrock
+    # Outside a container the same list, with the developer's own HOME, USER and SHELL.
+    machine["AI_AGENT_SANDBOX"] = ""
+    del machine["CLAUDE_CODE_USE_BEDROCK"]
+    assert agent._session_environment("t")["HOME"] == "/home/engine"
+    assert "SECRETS_ENCRYPTION_KEY" not in agent._session_environment("t")
+
+
+def test_the_sudoers_rule_keeps_exactly_the_names_the_engine_passes():
+    """The engine's list and the image's sudoers line are one list: sudo would drop a name added to
+    only one of them, or keep one the engine never passes."""
+    import re
+    from pathlib import Path
+
+    from app.engine.tasks import agent
+
+    dockerfile = Path(__file__).parents[4] / "Dockerfile"
+    kept = re.search(r'env_keep = "([^"]*)"', dockerfile.read_text())
+    assert kept is not None
+    expected = {
+        *agent.PASSED_NAMES,
+        *agent.BEDROCK_NAMES,
+        *(p + "*" for p in agent.PASSED_PREFIXES),
+    }
+    assert set(kept.group(1).split()) == expected
+    text = dockerfile.read_text()
+    assert "ASSISTANTS" in text and "(assistant)" not in text
+    # Two commands as a pool user, and nothing else: the session's binary and the reset between turns.
+    rule = re.search(r"rdm ALL=\(ASSISTANTS\) NOPASSWD: ([^']*)'", text)
+    assert rule is not None
+    assert [c.strip() for c in rule.group(1).split(",")] == [
+        "/usr/local/bin/claude",
+        agent.RESET_COMMAND,
+    ]
+
+
+def test_a_turn_holds_a_session_user_until_it_ends_and_none_free_says_what_to_raise(
+    monkeypatch, tmp_path
+):
+    from app.engine.tasks import agent
+
+    monkeypatch.setattr(agent, "_pool_users", lambda: ["assistant-1", "assistant-2"])
+    slots = tmp_path / "assistant-slots"
+    first, first_lock = agent._take_session_user(slots)
+    second, second_lock = agent._take_session_user(slots)
+    assert (first, second) == ("assistant-1", "assistant-2")
+    assert oct(slots.stat().st_mode & 0o777) == "0o700"
+    try:
+        agent._take_session_user(slots)
+    except agent.NoSessionUser as error:
+        assert "ASSISTANT_USERS" in str(error) and "all 2" in str(error)
+    else:
+        raise AssertionError("a third turn found a user")
+    # The end of a turn frees its user.
+    first_lock.close()
+    again, again_lock = agent._take_session_user(slots)
+    assert again == "assistant-1"
+    again_lock.close()
+    second_lock.close()
+    monkeypatch.setattr(agent, "_pool_users", list)
+    try:
+        agent._take_session_user(slots)
+    except agent.NoSessionUser as error:
+        assert "ASSISTANT_USERS" in str(error)
+    else:
+        raise AssertionError("no pool, yet a user")
+
+
+def _planted(tmp_path):
+    """A working folder whose scratch folder, files and Claude Code folder a session has replaced by
+    links to a folder of the engine's: ``victim`` stands for ``data/assistant`` itself."""
+    victim = tmp_path / "victim"
+    victim.mkdir(mode=0o750)
+    victim.chmod(0o750)
+    secret = victim / "secret.txt"
+    secret.write_text("not for the session")
+    home = tmp_path / "home"
+    (home / "work").mkdir(parents=True)
+    (home / "claude").mkdir()
+    (home / "work" / "tmp").symlink_to(victim)
+    (home / "work" / "proposal.json").symlink_to(secret)
+    (home / "work" / "workbook.xlsx").symlink_to(secret)
+    (home / "claude" / "sessions").symlink_to(victim)
+    return victim, secret, home
+
+
+def test_a_link_a_session_planted_is_never_followed_by_the_engine(monkeypatch, tmp_path):
+    """Review finding: ``mkdir(exist_ok=True)`` and ``chmod`` followed a link in a folder the session
+    writes in, so one turn changed the mode of the tasks' root and the next let every session in."""
+    from app.engine.tasks import agent
+
+    victim, secret, home = _planted(tmp_path)
+    work = home / "work"
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "")
+    agent._ensure_tmp(work)
+    assert (work / "tmp").is_dir() and not (work / "tmp").is_symlink()
+    assert oct(victim.stat().st_mode & 0o777) == "0o750" and secret.exists()
+    # The engine makes no folder of a task that has them and changes nothing in them.
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    monkeypatch.setattr(agent, "_create_task_folders", lambda *a, **k: 1 / 0)
+    agent._make_folders(work)
+    assert (home / "claude" / "sessions").is_symlink()
+    assert oct(victim.stat().st_mode & 0o777) == "0o750"
+    # What the session wrote is read through no link, from no other kind of file, and no more than a limit.
+    assert agent._read_work(work, "proposal.json") is None
+    (work / "proposal.json").unlink()
+    os.mkfifo(work / "proposal.json")
+    assert agent._read_work(work, "proposal.json") is None
+    (work / "proposal.json").unlink()
+    (work / "proposal.json").write_text('{"draftId": 1}')
+    assert agent._read_work(work, "proposal.json") == '{"draftId": 1}'
+    assert agent._read_work(work, "proposal.json", limit=3) is None
+    # What the engine hands the session replaces a link and writes nothing through it.
+    agent._put(work, "workbook.xlsx", b"new")
+    assert (work / "workbook.xlsx").read_bytes() == b"new" and not (
+        work / "workbook.xlsx"
+    ).is_symlink()
+    assert secret.read_text() == "not for the session"
+    (work / "proposal.json").unlink()
+    (work / "proposal.json").symlink_to(secret)
+    agent._drop(work, "proposal.json")
+    assert not (work / "proposal.json").exists() and secret.exists()
+    # Removing the task's folder removes a link and never what it points to.
+    task = SimpleNamespace(public_id="t1", design={})
+    monkeypatch.setenv("AI_AGENT_FOLDERS", str(tmp_path))
+    monkeypatch.setattr(agent, "home_of", lambda files, t: home)
+    monkeypatch.setattr(agent, "folder_of", lambda files, t: work)
+    monkeypatch.setattr(agent, "_transcripts", lambda files, t: tmp_path / "none")
+    agent.remove_folder(None, task)
+    assert not home.exists() and secret.read_text() == "not for the session"
+
+
+def test_a_gate_opens_for_the_group_of_the_turns_user_and_closes_after_it(monkeypatch, tmp_path):
+    from app.engine.tasks import agent
+
+    gate = tmp_path / "gate"
+    gate.mkdir()
+    gate.chmod(0o700)
+    changed = []
+    monkeypatch.setattr(agent.pwd, "getpwnam", lambda name: SimpleNamespace(pw_gid=4242))
+    monkeypatch.setattr(agent.os, "fchown", lambda fd, uid, gid: changed.append((uid, gid)))
+    agent._open_gate(gate, "assistant-2")
+    assert changed == [(-1, 4242)] and oct(gate.stat().st_mode & 0o777) == "0o710"
+    agent._close_gate(gate)
+    assert oct(gate.stat().st_mode & 0o777) == "0o700"
+    # A link in the gate's place is no gate.
+    link = tmp_path / "link"
+    link.symlink_to(gate)
+    try:
+        agent._open_gate(link, "assistant-2")
+    except OSError:
+        pass
+    else:
+        raise AssertionError("a link was followed")
+
+
+def test_a_gate_an_engine_that_died_left_open_is_closed_unless_a_turn_holds_its_user(
+    monkeypatch, tmp_path
+):
+    from app.engine.tasks import agent
+
+    root = tmp_path / "assistant"
+    slots = tmp_path / "assistant-slots"
+    held, free = root / "held", root / "free"
+    for gate in (held, free):
+        gate.mkdir(parents=True)
+        gate.chmod(0o710)
+    names = {held.stat().st_gid: "assistant-1"}
+    monkeypatch.setattr(agent.grp, "getgrgid", lambda gid: SimpleNamespace(gr_name=names[gid]))
+    # Another process is running a turn as assistant-1: its gate is open on purpose.
+    slots.mkdir()
+    lock = open(slots / "assistant-1", "a")  # noqa: SIM115
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    agent._close_idle_gates(root, slots)
+    assert oct(held.stat().st_mode & 0o777) == "0o710"
+    lock.close()
+    agent._close_idle_gates(root, slots)
+    assert (
+        oct(held.stat().st_mode & 0o777) == "0o700" and oct(free.stat().st_mode & 0o777) == "0o700"
+    )
+
+
+def test_the_reset_runs_before_and_after_a_turn_and_a_failing_one_fails_the_turn(
+    monkeypatch, tmp_path
+):
+    from app.engine.tasks import agent
+
+    folder = tmp_path / "gate" / "work"
+    folder.mkdir(parents=True)
+    events = []
+
+    class Lock:
+        def close(self):
+            events.append("lock closed")
+
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    monkeypatch.setenv("AI_AGENT_FOLDERS", str(tmp_path / "assistant"))
+    monkeypatch.setattr(agent, "_take_session_user", lambda slots: ("assistant-3", Lock()))
+    monkeypatch.setattr(agent, "_open_gate", lambda gate, user: events.append(f"open {user}"))
+    monkeypatch.setattr(agent, "_close_gates_of", lambda root, user: events.append(f"stale {user}"))
+    monkeypatch.setattr(agent, "_close_gate", lambda gate: events.append("close"))
+    monkeypatch.setattr(
+        agent,
+        "_reset",
+        lambda user, config=None, work=None: events.append(
+            f"reset {user}" + (" with folders" if work is not None else "")
+        ),
+    )
+    monkeypatch.setattr(agent, "_ensure_tmp", lambda work: events.append("tmp"))
+    monkeypatch.setattr(agent, "_command", lambda *a, **k: (_ for _ in ()).throw(OSError("stop")))
+    monkeypatch.setattr(agent, "_end", lambda *a: None)
+    monkeypatch.setattr(agent, "_record_turn", lambda *a, **k: None)
+    monkeypatch.setattr(agent, "note", lambda *a: None)
+    monkeypatch.setattr(agent, "finish", lambda *a: None)
+    monkeypatch.setattr(agent, "_retention", lambda ctx: 1)
+    monkeypatch.setattr(agent, "load_task", lambda *a, **k: SimpleNamespace(design={}))
+    session = SimpleNamespace(commit=lambda: None)
+    job = SimpleNamespace(id="j")
+    args = (session, job, SimpleNamespace(), "t1", folder, "p", "s", "tok", 1, [])
+    assert agent._turn(*args, first=True, load=False) is None
+    # Before: the reset first, the gate still closed, then the gate opens. After: the reset first, the
+    # gate still open for the user's files, then the gate closes, then the user is let go.
+    assert events == ["reset assistant-3", "stale assistant-3", "open assistant-3", "tmp",
+                      "reset assistant-3 with folders", "close", "lock closed"]  # fmt: skip
+    # A reset that does not finish ends the turn before the session starts, naming what failed.
+    events.clear()
+    notes = []
+    monkeypatch.setattr(agent, "note", lambda task, kind, text: notes.append(text))
+
+    def failing(user, config=None, work=None):
+        events.append(f"reset {user}")
+        raise agent.ResetFailed("The reset of session user assistant-3 did not finish")
+
+    monkeypatch.setattr(agent, "_reset", failing)
+    assert agent._turn(*args, first=True, load=False) is None
+    # A reset that fails before a turn opens no gate and starts no session; the user is let go.
+    assert events == ["reset assistant-3", "lock closed"]
+    assert notes == ["The reset of session user assistant-3 did not finish"]
+
+
+def test_the_reset_command_is_a_sudo_call_as_the_session_user_with_the_folders_on_standard_input(
+    monkeypatch, tmp_path
+):
+    from app.engine.tasks import agent
+
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs["input"]))
+        return SimpleNamespace(stdout=f"{agent.RESET_DONE}\n", stderr="", returncode=0)
+
+    monkeypatch.setattr(agent.subprocess, "run", run)
+    agent._reset("assistant-2")
+    agent._reset("assistant-2", tmp_path / "claude", tmp_path / "work")
+    base = ["sudo", "-n", "-u", "assistant-2", "--", agent.RESET_COMMAND]
+    # The folders' paths are no argument (every process of the container reads those).
+    assert calls == [
+        (base, ""),
+        (base, f"{tmp_path / 'claude'}\n{tmp_path / 'work'}\n"),
+    ]
+    # Both the marker and the exit status are the proof.
+    for stdout, code, stderr in (
+        ("", 1, "sudo: a password is required"),
+        (f"{agent.RESET_DONE}\n", 1, "processes remain"),
+    ):
+        monkeypatch.setattr(
+            agent.subprocess,
+            "run",
+            lambda *a, _o=(stdout, code, stderr), **k: SimpleNamespace(
+                stdout=_o[0], stderr=_o[2], returncode=_o[1]
+            ),
+        )
+        try:
+            agent._reset("assistant-2", tmp_path, tmp_path)
+        except agent.ResetFailed as error:
+            assert "did not finish" in str(error)
+        else:
+            raise AssertionError("a reset that did not finish passed")
+
+
+def test_the_reset_script_ends_processes_first_and_again_last_and_refuses_bad_paths(tmp_path):
+    """It ends every process of its user, so only its refusals are run here."""
+    from pathlib import Path
+
+    script = Path(__file__).parents[4] / "refiroo-session-reset"
+    text = script.read_text()
+    body = text[text.index("end_processes\n\n# Makes") :]
+    # Order: processes end, then the clean-up, then the chmod, then processes end again, then the marker.
+    steps = [
+        "end_processes",
+        "make_usable",
+        "rm -rf",
+        "chmod g+rwX",
+        "end_processes",
+        'echo "refiroo-session-reset-done"',
+    ]
+    at = -1
+    for step in steps:
+        at = body.index(step, at + 1)
+    assert body.rstrip().endswith('echo "refiroo-session-reset-done"') and "/dev/shm" in body
+    for given in ("relative\n/abs\n", "/abs\n/a/../b\n", "/only-one\n"):
+        done = subprocess.run(
+            ["sh", str(script)], input=given, capture_output=True, text=True, check=False
+        )
+        assert done.returncode == 2 and "refiroo-session-reset-done" not in done.stdout
+
+
+def test_a_gate_left_open_for_a_user_is_closed_before_its_next_turn_opens_its_own(
+    monkeypatch, tmp_path
+):
+    """Review: an engine killed between opening a gate and closing it left the gate open to the next
+    turn of the same user, for another task."""
+    from app.engine.tasks import agent
+
+    root = tmp_path / "assistant"
+    stale, other, own = root / "stale", root / "other", root / "own"
+    for gate in (stale, other, own):
+        gate.mkdir(parents=True)
+        gate.chmod(0o700)
+    stale.chmod(0o710)
+    other.chmod(0o710)
+    mine = stale.stat().st_gid
+    # `other` is open for another user's group: it must stay as it is.
+    real_fstat = agent.os.fstat
+    inode = other.stat().st_ino
+
+    def fstat(descriptor):
+        found = real_fstat(descriptor)
+        if found.st_ino == inode:
+            return SimpleNamespace(st_gid=mine + 1, st_mode=found.st_mode)
+        return found
+
+    monkeypatch.setattr(agent.os, "fstat", fstat)
+    monkeypatch.setattr(agent.pwd, "getpwnam", lambda name: SimpleNamespace(pw_gid=mine))
+    monkeypatch.setattr(agent.os, "fchown", lambda *a: None)
+    agent._close_gates_of(root, "assistant-2")
+    assert oct(stale.stat().st_mode & 0o777) == "0o700"
+    assert oct(other.stat().st_mode & 0o777) == "0o710"
+    agent._open_gate(own, "assistant-2")
+    opened = [g.name for g in root.iterdir() if g.stat().st_mode & 0o010]
+    assert sorted(opened) == ["other", "own"]
+
+
+def test_a_gate_that_cannot_be_closed_fails_the_turn_and_no_gate_opens(monkeypatch, tmp_path):
+    from app.engine.tasks import agent
+
+    root = tmp_path / "assistant"
+    stale = root / "stale"
+    stale.mkdir(parents=True)
+    stale.chmod(0o710)
+    monkeypatch.setattr(
+        agent.pwd, "getpwnam", lambda name: SimpleNamespace(pw_gid=stale.stat().st_gid)
+    )
+
+    def refuse(descriptor, mode):
+        raise PermissionError("operation not permitted")
+
+    monkeypatch.setattr(agent.os, "fchmod", refuse)
+    try:
+        agent._close_gates_of(root, "assistant-2")
+    except agent.ResetFailed as error:
+        assert "could not be closed" in str(error) and "assistant-2" in str(error)
+    else:
+        raise AssertionError("a gate that stayed open let the turn go on")
+    monkeypatch.undo()
+    # In a turn it is the same failure as a failed reset: no gate opens, no session starts.
+    events = []
+    folder = tmp_path / "gate" / "work"
+    folder.mkdir(parents=True)
+
+    class Lock:
+        def close(self):
+            events.append("lock closed")
+
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    monkeypatch.setenv("AI_AGENT_FOLDERS", str(root))
+    monkeypatch.setattr(agent, "_take_session_user", lambda slots: ("assistant-2", Lock()))
+    monkeypatch.setattr(agent, "_reset", lambda *a, **k: events.append("reset"))
+    monkeypatch.setattr(agent, "_open_gate", lambda *a: events.append("open"))
+    monkeypatch.setattr(agent, "_close_gate", lambda *a: events.append("close"))
+
+    def stuck(root, user):
+        raise agent.ResetFailed("A task's folder still open could not be closed")
+
+    notes = []
+    monkeypatch.setattr(agent, "_close_gates_of", stuck)
+    for name in ("_end", "_record_turn", "finish"):
+        monkeypatch.setattr(agent, name, lambda *a, **k: None)
+    monkeypatch.setattr(agent, "note", lambda task, kind, text: notes.append(text))
+    monkeypatch.setattr(agent, "_retention", lambda ctx: 1)
+    monkeypatch.setattr(agent, "load_task", lambda *a, **k: SimpleNamespace(design={}))
+    args = (SimpleNamespace(commit=lambda: None), SimpleNamespace(id="j"), SimpleNamespace(),
+            "t1", folder, "p", "s", "tok", 1, [])  # fmt: skip
+    assert agent._turn(*args, first=True, load=False) is None
+    assert events == ["reset", "lock closed"] and "could not be closed" in notes[0]
+
+
+def test_an_idle_gate_is_read_again_once_its_users_lock_is_held(monkeypatch, tmp_path):
+    """Review note: the gate's group was read before the lock; a turn of another process that opened the
+    gate for another user in between must not find it closed."""
+    from app.engine.tasks import agent
+
+    root = tmp_path / "assistant"
+    slots = tmp_path / "assistant-slots"
+    gate = root / "gate"
+    gate.mkdir(parents=True)
+    gate.chmod(0o710)
+    real_gid = gate.stat().st_gid
+    monkeypatch.setattr(agent.grp, "getgrgid", lambda gid: SimpleNamespace(gr_name="assistant-1"))
+    seen = []
+    real_fstat = agent.os.fstat
+
+    def changing(descriptor):
+        found = real_fstat(descriptor)
+        seen.append(found)
+        if len(seen) == 2:  # the second look: another process has opened it for another group
+            return SimpleNamespace(st_gid=real_gid + 1, st_mode=found.st_mode)
+        return found
+
+    monkeypatch.setattr(agent.os, "fstat", changing)
+    agent._close_idle_gates(root, slots)
+    assert oct(gate.stat().st_mode & 0o777) == "0o710"
+    # With nothing changed between the two looks, the gate is closed.
+    seen.clear()
+    monkeypatch.setattr(agent.os, "fstat", real_fstat)
+    agent._close_idle_gates(root, slots)
+    assert oct(gate.stat().st_mode & 0o777) == "0o700"
+
+
+def test_in_a_container_a_tasks_folder_has_a_random_name_kept_with_the_task(monkeypatch, tmp_path):
+    from app.engine.tasks import agent
+
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    monkeypatch.setenv("AI_AGENT_FOLDERS", str(tmp_path / "assistant"))
+    files = SimpleNamespace(directory=tmp_path / "files")
+    task = SimpleNamespace(public_id="t1", design={"agentSession": "s-1"})
+    session = SimpleNamespace(commit=lambda: None)
+    monkeypatch.setattr(agent, "load_task", lambda *a, **k: task)
+    monkeypatch.setattr(agent, "_open_root", lambda root: root.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(agent, "_shared_dir", lambda path: path.mkdir(exist_ok=True))
+    agent.ensure_folder(session, files, "t1")
+    name = task.design[agent.FOLDER_KEY]
+    assert len(name) >= 32 and "t1" not in name
+    assert agent.folder_of(files, task) == tmp_path / "assistant" / name / "work"
+    assert agent.home_of(files, task) == tmp_path / "assistant" / name
+    agent.ensure_folder(session, files, "t1")
+    assert task.design[agent.FOLDER_KEY] == name
+    other = SimpleNamespace(public_id="t2", design={})
+    monkeypatch.setattr(agent, "load_task", lambda *a, **k: other)
+    agent.ensure_folder(session, files, "t2")
+    assert other.design[agent.FOLDER_KEY] != name
+    assert agent._transcripts(files, task) == tmp_path / "assistant" / name / "claude" / "projects"
+    # A new task's folders are made once, the gate around work and claude.
+    agent._make_folders(agent.folder_of(files, task))
+    home = agent.home_of(files, task)
+    assert sorted(p.name for p in home.iterdir()) == ["claude", "work"]
+    assert oct(home.stat().st_mode & 0o777) == "0o700" and (home / "work" / "tmp").is_dir()
+
+
+def test_the_name_is_committed_before_the_folder_moves_and_a_sweep_finishes_a_move_it_finds(
+    monkeypatch, tmp_path
+):
+    """Review finding: the folder was renamed before its name was committed, and a sweep in that
+    window removed it as the folder of no task."""
+    from app.engine.tasks import agent
+
+    root = tmp_path / "assistant"
+    (root / "t1").mkdir(parents=True)
+    (root / "t1" / "workbook.xlsx").write_text("w")
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    monkeypatch.setenv("AI_AGENT_FOLDERS", str(root))
+    files = SimpleNamespace(directory=tmp_path / "files")
+    task = SimpleNamespace(public_id="t1", design={"agentSession": "s-1"})
+    seen = []
+    session = SimpleNamespace(
+        commit=lambda: seen.append((task.design.get(agent.FOLDER_KEY), (root / "t1").exists()))
+    )
+    monkeypatch.setattr(agent, "load_task", lambda *a, **k: task)
+    monkeypatch.setattr(agent, "_open_root", lambda root: None)
+    monkeypatch.setattr(agent, "_shared_dir", lambda path: path.mkdir(exist_ok=True))
+    assert agent.resumable(files, task) is False
+    agent.ensure_folder(session, files, "t1")
+    name = task.design[agent.FOLDER_KEY]
+    assert seen == [(name, True)]
+    assert not (root / "t1").exists()
+    assert (agent.folder_of(files, task) / "workbook.xlsx").read_text() == "w"
+    assert (agent.home_of(files, task) / "claude").is_dir() and agent.resumable(
+        files, task
+    ) is False
+    # A sweep between the commit and the move finishes the move; it removes the folder of no task only
+    # once it has stood for a while; and it keeps what a task names.
+    (root / "t2").mkdir()
+    (root / "t2" / "workbook.xlsx").write_text("w2")
+    (root / "gone").mkdir()
+    (root / "young").mkdir()
+    old = agent.time.time() - agent.FRESH_SECONDS - 10
+    os.utime(root / "gone", (old, old))
+    rows = [("t1", name), ("t2", "second-name")]
+    swept = SimpleNamespace(execute=lambda statement: SimpleNamespace(all=lambda: rows))
+    monkeypatch.setattr(agent, "_close_idle_gates", lambda root, slots: None)
+    agent.sweep(swept, files)
+    assert (root / "second-name" / "work" / "workbook.xlsx").read_text() == "w2"
+    assert not (root / "t2").exists() and not (root / "gone").exists()
+    assert (root / "young").exists() and agent.home_of(files, task).is_dir()
+    # Removing the task's folder takes its transcripts with it.
+    kept = agent.home_of(files, task)
+    (kept / "claude" / "projects").mkdir()
+    agent.remove_folder(files, task)
+    assert not kept.exists()
+
+
+def test_the_progress_of_a_turn_is_read_through_the_descriptor_it_opened(tmp_path):
+    """Review finding: the log was reopened by path in a folder the session writes in; a link to
+    /dev/zero there would have been read until memory ran out."""
+    from app.engine.tasks.agent import _Progress
+
+    log = tmp_path / "turn.log"
+    log.write_text(json.dumps({"type": "result", "result": "first"}) + "\n")
+    progress = _Progress(log)
+    progress.read()
+    assert progress.result["result"] == "first"
+    elsewhere = tmp_path / "elsewhere.log"
+    elsewhere.write_text(json.dumps({"type": "result", "result": "elsewhere"}) + "\n")
+    held = log.with_name("held.log")
+    log.rename(held)
+    log.symlink_to(elsewhere)
+    with held.open("a") as more:
+        more.write(json.dumps({"type": "result", "result": "second"}) + "\n")
+    progress.read()
+    assert progress.result["result"] == "second"
+    # A link in its place from the start is not a log, and nor is anything but a regular file.
+    planted = _Progress(tmp_path / "planted.log")
+    (tmp_path / "planted.log").symlink_to(elsewhere)
+    assert planted.read() is False and planted.result == {}
+    os.mkfifo(tmp_path / "fifo.log")
+    assert _Progress(tmp_path / "fifo.log").read() is False
 
 
 def test_the_session_is_verified_by_tls_unless_the_api_is_on_this_machine():

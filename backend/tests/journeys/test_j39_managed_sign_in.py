@@ -21,8 +21,16 @@ from test_j39_sign_in import (
     _set_password,
     _sign_in,
 )
-from test_j46_mail import _save, smtp  # noqa: F401  (smtp is a fixture)
-from test_j46_reset_by_mail import REQUEST, _ask, _outbox, _with_password  # noqa: F401
+from test_j46_mail import _save, _token, smtp  # noqa: F401  (smtp is a fixture)
+from test_j46_reset_by_mail import (  # noqa: F401
+    APP,
+    PAGE,
+    REQUEST,
+    _ask,
+    _mailed_token,
+    _outbox,
+    _with_password,
+)
 
 NEW = "another long passphrase"
 
@@ -164,6 +172,33 @@ def test_an_administrator_sets_the_switch_and_the_password_of_a_managed_person(w
     )
     off = _switch(world, person, False)
     assert off["signInManaged"] is False
+
+
+@pytest.mark.journey("J39.12")
+def test_a_link_the_person_asked_for_is_gone_when_the_switch_goes_on(world, smtp):  # noqa: F811
+    """Given a person with an administrator's link and one they asked for by e-mail address. When an
+    administrator switches `signInManaged` on, then the asked-for link is gone (its page and its use
+    answer `410 link_gone`) and the administrator's link still sets the password."""
+    _save(world, smtp)
+    person = _with_password(world, "rex", "rex@example.org")
+    mine = _token(ok(world.api.post(f"/users/{person['id']}/password-reset", {}), 201)["url"])
+    browser = _browser(world)
+    _ask(browser, "rex@example.org")
+    assert send_mail(world) == 1
+    asked = _mailed_token(smtp, 0)
+    assert browser.get(PAGE, params={"token": asked}, headers=APP).status_code == 200
+
+    _switch(world, person, True)
+    assert browser.get(PAGE, params={"token": asked}, headers=APP).status_code == 410
+    refused_use = browser.post(
+        "/oauth/sign-in/reset", json={"token": asked, "password": NEW, "repeat": NEW}, headers=APP
+    )
+    assert refused_use.status_code == 410 and refused_use.json()["error"] == "link_gone"
+    assert browser.get(PAGE, params={"token": mine}, headers=APP).status_code == 200
+    done = browser.post(
+        "/oauth/sign-in/reset", json={"token": mine, "password": NEW, "repeat": NEW}, headers=APP
+    )
+    assert ok(done)["status"] == "password_set"
 
 
 @pytest.mark.journey("J39.12")

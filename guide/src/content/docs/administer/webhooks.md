@@ -35,7 +35,7 @@ The **New webhook** and **Edit webhook** dialogs contain:
 
 | Section | Choices |
 | --- | --- |
-| Webhook | **Name** identifies the receiver for people. **URL** is its receiving address. HTTPS is accepted on any host; plain HTTP is limited to localhost. |
+| Webhook | **Name** identifies the receiver for people. **URL** is its receiving address. Use HTTPS. Private and localhost destinations need the operator to allow them on this instance; plain HTTP is limited to localhost. Link-local destinations are always refused. |
 | Source | **Events from**, then **Consumer API** when applicable, and **Workspace**. To change these later, create another webhook. |
 | Events | **All events** or **Chosen events**, selected with **Choose events**. The choices describe the record types and changes they watch. |
 | Filters | **Add filter** offers the API’s declared filters. Enter a value and press Enter; several values of one filter are alternatives. With no filters, every event of the chosen kinds is delivered. |
@@ -115,6 +115,11 @@ password or fragment. If the form says **The webhook URL must not hold user info
 the request is signed instead**, use the receiver's address without credentials and
 configure it to check the webhook signing key. Redirects are not followed; enter the
 final destination. The receiving system's owner handles its HTTPS certificate renewal.
+
+Destinations are checked when saved and on every attempt. If an address is refused, read the
+reason in **Deliveries** and ask the operator to review the destination. A host name can become
+refused if its addresses change. After an upgrade, a private receiver may stop receiving until
+the operator allows private destinations; resume a suspended webhook once the cause is fixed.
 
 A webhook's signing key has no scheduled automatic replacement. Rotating again during an
 overlap immediately ends the key retained from the earlier rotation: only the current
