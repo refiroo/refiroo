@@ -52,11 +52,11 @@ model's rules make that connection. Not all states apply to every configuration.
 | None | No related record is present and the cell has no earlier-publication record to show. |
 | Conflict | More than one record counts where the model permits only one. Inspect and resolve the extra counting records. |
 
-**Conflict** describes data already inconsistent with the counting limit. Normal writes
-enforce that limit, so creating a second counting record is refused rather than creating
-a Conflict cell. You may encounter one when existing data and the model’s rules no longer
-agree, including older stored data. There is no need to create a conflict to use a matrix;
-if none exists, the conflict-inspection steps do not apply.
+Live writes refuse a second counting record where only one is allowed. A change set can
+hold two before validation: the cell then shows **Conflict** with its count. Resolve the
+extra counting record or connection and validate again before publishing. This state comes
+from the relationship's one-per-column counting rule. A relationship cardinality limit also
+restricts creation, but does not by itself give the cell a **Conflict** label.
 
 **One** does not prove that every field is complete or that its content is correct. **None**
 does not mean an existing record merely has an empty text field. **History only** refers to an
@@ -134,15 +134,34 @@ Review any error before closing. A save refreshes the cell and leaves the table 
 wikidata-municipalities contains one System code, Q65399. Confirmed is ticked, and the Note
 editor is open over “Merged municipality, old code kept”. Open and Unlink belong to that row.*
 
+A populated cell offers **Create** beside **Link existing** when the view permits those
+actions and the cell may hold several records. A filled cell does not offer Create when
+uniqueness is scoped to the column type, or the relationship lets the row connect to only one
+record. That includes one-to-one, many-to-one read from its source, and one-to-many read from
+its target. Empty, inactive and history-only cells can still offer creation.
+
 An empty cell explains which row and column have no related record and offers **Link existing**
 or **Create** where permitted. A read-only cell keeps the table for inspection without editing.
 Historical content names its publication and remains read-only.
 
 Creation fixes the row and column and asks where under the column the new record belongs.
-A sole container is selected automatically and shown as **Goes in**. The record and its required
-connection are created together. Both Create and Link existing include **Attributes of the
+Only places where the new record can meet the relationship's rules are offered. If the rules
+identify a single group and it is missing, saving creates it with the record. Otherwise the
+group already holding the most records used by this view in the column is selected; a tie
+leaves no selection. A group holding none is never selected automatically, even as the only one.
+
+If neither rules nor data give a place, refiroo can propose a new group using the type and
+name of groups this view uses in other columns. The proposed name is editable and an existing
+group can be chosen instead. Saving creates the group and record together. This uses the
+current model; no model change is needed. A proposal is offered only where the structure,
+required fields and relationship rules allow it. If no suitable place is found, choose or
+prepare one in the app. See
+[When a new group is proposed](/docs/guide/use/fill-in-a-relation-matrix/#when-a-new-group-is-proposed). The created record is listed in its container too.
+The record and its connection are created together. Both Create and Link existing include **Attributes of the
 relationship** when the pair carries values: fill these for the new connection, separately
-from the record's fields. Linking instead uses an existing candidate. Unlinking keeps
+from the record's fields. Linking instead uses an existing candidate. Where the relationship permits it, the same
+record can be linked under several rows: these are separate connections to one shared record,
+not copies. Disabled candidates explain why they cannot be linked. Unlinking keeps
 the record, but cannot leave an owned record without a required owner.
 
 For an inactive cell, inspect existing records before creating another. For a conflict, review
@@ -150,6 +169,20 @@ which records should count; do not assume several records are always wrong. All 
 the model's rules, including any limit of one counting record per row and column. A refusal
 explains that the row already has a record here and **only one may count**. Where offered,
 **Open the … already here** takes you to that record; inspect it before creating another.
+
+For example, a translation matrix can create a missing name under a language and allow only
+one counting name for each row and language. A mapping matrix can instead reuse a code already
+linked under another row, or create a separate code. These choices come from the model's
+relationships and view actions. Connected systems see the new record and connection after
+publication where their access exposes them. Reuse retains the record's identity under every
+row; unlink removes a connection while leaving that record available elsewhere.
+
+To work on the cells outside the browser, see
+[Export records](/docs/guide/use/export-records/). The main matrix sheet loads only its cells;
+clearing a cell does not remove its contents in refiroo. In a record-field workbook, cells
+holding several records are skipped. A link workbook has value sheets for editing individual
+records and loads non-empty lists of connections. See
+[Matrix cells and new records](/docs/use/importing-and-exporting/#matrix-cells-and-new-records).
 
 ## Who may edit, and refused saves
 

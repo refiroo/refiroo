@@ -26,7 +26,7 @@ def test_an_ancestor_field_shows_the_ancestor_nearest_the_root(seeded):
             )
         )
         # An ancestor's name reads no model.
-        expression = people._field_sql(None, "o", "ancestor:group.name")
+        expression = people.field_sql(None, "o", "ancestor:group.name")
         connection = session.connection().connection.driver_connection
         with connection.cursor() as cursor:
             cursor.execute(

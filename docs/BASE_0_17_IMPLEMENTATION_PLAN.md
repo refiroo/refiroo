@@ -47,11 +47,14 @@ corrects that result, and the way to import when no provider is configured.
 | [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, not only a whole collection. Relation matrices are built (0.13 NG); left: the other view kinds, Move to group… on their rows and the canvas's group drop |
 | [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey |
 | [EM1](#em1-the-e-mail-is-the-sign-in-name) | — | The e-mail address is required, unique and the name a person signs in with; the separate username is gone |
+| [EX1](#ex1-export-says-what-it-exports) | — | Export follows what is exported: a view gives a workbook shaped as the view, a type, an application or a workspace a sheet per type; every file says what it holds and imports back. Takes over PL6's "Export for people" |
+| [MC1](#mc1-reuse-or-create-in-any-matrix-cell) | — | A filled matrix cell offers Link existing and Create wherever the model allows more than one record per cell; a user guide page with examples |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
 **Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
 delivered first, at their request; nothing else depends on it. NG1 comes before PL3b so the canvas's group drops
-place views from the start. PL1 and PL2 are the cheapest fixes on the most frequent
+place views from the start. EX1 was added by the user on 2026-11-11 after exporting a relation matrix gave the
+whole application's technical tables, and is delivered next, at their request. PL1 and PL2 are the cheapest fixes on the most frequent
 paths. PL3 gives PL4 its place, and PL3b is where PL4's Adjust leads. Each UI package shows its mock-up with its
 plan for one approval and is then delivered whole.
 
@@ -76,6 +79,17 @@ plan for one approval and is then delivered whole.
 | PP-D15 | **A provider's person needs an `email` claim;** an address another person holds refuses the first sign-in, and an administrator resolves it. Matching stays by `sub` (D363). | **Approved by the user 2026-11-11** |
 | PP-D16 | **A deactivated person may have no e-mail,** so the address can be freed; reactivating needs one. | Planning default |
 | PP-D17 | **The migration stops on an active person without an address or on a shared address,** naming them; nothing is invented. | Planning default |
+| PP-D18 | **An export can name a view** (EX1): `POST /exports` takes `view` (application, view key and the page's state: search, filters, parent, columns shown), and the engine derives the workbook from the view's definition. Every list view kind has a layout: `table`, `tree`, `relationMatrix`, `mappingGrid`, `relationTable` (rows and `grid`). Why: the file must reflect what the person looked at, and an integrator gets the same file the UI gets (API first). Cost: one layout per view kind; the dialog stops building view-specific requests itself | **Approved by the user 2026-11-11** |
+| PP-D19 | **A matrix's file loads back only its cells,** as the view edits only cells, by the matrix's `cellActions`. **Create matrices** (`create`, `edit`): a column group per column record with the cell fields; an edited cell changes its record under its version, a filled empty cell creates the cell record under the column's container with the row's relationship, a cleared cell changes nothing (D183), a cell holding several records is written joined and `not loaded` (D195). **Link matrices** (`link`, `unlink`): one column per column record listing the linked cell records by name and display field, `"; "` between them, with a list of the records the view may link in that column (D196, a warning, as a cell may hold several); an edited cell's list becomes that cell's links, adding and removing within that row and column only, under the row's set version (D186); a filled empty cell links; a cleared cell changes nothing. **A matrix allowing both** (`link` and `create`): a name in a cell that finds no record the column may link creates one under the column's container (PP-D20), shown as new in the import's preview before anything is written; without a container it is refused, naming the column. The About sheet's "New records go into" part is written exactly when the view allows `create`. A matrix with neither is written read-only. The row's columns are for orientation (`(not imported)`). Why: the view's own actions decide what the file may do; one rule for every model's matrices. Cost: removing every link or record of a cell stays in the app | **Approved by the user 2026-11-11** |
+| PP-D20 | **Where a new cell record goes is chosen in the Export dialog,** per column record, from the matrix's containers read (D13), preselected with the container holding most of the exported cells of that column, none otherwise; the choice is fixed in the file's profile and listed in the file. A column with none refuses its filled empty cells, naming the column. Why: a profile's parent is fixed, not read from a cell; D13 keeps no model default and nothing is guessed. Cost: changing the container means exporting again | **Approved by the user 2026-11-11** |
+| PP-D21 | **A type, an application or a workspace exported for editing gives a sheet per type** (each the type's people sheet: its fields and its relationships by name, parent by name), parents' types before their children's, one hidden profile with a source per sheet; a tree view gives the same for its types. Technical stays the format for systems and full copies. Why: one sheet mixing every type's columns (today's `Records`) is not for people; the profile already reads several sources. Cost: the people layout's one-type limit goes | **Approved by the user 2026-11-11** |
+| PP-D22 | **Every XLSX export has an "About this export" sheet, the second sheet, written by one writer in one style:** a title and one sentence, then the same sections for every layout: What was exported (application, view or scope, workspace, context: live, change set, publication or date, search and filters, time, job), What it holds (rows, columns, counts), How it loads back (per edit), and the layout's own part where it has one (a matrix's containers); the technical import ignores it. CSV and JSONL stay as they are (the job's `output` describes them). Why: the user could not tell what the file held. Cost: none beyond the sheet | **Approved by the user 2026-11-11** |
+| PP-D23 | **A filled matrix cell offers Create as well as Link existing** (MC1), each where the view's `cellActions` hold it, unless the cell may hold only one record: the binding's `uniqueToAncestorTypeKey` is the column type read `outgoing` (the cell's conflict rule), or the cardinality lets the row hold one. There Create stays for an empty, inactive or history-only cell, as since 0.8 A4. Why: many is the default (`cardinality` many-to-many); a mapping cell normally holds several records, and the user expects to reuse one or create one. Cost: none in the engine, whose uniqueness checks already refuse what the model forbids | **Approved by the user 2026-11-11** |
+| PP-D24 | **A new cell record goes where the relationship's candidate rules allow** (MC1, EX1). A matrix offers, preselects or uses only containers under the column where a record created there meets the binding's candidate criteria at the cell end (for example `ancestor:<type>.name eq "<value>"`). When the criteria fix one ancestor exactly by equalities, the model lets that ancestor type sit under the column, and it does not exist yet, creating a cell creates that ancestor with those values and the record in one change, in the cell dialog and on import alike. Criteria that do not fix one place create nothing: the matching containers are offered, and the place is then the container under the column that already holds cells of this view (the one holding most; none on a tie); a container holding no cells is never preselected or used automatically, even as the only one, and stays choosable in the cell dialog under "Other groups (not used in this view)"; where there is none, the cell says so in plain words. Why: the model already states the place; the dialog ignored it, preselected a wrong group and saving failed with the relationship's model message (the user, 2026-11-11). Cost: one generic derivation from candidate criteria, shared by the cell dialog, the containers read and the import binding | **Approved by the user 2026-11-11** |
+| PP-D25 | **A matrix export asks which field of the cell record fills the cells** (EX1), not a container. The choices are the cell type's identifying fields (name and its unique or display attributes); the file records the choice, so the import reads it without guessing; a value matching two records in a column is refused by name. The container choice leaves the dialog: it follows PP-D24, and where nothing could be chosen nothing is shown. `newCellContainers` is replaced by the derived place; the API takes the field (`cellField`) | **Approved by the user 2026-11-11** |
+| PP-D26 | **An import guesses how a matrix or relationship column is read, without AI, and shows it before anything is written** (EX1). For a file that does not record its reading, each column is compared with each identifying field of that column's existing records; the field matching every non-empty cell, each to one record, is chosen. The preview gets a section "How the file is read": per column the field chosen, the cells matched, a choice to change it (the preview runs again), and where new records go, marked "will be created" when PP-D24 creates the place. The choice can be saved into the profile. Nothing is written before the person confirms | **Approved by the user 2026-11-11** |
+| PP-D27 | **A link matrix export has a value sheet per column** (EX1). Each column's records (those the column offers: its place and the records linked in it) are listed as full rows, every field plus the group and a hidden ID; edits there load back as updates by ID, a new row creates a record in the column's place. The main sheet's cells list the field chosen in "What each cell lists", which offers every text field (default Name); its dropdowns read the value sheet's column, so a renamed or added row shows in them. A spreadsheet cannot sync two ways without macros, so the import does it: a main-sheet value naming a value-sheet row (by its name in the file) is that record, the same name typed in both is one record, and a name found in neither is a new record in the column's place with only that field. A value-sheet row picked nowhere is still created. A create matrix (cells hold the record's own fields) has no value sheet. Checked in Excel and Numbers before it is built further | **Approved by the user 2026-11-11** |
+| PP-D28 | **No container in use: refiroo proposes one and asks** (MC1, EX1). Where neither the model's rules nor the data give a column's place (PP-D24), the place proposed is a new container under the column, of the type other columns use, named as the containers this view uses in other columns are named (the most common name). The cell dialog says so and creates the container and the record on one OK, the name editable; the import preview shows "will create group … under …" and confirming the import is the OK. No model rule is added for it | **Approved by the user 2026-11-11** |
 
 ## PL3b: The workbook canvas
 
@@ -239,6 +253,198 @@ the username; a provider's person gets a username from `preferred_username`, els
 - **Tests and docs:** journey tests through the API for local sign-in by e-mail, the uniqueness refusal, a
   provider's first sign-in without the claim and with a taken address; API.md, OPERATIONS, DECISIONS (D363
   amended), the guide sentences that name the username, CHANGELOG.
+
+## EX1: Export says what it exports
+
+**Why.** The user exported a relation matrix (a row type against languages, a translation in each cell) to edit
+translations and import them back, and got the technical tables of every type in the application: one `Records`
+sheet of 3,300 records with every type's columns, one `Relationships` sheet, nothing saying what was exported.
+Cause: only the table view hands its state to Export (`CollectionView`, `onExportContext`); every other view
+leaves the dialog on "the application's types, Technical". The people workbook's columns per parent (0.9 J6a)
+would have given the shape, but they read only an owning relationship (one required binding, `_sheet_plan` in
+`engine/jobs/people.py`), and a translation relationship bound from several types is not one.
+
+**What exporting means, by what is exported:**
+
+| From | The file | Loads back |
+| --- | --- | --- |
+| A table view | Today's people workbook with the view's columns, filters, search and parent | As today (D183) |
+| A relation matrix | One row per row record (the view's row columns); a create matrix: a column group per column record with the view's cell fields and hidden cell IDs and versions; a link matrix: a column per column record listing the linked records; hidden record ID and set version | The cells, by the view's actions (PP-D19, PP-D20) |
+| A relationships table | One row per relationship: both records' view columns and the relationship's attributes; hidden IDs and version | Attribute edits; a row without IDs adds a relationship by names (D187) |
+| A relationships grid | One row per `from` record, a column group per related record shown: Linked (Yes/No) and the relationship's attributes | Attributes; Yes on an unlinked pair links it; No removes nothing |
+| A mapping grid | One row per source record, the view's source columns and the mapped target by its display field | The mapping column, as a people relation column |
+| A tree | A sheet per type of the tree, parent by name | As the type sheets below |
+| A type, an application, a workspace | For editing: a sheet per type (PP-D21). Technical: today's tables | For editing: every sheet; technical: as today |
+
+Every XLSX file has "About this export" (PP-D22). The engine derives each layout from the view's definition
+(PP-D18); views of the same kind in other models get the same file.
+
+**The dialog** (mock-up; one dialog for every page, `ExportDialog`):
+
+```
+Export
+What
+ (•) This view: Names in every language        200 rows × 8 columns, from change set “…”
+ ( ) The type: every record and field
+ ( ) The application: every type, a sheet each
+ ( ) The whole workspace
+Format          (•) For editing in a spreadsheet, imports back    ( ) Technical, for systems
+New records in a column go into            (matrix with Add only)
+ Arabic   [Group A ▾]   …   German   [None: choose a group ▾]
+                                                        [Cancel] [Export]
+```
+
+"This view" is the first choice on every view; on a page without a view the dialog opens on the application.
+Technical is offered for a type, an application and a workspace, and for a table view as today.
+
+a create matrix, and `sample-matrix-export-links.xlsx`, a link matrix, each with its About sheet, approved before the build.
+
+**Engine and API.** `ExportRequest.view` (PP-D18) beside today's `scope`, refused `INVALID_EXPORT_LAYOUT` with a
+pointer where the view is unknown, not a list view, or its state names a field it does not declare;
+`people` accepts several types (PP-D21); the matrix's containers as `view.newCellContainers` (column record ID
+to container ID, checked against the containers read). The written profile reads every layout back through the
+existing import; whatever a layout needs that the profile cannot express is added to the profile generically.
+Reads stay set work in PostgreSQL, one statement per sheet part as today; checks cover every row.
+
+**Frontend.** Every list view hands its state to the shell as `CollectionView` does, through one hook, not a
+copy per view; `ExportDialog` gains What, the format choice and the containers, and drops its view-specific
+request building. PL6 keeps import file-first and Your changes.
+
+**Tests (a quarter of the package at most):** API journeys on generated models: a matrix exported from a
+change set, a cell edited, an empty cell filled, a cell cleared, a column without a container, imported back
+into the change set with each outcome; a relationships grid and a mapping grid round trip; an application
+exported for editing and imported back unchanged (every row `unchanged`); the technical XLSX with its About sheet
+imported back unchanged; the refusals. Vitest for the dialog's choices per view kind. One browser runner: export
+from a matrix and a tree, 1440px and 390px, axe. A real-file try on the user's matrix, opened in Numbers.
+
+## MC1: Reuse or create in any matrix cell
+
+**Why.** The user, 2026-11-11, on a link-and-create matrix in dev: a cell already holding two linked records showed
+neither a way to link another existing record nor to create a new one, though the view allows both. Create is shown
+only for an empty, inactive or history-only cell (`createButton` in `RelationMatrixCellDialog.tsx`, the rule since 0.8
+A4, kept by 0.13 RV). Link existing should show in a filled cell by the code and its tests; the user does not see it
+on their page, and the cause is being checked on the page itself.
+
+**Scope.**
+- The cell dialog, filled cell, by PP-D23:
+
+```
+Booked · SystemX                                     [Filter …]  [Link existing value]  [+ Create value]
+  Name          Code   Active   Default mapping
+  Booked        BKD    Yes      Yes                                         Unlink
+  Confirmed     CNF    Yes      No                                          Unlink
+```
+
+  Where the cell may hold one record, a filled cell keeps today's dialog. A created record goes into a container the
+  person picks, as for an empty cell (D13). Link lists the candidates with the reason any cannot be linked, as today.
+- The export follows the same rule (EX1, PP-D19: a matrix allowing both).
+- Whatever makes Link existing missing on the user's page, found on that page and fixed.
+- **The user guide** (a Codex wave, `guide/_waves/MC1-GUIDE.md`, after the build, the code winning): how a matrix cell
+  is filled, by example. A translation matrix: create, one per language. A mapping matrix: reuse a record already
+  linked elsewhere, or create one. A matrix that allows one per cell: what the dialog shows, and the conflict a change
+  set can hold. What each action does to relationships: a link is a relationship, an unlink removes the relationship,
+  never the record, and a record created in a cell sits in its container and is listed there too. What a consumer API
+  sees: the new record and relationship once the change set is published, the same record ID under every row that
+  reuses it, and an unlink as a removed relationship in the feed. Where the actions are set (the model editor, the
+  view's Change…, "What people can do in a cell") and why the editor may not offer one. The export of such a view
+  (EX1). Pages: `use/fill-in-a-relation-matrix.md`, `model/add-a-relation-matrix.md` and the integrator page that
+  explains relationships in the consumer API, extended rather than duplicated.
+
+**Tests.** Vitest for the dialog: a filled cell in a many-allowed matrix offers both, a one-per-cell matrix offers Link
+only; the existing browser runner `a4-relation-matrix` extended by one step (create in a filled cell), 1440px and
+390px, axe. A try on the user's view in dev.
+
+**Extension: the place and the reading (the user, 2026-11-11, PP-D24 to PP-D26).** On a link-and-create matrix in dev a
+column whose system had one group of another kind preselected that group, Create failed with the relationship's candidate
+message, and the export offered that group for new cells. Built here and in EX1: containers follow the candidate rules,
+a missing exactly-named container is created with the record (cell dialog and import), the export's container choice is
+replaced by the cell field choice, and the import shows and lets the person change how each column is read. The guide wave
+`MC1-GUIDE` is rerun on the result.
+
+**Delivery record (code part).** `createButton` in `RelationMatrixCellDialog.tsx` now also shows in a filled cell unless
+`binding.scoped` (uniqueness scope is the column, read outgoing) or the binding's cardinality lets the row's end hold one
+(`one-to-one`, or `many-to-one` read outgoing / `one-to-many` read incoming, the `_HOLDS_ONE` table). The page response and
+the model already carry the binding and its cardinality, so no API, OpenAPI or backend change. Checks: Vitest
+`RelationMatrixView.test.tsx` 34 passed (one new: many-allowed filled cell offers both buttons, scope-of-column filled cell
+only Link); `vitest related` 8 files, 186 passed; `tsc -b` clean; `npm run lint` 0 errors; `npm run build` ok; browser runner
+`a4-relation-matrix.mjs` one new step (create in a filled cell, 1440px and 390px, axe 0 violations, no horizontal scroll)
+passed, 11 checks. The guide wave and the Link-existing-missing check on the user's page are outside this part.
+
+
+**Delivery record (2026-11-11).** Built: `ExportRequest.view`; `engine/jobs/export_views.py` (view to scope, layout and
+state predicates), `matrix_sheets.py`, `grid_sheets.py`, `view_sheets.py`, `about.py`; `people.py` as a sheet per type
+(parent by name or hidden ID); `xlsx.py` About sheet, group rows, soft lists; `engine/reads/matrix_read.py` (the matrix read moved
+out of the management projection); profile `relatedRecord.idColumn` and `relation.within`; the dialog and one
+`useViewExport` hook in the view host. Decided by recommendation: a cleared or empty matrix cell changes nothing; the About
+sheet is not in `output.sheets`; a column left out of `newCellContainers` gets the container with most of its cells (the dialog
+preselects the matrix's `suggestedContainerId`, none otherwise); a relationships table's search matches either end, its
+`relation:` filters are not carried (the dialog says so); a record is written in its own application; a name or label holding
+`;` is read as a comma in a link cell; a required relationship set that is empty and stays empty is unchanged. Checks: `jobs`
+group 750 passed (2 `test_batch_statements` failures, also at HEAD); J27 export-views journeys (create, link, link and
+create, rows and grid, table and mapping, tree, change set, technical, refusals), unit, contract, Vitest, `test:browser:ex1`
+(matrix, tree, application, 390px, axe) green. Tries on dev (stops, own change set): type-translations matrix edited, filled,
+refused for German by name; classes-by-system edited; the Translations application 5,000 rows and the technical file 10,000 items
+all unchanged. The dialog's count line ("200 rows × 8 columns, from change set …" for a table, matrix or grid; records for a tree or mapping grid) is delivered, taken from the page's own totals; no API change.
+
+**Delivery record (extension, PP-D24 to PP-D26, 2026-11-11).** Built: `engine/model/candidate_places.py` (`derive_place`, `identifying_fields`),
+`candidate_place_filters` in `engine/reads/model_query.py` (the ancestor part of `candidate_ids`, one evaluator), `container_rows` and
+`derived_place` in `engine/reads/matrix_read.py`; the containers read filtered by the criteria with `derivedPlace` (`suggestedContainerId`
+removed); `ExportView.cellField` (`newCellContainers` removed; `matrix_sheets.py` lists by the field, the profile records
+`within.field`, a create matrix reads back through `relatedRecord.under`); `engine/imports/places.py` (`resolve_place`: containers by
+`meets_criteria`, else the derived place), binding: places resolved before the rows, a new place as a virtual context record and a
+phase-0 item, `import_scope_values` and `_guess_fields` (one statement over distinct values), the report column `reading`;
+`engine/imports/reread.py` and `POST /jobs/{jobId}/reread`; the dialog's atomic batch (`createObjectInNewPlace`), the export dialog's
+"What each cell lists", the preview section "How the file is read". Decided by recommendation: identifying fields are the name, the display
+attribute and unique text attributes (the existing `is_identifying` stays the stricter rule for replacing sets); a place is derived only
+directly under the column type and only when every value its type requires is among the criteria; own-field criteria are left to the write;
+`cellField` applies to a link matrix, the export is refused where a linked record has no value in the field; a value creates a record only
+when the field is the name; a column with several matching containers or none gives the plain refusal; the guess applies to a matrix column
+whose profile records neither `within.field` nor a label attribute (an older file keeps its label reading), other relationship columns show
+their recorded field with the same choice but no counts; rereading cancels the first preview and keeps the stored profile's key so the choice
+can be saved by `PUT /import-profiles/{key}`. Follow-up, PP-D24 by evidence (2026-11-11): `choose_container` (`candidate_places.py`) picks, among the containers meeting the criteria, the one the criteria fix when it is the only one, else the one already holding cells of the view (most; none on a tie); a container with none is never the default. The containers read gives each container's `cellCount`, lists used containers first and `defaultContainerId` follows the rule; the import (`places.py`) counts the cell-type records under each container the same way and refuses a new cell with a plain `message` (also `newRecords.message` in the preview); the dialog preselects nothing for an unused group and lists it under "Other groups (not used in this view)". Cells counted are the cell-type records directly under a container, whether or not linked. Checks: `test_j27_export_views` 29 passed (new: busiest group wins, unused sole group and a tie not used), `test_relation_matrix_writes` containers assertions follow the rule, Vitest dialog "Other groups", `a4-relation-matrix` chooses the unused English group. Earlier checks: `test_j27_export_views` 28 passed (new: containers filtered and the place created in a
+batch, the import creating the place, the field round trip with refusals, guess and override); unit `test_candidate_places`; contract lock
+re-baselined; Vitest `ExportDialog`, `RelationMatrixView`, `JobPage`; `ex1-export` and `a4-relation-matrix` browser runners (1440px, 390px,
+axe 0). Dev tries: see the report of the package.
+
+**Delivery record (value sheets and a proposed container, PP-D27 and PP-D28, 2026-11-11).** Built: `engine/jobs/matrix_sheets.py`
+(`_ValueSheet`, `_ValueField`, `_value_fields`, `_value_sheet`: a table sheet per column of the records the column offers and those linked
+in it, as full rows with the group and a hidden ID and version; `chosen` is `cellField` or the name; the dropdowns are soft lists over a
+defined name per column), `engine/jobs/xlsx.py` (`PlainSheet.table`, `Workbook.define`: an Excel table in place of the sheet filter, a
+workbook-level defined name over a table column), `engine/model/candidate_places.py` (`identifying_fields` is every text field, not only the unique
+ones; `propose_place`, `DerivedPlace.proposed`), `models/imports.py` and `engine/imports/profiles.py` (`Source.under`: `SourceUnder`),
+`engine/imports/binding.py` (a value-sheet row without an ID takes the column's place as its parent; `_resolve_place` shared with the
+other place users; `import_value_rows` and `_value_rows`: each row by every field, set-wise; a main-sheet value finds a value-sheet row
+first; any recorded field creates a record, named by the value and holding it in the field when that is not the name; the place's
+first-row union includes value-sheet rows; reading counts `_value_sheet_counts` and `_value_sheet_reading`; `newRecords.typeName` and
+`under`; a new place takes its column record's application), `engine/imports/places.py` (`_proposal`: the proposal where the rules and the
+data give no place, one statement over the containers the view uses in other columns), `engine/reads/matrix_read.py`
+(`proposed_place`, `column_application`, `container_applications`), the containers projection and schema (`derivedPlace.proposed` and
+`applicationKey`, each container's `applicationKey`), the job schema's additive reading fields; the dialog (`RelationMatrixCellDialog`: a
+plain sentence, the name editable, one OK through `createObjectInNewPlace`, "Use an existing group instead"; the cell and the group are
+created in the application of their parent), the preview ("Value sheet" rows, "will create group … under …"), the export field list. Decided by
+recommendation (the coordinator accepted the first two): a created record takes the value as its name, plus the attribute when the
+field is not the name; link-only views get a value sheet for the dropdowns and for reading, with new rows only where the view has
+`create` (a view with `edit` only edits by ID); the value sheet carries a hidden version beside the ID, so an edit is refused when the
+record changed; a view's default `cellField` is the name (the older `name (display field)` label is no longer written; an older file
+still reads); the sheet's group column is for reading; a renamed record is found by its new value and by its old one unless another
+row of the sheet holds it now, and a record the sheet does not list keeps matching by its stored values (two records holding one code
+stay ambiguous); a proposed container is dropped where its type asks for a value (the dialog could not fill it) or a container so
+named would fail the binding's ancestor criteria; a tie among names goes to the first in order; types are counted by containers
+in use under other columns. Checks: `test_j27_export_views` 34 passed (new: `J27.27` value sheets by ID, new rows, a name typed twice, a name
+in neither place, a row picked nowhere; `J27.28` the proposed container by the dialog's batch; the proposal in the busiest-group test and the
+create-matrix test; the code-field test now creates a record for an unknown code), unit `test_candidate_places` (7), `test_xlsx` (32), `jobs`,
+`imports`, `model` unit directories, `test_boundaries`, `test_relation_matrix_writes` and `test_openapi_contract` (re-baselined, additive)
+green; `test_api_journeys` fails on `hideEmptyColumns` (not this work). Vitest `RelationMatrixView` (the proposal, an existing group
+instead), `JobPage` (value sheet and "will create group … under …"), `exportRequest` (the field list); `tsc -b`, eslint and `npm run build` clean;
+`test:browser:ex1` (value sheets in the file, "Value sheet" in the reading, axe 0) and `test:browser:a4` (a column with no group where the
+starter's group type needs a code: no proposal, the plain message, 1440px and 390px, axe 0) passed; their screenshots were not looked at.
+Dev tries (a developer workspace, in a change set, discarded): a link-and-create matrix exported for two columns, imported unchanged (24
+unchanged), then with a value renamed, a value-sheet row added and picked in a cell, and a new name typed in a cell: 3 updated, 2 created, 0
+refused; the renamed record kept its ID, the added row is one record in the column's place with its code, the typed name is a record with no
+other value, live data untouched. A create-and-edit matrix whose column had one unused group: the proposal was the group type the other columns use, named
+as theirs, `proposed` and `willBeCreated`; the dialog's batch created the group and the cell (applied, the group then offered with one cell); an import of a typed
+value previewed "will create … under …" and created it on confirm. The dialog creates the cell in its parent's application: a type
+that several applications list was refused (`PARENT_WRONG_SCOPE`) when the dialog took the first application listing it, for a new group and for
 
 ## R: Build acceptance and release
 

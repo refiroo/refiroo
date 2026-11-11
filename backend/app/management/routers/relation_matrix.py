@@ -5,6 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 
+from ...engine.reads.matrix_read import MAX_COLUMNS
 from ...errors import api_error
 from ..access import (
     WORKSPACE_PATH,
@@ -14,7 +15,6 @@ from ..access import (
 from ..dependencies import DbSession
 from ..paging import PageQuery, SeekablePageQuery
 from ..projections.relation_matrix import (
-    MAX_COLUMNS,
     matrix_containers,
     matrix_link_candidates,
     open_matrix_read,
@@ -68,7 +68,9 @@ def get_relation_matrix(
         alias="columnCursor",
         description="columnsNextCursor or columnsPrevCursor from a page without columnIds",
     ),
-    column_page_size: int = Query(default=MAX_COLUMNS, ge=1, le=MAX_COLUMNS, alias="columnPageSize"),
+    column_page_size: int = Query(
+        default=MAX_COLUMNS, ge=1, le=MAX_COLUMNS, alias="columnPageSize"
+    ),
     state: Literal["one", "several", "inactive", "historyOnly", "none"] | None = Query(
         default=None,
         description="Only rows with a cell in this state in any of columnIds, across every row",

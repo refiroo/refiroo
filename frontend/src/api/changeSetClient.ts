@@ -77,6 +77,8 @@ export function createChangeSetClient(
     replaceMapping: (workspaceKey, body) =>
       write((context) => api.replaceMapping(workspaceKey, { ...body, ...context })),
     createObject: (type, payload) => write((context) => api.createObject(type, { ...payload, ...context })),
+    createObjectInNewPlace: (type, payload, place) =>
+      write((context) => api.createObjectInNewPlace(type, { ...payload, ...context }, place)),
     updateObject: (type, id, payload) => write((context) => api.updateObject(type, id, { ...payload, ...context })),
     deleteObject: (type, id, version, options) =>
       write((context) => api.deleteObject(type, id, version, { ...options, ...context })),

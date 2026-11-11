@@ -28,6 +28,7 @@ import { BulkRelationDialog, hasBulkRelations } from "@/features/objects/BulkRel
 import { readMatching } from "@/lib/readMatching";
 import type { CollectionFilter, ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
+import { useExportExtra } from "./views/useViewExport";
 import { useCellEditing } from "./useCellEditing";
 
 export function ObjectCollectionView({
@@ -44,7 +45,7 @@ export function ObjectCollectionView({
   refreshToken = 0,
   selectedId,
   lenses,
-  onExportContext,
+  exportExtraRef,
   bulkSelection,
   onPropose,
   createRequest,
@@ -236,25 +237,10 @@ export function ObjectCollectionView({
     onSort: (sort) => onQueryChange({ ...query, sort, anchor: undefined }),
     labelFor: (field) => attributeName(model, field),
   });
-  // The workspace ⋯ menu's Export reads this at the moment it is chosen (0.16 WM1).
-  useEffect(() => {
-    if (!onExportContext || !objectType) return;
-    onExportContext(() => ({
-      workspaceKey,
-      changeSetId: changeSet?.id,
-      publicationId: publication?.id,
-      objectTypeKeys: application.objectTypeKeys,
-      selected: [objectType.key],
-      filters: { objectTypeKey: objectType.key, filters: query.filters },
-      search: query.search || undefined,
-      parentObjectId: query.parentObjectId,
-      // The table as its Display shows it, for a workbook for people (0.9 J6).
-      columns: {
-        shown: display.columns,
-        hidden: columns.filter((column) => !display.columns.includes(column)),
-      },
-    }));
-    return () => onExportContext(undefined);
+  // The table as its Display shows it, for the page's Export (0.9 J6): the host's one hook reads it.
+  useExportExtra(exportExtraRef, {
+    columns: { shown: display.columns, hidden: columns.filter((column) => !display.columns.includes(column)) },
+    size: { rows: loading ? undefined : knownTotal, columns: display.columns.length },
   });
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
   const hue = objectTypeHue(model, objectType.key);

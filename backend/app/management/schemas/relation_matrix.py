@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .common import CollectionPage
+from .common import CollectionPage, omitted_when_none, without_default
 
 
 class RelationMatrixRecord(BaseModel):
@@ -104,19 +104,67 @@ class RelationMatrixPathPart(BaseModel):
 class RelationMatrixContainer(BaseModel):
     """A record a new cell record can go into: the column record or a record under it whose type
     can directly contain the cell type. ``path`` runs from below the column record to this record,
-    so it is empty for the column record itself."""
+    so it is empty for the column record itself. ``cellCount`` is how many cell records stand
+    directly under it: a container holding none is not used by the view yet."""
 
     id: str
     objectTypeKey: str
     name: str
     path: list[RelationMatrixPathPart]
+    cellCount: int = 0
+    applicationKey: str | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description=(
+            "The application the container belongs to; a cell record created in it is created in the"
+            " same application (a record stands in its parent's)"
+        ),
+    )
+
+
+class RelationMatrixDerivedPlace(BaseModel):
+    """The record the binding's candidate criteria fix as the place a new cell record goes (PP-D24):
+    equalities on one ancestor type's fields that the model lets sit directly under the column
+    record and directly hold the cell type. ``willBeCreated`` is true when no container of the
+    column meets the criteria yet: creating a cell then creates this record first, in the same
+    change."""
+
+    objectTypeKey: str
+    name: str
+    attributes: dict[str, Any]
+    willBeCreated: bool
+    applicationKey: str | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description=(
+            "With ``willBeCreated``: the application the new container is created in, its parent's"
+            " (the column record's): a record stands in the application of its parent"
+        ),
+    )
+    proposed: bool = Field(
+        default=False,
+        description=(
+            "True when the model's rules fix no place and no container of the column holds cells of"
+            " the view: the place is then proposed from the data (PP-D28), a new container of the"
+            " type the view's other columns use, named as most of them are. The caller may change"
+            " the name; creating the cell creates it first, in the same change"
+        ),
+    )
 
 
 class RelationMatrixContainerPage(CollectionPage[RelationMatrixContainer]):
-    """Containers in path order. ``defaultContainerId`` names the column's only container, whatever
-    the search, and is null when it has none or several (D13)."""
+    """Containers in path order, only those a new cell record meets the binding's candidate
+    criteria under, those holding cells of the view first. ``defaultContainerId`` names where the
+    column's new cells go: the one container the criteria fix, else the container already holding
+    cells of the view (the one holding most; none on a tie), whatever the search; a container
+    holding no cells is never the default, even as the only one (PP-D24). ``derivedPlace`` is the place the criteria
+    fix, null where they fix none: with none offered and no place derived, the cell cannot be
+    created here."""
 
     defaultContainerId: str | None
+    derivedPlace: RelationMatrixDerivedPlace | None = None
 
 
 class RelationMatrixLinkCandidate(BaseModel):

@@ -33,6 +33,7 @@ import type {
   ObjectTypeDefinition,
 } from "@/types";
 import type { ViewComponentProps } from "./views/types";
+import { useExportExtra, windowTotal } from "./views/useViewExport";
 import { DebouncedSearchField } from "@/ui/SearchField";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Card } from "@/ui/Card";
@@ -58,6 +59,7 @@ export function MappingGridView({
   refreshToken = 0,
   lenses,
   onOpen,
+  exportExtraRef,
 }: ViewComponentProps) {
   const view = rawView as MappingGridViewDefinition;
   const api = useDataApi();
@@ -154,6 +156,8 @@ export function MappingGridView({
     ],
     { anchor: query.anchor, refreshToken: combinedRefresh },
   );
+  // The AI's proposals filter is not carried into the file, so the page's count is not the file's then.
+  useExportExtra(exportExtraRef, { size: { records: query.mappingProposed ? undefined : windowTotal(pages) } });
   const { error } = pages;
 
   const refreshCoverage = useCallback(() => {

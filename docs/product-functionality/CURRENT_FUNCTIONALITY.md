@@ -1101,6 +1101,32 @@ job has its own page showing its state and progress as they change, its error, C
 export what the file holds and Download. An integration follows any job the same way through the
 API: the engine pushes each change as it commits.
 
+**Export says what it exports** (0.17 EX1). From any list view Export opens on **This view**: the file that view shows, for
+editing in a spreadsheet and importable back as it is. A table gives its columns; a tree a sheet per type; a relationship
+matrix a row per row record with the cells (their fields, or the linked records listed by the field the person chooses: the name, the default, or any other text field of the cell
+records, with a sheet per column of the records the column offers as full rows); a relationships table a row per relationship; a grid a column group per related record; a mapping grid the mapped
+target. The other choices are the view's type, its application and the whole workspace, each a sheet per type; the technical
+tables stay for systems. Every spreadsheet has an "About this export" sheet, second, saying what it holds and how it loads back.
+
+**Where a new cell goes, and how a file is read** (0.17 MC1, EX1). A relationship's candidate rules decide where a new cell record
+may stand. The cell dialog offers, and an import uses, only the containers a record created there would meet the rules under;
+when the rules name one place by equalities and the column has none, creating the cell creates that place with its values and
+the record together, in the same change, and the dialog's "Goes in" says "(will be created)". Where the rules name no one
+place, new cells go into the group under the column that already holds cells of the view (the one holding most; none on a tie); a group holding no cells is never preselected or used by an import, even as the only one, and stays choosable in the cell dialog under "Other groups (not used in this view)". Where there is none, the cell says so in plain words. An import's page has "How the file is read":
+per matrix or relationship column the field its cells are matched by (a file that does not record it is guessed from the
+column's existing records and says so), how many values found a record, where new records go ("will be created" for a new place),
+and a choice of another field, which reads the file again; nothing is written until the file is loaded, and the choice can be
+saved into the stored profile. A value that finds two records is refused, naming its row.
+
+**Value sheets and a proposed group** (0.17 EX1, MC1). A matrix whose cells link records exports a sheet per column listing the
+records the column offers as full rows (every field, the group, a hidden ID); the main sheet's cells list the chosen field and their
+dropdown reads the sheet, so a row renamed or added there shows in it, while typing any other value is still allowed. On import
+a value-sheet row with an ID updates its record, a row without one is a new record in the column's place (where the matrix
+creates), a name typed in a cell that matches a value-sheet row is that record, one typed in both places is one record, and one found
+nowhere is a new record. Where the rules give no place and no group of the column holds cells of the view, a new group, of the type the other
+columns' groups have and named as most of them are, is proposed: the cell dialog says so, lets the name be changed and creates the group
+with the record on one OK; an import's preview says "will create group … under …" and loading the file creates it.
+
 From a collection page, Export also makes a **workbook for people**: one Excel workbook shaped by
 the table. Its main sheet holds the columns the table shows, in its order and with its labels, the
 values formatted as the table shows them, and each relationship column as every related record's

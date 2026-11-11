@@ -32,7 +32,7 @@ import hashlib
 import io
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ from ...models.database import (
 from ...models.exports import ExportRequest
 from ...models.queries import ModelQuery, QueryContext
 from ...models.schema import EngineModel
-from ..model.registry import resolve_request_model
+from ..model.registry import ModelSnapshot, resolve_request_model
 from ..reads.context_sets import record_source, relation_source
 from ..reads.model_query import plan_model_query
 from ..reads.snapshot_reads import (
@@ -80,7 +80,7 @@ from ..reads.snapshot_reads import (
     publication_context,
 )
 from ..workspaces.catalogue import resolve_workspace
-from . import people, xlsx
+from . import about, export_views, people, view_sheets, xlsx
 from .store import start_job
 
 CHECK_ROWS = 10_000
@@ -165,6 +165,7 @@ class ExportPlan:
     publication_id: str | None
     types: tuple[str, ...]
     dated: tuple[str, ...]
+    view: export_views.ViewExport | None = None
 
 
 def submit_export(session: Session, request: ExportRequest, *, retention_days: int) -> Job:
@@ -174,13 +175,18 @@ def submit_export(session: Session, request: ExportRequest, *, retention_days: i
     snapshot = resolve_request_model(
         session, workspace.key, plan.change_set_id, plan.publication_id
     )
-    plan = _plan(snapshot.model, request, workspace.key)
-    layout = people.plan_people(snapshot.model, request)
+    view = export_views.resolve_view(snapshot.model, request)
+    effective = export_views.effective_request(snapshot.model, request, view)
+    plan = _plan(snapshot.model, effective, workspace.key, view)
+    ready = view_sheets.plan_view_workbook(snapshot.model, effective, view)
+    layout = _plan_layout(snapshot.model, effective, ready)
     context = _context(session, plan)
     if layout is not None:
         people.check_parents(session, snapshot.model, layout, workspace.key, context)
-    _scope_ids(snapshot.model, plan, context)
-    if request.scope.parentObjectId is not None:
+        if layout.view is not None:
+            layout.view.check(session, snapshot, workspace.key, context)
+    _scope_ids(session, snapshot, plan, context)
+    if effective.scope.parentObjectId is not None:
         _require_parent(session, plan, context)
     job = start_job(
         session,
@@ -197,6 +203,25 @@ def submit_export(session: Session, request: ExportRequest, *, retention_days: i
     return job
 
 
+def _plan_layout(
+    model: EngineModel, request: ExportRequest, ready: people.WorkbookPlan | None
+) -> people.WorkbookPlan | None:
+    """The workbook for people the request stands for. A refusal of a column the page's state named
+    points into the state, where the request named it."""
+    try:
+        return people.plan_people(model, request, ready)
+    except ApiError as error:
+        path = str((error.details or {}).get("path", ""))
+        if request.view is not None and path.startswith("/people/columns/"):
+            raise api_error(
+                error.status,
+                error.code,
+                error.message,
+                {**error.details, "path": path.replace("/people/columns/", "/view/state/columns/")},
+            ) from error
+        raise
+
+
 def _plan_context(request: ExportRequest, workspace_key: str) -> ExportPlan:
     return ExportPlan(
         request=request,
@@ -208,7 +233,12 @@ def _plan_context(request: ExportRequest, workspace_key: str) -> ExportPlan:
     )
 
 
-def _plan(model: EngineModel, request: ExportRequest, workspace_key: str) -> ExportPlan:
+def _plan(
+    model: EngineModel,
+    request: ExportRequest,
+    workspace_key: str,
+    view: export_views.ViewExport | None = None,
+) -> ExportPlan:
     keys = []
     for index, item in enumerate(request.scope.types):
         if model.object_type(item.objectTypeKey) is None:
@@ -240,6 +270,7 @@ def _plan(model: EngineModel, request: ExportRequest, workspace_key: str) -> Exp
         publication_id=_text(request.context.publicationId),
         types=tuple(keys),
         dated=dated,
+        view=view,
     )
 
 
@@ -248,9 +279,24 @@ def _dated(model: EngineModel, key: str) -> bool:
     return definition is not None and definition.effectivePeriod is not None
 
 
-def _scope_ids(model: EngineModel, plan: ExportPlan, context: SnapshotContext | None) -> Any:
+def _scope_ids(
+    session: Session, snapshot: ModelSnapshot, plan: ExportPlan, context: SnapshotContext | None
+) -> Any:
     """The IDs of the scope's records as one statement: one select per type through the model
     query's builders. A criterion the model cannot answer is refused at its pointer in the body."""
+    model = snapshot.model
+    extra = (
+        export_views.row_predicates(
+            session,
+            snapshot,
+            plan.request,
+            plan.view,
+            workspace_key=plan.workspace_key,
+            context=context,
+        )
+        if plan.view is not None
+        else {}
+    )
     selects = []
     for index, item in enumerate(plan.request.scope.types):
         query = ModelQuery(
@@ -272,7 +318,10 @@ def _scope_ids(model: EngineModel, plan: ExportPlan, context: SnapshotContext | 
                 422, "INVALID_QUERY", error.message, {**error.details, "path": prefix + path}
             ) from error
         record_id = planned.query.record.id
-        selects.append(planned.query.statement.with_only_columns(record_id).order_by(None))
+        statement = planned.query.statement.with_only_columns(record_id).order_by(None)
+        for predicate in extra.get(item.objectTypeKey, []):
+            statement = statement.where(predicate(record_id))
+        selects.append(statement)
     return union_all(*selects) if len(selects) > 1 else selects[0]
 
 
@@ -414,17 +463,20 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
             "uses; request the export again",
         )
     model = snapshot.model
-    plan = _plan(model, request, job.workspace_key)
+    view = export_views.resolve_view(model, request)
+    request = export_views.effective_request(model, request, view)
+    plan = _plan(model, request, job.workspace_key, view)
     context = _context(session, plan)
     position = _feed_position(session, plan)
     for statement in _TEMPORARY_TABLES:
         session.execute(text(statement))
-    _fill_records(session, model, plan, context)
+    _fill_records(session, snapshot, plan, context)
     # Between the set statements too: a large scope's fill phases outlast a lease (0.9 R-F12).
     _checkpoint(control)
-    layout = people.plan_people(model, request)
+    ready = view_sheets.plan_view_workbook(model, request, view)
+    layout = _plan_layout(model, request, ready)
     if layout is not None:
-        return _run_people(session, job, path, control, model, plan, layout, context, position)
+        return _run_people(session, job, path, control, snapshot, plan, layout, context, position)
     tabular = request.format != "jsonl"
     if tabular:
         _fill_paths(session, plan, context)
@@ -456,7 +508,17 @@ def run_export(session: Session, job: Job, path: Path, control: ExportControl) -
         elif request.format == "csv":
             _write_csv(session, file, type_order, columns, control)
     if request.format == "xlsx":
-        _write_xlsx(session, path, type_order, columns, plan, record_counts, relation_counts, control)
+        _write_xlsx(
+            session,
+            path,
+            type_order,
+            columns,
+            plan,
+            record_counts,
+            relation_counts,
+            control,
+            _technical_about(session, model, job, plan, record_counts, relation_counts),
+        )
 
     digest, size = _digest(path)
     content_type, extension = FORMATS[request.format]
@@ -492,31 +554,52 @@ def _run_people(
     job: Job,
     path: Path,
     control: ExportControl,
-    model: EngineModel,
+    snapshot: ModelSnapshot,
     plan: ExportPlan,
-    layout: people.PeoplePlan,
+    layout: people.WorkbookPlan,
     context: SnapshotContext | None,
     position: int | None,
 ) -> ExportOutcome:
-    """A workbook for people (0.9 J6) over the scope's records, from the same snapshot."""
-    if any(column.key == "path" for column in layout.columns):
+    """A workbook for people (0.9 J6, 0.17 EX1) over the scope's records, from the same snapshot."""
+    model = snapshot.model
+    if layout.view is not None or any(
+        column.key == "path" for item in layout.types for column in item.columns
+    ):
         _fill_paths(session, plan, context)
     session.execute(text("ANALYZE export_records"))
     control.total = session.scalar(select(func.count()).select_from(_RECORDS)) or 0
     _checkpoint(control)
-    snapshot = resolve_request_model(
-        session, job.workspace_key, plan.change_set_id, plan.publication_id
-    )
+    facts = _facts(session, model, job, plan, layout)
     written = people.write_people(
         session,
         model,
         layout,
+        snapshot=snapshot,
         workspace_key=job.workspace_key,
         context=context,
         path=path,
         on_row=lambda: _counted(control),
         checkpoint=lambda: _checkpoint(control),
-        description=people.described(model, layout, job.id, job.workspace_key),
+        description=people.described(
+            collection=(plan.view.definition.name if plan.view is not None else facts.scope) or "",
+            object_type_key=plan.types[0] if len(plan.types) == 1 and plan.view is None else None,
+            job_id=job.id,
+            workspace_key=job.workspace_key,
+            view=(
+                {"applicationKey": plan.view.application_key, "viewKey": plan.view.definition.key}
+                if plan.view is not None
+                else None
+            ),
+        ),
+        about=lambda outcome: (
+            *about.title_and_sentence(
+                facts,
+                technical=False,
+                grouped=layout.view is not None,
+                view_kind=plan.view and plan.view.kind,
+            ),
+            about.sections(facts, outcome.holds, outcome.loads, outcome.extra),
+        ),
     )
     digest, size = _digest(path)
     change_set = context.change_set if context is not None else None
@@ -539,9 +622,86 @@ def _run_people(
             "modelReleaseId": snapshot.release_id,
             "bytes": size,
             "sha256": digest,
+            **(
+                {
+                    "view": {
+                        "applicationKey": plan.view.application_key,
+                        "viewKey": plan.view.definition.key,
+                    }
+                }
+                if plan.view is not None
+                else {}
+            ),
         },
         extension="xlsx",
     )
+
+
+def _facts(
+    session: Session,
+    model: EngineModel,
+    job: Job,
+    plan: ExportPlan,
+    layout: people.WorkbookPlan | None,
+) -> about.AboutFacts:
+    """What the About sheet says was exported, from the request checked against the model."""
+    request, view = plan.request, plan.view
+    applications = [
+        item.name
+        for item in model.applications
+        if any(key in item.objectTypeKeys for key in plan.types)
+    ]
+    scope = ", ".join(
+        model.object_type(key).pluralName
+        for key in plan.types
+        if model.object_type(key) is not None
+    )
+    criteria = [criterion for item in request.scope.types for criterion in item.where]
+    extra: list[str] = []
+    search = None
+    if view is not None:
+        application = next(item for item in model.applications if item.key == view.application_key)
+        applications = [application.name]
+        search = view.state.search
+        criteria = [criterion for criterion in [*view.state.where, *view.state.toWhere]]
+        if view.state.parentObjectId:
+            extra.append(f"Below {_record_name(session, view.state.parentObjectId)}")
+        if view.state.cellState:
+            extra.append(f"Rows with a cell that is “{view.state.cellState}” in the columns shown")
+        if view.state.mappingState:
+            extra.append(f"Sources that are {view.state.mappingState}")
+        if view.state.columnIds:
+            extra.append(f"{len(view.state.columnIds)} columns shown")
+    else:
+        criteria = [item for item in criteria if getattr(item, "field", None) != "parentObjectId"]
+        if any(
+            getattr(item, "field", None) == "parentObjectId"
+            for entry in request.scope.types
+            for item in entry.where
+        ):
+            extra.append("Only records directly below the page's parent")
+    if request.scope.parentObjectId is not None:
+        extra.append(f"Below {_record_name(session, str(request.scope.parentObjectId))}")
+    return about.AboutFacts(
+        workspace_key=job.workspace_key,
+        application=", ".join(applications) or None,
+        view=(
+            f"{view.definition.name} ({view_sheets.kind_words(view.definition)})"
+            if view is not None
+            else None
+        ),
+        scope=scope or None,
+        read_from=about.read_from(session, request),
+        filters=about.describe_filters(model, search, criteria, extra),
+        exported_at=datetime.now(UTC),
+        job_id=job.id,
+        as_of=request.scope.asOf,
+    )
+
+
+def _record_name(session: Session, object_id: str) -> str:
+    name = session.scalar(select(RdmObject.name).where(RdmObject.id == object_id))
+    return f"“{name}”" if name else "a record"
 
 
 def _feed_position(session: Session, plan: ExportPlan) -> int | None:
@@ -573,19 +733,23 @@ def _tree_source(plan: ExportPlan, context: SnapshotContext | None) -> Any:
             projection.c.object_type_key,
         ).subquery()
     record = aliased(RdmObject)
-    return select(
-        record.id.label("object_id"),
-        record.parent_object_id,
-        record.name,
-        record.object_type_key,
-    ).where(record.workspace_key == plan.workspace_key).subquery()
+    return (
+        select(
+            record.id.label("object_id"),
+            record.parent_object_id,
+            record.name,
+            record.object_type_key,
+        )
+        .where(record.workspace_key == plan.workspace_key)
+        .subquery()
+    )
 
 
 def _fill_records(
-    session: Session, model: EngineModel, plan: ExportPlan, context: SnapshotContext | None
+    session: Session, snapshot: ModelSnapshot, plan: ExportPlan, context: SnapshotContext | None
 ) -> None:
     source = record_source(plan.workspace_key, context, plan.types)
-    conditions = [source.c.object_id.in_(_scope_ids(model, plan, context))]
+    conditions = [source.c.object_id.in_(_scope_ids(session, snapshot, plan, context))]
     parent = plan.request.scope.parentObjectId
     if parent is not None:
         down = _tree_source(plan, context)
@@ -660,9 +824,7 @@ def _fill_paths(session: Session, plan: ExportPlan, context: SnapshotContext | N
         .subquery()
     )
     session.execute(
-        update(_RECORDS)
-        .values(path=paths.c.path)
-        .where(_RECORDS.c.object_id == paths.c.object_id)
+        update(_RECORDS).values(path=paths.c.path).where(_RECORDS.c.object_id == paths.c.object_id)
     )
 
 
@@ -683,7 +845,11 @@ def _fill_relations(
     relation = relation_source(context)
     has_from = exists().where(_RECORDS.c.object_id == relation.c.from_object_id)
     has_to = exists().where(_RECORDS.c.object_id == relation.c.to_object_id)
-    ends = has_from & has_to if plan.request.include.relations == "withinScope" else or_(has_from, has_to)
+    ends = (
+        has_from & has_to
+        if plan.request.include.relations == "withinScope"
+        else or_(has_from, has_to)
+    )
     conditions = [ends]
     containment = _containment(model)
     if containment:
@@ -701,7 +867,13 @@ def _fill_relations(
     if tabular:
         source, target = _tree_source(plan, context), _tree_source(plan, context)
         statement = (
-            select(*columns, source.c.name, source.c.object_type_key, target.c.name, target.c.object_type_key)
+            select(
+                *columns,
+                source.c.name,
+                source.c.object_type_key,
+                target.c.name,
+                target.c.object_type_key,
+            )
             .outerjoin(source, source.c.object_id == relation.c.from_object_id)
             .outerjoin(target, target.c.object_id == relation.c.to_object_id)
             .where(*conditions)
@@ -721,19 +893,27 @@ def _fill_initial(
             for binding in model.objectTypeRelations
             if binding.required
             and binding.toObjectTypeKey in plan.types
-            and binding.relationTypeKey not in model.containment_relation_keys(binding.toObjectTypeKey)
+            and binding.relationTypeKey
+            not in model.containment_relation_keys(binding.toObjectTypeKey)
         }
     )
     if not pairs:
         return
     relation = relation_source(context)
     statement = (
-        select(_RECORDS.c.object_id, relation.c.relation_type_key, relation.c.from_object_id, relation.c.attributes)
+        select(
+            _RECORDS.c.object_id,
+            relation.c.relation_type_key,
+            relation.c.from_object_id,
+            relation.c.attributes,
+        )
         .join(relation, relation.c.to_object_id == _RECORDS.c.object_id)
         .where(tuple_(relation.c.relation_type_key, _RECORDS.c.object_type_key).in_(pairs))
     )
     session.execute(
-        insert(_INITIAL).from_select(["object_id", "relation_type_key", "from_id", "attributes"], statement)
+        insert(_INITIAL).from_select(
+            ["object_id", "relation_type_key", "from_id", "attributes"], statement
+        )
     )
 
 
@@ -742,6 +922,8 @@ def _fill_initial(
 _RECORD_ORDER = (
     "ORDER BY r.depth, array_position(CAST(:types AS text[]), r.object_type_key), r.object_id"
 )
+
+
 def _upsert_line(parent: bool) -> str:
     """A record's upsert item; ``parent`` only for a record that has one, so a top-level record's
     line names none (an absent parent keeps a found record where it is, §B3)."""
@@ -786,7 +968,9 @@ _JSONL_RELATIONS = (
 )
 
 
-def _write_jsonl(session: Session, file: Any, type_order: list[str], control: ExportControl) -> None:
+def _write_jsonl(
+    session: Session, file: Any, type_order: list[str], control: ExportControl
+) -> None:
     for statement in (_JSONL_RECORDS, _JSONL_RELATIONS):
         rows = session.execute(
             text(statement),
@@ -836,7 +1020,9 @@ def _cell(source: str, key: str, value_type: str) -> sql.Composable:
     """An attribute's value as canonical text: a JSON value as JSON text, every other as the
     text of its JSON value (dates ISO 8601, decimals as the API writes them, true or false)."""
     operator = sql.SQL("->") if value_type == "json" else sql.SQL("->>")
-    value = sql.SQL("({}.attributes {} {})").format(sql.Identifier(source), operator, sql.Literal(key))
+    value = sql.SQL("({}.attributes {} {})").format(
+        sql.Identifier(source), operator, sql.Literal(key)
+    )
     return sql.SQL("{}::text").format(value) if value_type == "json" else value
 
 
@@ -844,7 +1030,12 @@ def _write_csv(
     session: Session, file: Any, type_order: list[str], columns: _Columns, control: ExportControl
 ) -> None:
     attributes = columns.combined
-    header = [*CSV_COLUMNS, *(f"#{key}" for key, _ in attributes), *RECORD_ORIENTATION, *RELATION_ORIENTATION]
+    header = [
+        *CSV_COLUMNS,
+        *(f"#{key}" for key, _ in attributes),
+        *RECORD_ORIENTATION,
+        *RELATION_ORIENTATION,
+    ]
     text_header = io.StringIO()
     csv.writer(text_header, lineterminator="\n").writerow(header)
     file.write(b"\xef\xbb\xbf")
@@ -904,6 +1095,7 @@ def _write_xlsx(
     record_counts: dict[str, int],
     relation_counts: dict[str, int],
     control: ExportControl,
+    summary: tuple[str, str, list[xlsx.AboutSection]],
 ) -> None:
     """A workbook of named tables (``engine/jobs/xlsx.py``): ``Records`` and ``Relationships``, the
     attributes extracted as canonical text by PostgreSQL as for CSV, read through server-side
@@ -922,7 +1114,9 @@ def _write_xlsx(
         " r.parent_object_id{}, r.path"
         " FROM export_records r {}"
     ).format(
-        sql.SQL("").join(sql.SQL(", {}").format(_cell("r", key, kind)) for key, kind in columns.records),
+        sql.SQL("").join(
+            sql.SQL(", {}").format(_cell("r", key, kind)) for key, kind in columns.records
+        ),
         _record_order(type_order),
     )
     relations = sql.SQL(
@@ -930,7 +1124,9 @@ def _write_xlsx(
         " x.from_name, x.from_type, x.to_name, x.to_type FROM export_relations x"
         " ORDER BY x.relation_type_key, x.relation_id"
     ).format(
-        sql.SQL("").join(sql.SQL(", {}").format(_cell("x", key, kind)) for key, kind in columns.relations)
+        sql.SQL("").join(
+            sql.SQL(", {}").format(_cell("x", key, kind)) for key, kind in columns.relations
+        )
     )
     tables = (
         (
@@ -984,8 +1180,66 @@ def _write_xlsx(
                 )
             )
         _checkpoint(control)
+    book.about(*summary)
     book.lists([list(plan.types), relation_types])
     book.close()
+
+
+def _technical_about(
+    session: Session,
+    model: EngineModel,
+    job: Job,
+    plan: ExportPlan,
+    record_counts: dict[str, int],
+    relation_counts: dict[str, int],
+) -> tuple[str, str, list[xlsx.AboutSection]]:
+    """The technical workbook's About sheet (PP-D22): what it holds, and that an import reads the
+    Records and Relationships sheets as they are and ignores this one."""
+    facts = _facts(session, model, job, plan, None)
+    title, what = about.title_and_sentence(facts, technical=True, grouped=False, view_kind=None)
+    records = ", ".join(
+        f"{record_counts.get(key, 0)} {model.object_type(key).pluralName.lower()}"
+        for key in plan.types
+    )
+    relations = ", ".join(
+        f"{count} {(model.relation_type(key).name if model.relation_type(key) else key).lower()}"
+        for key, count in sorted(relation_counts.items())
+    )
+    holds = [
+        ("Records", f"{sum(record_counts.values())}: {records}", None),
+        (
+            "Relationships",
+            f"{sum(relation_counts.values())}" + (f": {relations}" if relations else ""),
+            None,
+        ),
+        (
+            "Columns",
+            (
+                "Object type, application, ID, version, name and parent, then a column per attribute"
+                " (#key); columns starting ~ are for reading."
+            ),
+            None,
+        ),
+    ]
+    loads = [
+        (
+            "Edit a row",
+            "Changes that record or relationship under its version; refused if it changed since this export.",
+            None,
+        ),
+        (
+            "Add a row",
+            "Leave ID and Version empty; the row creates the record or relationship.",
+            None,
+        ),
+        ("The ~ columns and this sheet", "Ignored by an import.", None),
+        (
+            "Imported with no profile",
+            "The sheets are read as they are written: every row, unchanged, reads as unchanged.",
+            None,
+        ),
+    ]
+    return title, what, about.sections(facts, holds, loads, [])
 
 
 def _xlsx_row(

@@ -44,6 +44,7 @@ import {
   ImportFacts,
   ImportNotices,
   ImportPreviewSection,
+  ImportReadingSection,
   ImportResultSection,
   ImportRowsSection,
 } from "./ImportOutcome";
@@ -268,6 +269,9 @@ export function JobPage({
         // What to act on first: the result or the preview, then the rows; how it was read, then its facts.
         <>
           {job.confirmedAt ? <ImportResultSection job={job} /> : <ImportPreviewSection job={job} />}
+          {!job.confirmedAt && job.state === "awaiting_confirmation" && (
+            <ImportReadingSection job={job} onNavigate={onNavigate} />
+          )}
           {isResting(job) && (job.preview || job.bindingReport) && <ImportRowsSection key={job.state} job={job} />}
           {job.confirmedAt && <ImportPreviewSection job={job} />}
           <BindingReportSection model={model} job={job} />

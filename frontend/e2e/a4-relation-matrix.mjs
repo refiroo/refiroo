@@ -232,7 +232,17 @@ try {
   await axe("a4-cell-dialog-none");
   await tabTo(dialog.getByRole("button", { name: /Create translation/ }), "Create translation");
   await page.keyboard.press("Enter");
-  await dialog.getByText("English / EN core").waitFor();
+  // English has one group and it holds no translations yet: nothing is preselected, and the group stays
+  // choosable under "Other groups (not used in this view)" (PP-D24).
+  await dialog.getByText("Other groups (not used in this view)").waitFor();
+  const unused = dialog.getByRole("radio", { name: /EN core/ });
+  expect(!(await unused.isChecked()), "an unused group was preselected");
+  await unused.check();
+  // The model sets no candidate rule here, so no place is derived and none "will be created" (PP-D24).
+  expect(
+    (await dialog.getByText("(will be created)").count()) === 0,
+    "a place that needs no creating says it will be created",
+  );
   expect(
     (await dialog.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "Codelist Alpha en",
     "the name does not default from the row and column",
@@ -516,6 +526,97 @@ try {
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "detached" });
   checks.push("publication: the matrix and its cells are read-only after publishing the change set");
+
+  // ---- 6. Create in a filled cell where many are allowed (MC1, PP-D23), live, 1440px and 390px ----
+  // Codelist Alpha holds one system value under system-0 (a one-to-many binding read from its one end);
+  // the dialog offers Link existing and Create, and a created record is another relationship of the row.
+  await create(
+    "rdm-systems",
+    "system-value",
+    "Filled Existing",
+    { "value-code": "FE", "value-name": "Filled Existing" },
+    {
+      parentObjectId: records.system[0].id,
+      initialRelations: [
+        { relationTypeKey: "reference-has-system-representation", direction: "incoming", otherObjectId: alpha.id },
+      ],
+    },
+  );
+  for (const [size, viewport, name] of [
+    ["wide", { width: 1440, height: 900 }, "Filled Wide"],
+    ["narrow", { width: 390, height: 844 }, "Filled Narrow"],
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${uiUrl}/apps/rdm-systems/views/codelists-by-system?workspaceKey=default`);
+    await page.getByRole("rowheader", { name: /Codelist Alpha/ }).waitFor();
+    await enterGrid();
+    await arrowTo("Codelist Alpha", "system-0");
+    await page.keyboard.press("Enter");
+    dialog = page.getByRole("dialog", { name: "Codelist Alpha · system-0" });
+    await dialog.waitFor();
+    expect(
+      (await dialog.getByRole("button", { name: /Link existing system value/ }).count()) === 1,
+      `${size}: a filled cell lacks Link existing`,
+    );
+    await tabTo(dialog.getByRole("button", { name: /Create system value/ }), "Create system value");
+    await page.keyboard.press("Enter");
+    await dialog.getByRole("textbox", { name: "Name", exact: true }).waitFor();
+    await noHorizontalScroll(`${size} create in a filled cell`);
+    await axe(`a4-create-in-filled-cell-${size}`);
+    await shot(`a4-create-in-filled-cell-${size}`);
+    await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(name);
+    await dialog.getByRole("textbox", { name: "Value code" }).fill(name.slice(7, 8) + "X");
+    await dialog.getByRole("textbox", { name: "Value name" }).fill(name);
+    await dialog.getByRole("button", { name: "Create system value" }).click();
+    await dialog.waitFor({ state: "detached" });
+    const filledRead = await matrixRead("rdm-systems&viewKey=codelists-by-system", "&search=Codelist Alpha");
+    const filledCell = filledRead.items
+      .find((item) => item.row.id === alpha.id)
+      ?.cells.find((item) => item.records.some((record) => record.name === name));
+    expect(
+      filledCell && filledCell.recordCount >= 2,
+      `${size}: the cell does not hold the created value next to the existing one`,
+    );
+  }
+  checks.push(
+    "create in a filled cell: Link existing and Create both offered; the created value joins the row's cell, 1440px and 390px",
+  );
+
+  // ---- 7. A column with no group (PP-D28), live, 1440px and 390px ----
+  // German has no group. The starter's translation group requires a group code, so a new one cannot be
+  // proposed from the data (a proposal needs a type that asks for nothing): the dialog says in plain words
+  // that no place exists, and the containers read proposes none. The proposal's own dialog is Vitest and the
+  // engine's journeys; this step keeps the dialog's no-place path through the same code on a real page.
+  const german = await create("rdm-translations", "language", "German", { "language-code": "de" });
+  const germanContainers = await api(
+    `/workspaces/default/relation-matrix/containers?applicationKey=rdm-translations&viewKey=codelist-translations&columnId=${german.id}`,
+  );
+  expect(germanContainers.items.length === 0, "German has containers");
+  expect(germanContainers.derivedPlace == null, "a group that needs a code was proposed");
+  for (const [size, viewport] of [
+    ["wide", { width: 1440, height: 900 }],
+    ["narrow", { width: 390, height: 844 }],
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${uiUrl}/apps/rdm-translations/views/codelist-translations?workspaceKey=default`);
+    await page.getByRole("rowheader", { name: /Codelist Beta/ }).waitFor();
+    await enterGrid();
+    await arrowTo("Codelist Beta", "de");
+    await page.keyboard.press("Enter");
+    dialog = page.getByRole("dialog", { name: "Codelist Beta \u00b7 de" });
+    await dialog.waitFor();
+    await tabTo(dialog.getByRole("button", { name: /Create translation/ }), "Create translation");
+    await page.keyboard.press("Enter");
+    await dialog.getByText(/There is no place in .* where a translation can be created here/).waitFor();
+    await noHorizontalScroll(`${size} a column with no group`);
+    await axe(`a4-no-group-${size}`);
+    await shot(`a4-no-group-${size}`);
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "detached" }).catch(() => undefined);
+  }
+  checks.push(
+    "a column with no group: no place is proposed where the group type needs a code, and the dialog says so, 1440px and 390px",
+  );
 
   const report = {
     browser: browser.version(),

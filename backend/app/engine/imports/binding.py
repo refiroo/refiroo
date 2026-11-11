@@ -55,10 +55,13 @@ from ...models.database import Job
 from ...models.imports import ColumnBinding, ImportProfileDefinition, MatchBy, Source
 from ...models.schema import EngineModel
 from ..jobs.batches import MISSING_REF
+from ..model.candidate_places import identifying_fields
+from ..model.traversal import ancestor_type_keys
 from ..reads.context_sets import record_source, relation_source
 from ..reads.snapshot_reads import SnapshotContext, change_set_context
 from ..records.counterparts import counterpart
 from .cells import attribute_value, cell_text, flag_set, is_empty
+from .places import Place, resolve_place
 from .profiles import check_profile, invalid_profile, source_order
 from .readers import Area, Table, TabularFile, jsonl_lines, open_tabular
 
@@ -89,7 +92,8 @@ _TEMPORARY_TABLES = (
         "CREATE TEMPORARY TABLE import_links (row_id integer NOT NULL, link_no integer NOT NULL,"
         " relation_type_key text, direction text, object_type_key text, match jsonb, column_name text,"
         " replace boolean, required boolean, candidates integer, target_id text,"
-        " expected_version integer, attributes jsonb) ON COMMIT DROP"
+        " expected_version integer, attributes jsonb, scope text NOT NULL DEFAULT '')"
+        " ON COMMIT DROP"
     ),
     (
         "CREATE TEMPORARY TABLE import_related (entry_id integer PRIMARY KEY, row_id integer NOT NULL,"
@@ -98,17 +102,20 @@ _TEMPORARY_TABLES = (
         " attributes jsonb NOT NULL DEFAULT '{}', required boolean, column_name text,"
         " parent_candidates integer, parent_id text, related_candidates integer, related_id text,"
         " existing boolean NOT NULL"
-        " DEFAULT false, current_name text, expected_version integer) ON COMMIT DROP"
+        " DEFAULT false, current_name text, expected_version integer, hint text) ON COMMIT DROP"
     ),
     (
         "CREATE TEMPORARY TABLE import_matches (match_id serial PRIMARY KEY, object_type_key text,"
-        " field text, attr text, value jsonb, candidates integer NOT NULL DEFAULT 0, resolved text,"
-        " creates boolean NOT NULL DEFAULT false, created boolean NOT NULL DEFAULT false,"
-        " UNIQUE (object_type_key, field, attr, value)) ON COMMIT DROP"
+        " field text, attr text, scope text NOT NULL DEFAULT '', label_attr text NOT NULL DEFAULT '',"
+        " container text NOT NULL DEFAULT '', value jsonb, candidates integer NOT NULL DEFAULT 0,"
+        " resolved text, creates boolean NOT NULL DEFAULT false, created boolean NOT NULL DEFAULT false,"
+        " UNIQUE (object_type_key, field, attr, scope, label_attr, container, value))"
+        " ON COMMIT DROP"
     ),
     (
         "CREATE TEMPORARY TABLE import_context (object_id text PRIMARY KEY, object_type_key text,"
-        " name text, parent_object_id text, attributes jsonb, version integer) ON COMMIT DROP"
+        " name text, parent_object_id text, attributes jsonb, version integer,"
+        " application_key text) ON COMMIT DROP"
     ),
     "CREATE INDEX ON import_context (object_type_key, name)",
     # The attribute values a key or a match reads, of the context's records and of the file's rows,
@@ -141,6 +148,27 @@ _TEMPORARY_TABLES = (
     (
         "CREATE TEMPORARY TABLE import_missing (src integer, object_id text PRIMARY KEY, name text,"
         " key_value jsonb, version integer) ON COMMIT DROP"
+    ),
+    # The records of each link-matrix column and what each could be listed by: one row per record and
+    # field, over the fields that identify the cell type (0.17 EX1, PP-D25).
+    (
+        "CREATE TEMPORARY TABLE import_scope_values (scope text, object_type_key text, field text,"
+        " value text, object_id text) ON COMMIT DROP"
+    ),
+    "CREATE INDEX ON import_scope_values (scope, field, value)",
+    "CREATE TEMPORARY TABLE import_fields (scope text, field text, rank integer) ON COMMIT DROP",
+    # The rows of a value sheet (PP-D27) with each field a link cell may name them by: a main-sheet
+    # value naming one is that record, whether its row updates a record or creates a new one.
+    (
+        "CREATE TEMPORARY TABLE import_value_rows (scope text, object_type_key text, field text,"
+        " value text, record_id text) ON COMMIT DROP"
+    ),
+    "CREATE INDEX ON import_value_rows (scope, field, value)",
+    # The place a new cell record goes where the file's column holds none yet, created with the
+    # first record that goes in it (0.17 PP-D24).
+    (
+        "CREATE TEMPORARY TABLE import_new_places (place_id text PRIMARY KEY, object_type_key text,"
+        " name text, column_id text, attributes jsonb, application_key text) ON COMMIT DROP"
     ),
     # Every match cell the file holds, for the binding report: a refused row's too.
     (
@@ -334,6 +362,8 @@ class _Report:
     def __init__(self) -> None:
         self.sources: dict[int, dict[str, Any]] = {}
         self.columns: dict[int, dict[tuple[str, str, str | None], dict[str, Any]]] = {}
+        # How each relationship or matrix column was read (PP-D26), by source and column.
+        self.readings: dict[tuple[int, str], dict[str, Any]] = {}
 
     def source(self, src: int, sheet: str, object_type_key: str | None) -> None:
         self.sources[src] = {
@@ -398,6 +428,9 @@ class _Report:
                 if "resolved" in entry:
                     counts = found.get((src, entry["column"]), (0, 0, 0))
                     entry["resolved"], entry["notFound"], entry["ambiguous"] = counts
+                reading = self.readings.get((src, entry["column"]))
+                if reading is not None and reading["binding"] == entry["binding"]:
+                    entry["reading"] = reading
                 columns.append(entry)
             source = self.sources[src] | {
                 "rejectedRows": rejected.get(src, 0),
@@ -405,6 +438,41 @@ class _Report:
             }
             report.append(source | {"columns": columns})
         return report
+
+
+def _field_label(model: EngineModel, field_: str) -> str:
+    """A matching field in words: ``Name``, an attribute's name, or the older label reading."""
+    if field_ == "name":
+        return "Name"
+    if field_ == "@label":
+        return "Name with its display field"
+    attribute = model.attribute_type(field_)
+    return attribute.name if attribute is not None else field_
+
+
+def _best_field(found: list[Any], model: EngineModel) -> tuple[str, str | None]:
+    """The field a column is read by, and what to say when the choice was not clear (PP-D26): the
+    one every value finds one record by, else the one most do, a tie going to the field offered
+    first. ``found`` is (field, rank, cells, matched, ambiguous) per field."""
+    cells = found[0][2]
+    if not cells:
+        return found[0][0], None
+    ranked = sorted(found, key=lambda item: (-item[3], item[4], item[1]))
+    best = ranked[0]
+    tied = [item for item in ranked if item[3] == best[3] and item[4] == best[4]]
+    names = " and ".join(_field_label(model, item[0]) for item in tied)
+    chosen = _field_label(model, best[0])
+    if best[3] == cells:
+        if len(tied) == 1:
+            return best[0], None
+        return best[0], f"{names} each match every value; {chosen} was chosen."
+    if len(tied) > 1:
+        return (
+            best[0],
+            f"No field matches every value: {names} each match {best[3]} of {cells}; {chosen} was chosen.",
+        )
+    note = f"No field matches every value: {chosen} matches the most, {best[3]} of {cells}."
+    return best[0], note
 
 
 def _tally(entry: dict[str, Any], raw: Any, mapped: bool, convert: Callable[[Any], Any]) -> Any:
@@ -835,6 +903,12 @@ class _ProfileBinding:
         self.counter = rows
         self.report = report
         self.match_cells = _Copy(session, "import_match_cells", ("src", "column_name", "match"))
+        # Where new cell records go, by column record (0.17 PP-D24), and the places to create.
+        self.places: dict[tuple[str, str, str, str, str], Place] = {}
+        self.new_places: dict[str, Place] = {}
+        self.place_columns: dict[str, str] = {}
+        # Per source and column, how a link-matrix column was read (PP-D26), for the report.
+        self.readings: dict[tuple[int, str], dict[str, Any]] = {}
         self.row_id = 0
         self.plans: list[_Plan] = []
         # Each source's named columns, by plan index (rows empty in all of them are skipped).
@@ -877,6 +951,7 @@ class _ProfileBinding:
                 "required",
                 "expected_version",
                 "attributes",
+                "scope",
             ),
         )
         self.related = _Copy(
@@ -898,6 +973,7 @@ class _ProfileBinding:
                 "required",
                 "column_name",
                 "expected_version",
+                "hint",
             ),
         )
 
@@ -908,6 +984,7 @@ class _ProfileBinding:
         book = open_book(file_format, delimiter)
         try:
             plans = self.plans = self._plans(book, file_format == "xlsx")
+            self._places()
             for plan in plans:
                 found = book.table(
                     plan.source.sheet if file_format == "xlsx" else None, _area(plan.source)
@@ -921,6 +998,7 @@ class _ProfileBinding:
         finally:
             book.close()
         self._resolve()
+        self.report.readings = self._reading_report()
 
     def _plans(self, book: TabularFile, xlsx: bool) -> list[_Plan]:
         """Each source's columns, in the order the sources load; every missing sheet, header row
@@ -1060,6 +1138,36 @@ class _ProfileBinding:
                         )
         except _RowError as rejected:
             failures.append(rejected.body)
+        if source.under is not None and key_value is None and not failures:
+            # A value sheet's row without an ID is a new record in the column's place (PP-D27).
+            under = source.under
+            place = self._value_place(source)
+            if not under.creates:
+                failures.append(
+                    _error(
+                        "REFERENCE_NOT_FOUND",
+                        "This sheet only edits the records it lists; a row without a record ID would"
+                        " add one, and this view does not add records",
+                        column=source.key.column,
+                    )
+                )
+            elif place is None or place.container_id is None:
+                failures.append(
+                    _error(
+                        "REFERENCE_NOT_FOUND",
+                        (place.message if place is not None and place.message else None)
+                        or "There is no place for a new record in this column; create one in the app",
+                        column=source.key.column,
+                    )
+                )
+            else:
+                state.parent = {
+                    "type": place.type_key,
+                    "field": "id",
+                    "attr": "",
+                    "value": place.container_id,
+                    "column": source.key.column,
+                }
         if key_value is None and source.key is not None and source.rowsWithoutKey == "skip":
             # A row without a key is no record of the source (0.10 A7, D110): counted, not loaded.
             self.report.skip(plan.order)
@@ -1122,6 +1230,7 @@ class _ProfileBinding:
                 entry["required"],
                 entry["column"],
                 entry["version"],
+                entry["hint"],
             )
 
     def _binding(
@@ -1295,9 +1404,11 @@ class _ProfileBinding:
         required = self._required(
             plan, relation.relationTypeKey, relation.direction, relation.objectTypeKey
         )
+        within = relation.within
         if not pieces:
             entry["empty"] += 1
-            if not relation.replace:
+            # A column's part of a set changes nothing when its cell is empty (0.17 EX1).
+            if not relation.replace or within is not None:
                 return []
             # An empty cell makes the set empty (0.9 R-F5, D187): a link that names no record,
             # which the set replacement takes as no target.
@@ -1312,7 +1423,24 @@ class _ProfileBinding:
                     required,
                     version,
                     attributes,
+                    "",
                 )
+            ]
+        if within is not None:
+            return [
+                (
+                    relation.relationTypeKey,
+                    relation.direction,
+                    relation.objectTypeKey,
+                    self._labelled(plan, relation, within, entry, piece, binding.column),
+                    binding.column,
+                    True,
+                    required,
+                    version,
+                    attributes,
+                    within.value,
+                )
+                for piece in pieces
             ]
         return [
             (
@@ -1333,9 +1461,45 @@ class _ProfileBinding:
                 required,
                 version,
                 attributes,
+                "",
             )
             for piece in pieces
         ]
+
+    def _labelled(
+        self,
+        plan: _Plan,
+        relation: Any,
+        within: Any,
+        entry: dict[str, Any],
+        piece: Any,
+        column_name: str,
+    ) -> dict[str, Any]:
+        """A link-matrix cell's value (0.17 EX1): a record under the column record named by the field
+        the file records (``within.field``), by its label (``name (display)``) or name for a file
+        from before the field was recorded, or by a field not yet known (``attr`` empty): the binding
+        guesses it from the column's records once they are read (PP-D26). Kept for the report like any
+        match; a value that finds none creates one in the place the model gives when the binding
+        allows it (PP-D24)."""
+        place = self._place(plan.source.objectTypeKey, relation, within.value, within.container)
+        container = place.container_id if place is not None and place.container_id else ""
+        found = {
+            "type": relation.objectTypeKey,
+            "field": "cell",
+            "attr": within.field or ("@label" if within.labelAttributeTypeKey else ""),
+            "scope": within.value,
+            "labelAttr": within.labelAttributeTypeKey or "",
+            "container": container,
+            "value": cell_text(piece),
+            "column": column_name,
+        }
+        if relation.missing == "create" and container:
+            # Any recorded field creates (PP-D27): the record's name is the value, and the attribute
+            # holds it too when the field is not the name. A guessed field other than the name does
+            # not (the choice drops the flag).
+            found["create"] = True
+        self.match_cells.add(plan.order, column_name, found)
+        return found
 
     def _flags(
         self, plan: _Plan, binding: ColumnBinding, cells: list[Any]
@@ -1369,6 +1533,7 @@ class _ProfileBinding:
                     required,
                     None,
                     None,
+                    "",
                 )
             )
         return links
@@ -1389,40 +1554,60 @@ class _ProfileBinding:
             spec.direction,
             spec.applicationKey,
             spec.objectTypeKey,
-            parent.objectTypeKey,
-            parent.matchBy.field,
-            parent.matchBy.attributeTypeKey,
-            parent.value,
-            parent.column,
-            parent.valueMap,
+            parent.objectTypeKey if parent else None,
+            parent.matchBy.field if parent else None,
+            parent.matchBy.attributeTypeKey if parent else None,
+            parent.value if parent else None,
+            parent.column if parent else None,
+            parent.valueMap if parent else None,
             spec.matchBy.attributeTypeKey if spec.matchBy else None,
+            spec.idColumn,
+            spec.under.value if spec.under else None,
         )
         group = plan.groups.setdefault(identity, len(plan.groups))
         entry = entries.get(group)
         if entry is None:
-            parent_raw = (
-                parent.value
-                if parent.value is not None
-                else _cell(plan.columns, cells, parent.column)
-            )
-            if parent.valueMap is not None and parent_raw is not None:
-                mapping = self.profile.valueMaps[parent.valueMap]
-                if cell_text(parent_raw) in mapping:
-                    parent_raw = mapping[cell_text(parent_raw)]
-                    parent_raw = None if is_empty(parent_raw) else parent_raw
-            parent_match = (
-                self._match(
-                    parent.objectTypeKey,
-                    parent.matchBy,
-                    parent_raw,
-                    parent.column or binding.column,
+            parent_match = None
+            if parent is not None:
+                parent_raw = (
+                    parent.value
+                    if parent.value is not None
+                    else _cell(plan.columns, cells, parent.column)
                 )
-                if parent_raw is not None
-                else None
-            )
-            if parent_match is not None and parent.missing == "create":
-                # A parent no record matches is created by its name (0.10 A6, D93).
-                parent_match["create"] = True
+                if parent.valueMap is not None and parent_raw is not None:
+                    mapping = self.profile.valueMaps[parent.valueMap]
+                    if cell_text(parent_raw) in mapping:
+                        parent_raw = mapping[cell_text(parent_raw)]
+                        parent_raw = None if is_empty(parent_raw) else parent_raw
+                parent_match = (
+                    self._match(
+                        parent.objectTypeKey,
+                        parent.matchBy,
+                        parent_raw,
+                        parent.column or binding.column,
+                    )
+                    if parent_raw is not None
+                    else None
+                )
+                if parent_match is not None and parent.missing == "create":
+                    # A parent no record matches is created by its name (0.10 A6, D93).
+                    parent_match["create"] = True
+            if spec.under is not None:
+                place = self._place(plan.source.objectTypeKey, spec, spec.under.value, None)
+                if place is not None and place.container_id is not None:
+                    # The place is a record of the context, or one this load creates first.
+                    parent_match = {
+                        "type": place.type_key,
+                        "field": "id",
+                        "attr": "",
+                        "value": place.container_id,
+                        "column": spec.idColumn or binding.column,
+                    }
+            hint = None
+            if spec.idColumn is not None:
+                held = _cell(plan.columns, cells, spec.idColumn)
+                if held is not None:
+                    hint = _uuid(held, spec.idColumn)
             backward = spec.direction == "outgoing"
             source_type, target_type = (
                 (plan.source.objectTypeKey, spec.objectTypeKey)
@@ -1441,13 +1626,18 @@ class _ProfileBinding:
                 "fallback": None,
                 "attributes": {},
                 "required": bool(relation and relation.required and backward),
-                "column": binding.column,
+                "column": spec.idColumn or binding.column,
                 "version": None,
                 "skip": False,
+                "hint": hint,
             }
             entries[group] = entry
         if spec.versionColumn is not None and entry["version"] is None and not entry["skip"]:
             self._related_version(plan, spec.versionColumn, cells, entry)
+        if entry["skip"]:
+            # A pair the file shows as several records is left out whole (D195): its cells are a
+            # summary, never converted.
+            return
         counts = self.report.cell(plan.order, binding.column, "relatedRecord", spec.objectTypeKey)
         if spec.field == "name":
             name = _tally(counts, raw, mapped, cell_text)
@@ -1466,7 +1656,30 @@ class _ProfileBinding:
             entry["attributes"][spec.attributeTypeKey] = value
             if entry["fallback"] is None:
                 entry["fallback"] = cell_text(raw)
-        if entry["parent"] is None:
+        if entry["parent"] is None and entry["hint"] is None:
+            if spec.under is not None:
+                found_place = self._place(plan.source.objectTypeKey, spec, spec.under.value, None)
+                raise _RowError(
+                    _error(
+                        "REFERENCE_NOT_FOUND",
+                        (
+                            found_place.message
+                            if found_place is not None and found_place.message
+                            else None
+                        )
+                        or "There is no place for a new record in this column; create one in the app",
+                        column=spec.idColumn or binding.column,
+                    )
+                )
+            if parent is None:
+                raise _RowError(
+                    _error(
+                        "REFERENCE_NOT_FOUND",
+                        "A new record here has no place to go: the column names no container and"
+                        " its cell has no record ID; the cell is not loaded",
+                        column=spec.idColumn,
+                    )
+                )
             raise _RowError(
                 _error(
                     "REFERENCE_NOT_FOUND",
@@ -1513,6 +1726,7 @@ class _ProfileBinding:
                     column("parent_object_id"),
                     column("attributes"),
                     column("version"),
+                    column("application_key"),
                 )
             ).from_select(
                 [
@@ -1522,6 +1736,7 @@ class _ProfileBinding:
                     "parent_object_id",
                     "attributes",
                     "version",
+                    "application_key",
                 ],
                 select(
                     source.c.object_id,
@@ -1530,6 +1745,7 @@ class _ProfileBinding:
                     source.c.parent_object_id,
                     cast(source.c.attributes, JSONB),
                     source.c.version,
+                    source.c.application_key,
                 ),
             )
         )
@@ -1539,6 +1755,12 @@ class _ProfileBinding:
                 for s in self.profile.sources
                 for b in s.columns
                 if b.relatedRecord
+            }
+            | {
+                b.relation.relationTypeKey
+                for s in self.profile.sources
+                for b in s.columns
+                if b.relation and b.relation.within
             }
         )
         if relation_types:
@@ -1565,6 +1787,8 @@ class _ProfileBinding:
                     ),
                 )
             )
+        self._virtual_places()
+        self._scope_values()
         run("ANALYZE import_rows")
         run("ANALYZE import_context")
         self._duplicates()
@@ -1656,10 +1880,480 @@ class _ProfileBinding:
                     {"src": plan.order, "ref": MISSING_REF},
                 )
 
+    # --- where new records go, and how a matrix column is read (0.17 PP-D24 to PP-D26) ---
+
+    def _place(
+        self, source_type: str, relation: Any, column_value: str, container: Any
+    ) -> Place | None:
+        """Where a new record of the column goes: the profile's container when it names one, else
+        what the model's rules gave for the column record (:meth:`_places`)."""
+        if container is not None:
+            return Place(container.value)
+        return self.places.get(
+            (
+                source_type,
+                relation.relationTypeKey,
+                relation.direction,
+                relation.objectTypeKey,
+                column_value,
+            )
+        )
+
+    def _value_place(self, source: Any) -> Place | None:
+        """Where a new record of a value sheet goes: the place of its column record."""
+        under = source.under
+        return self.places.get(
+            (
+                under.rowObjectTypeKey,
+                under.relationTypeKey,
+                under.direction,
+                source.objectTypeKey,
+                under.value,
+            )
+        )
+
+    def _places(self) -> None:
+        """The place for each column record a new record may be created under, read once before the
+        rows are: a link matrix column that creates (``missing: create``) without a container, and a
+        create matrix column (``under``). The answer comes from the context's records and the
+        binding's candidate criteria (:func:`resolve_place`); a place that does not exist yet is
+        created with the first record that goes in it."""
+        for plan in self.plans:
+            source_type = plan.source.objectTypeKey
+            if plan.source.under is not None and plan.source.under.creates:
+                under = plan.source.under
+                self._resolve_place(
+                    under.rowObjectTypeKey,
+                    under.relationTypeKey,
+                    under.direction,
+                    source_type,
+                    under.objectTypeKey,
+                    under.value,
+                )
+            for binding in plan.source.columns:
+                specs: list[tuple[Any, str, str]] = []
+                relation = binding.relation
+                if (
+                    relation is not None
+                    and relation.within is not None
+                    and relation.within.container is None
+                    and relation.missing == "create"
+                ):
+                    specs.append((relation, relation.within.objectTypeKey, relation.within.value))
+                if binding.relatedRecord is not None and binding.relatedRecord.under is not None:
+                    under = binding.relatedRecord.under
+                    specs.append((binding.relatedRecord, under.objectTypeKey, under.value))
+                for spec, column_type, column_value in specs:
+                    self._resolve_place(
+                        source_type,
+                        spec.relationTypeKey,
+                        spec.direction,
+                        spec.objectTypeKey,
+                        column_type,
+                        column_value,
+                    )
+
+    def _resolve_place(
+        self,
+        row_type: str,
+        relation_type_key: str,
+        direction: str,
+        cell_type: str,
+        column_type: str,
+        column_value: str,
+    ) -> None:
+        """The place a new ``cell_type`` record under the column record goes, once per column."""
+        key = (row_type, relation_type_key, direction, cell_type, column_value)
+        if key in self.places:
+            return
+        outgoing = direction == "outgoing"
+        allowed = (
+            self.model.allowed_relation(relation_type_key, row_type, cell_type)
+            if outgoing
+            else self.model.allowed_relation(relation_type_key, cell_type, row_type)
+        )
+        criteria = allowed.candidates_at("to" if outgoing else "from") if allowed else ()
+        place = resolve_place(
+            self.session,
+            self.model,
+            self.job.workspace_key,
+            self.context,
+            column_record_id=column_value,
+            column_type_key=column_type,
+            cell_type_key=cell_type,
+            criteria=criteria,
+            relation_type_key=relation_type_key,
+            direction=direction,
+            row_type_key=row_type,
+        )
+        self.places[key] = place
+        if place.new is not None and place.container_id is not None:
+            self.new_places[place.container_id] = place
+            self.place_columns[place.container_id] = column_value
+
+    def _virtual_places(self) -> None:
+        """The places this load creates, as records of the context: a match by ID finds them, and
+        the records created under them have a parent."""
+        applications = {
+            type_key: application.key
+            for application in reversed(self.model.applications)
+            for type_key in application.objectTypeKeys
+        }
+        for place_id, place in self.new_places.items():
+            assert place.new is not None
+            attributes = [
+                {"attributeTypeKey": key, "value": value}
+                for key, value in place.new.attributes.items()
+            ]
+            self.session.execute(
+                text(
+                    "INSERT INTO import_new_places (place_id, object_type_key, name, column_id,"
+                    " attributes, application_key) VALUES (:id, :type, :name, :column,"
+                    " CAST(:attributes AS jsonb), coalesce((SELECT c.application_key FROM"
+                    " import_context c WHERE c.object_id = :column), :application))"
+                ),
+                {
+                    "id": place_id,
+                    "type": place.new.object_type_key,
+                    "name": place.new.name,
+                    "column": self.place_columns[place_id],
+                    "attributes": json.dumps(attributes),
+                    "application": applications.get(place.new.object_type_key, ""),
+                },
+            )
+        self._sql(
+            """
+            INSERT INTO import_context (object_id, object_type_key, name, parent_object_id,
+                attributes, version, application_key)
+            SELECT place_id, object_type_key, name, column_id,
+                (SELECT coalesce(jsonb_object_agg(a ->> 'attributeTypeKey', a -> 'value'), '{}'::jsonb)
+                 FROM jsonb_array_elements(attributes) a),
+                1, application_key
+            FROM import_new_places
+            """
+        )
+
+    def _scope_values(self) -> None:
+        """The records of each link-matrix column with each value they could be listed by, and then
+        which field each column is read by (PP-D26): one walk down from the column record through
+        the container types to the cell records per column, over the context's records, one row per
+        record and identifying field of the cell type (``name``, its display attribute, its unique
+        attributes), and for a file from before the field was recorded the label ``name (display)``."""
+        seen: set[tuple[str, str, str]] = set()
+        for source in self.profile.sources:
+            for binding in source.columns:
+                relation = binding.relation
+                if relation is None or relation.within is None:
+                    continue
+                within = relation.within
+                label_attr = within.labelAttributeTypeKey or ""
+                if (within.value, label_attr, relation.objectTypeKey) in seen:
+                    continue
+                seen.add((within.value, label_attr, relation.objectTypeKey))
+                fields = identifying_fields(self.model, relation.objectTypeKey)
+                for rank, field_ in enumerate(fields):
+                    self.session.execute(
+                        text("INSERT INTO import_fields VALUES (:scope, :field, :rank)"),
+                        {"scope": within.value, "field": field_, "rank": rank},
+                    )
+                values = ["('name', c.name)"]
+                params: dict[str, Any] = {}
+                for number, field_ in enumerate(item for item in fields if item != "name"):
+                    values.append(f"(:field{number}, c.attributes ->> :field{number})")
+                    params[f"field{number}"] = field_
+                if label_attr:
+                    values.append(
+                        "('@label:' || :label_attr, CASE WHEN c.attributes ->> :label_attr IS NOT NULL"
+                        " AND c.attributes ->> :label_attr <> c.name"
+                        " THEN c.name || ' (' || (c.attributes ->> :label_attr) || ')' ELSE c.name END)"
+                    )
+                self.session.execute(
+                    text(
+                        f"""
+                        INSERT INTO import_scope_values
+                            (scope, object_type_key, field, value, object_id)
+                        WITH RECURSIVE down(object_id, depth) AS (
+                            SELECT c.object_id, 1 FROM import_context c
+                            WHERE c.parent_object_id = :scope AND c.object_type_key = ANY(:walk)
+                            UNION ALL
+                            SELECT c.object_id, d.depth + 1 FROM down d
+                            JOIN import_context c ON c.parent_object_id = d.object_id
+                            WHERE c.object_type_key = ANY(:walk) AND d.depth < 64)
+                        -- A cell is cut at its separator, so a value holding one is read with it as a
+                        -- comma, as the export writes it.
+                        SELECT :scope, c.object_type_key, f.field, replace(f.value, ';', ','),
+                            c.object_id
+                        FROM down d JOIN import_context c ON c.object_id = d.object_id
+                        CROSS JOIN LATERAL (VALUES {", ".join(values)}) AS f(field, value)
+                        WHERE c.object_type_key = :cell_type AND f.value IS NOT NULL AND f.value <> ''
+                        """
+                    ),
+                    {
+                        "scope": within.value,
+                        "label_attr": label_attr,
+                        "walk": self._walk_types(relation),
+                        "cell_type": relation.objectTypeKey,
+                        **params,
+                    },
+                )
+        self._guess_fields()
+
+    def _guess_fields(self) -> None:
+        """Each link-matrix column's cells against each identifying field of the column's records,
+        in one statement over the distinct values (PP-D26): how many values find exactly one record by
+        each field, and how many find several. A column whose file records no field is read by the
+        best one: every value finding one record, else the most, a tie going to the field offered
+        first (the name). The choice is written into the column's matches before they are resolved;
+        what was compared is kept for the report."""
+        self._sql(
+            """
+            CREATE TEMPORARY TABLE import_hits ON COMMIT DROP AS
+            WITH cells AS (
+                SELECT DISTINCT c.src, c.column_name, c.match ->> 'scope' AS scope,
+                    c.match ->> 'type' AS type, (c.match -> 'value') #>> '{}' AS v
+                FROM import_match_cells c WHERE c.match ->> 'field' = 'cell')
+            SELECT d.src, d.column_name, f.field, f.rank, count(*) AS cells,
+                count(*) FILTER (WHERE h.n = 1) AS matched,
+                count(*) FILTER (WHERE h.n > 1) AS ambiguous
+            FROM cells d JOIN import_fields f ON f.scope = d.scope
+            LEFT JOIN LATERAL (
+                SELECT count(DISTINCT s.object_id) AS n FROM import_scope_values s
+                WHERE s.scope = d.scope AND s.object_type_key = d.type AND s.field = f.field
+                  AND s.value = d.v) h ON true
+            GROUP BY d.src, d.column_name, f.field, f.rank
+            """
+        )
+        hits: dict[tuple[int, str], list[Any]] = {}
+        for src, column_name, field_, rank, cells, matched, ambiguous in self.session.execute(
+            text(
+                "SELECT src, column_name, field, rank, cells, matched, ambiguous FROM import_hits"
+                " ORDER BY src, column_name, rank"
+            )
+        ):
+            hits.setdefault((src, column_name), []).append(
+                (field_, rank, cells, matched, ambiguous)
+            )
+        declared = {
+            (src, column_name): attr
+            for src, column_name, attr in self.session.execute(
+                text(
+                    "SELECT DISTINCT src, column_name, match ->> 'attr' FROM import_match_cells"
+                    " WHERE match ->> 'field' = 'cell'"
+                )
+            )
+        }
+        chosen: list[dict[str, Any]] = []
+        for key, found in hits.items():
+            options = [
+                {"field": field_, "cells": cells, "matched": matched, "ambiguous": ambiguous}
+                for field_, _rank, cells, matched, ambiguous in found
+            ]
+            attr = declared.get(key, "")
+            reading: dict[str, Any] = {"options": options}
+            if attr:
+                reading |= {"field": attr, "recorded": True, "guessed": False}
+            else:
+                best, note = _best_field(found, self.model)
+                chosen.append({"src": key[0], "column": key[1], "field": best})
+                reading |= {"field": best, "recorded": False, "guessed": True, "note": note}
+            self.readings[key] = reading
+        if chosen:
+            self.session.execute(
+                text(
+                    "CREATE TEMPORARY TABLE import_choice (src integer, column_name text, field text)"
+                    " ON COMMIT DROP"
+                )
+            )
+            self.session.execute(
+                text("INSERT INTO import_choice VALUES (:src, :column, :field)"), chosen
+            )
+            for statement in (
+                """
+                UPDATE import_links l SET match = (l.match || jsonb_build_object('attr', g.field))
+                    - CASE WHEN g.field = 'name' THEN '' ELSE 'create' END
+                FROM import_rows r, import_choice g
+                WHERE r.row_id = l.row_id AND g.src = r.src AND g.column_name = l.match ->> 'column'
+                  AND l.match ->> 'field' = 'cell' AND l.match ->> 'attr' = ''
+                """,
+                """
+                UPDATE import_match_cells l SET match = (l.match || jsonb_build_object('attr', g.field))
+                    - CASE WHEN g.field = 'name' THEN '' ELSE 'create' END
+                FROM import_choice g
+                WHERE g.src = l.src AND g.column_name = l.column_name
+                  AND l.match ->> 'field' = 'cell' AND l.match ->> 'attr' = ''
+                """,
+            ):
+                self._sql(statement)
+
+    def _reading_report(self) -> dict[tuple[int, str], dict[str, Any]]:
+        """How each matrix and relationship column was read, for the preview (PP-D26): the field it
+        is matched by and whether the file recorded it, what each field of the column's records
+        would have matched, and where a new record goes."""
+        found: dict[tuple[int, str], dict[str, Any]] = {}
+        placed: set[str] = set()
+        from_sheets = self._value_sheet_counts()
+        for plan in self.plans:
+            if plan.source.under is not None:
+                found.update(self._value_sheet_reading(plan))
+            for binding in plan.source.columns:
+                relation = binding.relation
+                if relation is not None and relation.within is not None:
+                    within = relation.within
+                    reading = dict(self.readings.get((plan.order, binding.column), {}))
+                    if not reading:
+                        field_ = within.field or (
+                            "@label" if within.labelAttributeTypeKey else "name"
+                        )
+                        reading = {
+                            "field": field_,
+                            "recorded": bool(within.field or within.labelAttributeTypeKey),
+                            "guessed": False,
+                            "options": [
+                                {"field": item, "cells": 0, "matched": 0, "ambiguous": 0}
+                                for item in identifying_fields(self.model, relation.objectTypeKey)
+                            ],
+                        }
+                    reading["binding"] = "relation"
+                    for option in reading["options"]:
+                        option["label"] = _field_label(self.model, option["field"])
+                    reading["label"] = _field_label(self.model, reading["field"])
+                    place = self._place(
+                        plan.source.objectTypeKey, relation, within.value, within.container
+                    )
+                    if relation.missing == "create" and place is not None:
+                        reading["newRecords"] = self._new_records(place, relation.objectTypeKey)
+                    reading |= from_sheets.get((plan.order, binding.column), {})
+                    found[(plan.order, binding.column)] = reading
+                elif relation is not None and relation.idColumn is None:
+                    by = relation.matchBy
+                    if by.field == "id":
+                        continue
+                    field_ = by.attributeTypeKey or "name"
+                    found[(plan.order, binding.column)] = {
+                        "binding": "relation",
+                        "field": field_,
+                        "label": _field_label(self.model, field_),
+                        "recorded": True,
+                        "guessed": False,
+                        "options": [
+                            {"field": item, "label": _field_label(self.model, item)}
+                            for item in identifying_fields(self.model, relation.objectTypeKey)
+                        ],
+                    }
+                elif binding.relatedRecord is not None and binding.relatedRecord.under is not None:
+                    spec = binding.relatedRecord
+                    if spec.under.value in placed:
+                        continue
+                    placed.add(spec.under.value)
+                    place = self._place(plan.source.objectTypeKey, spec, spec.under.value, None)
+                    found[(plan.order, binding.column)] = {
+                        "binding": "relatedRecord",
+                        "recorded": True,
+                        "guessed": False,
+                        "options": [],
+                        "newRecords": self._new_records(place, spec.objectTypeKey),
+                    }
+        return found
+
+    def _value_sheet_counts(self) -> dict[tuple[int, str], dict[str, int]]:
+        """For each link column of a file with value sheets: how many of its distinct values name a
+        row of a value sheet, and how many name no record at all and so create one (PP-D27)."""
+        if not any(plan.source.under is not None for plan in self.plans):
+            return {}
+        return {
+            (src, column_name): {"fromValueSheet": from_sheet, "createdValues": created}
+            for src, column_name, from_sheet, created in self.session.execute(
+                text(
+                    f"""
+                    SELECT c.src, c.column_name,
+                        count(DISTINCT m.match_id) FILTER (WHERE NOT m.created AND EXISTS (
+                            SELECT 1 FROM import_value_rows v
+                            WHERE v.scope = m.scope AND v.record_id = m.resolved)),
+                        count(DISTINCT m.match_id) FILTER (WHERE m.created)
+                    FROM import_match_cells c JOIN import_matches m ON {_JOINED.format(s="c.match")}
+                    WHERE m.field = 'cell'
+                    GROUP BY c.src, c.column_name
+                    """
+                )
+            )
+        }
+
+    def _value_sheet_reading(self, plan: _Plan) -> dict[tuple[int, str], dict[str, Any]]:
+        """How a value sheet is read, on its first column: the rows that update a record, the rows
+        that are new records and where they go (PP-D27)."""
+        source, under = plan.source, plan.source.under
+        updated, new = self.session.execute(
+            text(
+                "SELECT count(*) FILTER (WHERE existing), count(*) FILTER (WHERE NOT existing)"
+                " FROM import_rows WHERE src = :src AND error IS NULL AND rep_id IS NULL"
+            ),
+            {"src": plan.order},
+        ).one()
+        reading: dict[str, Any] = {
+            "binding": "field",
+            "valueSheet": True,
+            "recorded": True,
+            "guessed": False,
+            "options": [],
+            "updatedRows": updated,
+            "newRows": new,
+        }
+        if under.creates:
+            reading["newRecords"] = self._new_records(
+                self._value_place(source), source.objectTypeKey
+            )
+        first = next((item for item in source.columns if item.field == "name"), None)
+        return {(plan.order, first.column): reading} if first is not None else {}
+
+    def _new_records(self, place: Place | None, cell_type: str) -> dict[str, Any]:
+        """Where a new record of the column goes, for the report: an existing container, a place
+        this load creates, or nowhere (and why)."""
+        if place is not None and place.container_id is not None:
+            found: dict[str, Any] = {
+                "objectTypeKey": place.type_key,
+                "name": place.name,
+                "willBeCreated": place.new is not None,
+            }
+            if place.new is not None:
+                # "will create group X under Y" (PP-D28): the kind in words and the column record.
+                kind = self.model.object_type(place.type_key)
+                found["typeName"] = kind.name if kind is not None else place.type_key
+                column_id = self.place_columns.get(place.container_id)
+                found["under"] = (
+                    self.session.scalar(
+                        text("SELECT name FROM import_context WHERE object_id = :id"),
+                        {"id": column_id},
+                    )
+                    if column_id
+                    else None
+                )
+            return found
+        return {
+            "objectTypeKey": None,
+            "name": None,
+            "willBeCreated": False,
+            "reason": "several" if place is not None and place.several else "none",
+            "message": place.message if place is not None else None,
+        }
+
+    def _walk_types(self, relation: Any) -> list[str]:
+        """The types a walk down from a link-matrix column record passes to its cells: the cell
+        type and the container types between (another column record ends a branch)."""
+        column_type, cell_type = relation.within.objectTypeKey, relation.objectTypeKey
+        containers = {
+            key
+            for key in ancestor_type_keys(self.model, cell_type)
+            if key != column_type and column_type in ancestor_type_keys(self.model, key)
+        }
+        return sorted(containers | {cell_type})
+
     def _context_types(self) -> set[str]:
-        types: set[str] = set()
+        # The types the places hold, which a match by ID finds them among.
+        types: set[str] = {place.type_key for place in self.places.values() if place.type_key}
         for source in self.profile.sources:
             types.add(source.objectTypeKey)
+            if source.under is not None:
+                types.add(source.under.objectTypeKey)
             if source.parent is not None:
                 types.add(source.parent.objectTypeKey)
             for binding in source.columns:
@@ -1668,9 +2362,18 @@ class _ProfileBinding:
                 for relation in (binding.relation, binding.relationFlags):
                     if relation is not None:
                         types.add(relation.objectTypeKey)
+                if binding.relation is not None and binding.relation.within is not None:
+                    within = binding.relation.within
+                    types.add(within.objectTypeKey)
+                    types |= set(self._walk_types(binding.relation))
+                    if within.container is not None:
+                        types.add(within.container.objectTypeKey)
                 if binding.relatedRecord is not None:
                     types.add(binding.relatedRecord.objectTypeKey)
-                    types.add(binding.relatedRecord.parent.objectTypeKey)
+                    if binding.relatedRecord.parent is not None:
+                        types.add(binding.relatedRecord.parent.objectTypeKey)
+                    if binding.relatedRecord.under is not None:
+                        types.add(binding.relatedRecord.under.objectTypeKey)
         return types
 
     def _sql(self, statement: str) -> None:
@@ -1926,22 +2629,26 @@ class _ProfileBinding:
         rejected with the first such column."""
         self._sql(
             """
-            INSERT INTO import_matches (object_type_key, field, attr, value, creates)
-            SELECT m ->> 'type', m ->> 'field', m ->> 'attr', m -> 'value',
+            INSERT INTO import_matches
+                (object_type_key, field, attr, scope, label_attr, container, value, creates)
+            SELECT m ->> 'type', m ->> 'field', m ->> 'attr', coalesce(m ->> 'scope', ''),
+                coalesce(m ->> 'labelAttr', ''), coalesce(m ->> 'container', ''), m -> 'value',
                 bool_or(coalesce((m ->> 'create')::boolean, false)) FROM (
                 SELECT parent AS m FROM import_rows WHERE parent IS NOT NULL AND error IS NULL
                 UNION ALL SELECT match FROM import_links WHERE match IS NOT NULL
                 UNION ALL SELECT parent FROM import_related WHERE parent IS NOT NULL
                 UNION ALL SELECT match FROM import_match_cells) found
-            GROUP BY 1, 2, 3, 4
+            GROUP BY 1, 2, 3, 4, 5, 6, 7
             """
         )
         self._sql("ANALYZE import_matches")
+        self._value_rows()
         self._sql(
             """
             INSERT INTO import_context_values (object_type_key, attr, value, object_id)
             SELECT c.object_type_key, k.attr, c.attributes -> k.attr, c.object_id
-            FROM (SELECT DISTINCT object_type_key, attr FROM import_matches WHERE attr <> '') k
+            FROM (SELECT DISTINCT object_type_key, attr FROM import_matches
+                  WHERE attr <> '' AND field <> 'cell') k
             JOIN import_context c ON c.object_type_key = k.object_type_key
             WHERE c.attributes -> k.attr IS NOT NULL
             ON CONFLICT DO NOTHING
@@ -1951,7 +2658,8 @@ class _ProfileBinding:
             """
             INSERT INTO import_row_values (object_type_key, attr, value, record_id)
             SELECT f.object_type_key, k.attr, f.attributes -> k.attr, f.record_id
-            FROM (SELECT DISTINCT object_type_key, attr FROM import_matches WHERE attr <> '') k
+            FROM (SELECT DISTINCT object_type_key, attr FROM import_matches
+                  WHERE attr <> '' AND field <> 'cell') k
             JOIN import_rows f ON f.object_type_key = k.object_type_key AND f.mode = 'upsert'
                 AND f.rep_id IS NULL AND f.error IS NULL
             WHERE f.attributes -> k.attr IS NOT NULL
@@ -1976,7 +2684,7 @@ class _ProfileBinding:
                     AND c.object_id = k.object_id
                 UNION SELECT m.match_id, v.object_id FROM import_matches m
                 JOIN import_context_values v ON v.object_type_key = m.object_type_key
-                    AND m.attr <> '' AND v.attr = m.attr AND v.value = m.value
+                    AND m.attr <> '' AND m.field <> 'cell' AND v.attr = m.attr AND v.value = m.value
                 UNION SELECT m.match_id, f.record_id FROM import_matches m
                 JOIN import_rows f ON f.object_type_key = m.object_type_key AND f.mode = 'upsert'
                     AND f.rep_id IS NULL AND f.error IS NULL
@@ -1987,7 +2695,26 @@ class _ProfileBinding:
                     AND m.field = 'id' AND f.record_id = m.value #>> '{}'
                 UNION SELECT m.match_id, f.record_id FROM import_matches m
                 JOIN import_row_values f ON f.object_type_key = m.object_type_key
-                    AND m.attr <> '' AND f.attr = m.attr AND f.value = m.value),
+                    AND m.attr <> '' AND m.field <> 'cell' AND f.attr = m.attr AND f.value = m.value
+                UNION SELECT m.match_id, s.object_id FROM import_matches m
+                JOIN import_scope_values s ON s.scope = m.scope
+                    AND s.object_type_key = m.object_type_key AND m.field = 'cell'
+                    AND s.value = m.value #>> '{}'
+                    AND (s.field = m.attr
+                         OR (m.attr = '@label' AND s.field IN ('name', '@label:' || m.label_attr)))
+                    -- A record the file's value sheet lists keeps its old value, unless another row
+                    -- of the sheet holds that value now: then it is that row's.
+                    AND NOT (
+                        EXISTS (SELECT 1 FROM import_value_rows y
+                                WHERE y.scope = s.scope AND y.record_id = s.object_id)
+                        AND EXISTS (SELECT 1 FROM import_value_rows x
+                                    WHERE x.scope = s.scope AND x.object_type_key = s.object_type_key
+                                      AND x.value = s.value AND x.record_id <> s.object_id))
+                UNION SELECT m.match_id, v.record_id FROM import_matches m
+                JOIN import_value_rows v ON v.scope = m.scope
+                    AND v.object_type_key = m.object_type_key AND m.field = 'cell'
+                    AND v.value = m.value #>> '{}'
+                    AND (v.field = m.attr OR (m.attr = '@label' AND v.field = 'name'))),
             counted AS (
                 SELECT match_id, count(*) AS n, min(object_id) AS one FROM candidates GROUP BY match_id)
             UPDATE import_matches m SET candidates = c.n, resolved = CASE WHEN c.n = 1 THEN c.one END
@@ -1998,7 +2725,9 @@ class _ProfileBinding:
         self._sql(
             """
             UPDATE import_matches SET resolved = gen_random_uuid()::text, candidates = 1, created = true
-            WHERE creates AND candidates = 0 AND field = 'name' AND jsonb_typeof(value) = 'string'
+            WHERE creates AND candidates = 0
+              AND (field = 'name' OR field = 'cell')
+              AND jsonb_typeof(value) = 'string'
               AND btrim(value #>> '{}') <> ''
             """
         )
@@ -2041,6 +2770,37 @@ class _ProfileBinding:
             WHERE r.row_id = e.row_id AND r.error IS NULL
             """
         )
+
+    def _value_rows(self) -> None:
+        """The rows of the file's value sheets, each by every field a link cell may name it by, in
+        one statement per sheet's source (PP-D27). A value is cut at the cell's separator as the
+        export writes it. A value a sheet's row holds is that row's record in a match, ahead of a
+        context record that held it before (a renamed record is still found by its old value
+        unless another row took it)."""
+        for plan in self.plans:
+            source = plan.source
+            if source.under is None:
+                continue
+            fields = identifying_fields(self.model, source.objectTypeKey)
+            values = ["('name', coalesce(r.name, r.current_name))"]
+            params: dict[str, Any] = {}
+            for number, field_ in enumerate(item for item in fields if item != "name"):
+                values.append(f"(:field{number}, r.attributes ->> :field{number})")
+                params[f"field{number}"] = field_
+            self.session.execute(
+                text(
+                    f"""
+                    INSERT INTO import_value_rows (scope, object_type_key, field, value, record_id)
+                    SELECT :scope, r.object_type_key, f.field, replace(f.value, ';', ','),
+                        r.record_id
+                    FROM import_rows r CROSS JOIN LATERAL (VALUES {", ".join(values)}) AS f(field, value)
+                    WHERE r.src = :src AND r.error IS NULL AND r.rep_id IS NULL
+                      AND f.value IS NOT NULL AND f.value <> ''
+                    """
+                ),
+                {"scope": source.under.value, "src": plan.order, **params},
+            )
+        self._sql("ANALYZE import_value_rows")
 
     def _names_under_parents(self) -> None:
         """D142 (0.10 A8c): a row keyed by name under a parent is the record of that name among the
@@ -2171,13 +2931,66 @@ class _ProfileBinding:
                     AND x.near = r.record_id
                 JOIN import_context c ON c.object_id = x.far AND c.object_type_key = d.object_type_key
                     AND c.parent_object_id = d.parent_id
-                    AND (d.match_attr IS NULL OR c.attributes -> d.match_attr = d.attributes -> d.match_attr)),
+                    AND (d.match_attr IS NULL OR c.attributes -> d.match_attr = d.attributes -> d.match_attr)
+                WHERE d.hint IS NULL),
             counted AS (
                 SELECT entry_id, count(DISTINCT object_id) AS n, min(object_id) AS one,
                        min(name) AS name FROM candidates GROUP BY entry_id)
             UPDATE import_related d SET related_id = CASE WHEN c.n = 1 THEN c.one END,
                 existing = c.n = 1, current_name = c.name, related_candidates = c.n
             FROM counted c WHERE c.entry_id = d.entry_id
+            """
+        )
+        # A record that exists is written in the application it belongs to, whichever application
+        # the profile names for its type (a type several applications list, 0.17 EX1).
+        self._sql(
+            """
+            UPDATE import_related d SET application_key = c.application_key
+            FROM import_context c WHERE d.existing AND c.object_id = d.related_id
+              AND d.hint IS NULL AND c.application_key IS NOT NULL
+            """
+        )
+        # A new one stands in the application of the parent it goes under (a place is a record of its
+        # own application, which may not be the one the profile names for the type).
+        self._sql(
+            """
+            UPDATE import_related d SET application_key = c.application_key
+            FROM import_context c WHERE NOT d.existing AND d.parent_id = c.object_id
+              AND d.hint IS NULL AND c.application_key IS NOT NULL
+            """
+        )
+        # A related record named by its ID cell (0.17 EX1): the record of that ID the relationship
+        # joins to the row's record, wherever it stands; it keeps its parent.
+        self._sql(
+            """
+            WITH ends AS (
+                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
+                FROM import_context_relations
+                UNION ALL
+                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            found AS (
+                SELECT d.entry_id, c.object_id, c.name, c.parent_object_id, c.application_key
+                FROM import_related d
+                JOIN import_rows r ON r.row_id = d.row_id AND r.error IS NULL AND r.existing
+                JOIN ends x ON x.relation_type_key = d.relation_type_key AND x.direction = d.direction
+                    AND x.near = r.record_id AND x.far = d.hint
+                JOIN import_context c ON c.object_id = d.hint AND c.object_type_key = d.object_type_key
+                WHERE d.hint IS NOT NULL)
+            UPDATE import_related d SET related_id = f.object_id, existing = true,
+                current_name = f.name, related_candidates = 1, parent_id = f.parent_object_id,
+                application_key = coalesce(f.application_key, d.application_key)
+            FROM found f WHERE f.entry_id = d.entry_id
+            """
+        )
+        self._sql(
+            """
+            UPDATE import_rows r SET error = jsonb_build_object(
+                'code', 'REFERENCE_NOT_FOUND',
+                'message', format('No %s record with the ID in column %s is related to the row''s record',
+                    d.object_type_key, d.column_name),
+                'details', jsonb_build_object('column', d.column_name))
+            FROM import_related d WHERE d.row_id = r.row_id AND d.hint IS NOT NULL
+                AND d.related_id IS NULL AND r.error IS NULL
             """
         )
         self._sql(
@@ -2249,9 +3062,19 @@ class _ProfileBinding:
                 INSERT INTO import_items (phase, src, depth, row_number, sub, ref, item)
                 SELECT 0, n.src, 0, n.row_number, n.match_id, n.ref,
                     jsonb_build_object('op', 'upsert', 'ref', n.ref,
-                        'applicationKey', CAST(:applications AS jsonb) ->> m.object_type_key,
+                        'applicationKey', coalesce(
+                            (SELECT c.application_key FROM import_context c
+                             WHERE m.container <> '' AND c.object_id = m.container),
+                            CAST(:applications AS jsonb) ->> m.object_type_key),
                         'objectTypeKey', m.object_type_key, 'key', jsonb_build_object('id', m.resolved),
-                        'name', left(btrim(m.value #>> '{{}}'), {MAX_NAME}), 'attributes', '[]'::jsonb)
+                        'name', left(btrim(m.value #>> '{{}}'), {MAX_NAME}),
+                        'attributes', CASE WHEN m.field = 'cell' AND m.attr NOT IN ('', 'name', '@label')
+                            THEN jsonb_build_array(jsonb_build_object(
+                                'attributeTypeKey', m.attr, 'value', btrim(m.value #>> '{{}}')))
+                            ELSE '[]'::jsonb END)
+                    || CASE WHEN m.container <> ''
+                        THEN jsonb_build_object('parent', jsonb_build_object('id', m.container))
+                        ELSE '{{}}'::jsonb END
                 FROM import_matches m
                 JOIN LATERAL (
                     SELECT r.src, r.row_number, r.ref, m.match_id FROM import_rows r
@@ -2267,6 +3090,33 @@ class _ProfileBinding:
                 """
             ),
             {"applications": json.dumps(applications)},
+        )
+        # A place this load creates (PP-D24) goes before the first record that stands in it.
+        self._sql(
+            f"""
+            INSERT INTO import_items (phase, src, depth, row_number, sub, ref, item)
+            SELECT 0, n.src, 0, n.row_number, -1, 'place-' || p.place_id,
+                jsonb_build_object('op', 'create', 'ref', 'place-' || p.place_id,
+                    'id', p.place_id, 'applicationKey', p.application_key,
+                    'objectTypeKey', p.object_type_key, 'name', p.name,
+                    'parent', jsonb_build_object('id', p.column_id),
+                    'attributes', p.attributes)
+            FROM import_new_places p
+            JOIN LATERAL (
+                SELECT u.src, u.row_number FROM (
+                    SELECT r.src, r.row_number FROM import_matches m
+                    JOIN import_links l ON {_JOINED.format(s="l.match")}
+                    JOIN import_rows r ON r.row_id = l.row_id AND r.error IS NULL
+                    WHERE m.created AND m.container = p.place_id
+                    UNION ALL
+                    SELECT r.src, r.row_number FROM import_related d
+                    JOIN import_rows r ON r.row_id = d.row_id AND r.error IS NULL
+                    WHERE d.parent_id = p.place_id
+                    UNION ALL
+                    SELECT r.src, r.row_number FROM import_rows r
+                    WHERE r.error IS NULL AND r.parent_id = p.place_id) u
+                ORDER BY u.src, u.row_number LIMIT 1) n ON true
+            """
         )
         self._sql(
             f"""
@@ -2304,8 +3154,10 @@ class _ProfileBinding:
                 jsonb_build_object('op', 'upsert', 'ref', r.ref, 'applicationKey', d.application_key,
                     'objectTypeKey', d.object_type_key, 'key', jsonb_build_object('id', d.related_id),
                     'name', left(coalesce(d.name, d.current_name, d.fallback_name), {MAX_NAME}),
-                    'parent', jsonb_build_object('id', d.parent_id),
                     'attributes', {attributes.format(s="d")})
+                || CASE WHEN d.parent_id IS NOT NULL
+                    THEN jsonb_build_object('parent', jsonb_build_object('id', d.parent_id))
+                    ELSE '{{}}'::jsonb END
                 || CASE WHEN d.expected_version IS NOT NULL AND d.existing
                     THEN jsonb_build_object('expectedVersion', d.expected_version)
                     ELSE '{{}}'::jsonb END
@@ -2362,24 +3214,59 @@ class _ProfileBinding:
         self._sql(
             """
             INSERT INTO import_items (phase, src, depth, row_number, sub, ref, item)
-            SELECT 3, min(r.src), 0, min(r.row_number), 2000, min(r.ref),
-                jsonb_build_object('op', 'replaceRelationSet', 'ref', min(r.ref),
-                    'relationTypeKey', l.relation_type_key,
-                    'fromObjectTypeKey', CASE WHEN l.direction = 'outgoing'
-                        THEN min(r.object_type_key) ELSE l.object_type_key END,
-                    'toObjectTypeKey', CASE WHEN l.direction = 'outgoing'
-                        THEN l.object_type_key ELSE min(r.object_type_key) END,
-                    'direction', l.direction,
-                    'anchor', jsonb_build_object('id', r.record_id),
-                    'targets', coalesce(jsonb_agg(DISTINCT jsonb_build_object(
+            WITH ends AS (
+                SELECT relation_type_key, 'outgoing' AS direction, from_id AS near, to_id AS far
+                FROM import_context_relations
+                UNION ALL
+                SELECT relation_type_key, 'incoming', to_id, from_id FROM import_context_relations),
+            -- A link-matrix column's part of the set (0.17 EX1): the columns the file edits, and the
+            -- row's other links, which the replacement keeps.
+            edited AS (
+                SELECT DISTINCT r.record_id, l.relation_type_key, l.direction, l.object_type_key, l.scope
+                FROM import_links l JOIN import_rows r ON r.row_id = l.row_id AND r.error IS NULL
+                WHERE l.replace AND l.scope <> ''),
+            kept AS (
+                SELECT g.record_id, g.relation_type_key, g.direction, g.object_type_key,
+                    x.far AS target_id
+                FROM (SELECT DISTINCT record_id, relation_type_key, direction, object_type_key
+                      FROM edited) g
+                JOIN ends x ON x.relation_type_key = g.relation_type_key
+                    AND x.direction = g.direction AND x.near = g.record_id
+                JOIN import_context c ON c.object_id = x.far AND c.object_type_key = g.object_type_key
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM edited e JOIN import_scope_values s
+                        ON s.scope = e.scope AND s.field = 'name' AND s.object_id = x.far
+                    WHERE e.record_id = g.record_id AND e.relation_type_key = g.relation_type_key
+                      AND e.direction = g.direction AND e.object_type_key = g.object_type_key)),
+            grouped AS (
+                SELECT min(r.src) AS src, min(r.row_number) AS row_number, min(r.ref) AS ref,
+                    min(r.object_type_key) AS row_type, r.record_id, l.relation_type_key,
+                    l.direction, l.object_type_key, min(l.expected_version) AS version,
+                    coalesce(jsonb_agg(DISTINCT jsonb_build_object(
                         'object', jsonb_build_object('id', l.target_id)))
-                        FILTER (WHERE l.target_id IS NOT NULL), '[]'::jsonb))
-                || CASE WHEN min(l.expected_version) IS NOT NULL
-                    THEN jsonb_build_object('expectedRelationSetVersion', min(l.expected_version))
+                        FILTER (WHERE l.target_id IS NOT NULL), '[]'::jsonb) AS targets
+                FROM import_links l JOIN import_rows r ON r.row_id = l.row_id AND r.error IS NULL
+                WHERE l.replace
+                GROUP BY r.record_id, l.relation_type_key, l.direction, l.object_type_key)
+            SELECT 3, g.src, 0, g.row_number, 2000, g.ref,
+                jsonb_build_object('op', 'replaceRelationSet', 'ref', g.ref,
+                    'relationTypeKey', g.relation_type_key,
+                    'fromObjectTypeKey', CASE WHEN g.direction = 'outgoing'
+                        THEN g.row_type ELSE g.object_type_key END,
+                    'toObjectTypeKey', CASE WHEN g.direction = 'outgoing'
+                        THEN g.object_type_key ELSE g.row_type END,
+                    'direction', g.direction,
+                    'anchor', jsonb_build_object('id', g.record_id),
+                    'targets', g.targets || coalesce((
+                        SELECT jsonb_agg(jsonb_build_object('object', jsonb_build_object('id', k.target_id)))
+                        FROM kept k WHERE k.record_id = g.record_id
+                          AND k.relation_type_key = g.relation_type_key
+                          AND k.direction = g.direction AND k.object_type_key = g.object_type_key),
+                        '[]'::jsonb))
+                || CASE WHEN g.version IS NOT NULL
+                    THEN jsonb_build_object('expectedRelationSetVersion', g.version)
                     ELSE '{}'::jsonb END
-            FROM import_links l JOIN import_rows r ON r.row_id = l.row_id AND r.error IS NULL
-            WHERE l.replace
-            GROUP BY r.record_id, l.relation_type_key, l.direction, l.object_type_key
+            FROM grouped g
             """
         )
         self._sql(
@@ -2442,6 +3329,9 @@ _KEY_GROUP = (
 _JOINED = (
     "m.object_type_key = {s} ->> 'type' AND m.field = {s} ->> 'field'"
     " AND m.attr = {s} ->> 'attr' AND m.value = {s} -> 'value'"
+    " AND m.scope = coalesce({s} ->> 'scope', '')"
+    " AND m.label_attr = coalesce({s} ->> 'labelAttr', '')"
+    " AND m.container = coalesce({s} ->> 'container', '')"
 )
 
 # A match that found no record or several, as a row's refusal; {s} is the match's JSON.
@@ -2484,7 +3374,16 @@ def named_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
                 f"{at}/columns/{index}/relatedRecord/versionColumn",
                 binding.relatedRecord.versionColumn,
             )
-        if binding.relatedRecord is not None and binding.relatedRecord.parent.column is not None:
+        if binding.relatedRecord is not None and binding.relatedRecord.idColumn is not None:
+            yield (
+                f"{at}/columns/{index}/relatedRecord/idColumn",
+                binding.relatedRecord.idColumn,
+            )
+        if (
+            binding.relatedRecord is not None
+            and binding.relatedRecord.parent is not None
+            and binding.relatedRecord.parent.column is not None
+        ):
             yield (
                 f"{at}/columns/{index}/relatedRecord/parent/column",
                 binding.relatedRecord.parent.column,

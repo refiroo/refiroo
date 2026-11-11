@@ -25,6 +25,35 @@ stand under column records. See [Applications and views](/docs/model/application
    **Rename…** for its label or **Remove relation matrix** to remove the view. Removing the
    view does not delete the data it displayed. **Undo** can restore the draft step.
 
+## Choose the cell actions
+
+For an existing view, select the application, find the matrix in **Views**, open its menu and
+choose **Change…**. In **What people can do in a cell**, select any offered combination:
+
+- **Create** makes a record and connects it to the row. The creation form uses the relationship's rules and the groups already holding this view's
+  records to suggest where it belongs under the column. It can propose a missing group,
+  without a model change; the person checks the proposal or chooses another eligible group.
+  See [Where new records go](/docs/use/importing-and-exporting/#matrix-cells-and-new-records). Create is offered only when **Fields in a cell**
+  includes every required field, and creation needs no other required incoming relationship
+  beyond the one this cell supplies. Parent containment is handled separately.
+- **Edit** allows editing the displayed record fields. It is offered when at least one selected
+  cell field is writable.
+- **Link existing** connects a record already under the column. It is offered in the editor,
+  but each candidate must satisfy the relationship rules when someone uses the matrix.
+- **Unlink** removes a connection and keeps the record. It is not offered for a required
+  relationship.
+
+Choose **Apply**, review **Issues**, then install and activate the release through your usual
+[model release process](/docs/model/releases/). Check the actions after changing
+row types or cell fields: dependent choices can be reset or removed when they no longer fit.
+
+For a translation matrix, Create and Edit can support one name per language. For a mapping
+matrix, Create and Link existing let people choose between a new code and reuse of an existing
+code. Reuse creates another relationship to the same record, which keeps its identity for
+connected systems after publication. These are model choices, not separate kinds of application.
+A filled one-per-cell matrix suppresses Create even when the view enables it; see
+[Relation matrices](/docs/use/relation-matrices/#what-you-can-change-from-a-cell).
+
 ![Relation matrix choices with ordered cell fields and a preview](/docs/screens/model-view-matrix-dialog.png)
 
 *Example: Municipality rows connect to System code cells, which stand under System columns.*

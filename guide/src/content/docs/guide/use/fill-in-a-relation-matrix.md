@@ -100,8 +100,10 @@ and Romansh. The state filter tests the chosen or shown languages, not hidden la
 2. Choose **Create** followed by the related type's name, where offered. The form identifies
    the row and column under **For** and **under**.
 3. Check **Name**, which identifies the new record. Review the proposed name rather than
-   treating it as the field content. Under **Goes in**, check the selected parent; if several
-   places are offered, select the correct container under this column.
+   treating it as the field content. Under **Goes in**, check where it will belong. The relationship's rules can fix a group;
+   otherwise refiroo selects the group already holding the most records used by this view
+   in this column. A tie leaves the choice open. An unused group is never selected just
+   because it is the only one. Use **Search places…** to choose another offered group.
 4. Fill the type's content fields. Set any checkbox or field that determines whether it counts
    according to the legend. Fill **Attributes of the relationship**, if shown: these describe
    the new connection rather than the record itself. Choose the form's **Create** action. On success, the dialog closes
@@ -126,6 +128,45 @@ Translated name is empty and Active is selected. Back was used without saving th
 If **Link existing** followed by a type name is offered, use it when the desired record already
 exists. Search, inspect the candidate and any refusal reason, select an eligible record, fill
 **Attributes of the relationship** if offered, and choose **Link**. This adds a connection instead of creating another record.
+
+## When a new group is proposed
+
+If the relationship's rules identify one group and it is missing, **Goes in** says **(will be
+created)**. Saving creates that group, the record and its connection together.
+
+When neither the rules nor existing records give a place, refiroo can propose a new group
+named like the groups this view uses in other columns. Review **Name of the new …** and change
+it if needed. Submit the creation form once to create both group and record. Where offered,
+**Use an existing group instead** opens the group choices. Only places compatible with the
+relationship's rules are offered. If no proposal or suitable place is available, resolve the
+missing place in the app before creating the record. No model change is needed to accept a
+proposed group.
+
+## Add another record or reuse one
+
+1. Open a filled cell and inspect the records already connected to the row. If the cell allows
+   several records and the view permits creation, **Create** appears beside **Link existing**.
+2. Choose **Create** when this is a new record. Choose its **Goes in** container and fill its
+   fields as for an empty cell. The record is also listed in that container; it is not stored
+   only inside the matrix.
+3. Choose **Link existing** when the record already exists under this column. Search the
+   candidates and read any reason beside a disabled choice. An existing link or a relationship
+   limit can prevent selection. Select an eligible record, fill any **Attributes of the
+   relationship**, then choose **Link**.
+4. Check the refreshed cell. Linking adds a relationship to the existing record. Where the
+   relationship permits reuse, that record can appear under several rows. Editing its own
+   fields affects that shared record; each connection keeps its own relationship values.
+
+**Example: a mapping matrix.** A code already connected to one row can also be linked to another
+where the model permits it. Reuse keeps the same record identity. Create makes a separate record
+and a new connection. After publication, connected systems see the corresponding connections
+where their access includes them.
+
+A filled cell that may hold only one record does not offer **Create**. Inspect or edit the
+record already there. Empty, inactive and history-only cells can still offer creation where
+configured. For example, a translation matrix may permit one counting name per language:
+create a missing name, and edit an existing one rather than adding another counting name.
+Publishing makes the new record and its connection available to connected systems that expose them.
 
 ## Correct an existing cell record
 
@@ -155,14 +196,17 @@ with “Merged municipality, old code kept”. These values belong to its connec
 *Above: Chur · rm opens the Romansh name Cuira with Active selected. Open Chur (rm) leads to the
 full name record. Cancel leaves its fields unchanged.*
 
-The **Conflict** branch applies only if the workspace already contains a cell inconsistent
-with its model’s counting limit. Ordinary saves refuse a second counting record where only
-one is allowed; do not try to create a duplicate to follow these steps. If no Conflict cell
-exists, continue with the states present in your workspace. See
-[Cell states](/docs/use/relation-matrices/#cell-states) for the distinction from Several.
+In a one-per-column counting rule, a change set can temporarily hold two counting records
+for one cell. It shows **Conflict** with the count. Open it and inspect both records. Correct
+which records meet the counting condition, or **Unlink** an unintended connection where
+permitted. Unlink keeps the record. Validate the change set again before publishing; resolve
+any remaining refusal through the affected record's full page. Live writes refuse a second
+counting record. A conflict in proposed work is not a published extra value.
+See [Cell states](/docs/use/relation-matrices/#cell-states).
 
-For an **Inactive** cell, review existing records before adding another. For **Several** or
-**Conflict**, inspect all counting records and decide which should count. Where **Unlink** is
+For an **Inactive** cell, review existing records before adding another. For **Several**,
+inspect the records before deciding whether anything needs changing; several may be allowed.
+For **Conflict**, resolve the extra counting records before publication. Where **Unlink** is
 offered, it asks for confirmation and keeps the related record; required ownership cannot be
 removed this way. To add an owned record from its owner's full page instead, follow
 [Create an owned related record](/docs/guide/use/relate-records/#create-an-owned-related-record).

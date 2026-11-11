@@ -201,3 +201,50 @@ def test_a_cell_has_a_border_and_a_column_chooses_from_a_sheet_written_later(tmp
         "Alpha",
         "Beta",
     ]
+
+
+def test_a_sheet_for_people_can_be_a_table_a_dropdown_reads_by_a_defined_name(tmp_path):
+    """0.17 PP-D27: a value sheet is an Excel table (no sheet filter beside it), a defined name over a
+    table column is a workbook-level name, and a warning-style list reads it."""
+    path = tmp_path / "book.xlsx"
+    book = xlsx.Workbook(path, lambda: None)
+    book.define("values_1", "tbl_values_1[Value name]")
+    encode = lambda row, number: "".join(
+        xlsx.text_cell(f"{xlsx.column(index)}{number}", value) for index, value in enumerate(row, 1)
+    )
+    book.plain(
+        xlsx.PlainSheet(
+            title="Main",
+            labels=["Row", "Linked"],
+            header_styles=[0, 0],
+            widths=[10, 10],
+            hidden=[False, False],
+            count=1,
+            rows=[("r", "Alpha")],
+            encode=encode,
+            lists=[("B", "values_1")],
+            soft_lists=frozenset({"B"}),
+        )
+    )
+    book.plain(
+        xlsx.PlainSheet(
+            title="Values",
+            labels=["Value name", "ID"],
+            header_styles=[0, 0],
+            widths=[10, 10],
+            hidden=[False, True],
+            count=2,
+            rows=[("Alpha", "1"), ("Beta", "2")],
+            encode=encode,
+            table="tbl_values_1",
+        )
+    )
+    book.close()
+    workbook = load_workbook(path)
+    values = workbook["Values"]
+    assert list(values.tables) == ["tbl_values_1"] and values.tables["tbl_values_1"].ref == "A1:B3"
+    assert values.auto_filter.ref is None and values.column_dimensions["B"].hidden
+    assert workbook.defined_names["values_1"].attr_text == "tbl_values_1[Value name]"
+    (validation,) = workbook["Main"].data_validations.dataValidation
+    assert (validation.formula1, validation.errorStyle) == ("values_1", "warning")
+    assert workbook["Main"].auto_filter.ref == "A1:B2"

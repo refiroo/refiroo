@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from ...common.pagination import FIRST_PAGE
 from ...engine.authorization.visibility import visible_jobs
+from ...engine.imports.reread import reread_import
 from ...engine.jobs.background import confirm_preview, request_cancel, submit_background_batch
 from ...engine.jobs.events import JobListener
 from ...engine.jobs.exports import FORMATS, submit_export
@@ -29,6 +30,7 @@ from ...engine.moves.move_load import confirm_move
 from ...errors import api_error
 from ...models.commands import BatchRequest
 from ...models.exports import ExportRequest
+from ...models.imports import ImportRereadRequest
 from ..access import (
     BODY,
     JOB_PATH,
@@ -213,6 +215,34 @@ def confirm_job(
         job = confirm_move(session, job_id)
     else:
         job = confirm_preview(session, job_id)
+    _wake_worker(request)
+    return job_responses(session, [job])[0]
+
+
+@write_router.post("/jobs/{job_id}/reread", response_model=JobResponse, status_code=202)
+@requires("jobs.use", at=JOB_PATH)
+def reread_job(
+    job_id: str, payload: ImportRereadRequest, request: Request, session: DbSession
+) -> JobResponse:
+    """Read an import preview's file again with other fields (0.17 PP-D26).
+
+    ``readings`` names, by source and column of the preview's binding report, the field each
+    matrix or relationship column is matched by instead of the one the preview used (one of the
+    column's ``reading.options``). The answer is a new preview (202, ``stage: preview``) of the same
+    file and profile with those fields; the first preview is cancelled, and nothing was written by
+    either. Refused: ``409 JOB_NOT_AWAITING_CONFIRMATION`` (not an import waiting for confirmation),
+    ``422 IMPORT_HAS_NO_PROFILE``, ``422 INVALID_IMPORT_READING`` at the reading's pointer, ``410
+    IMPORT_FILE_MISSING``.
+    """
+    limits: BatchLimits = request.app.state.batch_limits
+    job = reread_import(
+        session,
+        job_id,
+        payload.readings,
+        files=request.app.state.job_files,
+        max_bytes=limits.import_max_bytes,
+        retention_days=limits.retention_days,
+    )
     _wake_worker(request)
     return job_responses(session, [job])[0]
 

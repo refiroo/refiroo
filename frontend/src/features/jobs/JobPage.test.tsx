@@ -21,6 +21,7 @@ vi.mock("@/api/client", async (importOriginal) => ({
     jobItems: vi.fn(),
     confirmJob: vi.fn(),
     cancelJob: vi.fn(),
+    rereadImport: vi.fn(),
     workspaces: vi.fn(async () => ({ items: [{ key: "west", label: "West office" }], nextCursor: null })),
   },
 }));
@@ -222,6 +223,125 @@ describe("JobPage of an import (0.9 J4)", () => {
     expect(screen.getByRole("button", { name: "Cancel import" })).toBeInTheDocument();
     // The workspace is named by its label, not its key.
     expect(await screen.findByText("West office")).toBeInTheDocument();
+  });
+
+  it("shows how a matrix column is read, says what was guessed and reads the file again with another field (PP-D26)", async () => {
+    const reading = {
+      binding: "relation" as const,
+      field: "code",
+      label: "Code",
+      recorded: false,
+      guessed: true,
+      note: "Name and Code each match 3 of 4; Code was chosen.",
+      options: [
+        { field: "name", label: "Name", cells: 4, matched: 3, ambiguous: 0 },
+        { field: "code", label: "Code", cells: 4, matched: 3, ambiguous: 0 },
+      ],
+      newRecords: { objectTypeKey: "group", name: "Booked group", willBeCreated: true },
+    };
+    vi.mocked(api.job).mockResolvedValue({
+      ...waiting,
+      bindingReport: [
+        {
+          ...waiting.bindingReport![0],
+          columns: [
+            {
+              column: "German · linked values",
+              binding: "relation",
+              target: "maps-to",
+              cells: 4,
+              empty: 0,
+              refused: 0,
+              resolved: 3,
+              notFound: 1,
+              ambiguous: 0,
+              reading,
+            },
+          ],
+        },
+      ],
+    });
+    vi.mocked(api.rereadImport).mockResolvedValue({ ...waiting, id: "j8" });
+    const onNavigate = vi.fn();
+    renderPage(onNavigate);
+    const section = (await screen.findAllByText("How the file is read"))[0].closest("section")!;
+    expect(within(section).getByText("Guessed")).toBeInTheDocument();
+    expect(within(section).getByText(/Code was chosen/)).toBeInTheDocument();
+    expect(within(section).getByText("3 of 4")).toBeInTheDocument();
+    expect(within(section).getByText("Booked group (will be created)")).toBeInTheDocument();
+    fireEvent.change(within(section).getByRole("combobox", { name: /German . linked values is matched by/ }), {
+      target: { value: "name" },
+    });
+    await waitFor(() =>
+      expect(api.rereadImport).toHaveBeenCalledWith("j7", [
+        { source: 0, column: "German · linked values", field: "name" },
+      ]),
+    );
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "jobs", jobId: "j8" });
+  });
+
+  it("says a proposed group will be created under its column, and counts a value sheet's rows (PP-D27, PP-D28)", async () => {
+    const options = [{ field: "name", label: "Name", cells: 4, matched: 3, ambiguous: 0 }];
+    vi.mocked(api.job).mockResolvedValue({
+      ...waiting,
+      bindingReport: [
+        {
+          ...waiting.bindingReport![0],
+          columns: [
+            {
+              column: "Name",
+              binding: "field",
+              target: "name",
+              cells: 5,
+              empty: 0,
+              refused: 0,
+              reading: {
+                binding: "field",
+                valueSheet: true,
+                recorded: true,
+                guessed: false,
+                options: [],
+                updatedRows: 2,
+                newRows: 3,
+              },
+            },
+            {
+              column: "German · linked values",
+              binding: "relation",
+              target: "maps-to",
+              cells: 4,
+              empty: 0,
+              refused: 0,
+              resolved: 3,
+              notFound: 1,
+              ambiguous: 0,
+              reading: {
+                binding: "relation",
+                field: "name",
+                label: "Name",
+                recorded: true,
+                guessed: false,
+                options,
+                fromValueSheet: 2,
+                createdValues: 1,
+                newRecords: {
+                  objectTypeKey: "group",
+                  name: "Timetable Type",
+                  willBeCreated: true,
+                  typeName: "Group",
+                  under: "German",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    renderPage();
+    const section = (await screen.findAllByText("How the file is read"))[0].closest("section")!;
+    expect(within(section).getByText("2 rows update a record, 3 are new")).toBeInTheDocument();
+    expect(within(section).getByText("3 of 4, 2 from the value sheet, 1 new")).toBeInTheDocument();
+    expect(within(section).getByText("will create group “Timetable Type” under German")).toBeInTheDocument();
   });
 
   it("cancels a waiting import in two steps: the button asks, the dialog's button cancels", async () => {

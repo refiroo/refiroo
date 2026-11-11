@@ -1,15 +1,17 @@
 /**
- * Start an export (0.9 J1u, J27.6). From a collection the dialog is prefilled with what the page
- * shows: its type, its data context, its filters and its parent scope; the search is not carried
- * (D60). From Settings › Jobs it starts empty, with a workspace to choose (D57). The export runs in
- * the background; the notifications follow it (`JobNotifications`).
+ * Start an export (0.9 J1u, J27.6; 0.17 EX1). One dialog for every page: from a list view it opens
+ * on "This view", the file that view shows for editing; the other choices are the view's type, its
+ * application and the whole workspace, each a sheet per type. From a collection it is prefilled with
+ * what the page shows (its filters, its parent scope, its search); from Settings › Jobs it starts
+ * empty, with a workspace to choose (D57). The export runs in the background; the notifications
+ * follow it (`JobNotifications`).
  *
- * From a collection it also offers a workbook for people (0.9 J6, J27.15, D179): the columns the
- * table shows, in its order, and in Advanced the columns, the field a relation column shows and the
- * relationships that get a sheet of their own (by default those the table shows as columns).
+ * For editing, a table also offers the workbook's Advanced (0.9 J6, D179): the columns, the field a
+ * relation column shows and the relationships that get a sheet of their own. A matrix that creates
+ * cell records asks where each column's new cells go (PP-D20).
  */
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type {
@@ -34,16 +36,21 @@ import { Notice } from "@/ui/Notice";
 import {
   criteriaFromFilters,
   exportField,
+  exportViewState,
+  viewCountLine,
   exportableTypes,
+  identifyingFields,
   peopleLayout,
   relationFields,
   relationKeyOf,
   sheetRelationships,
   ownedType,
   type ExportField,
+  type ExportViewStart,
   type OwnedChoice,
   type PeopleColumn,
 } from "./exportRequest";
+import type { ExportViewSize } from "@/features/objects/views/useViewExport";
 import { parentObjectTypeKeys } from "@/model/placements";
 import { RecordListField } from "@/ui/RecordListField";
 
@@ -65,7 +72,16 @@ export interface ExportStart {
    * offers a workbook for people of the filtered type (0.9 J6).
    */
   columns?: { shown: readonly string[]; hidden: readonly string[] };
+  /** The list view the page shows and what it was narrowed to: the dialog's "This view" (EX1). */
+  view?: ExportViewStart;
+  /** What that view held when the dialog opened: the file's size, for the count line (EX1). */
+  size?: ExportViewSize;
+  /** The open change set's name, for "from change set …". */
+  changeSetName?: string;
 }
+
+/** What an export is of: the page's view, its type, its application or the whole workspace. */
+type What = "view" | "type" | "application" | "workspace";
 
 const RELATIONS: readonly (readonly [ExportRelations, string])[] = [
   ["withinScope", "Between exported records"],
@@ -74,8 +90,8 @@ const RELATIONS: readonly (readonly [ExportRelations, string])[] = [
 ];
 
 const KINDS: readonly (readonly [ExportLayout, string])[] = [
+  ["people", "For editing in a spreadsheet"],
   ["technical", "Technical"],
-  ["people", "For people"],
 ];
 
 const FORMATS: readonly (readonly [ExportFormat, string])[] = [
@@ -96,14 +112,19 @@ export function ExportDialog({
   onStarted: (job: Job) => void;
 }) {
   const types = useMemo(() => exportableTypes(model, start.objectTypeKeys), [model, start.objectTypeKeys]);
+  const viewStart = start.view;
+  const typeName = (key: string) => model.objectTypes.find((item) => item.key === key)?.pluralName ?? key;
+  const application = model.applications.find((item) => item.key === viewStart?.applicationKey);
   const [workspaceKey, setWorkspaceKey] = useState(start.workspaceKey ?? "");
+  const [what, setWhat] = useState<What>("view");
   const [chosen, setChosen] = useState<string[]>([...start.selected]);
   const [belowParent, setBelowParent] = useState(Boolean(start.parentObjectId));
   const [asOf, setAsOf] = useState("");
   const [relations, setRelations] = useState<ExportRelations>("withinScope");
   const [format, setFormat] = useState<ExportFormat>("xlsx");
+  // The page's table, for a workbook of one type's collection with its Advanced (0.9 J6).
   const people = start.columns && start.filters ? start.filters.objectTypeKey : undefined;
-  const [layout, setLayout] = useState<ExportLayout>("technical");
+  const [layout, setLayout] = useState<ExportLayout>(viewStart ? "people" : "technical");
   const [columns, setColumns] = useState<PeopleColumn[]>(() => [
     ...(start.columns?.shown ?? []).map((key) => ({ key, shown: true })),
     ...(start.columns?.hidden ?? []).map((key) => ({ key, shown: false })),
@@ -120,56 +141,122 @@ export function ExportDialog({
         ),
       ),
   );
-  const forPeople = layout === "people" && people !== undefined;
+  // This view, as it is shown (EX1), or the types the page's collection offers (0.9 J1u).
+  const ofView = viewStart !== undefined && what === "view";
+  // A workbook of the page's table keeps its Advanced; every other choice is a sheet per type.
+  const tableWorkbook = people !== undefined && (viewStart === undefined || (ofView && viewStart.kind === "table"));
+  const forPeople = layout === "people" && (viewStart !== undefined || people !== undefined);
   // Owned relationships laid out as columns per parent, and whether cells offer lists (0.9 J6a).
   const [owned, setOwned] = useState<Record<string, OwnedChoice>>({});
   const [lists, setLists] = useState(true);
+  const [cellField, setCellField] = useState("name");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ field: ExportField; message: string }>();
 
-  const dated = types.some((type) => chosen.includes(type.key) && type.effectivePeriod);
-  const filtered = start.filters && chosen.includes(start.filters.objectTypeKey) ? start.filters : undefined;
+  // What is exported, by the choice: the view's own state, or whole types (no filters).
+  const exportedTypes: readonly string[] = !viewStart
+    ? chosen
+    : what === "type"
+      ? [viewStart.typeKey]
+      : what === "application"
+        ? (application?.objectTypeKeys ?? start.objectTypeKeys)
+        : what === "workspace"
+          ? model.objectTypes.map((item) => item.key)
+          : [viewStart.typeKey];
+  const dated = types.some((type) => exportedTypes.includes(type.key) && type.effectivePeriod);
+  const filtered =
+    !viewStart && start.filters && chosen.includes(start.filters.objectTypeKey) ? start.filters : undefined;
   // A "has none under" filter names a record; its criterion needs the record's type (0.16 AG4).
   const filterNames = useRelationFilterNames(
     model,
-    start.filters?.objectTypeKey ?? "",
-    start.filters?.filters ?? [],
+    viewStart?.typeKey ?? start.filters?.objectTypeKey ?? "",
+    viewStart ? [...viewStart.filters, ...viewStart.toFilters] : (start.filters?.filters ?? []),
     start.workspaceKey ?? workspaceKey,
   );
   const awaitingNames = Boolean(
-    filtered?.filters.some(
+    (viewStart ? ofView : filtered) &&
+    (viewStart ? [...viewStart.filters, ...viewStart.toFilters] : (filtered?.filters ?? [])).some(
       (filter) => (filter.operator === "under" || filter.operator === "notUnder") && !filterNames.has(filter.value),
     ),
   );
   // The page's scope is a criterion on its own type, as the page reads it: direct children only.
   const scoped = filtered && start.parentObjectId && belowParent ? start.parentObjectId : undefined;
   const context = start.changeSetId ? "the change set" : start.publicationId ? "the publication" : "live data";
+  const cellFields =
+    ofView && forPeople && viewStart?.lists ? identifyingFields(model, viewStart.lists.cellTypeKey) : [];
+  const askCellField = cellFields.length > 0;
+
+  // The file's size: what the page holds, or for a tree the records of its types, read as the page reads them.
+  const treeRecords = useTreeRecords(
+    ofView && viewStart?.kind === "tree" ? viewStart : undefined,
+    start,
+    start.workspaceKey ?? workspaceKey,
+  );
+  const source = start.changeSetId
+    ? `change set \u201c${start.changeSetName ?? "unnamed"}\u201d`
+    : start.publicationId
+      ? "the publication"
+      : "live data";
+  const countLine = ofView
+    ? viewCountLine(viewStart?.kind === "tree" ? { records: treeRecords } : start.size, source)
+    : undefined;
 
   async function submit() {
-    const chosenTypes = forPeople ? [people] : chosen;
-    const body: ExportRequest = {
+    const base = {
       workspaceKey,
       context: { changeSetId: start.changeSetId ?? null, publicationId: start.publicationId ?? null },
-      scope: {
-        types: types
-          .filter((type) => chosenTypes.includes(type.key))
-          .map((type) => ({
-            objectTypeKey: type.key,
-            where:
-              filtered?.objectTypeKey === type.key
-                ? [
-                    ...criteriaFromFilters(model, filtered.filters, filterNames),
-                    ...(scoped ? [{ field: "parentObjectId", op: "eq", value: scoped }] : []),
-                  ]
-                : [],
-          })),
-        parentObjectId: null,
-        asOf: dated && asOf ? asOf : null,
-      },
-      include: { relations },
-      format: forPeople ? "xlsx" : format,
-      ...(forPeople ? { layout: "people" as const, people: peopleLayout(columns, sheets, fields, owned, lists) } : {}),
     };
+    let body: ExportRequest;
+    if (viewStart && ofView) {
+      const state = exportViewState(model, viewStart, filterNames);
+      const edited =
+        viewStart.kind === "table" && forPeople && columns.some((column) => column.shown)
+          ? columns.filter((column) => column.shown)
+          : undefined;
+      body = {
+        ...base,
+        view: {
+          applicationKey: viewStart.applicationKey,
+          viewKey: viewStart.viewKey,
+          state: edited ? { ...state, columns: edited.map((column) => column.key) } : state,
+          ...(askCellField ? { cellField } : {}),
+        },
+        format: forPeople ? "xlsx" : format,
+        layout,
+        // A table's Advanced: the sheets and fields, its columns being the view's state.
+        ...(forPeople && tableWorkbook
+          ? { people: { ...peopleLayout(columns, sheets, fields, owned, lists), columns: undefined } }
+          : {}),
+        ...(forPeople ? {} : { include: { relations } }),
+      };
+    } else {
+      const chosenTypes = tableWorkbook && forPeople && !viewStart ? [people] : exportedTypes;
+      body = {
+        ...base,
+        scope: {
+          types: types
+            .filter((type) => chosenTypes.includes(type.key))
+            .map((type) => ({
+              objectTypeKey: type.key,
+              where:
+                filtered?.objectTypeKey === type.key
+                  ? [
+                      ...criteriaFromFilters(model, filtered.filters, filterNames),
+                      ...(scoped ? [{ field: "parentObjectId", op: "eq", value: scoped }] : []),
+                    ]
+                  : [],
+            })),
+          parentObjectId: null,
+          asOf: dated && asOf ? asOf : null,
+        },
+        include: { relations },
+        format: forPeople ? "xlsx" : format,
+        ...(forPeople ? { layout: "people" as const } : viewStart ? { layout } : {}),
+        ...(forPeople && tableWorkbook && !viewStart
+          ? { people: peopleLayout(columns, sheets, fields, owned, lists) }
+          : {}),
+      };
+    }
     setPending(true);
     setError(undefined);
     try {
@@ -183,6 +270,16 @@ export function ExportDialog({
   }
 
   const fieldError = (field: ExportField) => (error?.field === field ? error.message : undefined);
+  const whatOptions: readonly (readonly [What, string])[] = viewStart
+    ? [
+        ["view", `This view: ${viewStart.name}`],
+        ["type", `The type: ${typeName(viewStart.typeKey)}`],
+        ["application", `The application: ${application?.name ?? viewStart.applicationKey}`],
+        ["workspace", "The whole workspace"],
+      ]
+    : [];
+  // Technical is offered for a type, an application, a workspace and a table view (PP-D18, PP-D21).
+  const kindOptions = KINDS.filter(([key]) => key === "people" || !ofView || viewStart?.kind === "table");
 
   return (
     <Modal title="Export" size="wide" busy={pending} onClose={onClose}>
@@ -195,17 +292,41 @@ export function ExportDialog({
       >
         <section className="dialog-form-section" aria-labelledby="export-what">
           <h3 id="export-what">What to export</h3>
-          {people && (
+          {viewStart && (
+            <FormField
+              label="What"
+              help={
+                ofView
+                  ? "The view as it is shown, with the filters and search the page has."
+                  : "Every record of each type, a sheet per type."
+              }
+              group
+            >
+              {() => (
+                <>
+                  <Choice name="export-what" value={what} options={whatOptions} onChange={setWhat} />
+                  {countLine && (
+                    <p className="admin-hint" data-testid="export-count">
+                      {countLine}
+                    </p>
+                  )}
+                </>
+              )}
+            </FormField>
+          )}
+          {(viewStart || people) && (
             <FormField
               label="Kind of file"
               help={
                 forPeople
-                  ? "A workbook people work in: the table's columns, a sheet per chosen relationship, and what it needs to be imported back as it is."
+                  ? ofView && viewStart?.kind !== "table"
+                    ? "A workbook people work in and import back as it is, shaped as the view is."
+                    : "A workbook people work in: a sheet per type, and what it needs to be imported back as it is."
                   : "The engine's exact tables, for integrations and round trips of several types."
               }
               group
             >
-              {() => <Choice name="export-layout" value={layout} options={KINDS} onChange={setLayout} />}
+              {() => <Choice name="export-layout" value={layout} options={kindOptions} onChange={setLayout} />}
             </FormField>
           )}
           {!start.workspaceKey && (
@@ -216,7 +337,7 @@ export function ExportDialog({
               onError={(message) => setError({ field: "form", message })}
             />
           )}
-          {!forPeople && (
+          {!viewStart && !forPeople && (
             <FormField
               label="Record types"
               help={`Read from ${context}${start.workspaceKey ? ` in workspace “${start.workspaceKey}”` : ""}, all at one instant.`}
@@ -235,13 +356,29 @@ export function ExportDialog({
               )}
             </FormField>
           )}
+          {viewStart && (
+            <p className="admin-hint">
+              Read from {context}
+              {start.workspaceKey ? ` in workspace “${start.workspaceKey}”` : ""}, all at one instant.
+            </p>
+          )}
+          {ofView && viewStart?.notCarried && <Notice tone="info">{viewStart.notCarried}</Notice>}
+          {ofView && viewStart && viewStart.filters.length + viewStart.toFilters.length > 0 && (
+            <p className="admin-hint">
+              {typeName(viewStart.typeKey)} are exported with this page's{" "}
+              {viewStart.filters.length + viewStart.toFilters.length === 1
+                ? "filter"
+                : `${viewStart.filters.length + viewStart.toFilters.length} filters`}
+              .
+            </p>
+          )}
           {filtered && filtered.filters.length > 0 && (
             <p className="admin-hint">
               {model.objectTypes.find((type) => type.key === filtered.objectTypeKey)?.pluralName} are exported with this
               page's {filtered.filters.length === 1 ? "filter" : `${filtered.filters.length} filters`}.
             </p>
           )}
-          {start.search && (
+          {!viewStart && start.search && (
             <Notice tone="info">
               The page's search “{start.search}” is not applied: an export selects records by filters only.
             </Notice>
@@ -262,7 +399,7 @@ export function ExportDialog({
               )}
             </FormField>
           )}
-          {dated && (
+          {dated && !ofView && (
             <FormField
               label="Valid on"
               help="Types with a validity period export the records valid on this date; the others are exported as they are. Leave empty for all."
@@ -275,7 +412,7 @@ export function ExportDialog({
           )}
         </section>
 
-        {forPeople ? (
+        {forPeople && tableWorkbook ? (
           <PeopleAdvanced
             model={model}
             objectTypeKey={people}
@@ -293,6 +430,33 @@ export function ExportDialog({
             workspaceKey={workspaceKey}
             error={fieldError("layout")}
           />
+        ) : forPeople ? (
+          askCellField ? (
+            <section className="dialog-form-section" aria-labelledby="export-cell-field">
+              <h3 id="export-cell-field">What each cell lists</h3>
+              <FormField
+                label="Each linked record is listed by its"
+                help="The file records the choice, and importing it reads the cells the same way."
+                error={fieldError("layout")}
+              >
+                {(props) => (
+                  <select {...props} value={cellField} onChange={(event) => setCellField(event.target.value)}>
+                    {cellFields.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
+            </section>
+          ) : (
+            fieldError("layout") && (
+              <Notice tone="error" title="The workbook cannot be made this way">
+                {fieldError("layout")}
+              </Notice>
+            )
+          )
         ) : (
           <section className="dialog-form-section" aria-labelledby="export-file">
             <h3 id="export-file">The file</h3>
@@ -320,7 +484,13 @@ export function ExportDialog({
               pending ||
               !workspaceKey ||
               awaitingNames ||
-              (forPeople ? !columns.some((column) => column.shown) : !chosen.length)
+              (forPeople && tableWorkbook
+                ? !columns.some((column) => column.shown)
+                : viewStart
+                  ? false
+                  : forPeople
+                    ? false
+                    : !chosen.length)
             }
           >
             {pending ? "Starting…" : "Start export"}
@@ -329,6 +499,37 @@ export function ExportDialog({
       </form>
     </Modal>
   );
+}
+
+/** A tree's records, counted over its types with the list read the page uses; undefined until read. */
+function useTreeRecords(tree: ExportViewStart | undefined, start: ExportStart, workspaceKey: string) {
+  const [counted, setCounted] = useState<{ key: string; total: number }>();
+  const key = tree ? JSON.stringify([tree.viewKey, workspaceKey, start.changeSetId, start.publicationId]) : "";
+  useEffect(() => {
+    if (!tree?.typeKeys || !workspaceKey) return;
+    let cancelled = false;
+    void Promise.all(
+      tree.typeKeys.map((typeKey) =>
+        api.objects(typeKey, {
+          workspaceKey,
+          changeSetId: start.changeSetId,
+          publicationId: start.publicationId,
+          pageSize: 1,
+          includeTotal: true,
+        }),
+      ),
+    )
+      .then((pages) => {
+        if (!cancelled && pages.every((page) => page.totalCount !== undefined))
+          setCounted({ key, total: pages.reduce((sum, page) => sum + (page.totalCount ?? 0), 0) });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return counted?.key === key ? counted.total : undefined;
 }
 
 /**

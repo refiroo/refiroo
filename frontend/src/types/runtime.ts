@@ -658,11 +658,30 @@ export interface RelationMatrixContainer {
   name: string;
   /** From below the column record down to this record; empty for the column record itself. */
   path: RelationMatrixPathPart[];
+  /** How many cell records stand directly under it: none means the view does not use it yet (PP-D24). */
+  cellCount?: number;
+  /** The application the group belongs to: a cell created in it is created in the same one. */
+  applicationKey?: string | null;
 }
 
 export interface RelationMatrixContainerPage extends PageNavigation {
   items: RelationMatrixContainer[];
   defaultContainerId: string | null;
+  /** The place the binding's candidate rules fix for a new cell record; null where they fix none (0.17 PP-D24). */
+  derivedPlace?: RelationMatrixDerivedPlace | null;
+}
+
+export interface RelationMatrixDerivedPlace {
+  objectTypeKey: string;
+  name: string;
+  attributes: Record<string, unknown>;
+  /** True when no container of the column meets the rules yet: creating a cell creates it first. */
+  willBeCreated: boolean;
+  /** True when the rules fix no place and no group holds cells of the view: a new group is proposed from the
+   *  data (PP-D28), named as the other columns' groups are; the person may change its name. */
+  proposed?: boolean;
+  /** The application the new group is created in: its parent's, the column record's. */
+  applicationKey?: string | null;
 }
 
 export interface RelationMatrixLinkCandidate {

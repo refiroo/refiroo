@@ -26,10 +26,10 @@ tables through server-side cursors; Python formats cells and never holds a set.
 
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from psycopg import sql
 from sqlalchemy import (
@@ -39,6 +39,7 @@ from sqlalchemy import (
     String,
     Text,
     exists,
+    func,
     insert,
     literal,
     select,
@@ -51,12 +52,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
-from ...models.exports import ExportRequest
+from ...models.exports import ExportRequest, PeopleLayout
 from ...models.imports import ImportProfileDefinition
 from ...models.schema import BUILT_IN_COLUMNS, EngineModel
 from ..imports.binding import NOT_LOADED
 from ..imports.profiles import check_profile, source_order
 from ..imports.readers import PROFILE_MARK, PROFILE_SHEET
+from ..model.registry import ModelSnapshot
 from ..model.related_columns import (
     RELATED_FIELD_PREFIX,
     RelatedColumn,
@@ -72,6 +74,8 @@ from . import xlsx
 
 LAYOUT = "people"
 SUMMARY = "(not imported)"
+# A people column that shows a record's parent: ``parent:<type key>``.
+PARENT_PREFIX = "parent:"
 SPLIT = "; "
 ID_LABEL = "Record ID"
 VERSION_LABEL = "Record version"
@@ -145,6 +149,12 @@ class SheetPlan:
     owned: bool
     editable: bool
     columns: OwnedLayout | None = None
+    # A relationships table's sheet (0.17 EX1): its title, the relationship values it shows (the
+    # binding's own when ``None``) and the columns of either end it shows beside them, for reading.
+    title: str | None = None
+    attributes: tuple[str, ...] | None = None
+    orientation_from: tuple[str, ...] = ()
+    orientation_to: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -155,11 +165,55 @@ class PeoplePlan:
     sheets: tuple[SheetPlan, ...]
     # The relationships whose pointer cells offer a list; ``None`` for every one (D196, D197).
     lists: frozenset[str] | None = None
+    # The types the workbook has a sheet each of, in load order (empty for one type's workbook).
+    sheet_types: tuple[str, ...] = ()
+    # Whether the type's own sheet is written; a relationships table writes only its sheet.
+    main: bool = True
 
 
-def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None:
+class ViewSheets(Protocol):
+    """What a matrix, a relationships table or a grid adds to a workbook (0.17 EX1): the rows it
+    reads, the sheets it writes and what the About sheet says of them. ``export_view_sheets``."""
+
+    def prepare(
+        self, session: Session, workspace_key: str, context: SnapshotContext | None
+    ) -> None: ...
+
+    def write(self, writer: SheetWriter) -> ViewWritten: ...
+
+
+@dataclass
+class ViewWritten:
+    """The sheets a view wrote, the profile sources that read them back, what each holds and how it
+    loads back (About), and the records and relationships by type and relation."""
+
+    titles: list[str]
+    sources: list[dict[str, Any]]
+    counts: dict[str, int]
+    relations: dict[str, int]
+    holds: list[tuple[str, str, str | None]]
+    loads: list[tuple[str, str, str | None]]
+    extra: list[tuple[str, list[tuple[str, str, str | None]]]] = field(default_factory=list)
+    value_maps: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class WorkbookPlan:
+    """A workbook for people: a sheet set per type, or one view's sheets."""
+
+    types: tuple[PeoplePlan, ...]
+    view: ViewSheets | None = None
+
+
+def plan_people(
+    model: EngineModel, request: ExportRequest, ready: WorkbookPlan | None = None
+) -> WorkbookPlan | None:
     """The request's workbook for people checked against the model; ``None`` for the technical
-    layout. Every refusal is ``422 INVALID_EXPORT_LAYOUT`` at its pointer (D188)."""
+    layout. Every refusal is ``422 INVALID_EXPORT_LAYOUT`` at its pointer (D188).
+
+    A sheet per type (0.17 EX1, PP-D21): the scope's types, parents' types first, each the type's own
+    people sheet; ``people`` options describe one type's workbook (0.9 J6) and so allow one type. A
+    matrix, a relationships table or grid brings its own sheets (``ready``)."""
     if request.layout != LAYOUT:
         if request.people is not None:
             raise invalid_layout(
@@ -168,9 +222,81 @@ def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None
         return None
     if request.format != "xlsx":
         raise invalid_layout("A workbook for people is an XLSX file", "/format")
-    if len(request.scope.types) != 1:
-        raise invalid_layout("A workbook for people holds one type's collection", "/scope/types")
-    type_key = request.scope.types[0].objectTypeKey
+    if ready is not None:
+        if request.people is not None:
+            raise invalid_layout(
+                "A view of this kind is exported as it is shown: it takes no people options",
+                "/people",
+            )
+        return ready
+    keys = [item.objectTypeKey for item in request.scope.types]
+    for index, key in enumerate(keys):
+        if model.object_type(key) is None:
+            raise api_error(
+                422,
+                "INVALID_QUERY",
+                f"Unknown object type '{key}'",
+                {"path": f"/scope/types/{index}/objectTypeKey"},
+            )
+    if request.people is not None:
+        if len(keys) != 1:
+            raise invalid_layout(
+                "A workbook for people with columns and sheets holds one type's collection",
+                "/scope/types",
+            )
+        return WorkbookPlan((plan_type(model, keys[0], request.people),))
+    order = type_order(model, keys)
+    return WorkbookPlan(tuple(plan_type(model, key, None, sheet_types=order) for key in order))
+
+
+def type_order(model: EngineModel, keys: Sequence[str]) -> tuple[str, ...]:
+    """The types in the order their sheets load: a type after the types it stands under, otherwise as
+    the model orders them (a ring of types that contain each other keeps its model order)."""
+    wanted = [item.key for item in model.objectTypes if item.key in keys]
+    placed: list[str] = []
+    while len(placed) < len(wanted):
+        ready = [
+            key
+            for key in wanted
+            if key not in placed
+            and (set(parent_type_keys(model, key)) & set(wanted)) - {key} <= set(placed)
+        ]
+        placed.append((ready or [key for key in wanted if key not in placed])[0])
+    return tuple(placed)
+
+
+def relationship_keys(model: EngineModel, type_key: str) -> list[str]:
+    """The relation key of each binding the type is at the ``from`` end of, the reverse key of each it
+    is at the ``to`` end of, each once, a parent relationship left out: the relationships a type's
+    people sheet shows as columns of names."""
+    keys: list[str] = []
+    for binding in model.objectTypeRelations:
+        relation = model.relation_type(binding.relationTypeKey)
+        if relation is None:
+            continue
+        if any(
+            relation.key in model.containment_relation_keys(end)
+            for end in (binding.fromObjectTypeKey, binding.toObjectTypeKey)
+        ):
+            continue
+        if binding.fromObjectTypeKey == type_key:
+            keys.append(relation.key)
+        if binding.toObjectTypeKey == type_key:
+            keys.append(relation.reverseKey)
+    return list(dict.fromkeys(keys))
+
+
+def plan_type(
+    model: EngineModel,
+    type_key: str,
+    people: PeopleLayout | None,
+    *,
+    sheet_types: Sequence[str] = (),
+) -> PeoplePlan:
+    """One type's sheets. Without ``people`` and with ``sheet_types`` (a sheet per type), the type's
+    fields, its parent by name and its relationships by name; ``sheet_types`` also makes a
+    relationship load back from one side only, the later sheet's, so the sources never wait on each
+    other."""
     definition = model.object_type(type_key)
     if definition is None:
         raise api_error(
@@ -179,12 +305,22 @@ def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None
             f"Unknown object type '{type_key}'",
             {"path": "/scope/types/0/objectTypeKey"},
         )
-    people = request.people
     bindings = sorted(definition.attributes, key=lambda item: item.order)
     requested = (
         list(people.columns)
         if people is not None and people.columns
-        else ["name", *(item.attributeTypeKey for item in bindings)]
+        else [
+            "name",
+            *(item.attributeTypeKey for item in bindings),
+            *(
+                [
+                    *(f"{PARENT_PREFIX}{key}" for key in sorted(parent_type_keys(model, type_key))),
+                    *(f"{RELATED_FIELD_PREFIX}{key}" for key in relationship_keys(model, type_key)),
+                ]
+                if people is None and sheet_types
+                else []
+            ),
+        ]
     )
     sheet_keys = list(people.sheets) if people is not None else []
     fields = dict(people.columnFields) if people is not None else {}
@@ -198,11 +334,11 @@ def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None
             column = related_column(model, type_key, key)
         except RelatedKeyError as error:
             raise invalid_layout(str(error), at) from None
-        if _containment(model, type_key, column):
+        if is_containment(model, type_key, column):
             raise invalid_layout(
                 f"'{key}' is a parent relationship; a record's parent is its own field", at
             )
-        sheets.append(_sheet_plan(model, type_key, key, column))
+        sheets.append(plan_sheet(model, type_key, key, column))
     owned_types = {sheet.related.target_type_keys[0] for sheet in sheets if sheet.owned}
     sheets = [
         replace(sheet, editable=False)
@@ -256,7 +392,22 @@ def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None
                 path = f"/people/columnFields/{key}" if chosen is not None else at
                 raise invalid_layout(str(error), path) from None
             columns.append(
-                _related_main_column(model, type_key, key, column, sheet_relations, owned_types)
+                _related_main_column(
+                    model, type_key, key, column, sheet_relations, owned_types, sheet_types
+                )
+            )
+        elif key.startswith(PARENT_PREFIX) and key.removeprefix(PARENT_PREFIX) in parent_type_keys(
+            model, type_key
+        ):
+            parent = model.object_type(key.removeprefix(PARENT_PREFIX))
+            several = len(parent_type_keys(model, type_key)) > 1
+            columns.append(
+                MainColumn(
+                    key,
+                    f"Parent: {parent.name}" if several else parent.name,
+                    "parent",
+                    hue=parent.key,
+                )
             )
         else:
             raise invalid_layout(
@@ -264,7 +415,8 @@ def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None
                 " updatedAt, an attribute the type binds or related:<key>[.<field>]",
                 at,
             )
-    lists = None
+    # A sheet per type offers no lists: a workbook of a whole application stays what its types hold.
+    lists = frozenset() if people is None and sheet_types else None
     if people is not None and people.referenceLists is not None:
         named = {column.related.key for column in columns if column.related is not None}
         named |= {sheet.key for sheet in sheets}
@@ -278,10 +430,14 @@ def plan_people(model: EngineModel, request: ExportRequest) -> PeoplePlan | None
     application = next(
         (item.key for item in model.applications if type_key in item.objectTypeKeys), ""
     )
-    return PeoplePlan(type_key, application, tuple(columns), tuple(sheets), lists)
+    return PeoplePlan(
+        type_key, application, tuple(columns), tuple(sheets), lists, tuple(sheet_types)
+    )
 
 
-def _owned_layouts(model: EngineModel, sheets: list[SheetPlan], layouts: dict[str, Any]) -> list[SheetPlan]:
+def _owned_layouts(
+    model: EngineModel, sheets: list[SheetPlan], layouts: dict[str, Any]
+) -> list[SheetPlan]:
     """The sheets ``ownedColumns`` lays out as columns per parent, checked against the model; the
     parents are checked against the data by :func:`check_parents`."""
     sheets = list(sheets)
@@ -319,12 +475,12 @@ def _owned_layouts(model: EngineModel, sheets: list[SheetPlan], layouts: dict[st
 def check_parents(
     session: Session,
     model: EngineModel,
-    plan: PeoplePlan,
+    workbook: WorkbookPlan,
     workspace_key: str,
     context: SnapshotContext | None,
 ) -> None:
     """Each added parent is a record of the context that the owned type can stand under."""
-    for sheet in plan.sheets:
+    for sheet in (sheet for plan in workbook.types for sheet in plan.sheets):
         if sheet.columns is None or not sheet.columns.parents:
             continue
         owned_key = sheet.related.target_type_keys[0]
@@ -347,7 +503,7 @@ def check_parents(
                 )
 
 
-def _sheet_plan(model: EngineModel, type_key: str, key: str, column: RelatedColumn) -> SheetPlan:
+def plan_sheet(model: EngineModel, type_key: str, key: str, column: RelatedColumn) -> SheetPlan:
     """An owning relationship (one binding, outgoing, required: the far records exist only through
     it, D182) gets a sheet of the owned records; any other a sheet of the relationships, editable
     when it reaches one type."""
@@ -361,7 +517,7 @@ def _sheet_plan(model: EngineModel, type_key: str, key: str, column: RelatedColu
     return SheetPlan(key, column, owned, owned or len(column.target_type_keys) == 1)
 
 
-def _containment(model: EngineModel, type_key: str, column: RelatedColumn) -> bool:
+def is_containment(model: EngineModel, type_key: str, column: RelatedColumn) -> bool:
     """Whether the column's relationship places records under their parents (in either
     direction), which a parent field sets, never a relationship binding."""
     return any(
@@ -377,6 +533,7 @@ def _related_main_column(
     column: RelatedColumn,
     sheet_relations: set[tuple[str, str]],
     owned_types: set[str],
+    sheet_types: Sequence[str] = (),
 ) -> MainColumn:
     far = column.target_type_keys
     relation = model.relation_type(column.relation_type_key)
@@ -385,21 +542,43 @@ def _related_main_column(
         if column.direction == "outgoing"
         else (getattr(relation, "reverseName", None) or relation.name)
     )
-    label = f"{name} · {_field_label(model, column.field)}" if column.field else name
-    identifies = column.field is None or _identifying(model, far, column.field)
+    label = f"{name} · {field_label(model, column.field)}" if column.field else name
+    identifies = column.field is None or is_identifying(model, far, column.field)
     editable = (
         len(far) == 1
         and identifies
-        and not _containment(model, type_key, column)
+        and not is_containment(model, type_key, column)
         and (column.relation_type_key, column.direction) not in sheet_relations
         and not set(far) & owned_types
+        and not _waits_for_later_sheet(type_key, far, sheet_types)
+        and not _owns_records(column)
     )
     return MainColumn(
         key, label, "related", editable=editable, related=column, field=column.field, hue=far[0]
     )
 
 
-def _identifying(model: EngineModel, far: Sequence[str], field_: str) -> bool:
+def _owns_records(column: RelatedColumn) -> bool:
+    """Whether a binding behind the column makes the records at its far end exist only through it
+    (required, one-to-one or one-to-many): its set is never replaced from a cell, the owned records
+    are edited on their own sheet."""
+    return any(
+        binding.required and binding.cardinality in {"one-to-one", "one-to-many"}
+        for binding in column.bindings
+    )
+
+
+def _waits_for_later_sheet(type_key: str, far: Sequence[str], sheet_types: Sequence[str]) -> bool:
+    """Whether the column names records of a type whose sheet loads after this type's: its source
+    would wait for the sheet that waits for it, so the later sheet's reverse column loads the
+    relationship (PP-D21)."""
+    if type_key not in sheet_types:
+        return False
+    here = sheet_types.index(type_key)
+    return any(key in sheet_types and sheet_types.index(key) > here for key in far)
+
+
+def is_identifying(model: EngineModel, far: Sequence[str], field_: str) -> bool:
     """Whether a related record's field finds it: a unique attribute its one type requires (a
     record without the value could not be named, and a list replacing the set would drop it)."""
     attribute = model.attribute_type(field_)
@@ -412,7 +591,7 @@ def _identifying(model: EngineModel, far: Sequence[str], field_: str) -> bool:
     return binding is not None and binding.required
 
 
-def _field_label(model: EngineModel, field_: str) -> str:
+def field_label(model: EngineModel, field_: str) -> str:
     if field_.startswith("ancestor:"):
         type_key, _, name = field_.removeprefix("ancestor:").partition(".")
         if name == "name":
@@ -487,7 +666,7 @@ _TEMPORARY_TABLES = (
 
 
 @dataclass
-class _Cell:
+class CellSpec:
     """How one column of a sheet becomes its cells: its SQL text, its value type (``text``, an
     attribute's, ``number``, ``yesno``) and its style."""
 
@@ -502,44 +681,76 @@ class _Cell:
 
 @dataclass
 class PeopleOutcome:
-    """The sheets written in order, and the records and relationships they hold by type."""
+    """The sheets written in order, the records and relationships they hold by type, and what the
+    About sheet says of them (what each holds, how it loads back)."""
 
     titles: list[str]
     counts: dict[str, int]
     relations: dict[str, int]
+    holds: list[tuple[str, str, str | None]] = field(default_factory=list)
+    loads: list[tuple[str, str, str | None]] = field(default_factory=list)
+    extra: list[tuple[str, list[tuple[str, str, str | None]]]] = field(default_factory=list)
 
 
 def write_people(
     session: Session,
     model: EngineModel,
-    plan: PeoplePlan,
+    workbook: WorkbookPlan,
     *,
+    snapshot: ModelSnapshot,
     workspace_key: str,
     context: SnapshotContext | None,
     path: Path,
     on_row: Callable[[], None],
     checkpoint: Callable[[], None],
     description: dict[str, Any],
+    about: Callable[[PeopleOutcome], tuple[str, str, list[xlsx.AboutSection]]],
 ) -> PeopleOutcome:
-    """Write the workbook for ``plan`` over the records already in ``export_records``."""
+    """Write the workbook for ``workbook`` over the records already in ``export_records``: a sheet
+    set per type, then the view's sheets, the About sheet second, the profile last."""
     for statement in _TEMPORARY_TABLES:
         session.execute(text(statement))
-    related = [column for column in plan.columns if column.related is not None]
+    plans = workbook.types
+    related = [
+        (plan, column) for plan in plans for column in plan.columns if column.related is not None
+    ]
     # Each relation column's relationships, then each sheet's, as a numbered part.
-    sheets = [(sheet, len(related) + index) for index, sheet in enumerate(plan.sheets)]
-    for part, column in enumerate(related):
-        _fill_links(session, model, part, column.related, workspace_key, context)
-    for sheet, part in sheets:
-        _fill_links(session, model, part, sheet.related, workspace_key, context)
-    lists = _list_specs(model, plan)
-    _fill_choices(session, model, plan, lists, workspace_key, context)
+    parts = {
+        (plan.object_type_key, column.key): number for number, (plan, column) in enumerate(related)
+    }
+    sheets = [
+        (plan, sheet, len(related) + number)
+        for number, (plan, sheet) in enumerate((p, s) for p in plans for s in p.sheets)
+    ]
+    for number, (plan, column) in enumerate(related):
+        fill_links(session, number, column.related, workspace_key, context, plan.object_type_key)
+    for plan, sheet, number in sheets:
+        fill_links(session, number, sheet.related, workspace_key, context, plan.object_type_key)
+    lists = _list_specs(model, plans)
+    _fill_choices(session, model, plans, lists, workspace_key, context)
+    parents = {
+        (plan.object_type_key, column.key)
+        for plan in plans
+        for column in plan.columns
+        if column.kind == "parent"
+    }
+    if parents:
+        # A parent column names the record's parent: those records are read with the far records.
+        session.execute(
+            text(
+                "INSERT INTO people_choices (list, object_id) SELECT DISTINCT -3, parent_object_id"
+                " FROM export_records WHERE parent_object_id IS NOT NULL"
+            )
+        )
+    if workbook.view is not None:
+        workbook.view.prepare(session, snapshot, workspace_key, context)
     # The walk below and every sheet join these; autovacuum never analyzes a temporary table, so
     # each is analyzed once filled (0.11 Q1, D178).
     session.execute(text("ANALYZE people_links, people_choices"))
     _fill_far_records(session, workspace_key, context)
     session.execute(text("ANALYZE people_records, people_ancestors"))
-    for part, column in enumerate(related):
-        _fill_cells(session, model, part, column)
+    for number, (plan, column) in enumerate(related):
+        _fill_cells(session, model, number, column)
     checkpoint()
     # D189: a list that does not fit a cell is a summary, written in full on a sheet of its own.
     longest = dict(
@@ -547,73 +758,130 @@ def write_people(
             text("SELECT part, max(length(value)) FROM people_cells GROUP BY part")
         ).all()
     )
-    columns = list(plan.columns)
-    for part, column in enumerate(related):
-        if (longest.get(part) or 0) <= xlsx.CELL_CHARACTERS:
+    columns = {plan.object_type_key: list(plan.columns) for plan in plans}
+    for number, (plan, column) in enumerate(related):
+        if (longest.get(number) or 0) <= xlsx.CELL_CHARACTERS:
             continue
-        index = columns.index(column)
-        columns[index] = replace(column, editable=False)
+        found = columns[plan.object_type_key]
+        found[found.index(column)] = replace(column, editable=False)
         has_sheet = any(
             (sheet.related.relation_type_key, sheet.related.direction)
             == (column.related.relation_type_key, column.related.direction)
-            for sheet, _ in sheets
+            and owner.object_type_key == plan.object_type_key
+            for owner, sheet, _ in sheets
         )
         if not has_sheet:
             # Its relationships are those of the column: the sheet reads the same part.
-            sheet = _sheet_plan(model, plan.object_type_key, column.related.key, column.related)
-            sheets.append((sheet, part))
+            sheets.append(
+                (
+                    plan,
+                    plan_sheet(model, plan.object_type_key, column.related.key, column.related),
+                    number,
+                )
+            )
     # A sheet of owned records makes every other reference to their type read-only (D183).
-    owned_types = {sheet.related.target_type_keys[0] for sheet, _ in sheets if sheet.owned}
-    columns = [
-        replace(column, editable=False)
-        if column.related is not None and set(column.related.target_type_keys) & owned_types
-        else column
-        for column in columns
-    ]
-    sheets = [
-        (replace(sheet, editable=False), part)
-        if not sheet.owned and set(sheet.related.target_type_keys) & owned_types
-        else (sheet, part)
-        for sheet, part in sheets
-    ]
+    for plan in plans:
+        owned_types = {
+            sheet.related.target_type_keys[0]
+            for owner, sheet, _ in sheets
+            if sheet.owned and owner is plan
+        }
+        columns[plan.object_type_key] = [
+            replace(column, editable=False)
+            if column.related is not None and set(column.related.target_type_keys) & owned_types
+            else column
+            for column in columns[plan.object_type_key]
+        ]
+        sheets = [
+            (owner, replace(sheet, editable=False), number)
+            if owner is plan
+            and not sheet.owned
+            and set(sheet.related.target_type_keys) & owned_types
+            else (owner, sheet, number)
+            for owner, sheet, number in sheets
+        ]
+    if len(plans) > 1 or (plans and plans[0].sheet_types):
+        _demote_ambiguous_names(session, model, plans, columns, workspace_key, context)
 
     connection = session.connection().connection.driver_connection
     book = xlsx.Workbook(path, on_row)
     # The reader finds the profile by this title, so no data sheet takes it.
     book.titles.add(PROFILE_SHEET.lower())
-    writer = _Writer(session, connection, book, model, plan, workspace_key, context)
+    writer = SheetWriter(session, connection, book, model, workspace_key, context)
     writer.rules = _reserve_lists(session, model, book, lists)
     profile_sources: list[dict[str, Any]] = []
-    main_titles, main_count, main_source = writer.main(columns, related)
-    profile_sources += [{**main_source, "sheet": title} for title in main_titles]
-    checkpoint()
-    counts = {plan.object_type_key: main_count}
+    value_maps: dict[str, dict[str, Any]] = {YES_NO: {"Yes": True, "No": False}}
+    counts: dict[str, int] = {}
     relations: dict[str, int] = {}
-    titles = list(main_titles)
-    for sheet, part in sheets:
-        written, count, source = (
-            writer.owned_columns(sheet, part)
-            if sheet.owned and sheet.columns is not None
-            else writer.owned(sheet, part)
-            if sheet.owned
-            else writer.relationships(sheet, part)
-        )
-        titles += written
-        if sheet.owned:
-            far = sheet.related.target_type_keys[0]
-            counts[far] = counts.get(far, 0) + count
-        else:
-            relations[sheet.related.relation_type_key] = (
-                relations.get(sheet.related.relation_type_key, 0) + count
+    titles: list[str] = []
+    holds: list[tuple[str, str, str | None]] = []
+    loads: list[tuple[str, str, str | None]] = []
+    extra: list[tuple[str, list[tuple[str, str, str | None]]]] = []
+    for plan in plans:
+        if plan.main:
+            main_titles, main_count, main_source = writer.main(
+                plan, columns[plan.object_type_key], parts
             )
-        if source is not None:
-            profile_sources += [{**source, "sheet": title} for title in written]
+            profile_sources += [{**main_source, "sheet": title} for title in main_titles]
+            checkpoint()
+            counts[plan.object_type_key] = counts.get(plan.object_type_key, 0) + main_count
+            titles += main_titles
+            holds.append(
+                (
+                    main_titles[0],
+                    f"{main_count} {model.object_type(plan.object_type_key).pluralName.lower()}; "
+                    + ", ".join(
+                        column.label
+                        for column in columns[plan.object_type_key]
+                        if column.kind != "builtin"
+                    ),
+                    None,
+                )
+            )
+        for owner, sheet, number in sheets:
+            if owner is not plan:
+                continue
+            written, count, source = (
+                writer.owned_columns(plan, sheet, number)
+                if sheet.owned and sheet.columns is not None
+                else writer.owned(plan, sheet, number)
+                if sheet.owned
+                else writer.relationships(plan, sheet, number)
+            )
+            titles += written
+            if sheet.owned:
+                far = sheet.related.target_type_keys[0]
+                counts[far] = counts.get(far, 0) + count
+            else:
+                relations[sheet.related.relation_type_key] = (
+                    relations.get(sheet.related.relation_type_key, 0) + count
+                )
+            if source is not None:
+                profile_sources += [{**source, "sheet": title} for title in written]
+            holds.append(
+                (written[0], f"{count} {'records' if sheet.owned else 'relationships'}", None)
+            )
+            checkpoint()
+    if plans:
+        loads += _type_loads(columns, sheets)
+    if workbook.view is not None:
+        done = workbook.view.write(writer)
+        titles += done.titles
+        profile_sources += done.sources
+        value_maps.update(done.value_maps)
+        for key, count in done.counts.items():
+            counts[key] = counts.get(key, 0) + count
+        for key, count in done.relations.items():
+            relations[key] = relations.get(key, 0) + count
+        holds += done.holds
+        loads += done.loads
+        extra += done.extra
         checkpoint()
     for number, spec in enumerate(lists):
         if spec.title is not None:
             titles += writer.reference(spec, number)
             checkpoint()
-    profile = {"sources": profile_sources, "valueMaps": {YES_NO: {"Yes": True, "No": False}}}
+    profile = {"sources": profile_sources, "valueMaps": value_maps}
     definition = ImportProfileDefinition.model_validate(profile)
     problems = check_profile(model, definition)
     if problems or source_order(model, definition) is None:
@@ -630,6 +898,9 @@ def write_people(
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    outcome = PeopleOutcome(titles, counts, relations, holds, loads, extra)
+    title, what, sections = about(outcome)
+    book.about(title, what, sections)
     book.text(
         PROFILE_SHEET,
         [
@@ -642,19 +913,99 @@ def write_people(
         hidden=True,
     )
     book.close()
-    return PeopleOutcome(titles, counts, relations)
+    return outcome
+
+
+def _type_loads(
+    columns: dict[str, list[MainColumn]], sheets: list[tuple[PeoplePlan, SheetPlan, int]]
+) -> list[tuple[str, str, str | None]]:
+    """How a type's sheets load back, in the About sheet's words."""
+    rows = [
+        (
+            "Edit a cell",
+            "Changes that record; refused if someone changed the record since this export.",
+            None,
+        ),
+        (
+            "Add a row",
+            "Adds a record of that sheet's type, with the values of its cells and its parent as named.",
+            None,
+        ),
+        ("Clear a cell", "Changes nothing. Removing a value is done in the app.", None),
+    ]
+    if any(
+        column.related is not None and column.editable
+        for found in columns.values()
+        for column in found
+    ):
+        rows.append(
+            (
+                "A relationship column",
+                (
+                    "Its names become the record's relationships of that kind (the ones left out are"
+                    " removed); refused if the set changed since this export."
+                ),
+                None,
+            )
+        )
+    if sheets:
+        rows.append(
+            (
+                "A relationship sheet",
+                "Adds or changes the relationships it lists; removes none.",
+                None,
+            )
+        )
+    rows.append(("Columns marked (not imported)", "For reading only.", None))
+    return rows
+
+
+def _demote_ambiguous_names(
+    session: Session,
+    model: EngineModel,
+    plans: Sequence[PeoplePlan],
+    columns: dict[str, list[MainColumn]],
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> None:
+    """A column of names finds a record by its name, so it loads back only where no two records of
+    its type share one; a sheet per type is written with every such column read-only, so an import
+    of it unchanged refuses nothing (PP-D21). One statement per type."""
+    clashing: dict[str, bool] = {}
+
+    def clashes(type_key: str) -> bool:
+        if type_key not in clashing:
+            source = record_source(workspace_key, context, [type_key])
+            total, distinct = session.execute(
+                select(func.count(), func.count(func.distinct(source.c.name))).select_from(source)
+            ).one()
+            clashing[type_key] = total != distinct
+        return clashing[type_key]
+
+    for plan in plans:
+        columns[plan.object_type_key] = [
+            replace(column, editable=False)
+            if column.related is not None
+            and column.editable
+            and column.field is None
+            and clashes(column.related.target_type_keys[0])
+            else replace(column, editable=not clashes(column.key.removeprefix(PARENT_PREFIX)))
+            if column.kind == "parent"
+            else column
+            for column in columns[plan.object_type_key]
+        ]
 
 
 # --- set statements ----------------------------------------------------------------------------
 
 
-def _fill_links(
+def fill_links(
     session: Session,
-    model: EngineModel,
     part: int,
     column: RelatedColumn,
     workspace_key: str,
     context: SnapshotContext | None,
+    anchor_type: str,
 ) -> None:
     """The exported records' relationships one column or sheet shows, with the far record."""
     relation = relation_source(context)
@@ -664,7 +1015,11 @@ def _fill_links(
         else (relation.c.to_object_id, relation.c.from_object_id)
     )
     records = record_source(workspace_key, context, list(column.target_type_keys))
-    anchors = select(text("object_id")).select_from(text("export_records"))
+    anchors = (
+        select(text("object_id"))
+        .select_from(text("export_records"))
+        .where(text("object_type_key = :anchor").bindparams(anchor=anchor_type))
+    )
     statement = (
         select(
             literal(part),
@@ -683,6 +1038,11 @@ def _fill_links(
             ["part", "anchor_id", "related_id", "relation_id", "version", "attributes"], statement
         )
     )
+
+
+def restrict_links(session: Session, part: int, far_ids: Any) -> None:
+    """Keep only the part's relationships whose far record is among ``far_ids`` (a select of IDs)."""
+    session.execute(_LINKS.delete().where(_LINKS.c.part == part, ~_LINKS.c.related_id.in_(far_ids)))
 
 
 def _fill_far_records(
@@ -740,7 +1100,7 @@ def _walk_ids(tree: Any) -> Any:
     return select(walk.c.object_id)
 
 
-def _field_sql(model: EngineModel, alias: str, field_: str | None) -> sql.Composable:
+def field_sql(model: EngineModel, alias: str, field_: str | None) -> sql.Composable:
     """A ``people_records`` row's field as text, as a cell shows it: the name; an attribute's
     canonical text (a boolean Yes or No, JSON as JSON text); an ancestor's field."""
     if field_ is None or field_ == "name":
@@ -754,13 +1114,13 @@ def _field_sql(model: EngineModel, alias: str, field_: str | None) -> sql.Compos
             "(SELECT {} FROM people_ancestors u JOIN people_records a ON a.object_id = u.ancestor_id"
             " WHERE u.object_id = {}.object_id AND a.object_type_key = {}"
             " ORDER BY u.level DESC LIMIT 1)"
-        ).format(_field_sql(model, "a", name), sql.Identifier(alias), sql.Literal(type_key))
+        ).format(field_sql(model, "a", name), sql.Identifier(alias), sql.Literal(type_key))
     attribute = model.attribute_type(field_)
     value_type = attribute.valueType if attribute else "text"
-    return _value_sql(alias, field_, value_type, yes_no=True)
+    return value_sql(alias, field_, value_type, yes_no=True)
 
 
-def _value_sql(alias: str, key: str, value_type: str, *, yes_no: bool) -> sql.Composable:
+def value_sql(alias: str, key: str, value_type: str, *, yes_no: bool) -> sql.Composable:
     source = sql.Identifier(alias)
     if value_type == "json":
         return sql.SQL("({}.attributes -> {})::text").format(source, sql.Literal(key))
@@ -772,7 +1132,7 @@ def _value_sql(alias: str, key: str, value_type: str, *, yes_no: bool) -> sql.Co
 
 def _fill_cells(session: Session, model: EngineModel, part: int, column: MainColumn) -> None:
     """One relation column's cells: every related record's name or field, in name order."""
-    value = _field_sql(model, "o", column.field)
+    value = field_sql(model, "o", column.field)
     statement = sql.SQL(
         "INSERT INTO people_cells (object_id, part, value)"
         " SELECT l.anchor_id, {part}, string_agg({value}, {split} ORDER BY o.name, o.object_id)"
@@ -811,22 +1171,25 @@ def sheet_field(model: EngineModel, plan: PeoplePlan, sheet: SheetPlan) -> str |
             if column.related is not None
             and column.related.key == sheet.key
             and column.field is not None
-            and _identifying(model, sheet.related.target_type_keys, column.field)
+            and is_identifying(model, sheet.related.target_type_keys, column.field)
         ),
         None,
     )
 
 
-def _list_specs(model: EngineModel, plan: PeoplePlan) -> list[ListSpec]:
+def _list_specs(model: EngineModel, plans: Sequence[PeoplePlan]) -> list[ListSpec]:
     """The lists the workbook's pointer cells offer (D197): a main column of one relationship
     holding one record, a relationship sheet's related record, an owned sheet's parent and owner;
     one list per far type, criteria and field, shared."""
     specs: list[ListSpec] = []
 
-    def offered(key: str) -> bool:
-        return plan.lists is None or key in plan.lists
-
-    def use(far: str, criteria: tuple[Any, ...], field_: str | None, label: str | None, where: tuple[str, ...]) -> None:
+    def use(
+        far: str,
+        criteria: tuple[Any, ...],
+        field_: str | None,
+        label: str | None,
+        where: tuple[str, ...],
+    ) -> None:
         for spec in specs:
             if (spec.far, spec.criteria, spec.field) == (far, criteria, field_):
                 spec.uses.append(where)
@@ -837,44 +1200,56 @@ def _list_specs(model: EngineModel, plan: PeoplePlan) -> list[ListSpec]:
         end = "to" if column.direction == "outgoing" else "from"
         return tuple(column.bindings[0].candidates_at(end))
 
-    for column in plan.columns:
-        related = column.related
-        if related is None or not column.editable or not offered(related.key):
-            continue
-        near = "from" if related.direction == "outgoing" else "to"
-        if len(related.bindings) == 1 and related.bindings[0].holds_one(near):
+    for plan in plans:
+        type_key = plan.object_type_key
+
+        def offered(key: str, plan: PeoplePlan = plan) -> bool:
+            return plan.lists is None or key in plan.lists
+
+        for column in plan.columns:
+            related = column.related
+            if related is None or not column.editable or not offered(related.key):
+                continue
+            near = "from" if related.direction == "outgoing" else "to"
+            if len(related.bindings) == 1 and related.bindings[0].holds_one(near):
+                use(
+                    related.target_type_keys[0],
+                    far_criteria(related),
+                    column.field,
+                    relation_label(model, related),
+                    ("main", type_key, column.key),
+                )
+        for sheet in plan.sheets:
+            if not offered(sheet.key) or sheet.columns is not None or not sheet.editable:
+                continue
+            related = sheet.related
+            if not sheet.owned:
+                use(
+                    related.target_type_keys[0],
+                    far_criteria(related),
+                    sheet_field(model, plan, sheet),
+                    relation_label(model, related),
+                    ("sheet", type_key, sheet.key),
+                )
+                continue
+            owned_key = related.target_type_keys[0]
+            for parent in sorted(parent_type_keys(model, owned_key)):
+                use(parent, (), None, None, ("parent", type_key, sheet.key, parent))
+            owner = tuple(related.bindings[0].candidates_at("from"))
             use(
-                related.target_type_keys[0],
-                far_criteria(related),
-                column.field,
+                type_key,
+                owner,
+                None,
                 relation_label(model, related),
-                ("main", column.key),
+                ("owner", type_key, sheet.key),
             )
-    for sheet in plan.sheets:
-        if not offered(sheet.key) or sheet.columns is not None or not sheet.editable:
-            continue
-        related = sheet.related
-        if not sheet.owned:
-            use(
-                related.target_type_keys[0],
-                far_criteria(related),
-                sheet_field(model, plan, sheet),
-                relation_label(model, related),
-                ("sheet", sheet.key),
-            )
-            continue
-        owned_key = related.target_type_keys[0]
-        for parent in sorted(parent_type_keys(model, owned_key)):
-            use(parent, (), None, None, ("parent", sheet.key, parent))
-        owner = tuple(related.bindings[0].candidates_at("from"))
-        use(plan.object_type_key, owner, None, relation_label(model, related), ("owner", sheet.key))
     return specs
 
 
 def _fill_choices(
     session: Session,
     model: EngineModel,
-    plan: PeoplePlan,
+    plans: Sequence[PeoplePlan],
     specs: list[ListSpec],
     workspace_key: str,
     context: SnapshotContext | None,
@@ -890,9 +1265,17 @@ def _fill_choices(
             context=context,
         ).subquery()
         session.execute(
-            insert(_CHOICES).from_select(["list", "object_id"], select(literal(number), chosen.c.id))
+            insert(_CHOICES).from_select(
+                ["list", "object_id"], select(literal(number), chosen.c.id)
+            )
         )
-    added = [parent for sheet in plan.sheets if sheet.columns for parent in sheet.columns.parents]
+    added = [
+        parent
+        for plan in plans
+        for sheet in plan.sheets
+        if sheet.columns
+        for parent in sheet.columns.parents
+    ]
     if added:
         session.execute(insert(_CHOICES), [{"list": -1, "object_id": parent} for parent in added])
 
@@ -913,25 +1296,25 @@ def _reserve_lists(
         if not spec.count:
             continue
         plural = model.object_type(spec.far).pluralName
-        spec.title = book.reserve(f"List · {plural}" + (f" · {spec.relation}" if spec.relation else ""))
+        spec.title = book.reserve(
+            f"List · {plural}" + (f" · {spec.relation}" if spec.relation else "")
+        )
         quoted = spec.title.replace("'", "''")
         for where in spec.uses:
             rules[where] = f"'{quoted}'!$A$2:$A${spec.count + 1}"
     return rules
 
 
-
 # --- the sheets ----------------------------------------------------------------------------------
 
 
-class _Writer:
+class SheetWriter:
     def __init__(
         self,
         session: Session,
         connection: Any,
         book: xlsx.Workbook,
         model: EngineModel,
-        plan: PeoplePlan,
         workspace_key: str,
         context: SnapshotContext | None,
     ) -> None:
@@ -939,7 +1322,6 @@ class _Writer:
         self.connection = connection
         self.book = book
         self.model = model
-        self.plan = plan
         self.workspace_key = workspace_key
         self.context = context
         styles = book.styles
@@ -970,22 +1352,76 @@ class _Writer:
             return self.plain_header
         return self.book.styles.xf(fill=hue[0], ink=hue[1], bold=True, border=True)
 
+    def application_of(self, type_key: str, fallback: str) -> str:
+        """The application the exported records of the type belong to (the one most of them do),
+        else the model's first that lists the type: a record is written in its own application, and a
+        type several applications list has records in each (0.17 EX1)."""
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT application_key FROM export_records WHERE object_type_key = %s"
+                " GROUP BY application_key ORDER BY count(*) DESC, application_key LIMIT 1",
+                (type_key,),
+            )
+            found = cursor.fetchone()
+        return found[0] if found and found[0] else fallback
+
+    def row_field_label(self, field: str) -> str:
+        """A list column's label: the field's, as a table shows it."""
+        if field == "name":
+            return "Name"
+        if field in BUILT_IN_LABELS:
+            return BUILT_IN_LABELS[field]
+        if field == "objectType":
+            return "Type"
+        if field.startswith("ancestor:") and "." not in field:
+            held = self.model.object_type(field.removeprefix("ancestor:"))
+            return held.name if held is not None else field
+        return field_label(self.model, field)
+
+    def row_field(self, alias: str, field: str, type_key: str) -> sql.Composable:
+        """A list column of a record as text. ``alias`` is ``r`` (an ``export_records`` row: its
+        values are on the row) or ``o`` (a ``people_records`` row, which also reads ancestors)."""
+        if field == "name":
+            return sql.SQL(f"{alias}.name")
+        if field == "id":
+            return sql.SQL(f"{alias}.object_id")
+        if field == "objectType":
+            return sql.Literal(self.model.object_type(type_key).name)
+        if field == "path":
+            return (
+                sql.SQL("r.path")
+                if alias == "r"
+                else sql.SQL(
+                    "(SELECT string_agg(a.name, ' / ' ORDER BY u.level DESC) FROM people_ancestors u"
+                    " JOIN people_records a ON a.object_id = u.ancestor_id"
+                    " WHERE u.object_id = o.object_id)"
+                )
+            )
+        if field in ("createdAt", "updatedAt"):
+            return built_in(field, alias)
+        if field.startswith("ancestor:") and alias == "o":
+            return field_sql(self.model, "o", f"{field}.name" if "." not in field else field)
+        attribute = self.model.attribute_type(field)
+        if attribute is None:
+            return sql.SQL("NULL")
+        return value_sql(alias, field, attribute.valueType, yes_no=True)
+
     # --- the main sheet ---
 
     def main(
-        self, columns: list[MainColumn], related: list[MainColumn]
+        self, plan: PeoplePlan, columns: list[MainColumn], parts: dict[tuple[str, str], int]
     ) -> tuple[list[str], int, dict[str, Any]]:
-        plan, model = self.plan, self.model
+        model = self.model
         header = self.header(plan.object_type_key)
-        cells: list[_Cell] = []
+        cells: list[CellSpec] = []
         bindings: list[dict[str, Any]] = []
-        labels = _Labels()
+        labels = Labels()
         set_versions: list[tuple[MainColumn, str]] = []
         for column in columns:
             label = labels.take(column.label if column.editable else f"{column.label} {SUMMARY}")
             if column.kind == "name":
                 cells.append(
-                    _Cell(
+                    CellSpec(
                         label,
                         sql.SQL("r.name"),
                         style=self.fill(plan.object_type_key),
@@ -997,9 +1433,9 @@ class _Writer:
             if column.kind == "attribute":
                 value_type = "yesno" if column.value_type == "boolean" else column.value_type
                 cells.append(
-                    _Cell(
+                    CellSpec(
                         label,
-                        _value_sql("r", column.key, column.value_type, yes_no=True),
+                        value_sql("r", column.key, column.value_type, yes_no=True),
                         value_type,
                         style=self.date if column.value_type == "date" else 0,
                         header=header,
@@ -1015,12 +1451,55 @@ class _Writer:
                     bindings.append({"column": label, "ignore": True})
                 continue
             if column.kind == "builtin":
-                cells.append(_Cell(label, _built_in(column.key), header=header))
+                cells.append(CellSpec(label, built_in(column.key), header=header))
                 bindings.append({"column": label, "ignore": True})
                 continue
-            part = related.index(next(item for item in related if item.key == column.key))
+            if column.kind == "parent":
+                parent_key = column.key.removeprefix(PARENT_PREFIX)
+                held = sql.SQL(
+                    "EXISTS (SELECT 1 FROM people_records p WHERE p.object_id = r.parent_object_id"
+                    " AND p.object_type_key = {})"
+                ).format(sql.Literal(parent_key))
+                cells.append(
+                    CellSpec(
+                        label,
+                        sql.SQL(
+                            "(SELECT p.name FROM people_records p WHERE p.object_id ="
+                            " r.parent_object_id AND p.object_type_key = {})"
+                        ).format(sql.Literal(parent_key)),
+                        style=self.fill(column.hue),
+                        header=header,
+                    )
+                )
+                if column.editable:
+                    bindings.append(
+                        {
+                            "column": label,
+                            "parent": {"objectTypeKey": parent_key, "matchBy": {"field": "name"}},
+                        }
+                    )
+                else:
+                    # Two parents share a name: the hidden ID finds the parent, the name is for reading.
+                    bindings.append({"column": label, "ignore": True})
+                    parent_id = labels.take(f"Parent ID: {column.label.removeprefix('Parent: ')}")
+                    cells.append(
+                        CellSpec(
+                            parent_id,
+                            sql.SQL("(CASE WHEN {} THEN r.parent_object_id END)").format(held),
+                            hidden=True,
+                            header=self.plain_header,
+                        )
+                    )
+                    bindings.append(
+                        {
+                            "column": parent_id,
+                            "parent": {"objectTypeKey": parent_key, "matchBy": {"field": "id"}},
+                        }
+                    )
+                continue
+            part = parts[(plan.object_type_key, column.key)]
             cells.append(
-                _Cell(
+                CellSpec(
                     label,
                     # D189: a list past a cell's size is cut, and held whole on its own sheet.
                     sql.SQL(
@@ -1035,7 +1514,9 @@ class _Writer:
                     ),
                     style=self.fill(column.hue),
                     header=header,
-                    list_=self.rules.get(("main", column.key)) if column.editable else None,
+                    list_=self.rules.get(("main", plan.object_type_key, column.key))
+                    if column.editable
+                    else None,
                 )
             )
             if not column.editable:
@@ -1047,7 +1528,7 @@ class _Writer:
             binding = relation.bindings[0]
             version_label = labels.take(f"{label} version")
             cells.append(
-                _Cell(
+                CellSpec(
                     version_label,
                     sql.SQL(
                         "coalesce((SELECT v.version FROM relation_set_versions v"
@@ -1089,8 +1570,8 @@ class _Writer:
             )
         id_label, version_label = labels.take(ID_LABEL), labels.take(VERSION_LABEL)
         cells += [
-            _Cell(id_label, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
-            _Cell(
+            CellSpec(id_label, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
+            CellSpec(
                 version_label, sql.SQL("r.version"), "number", hidden=True, header=self.plain_header
             ),
         ]
@@ -1098,12 +1579,14 @@ class _Writer:
         titles, count = self._sheet(
             definition.pluralName,
             cells,
-            sql.SQL("export_records r"),
+            sql.SQL("export_records r WHERE r.object_type_key = {}").format(
+                sql.Literal(plan.object_type_key)
+            ),
             sql.SQL("r.name, r.object_id"),
         )
         source = {
             "headerRow": 1,
-            "applicationKey": plan.application_key,
+            "applicationKey": self.application_of(plan.object_type_key, plan.application_key),
             "objectTypeKey": plan.object_type_key,
             "key": {"column": id_label, "versionColumn": version_label},
             "columns": bindings or [{"column": id_label, "ignore": True}],
@@ -1113,13 +1596,13 @@ class _Writer:
     # --- a sheet of relationships ---
 
     def relationships(
-        self, sheet: SheetPlan, part: int
+        self, plan: PeoplePlan, sheet: SheetPlan, part: int
     ) -> tuple[list[str], int, dict[str, Any] | None]:
-        plan, model = self.plan, self.model
+        model = self.model
         relation = sheet.related
         far = relation.target_type_keys
         header = self.header(plan.object_type_key)
-        labels = _Labels()
+        labels = Labels()
         own_type = model.object_type(plan.object_type_key)
         own_label = labels.take(own_type.name)
         far_label = labels.take(
@@ -1127,29 +1610,37 @@ class _Writer:
         )
         shown = sheet_field(model, plan, sheet)
         cells = [
-            _Cell(
+            CellSpec(
                 own_label, sql.SQL("r.name"), style=self.fill(plan.object_type_key), header=header
             ),
-            _Cell(
+            CellSpec(
                 far_label,
-                _field_sql(model, "o", shown),
+                field_sql(model, "o", shown),
                 style=self.fill(far[0]),
                 header=header,
-                list_=self.rules.get(("sheet", sheet.key)) if sheet.editable else None,
+                list_=self.rules.get(("sheet", plan.object_type_key, sheet.key))
+                if sheet.editable
+                else None,
             ),
         ]
         values = []
-        carried = list(
-            dict.fromkeys(key for binding in relation.bindings for key in binding.attributeTypeKeys)
+        carried = (
+            list(sheet.attributes)
+            if sheet.attributes is not None
+            else list(
+                dict.fromkeys(
+                    key for binding in relation.bindings for key in binding.attributeTypeKeys
+                )
+            )
         )
         for key in carried:
             attribute = model.attribute_type(key)
             label = labels.take(attribute.name)
             value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
             cells.append(
-                _Cell(
+                CellSpec(
                     label,
-                    _value_sql("l", key, attribute.valueType, yes_no=True),
+                    value_sql("l", key, attribute.valueType, yes_no=True),
                     value_type,
                     style=self.date if attribute.valueType == "date" else 0,
                     header=header,
@@ -1158,7 +1649,7 @@ class _Writer:
             )
             values.append({"column": label, "attributeTypeKey": key})
         ignored = []
-        for type_key in far:
+        for type_key in () if sheet.title else far:
             display = model.object_type(type_key).displayAttributeTypeKey
             if display and display not in carried and display != "name":
                 attribute = model.attribute_type(display)
@@ -1167,7 +1658,20 @@ class _Writer:
                 label = labels.take(f"{attribute.name} {SUMMARY}")
                 if any(cell.label == label for cell in cells):
                     continue
-                cells.append(_Cell(label, _field_sql(model, "o", display), header=header))
+                cells.append(CellSpec(label, field_sql(model, "o", display), header=header))
+                ignored.append({"column": label, "ignore": True})
+        for alias, fields, type_key in (
+            ("r", sheet.orientation_from, plan.object_type_key),
+            ("o", sheet.orientation_to, far[0]),
+        ):
+            type_name = model.object_type(type_key).name
+            for orient in fields:
+                if orient == "name":
+                    continue
+                label = labels.take(f"{type_name}: {self.row_field_label(orient)} {SUMMARY}")
+                cells.append(
+                    CellSpec(label, self.row_field(alias, orient, type_key), header=header)
+                )
                 ignored.append({"column": label, "ignore": True})
         own_id, far_id, version = (
             labels.take(ID_LABEL),
@@ -1175,11 +1679,13 @@ class _Writer:
             labels.take(RELATION_VERSION_LABEL),
         )
         cells += [
-            _Cell(own_id, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
-            _Cell(far_id, sql.SQL("o.object_id"), hidden=True, header=self.plain_header),
-            _Cell(version, sql.SQL("l.version"), "number", hidden=True, header=self.plain_header),
+            CellSpec(own_id, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
+            CellSpec(far_id, sql.SQL("o.object_id"), hidden=True, header=self.plain_header),
+            CellSpec(
+                version, sql.SQL("l.version"), "number", hidden=True, header=self.plain_header
+            ),
         ]
-        title = relation_label(model, relation)
+        title = sheet.title or relation_label(model, relation)
         titles, count = self._sheet(
             title,
             cells,
@@ -1193,7 +1699,7 @@ class _Writer:
             return titles, count, None
         source = {
             "headerRow": 1,
-            "applicationKey": plan.application_key,
+            "applicationKey": self.application_of(plan.object_type_key, plan.application_key),
             "objectTypeKey": plan.object_type_key,
             "record": "existing",
             "key": {"column": own_id, "nameColumn": own_label},
@@ -1217,15 +1723,17 @@ class _Writer:
 
     # --- a sheet of owned records ---
 
-    def owned(self, sheet: SheetPlan, part: int) -> tuple[list[str], int, dict[str, Any] | None]:
-        plan, model = self.plan, self.model
+    def owned(
+        self, plan: PeoplePlan, sheet: SheetPlan, part: int
+    ) -> tuple[list[str], int, dict[str, Any] | None]:
+        model = self.model
         relation = sheet.related
         owned_key = relation.target_type_keys[0]
         definition = model.object_type(owned_key)
         header = self.header(owned_key)
-        labels = _Labels()
+        labels = Labels()
         name_label = labels.take("Name")
-        cells = [_Cell(name_label, sql.SQL("o.name"), style=self.fill(owned_key), header=header)]
+        cells = [CellSpec(name_label, sql.SQL("o.name"), style=self.fill(owned_key), header=header)]
         bindings: list[dict[str, Any]] = [{"column": name_label, "field": "name"}]
         for binding in sorted(definition.attributes, key=lambda item: item.order):
             attribute = model.attribute_type(binding.attributeTypeKey)
@@ -1234,9 +1742,9 @@ class _Writer:
             )
             value_type = "yesno" if attribute.valueType == "boolean" else attribute.valueType
             cells.append(
-                _Cell(
+                CellSpec(
                     label,
-                    _value_sql("o", attribute.key, attribute.valueType, yes_no=True),
+                    value_sql("o", attribute.key, attribute.valueType, yes_no=True),
                     value_type,
                     style=self.date if attribute.valueType == "date" else 0,
                     header=header,
@@ -1259,7 +1767,7 @@ class _Writer:
                 f"Parent: {parent_type.name}" if len(parents) > 1 else parent_type.name
             )
             cells.append(
-                _Cell(
+                CellSpec(
                     label,
                     sql.SQL(
                         "(SELECT p.name FROM people_records p WHERE p.object_id = o.parent_object_id"
@@ -1267,7 +1775,7 @@ class _Writer:
                     ).format(sql.Literal(parent)),
                     style=self.fill(parent),
                     header=header,
-                    list_=self.rules.get(("parent", sheet.key, parent)),
+                    list_=self.rules.get(("parent", plan.object_type_key, sheet.key, parent)),
                 )
             )
             bindings.append(
@@ -1276,12 +1784,12 @@ class _Writer:
         owner_type = model.object_type(plan.object_type_key)
         owner_label = labels.take(owner_type.name)
         cells.append(
-            _Cell(
+            CellSpec(
                 owner_label,
                 sql.SQL("r.name"),
                 style=self.fill(plan.object_type_key),
                 header=header,
-                list_=self.rules.get(("owner", sheet.key)),
+                list_=self.rules.get(("owner", plan.object_type_key, sheet.key)),
             )
         )
         id_label, version_label, owner_id = (
@@ -1290,11 +1798,11 @@ class _Writer:
             labels.take(OWNER_ID_LABEL),
         )
         cells += [
-            _Cell(id_label, sql.SQL("o.object_id"), hidden=True, header=self.plain_header),
-            _Cell(
+            CellSpec(id_label, sql.SQL("o.object_id"), hidden=True, header=self.plain_header),
+            CellSpec(
                 version_label, sql.SQL("o.version"), "number", hidden=True, header=self.plain_header
             ),
-            _Cell(owner_id, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
+            CellSpec(owner_id, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
         ]
         bindings.append(
             {
@@ -1332,13 +1840,13 @@ class _Writer:
     # --- owned records as columns per parent (0.9 J6a) ---
 
     def owned_columns(
-        self, sheet: SheetPlan, part: int
+        self, plan: PeoplePlan, sheet: SheetPlan, part: int
     ) -> tuple[list[str], int, dict[str, Any] | None]:
         """One row per exported record and, for each parent (those holding an owned record of an
         exported one, then those added), a column per field (D191–D195). A cell holds its row's
         owned record under that parent; a pair with several holds them as a summary, its version
         cell ``not loaded`` so the import leaves it out (D195)."""
-        plan, model = self.plan, self.model
+        model = self.model
         relation = sheet.related
         layout = sheet.columns
         owned_key = relation.target_type_keys[0]
@@ -1376,19 +1884,25 @@ class _Writer:
             )
         self._fill_grid(part, layout.fields, [parent[0] for parent in parents])
         header = self.header(owned_key)
-        labels = _Labels()
+        labels = Labels()
         owner_label = labels.take(model.object_type(plan.object_type_key).name)
         cells = [
-            _Cell(owner_label, sql.SQL("r.name"), style=self.fill(plan.object_type_key), header=header)
+            CellSpec(
+                owner_label, sql.SQL("r.name"), style=self.fill(plan.object_type_key), header=header
+            )
         ]
         application = next(
             (item.key for item in model.applications if owned_key in item.objectTypeKeys), ""
         )
         bindings: list[dict[str, Any]] = []
-        versions: list[_Cell] = []
+        versions: list[CellSpec] = []
         for parent_id, parent_name, parent_type, scope_name in parents:
             # A parent's ancestor the owned records are unique within names a column when higher.
-            named = parent_name if scope_name is None or parent_type == scope else f"{parent_name} · {scope_name}"
+            named = (
+                parent_name
+                if scope_name is None or parent_type == scope
+                else f"{parent_name} · {scope_name}"
+            )
             version_label = labels.take(f"Version · {named}")
             for number, field_ in enumerate(layout.fields):
                 attribute = None if field_ == "name" else model.attribute_type(field_)
@@ -1401,7 +1915,7 @@ class _Writer:
                     else attribute.valueType
                 )
                 cells.append(
-                    _Cell(
+                    CellSpec(
                         label,
                         sql.SQL("(g.cells -> {} ->> {})").format(
                             sql.Literal(parent_id), sql.Literal(f"f{number}")
@@ -1430,7 +1944,9 @@ class _Writer:
                             "matchBy": {"field": "id"},
                             "value": parent_id,
                         },
-                        **({"field": "name"} if attribute is None else {"attributeTypeKey": field_}),
+                        **(
+                            {"field": "name"} if attribute is None else {"attributeTypeKey": field_}
+                        ),
                         "versionColumn": version_label,
                     },
                 }
@@ -1438,7 +1954,7 @@ class _Writer:
                     entry["valueMap"] = YES_NO
                 bindings.append(entry)
             versions.append(
-                _Cell(
+                CellSpec(
                     version_label,
                     sql.SQL("(g.cells -> {} ->> 'v')").format(sql.Literal(parent_id)),
                     "version",
@@ -1447,7 +1963,10 @@ class _Writer:
                 )
             )
         id_label = labels.take(ID_LABEL)
-        cells += [*versions, _Cell(id_label, sql.SQL("r.object_id"), hidden=True, header=self.plain_header)]
+        cells += [
+            *versions,
+            CellSpec(id_label, sql.SQL("r.object_id"), hidden=True, header=self.plain_header),
+        ]
         titles, _ = self._sheet(
             model.object_type(owned_key).pluralName,
             cells,
@@ -1461,7 +1980,7 @@ class _Writer:
         )
         source = {
             "headerRow": 1,
-            "applicationKey": plan.application_key,
+            "applicationKey": self.application_of(plan.object_type_key, plan.application_key),
             "objectTypeKey": plan.object_type_key,
             "record": "existing",
             "key": {"column": id_label, "nameColumn": owner_label},
@@ -1480,7 +1999,7 @@ class _Writer:
                 " ELSE string_agg({value}, {split} ORDER BY o.name) END"
             ).format(
                 key=sql.Literal(f"f{number}"),
-                value=_field_sql(self.model, "o", None if field_ == "name" else field_),
+                value=field_sql(self.model, "o", None if field_ == "name" else field_),
                 split=sql.Literal(SPLIT),
             )
             for number, field_ in enumerate(fields)
@@ -1510,25 +2029,30 @@ class _Writer:
         the display field and the path for orientation (D196). Not imported."""
         model = self.model
         definition = model.object_type(spec.far)
-        labels = _Labels()
+        labels = Labels()
         header = self.header(spec.far)
-        value_label = labels.take("Name" if spec.field is None else _field_label(model, spec.field))
+        value_label = labels.take("Name" if spec.field is None else field_label(model, spec.field))
         cells = [
-            _Cell(value_label, _field_sql(model, "o", spec.field), style=self.fill(spec.far), header=header)
+            CellSpec(
+                value_label,
+                field_sql(model, "o", spec.field),
+                style=self.fill(spec.far),
+                header=header,
+            )
         ]
         if spec.field is not None:
-            cells.append(_Cell(labels.take("Name"), sql.SQL("o.name"), header=header))
+            cells.append(CellSpec(labels.take("Name"), sql.SQL("o.name"), header=header))
         display = definition.displayAttributeTypeKey
         if display and display not in (spec.field, "name") and model.attribute_type(display):
             cells.append(
-                _Cell(
+                CellSpec(
                     labels.take(model.attribute_type(display).name),
-                    _field_sql(model, "o", display),
+                    field_sql(model, "o", display),
                     header=header,
                 )
             )
         cells.append(
-            _Cell(
+            CellSpec(
                 labels.take("Path"),
                 sql.SQL(
                     "(SELECT string_agg(a.name, ' / ' ORDER BY u.level DESC) FROM people_ancestors u"
@@ -1555,11 +2079,16 @@ class _Writer:
     def _sheet(
         self,
         title: str,
-        cells: list[_Cell],
+        cells: list[CellSpec],
         source: sql.Composable,
         order: sql.Composable,
         *,
         reserved: bool = False,
+        groups: Sequence[tuple[int, int, str, int]] = (),
+        freeze_columns: int = 0,
+        soft_lists: frozenset[str] = frozenset(),
+        hidden_sheet: bool = False,
+        table: str | None = None,
     ) -> tuple[list[str], int]:
         for cell in cells:
             cell.style = cell.style or self.base
@@ -1596,13 +2125,18 @@ class _Writer:
                     hidden=[cell.hidden for cell in cells],
                     count=count,
                     rows=cursor,
-                    encode=_encoder(letters, cells),
+                    encode=row_encoder(letters, cells),
                     lists=[
                         (letter, cell.list_)
                         for letter, cell in zip(letters, cells, strict=True)
                         if cell.list_
                     ],
                     reserved=reserved,
+                    groups=groups,
+                    freeze_columns=freeze_columns,
+                    soft_lists=soft_lists,
+                    hidden_sheet=hidden_sheet,
+                    table=table,
                 )
             ), count
 
@@ -1614,20 +2148,20 @@ def relation_label(model: EngineModel, column: RelatedColumn) -> str:
     return relation.name
 
 
-def _built_in(key: str) -> sql.Composable:
+def built_in(key: str, alias: str = "r") -> sql.Composable:
     if key == "id":
-        return sql.SQL("r.object_id")
+        return sql.SQL(f"{alias}.object_id")
     if key == "path":
-        return sql.SQL("r.path")
+        return sql.SQL(f"{alias}.path")
     column = sql.Identifier("created_at" if key == "createdAt" else "updated_at")
     return sql.SQL(
-        "(SELECT to_char(o.{} AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM objects o"
-        " WHERE o.id = r.object_id)"
+        "(SELECT to_char(x.{} AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM objects x"
+        f" WHERE x.id = {alias}.object_id)"
     ).format(column)
 
 
-def _encoder(
-    letters: Sequence[str], cells: Sequence[_Cell]
+def row_encoder(
+    letters: Sequence[str], cells: Sequence[CellSpec]
 ) -> Callable[[Sequence[Any], int], str]:
     """Each row's cells, every one written with its style so its border shows (D199): typed by
     the column's value type; a summary of several values, or a version cell's mark, as text."""
@@ -1657,7 +2191,7 @@ def _encoder(
     return encode
 
 
-class _Labels:
+class Labels:
     """A sheet's header labels, each unlike the others (the import reads a column by its label)."""
 
     def __init__(self) -> None:
@@ -1673,15 +2207,20 @@ class _Labels:
 
 
 def described(
-    model: EngineModel, plan: PeoplePlan, job_id: str, workspace_key: str
+    *,
+    collection: str,
+    object_type_key: str | None,
+    job_id: str,
+    workspace_key: str,
+    view: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """What the hidden sheet says about the workbook: whose collection it is and when it was
     written, which the import page shows (D185)."""
-    definition = model.object_type(plan.object_type_key)
     return {
-        "objectTypeKey": plan.object_type_key,
-        "collection": definition.pluralName if definition else plan.object_type_key,
+        "objectTypeKey": object_type_key,
+        "collection": collection,
         "workspaceKey": workspace_key,
         "exportJobId": job_id,
         "exportedAt": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        **({"view": view} if view else {}),
     }

@@ -2496,7 +2496,7 @@
    "Discard the",
    "Stop the job"
   ],
-  "source": "frontend/src/features/jobs/JobPage.tsx:343",
+  "source": "frontend/src/features/jobs/JobPage.tsx:347",
   "section": "use"
  },
  {

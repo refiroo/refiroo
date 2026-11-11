@@ -57,6 +57,53 @@ class RelationValue(BaseModel):
     attributeTypeKey: str
 
 
+class ContainerRecord(BaseModel):
+    """The record a new related record is created under, by its type and ID."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    objectTypeKey: str
+    value: str = Field(min_length=1)
+
+
+class RelationWithin(BaseModel):
+    """A relationship column that is one column record's part of the row's set (0.17 EX1, a link
+    matrix). Its cell lists the records of the binding's type that stand under the column record
+    ``value`` (of ``objectTypeKey``), each as the record's name with its ``labelAttributeTypeKey``
+    value in parentheses, or as its name alone; the records are found among those only.
+
+    With ``replace`` the cell makes the row's links to the records under the column record exactly
+    those listed, and changes no other link of the set; an empty cell changes nothing. ``container``
+    is where a name that finds no record is created (``missing: create``); without one such a name
+    refuses the row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    objectTypeKey: str
+    value: str = Field(min_length=1)
+    labelAttributeTypeKey: str | None = None
+    field: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "The field of the cell record each listed value is: ``name`` or an attribute of the"
+            " type its records are identified by (0.17 PP-D25). Left out, the file does not record"
+            " its reading: the import guesses it from the column's records and shows the guess"
+            " before anything is written (PP-D26); ``labelAttributeTypeKey`` then reads a value as"
+            " the name with that attribute in parentheses"
+        ),
+    )
+    container: ContainerRecord | None = Field(
+        default=None,
+        description=(
+            "Where a value that finds no record creates one. Left out, the new record goes in the"
+            " place the relationship's candidate rules give under the column record (PP-D24): the"
+            " place they fix, created with the record when the column has none, else the column's"
+            " only container that meets them"
+        ),
+    )
+
+
 class RelationBinding(BaseModel):
     """A relationship from the row's record (``outgoing``) or to it (``incoming``) to each record a
     cell matches; ``split`` cuts the cell into several values; ``replace`` makes the matched records
@@ -84,11 +131,24 @@ class RelationBinding(BaseModel):
             " ``refuse``, the default, refuses the row"
         ),
     )
+    within: RelationWithin | None = None
 
     @model_validator(mode="after")
     def one_relationship_per_row(self) -> RelationBinding:
+        if self.within is not None and (
+            self.split is None
+            or not self.replace
+            or self.matchBy.field != "name"
+            or self.idColumn is not None
+            or self.attributes
+        ):
+            raise ValueError(
+                "within describes a split cell of names that replaces the column's part of the set"
+            )
         if self.split is not None and (self.idColumn is not None or self.attributes):
-            raise ValueError("idColumn and attributes describe one relationship per row, not a split")
+            raise ValueError(
+                "idColumn and attributes describe one relationship per row, not a split"
+            )
         if self.replace and (self.idColumn is not None or self.attributes):
             raise ValueError("idColumn and attributes describe one relationship, not a whole set")
         return self
@@ -181,7 +241,33 @@ class RelatedRecordBinding(BaseModel):
     direction: Direction = "outgoing"
     applicationKey: str
     objectTypeKey: str
-    parent: RelatedParent
+    parent: RelatedParent | None = Field(
+        default=None,
+        description=(
+            "Where a new related record stands. Left out with ``idColumn``: the column edits the"
+            " records its ID cell names and creates none; a row whose ID cell is empty and whose"
+            " column holds a value is refused (0.17 EX1)"
+        ),
+    )
+    under: ContainerRecord | None = Field(
+        default=None,
+        description=(
+            "In place of ``parent``: a new related record goes in the place the relationship's"
+            " candidate rules give under this column record (PP-D24), created with the record when"
+            " the column has none; a column whose rules give no one place refuses the row (0.17"
+            " MC1)"
+        ),
+    )
+    idColumn: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Holds the ID of the related record the row means. A filled cell finds that record"
+            " (it must be related to the row's record by the relationship, of this type, wherever"
+            " it stands: its parent is not changed); an empty cell leaves the record to be found"
+            " under ``parent`` or created there (0.17 EX1)"
+        ),
+    )
     field: Literal["name"] | None = None
     attributeTypeKey: str | None = None
     matchBy: RelatedMatch | None = Field(
@@ -201,6 +287,10 @@ class RelatedRecordBinding(BaseModel):
     def one_target(self) -> RelatedRecordBinding:
         if (self.field is None) == (self.attributeTypeKey is None):
             raise ValueError("A related record column fills either {field} or {attributeTypeKey}")
+        if self.parent is not None and self.under is not None:
+            raise ValueError("A related record has a parent or a place under a record, not both")
+        if self.parent is None and self.under is None and self.idColumn is None:
+            raise ValueError("A related record has a parent, or an idColumn that names its record")
         return self
 
 
@@ -318,6 +408,25 @@ class SourceKey(BaseModel):
         return self
 
 
+class SourceUnder(BaseModel):
+    """A sheet that lists the records one column record of a matrix offers (a value sheet, 0.17
+    PP-D27): records of the source's type under the column record ``value`` (of ``objectTypeKey``),
+    for the matrix of ``relationTypeKey`` (read in ``direction`` from ``rowObjectTypeKey`` records).
+    A row with a key finds its record and updates it; a row without one is a new record in the place
+    the relationship's candidate rules give under the column record (PP-D24, PP-D28), when
+    ``creates``, and is refused otherwise. A value another sheet of the file names (a link column of
+    the same column record) finds the record of the row that holds it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relationTypeKey: str
+    direction: Direction = "outgoing"
+    rowObjectTypeKey: str
+    objectTypeKey: str
+    value: str = Field(min_length=1)
+    creates: bool = False
+
+
 class Source(BaseModel):
     """One object type loaded from a sheet (the first sheet when omitted, the file for CSV).
     ``record: existing`` finds each row's record by its key and writes only its relationships and
@@ -349,9 +458,17 @@ class Source(BaseModel):
     missing: Literal["report", "delete"] | None = None
     rowsWithoutKey: Literal["refuse", "skip"] | None = None
     parent: FixedParent | None = None
+    under: SourceUnder | None = None
 
     @model_validator(mode="after")
     def existing_needs_key(self) -> Source:
+        if self.under is not None and (
+            self.record != "upsert" or self.key is None or self.key.column is None or self.parent
+        ):
+            raise ValueError(
+                "under describes a sheet of records keyed by an ID column (record: upsert), with no"
+                " fixed parent"
+            )
         if self.record == "existing" and self.key is None:
             raise ValueError("record: existing finds each row's record by its key")
         if self.missing == "delete" and (self.key is None or self.record == "existing"):
@@ -429,3 +546,25 @@ class ImportRequest(BaseModel):
         if self.profileKey is not None and self.profile is not None:
             raise ValueError("Name a stored profile or give one inline, not both")
         return self
+
+
+class ColumnReadingChoice(BaseModel):
+    """The field one matrix or relationship column is matched by, chosen after a preview."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: int = Field(ge=0, description="The column's source, by its place in the binding report")
+    column: str = Field(min_length=1)
+    field: str = Field(
+        min_length=1,
+        description="``name`` or an attribute that identifies the column's records: one of the"
+        " preview's options for the column",
+    )
+
+
+class ImportRereadRequest(BaseModel):
+    """``POST /jobs/{jobId}/reread``: the preview's file read again with other fields (0.17 PP-D26)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    readings: list[ColumnReadingChoice] = Field(min_length=1)

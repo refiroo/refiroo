@@ -62,14 +62,15 @@ try {
       await workspaceAction(page, "Export…", { keyboard: true });
       const dialog = page.getByRole("dialog", { name: "Export" });
       await dialog.waitFor();
-      const chips = await dialog.getByRole("row").allInnerTexts();
+      // From a list view it opens on "This view"; the technical tables are the other kind of file (EX1).
       expect(
-        chips.some((chip) => chip.includes(collection.label)),
-        `${name}: the dialog does not hold ${collection.label} (${chips.join(", ")})`,
+        await dialog.getByRole("radio", { name: `This view: ${collection.label}` }).isChecked(),
+        `${name}: the dialog is not on this view (${collection.label})`,
       );
       if (collection.expected === 1)
         await dialog.getByText(`${collection.label} are exported with this page's filter.`).waitFor();
       // The segmented choice draws its label over the radio, as a person clicks it.
+      await dialog.locator("label", { hasText: "Technical" }).click();
       await dialog.locator("label", { hasText: collection.format }).click();
       expect(
         await dialog.getByRole("radio", { name: collection.format }).isChecked(),
@@ -83,7 +84,10 @@ try {
       await dialog.getByRole("button", { name: "Start export" }).focus();
       await page.keyboard.press("Enter");
       await dialog.waitFor({ state: "detached" });
-      await toasts.getByText(/^Export of .* started\.$/).first().waitFor();
+      await toasts
+        .getByText(/^Export of .* started\.$/)
+        .first()
+        .waitFor();
       const finished = toasts.locator(".toast", { hasText: "completed." }).last();
       await finished.waitFor({ timeout: 20000 });
       await shot(`j1u-notification-${name}`);
@@ -184,7 +188,13 @@ try {
     checks.push(`axe job page (${theme}): ${result.violations.length} violations`);
   }
 
-  const report = { browser: browser.version(), viewports: ["1440x900", "390x844"], checks, failures, passed: !failures.length };
+  const report = {
+    browser: browser.version(),
+    viewports: ["1440x900", "390x844"],
+    checks,
+    failures,
+    passed: !failures.length,
+  };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(`J1u browser evidence: ${output}`);
   console.log(`Checks: ${checks.length}`);

@@ -85,6 +85,7 @@
     "test:browser:j4": "node e2e/j4-import.mjs",
     "test:browser:j6": "node e2e/j6-people-workbook.mjs",
     "test:browser:j6a": "node e2e/j6a-people-columns.mjs",
+    "test:browser:ex1": "node e2e/ex1-export.mjs",
     "test:browser:k1": "node e2e/k1-selection.mjs",
     "test:browser:k2": "node e2e/k2-bulk-change.mjs",
     "test:browser:k2b": "node e2e/k2b-bulk-delete.mjs",

@@ -15,23 +15,108 @@ Use [Export records](/docs/guide/use/export-records/),
 
 ## What an export contains
 
-Open **Workspace actions** and choose **Export**. From a collection it carries that type,
-context, filters, parent scope and displayed columns. **Text search is not included.** Check
-the scope rather than assuming that only the searched names are exported. From another page,
-choose the application's types; from **Settings › Data operations › Jobs** an export can choose
-types in a workspace. **Valid on** optionally limits the export by business date. The browser's
-ordinary lists have no equivalent business-date selector.
+Open **Workspace actions › Export**. On a view, **What** starts with **This view** and its
+name. This takes the view's search, supported filters, parent scope and chosen columns,
+including matching rows beyond those on screen. The count line names its context and size
+when known: rows × columns for a matrix, records for a tree or mapping grid.
 
-**Kind of file** offers **Technical** and, from a suitable collection, **For people**.
+Choose **The type**, **The application** or **The whole workspace** for whole types rather
+than the view's narrowed selection. From **Settings › Data operations › Jobs**, choose types
+in a workspace. **Valid on** optionally limits an export by business date; ordinary browser
+lists have no equivalent selector. When a page's search is not included, the dialog says so.
+A filter on a relationship's own values is not carried into a view export; read that notice
+before assuming the file contains exactly the connections left on screen.
+
+**Kind of file** offers **For editing in a spreadsheet** and, for a table view or a selection
+of types, **Technical**. Other view kinds export as an editing workbook.
 Technical exports offer **Excel (XLSX)**, **CSV** and **JSON Lines**. Choose **Between exported
 records**, **All their relationships** or **None** for relationships. All their relationships
 can refer to records outside the chosen record scope. Everything is read at one instant.
 The job's file summary records its scope, counts, size and checksum. Failed or cancelled exports
 have no downloadable file. Downloads remain subject to job and file retention.
 
+## Workbook layouts
+
+**For editing in a spreadsheet** makes an Excel (XLSX) workbook. Its shape follows the selection:
+
+| Selection | What the workbook holds | What loads back |
+| --- | --- | --- |
+| Table view | The table's columns, labels and order, with optional related sheets. | Editable record values and relationships, according to the saved layout. |
+| Matrix showing record fields | One row per row record; each column record has a group of cell fields, with hidden cell identities and versions. | The cell records only. Row labels are for reading. |
+| Matrix showing links | One column per column record, listing linked records by a chosen text field, with dropdowns backed by a value sheet per column. | Connections within each row and column; value-sheet records where editing or creation is enabled. |
+| Relationships table, rows | One row per connection, showing both records and the relationship's values. | Connection values; a new row without identities can connect two named records. |
+| Relationships table, grid | One row per source record, with Linked and relationship values under each target. | Connection values; Yes can link a missing pair. No removes nothing. |
+| Mapping grid | One row per source record, with its target in a relationship column. | The target relationship, as in a table workbook. |
+| Tree | One sheet per type, with its parent by name. | Editable records and parent choices. |
+| Type, application or workspace | One sheet per type, parents' types first, with fields, parents and relationships by name. | Editable values on each sheet; a connection between sheets loads from the later sheet only. |
+
+A view enabling **Link existing** or **Unlink** uses the link-matrix layout, even when it also
+enables **Create**. Otherwise the matrix shows its cell fields. Keep hidden identity and
+version columns, including those that distinguish parents with the same name.
+
+Every XLSX export, including a technical workbook, has **About this export** as its second
+sheet. Read it for the view or scope, workspace, context, search and filters, export time,
+counts, relationships and load-back rules. It is for reading and is ignored on import.
+CSV and JSON Lines files have no sheets.
+
+### Matrix cells and new records
+
+Export does not ask where new matrix records go. The relationship's candidate rules limit
+which groups can hold them. If the rules identify one group and it is missing, it is created
+with the record. Otherwise the group holding the most of this view's records in the column
+is used; a tie gives no choice. An unused group is never picked automatically, even if it is
+the only one.
+
+When neither the rules nor data give a place, refiroo can propose a new group named like the
+groups this view uses in other columns, where the structure and rules allow it. In the browser,
+review or edit its proposed name, or choose an existing group. An import preview says
+**will create … under …**; confirming creates the group and record together. No model change
+is needed. If no suitable place is found, a new record is refused with the column and reason.
+Choose or prepare a group in the app before previewing again.
+
+The main matrix sheet loads only its cells; value sheets load their records separately.
+Empty or cleared cells change nothing; removing all
+values or links in a cell is done in refiroo. In the record-field layout, a cell holding several
+records is shown joined and not loaded back. Edit those records individually in the app.
+In the link layout, a non-empty list replaces only that cell's connections: listed records are
+linked, omitted records are unlinked, and other columns are left alone. Names containing a
+semicolon are written and read with a comma instead. Keep that displayed form when editing.
+Where the matrix also permits creation, an unknown value can create a record in the derived
+or proposed group; otherwise the list must identify existing candidates.
+
+### Value sheets and matching fields
+
+For a link matrix, **What each cell lists** selects **Name** or a text field of its records.
+The default is Name. The file records the field so it can be read back. A linked record with
+no value in that field refuses the export; choose another field or supply the missing value.
+The selected values need to distinguish records within each column for import to resolve them.
+
+Each **Values · …** sheet lists the column's eligible and already-linked records, their fields
+(except fields holding JSON), their group and hidden identities and versions. Its values back
+the main-sheet dropdowns. With Edit or Create enabled, edits update by identity; where Create
+is enabled, a new row creates a record. A row not selected in any cell still loads. With only
+Link existing and Unlink, value sheets are for reading and do not load. A matrix showing the
+record's own fields has no value sheets.
+
+A main-cell value matching a value-sheet row refers to that record. Renames are recognised by
+the new value and also the old one unless another sheet row now uses it. The same new value
+in both places is one record. A value in neither the sheet nor existing records creates one
+where allowed, supplying its name and the chosen field only. Other required values still
+apply. Duplicate matching values are refused as ambiguous. Spreadsheet edits do not themselves
+synchronise the two sheets; import resolves them together.
+
+The preview's **How the file is read** shows matching fields, values matched, value-sheet
+counts and where new records go. For an unrecorded reading, it guesses the field and marks
+it **Guessed**, with a note when the choice is uncertain. Choosing another field runs the
+preview again. **Save these fields in the profile**, where offered, keeps the reading for
+later files. No records are written before **Load the file**. Follow
+[Import a file](/docs/guide/use/import-a-file/#check-how-the-file-is-read).
+
+For steps, see [Edit in Excel and import back](/docs/guide/use/edit-in-excel-and-import-back/).
+
 ## A workbook for people
 
-**For people** makes an Excel workbook shaped by your table: visible columns in their order,
+For a table view, **For editing in a spreadsheet** makes a workbook shaped by your table: visible columns in their order,
 readable labels and typed cells. **Advanced: columns and sheets** changes the columns, their
 order, which field a relationship column shows and which relationships get separate sheets.
 Related records are exported in full, even where the browser showed only a few chips.
@@ -39,7 +124,8 @@ Record identity and versions are held in hidden columns. Keep those columns and 
 saved import information when editing. Cells choosing a single record offer dropdowns from
 sheets of eligible records.
 
-Columns marked **(not imported)** are for reading. An ambiguous or overlong relationship cell
+Columns marked **(not imported)** are for reading. A table relationship column that owns its
+records is read-only; edit those records on their own sheet or in refiroo. An ambiguous or overlong relationship cell
 becomes a read-only summary pointing to its sheet. Several owned records for one parent also
 form a summary rather than an editable single value. Edit the appropriate sheet instead.
 
@@ -51,7 +137,7 @@ identity and values. A relationship sheet adds or updates connections, but omitt
 not remove one.
 
 **Blank ordinary field and owned-record cells leave values unchanged.** To clear such a value,
-use refiroo's field editor. **An empty cell replacing a relationship set empties that set**,
+use refiroo's field editor. **An empty table cell replacing a relationship set empties that set**,
 where its rules permit it. Check the preview carefully when clearing a relationship list.
 A required connection still cannot be cleared.
 

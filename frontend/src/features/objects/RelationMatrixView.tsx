@@ -45,6 +45,7 @@ import type {
   RelationMatrixViewDefinition,
 } from "@/types";
 import type { ViewComponentProps } from "./views/types";
+import { useExportExtra, windowTotal } from "./views/useViewExport";
 import { DebouncedSearchField } from "@/ui/SearchField";
 
 /** A cell re-read after a save, kept over the loaded page until the list reloads. */
@@ -65,6 +66,7 @@ export function RelationMatrixView({
   refreshToken = 0,
   lenses,
   onOpen,
+  exportExtraRef,
 }: ViewComponentProps) {
   const view = rawView as RelationMatrixViewDefinition;
   const { config } = view;
@@ -181,6 +183,13 @@ export function RelationMatrixView({
     { anchor: query.anchor, refreshToken },
   );
   const columns = useMemo(() => (columnPage?.key === columnsKey ? columnPage.columns : []), [columnPage, columnsKey]);
+  // The file's size for the page's Export: the columns are known only once all are read and none is hidden.
+  const allColumns = columnIds?.length
+    ? columnIds.length
+    : columnPage?.key === columnsKey && columnPage.next === null && !columnPage.emptyHidden
+      ? columns.length
+      : undefined;
+  useExportExtra(exportExtraRef, { size: { rows: windowTotal(pages), columns: allColumns } });
   // The columns keep their widths per view on this device, as every table's do (ui/TableDisplay).
   const display = useTableDisplay(["row", ...columns.map((column) => column.id)], displayScope);
   // Once the cell dialog has gone, focus returns to its cell unless the user already moved on.

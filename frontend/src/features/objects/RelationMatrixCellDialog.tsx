@@ -9,7 +9,7 @@
  */
 
 import { StatusPill } from "@/ui/StatusPill";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -41,6 +41,7 @@ import type {
   RelationMatrixCellAction,
   RelationMatrixColumn,
   RelationMatrixContainer,
+  RelationMatrixDerivedPlace,
   RelationMatrixLinkCandidate,
   RelationMatrixRow,
   RelationMatrixViewDefinition,
@@ -179,7 +180,15 @@ export function RelationMatrixCellDialog({
       <Icon name="link" size={15} /> Link existing {typeName}
     </button>
   );
-  const createButton = canCreate && (empty || cell.state === "inactive" || history) && (
+  // A filled cell offers Create as well (PP-D23), unless it may hold only one record: the binding's
+  // uniqueness scope is the column (the cell's conflict rule), or its cardinality lets the row's end hold one.
+  const rowEnd = config.direction === "outgoing" ? "from" : "to";
+  const holdsOne =
+    binding.scoped ||
+    (binding.definition !== undefined &&
+      (binding.definition.cardinality === "one-to-one" ||
+        binding.definition.cardinality === (rowEnd === "from" ? "many-to-one" : "one-to-many")));
+  const createButton = canCreate && (empty || cell.state === "inactive" || history || !holdsOne) && (
     <button type="button" className="primary" onClick={() => choose({ kind: "create" })}>
       <Icon name="plus" size={15} /> Create {typeName}
     </button>
@@ -334,7 +343,13 @@ export function RelationMatrixCellDialog({
             saving={saving}
             onDirty={() => setDirty(true)}
             onCancel={back}
-            onCreate={(payload) => void run(() => api.createObject(cellType.key, payload))}
+            onCreate={(payload, place) =>
+              void run(() =>
+                place
+                  ? api.createObjectInNewPlace(cellType.key, payload, { ...place, parentObjectId: column.id })
+                  : api.createObject(cellType.key, payload),
+              )
+            }
           />
         )}
 
@@ -531,14 +546,23 @@ function CreateCellRecord({
   saving: boolean;
   onDirty: () => void;
   onCancel: () => void;
-  onCreate: (payload: Parameters<ReturnType<typeof useDataApi>["createObject"]>[1]) => void;
+  onCreate: (
+    payload: Parameters<ReturnType<typeof useDataApi>["createObject"]>[1],
+    place?: { applicationKey: string; objectTypeKey: string; name: string; attributes: ObjectAttributeInput[] },
+  ) => void;
 }) {
   const { config } = view;
   const api = useDataApi();
   const [containerId, setContainerId] = useState<string>();
   const [search, setSearch] = useState("");
   const debounced = useDebouncedValue(search.trim());
-  const [defaults, setDefaults] = useState<{ id: string | null; container?: RelationMatrixContainer }>();
+  const [defaults, setDefaults] = useState<{
+    id: string | null;
+    container?: RelationMatrixContainer;
+    place?: RelationMatrixDerivedPlace | null;
+    /** Whether the column offers just the one container (nothing to choose between). */
+    alone: boolean;
+  }>();
   const pageSize = 20;
   const containers = useCursorWindow<RelationMatrixContainer>(
     (selector) =>
@@ -555,7 +579,12 @@ function CreateCellRecord({
         .then((page) => {
           if (!defaults) {
             const container = page.items.find((item) => item.id === page.defaultContainerId);
-            setDefaults({ id: page.defaultContainerId, container });
+            setDefaults({
+              id: page.defaultContainerId,
+              container,
+              place: page.derivedPlace,
+              alone: page.items.length === 1 && !page.nextCursor,
+            });
             if (page.defaultContainerId) setContainerId((current) => current ?? page.defaultContainerId!);
           }
           return page;
@@ -563,13 +592,25 @@ function CreateCellRecord({
     [workspaceKey, application.key, view.key, column.id, debounced],
   );
   const [missingContainer, setMissingContainer] = useState(false);
+  const [placeNameEdited, setPlaceNameEdited] = useState<string | null>(null);
+  const [useExisting, setUseExisting] = useState(false);
   // A record belongs to one application; the lens's own is used when it holds the cell type.
   const owner = application.objectTypeKeys.includes(cellType.key)
     ? application.key
     : (model.applications.find((item) => item.objectTypeKeys.includes(cellType.key))?.key ?? application.key);
   const pathOf = (container: RelationMatrixContainer) =>
     [column.name, ...container.path.map((part) => part.name)].join(" / ");
-  const single = defaults?.id && defaults.container;
+  const single = defaults?.id && defaults.container && defaults.alone;
+  // No container meets the relationship's rules, which fix the one place a new record goes: it is
+  // created with the record, in the same change (PP-D24).
+  const found = !defaults?.id && defaults?.place?.willBeCreated ? defaults.place : undefined;
+  // A proposed place (PP-D28) is the default and its name is the person's to change; an existing group
+  // can be chosen instead. A place the rules fix is created as it is.
+  const place = found && !(found.proposed && useExisting) ? found : undefined;
+  const placeName = (placeNameEdited ?? place?.name ?? "").trim();
+  // A record stands in its parent's application: the new group's, or the chosen group's, where the read says.
+  const chosenContainer = containers.items.find((item) => item.id === containerId) ?? defaults?.container;
+  const cellApplication = (place ? place.applicationKey : chosenContainer?.applicationKey) ?? owner;
 
   return (
     <CellRecordForm
@@ -587,31 +628,48 @@ function CreateCellRecord({
       onCancel={onCancel}
       cancelLabel="Back"
       onSubmit={(values) => {
-        if (!containerId) {
+        if (!containerId && !place) {
           setMissingContainer(true);
           return;
         }
+        if (place?.proposed && !placeName) return;
         const name = values.name ?? "";
-        onCreate({
-          applicationKey: owner,
-          workspaceKey,
-          name,
-          parentObjectId: containerId,
-          attributes: values.attributes.filter(({ attributeTypeKey, value }) => {
-            const binding = cellType.attributes.find((item) => item.attributeTypeKey === attributeTypeKey);
-            return value !== null || binding?.required;
-          }),
-          initialRelations: [
-            {
-              relationTypeKey: config.relationTypeKey,
-              // The row is the binding's from end when the view reads outgoing, so the new record
-              // sees it as incoming.
-              direction: config.direction === "outgoing" ? "incoming" : "outgoing",
-              otherObjectId: row.row.id,
-              attributes: setValues(values.relation),
-            },
-          ],
-        });
+        onCreate(
+          {
+            applicationKey: cellApplication,
+            workspaceKey,
+            name,
+            ...(place ? {} : { parentObjectId: containerId }),
+            attributes: values.attributes.filter(({ attributeTypeKey, value }) => {
+              const binding = cellType.attributes.find((item) => item.attributeTypeKey === attributeTypeKey);
+              return value !== null || binding?.required;
+            }),
+            initialRelations: [
+              {
+                relationTypeKey: config.relationTypeKey,
+                // The row is the binding's from end when the view reads outgoing, so the new record
+                // sees it as incoming.
+                direction: config.direction === "outgoing" ? "incoming" : "outgoing",
+                otherObjectId: row.row.id,
+                attributes: setValues(values.relation),
+              },
+            ],
+          },
+          place
+            ? {
+                applicationKey:
+                  place.applicationKey ??
+                  model.applications.find((item) => item.objectTypeKeys.includes(place.objectTypeKey))?.key ??
+                  owner,
+                objectTypeKey: place.objectTypeKey,
+                name: place.proposed ? placeName : place.name,
+                attributes: Object.entries(place.attributes).map(([attributeTypeKey, value]) => ({
+                  attributeTypeKey,
+                  value: value as ObjectAttributeInput["value"],
+                })),
+              }
+            : undefined,
+        );
       }}
     >
       <p className="matrix-create-for">
@@ -633,9 +691,39 @@ function CreateCellRecord({
           <span>Goes in</span>
           <strong>{pathOf(defaults.container!)}</strong>
         </div>
+      ) : place?.proposed ? (
+        <div className="matrix-proposed-place">
+          <p className="admin-hint">
+            No group under {column.name} holds cells of this view yet. refiroo proposes a new{" "}
+            {objectTypeFor(model, place.objectTypeKey)?.name.toLowerCase() ?? "group"} under it, named like the ones the
+            other columns use. OK creates it with the {cellType.name.toLowerCase()}.
+          </p>
+          <label>
+            Name of the new {objectTypeFor(model, place.objectTypeKey)?.name.toLowerCase() ?? "group"}
+            <input
+              name="place-name"
+              required
+              value={placeNameEdited ?? place.name}
+              onChange={(event) => setPlaceNameEdited(event.target.value)}
+            />
+          </label>
+          {containers.items.length > 0 && (
+            <button type="button" className="link-button" onClick={() => setUseExisting(true)}>
+              Use an existing group instead
+            </button>
+          )}
+        </div>
+      ) : place ? (
+        <div className="form-fact">
+          <span>Goes in</span>
+          <strong>{[column.name, place.name].join(" / ")}</strong> <span>(will be created)</span>
+        </div>
       ) : (
         <fieldset className="candidate-list matrix-containers" aria-busy={containers.loading || undefined}>
           <legend>Goes in</legend>
+          {defaults && !defaults.id && !place && containers.items.length > 0 && (
+            <p className="admin-hint">No group under {column.name} holds cells of this view yet. Choose one below.</p>
+          )}
           <label className="search-box candidate-search">
             <Icon name="search" />
             <input
@@ -667,28 +755,33 @@ function CreateCellRecord({
                       className="candidate"
                     />
                   ) : (
-                    <Candidate
-                      key={container.id}
-                      data-row-key={container.id}
-                      ref={drawn.measure}
-                      data-row-index={index}
-                      selected={containerId === container.id}
-                      control={
-                        <input
-                          type="radio"
-                          name="matrix-container"
-                          value={container.id}
-                          checked={containerId === container.id}
-                          onChange={() => {
-                            setContainerId(container.id);
-                            setMissingContainer(false);
-                          }}
-                        />
-                      }
-                      type={objectTypeTile(model, container.objectTypeKey)}
-                      name={container.name}
-                      detail={pathOf(container)}
-                    />
+                    <Fragment key={container.id}>
+                      {(container.cellCount ?? 0) === 0 &&
+                        (index === 0 || (containers.items[index - 1]?.cellCount ?? 0) > 0) && (
+                          <p className="candidate-state">Other groups (not used in this view)</p>
+                        )}
+                      <Candidate
+                        data-row-key={container.id}
+                        ref={drawn.measure}
+                        data-row-index={index}
+                        selected={containerId === container.id}
+                        control={
+                          <input
+                            type="radio"
+                            name="matrix-container"
+                            value={container.id}
+                            checked={containerId === container.id}
+                            onChange={() => {
+                              setContainerId(container.id);
+                              setMissingContainer(false);
+                            }}
+                          />
+                        }
+                        type={objectTypeTile(model, container.objectTypeKey)}
+                        name={container.name}
+                        detail={pathOf(container)}
+                      />
+                    </Fragment>
                   ),
                 )}
                 <WindowSpacer as="div" edge="after" height={drawn.after} />
@@ -697,7 +790,7 @@ function CreateCellRecord({
                   <p className="candidate-state">
                     {debounced
                       ? `No places match “${debounced}”.`
-                      : `Nothing under ${column.name} can hold a ${cellType.name.toLowerCase()}.`}
+                      : `There is no place in ${column.name} where a ${cellType.name.toLowerCase()} can be created here.`}
                   </p>
                 )}
               </>

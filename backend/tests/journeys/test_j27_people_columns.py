@@ -175,7 +175,7 @@ def test_an_owned_relationship_is_written_as_columns_per_parent(world):
     ws = _workspace(world)
     regions, places, names, owners, permits = _scene(world, ws)
     job, book = _workbook(world, ws, "R", _columns(world, places))
-    owned = book.worksheets[1]
+    owned = book.worksheets[2]
     assert job["output"]["sheets"][1] == owned.title
     labels = _labels(owned)
     deep = "deep-scope" in world.configuration.shapes
@@ -226,7 +226,7 @@ def test_a_new_parents_column_filled_creates_its_records_and_edits_update_theirs
 
     third = world.record("D", permits[2]["id"], workspaceKey=ws)
     ok(world.update("D", permits[2]["id"], third["version"], name="Permit 3 meanwhile"))
-    owned = book.worksheets[1]
+    owned = book.worksheets[2]
     labels = _labels(owned)
 
     def label(field, place):
@@ -301,7 +301,7 @@ def test_pointer_cells_choose_from_reference_sheets_and_cells_have_borders(world
         "sheets": [world.key("Bcand")],
     }
     job, book = _workbook(world, ws, "H", people)
-    main, sheet = book.worksheets[0], book.worksheets[1]
+    main, sheet = book.worksheets[0], book.worksheets[2]
     bn1 = _labels(main)[1]
     assert _choices(book, main, bn1) == {"Alpha token", "Beta token"}
     related = _labels(sheet)[1]
@@ -314,7 +314,7 @@ def test_pointer_cells_choose_from_reference_sheets_and_cells_have_borders(world
     _, ledgers = _workbook(
         world, ws, "R", {"columns": ["name", world.key("R.u")], "sheets": [world.key("Bown")]}
     )
-    rows = ledgers.worksheets[1]
+    rows = ledgers.worksheets[2]
     offered = {label: _choices(ledgers, rows, label) or set() for label in _labels(rows)}
     parent = next(label for label, choices in offered.items() if names[0] in choices)
     assert set(names) <= offered[parent]

@@ -164,6 +164,18 @@ class PlainSheet:
     lists: list[tuple[str, str]] = field(default_factory=list)
     # The title was taken already (``Workbook.reserve``), so other sheets could name it first.
     reserved: bool = False
+    # A row of group labels above the header (a matrix's column groups): (first column, last column,
+    # label, style), 1-based and merged across. The header is then row 2.
+    groups: Sequence[tuple[int, int, str, int]] = ()
+    # Columns kept in view beside the header rows.
+    freeze_columns: int = 0
+    # Letters whose dropdown only warns of a value outside it, where the list is a help.
+    soft_lists: frozenset[str] = frozenset()
+    # The sheet is a helper (a list the dropdowns read) and stays hidden.
+    hidden_sheet: bool = False
+    # The rows are an Excel table of this name (a sheet's records others read by a defined name, so
+    # a row added or renamed is read as it stands, 0.17 PP-D27); it takes the place of the filter.
+    table: str | None = None
 
 
 class Styles:
@@ -171,9 +183,14 @@ class Styles:
     of a fill, an ink, bold, the date format and a thin border (0.9 J6a, D199), once each."""
 
     def __init__(self) -> None:
-        self._fonts: list[tuple[str | None, bool]] = [(None, False)]
+        self._fonts: list[tuple[str | None, bool, int]] = [(None, False, 0)]
         self._fills: list[str | None] = [None, None]  # none, gray125: Excel's two fixed fills
-        self._xfs: list[tuple[int, int, int, int]] = [(0, 0, 0, 0), (_DATE_FORMAT, 0, 0, 0)]
+        # Number format, font, fill, border (0 none, 1 all sides, 2 bottom only), alignment (0
+        # default, 1 wrapped and at the top, 2 wrapped, 3 centred).
+        self._xfs: list[tuple[int, int, int, int, int]] = [
+            (0, 0, 0, 0, 0),
+            (_DATE_FORMAT, 0, 0, 0, 0),
+        ]
 
     def xf(
         self,
@@ -182,9 +199,11 @@ class Styles:
         ink: str | None = None,
         bold: bool = False,
         date: bool = False,
-        border: bool = False,
+        border: bool | str = False,
+        size: int = 0,
+        wrap: str | None = None,
     ) -> int:
-        font = (ink, bold)
+        font = (ink, bold, size)
         if font not in self._fonts:
             self._fonts.append(font)
         if fill is not None and fill not in self._fills:
@@ -193,7 +212,8 @@ class Styles:
             _DATE_FORMAT if date else 0,
             self._fonts.index(font),
             0 if fill is None else self._fills.index(fill),
-            1 if border else 0,
+            2 if border == "bottom" else 1 if border else 0,
+            {None: 0, "top": 1, "wrap": 2, "center": 3}[wrap],
         )
         if xf not in self._xfs:
             self._xfs.append(xf)
@@ -203,10 +223,10 @@ class Styles:
         fonts = "".join(
             "<font>"
             + ("<b/>" if bold else "")
-            + '<sz val="11"/>'
+            + f'<sz val="{size or 11}"/>'
             + (f'<color rgb="{ink}"/>' if ink else "")
             + '<name val="Calibri"/></font>'
-            for ink, bold in self._fonts
+            for ink, bold, size in self._fonts
         )
         fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
         fills += "".join(
@@ -214,27 +234,35 @@ class Styles:
             "</patternFill></fill>"
             for fill in self._fills[2:]
         )
+        aligned = (
+            "",
+            '<alignment vertical="top" wrapText="1"/>',
+            '<alignment wrapText="1"/>',
+            '<alignment horizontal="center"/>',
+        )
         xfs = "".join(
             f'<xf numFmtId="{number}" fontId="{font}" fillId="{fill}" borderId="{border}" xfId="0"'
             + (' applyNumberFormat="1"' if number else "")
             + (' applyFont="1"' if font else "")
             + (' applyFill="1"' if fill else "")
             + (' applyBorder="1"' if border else "")
-            + "/>"
-            for number, font, fill, border in self._xfs
+            + (' applyAlignment="1">' + aligned[align] + "</xf>" if align else "/>")
+            for number, font, fill, border, align in self._xfs
         )
         return (
             f'<styleSheet xmlns="{_MAIN}">'
             f'<numFmts count="1"><numFmt numFmtId="{_DATE_FORMAT}" formatCode="yyyy-mm-dd"/></numFmts>'
             f'<fonts count="{len(self._fonts)}">{fonts}</fonts>'
             f'<fills count="{len(self._fills)}">{fills}</fills>'
-            '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'
+            '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>'
             + "<border>"
             + "".join(
                 f'<{side} style="thin"><color rgb="{_BORDER}"/></{side}>'
                 for side in ("left", "right", "top", "bottom")
             )
-            + "<diagonal/></border></borders>"
+            + "<diagonal/></border>"
+            + f'<border><left/><right/><top/><bottom style="thin"><color rgb="{_BORDER}"/></bottom><diagonal/></border>'
+            + "</borders>"
             '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
             f'<cellXfs count="{len(self._xfs)}">{xfs}</cellXfs>'
             '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
@@ -242,11 +270,26 @@ class Styles:
         )
 
 
+ABOUT_TITLE = "About this export"
+# The fill of an About section's heading row.
+SECTION_FILL = "FFD9D9D9"
+
+
+@dataclass
+class AboutSection:
+    """A section of the About sheet: its heading and its rows of a label, a value and, where the
+    label wears a colour (a matrix's column), that fill."""
+
+    heading: str
+    rows: Sequence[tuple[str, str, str | None]]
+
+
 @dataclass
 class _Written:
     title: str
+    number: int = 0
     hidden: bool = False
-    table: tuple[str, str, Sequence[str]] | None = None  # name, ref, keys
+    table: tuple[str, str, Sequence[str], bool] | None = None  # name, ref, keys, styled
     filtered: str | None = None  # the AutoFilter's range
 
 
@@ -259,6 +302,12 @@ class Workbook:
         self._on_row = on_row
         self.styles = Styles()
         self.titles: set[str] = set()
+        self._names: list[tuple[str, str]] = []
+
+    def define(self, name: str, formula: str) -> None:
+        """A workbook-level defined name; a dropdown reads a list by it (a name over an Excel table's
+        column follows the table as rows come and go)."""
+        self._names.append((name, formula))
 
     def data(self, sheet: Sheet) -> None:
         """``sheet.rows`` on as many sheets as they need (continued as "Title 2" and so on)."""
@@ -318,6 +367,59 @@ class Workbook:
         )
         self._sheet("Lists", rows, hidden=True)
 
+    def about(
+        self, title: str, what: str, sections: Sequence[AboutSection], *, position: int = 2
+    ) -> None:
+        """The "About this export" sheet (0.17 EX1, PP-D22), written last and shown at ``position``
+        (1-based): a title, one sentence, then each section's heading and its label and value rows.
+        One writer for every layout, so every file reads alike."""
+        gray = self.styles.xf(fill=SECTION_FILL, bold=True)
+        head = self.styles.xf(bold=True, size=14)
+        wrapped = self.styles.xf(wrap="wrap")
+        label_style = self.styles.xf(border="bottom", wrap="top")
+        value_style = self.styles.xf(border="bottom", wrap="top")
+        merges = []
+        rows: list[str | tuple[str, float]] = [
+            text_cell("A1", title, head),
+            (text_cell("A2", what, wrapped), 15.0 * max(1, -(-len(what) // 110))),
+            "",
+        ]
+        merges.append("A2:B2")
+        for section in sections:
+            number = len(rows) + 1
+            rows.append(
+                text_cell(f"A{number}", section.heading, gray) + text_cell(f"B{number}", None, gray)
+            )
+            for label, value, fill in section.rows:
+                number = len(rows) + 1
+                style = (
+                    self.styles.xf(fill=fill, border="bottom", wrap="top") if fill else label_style
+                )
+                lines = max(1, -(-len(value) // 95), value.count("\n") + 1)
+                rows.append(
+                    (
+                        text_cell(f"A{number}", label, style)
+                        + text_cell(f"B{number}", value, value_style),
+                        15.0 * lines,
+                    )
+                    if lines > 1
+                    else text_cell(f"A{number}", label, style)
+                    + text_cell(f"B{number}", value, value_style)
+                )
+            rows.append("")
+        self.titles.add(ABOUT_TITLE.lower())
+        self._sheet(
+            ABOUT_TITLE,
+            rows,
+            before='<cols><col min="1" max="1" width="30" customWidth="1"/>'
+            '<col min="2" max="2" width="90" customWidth="1"/></cols>',
+            after=f'<mergeCells count="{len(merges)}">'
+            + "".join(f'<mergeCell ref="{ref}"/>' for ref in merges)
+            + "</mergeCells>",
+        )
+        written = self._sheets.pop()
+        self._sheets.insert(min(position, len(self._sheets) + 1) - 1, written)
+
     def close(self) -> None:
         self._parts()
         self._zip.close()
@@ -355,21 +457,38 @@ class Workbook:
         ) + '<tableParts count="1"><tablePart r:id="rId1"/></tableParts>'
         ref = f"A2:{last_column}{last_row}"
         self._sheet(title, body(), dimension=f"A1:{last_column}{last_row}", frozen=2, after=after)
-        self._sheets[-1].table = (table, ref, sheet.keys)
+        self._sheets[-1].table = (table, ref, sheet.keys, True)
 
     def _plain_page(self, title: str, sheet: PlainSheet, count: int, rows: Iterator) -> None:
         letters = [column(index) for index in range(1, len(sheet.labels) + 1)]
-        last_row = 1 + max(count, 1)
-        head = "".join(
-            text_cell(f"{letter}1", label, style)
-            for letter, label, style in zip(letters, sheet.labels, sheet.header_styles, strict=True)
-        )
+        header_row = 2 if sheet.groups else 1
+        last_row = header_row + max(count, 1)
+        merges = [
+            f"{column(first)}1:{column(last)}1"
+            for first, last, _, _ in sheet.groups
+            if last > first
+        ]
 
         def body() -> Iterator[str]:
-            yield head
-            for number in range(2, 2 + count):
+            if sheet.groups:
+                yield group_row(sheet)
+            yield header
+            for number in range(header_row + 1, header_row + 1 + count):
                 yield sheet.encode(next(rows), number)
                 self._on_row()
+
+        def group_row(item: PlainSheet) -> str:
+            cells: dict[int, str] = {}
+            for first, last, label, style in item.groups:
+                cells[first] = text_cell(f"{column(first)}1", label, style)
+                for index in range(first + 1, last + 1):
+                    cells[index] = text_cell(f"{column(index)}1", None, style)
+            return "".join(cells[index] for index in sorted(cells))
+
+        header = "".join(
+            text_cell(f"{letter}{header_row}", label, style)
+            for letter, label, style in zip(letters, sheet.labels, sheet.header_styles, strict=True)
+        )
 
         cols = "".join(
             f'<col min="{index}" max="{index}" width="{width:.1f}" customWidth="1"'
@@ -377,49 +496,73 @@ class Workbook:
             + "/>"
             for index, (width, hidden) in enumerate(zip(sheet.widths, sheet.hidden, strict=True), 1)
         )
-        filtered = f"A1:{letters[-1]}{last_row}"
+        filtered = f"A{header_row}:{letters[-1]}{last_row}"
         validations = "".join(
-            f'<dataValidation type="list" allowBlank="1" showErrorMessage="1" '
-            f'sqref="{letter}2:{letter}{last_row}"><formula1>{source.translate(_MARKUP)}</formula1></dataValidation>'
+            '<dataValidation type="list" allowBlank="1" showErrorMessage="1"'
+            + (' errorStyle="warning"' if letter in sheet.soft_lists else "")
+            + f' sqref="{letter}{header_row + 1}:{letter}{last_row}"><formula1>{source.translate(_MARKUP)}</formula1></dataValidation>'
             for letter, source in sheet.lists
         )
-        after = f'<autoFilter ref="{filtered}"/>' + (
+        after = "" if sheet.table else f'<autoFilter ref="{filtered}"/>'
+        if merges:
+            after += (
+                f'<mergeCells count="{len(merges)}">'
+                + "".join(f'<mergeCell ref="{ref}"/>' for ref in merges)
+                + "</mergeCells>"
+            )
+        after += (
             f'<dataValidations count="{len(sheet.lists)}">{validations}</dataValidations>'
             if validations
             else ""
         )
+        if sheet.table:
+            after += '<tableParts count="1"><tablePart r:id="rId1"/></tableParts>'
         self._sheet(
             title,
             body(),
             dimension=f"A1:{letters[-1]}{last_row}",
-            frozen=1,
+            frozen=header_row,
+            frozen_columns=sheet.freeze_columns,
             before=f"<cols>{cols}</cols>",
             after=after,
         )
-        self._sheets[-1].filtered = filtered
+        if sheet.table:
+            # The first page names the table; a later page (rows past a sheet's last) is no table.
+            self._sheets[-1].table = (sheet.table, filtered, sheet.labels, False)
+        else:
+            self._sheets[-1].filtered = filtered
+        self._sheets[-1].hidden = sheet.hidden_sheet
 
     def _sheet(
         self,
         title: str,
-        rows: Iterable[str],
+        rows: Iterable[str | tuple[str, float]],
         *,
         hidden: bool = False,
         dimension: str | None = None,
         frozen: int = 0,
+        frozen_columns: int = 0,
         before: str = "",
         after: str = "",
     ) -> None:
         """A worksheet part: ``frozen`` header rows stay in view; ``before`` goes between the view
         and the data (column widths), ``after`` after it."""
         number = len(self._sheets) + 1
-        self._sheets.append(_Written(title, hidden))
-        view = (
-            f'<sheetViews><sheetView workbookViewId="0"><pane ySplit="{frozen}" '
-            f'topLeftCell="A{frozen + 1}" activePane="bottomLeft" state="frozen"/></sheetView>'
-            "</sheetViews>"
-            if frozen
-            else ""
-        )
+        self._sheets.append(_Written(title, number, hidden))
+        if frozen_columns:
+            view = (
+                f'<sheetViews><sheetView workbookViewId="0"><pane xSplit="{frozen_columns}" '
+                f'ySplit="{frozen}" topLeftCell="{column(frozen_columns + 1)}{frozen + 1}" '
+                'activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
+            )
+        elif frozen:
+            view = (
+                f'<sheetViews><sheetView workbookViewId="0"><pane ySplit="{frozen}" '
+                f'topLeftCell="A{frozen + 1}" activePane="bottomLeft" state="frozen"/></sheetView>'
+                "</sheetViews>"
+            )
+        else:
+            view = ""
         with self._zip.open(f"xl/worksheets/sheet{number}.xml", "w") as part:
             part.write(
                 (
@@ -431,7 +574,11 @@ class Workbook:
             block: list[str] = []
             size = 0
             for index, row in enumerate(rows, 1):
-                text = f'<row r="{index}">{row}</row>'
+                height = ""
+                if isinstance(row, tuple):
+                    row, tall = row
+                    height = f' ht="{tall:.1f}" customHeight="1"'
+                text = f'<row r="{index}"{height}>{row}</row>'
                 block.append(text)
                 size += len(text)
                 if size >= _BLOCK:
@@ -440,9 +587,9 @@ class Workbook:
             part.write(("".join(block) + f"</sheetData>{after}</worksheet>").encode())
 
     def _parts(self) -> None:
-        tables = [(number, item) for number, item in enumerate(self._sheets, 1) if item.table]
+        tables = [(item.number, item) for item in self._sheets if item.table]
         for table_id, (number, item) in enumerate(tables, 1):
-            name, ref, keys = item.table
+            name, ref, keys, styled = item.table
             columns = "".join(
                 f'<tableColumn id="{index}" name="{key.translate(_MARKUP)}"/>'
                 for index, key in enumerate(keys, 1)
@@ -452,8 +599,13 @@ class Workbook:
                 f'<table xmlns="{_MAIN}" id="{table_id}" name="{name}" displayName="{name}" '
                 f'ref="{ref}" totalsRowShown="0"><autoFilter ref="{ref}"/>'
                 f'<tableColumns count="{len(keys)}">{columns}</tableColumns>'
-                '<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" '
-                'showRowStripes="1" showColumnStripes="0"/></table>',
+                + (
+                    '<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" '
+                    'showRowStripes="1" showColumnStripes="0"/>'
+                    if styled
+                    else ""
+                )
+                + "</table>",
             )
             self._write(
                 f"xl/worksheets/_rels/sheet{number}.xml.rels",
@@ -461,10 +613,10 @@ class Workbook:
                 f'Type="{_DOCUMENT}/table" Target="../tables/table{table_id}.xml"/></Relationships>',
             )
         sheets = "".join(
-            f'<sheet name="{item.title.translate(_MARKUP)}" sheetId="{number}"'
+            f'<sheet name="{item.title.translate(_MARKUP)}" sheetId="{item.number}"'
             + (' state="hidden"' if item.hidden else "")
-            + f' r:id="rId{number}"/>'
-            for number, item in enumerate(self._sheets, 1)
+            + f' r:id="rId{item.number}"/>'
+            for item in self._sheets
         )
         # Excel names each AutoFilter's range (a hidden name of its sheet).
         names = "".join(
@@ -472,6 +624,11 @@ class Workbook:
             f"{_reference(item.title, item.filtered)}</definedName>"
             for number, item in enumerate(self._sheets, 1)
             if item.filtered
+        )
+        # The names a dropdown reads (``define``).
+        names += "".join(
+            f'<definedName name="{name}">{formula.translate(_MARKUP)}</definedName>'
+            for name, formula in self._names
         )
         self._write(
             "xl/workbook.xml",

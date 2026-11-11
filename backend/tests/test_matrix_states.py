@@ -37,7 +37,7 @@ from wp8_support import create_change_set, create_workspace, publish_change_set
 from app.db import SessionLocal, get_engine
 from app.engine.indexes import matrix_states
 from app.engine.model.bootstrap import ensure_bootstrap_release
-from app.management.projections import relation_matrix
+from app.engine.reads import matrix_read
 from app.models.database import (
     MatrixCellState,
     MatrixStateBuild,
@@ -67,8 +67,8 @@ def stored_only(monkeypatch):
     def refuse(*_args, **_kwargs):
         raise AssertionError("the state filter derived its cells instead of reading stored states")
 
-    monkeypatch.setattr(relation_matrix, "_current_pairs", refuse)
-    monkeypatch.setattr(relation_matrix, "_history_pairs", refuse)
+    monkeypatch.setattr(matrix_read, "current_pairs", refuse)
+    monkeypatch.setattr(matrix_read, "history_pairs", refuse)
 
 
 def assert_derived() -> None:

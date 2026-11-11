@@ -85,7 +85,7 @@ A type created through the editor receives a table view. **Views** lists each vi
 what it shows and its state. Use its menu's **Rename…** for a label change.
 Choose **Add a view…** in the application’s menu to add a Table, Tree, Mapping grid,
 Relation matrix or **Relationships table: each relationship in a row, with its own attributes**. The kind list offers only views for which the model has suitable types and
-relationships. Existing trees and mapping grids have **Change…**; ordinary collection table
+relationships. Existing trees, mapping grids and relation matrices have **Change…**; ordinary collection table
 layouts are arranged from the type’s Preview. A relationships table has its own **Layout…** action. Follow [Add a table, tree or mapping grid](/docs/guide/model/add-a-view/).
 
 Application **Settings** has **Default view**, the view that opens first. Choose an existing
@@ -132,7 +132,26 @@ no data permissions.
 Rows must connect to cell records; the cell records stand under column records. The form offers
 only suitable choices. **Column heading**, ordered **Fields in a cell** and **Row columns**
 determine what is shown. A cell displays its first text or number field, or its record name.
-**What people can do in a cell** enables offered actions but never grants access by itself.
+Open the matrix's menu in **Views** and choose **Change…** to set **What people can do in a
+cell**. Any offered combination of **Create**, **Edit**, **Link existing** and **Unlink** can
+be selected. These actions never grant access by themselves.
+
+Create needs all required cell fields and no other required incoming relationship that the
+cell cannot supply, apart from parent containment. Edit needs a writable selected cell field.
+Link existing is offered, with individual candidates checked at runtime. Unlink is absent
+when the relationship is required. Changing the structure or selected fields can remove
+choices that no longer fit.
+
+Create adds a record and its connection to the row. The relationship's candidate rules limit
+where it may belong under the column. The form uses those rules first, then the groups already
+holding this view's records, to suggest a place. It can also propose a missing group using
+other columns as a pattern; accepting it needs no model change. The person reviews the place
+and can choose another eligible group. See
+[Relation matrices](/docs/use/relation-matrices/#what-you-can-change-from-a-cell). Link existing adds a connection to a shared
+record, and Unlink removes only that connection. A filled cell offers Create alongside Link
+existing unless a one-per-column uniqueness rule or the row's relationship cardinality limits
+it to one. Empty, inactive and history-only cells can still offer Create. See
+[Relation matrices](/docs/use/relation-matrices/) for counting states and change-set conflicts.
 
 ![Relation matrix form beside its structural preview](/docs/screens/model-matrix-view-dialog.png)
 

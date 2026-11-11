@@ -154,12 +154,6 @@ def decide_set_replacement(
     """
     binding = set_binding(model, set_, lookup.refusals)
     anchor_id = anchor.object_id
-    if not targets and binding.required:
-        raise _at(
-            api_error(422, "REQUIRED_RELATION", "A required relationship cannot be cleared"),
-            pointer,
-            "targets",
-        )
     seen: set[str] = set()
     for number, target in enumerate(targets):
         if target.record.object_id in seen:
@@ -171,6 +165,14 @@ def decide_set_replacement(
         seen.add(target.record.object_id)
 
     edges, _others = set_edges(lookup, set_, anchor_id)
+    if not targets and edges and binding.required:
+        # Clearing a required set is refused; an empty set that is already empty is an equal set
+        # and unchanged (0.17 EX1: a file exported as it stands reads back unchanged).
+        raise _at(
+            api_error(422, "REQUIRED_RELATION", "A required relationship cannot be cleared"),
+            pointer,
+            "targets",
+        )
     by_other = {_other(edge, set_.direction): edge for edge in edges}
     kept: dict[str, tuple[Any, dict[str, Any]]] = {}
     added: list[tuple[int, SetTarget]] = []

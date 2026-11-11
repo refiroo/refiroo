@@ -24,12 +24,36 @@ file to an AI assistant.
 4. If the file names another workspace's records, choose **Load them as this workspace's own**
    for separate destination records, or **Refuse them**. Check this choice before continuing.
 5. Choose **Preview**. The job page opens while the file is read. Check its context, counts,
-   column report and refused rows. Each failing cell identifies its column and reason.
+   column report, **How the file is read** where shown, and refused rows. Each failing cell identifies its column and reason.
    If only part of a large file was tried, its sample is not a promise about every row.
 6. Choose **Load the file**, or **Cancel import** if the result is wrong. Loading checks
    current data and can refuse rows that passed preview. Read the final applied and refused counts.
 7. Correct refused rows in the file and import it again. Resend the whole file: rows already
    loaded should be unchanged when their values and matching rules are unchanged.
+
+## Check how the file is read
+
+1. In the preview, open **How the file is read** where offered. Each matrix or relationship
+   column shows **Matched by**, **Values matched** and **New records go into**. For a workbook
+   exported by refiroo, the file records the matching field. When a file does not record it,
+   refiroo compares its values with existing records and marks its choice **Guessed**. Read
+   any note about an uncertain choice; do not assume a high match count proves it is right.
+2. Check each column's field against what its values mean. Where a selector is offered under
+   **Matched by**, choose the intended field. This starts a new preview of the same file;
+   wait for it and review its counts and refusals again. Nothing is loaded by either preview.
+3. For a link matrix with value sheets, check how many rows update existing records and how
+   many are new. The main columns also report values found on value sheets and new values.
+   An unselected value-sheet row can still create or update a record; review it too.
+4. Check **New records go into**. A proposed or rule-defined missing group says
+   **will create … under …**. Confirming the load creates that group with its records.
+   If there is no suitable place, follow the reason and prepare the place in the app before
+   previewing again. You do not need a model change to accept a proposed group.
+5. When using a stored profile, choose **Save these fields in the profile** if this reading
+   should apply to later files. Saving the reading does not load the file. Review all changes
+   and refused rows, then choose **Load the file** only when the preview is right.
+
+For the workbook editing rules, see
+[Edit in Excel and import back](/docs/guide/use/edit-in-excel-and-import-back/#edit-the-value-sheets-of-a-link-matrix).
 
 A malformed file or invalid profile changes nothing. Ask a model administrator about profile
 rules you cannot fix. A profile deleting records absent from the file must load into a change

@@ -3,8 +3,9 @@
  * renderer needs, so adding a view type does not widen this contract.
  */
 
-import type { ReactNode } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import type { ExportStart } from "@/features/jobs/ExportDialog";
+import type { ExportViewExtra } from "./useViewExport";
 import type { ApplicationDefinition, CollectionQueryState, EngineModel, ObjectItem, ViewDefinition } from "@/types";
 
 export interface ViewComponentProps {
@@ -35,6 +36,8 @@ export interface ViewComponentProps {
    * Export (0.16 WM1); called with nothing when the page goes.
    */
   onExportContext?: (read: (() => ExportStart) | undefined) => void;
+  /** Where a view hands the part of its Export state only it knows (a table's columns, EX1). */
+  exportExtraRef?: MutableRefObject<ExportViewExtra | undefined>;
   /**
    * Lets records be selected for a bulk change (0.9 K1); given only where the data can be written
    * while the deployment lets jobs be created (D105). `maxItems` is the most one bulk change may

@@ -15,6 +15,40 @@ grants. Consumer grants do not grant these writes. The [relationship operations]
 define the requests and responses. For read-only business projections, see
 [Consumer APIs](/docs/integrate/consumer-apis/#publish-values-of-the-connection).
 
+## Records reused or created through a matrix
+
+A relation matrix is a view over records and relationships. Creating in a cell adds a record
+in a container and a relationship to the row. Placement follows the binding's candidate
+rules, then existing use of groups by the view; a missing rule-defined group or a group
+proposed from other columns can be created with the record in one atomic change. The browser
+allows review of the place and editing a proposed group's name. See
+[View exports and placement](/docs/integrate/files-imports-and-exports/#export-a-declared-view). Linking in a cell adds a relationship to
+an existing record. Where the binding permits reuse, that record can be connected to several
+rows: it has the same public record ID under every row, with a separate relationship ID and
+attribute set for each connection. Do not create one local copy per cell.
+
+Unlink removes the relationship, not the record. A required owner connection cannot be removed
+alone. In the [workspace change feed](/docs/integrate/following-changes/), an unlink is a deleted
+relationship entry retaining its endpoint IDs; remove the local edge without deleting the
+shared record. Consumer events instead follow their declared watches: do not assume every
+unlink produces a particular consumer event.
+
+For example, a translation matrix can create a missing name for one language, with one
+counting record allowed per row and language. A mapping matrix can reuse a code already
+connected to another row or create a separate code. Both are configurations of the same
+record and relationship operations. A one-per-column counting rule can leave a proposed cell
+showing **Conflict** when two records count in a change set; resolve and validate it before
+publication. A relationship's cardinality can also prevent adding another record without
+producing that counting-conflict state.
+
+After publication, the consumer API can expose the new record and its relationship according
+to its declaration and grants. Unpublished change-set edits are invisible to consumers.
+Direct live writes are already visible to live consumer reads; a read pinned to an earlier
+publication keeps that publication's state. A shared record's own fields are shared wherever
+it is exposed; values on each relationship remain specific to that connection. See
+[Consumer APIs](/docs/integrate/consumer-apis/#live-and-publication-reads) for read contexts and
+[Fill in a relation matrix](/docs/guide/use/fill-in-a-relation-matrix/) for the browser actions.
+
 ## Read connections before writing
 
 Use the [workspace edge list](/docs/api/?api=management#tag/relations/GET/api/v1/workspaces/{workspace_key}/relations)

@@ -40,6 +40,7 @@ import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { formatValue } from "@/ui/formatValue";
 import { parseAttributeValue } from "@/ui/attributeForm";
 import type { ViewComponentProps } from "./views/types";
+import { useExportExtra, windowTotal } from "./views/useViewExport";
 
 type End = "from" | "to";
 
@@ -56,6 +57,7 @@ export function RelationTableView({
   refreshToken = 0,
   lenses,
   onOpen,
+  exportExtraRef,
 }: ViewComponentProps) {
   const view = rawView as RelationTableViewDefinition;
   const { config } = view;
@@ -122,6 +124,7 @@ export function RelationTableView({
     [application.key, view.key, workspaceKey, query.search, sort, JSON.stringify(filters), pageSize, changeSet?.id],
     { anchor: query.anchor, refreshToken: refreshToken + internalRefresh },
   );
+  useExportExtra(exportExtraRef, { size: { rows: windowTotal(list) } });
   const groupCounts = counts.key === queryKey ? counts.byGroup : {};
 
   function reload() {

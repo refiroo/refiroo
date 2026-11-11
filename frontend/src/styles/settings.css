@@ -816,6 +816,35 @@ td:has(> .row-problems) {
   max-width: min(16rem, 100%);
   margin: 0 0 0 24px;
 }
+/* A matrix's column and the container its new cells go into, on one line (0.17 EX1, PP-D20). */
+.export-containers {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.export-containers li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 16rem);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  min-width: 0;
+}
+.export-containers label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dialog form .export-containers select {
+  width: 100%;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .export-containers li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* An owned relationship's sheet and, ticked, its layout below it (0.9 J6a). */
 .export-sheet {
   display: grid;

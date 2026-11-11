@@ -88,6 +88,7 @@ def submit_import(
     files: JobFiles,
     idempotency_key: str | None,
     retention_days: int,
+    origin: dict[str, Any] | None = None,
 ) -> tuple[Job, bool]:
     """Queue the import with its file and commit; or, for a key seen before, the job it queued.
     ``True`` marks a replayed job."""
@@ -111,7 +112,7 @@ def submit_import(
         and context.change_set.version != request.expectedChangeSetVersion
     ):
         raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
-    profile = _profile(session, request, context.model, found_format, upload)
+    profile = _profile(session, request, context.model, found_format, upload, origin)
     if context.change_set is None and _deletes_missing(profile):
         raise api_error(
             422,
@@ -185,7 +186,12 @@ def submit_import(
 
 
 def _profile(
-    session: Session, request: ImportRequest, model: Any, found_format: str, upload: Upload
+    session: Session,
+    request: ImportRequest,
+    model: Any,
+    found_format: str,
+    upload: Upload,
+    origin: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """The profile as the job will use it, checked against the context's release: a stored one
     with its key and version, the inline one, or the one a workbook for people carries (0.9 J6,
@@ -227,7 +233,8 @@ def _profile(
         definition = ImportProfileDefinition.model_validate(
             request.profile.model_dump(include={"csv", "sources", "valueMaps"}, exclude_none=True)
         )
-        described = {"key": None, "version": None}
+        # What the profile came from, kept when a preview is read again with other fields.
+        described = {"key": None, "version": None, **(origin or {})}
     problems = check_profile(model, definition)
     if problems:
         raise invalid_profile(problems)
@@ -241,9 +248,7 @@ def _deletes_missing(profile: dict[str, Any] | None) -> bool:
     """Whether a source of the profile deletes the records missing from the file (D82)."""
     if profile is None:
         return False
-    return any(
-        source.get("missing") == "delete" for source in profile["definition"]["sources"]
-    )
+    return any(source.get("missing") == "delete" for source in profile["definition"]["sources"])
 
 
 def _workspace_key(session: Session, request: ImportRequest) -> str:

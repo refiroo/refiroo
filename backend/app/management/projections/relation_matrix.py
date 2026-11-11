@@ -40,8 +40,7 @@ The walks join rows by keyed lookups on each context's tables. A change set's do
 its base's rows and its own as one selectable in its one recursive term.
 """
 
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from types import SimpleNamespace
 from typing import Any
 
@@ -49,6 +48,7 @@ from sqlalchemy import (
     Select,
     String,
     and_,
+    case,
     false,
     func,
     literal,
@@ -60,26 +60,35 @@ from sqlalchemy.orm import Session, aliased
 
 from ...common.pagination import Page, PageRequest, paginate_statement, text_key
 from ...db import begin_snapshot_read
-from ...engine.indexes.matrix_states import listed, row_list, stored_row_filter
-from ...engine.model.registry import ModelSnapshot, resolve_request_model
-from ...engine.model.traversal import ancestor_type_keys, parent_type_keys
+from ...engine.model.candidate_places import choose_container
+from ...engine.model.registry import resolve_request_model
 from ...engine.reads.matrix_cells import (
     MAX_DEPTH,
-    CellScope,
-    MatrixShape,
     cell_columns,
     cell_records,
-    id_rows,
-    view_binding,
+)
+from ...engine.reads.matrix_read import (
+    MatrixRead,
+    build_matrix_read,
+    column_application,
+    column_query,
+    container_applications,
+    container_cell_counts,
+    container_rows,
+    derived_place,
+    named_columns,
+    object_types,
+    proposed_place,
+    record_id,
+    state_filter,
+    walk_below,
 )
 from ...engine.reads.model_query import candidate_ids
 from ...engine.reads.object_query import build_object_query, live_object_paths
 from ...engine.reads.snapshot_reads import (
     build_snapshot_object_query,
-    change_set_context,
     find_objects,
     object_paths,
-    publication_context,
 )
 from ...engine.records.rules import get_application
 from ...engine.records.values import VALUE_COLUMNS, stored_json_value
@@ -87,7 +96,6 @@ from ...engine.workspaces.catalogue import resolve_workspace
 from ...errors import api_error
 from ...models.database import (
     AttributeValue,
-    Publication,
     PublicationObject,
     PublicationRelation,
     RdmObject,
@@ -95,9 +103,6 @@ from ...models.database import (
     SnapshotAttributeValue,
 )
 from ...models.schema import (
-    EngineModel,
-    ObjectTypeRelationDefinition,
-    RelationMatrixViewConfig,
     RelationMatrixViewDefinition,
 )
 from ..schemas.relation_matrix import (
@@ -106,6 +111,7 @@ from ..schemas.relation_matrix import (
     RelationMatrixColumn,
     RelationMatrixContainer,
     RelationMatrixContainerPage,
+    RelationMatrixDerivedPlace,
     RelationMatrixLinkCandidate,
     RelationMatrixLinkCandidatePage,
     RelationMatrixPage,
@@ -115,65 +121,9 @@ from ..schemas.relation_matrix import (
     RelationMatrixRow,
 )
 
-MAX_COLUMNS = 20
 CELL_RECORD_LIMIT = 5
 
 STATES = ("one", "several", "inactive", "historyOnly", "none")
-# Ends each name in a container's sort path, so a record sorts before the records under it.
-_PATH_SEPARATOR = "\x01"
-
-
-@dataclass
-class MatrixRead(CellScope):
-    """One view's read: its shape in the read's context, and what the view adds to it."""
-
-    application_key: str = ""
-    view_key: str = ""
-    snapshot: ModelSnapshot | None = None
-    config: RelationMatrixViewConfig | None = None
-    binding: ObjectTypeRelationDefinition | None = None
-    # The publication read, whose history evidence comes from earlier publications only.
-    publication_number: int | None = None
-
-    @property
-    def model(self) -> EngineModel:
-        return self.snapshot.model
-
-    @property
-    def conflict_scope(self) -> bool:
-        return (
-            self.outgoing
-            and self.binding.features.get("uniqueToAncestorTypeKey")
-            == self.config.columnObjectTypeKey
-        )
-
-    def filters(self) -> dict[str, Any]:
-        return {
-            "workspaceKey": self.workspace_key,
-            "changeSetId": self.context.id if self.context and self.context.kind == "change_set" else None,
-            "publicationId": self.context.id if self.context and self.context.kind == "publication" else None,
-            "modelHash": self.snapshot.model_hash,
-            "applicationKey": self.application_key,
-            "viewKey": self.view_key,
-        }
-
-    def container_types(self) -> set[str]:
-        """Types that can hold the cell type, at some depth, and sit under the column type."""
-        column_type, cell_type = self.config.columnObjectTypeKey, self.config.cellObjectTypeKey
-        return {
-            key
-            for key in ancestor_type_keys(self.model, cell_type)
-            if key != column_type and column_type in ancestor_type_keys(self.model, key)
-        }
-
-    def publications(self) -> Any:
-        """The workspace's publications history evidence comes from, with their numbers."""
-        statement = select(Publication.id, Publication.publication_number).where(
-            Publication.workspace_key == self.workspace_key
-        )
-        if self.publication_number is not None:
-            statement = statement.where(Publication.publication_number < self.publication_number)
-        return statement.subquery("matrix_publications")
 
 
 def open_matrix_read(
@@ -197,28 +147,8 @@ def open_matrix_read(
             "Relation matrix view not found in the selected model",
             {"applicationKey": application_key, "viewKey": view_key},
         )
-    config = view.config
-    binding = view_binding(snapshot.model, config)
-    context = None
-    publication_number = None
-    if change_set_id:
-        context = change_set_context(session, change_set_id)
-    elif publication_id:
-        context = publication_context(session, publication_id)
-        publication_number = session.scalar(
-            select(Publication.publication_number).where(Publication.id == publication_id)
-        )
-    return MatrixRead(
-        session,
-        workspace.key,
-        MatrixShape.of_view(snapshot.model, config, binding),
-        context,
-        application_key=application_key,
-        view_key=view_key,
-        snapshot=snapshot,
-        config=config,
-        binding=binding,
-        publication_number=publication_number,
+    return build_matrix_read(
+        session, workspace.key, snapshot, view, application_key, change_set_id, publication_id
     )
 
 
@@ -253,20 +183,24 @@ def relation_matrix_page(
     _validate_parent_scope(read, parent_object_id)
     empty_hidden: int | None = None
     if column_ids:
-        columns = _named_columns(read, column_ids)
+        columns = named_columns(read, column_ids)
         column_page: Page[Any] | None = None
     else:
         # Columns with no cell under any row the search and parent scope leave are left out of the column
         # pages themselves, so every page is full and its cursors are exact (0.13 LB-D8); naming
         # columns wins over it.
-        nonempty = _non_empty_columns(read, parent_object_id, search) if hide_empty_columns else None
-        column_page = _column_page(read, column_cursor, column_page_size, nonempty, (parent_object_id, search))
+        nonempty = (
+            _non_empty_columns(read, parent_object_id, search) if hide_empty_columns else None
+        )
+        column_page = _column_page(
+            read, column_cursor, column_page_size, nonempty, (parent_object_id, search)
+        )
         columns = column_page.items
         if nonempty is not None:
             empty_hidden = _empty_column_count(read, nonempty)
-    selected = [_record_id(item) for item in columns]
+    selected = [record_id(item) for item in columns]
 
-    id_filter = _state_filter(read, selected, state) if state is not None else None
+    id_filter = state_filter(read, selected, state) if state is not None else None
     options = {
         "object_type_key": read.config.rowObjectTypeKey,
         "application_key": None,
@@ -302,7 +236,7 @@ def relation_matrix_page(
         parts=query.parts,
     )
     rows = row_page.items
-    row_ids = [_record_id(item) for item in rows]
+    row_ids = [record_id(item) for item in rows]
     items = _rows(read, rows, row_ids, selected)
     column_labels = _field_values(read, columns, (read.config.columnLabelField,))
     return RelationMatrixPage(
@@ -310,9 +244,9 @@ def relation_matrix_page(
         **row_page.links(),
         columns=[
             RelationMatrixColumn(
-                id=_record_id(item),
+                id=record_id(item),
                 name=item.name,
-                label=column_labels[_record_id(item)][read.config.columnLabelField],
+                label=column_labels[record_id(item)][read.config.columnLabelField],
             )
             for item in columns
         ],
@@ -322,15 +256,10 @@ def relation_matrix_page(
     )
 
 
-def _record_id(item: Any) -> str:
-    """The public ID of a live record or a change set or publication row."""
-    return item.id if isinstance(item, RdmObject) else item.object_id
-
-
 def _validate_parent_scope(read: MatrixRead, parent_object_id: str | None) -> None:
     if parent_object_id is None:
         return
-    parent_type = _object_types(read, [parent_object_id]).get(parent_object_id)
+    parent_type = object_types(read, [parent_object_id]).get(parent_object_id)
     if parent_type is None:
         raise api_error(
             404,
@@ -354,72 +283,6 @@ def _validate_parent_scope(read: MatrixRead, parent_object_id: str | None) -> No
         )
 
 
-def _object_types(read: MatrixRead, ids: Sequence[str]) -> dict[str, str]:
-    if read.context is not None:
-        return {key: row.object_type_key for key, row in find_objects(read.session, read.context, ids).items()}
-    return dict(
-        read.session.execute(
-            select(RdmObject.id, RdmObject.object_type_key).where(
-                RdmObject.workspace_key == read.workspace_key, RdmObject.id.in_(list(ids))
-            )
-        ).all()
-    )
-
-
-def _named_columns(read: MatrixRead, column_ids: Sequence[str]) -> list[Any]:
-    if len(column_ids) > MAX_COLUMNS:
-        raise api_error(
-            422,
-            "TOO_MANY_COLUMNS",
-            f"Name at most {MAX_COLUMNS} columns",
-            {"path": "/query/columnIds", "limit": MAX_COLUMNS},
-        )
-    if len(set(column_ids)) != len(column_ids):
-        raise api_error(
-            422,
-            "DUPLICATE_COLUMN_IDS",
-            "Each column may be named once",
-            {"path": "/query/columnIds"},
-        )
-    column_type = read.config.columnObjectTypeKey
-    if read.context is not None:
-        found = find_objects(read.session, read.context, column_ids)
-    else:
-        found = {
-            item.id: item
-            for item in read.session.scalars(
-                select(RdmObject).where(
-                    RdmObject.workspace_key == read.workspace_key,
-                    RdmObject.id.in_(list(column_ids)),
-                )
-            )
-        }
-    missing = [key for key in column_ids if key not in found or found[key].object_type_key != column_type]
-    if missing:
-        raise api_error(
-            404,
-            "RELATION_MATRIX_COLUMN_NOT_FOUND",
-            f"Columns must be '{column_type}' records in the selected context",
-            {"columnIds": missing, "columnObjectTypeKey": column_type},
-        )
-    return [found[key] for key in column_ids]
-
-
-def _column_query(read: MatrixRead, id_filter: Callable[[Any], Any] | None = None) -> Any:
-    options = {
-        "object_type_key": read.config.columnObjectTypeKey,
-        "application_key": None,
-        "parent_object_id": None,
-        "search": None,
-        "sort": "name",
-        "field_filters": [],
-        "id_filter": id_filter,
-    }
-    if read.context is None:
-        return build_object_query(read.model, workspace_key=read.workspace_key, **options)
-    return build_snapshot_object_query(read.model, read.context, **options)
-
-
 def _column_page(
     read: MatrixRead,
     cursor: str | None,
@@ -427,7 +290,7 @@ def _column_page(
     nonempty: Select[Any] | None = None,
     scope: tuple[str | None, str | None] = (None, None),
 ) -> Page[Any]:
-    query = _column_query(read, (lambda key: key.in_(nonempty)) if nonempty is not None else None)
+    query = column_query(read, (lambda key: key.in_(nonempty)) if nonempty is not None else None)
     filters = read.filters()
     if nonempty is not None:
         # What is empty depends on the rows the scope leaves, so a cursor belongs to that scope.
@@ -446,7 +309,9 @@ def _column_page(
     )
 
 
-def _non_empty_columns(read: MatrixRead, parent_object_id: str | None, search: str | None) -> Select[Any]:
+def _non_empty_columns(
+    read: MatrixRead, parent_object_id: str | None, search: str | None
+) -> Select[Any]:
     """The column records with a cell record under them in some row the search and parent scope
     leave, one aggregate statement over every such row: the binding's relations walked up to their
     column records, as a cell's own read does."""
@@ -468,7 +333,9 @@ def _non_empty_columns(read: MatrixRead, parent_object_id: str | None, search: s
             )
             ids = rows.statement.order_by(None).subquery().c.id
         else:
-            rows = build_snapshot_object_query(read.model, read.context, session=read.session, **options)
+            rows = build_snapshot_object_query(
+                read.model, read.context, session=read.session, **options
+            )
             ids = rows.statement.order_by(None).subquery().c.object_id
         statement = statement.where(cells.c.row_id.in_(select(ids)))
     return statement
@@ -476,10 +343,13 @@ def _non_empty_columns(read: MatrixRead, parent_object_id: str | None, search: s
 
 def _empty_column_count(read: MatrixRead, nonempty: Select[Any]) -> int:
     """How many column records the context holds that ``nonempty`` leaves out."""
-    column = _column_query(read, lambda key: ~key.in_(nonempty))
-    return read.session.scalar(
-        select(func.count()).select_from(column.statement.order_by(None).subquery())
-    ) or 0
+    column = column_query(read, lambda key: ~key.in_(nonempty))
+    return (
+        read.session.scalar(
+            select(func.count()).select_from(column.statement.order_by(None).subquery())
+        )
+        or 0
+    )
 
 
 def _field_values(
@@ -487,10 +357,8 @@ def _field_values(
 ) -> dict[str, dict[str, Any]]:
     """The named fields of live records or change set and publication rows, typed as record reads
     return them: built-in fields, ``path``, ``ancestor:<type>`` and attribute values."""
-    ids = [_record_id(item) for item in records]
-    attributes = [
-        field for field in fields if read.model.attribute_type(field) is not None
-    ]
+    ids = [record_id(item) for item in records]
+    attributes = [field for field in fields if read.model.attribute_type(field) is not None]
     values: dict[str, dict[str, Any]] = {key: {} for key in ids}
     if attributes and ids:
         if read.context is None:
@@ -595,7 +463,9 @@ def _rows(
                             relationAttributes=record.relation_attributes or {},
                             meetsCondition=bool(record.meets),
                             fields={
-                                field: cell_values.get((record.owner, record.cell_id), {}).get(field)
+                                field: cell_values.get((record.owner, record.cell_id), {}).get(
+                                    field
+                                )
                                 for field in read.config.cellFields
                             },
                         )
@@ -629,7 +499,10 @@ def _ranked(cells: Any, column_ids: list[str]) -> Select[Any]:
             func.count().over(partition_by=partition).label("record_count"),
             func.sum(cells.c.meets).over(partition_by=partition).label("matching_count"),
             func.row_number()
-            .over(partition_by=partition, order_by=(cells.c.meets.desc(), cells.c.name, cells.c.cell_id))
+            .over(
+                partition_by=partition,
+                order_by=(cells.c.meets.desc(), cells.c.name, cells.c.cell_id),
+            )
             .label("rank"),
         )
         .where(cells.c.column_id.in_(column_ids))
@@ -642,7 +515,9 @@ def _ranked(cells: Any, column_ids: list[str]) -> Select[Any]:
     )
 
 
-def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[tuple[str, str], list[Any]]:
+def _cells(
+    read: MatrixRead, row_ids: list[str], column_ids: list[str]
+) -> dict[tuple[str, str], list[Any]]:
     """The page's cells in one statement: relations, related records and the walk to columns."""
     cells = cell_columns(read, cell_records(read, row_ids, relation_attributes=True))
     result: dict[tuple[str, str], list[Any]] = {}
@@ -713,14 +588,16 @@ def _history_cells(
             walk.c.depth + 1,
         ).where(
             walk.c.node.is_not(None),
-            lookup(walk.c.publication_id, walk.c.node, "object_type_key") != config.columnObjectTypeKey,
+            lookup(walk.c.publication_id, walk.c.node, "object_type_key")
+            != config.columnObjectTypeKey,
             walk.c.depth < MAX_DEPTH,
         )
     )
     resolved = (
         select(*(walk.c[column.name] for column in cells.c), walk.c.node.label("column_id"))
         .where(
-            lookup(walk.c.publication_id, walk.c.node, "object_type_key") == config.columnObjectTypeKey
+            lookup(walk.c.publication_id, walk.c.node, "object_type_key")
+            == config.columnObjectTypeKey
         )
         .subquery("matrix_history_columns")
     )
@@ -758,7 +635,9 @@ def _history_cells(
     return result
 
 
-def _cell_values(read: MatrixRead, cells: Sequence[list[Any]]) -> dict[tuple[str | None, str], dict[str, Any]]:
+def _cell_values(
+    read: MatrixRead, cells: Sequence[list[Any]]
+) -> dict[tuple[str | None, str], dict[str, Any]]:
     """The ``cellFields`` of every listed cell record, keyed by (values owner, record).
 
     Live records read ``attribute_values``; change set and publication rows, history evidence
@@ -825,149 +704,6 @@ def _set_versions(read: MatrixRead, row_ids: list[str]) -> dict[str, int]:
     )
 
 
-def _state_filter(read: MatrixRead, column_ids: list[str], state: str) -> Callable[[Any], Any]:
-    """A predicate on a row's ID: some selected column's cell has ``state``, over every row.
-
-    Stored cell states decide it once for the request (A3b): the matching row IDs are read by
-    index and every paging statement filters by that list, one shared parameter. Where an owner the read needs has no
-    stored states, the cells are derived from records in each statement instead (D12).
-    """
-    stored = stored_row_filter(read, column_ids, state, read.publication_number)
-    if stored is not None:
-        ids, negated = stored
-        rows = row_list(ids)
-        return lambda row_id: ~listed(row_id, rows) if negated else listed(row_id, rows)
-    pairs = _current_pairs(read, column_ids)
-    if state in {"one", "several", "inactive"}:
-        matching = func.sum(pairs.c.meets)
-        having = {"one": matching == 1, "several": matching > 1, "inactive": matching == 0}[state]
-        rows = select(pairs.c.row_id).group_by(pairs.c.row_id, pairs.c.column_id).having(having)
-        return lambda row_id: row_id.in_(rows)
-    history = _history_pairs(read, column_ids)
-
-    def predicate(row_id: Any) -> Any:
-        clauses = []
-        for column_id in column_ids:
-            present = row_id.in_(select(pairs.c.row_id).where(pairs.c.column_id == column_id))
-            held = row_id.in_(select(history.c.row_id).where(history.c.column_id == column_id))
-            clauses.append(and_(~present, held if state == "historyOnly" else ~held))
-        return or_(*clauses)
-
-    return predicate
-
-
-def _column_anchor(column_ids: list[str]) -> Any:
-    """The selected column IDs as rows."""
-    selected = id_rows(column_ids, "matrix_selected_columns")
-    return select(selected.c.id.label("column_id")).subquery("matrix_selected")
-
-
-def _current_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
-    """(row, column, meets) for every cell record under the selected columns, in the context."""
-    config = read.config
-    selected = _column_anchor(column_ids)
-    walk = select(
-        selected.c.column_id.label("node"),
-        selected.c.column_id,
-        literal(config.columnObjectTypeKey, String).label("object_type_key"),
-        literal(None, String).label("owner"),
-        literal(0).label("depth"),
-    ).cte("matrix_down", recursive=True)
-    child = read.object_rows(["parent_object_id", "object_type_key"], "matrix_down_rows")
-    walk = walk.union_all(
-        select(child.c.id, walk.c.column_id, child.c.object_type_key, child.c.owner, walk.c.depth + 1)
-        .select_from(walk)
-        .join(
-            child,
-            and_(
-                child.c.parent_object_id == walk.c.node,
-                child.c.object_type_key.in_(read.walk_types()),
-            ),
-        )
-        .where(walk.c.depth < MAX_DEPTH)
-    )
-    cells = (
-        select(walk.c.node.label("cell_id"), walk.c.column_id, walk.c.owner)
-        .where(walk.c.object_type_key == config.cellObjectTypeKey)
-        .subquery("matrix_down_cells")
-    )
-    pairs = []
-    for arm in read.relation_arms():
-        relation = aliased(arm.entity)
-        pairs.append(
-            select(
-                getattr(relation, read.anchor_end).label("row_id"),
-                cells.c.column_id,
-                read.meets(cells.c.cell_id, cells.c.owner).label("meets"),
-            )
-            .select_from(cells)
-            .join(
-                relation,
-                and_(
-                    getattr(relation, read.other_end) == cells.c.cell_id,
-                    relation.relation_type_key == config.relationTypeKey,
-                    *arm.where(relation),
-                ),
-            )
-        )
-    return (union_all(*pairs) if len(pairs) > 1 else pairs[0]).cte("matrix_pairs")
-
-
-def _history_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
-    """(row, column) for every cell record an earlier publication held under a selected column."""
-    config = read.config
-    publications = read.publications()
-    top = aliased(PublicationObject)
-    walk = (
-        select(
-            top.publication_id,
-            top.object_id.label("node"),
-            top.object_id.label("column_id"),
-            top.object_type_key,
-            literal(0).label("depth"),
-        )
-        .select_from(top)
-        .join(publications, publications.c.id == top.publication_id)
-        .where(top.object_id.in_(column_ids), top.object_type_key == config.columnObjectTypeKey)
-        .cte("matrix_history_down", recursive=True)
-    )
-    child = aliased(PublicationObject)
-    walk = walk.union_all(
-        select(
-            child.publication_id,
-            child.object_id,
-            walk.c.column_id,
-            child.object_type_key,
-            walk.c.depth + 1,
-        )
-        .select_from(walk)
-        .join(
-            child,
-            and_(
-                child.publication_id == walk.c.publication_id,
-                child.parent_object_id == walk.c.node,
-                child.object_type_key.in_(read.walk_types()),
-            ),
-        )
-        .where(walk.c.depth < MAX_DEPTH)
-    )
-    relation = aliased(PublicationRelation)
-    return (
-        select(getattr(relation, read.anchor_end).label("row_id"), walk.c.column_id)
-        .select_from(walk)
-        .join(
-            relation,
-            and_(
-                relation.publication_id == walk.c.publication_id,
-                getattr(relation, read.other_end) == walk.c.node,
-                relation.relation_type_key == config.relationTypeKey,
-            ),
-        )
-        .where(walk.c.object_type_key == config.cellObjectTypeKey)
-        .cte("matrix_history_pairs")
-    )
-
-
 # Writes from a cell (A3). A cell writes through the generic object and relation APIs; these reads
 # supply what it needs without asking the user again for what the row and column already say.
 
@@ -983,21 +719,33 @@ def matrix_containers(
     """The column record and the records under it that can directly hold a new cell record, in
     path order; the column's only container is its default (D13)."""
     _require_action(read, "create")
-    column = _named_columns(read, [column_id])[0]
-    walk = _walk_below(read, column, sorted(read.container_types()))
-    direct = sorted(parent_type_keys(read.model, read.config.cellObjectTypeKey))
-    statement = select(walk.c.object_id, walk.c.object_type_key, walk.c.name, walk.c.sort_path).where(
-        walk.c.object_type_key.in_(direct)
+    column = named_columns(read, [column_id])[0]
+    base = container_rows(read, column).subquery("matrix_container_rows")
+    everyone = list(read.session.scalars(select(base.c.object_id)))
+    counts = container_cell_counts(read, everyone)
+    place = derived_place(read)
+    chosen = choose_container(everyone, counts, fixed=place is not None)
+    # Neither the rules nor the data give a place: propose a new container (PP-D28).
+    proposed = proposed_place(read, column) if place is None and chosen is None else None
+    used = [key for key, number in counts.items() if number > 0]
+    # Containers holding cells of the view first, then the others, each in path order.
+    rank = case((base.c.object_id.in_(used), "0"), else_="1")
+    statement = select(
+        base.c.object_id,
+        base.c.object_type_key,
+        base.c.name,
+        (rank + base.c.sort_path).label("sort_path"),
     )
-    first_two = list(read.session.scalars(statement.with_only_columns(walk.c.object_id).limit(2)))
     if search:
-        statement = statement.where(func.lower(walk.c.name).contains(search.lower(), autoescape=True))
+        statement = statement.where(
+            func.lower(base.c.name).contains(search.lower(), autoescape=True)
+        )
     found = paginate_statement(
         read.session,
         statement,
         keys=[
-            text_key("path", walk.c.sort_path, "sort_path"),
-            text_key("id", walk.c.object_id, "object_id"),
+            text_key("path", statement.selected_columns["sort_path"], "sort_path"),
+            text_key("id", statement.selected_columns["object_id"], "object_id"),
         ],
         scope="relation-matrix-containers",
         filters={**read.filters(), "columnId": column_id, "search": search},
@@ -1007,6 +755,7 @@ def matrix_containers(
         rows=True,
     )
     paths = _paths_below(read, [item.object_id for item in found.items], column_id)
+    applications = container_applications(read, [item.object_id for item in found.items])
     return RelationMatrixContainerPage(
         items=[
             RelationMatrixContainer(
@@ -1014,11 +763,33 @@ def matrix_containers(
                 objectTypeKey=item.object_type_key,
                 name=item.name,
                 path=paths.get(item.object_id, []),
+                cellCount=counts.get(item.object_id, 0),
+                applicationKey=applications.get(item.object_id),
             )
             for item in found.items
         ],
         **found.links(),
-        defaultContainerId=first_two[0] if len(first_two) == 1 else None,
+        defaultContainerId=chosen,
+        derivedPlace=(
+            RelationMatrixDerivedPlace(
+                objectTypeKey=place.object_type_key,
+                name=place.name,
+                attributes=place.attributes,
+                willBeCreated=not everyone,
+                applicationKey=column_application(read, column),
+            )
+            if place is not None
+            else RelationMatrixDerivedPlace(
+                objectTypeKey=proposed.object_type_key,
+                name=proposed.name,
+                attributes=proposed.attributes,
+                willBeCreated=True,
+                applicationKey=column_application(read, column),
+                proposed=True,
+            )
+            if proposed is not None
+            else None
+        ),
     )
 
 
@@ -1034,15 +805,15 @@ def matrix_link_candidates(
     """Cell-type records under the column record in name order, each marked eligible or with the
     reason a link from the row would be refused. Ineligible ones are listed so totals stay true."""
     _require_action(read, "link")
-    if _object_types(read, [row_id]).get(row_id) != read.config.rowObjectTypeKey:
+    if object_types(read, [row_id]).get(row_id) != read.config.rowObjectTypeKey:
         raise api_error(
             404,
             "RELATION_MATRIX_ROW_NOT_FOUND",
             f"Rows must be '{read.config.rowObjectTypeKey}' records in the selected context",
             {"rowId": row_id, "rowObjectTypeKey": read.config.rowObjectTypeKey},
         )
-    column = _named_columns(read, [column_id])[0]
-    walk = _walk_below(read, column, read.walk_types())
+    column = named_columns(read, [column_id])[0]
+    walk = walk_below(read, column, read.walk_types())
     meets = read.meets(walk.c.object_id, walk.c.owner) if read.conflict_scope else literal(1)
     statement = select(
         walk.c.object_id,
@@ -1060,12 +831,18 @@ def matrix_link_candidates(
         statement = statement.where(
             walk.c.object_id.in_(
                 candidate_ids(
-                    read.model, cell_type, criteria, workspace_key=read.workspace_key, context=read.context
+                    read.model,
+                    cell_type,
+                    criteria,
+                    workspace_key=read.workspace_key,
+                    context=read.context,
                 )
             )
         )
     if search:
-        statement = statement.where(func.lower(walk.c.name).contains(search.lower(), autoescape=True))
+        statement = statement.where(
+            func.lower(walk.c.name).contains(search.lower(), autoescape=True)
+        )
     found = paginate_statement(
         read.session,
         statement,
@@ -1114,43 +891,6 @@ def _require_action(read: MatrixRead, action: str) -> None:
             f"The view does not offer '{action}' in its cells",
             {"viewKey": read.view_key, "action": action},
         )
-
-
-def _walk_below(read: MatrixRead, column: Any, types: Sequence[str]) -> Any:
-    """The column record and the records of ``types`` under it, in the read's context, each with
-    a sort path of lower-cased names from below the column record."""
-    walk = select(
-        literal(_record_id(column), String).label("object_id"),
-        literal(read.config.columnObjectTypeKey, String).label("object_type_key"),
-        literal(column.name, String).label("name"),
-        literal(column.version).label("version"),
-        literal(None, String).label("owner"),
-        literal("", String).label("sort_path"),
-        literal(0).label("depth"),
-    ).cte("matrix_below", recursive=True)
-    child = read.object_rows(
-        ["parent_object_id", "object_type_key", "name", "version"], "matrix_below_rows"
-    )
-    return walk.union_all(
-        select(
-            child.c.id,
-            child.c.object_type_key,
-            child.c.name,
-            child.c.version,
-            child.c.owner,
-            walk.c.sort_path + func.lower(child.c.name) + literal(_PATH_SEPARATOR, String),
-            walk.c.depth + 1,
-        )
-        .select_from(walk)
-        .join(
-            child,
-            and_(
-                child.c.parent_object_id == walk.c.object_id,
-                child.c.object_type_key.in_(types),
-            ),
-        )
-        .where(walk.c.depth < MAX_DEPTH)
-    )
 
 
 def _paths_below(

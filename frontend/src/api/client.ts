@@ -776,6 +776,12 @@ export const api = {
   /** Confirm a waiting preview: an import's file is bound again and loaded (0.9 J3), a batch's items
    * applied (0.9 K2). */
   confirmJob: (jobId: string) => request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/confirm`, { method: "POST" }),
+  /** Read an import preview's file again with other fields for some columns (0.17 PP-D26): a new preview. */
+  rereadImport: (jobId: string, readings: { source: number; column: string; field: string }[]) =>
+    request<Job>(`/api/v1/jobs/${encodeURIComponent(jobId)}/reread`, {
+      method: "POST",
+      body: JSON.stringify({ readings }),
+    }),
   /** A job's item outcomes in item order (`GET /jobs/{id}/items`). */
   jobItems: (jobId: string, query: PageSelector & { status?: JobItemOutcome["status"]; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
@@ -1541,6 +1547,72 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ ...payload, objectTypeKey }),
     }),
+  /**
+   * Creates a record in a place that does not exist yet, as one atomic change (0.17 PP-D24): the place
+   * under its parent, then the record under the place, in the same context. A refusal of either item
+   * is thrown with its own message and nothing is written.
+   */
+  createObjectInNewPlace: async (
+    objectTypeKey: string,
+    payload: ChangeSetWriteContext & {
+      applicationKey: string;
+      workspaceKey: string;
+      name: string;
+      attributes: ObjectAttributeInput[];
+      initialRelations?: InitialRelationInput[];
+    },
+    place: {
+      applicationKey: string;
+      objectTypeKey: string;
+      name: string;
+      parentObjectId: string;
+      attributes: ObjectAttributeInput[];
+    },
+  ) => {
+    const placeId = crypto.randomUUID();
+    const { initialRelations = [], changeSetId, expectedChangeSetVersion, workspaceKey, ...record } = payload;
+    const result = await request<BatchResult>("/api/v1/batches", {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({
+        ...(changeSetId ? { changeSetId, expectedChangeSetVersion } : { workspaceKey }),
+        policy: "atomic",
+        run: "inline",
+        stage: "execute",
+        items: [
+          {
+            op: "create",
+            id: placeId,
+            applicationKey: place.applicationKey,
+            objectTypeKey: place.objectTypeKey,
+            name: place.name,
+            parent: { id: place.parentObjectId },
+            attributes: place.attributes,
+          },
+          {
+            op: "create",
+            ...record,
+            objectTypeKey,
+            parent: { id: placeId },
+            initialRelations: initialRelations.map(({ otherObjectId, ...rest }) => ({
+              ...rest,
+              object: { id: otherObjectId },
+            })),
+          },
+        ],
+      }),
+    });
+    if (result.job.result !== "applied") {
+      const refused = result.items.find((item) => item.status === "rejected" && item.error);
+      throw new ApiError(
+        422,
+        refused?.error?.code ?? "BATCH_REFUSED",
+        refused?.error?.message ?? result.job.error?.message ?? "Nothing was changed.",
+        refused?.error?.details,
+      );
+    }
+    return result;
+  },
   updateObject: (
     objectTypeKey: string,
     objectId: string,

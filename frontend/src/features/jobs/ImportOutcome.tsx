@@ -8,17 +8,20 @@
 
 import { useState, type DependencyList } from "react";
 import { api, type PageSelector } from "@/api/client";
+import { errorMessage } from "@/api/errors";
 import { attributeName } from "@/model/fields";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import type {
   BindingReportColumn,
   EngineModel,
   ImportProfile,
+  ImportProfileSource,
   Job,
   JobItemOutcome,
   JobNotice,
   JobRow,
   JobRowPage,
+  RouteState,
 } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
@@ -171,6 +174,132 @@ export function ImportPreviewSection({ job }: { job: Job }) {
           {count(preview.items.total)} items ran, covering {count(rows.previewed)} of {count(rows.total)} rows fully.
           Every row was read and bound, so every refusal found while reading is listed.
         </Notice>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * How the preview reads each matrix and relationship column (0.17 PP-D26): the field its cells are
+ * matched by, how many values found a record, where a new record goes, and a choice of another
+ * field, which runs the preview again. Nothing is written by either preview.
+ */
+export function ImportReadingSection({ job, onNavigate }: { job: Job; onNavigate?: (route: RouteState) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const columns = (job.bindingReport ?? []).flatMap((source, position) =>
+    source.columns.filter((column) => column.reading).map((column) => ({ source: position, column })),
+  );
+  if (!columns.length) return null;
+  const profile = parametersOf(job).profile;
+
+  async function change(source: number, column: string, field: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const next = await api.rereadImport(job.id, [{ source, column, field }]);
+      onNavigate?.({ kind: "settings", page: "jobs", jobId: next.id });
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    if (!profile?.key || !profile.definition) return;
+    setBusy(true);
+    setError("");
+    try {
+      const stored = await api.importProfile(profile.key, job.workspaceKey);
+      await api.updateImportProfile(
+        stored,
+        profile.definition.sources as unknown as ImportProfileSource[],
+        job.workspaceKey,
+      );
+      setSaved(true);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="How the file is read"
+      description="Per column: the field its cells are matched by, the rows of a value sheet, and where a new record goes. Choosing another field reads the file again; nothing is written until you load it."
+    >
+      {error && (
+        <Notice tone="error" title="The file could not be read again">
+          {error}
+        </Notice>
+      )}
+      <SettingsTable
+        label="How each column is read"
+        columns={["Column", "Matched by", "Values matched", "New records go into"]}
+      >
+        {columns.map(({ source, column }) => {
+          const reading = column.reading!;
+          const current = reading.options.find((option) => option.field === reading.field);
+          const where = reading.newRecords;
+          return (
+            <tr key={`${source}:${column.column}`}>
+              <th scope="row">{column.column}</th>
+              <td data-label="Matched by">
+                {reading.valueSheet ? (
+                  "Value sheet: a row with an ID updates its record, one without is new"
+                ) : reading.options.length > 1 ? (
+                  <select
+                    aria-label={`Field ${column.column} is matched by`}
+                    value={reading.field ?? ""}
+                    disabled={busy}
+                    onChange={(event) => void change(source, column.column, event.target.value)}
+                  >
+                    {reading.field === "@label" && <option value="@label">{reading.label}</option>}
+                    {reading.options.map((option) => (
+                      <option key={option.field} value={option.field}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  (reading.label ?? "")
+                )}
+                {reading.guessed && <StatusPill tone="neutral">Guessed</StatusPill>}
+                {reading.note && <p className="admin-hint">{reading.note}</p>}
+              </td>
+              <td data-label="Values matched">
+                {reading.valueSheet
+                  ? `${count(reading.updatedRows ?? 0)} rows update a record, ${count(reading.newRows ?? 0)} are new`
+                  : current?.cells
+                    ? `${count(current.matched ?? 0)} of ${count(current.cells)}` +
+                      (reading.fromValueSheet ? `, ${count(reading.fromValueSheet)} from the value sheet` : "") +
+                      (reading.createdValues ? `, ${count(reading.createdValues)} new` : "")
+                    : "—"}
+              </td>
+              <td data-label="New records go into">
+                {!where
+                  ? "—"
+                  : where.name
+                    ? where.willBeCreated && where.under
+                      ? `will create ${(where.typeName ?? "group").toLowerCase()} “${where.name}” under ${where.under}`
+                      : `${where.name}${where.willBeCreated ? " (will be created)" : ""}`
+                    : (where.message ??
+                      (where.reason === "several"
+                        ? "Several places meet the rules: a new record is refused"
+                        : "No place the rules allow: a new record is refused"))}
+              </td>
+            </tr>
+          );
+        })}
+      </SettingsTable>
+      {profile?.key && (
+        <p>
+          <button type="button" className="secondary" disabled={busy || saved} onClick={() => void save()}>
+            {saved ? "Saved in the profile" : "Save these fields in the profile"}
+          </button>
+        </p>
       )}
     </Section>
   );

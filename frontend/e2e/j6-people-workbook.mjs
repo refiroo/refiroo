@@ -41,7 +41,7 @@ import json, sys
 from openpyxl import load_workbook
 path, edited = sys.argv[1], sys.argv[2]
 book = load_workbook(path)
-main, sheet = book.worksheets[0], book.worksheets[1]
+main, sheet = book.worksheets[0], book.worksheets[2]
 lists = [item.title for item in book.worksheets if item.title.startswith("List · ")]
 header = [cell.value for cell in main[1]]
 hidden = [cell.value for cell in main[1] if main.column_dimensions[cell.column_letter].hidden]
@@ -134,7 +134,7 @@ try {
     await workspaceAction(page, "Export…", { keyboard: true });
     const dialog = page.getByRole("dialog", { name: "Export" });
     await dialog.waitFor();
-    await dialog.locator("label", { hasText: "For people" }).click();
+    await dialog.locator("label", { hasText: "For editing in a spreadsheet" }).click();
     await dialog.getByText("Advanced: columns and sheets").click();
     await dialog.getByRole("group", { name: "Relationships with a sheet of their own" }).waitFor();
     return dialog;
@@ -179,7 +179,8 @@ try {
   const found = JSON.parse(read.stdout);
   // J6a (D196, D197): the relationship sheet's related record cells choose from a list sheet.
   expect(
-    JSON.stringify(found.sheets) === JSON.stringify(["System values", MAPS, ...found.lists, "Import profile"]) &&
+    JSON.stringify(found.sheets) ===
+      JSON.stringify(["System values", "About this export", MAPS, ...found.lists, "Import profile"]) &&
       found.lists.length === 1,
     `sheets: ${found.sheets}`,
   );

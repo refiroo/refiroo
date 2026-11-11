@@ -145,6 +145,91 @@ class JobPreview(BaseModel):
     previewedAt: datetime
 
 
+class BindingReportFieldOption(BaseModel):
+    """A field of a column's records the column could be matched by: with the counts of the file's
+    distinct values that find exactly one record (``matched``) or several (``ambiguous``) by it, of
+    ``cells`` values; no counts for a column that is not a matrix column."""
+
+    field: str
+    label: str
+    cells: int | None = None
+    matched: int | None = None
+    ambiguous: int | None = None
+
+
+class BindingReportNewRecords(BaseModel):
+    """Where a new record of a column goes (0.17 PP-D24): an existing container, or a place the
+    load creates first (``willBeCreated``); ``objectTypeKey`` and ``name`` are null where the model's
+    rules give no one place, ``reason`` saying whether none or several containers meet them."""
+
+    objectTypeKey: str | None
+    name: str | None
+    willBeCreated: bool
+    typeName: str | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="With ``willBeCreated``: the new container's type in words (PP-D28)",
+    )
+    under: str | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="With ``willBeCreated``: the name of the column record it is created under",
+    )
+    reason: Literal["none", "several"] | None = None
+    message: str | None = Field(
+        default=None, description="Where there is no place: why, in plain words"
+    )
+
+
+class BindingReportReading(BaseModel):
+    """How a matrix or relationship column was read (0.17 PP-D26): the ``field`` its cells are
+    matched by (``name``, an attribute key or ``@label``, the older ``name (display)`` reading) with
+    its ``label``; whether the file ``recorded`` it or the engine ``guessed`` it, with a plain
+    ``note`` when the guess was not clear; the fields it could be read by; and where a new record
+    goes. A different field is chosen with ``POST /jobs/{jobId}/reread``."""
+
+    binding: Literal["relation", "relatedRecord", "field"]
+    field: str | None = None
+    label: str | None = None
+    recorded: bool
+    guessed: bool
+    note: str | None = None
+    options: list[BindingReportFieldOption]
+    newRecords: BindingReportNewRecords | None = None
+    valueSheet: bool | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description=(
+            "True on the first column of a value sheet (0.17 PP-D27): the sheet lists the records"
+            " one column offers; ``updatedRows`` and ``newRows`` count its rows that update a"
+            " record and that are new records, and ``newRecords`` says where a new one goes"
+        ),
+    )
+    updatedRows: int | None = _by_status()
+    newRows: int | None = _by_status()
+    fromValueSheet: int | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description=(
+            "A link column of a file with value sheets: how many of its distinct values name a row"
+            " of the column's value sheet"
+        ),
+    )
+    createdValues: int | None = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description=(
+            "How many of its distinct values name no record, in the file or in the data, and so"
+            " create one"
+        ),
+    )
+
+
 class BindingReportColumn(BaseModel):
     """What binding made of one column's cells (D86). A converted column (``field``,
     ``attributeTypeKey``, ``relatedRecord``, ``key``) counts ``converted``, ``valueMapped`` and
@@ -171,6 +256,7 @@ class BindingReportColumn(BaseModel):
     resolved: int | SkipJsonSchema[None] = _by_status()
     notFound: int | SkipJsonSchema[None] = _by_status()
     ambiguous: int | SkipJsonSchema[None] = _by_status()
+    reading: BindingReportReading | None = None
 
 
 class BindingReportSource(BaseModel):

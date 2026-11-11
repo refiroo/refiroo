@@ -243,21 +243,27 @@ def test_containers_list_what_can_hold_a_new_cell_record(client, languages, syst
         ("Group en", ["Group en"]),
         ("Nested", ["Group en", "Nested"]),
     ]
-    assert page["defaultContainerId"] is None and page["totalCount"] == 2
+    # The group already holding the column's translations is where new ones go (PP-D24).
+    assert page["defaultContainerId"] == languages["groups"]["en"]["id"] and page["totalCount"] == 2
     only = helper(client, "containers", TRANSLATIONS, columnId=cs)
-    assert only["defaultContainerId"] == languages["groups"]["cs"]["id"]
+    # A sole group holding no translations is offered but never the default (PP-D24).
+    assert [item["id"] for item in only["items"]] == [languages["groups"]["cs"]["id"]]
+    assert only["defaultContainerId"] is None and only["items"][0]["cellCount"] == 0
     # The default is the column's, whatever the search narrows the page to.
     searched = helper(client, "containers", TRANSLATIONS, columnId=en, search="NEST")
     assert container_names(searched) == [("Nested", ["Group en", "Nested"])]
-    assert searched["defaultContainerId"] is None
+    assert searched["defaultContainerId"] == languages["groups"]["en"]["id"]
     empty = helper(client, "containers", TRANSLATIONS, columnId=de)
     assert empty["items"] == [] and empty["defaultContainerId"] is None
 
     # A system holds values directly, so the column record itself is a container.
     s1, s2 = systems["columns"]
     page = helper(client, "containers", CODELIST_SYSTEMS, columnId=s1)
-    assert container_names(page) == [("S1", []), ("S1 group", ["S1 group"])]
-    assert helper(client, "containers", CODELIST_SYSTEMS, columnId=s2)["defaultContainerId"] == s2
+    # Containers holding cells come first.
+    assert container_names(page) == [("S1 group", ["S1 group"]), ("S1", [])]
+    sole = helper(client, "containers", CODELIST_SYSTEMS, columnId=s2)
+    assert [item["id"] for item in sole["items"]] == [s2]
+    assert sole["defaultContainerId"] == (s2 if sole["items"][0]["cellCount"] else None)
 
     # Pages by cursor both ways.
     first = helper(client, "containers", TRANSLATIONS, columnId=en, pageSize=1)
@@ -291,16 +297,17 @@ def test_containers_list_what_can_hold_a_new_cell_record(client, languages, syst
     assert moved["parentObjectId"] == languages["groups"]["cs"]["id"]
     staged = helper(client, "containers", TRANSLATIONS, columnId=cs, changeSetId=change_set["id"])
     assert container_names(staged) == [
+        ("Nested", ["Group cs", "Nested"]),
         ("Group cs", ["Group cs"]),
         ("Group cs 2", ["Group cs", "Group cs 2"]),
-        ("Nested", ["Group cs", "Nested"]),
     ]
-    assert staged["defaultContainerId"] is None
-    assert container_names(helper(client, "containers", TRANSLATIONS, columnId=en, changeSetId=change_set["id"])) == [
-        ("Group en", ["Group en"])
-    ]
+    assert staged["defaultContainerId"] == languages["groups"]["nested"]["id"]
+    assert container_names(
+        helper(client, "containers", TRANSLATIONS, columnId=en, changeSetId=change_set["id"])
+    ) == [("Group en", ["Group en"])]
     # Live is unchanged.
-    assert helper(client, "containers", TRANSLATIONS, columnId=cs)["defaultContainerId"] == languages["groups"]["cs"]["id"]
+    live = helper(client, "containers", TRANSLATIONS, columnId=cs)
+    assert [item["id"] for item in live["items"]] == [languages["groups"]["cs"]["id"]]
 
 
 def test_container_and_candidate_refusals(client, languages, systems):
@@ -514,7 +521,9 @@ def test_change_set_cell_writes_publish(client, languages, systems):
         changeSetId=change_set["id"],
         expectedChangeSetVersion=change_set["version"],
     )
-    assert helper(client, "containers", TRANSLATIONS, columnId=de, **context)["defaultContainerId"] == de_group["id"]
+    staged_page = helper(client, "containers", TRANSLATIONS, columnId=de, **context)
+    assert [item["id"] for item in staged_page["items"]] == [de_group["id"]]
+    assert staged_page["defaultContainerId"] is None
     staged = client.post(
         "/api/v1/objects",
         json=translation_payload(

@@ -5,7 +5,17 @@
  */
 
 import { RELATED_FIELD_PREFIX, relatedColumn, relatedTargetTypes } from "@/model/lookup";
-import type { CollectionFilter, EngineModel, ExportCriterion, PeopleLayout, ValueType } from "@/types";
+import type {
+  ApplicationDefinition,
+  CollectionFilter,
+  CollectionQueryState,
+  EngineModel,
+  ExportCriterion,
+  ExportViewState,
+  PeopleLayout,
+  ValueType,
+  ViewDefinition,
+} from "@/types";
 
 /** Built-in fields a collection filters by, as the query names them, with their value types. */
 const BUILT_IN: Record<string, ValueType> = {
@@ -224,4 +234,197 @@ export function peopleLayout(
       : {}),
     ...(lists ? {} : { referenceLists: [] }),
   };
+}
+
+/**
+ * What the page showing a view holds (0.17 EX1, PP-D18), for the dialog's "This view": the view, the
+ * type its rows are of and what the page narrowed it to, in the page's own terms. The dialog turns
+ * it into the request's `view`; nothing here builds an API call.
+ */
+export interface ExportViewStart {
+  applicationKey: string;
+  viewKey: string;
+  name: string;
+  kind: ViewDefinition["type"];
+  /** The type the view's rows are of: what "The type" exports. */
+  typeKey: string;
+  search?: string;
+  filters: CollectionFilter[];
+  /** A relationships table or grid: filters on the `to` records. */
+  toFilters: CollectionFilter[];
+  toSearch?: string;
+  parentObjectId?: string;
+  /** A table: the columns shown, in order. */
+  columns?: string[];
+  /** A tree: its node types, whose records the file holds. */
+  typeKeys?: string[];
+  /** A matrix's column records, or a grid's `to` records, shown; all when absent. */
+  columnIds?: string[];
+  cellState?: ExportViewState["cellState"];
+  mappingState?: ExportViewState["mappingState"];
+  /** What the page narrowed the view to that the file cannot follow, said in the dialog. */
+  notCarried?: string;
+  /** A matrix whose cells link records: the cell type, whose identifying fields a cell can list (PP-D25). */
+  lists?: { cellTypeKey: string };
+}
+
+/** The type a view's rows are of. */
+export function viewTypeKey(view: ViewDefinition): string {
+  switch (view.type) {
+    case "table":
+      return view.objectTypeKey;
+    case "tree":
+      return view.config.rootObjectTypeKeys[0];
+    case "relationMatrix":
+      return view.config.rowObjectTypeKey;
+    case "mappingGrid":
+      return view.config.direction === "outgoing" ? view.config.fromObjectTypeKey : view.config.toObjectTypeKey;
+    case "relationTable":
+      return view.config.fromObjectTypeKey;
+  }
+}
+
+/** A relationships table's filters by the end they name, the end's prefix removed. */
+function byEnd(filters: CollectionFilter[], prefix: "from:" | "to:") {
+  return filters
+    .filter((filter) => filter.field.startsWith(prefix))
+    .map((filter) => ({ ...filter, field: filter.field.slice(prefix.length) }));
+}
+
+/**
+ * The page's state for the view kind that reads it (the same state the list routes take): a filter
+ * or search a kind does not read is left out, as it does not narrow that page (lenses of one
+ * collection share their address).
+ */
+export function exportViewStart(
+  application: ApplicationDefinition,
+  view: ViewDefinition,
+  query: CollectionQueryState,
+  columns?: readonly string[],
+): ExportViewStart {
+  const base = {
+    applicationKey: application.key,
+    viewKey: view.key,
+    name: view.name,
+    kind: view.type,
+    typeKey: viewTypeKey(view),
+    filters: [] as CollectionFilter[],
+    toFilters: [] as CollectionFilter[],
+  };
+  const search = query.search || undefined;
+  switch (view.type) {
+    case "table":
+      return {
+        ...base,
+        filters: query.filters,
+        search,
+        parentObjectId: query.parentObjectId,
+        columns: columns ? [...columns] : undefined,
+      };
+    case "tree":
+      return { ...base, typeKeys: [...view.config.objectTypeKeys] };
+    case "relationMatrix": {
+      const columnIds = query.matrixColumnIds?.length ? query.matrixColumnIds : undefined;
+      return {
+        ...base,
+        search,
+        parentObjectId: query.parentObjectId,
+        columnIds,
+        cellState: columnIds ? query.matrixState : undefined,
+        lists:
+          view.config.cellActions?.includes("link") || view.config.cellActions?.includes("unlink")
+            ? { cellTypeKey: view.config.cellObjectTypeKey }
+            : undefined,
+      };
+    }
+    case "mappingGrid":
+      return {
+        ...base,
+        search,
+        parentObjectId: query.parentObjectId,
+        mappingState: query.mappingProposed ? undefined : query.mappingState,
+        notCarried: query.mappingProposed
+          ? "The AI's proposals filter is not carried: every source is exported."
+          : undefined,
+      };
+    case "relationTable": {
+      const grid = view.config.layout === "grid";
+      const dropped = query.filters.some((filter) => filter.field.startsWith("relation:"));
+      return {
+        ...base,
+        search,
+        filters: byEnd(query.filters, "from:"),
+        toFilters: byEnd(query.filters, "to:"),
+        toSearch: grid ? query.gridSearch || undefined : undefined,
+        columnIds: grid && query.gridColumnIds?.length ? query.gridColumnIds : undefined,
+        notCarried: dropped ? "A filter on the relationship's own values is not carried." : undefined,
+      };
+    }
+  }
+}
+
+/** The request's view state from what the page holds; relationship filters need their records' types. */
+export function exportViewState(
+  model: EngineModel,
+  start: ExportViewStart,
+  records: ReadonlyMap<string, { objectTypeKey: string }> = new Map(),
+): ExportViewState {
+  const where = criteriaFromFilters(model, start.filters, records);
+  const toWhere = criteriaFromFilters(model, start.toFilters, records);
+  return {
+    ...(start.search ? { search: start.search } : {}),
+    ...(where.length ? { where } : {}),
+    ...(toWhere.length ? { toWhere } : {}),
+    ...(start.toSearch ? { toSearch: start.toSearch } : {}),
+    ...(start.parentObjectId ? { parentObjectId: start.parentObjectId } : {}),
+    ...(start.columns?.length ? { columns: start.columns } : {}),
+    ...(start.columnIds?.length ? { columnIds: start.columnIds } : {}),
+    ...(start.cellState ? { cellState: start.cellState } : {}),
+    ...(start.mappingState ? { mappingState: start.mappingState } : {}),
+  };
+}
+
+/**
+ * The dialog's count line for "This view" (EX1): what the file holds, as the page counts it, and
+ * where it is read from. Nothing is said of a size the page does not know.
+ */
+export function viewCountLine(
+  size: { rows?: number; columns?: number; records?: number } | undefined,
+  source: string,
+): string | undefined {
+  const plural = (count: number, one: string) => `${count.toLocaleString("en")} ${count === 1 ? one : `${one}s`}`;
+  const parts =
+    size?.records !== undefined
+      ? [plural(size.records, "record")]
+      : size?.rows !== undefined
+        ? [
+            size.columns !== undefined
+              ? `${plural(size.rows, "row")} × ${plural(size.columns, "column")}`
+              : plural(size.rows, "row"),
+          ]
+        : [];
+  return parts.length ? `${parts[0]}, from ${source}` : undefined;
+}
+
+/**
+ * The fields of a type that name one of its records, in the order offered (PP-D25): its name, its
+ * display attribute, then its other text attributes (PP-D27: not only the unique ones). The engine decides the same from the
+ * model and refuses any other field.
+ */
+export function identifyingFields(model: EngineModel, typeKey: string): { key: string; label: string }[] {
+  const type = model.objectTypes.find((item) => item.key === typeKey);
+  if (!type) return [];
+  const bound = type.attributes.map((item) => item.attributeTypeKey);
+  const found = ["name"];
+  const display = type.displayAttributeTypeKey;
+  if (display && display !== "name" && bound.includes(display)) found.push(display);
+  for (const key of bound) {
+    const attribute = model.attributeTypes.find((item) => item.key === key);
+    if (!found.includes(key) && (attribute?.valueType === "text" || attribute?.valueType === "longText"))
+      found.push(key);
+  }
+  return found.map((key) => ({
+    key,
+    label: key === "name" ? "Name" : (model.attributeTypes.find((item) => item.key === key)?.name ?? key),
+  }));
 }

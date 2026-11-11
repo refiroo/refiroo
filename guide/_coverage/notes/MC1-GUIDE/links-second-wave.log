@@ -1,0 +1,10 @@
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 75939 local links and sources in 257 built pages
+links: guide/use/edit-in-excel-and-import-back/index.html: src "/docs/screens/matrix-import-reading.png" points to nothing
+links: guide/use/fill-in-a-relation-matrix/index.html: src "/docs/screens/matrix-proposed-group.png" points to nothing
+links: guide/use/import-a-file/index.html: src "/docs/screens/matrix-import-reading.png" points to nothing
+
+3 problem(s) in links.

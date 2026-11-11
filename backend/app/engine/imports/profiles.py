@@ -43,7 +43,7 @@ from ...models.imports import (
 from ...models.schema import EngineModel
 from ..model.compiler import compile_model
 from ..model.registry import ModelSnapshot, resolve_model_snapshot
-from ..model.traversal import parent_type_keys
+from ..model.traversal import ancestor_type_keys, parent_type_keys
 
 _PROFILE_KEYS = (text_key("key", ImportProfile.key, "key"),)
 
@@ -99,10 +99,16 @@ def referenced_types(source: Source) -> set[str]:
             found.add(binding.parent.objectTypeKey)
         if binding.relation is not None:
             found.add(binding.relation.objectTypeKey)
+            if binding.relation.within is not None:
+                found.add(binding.relation.within.objectTypeKey)
+                if binding.relation.within.container is not None:
+                    found.add(binding.relation.within.container.objectTypeKey)
         if binding.relationFlags is not None:
             found.add(binding.relationFlags.objectTypeKey)
-        if binding.relatedRecord is not None:
+        if binding.relatedRecord is not None and binding.relatedRecord.parent is not None:
             found.add(binding.relatedRecord.parent.objectTypeKey)
+        if binding.relatedRecord is not None and binding.relatedRecord.under is not None:
+            found.add(binding.relatedRecord.under.objectTypeKey)
     return found
 
 
@@ -208,6 +214,8 @@ def _source_problems(
                         f"No column of the source binds the key attribute '{key}'",
                     )
                 )
+    if source.under is not None:
+        problems += _source_under_problems(model, source, f"{path}/under")
     if source.parent is not None:
         problems += _parent_problems(model, source.objectTypeKey, source.parent, f"{path}/parent")
         if any(binding.parent is not None for binding in source.columns):
@@ -240,7 +248,11 @@ def _source_problems(
                     f"Value map '{binding.valueMap}' is not defined",
                 )
             )
-        parent_map = binding.relatedRecord.parent.valueMap if binding.relatedRecord else None
+        parent_map = (
+            binding.relatedRecord.parent.valueMap
+            if binding.relatedRecord and binding.relatedRecord.parent
+            else None
+        )
         if parent_map is not None and parent_map not in profile.valueMaps:
             problems.append(
                 Problem(
@@ -277,6 +289,8 @@ def _source_problems(
                     model, relation.objectTypeKey, relation.matchBy, f"{at}/{name}/matchBy"
                 )
             problems += _create_problems(relation.missing, relation.matchBy, f"{at}/{name}")
+            if binding.relation is not None and binding.relation.within is not None:
+                problems += _within_problems(model, binding.relation, f"{at}/relation/within")
             if binding.relation is not None and binding.relation.attributes:
                 problems += _relation_value_problems(
                     model, source.objectTypeKey, binding.relation, f"{at}/relation/attributes"
@@ -296,6 +310,50 @@ def _source_problems(
         elif binding.relatedRecord is not None:
             problems += _related_problems(
                 model, source.objectTypeKey, binding.relatedRecord, f"{at}/relatedRecord"
+            )
+    return problems
+
+
+def _within_problems(model: EngineModel, relation: Any, path: str) -> list[Problem]:
+    """A link matrix's column: its type exists, its records can hold the cell type's at some depth,
+    the label attribute is the cell type's and a container can hold a record of the cell type."""
+    within = relation.within
+    problems: list[Problem] = []
+    if model.object_type(within.objectTypeKey) is None:
+        return [_unknown_type(f"{path}/objectTypeKey", within.objectTypeKey)]
+    if within.objectTypeKey not in ancestor_type_keys(model, relation.objectTypeKey):
+        problems.append(
+            Problem(
+                f"{path}/objectTypeKey",
+                "PARENT_NOT_ALLOWED",
+                f"A '{relation.objectTypeKey}' record cannot stand below a '{within.objectTypeKey}' record",
+            )
+        )
+    if within.labelAttributeTypeKey is not None:
+        problems += _attribute_problems(
+            model,
+            relation.objectTypeKey,
+            within.labelAttributeTypeKey,
+            f"{path}/labelAttributeTypeKey",
+        )
+    if within.field is not None and within.field != "name":
+        problems += _attribute_problems(
+            model, relation.objectTypeKey, within.field, f"{path}/field"
+        )
+    if within.container is not None:
+        container = within.container
+        if model.object_type(container.objectTypeKey) is None:
+            problems.append(
+                _unknown_type(f"{path}/container/objectTypeKey", container.objectTypeKey)
+            )
+        elif container.objectTypeKey not in parent_type_keys(model, relation.objectTypeKey):
+            problems.append(
+                Problem(
+                    f"{path}/container",
+                    "PARENT_NOT_ALLOWED",
+                    f"A '{relation.objectTypeKey}' record cannot stand under a "
+                    f"'{container.objectTypeKey}' record",
+                )
             )
     return problems
 
@@ -327,7 +385,9 @@ def _related_problems(
         model, owner_type, related.relationTypeKey, related.direction, related.objectTypeKey, path
     )
     parent = related.parent
-    if model.object_type(parent.objectTypeKey) is None:
+    if parent is None:
+        pass
+    elif model.object_type(parent.objectTypeKey) is None:
         problems.append(_unknown_type(f"{path}/parent/objectTypeKey", parent.objectTypeKey))
     elif parent.objectTypeKey not in parent_type_keys(model, related.objectTypeKey):
         problems.append(
@@ -341,7 +401,10 @@ def _related_problems(
         problems += _match_problems(
             model, parent.objectTypeKey, parent.matchBy, f"{path}/parent/matchBy"
         )
-    problems += _create_problems(parent.missing, parent.matchBy, f"{path}/parent")
+    if parent is not None:
+        problems += _create_problems(parent.missing, parent.matchBy, f"{path}/parent")
+    if related.under is not None:
+        problems += _under_problems(model, related, f"{path}/under")
     if related.attributeTypeKey is not None:
         problems += _attribute_problems(
             model,
@@ -356,6 +419,61 @@ def _related_problems(
             related.objectTypeKey,
             related.matchBy.attributeTypeKey,
             f"{path}/matchBy/attributeTypeKey",
+        )
+    return problems
+
+
+def _under_problems(model: EngineModel, related: Any, path: str) -> list[Problem]:
+    """A related record's column record: its type exists and its records can hold the related type's
+    at some depth."""
+    under = related.under
+    if model.object_type(under.objectTypeKey) is None:
+        return [_unknown_type(f"{path}/objectTypeKey", under.objectTypeKey)]
+    if under.objectTypeKey not in ancestor_type_keys(model, related.objectTypeKey):
+        return [
+            Problem(
+                path,
+                "PARENT_NOT_ALLOWED",
+                f"A '{related.objectTypeKey}' record cannot stand below a '{under.objectTypeKey}' record",
+            )
+        ]
+    return []
+
+
+def _source_under_problems(model: EngineModel, source: Source, path: str) -> list[Problem]:
+    """A value sheet's column record and matrix: the column and row types exist, the source's records
+    can stand below the column's, and the relationship joins the row type to the source's."""
+    under = source.under
+    problems: list[Problem] = []
+    for field_, key in (
+        ("objectTypeKey", under.objectTypeKey),
+        ("rowObjectTypeKey", under.rowObjectTypeKey),
+    ):
+        if model.object_type(key) is None:
+            problems.append(_unknown_type(f"{path}/{field_}", key))
+    if problems:
+        return problems
+    if under.objectTypeKey not in ancestor_type_keys(model, source.objectTypeKey):
+        problems.append(
+            Problem(
+                path,
+                "PARENT_NOT_ALLOWED",
+                f"A '{source.objectTypeKey}' record cannot stand below a '{under.objectTypeKey}' record",
+            )
+        )
+    outgoing = under.direction == "outgoing"
+    ends = (
+        (under.rowObjectTypeKey, source.objectTypeKey)
+        if outgoing
+        else (source.objectTypeKey, under.rowObjectTypeKey)
+    )
+    if model.allowed_relation(under.relationTypeKey, *ends) is None:
+        problems.append(
+            Problem(
+                f"{path}/relationTypeKey",
+                "RELATION_NOT_ALLOWED",
+                f"The model does not allow '{under.relationTypeKey}' from '{ends[0]}' to '{ends[1]}'",
+            )
         )
     return problems
 

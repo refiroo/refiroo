@@ -207,8 +207,8 @@ def test_a_workbook_for_people_holds_the_tables_columns_and_a_sheet_per_relation
     if hues.index(world.key("H")) % 8 != hues.index(world.key("K")) % 8:
         assert main[f"{_column(main, bn1)}2"].fill.fgColor.rgb != name_fill
 
-    sheet = book[book.sheetnames[1]]
-    assert book.sheetnames[1].startswith(bnn[:20])
+    sheet = book[book.sheetnames[2]]
+    assert book.sheetnames[2].startswith(bnn[:20])
     pairs = {(row[_header(sheet)[0]], row[_header(sheet)[1]]): row for row in _rows(sheet)}
     assert set(pairs) == {("First branch", "Alpha token"), ("First branch", "Beta token")}
     beta = pairs[("First branch", "Beta token")]
@@ -232,7 +232,7 @@ def test_a_workbook_for_people_holds_the_tables_columns_and_a_sheet_per_relation
         )
     _, content = _workbook(world, ws, "R", ["name", world.key("R.u")], [world.key("Bown")])
     book = _book(content)
-    owned = book[book.sheetnames[1]]
+    owned = book[book.sheetnames[2]]
     permits = {row["Name"]: row for row in _rows(owned)}
     assert set(permits) == {"First permit", "Second permit"}
     assert permits["First permit"]["K.code"] == "P1"
@@ -315,7 +315,7 @@ def test_a_workbook_for_people_reads_back_exactly_the_changes_a_person_made(worl
             cell("H.code").value = "T2"
         elif name == "Fourth branch":
             cell(bn1).value = "Twin token"
-    sheet = book[book.sheetnames[1]]
+    sheet = book[book.sheetnames[2]]
     header = _header(sheet)
     quantity = _column(sheet, "Bh1n.qty")
     pairs = {
@@ -361,7 +361,7 @@ def test_a_workbook_for_people_reads_back_exactly_the_changes_a_person_made(worl
     )
     _, content = _workbook(world, ws, "R", ["name", world.key("R.u")], [world.key("Bown")])
     book = _book(content)
-    owned = book[book.sheetnames[1]]
+    owned = book[book.sheetnames[2]]
     code = _column(owned, "K.code")
     for row in range(2, owned.max_row + 1):
         if owned[f"{_column(owned, 'Name')}{row}"].value == "Owned permit":

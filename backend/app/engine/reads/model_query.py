@@ -526,6 +526,29 @@ def ancestor_field_sets(
     return sets
 
 
+def candidate_place_filters(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    criteria: Sequence[CandidateCriterion],
+    *,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> list[SetFilter]:
+    """What the ``ancestor:<type>.<field>`` criteria say of where a record of ``object_type`` may
+    stand, one set filter per ancestor type: its ``predicate`` takes the parent column and keeps the
+    parents that are, or sit under, an ancestor meeting that type's criteria. A new record under such
+    a parent meets the ancestor criteria (0.17 PP-D24); the record's own fields are not known until
+    it is written and are left to the write."""
+    ancestors = [
+        (QueryCriterion(field=item.field, op=item.op, value=item.value), f"/{index}")
+        for index, item in enumerate(criteria)
+        if is_ancestor_field(item.field)
+    ]
+    return ancestor_field_sets(
+        model, object_type, ancestors, workspace_key=workspace_key, context=context, capability=None
+    )
+
+
 def candidate_ids(
     model: EngineModel,
     object_type: ObjectTypeDefinition,
@@ -539,17 +562,18 @@ def candidate_ids(
     attribute, and its ancestors' fields through :func:`ancestor_field_sets`. One statement; the
     candidate read narrows a list to it and the write rule asks which records it holds."""
     own: list[tuple[str, str, str]] = []
-    ancestors: list[tuple[QueryCriterion, str]] = []
     for index, item in enumerate(criteria):
         criterion = QueryCriterion(field=item.field, op=item.op, value=item.value)
-        if is_ancestor_field(criterion.field):
-            ancestors.append((criterion, f"/{index}"))
-        else:
-            own.append(_field_filter(model, (object_type,), criterion, f"/{index}", context, capability=None))
+        if not is_ancestor_field(criterion.field):
+            own.append(
+                _field_filter(
+                    model, (object_type,), criterion, f"/{index}", context, capability=None
+                )
+            )
     parents = [
         item.predicate
-        for item in ancestor_field_sets(
-            model, object_type, ancestors, workspace_key=workspace_key, context=context, capability=None
+        for item in candidate_place_filters(
+            model, object_type, criteria, workspace_key=workspace_key, context=context
         )
     ]
     if context is None:

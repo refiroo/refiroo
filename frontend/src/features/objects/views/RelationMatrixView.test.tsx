@@ -21,6 +21,7 @@ vi.mock("@/api/client", () => ({
     relationMatrixContainers: vi.fn(),
     relationMatrixLinkCandidates: vi.fn(),
     createObject: vi.fn(),
+    createObjectInNewPlace: vi.fn(),
     updateObject: vi.fn(),
     updateAttribute: vi.fn(),
     createRelation: vi.fn(),
@@ -147,7 +148,18 @@ const tagsView: RelationMatrixViewDefinition = {
     pageSize: 20,
   },
 };
-application.views.push(notesView, tagsView);
+// The same bindings with Link existing and Create both set (MC1, PP-D23).
+const tagsBothView: RelationMatrixViewDefinition = {
+  ...tagsView,
+  key: "codelist-tags-both",
+  config: { ...tagsView.config, cellActions: ["create", "edit", "link", "unlink"] },
+};
+const notesBothView: RelationMatrixViewDefinition = {
+  ...notesView,
+  key: "domain-notes-both",
+  config: { ...notesView.config, cellActions: ["create", "edit", "link", "unlink"] },
+};
+application.views.push(notesView, tagsView, tagsBothView, notesBothView);
 
 const columns = [
   { id: "c-east", name: "Region East", label: "EA" },
@@ -265,7 +277,7 @@ const gridCell = (rowName: string, column: number) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.relationMatrix).mockImplementation(async (query) =>
-    query.viewKey === tagsView.key ? tagsPage : notesPage,
+    query.viewKey === tagsView.key || query.viewKey === tagsBothView.key ? tagsPage : notesPage,
   );
 });
 
@@ -477,6 +489,149 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(gridCell("Connections", 2)).toHaveTextContent("One");
     expect(gridCell("Connections", 2)).toHaveTextContent("CL-WE");
     expect(gridCell("Finance", 2)).toHaveTextContent("History only");
+  });
+
+  it("creates the place the rules fix with the record when the column has none, and says so (PP-D24)", async () => {
+    vi.mocked(api.relationMatrixContainers).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      defaultContainerId: null,
+      derivedPlace: { objectTypeKey: "region", name: "Booked group", attributes: {}, willBeCreated: true },
+      totalCount: 0,
+      startIndex: 0,
+    });
+    vi.mocked(api.createObjectInNewPlace).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    expect(await within(dialog).findByText("(will be created)")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Booked group/)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    await waitFor(() => expect(api.createObjectInNewPlace).toHaveBeenCalled());
+    expect(api.createObject).not.toHaveBeenCalled();
+    const [type, payload, place] = vi.mocked(api.createObjectInNewPlace).mock.calls[0];
+    expect(type).toBe("note");
+    expect(payload).not.toHaveProperty("parentObjectId");
+    expect(place).toMatchObject({
+      objectTypeKey: "region",
+      name: "Booked group",
+      attributes: [],
+      parentObjectId: "c-west",
+    });
+  });
+
+  it("proposes a new group where neither the rules nor the data give a place, with its name editable and one OK (PP-D28)", async () => {
+    vi.mocked(api.relationMatrixContainers).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      defaultContainerId: null,
+      derivedPlace: {
+        objectTypeKey: "region",
+        name: "Shared group",
+        attributes: {},
+        willBeCreated: true,
+        proposed: true,
+      },
+      totalCount: 0,
+      startIndex: 0,
+    });
+    vi.mocked(api.createObjectInNewPlace).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    expect(await within(dialog).findByText(/refiroo proposes a new/)).toBeInTheDocument();
+    const name = within(dialog).getByRole("textbox", { name: /Name of the new/ });
+    expect(name).toHaveValue("Shared group");
+    fireEvent.change(name, { target: { value: "Edited group" } });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    await waitFor(() => expect(api.createObjectInNewPlace).toHaveBeenCalled());
+    expect(api.createObject).not.toHaveBeenCalled();
+    const [, payload, place] = vi.mocked(api.createObjectInNewPlace).mock.calls[0];
+    expect(payload).not.toHaveProperty("parentObjectId");
+    expect(place).toMatchObject({ objectTypeKey: "region", name: "Edited group", parentObjectId: "c-west" });
+  });
+
+  it("lets the person use an existing group instead of the proposed one (PP-D28)", async () => {
+    vi.mocked(api.relationMatrixContainers).mockResolvedValue({
+      items: [{ id: "g9", objectTypeKey: "region", name: "Station", path: [], cellCount: 0 }],
+      nextCursor: null,
+      defaultContainerId: null,
+      derivedPlace: {
+        objectTypeKey: "region",
+        name: "Shared group",
+        attributes: {},
+        willBeCreated: true,
+        proposed: true,
+      },
+      totalCount: 1,
+      startIndex: 0,
+    });
+    vi.mocked(api.createObject).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Use an existing group instead" }));
+    fireEvent.click(await within(dialog).findByRole("radio", { name: /Station/ }));
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    await waitFor(() => expect(api.createObject).toHaveBeenCalled());
+    expect(api.createObjectInNewPlace).not.toHaveBeenCalled();
+    expect(vi.mocked(api.createObject).mock.calls[0][1]).toMatchObject({ parentObjectId: "g9" });
+  });
+
+  it("preselects nothing for a group the view does not use and keeps it choosable under Other groups (PP-D24)", async () => {
+    vi.mocked(api.relationMatrixContainers).mockResolvedValue({
+      items: [{ id: "g9", objectTypeKey: "region", name: "Station", path: [], cellCount: 0 }],
+      nextCursor: null,
+      defaultContainerId: null,
+      derivedPlace: null,
+      totalCount: 1,
+      startIndex: 0,
+    });
+    vi.mocked(api.createObject).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    expect(await within(dialog).findByText("Other groups (not used in this view)")).toBeInTheDocument();
+    expect(within(dialog).getByText(/holds cells of this view yet/)).toBeInTheDocument();
+    const radio = within(dialog).getByRole("radio", { name: /Station/ });
+    expect(radio).not.toBeChecked();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    expect(api.createObject).not.toHaveBeenCalled();
+    fireEvent.click(radio);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    await waitFor(() => expect(api.createObject).toHaveBeenCalled());
+    expect(vi.mocked(api.createObject).mock.calls[0][1]).toMatchObject({ parentObjectId: "g9" });
+  });
+
+  it("says in plain words that nothing can hold the record when the rules fix no place and no container meets them", async () => {
+    vi.mocked(api.relationMatrixContainers).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      defaultContainerId: null,
+      derivedPlace: null,
+      totalCount: 0,
+      startIndex: 0,
+    });
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 2));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    expect(
+      await within(dialog).findByText(/There is no place in .* where a note can be created here/),
+    ).toBeInTheDocument();
   });
 
   it("waits for the cell's containers before Create can be submitted (0.9 R)", async () => {
@@ -901,6 +1056,24 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(await screen.findByRole("grid")).toBeInTheDocument();
     expect(api.relationMatrix).toHaveBeenCalledTimes(2);
     expect(vi.mocked(api.relationMatrix).mock.calls[1][0]).toEqual(vi.mocked(api.relationMatrix).mock.calls[0][0]);
+  });
+
+  it("offers Link existing and Create in a filled cell where many are allowed, only Link where one is (MC1)", async () => {
+    const many = renderMatrix(tagsBothView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Sizes", 1));
+    let dialog = await screen.findByRole("dialog", { name: "Sizes · EA" });
+    expect(within(dialog).getByRole("button", { name: /Link existing note/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /Create note/ })).toBeInTheDocument();
+    many.unmount();
+
+    // One record per column (the scope is the column, read outgoing): a filled cell keeps Link only.
+    renderMatrix(notesBothView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 1));
+    dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    expect(within(dialog).getByRole("button", { name: /Link existing note/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /Create note/ })).toBeNull();
   });
 
   it("offers no action when read-only", async () => {

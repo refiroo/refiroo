@@ -2734,6 +2734,96 @@ or a body of the wrong shape `422 REQUEST_VALIDATION_ERROR`. On the output: `404
 `404 JOB_HAS_NO_OUTPUT` (a batch), `409 JOB_NOT_COMPLETED` with `details.state`, `410 JOB_EXPIRED`
 (retention removed the file), `410 JOB_OUTPUT_MISSING` (the file is gone from `JOB_FILE_DIR`).
 
+### Exporting a view, a type, an application (Base 0.17 EX1)
+
+`POST /exports` takes `view` in place of `scope`: `{applicationKey, viewKey, state, cellField}`. The engine derives the
+records and the workbook from the view's definition, so the file is the one the page showing that view gives. `format` is
+`xlsx` and `layout` `people` (the default for a view); a table view may also be `technical`. `state` is what the page was
+narrowed to: `search`, `where` (criteria on the view's rows, as in `scope`), `toWhere` and `toSearch` (a relationships
+table or grid's `to` records), `parentObjectId`, `columns` (a table), `columnIds` (a matrix's or grid's columns shown) and
+`cellState` or `mappingState`. State a kind does not read, an unknown application or view, a column that is no record, or a
+file kind the view cannot be is `422 INVALID_EXPORT_LAYOUT` at its pointer (`/view/...`, `/layout`, `/format`).
+
+| View | The workbook | Loads back |
+| --- | --- | --- |
+| `table` | The type's sheet with the view's columns (and `people` options as before) | As a workbook for people |
+| `tree` | A sheet per type of the tree, parent by name | As the type sheets below |
+| `relationMatrix` that creates (`create`, `edit`) | A row per row record; per column record the cell fields, with the cell's ID and version hidden | An edited cell changes its record under its version; a filled empty cell creates one in the place the model's candidate rules give under the column record (below); a cleared cell changes nothing; a cell of several records is written joined and `not loaded` |
+| `relationMatrix` that links (`link`, `unlink`) | A column per column record listing the linked records by `cellField` (the name without it), `; ` between them, and a **value sheet** per column (below) | The cell's links become the listed records within that row and column, under the row's set version; a value no record has, in the file or in the data, creates one in that place where the view also creates; a value-sheet row loads as a record (below) |
+| `relationTable` rows | A row per relationship | Values change the relationship; a row without IDs adds one by names |
+| `relationTable` grid | A row per `from` record, a column group per `to` record: Linked (Yes/No) and the values | Values change; Yes on an unlinked pair links it; No removes nothing |
+| `mappingGrid` | A row per source with the mapped target as a relation column | As a relation column |
+
+`view.cellField` (a matrix whose cells link records; PP-D25) is the field of the cell record each cell lists the linked records
+by: `name`, or a text attribute of the type (PP-D27; the unique ones only before): the type's display attribute and every other
+`text` or `longText` attribute it binds. The default is the name. Another field, or the field on a view whose cells do not link, is `422
+INVALID_EXPORT_LAYOUT` at `/view/cellField`; a linked record with no value in the field refuses the export, naming how many. The
+file records the choice (`relation.within.field` in its profile) and an import reads it back. There is no container choice
+(`newCellContainers` is gone, and `suggestedContainerId` with it): where a new cell record goes is derived (PP-D24).
+
+**Value sheets (PP-D27).** A matrix whose cells link records (link, or link and create) gets one sheet per column record, "Values ·
+<column>": an Excel table of the records the column offers (those under the column that the binding's candidate rules let be
+chosen, and those linked in it) as full rows: the name and every bound attribute (a JSON one left out), the group (the container's
+name, for reading) and the record's ID and version in hidden columns. The main sheet's cells list the chosen field, and each
+column's dropdown (a warning-style data validation, so free typing is allowed) reads the value sheet's column for that field through a
+defined name over the table column, so a row added or renamed there shows in the dropdown. A matrix that creates cells holding
+the record's own fields (no `link`) has no value sheet. The profile reads each value sheet as a source of the cell type keyed by its ID
+column with the version, and `under` (below). On import: a row with an ID updates its record (under its version); a row without one is
+a new record in the column's place (PP-D24, PP-D28) where the view has `create`, and is refused in plain words where it has only
+`edit`; a main-sheet value that equals the chosen field of a value-sheet row of its column is that record (the file's value is the
+record's; a renamed record is found by its new value, and by its old one unless another row of the sheet holds it now), the same value typed in both places is one record, and a value
+found in neither is a new record named by the value and, where the chosen field is not the name, holding it in that field; a
+value-sheet row no cell names is still created or updated. Two rows of one column with the same value make a value that names them
+both `REFERENCE_AMBIGUOUS`. A view with only `link` and `unlink` gets the sheet for the dropdowns and for reading: it loads nothing.
+
+**Where a new record goes (PP-D24).** A relationship's `candidates` criteria at the cell's end say which records may be
+chosen. For a new cell record the matrix offers, and an import uses, only the containers under the column record that a record
+created there meets the `ancestor:<type>.<field>` criteria under; the record's own fields are left to the write. When the criteria
+are `eq` on fields of one ancestor type, each once, that type directly holds the cell type and sits directly under the column
+type, and the name and every value the type requires are among them, they fix one place; with no container meeting them it is
+created (that ancestor with those values, then the record, in one change: the cell dialog sends one atomic `POST /batches`, an
+import adds the place as its first item). Criteria that fix no place create nothing: the containers that meet them are offered, and the place is the one already
+holding cells of the view (cell-type records directly under it; the most, none on a tie); a container holding no cells is never
+the default or used by an import, even as the only one, and a new cell with no place is refused in plain words. `GET …/relation-matrix/containers` lists only the containers that meet the
+criteria and reports `derivedPlace` (`objectTypeKey`, `name`, `attributes`, `willBeCreated`, `proposed`; null where the criteria fix none and none is proposed, PP-D28);
+`defaultContainerId` is the container the criteria fix when it is the only one, else the one holding the most cells of the view (none on a tie, and never a container holding none).
+
+A type, an application or a workspace exported for editing (`scope` with several types, `layout: "people"`, no `people`) is a
+sheet per type, parents' types first: the type's fields, its parent by name (by a hidden ID where two parents share a name)
+and its relationships by name (a relationship loads back from the later sheet only). `people` options still describe one
+type's workbook.
+
+Every XLSX export has an **About this export** sheet, second: what was exported (application, view or scope, workspace,
+context, search and filters, time, job), what it holds, how it loads back and, for a matrix that creates, where new records
+go. An import ignores it. `output.sheets` lists the data sheets only; `output.view` names the view.
+
+The import profile gained, generically: `relatedRecord.idColumn` (the related record named by an ID cell; `parent` is then
+optional and an empty ID with a value is refused) and `relation.within` (a column's part of a set: `replace` changes only the
+links to records under the column record, an empty cell changes nothing); `relation.within.field` (the field each listed value is,
+`name` or an attribute that identifies the cell type's records, PP-D25; without it the file records no reading and the preview
+guesses it, PP-D26; `within.container` is optional: without it new records go in the derived place) and
+`relatedRecord.under` (in place of `parent`: a column record under which a new record goes in the derived place). `Source.under`
+(PP-D27: `{relationTypeKey, direction, rowObjectTypeKey, objectTypeKey, value, creates}`) marks a source as a column's value sheet: records
+of the source's type under the column record `value`; the source is `record: upsert` keyed by an ID `column` (and its
+`versionColumn`), a row without an ID is a new record in the place the rules give under the column record when `creates`, else
+refused.
+
+**How the file is read (PP-D26).** An import's binding report gives each matrix and relationship column a `reading`: the `field`
+its cells are matched by and its `label`; whether the file `recorded` it or the engine `guessed` it (each identifying field of
+the column's existing records compared with the column's distinct values in one statement; the field every value finds one
+record by, else the one most do, a tie going to the name, with a plain `note`); `options`, the fields it could be read by, with
+how many of the `cells` values each finds one record (`matched`) or several (`ambiguous`) for a matrix column; and
+`newRecords` (`objectTypeKey`, `name`, `willBeCreated`, `reason`, `message`: why there is no place, in plain words; with
+`willBeCreated`, `typeName` and `under`, the column record, for "will create group … under …"). A value-sheet source's first column has
+`valueSheet: true`, `updatedRows`, `newRows` and `newRecords`; a link column of a file with value sheets has `fromValueSheet` (distinct
+values naming a value-sheet row) and `createdValues` (naming no record at all). A value finding two records is refused, naming its
+row (`REFERENCE_AMBIGUOUS`); a value finding none creates a record named by it (and holding it in the field, when that is not the
+name) where the column creates.
+`POST /jobs/{jobId}/reread` with `{readings: [{source, column, field}]}` (`source` is the column's source by its place in the
+binding report) starts a new preview of the same file and profile with those fields and cancels the first; nothing is written by
+either. `409 JOB_NOT_AWAITING_CONFIRMATION`, `422 IMPORT_HAS_NO_PROFILE`, `422 INVALID_IMPORT_READING`, `410 IMPORT_FILE_MISSING`.
+A stored profile keeps the choice by `PUT /import-profiles/{key}` with the new job's `parameters.profile.definition`.
+
 ## Imports (Base 0.9 J2, J3)
 
 - `GET /api/v1/import-profiles`, `GET /api/v1/import-profiles/{profileKey}`
@@ -5937,7 +6027,8 @@ change set in place.
 
 `GET /api/v1/workspaces/{workspaceKey}/relation-matrix/containers` lists where a new cell record can
 go: the column record and the records under it whose type can directly contain the cell type, walked
-through the container types only, in path order.
+through the container types only, in path order, and only those a record created there meets the
+binding's candidate criteria under (0.17 PP-D24).
 
 | Parameter | Meaning |
 | --- | --- |
@@ -5948,8 +6039,19 @@ through the container types only, in path order.
 | `pageSize` (1–100, default 50), `cursor`, `from`, `position`, `includeTotal` | [Collection paging](#collection-paging). Cursors bind the context, view, column and search. |
 
 Each item has `id`, `objectTypeKey`, `name` and `path`, the records from below the column record down
-to the container (empty for the column record itself). `defaultContainerId` names the column's only
-container, whatever the search and page, and is `null` when it has none or several (D13).
+to the container (empty for the column record itself). `defaultContainerId` names where the column's new cells go, whatever the search and page: the container the criteria fix, else the
+one already holding cells of the view (the most; `null` on a tie, when none holds cells, and never a container holding none, PP-D24). Each item has `cellCount`, and containers holding cells come first. `derivedPlace` is the place the
+criteria fix (`objectTypeKey`, `name`, `attributes`, `willBeCreated`, `proposed`), `null` where they fix none and none is proposed.
+**A proposed container (PP-D28).** Where the rules fix no place and no container of the column holds cells of the view (the
+default is `null`), `derivedPlace` is a proposal with `proposed: true` and `willBeCreated: true`: a new container under the column
+record of the type the view's other columns' containers (those holding cells of the view) most often have, named as most of them are
+(a tie to the first name in order). It is proposed only for a type the model lets sit directly under the column type and directly hold
+the cell type that requires no value, and only when a container so named would meet the binding's ancestor criteria; no model rule is
+added for it. The caller creates it with the record by the same atomic batch as a fixed place, the name the person's to change; an
+import creates it with the first record that goes in it, its preview saying so (`newRecords.willBeCreated`). `derivedPlace.applicationKey`
+and each container's `applicationKey` name the application of the column record and of the container: a record stands in the
+application of its parent, so a new group and the cell in it (or in a chosen group) are created in those (a model that lists a type
+in several applications has records in each).
 
 `GET /api/v1/workspaces/{workspaceKey}/relation-matrix/link-candidates` lists the cell-type records
 under a column record that a row could be linked to, in name order, with the same parameters plus

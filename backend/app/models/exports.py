@@ -112,15 +112,97 @@ class PeopleLayout(BaseModel):
     )
 
 
+MatrixCellState = Literal["one", "several", "inactive", "historyOnly", "none"]
+MappingState = Literal["mapped", "unmapped", "ambiguous"]
+
+
+class ExportViewState(BaseModel):
+    """What the page showing a view had narrowed it to (0.17 EX1, PP-D18): the same state the list
+    routes take. Each part applies to the view kinds that read it; a part a kind does not read is
+    refused as ``INVALID_EXPORT_LAYOUT``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    search: str | None = Field(
+        default=None,
+        description="The page's search, over the view's search fields (every searchable field without)",
+    )
+    where: list[QueryCriterion] = Field(
+        default_factory=list,
+        description="The page's filters as a model query's criteria on the view's rows (a relationships table: its from records)",
+    )
+    toWhere: list[QueryCriterion] = Field(
+        default_factory=list,
+        description="A relationships table or grid: criteria on the to records",
+    )
+    toSearch: str | None = Field(
+        default=None,
+        description="A relationships grid: the search over the to records that choose its column groups",
+    )
+    parentObjectId: str | None = Field(
+        default=None,
+        description="Only the view's rows directly below this record (a tree: everything below it)",
+    )
+    columns: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        description="A table view: the columns shown, in order; the view's columns when omitted",
+    )
+    columnIds: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        description="A matrix's column records, or a relationships grid's to records, shown; all when omitted",
+    )
+    cellState: MatrixCellState | None = Field(
+        default=None, description="A matrix: only rows with a cell in this state in a shown column"
+    )
+    mappingState: MappingState | None = Field(
+        default=None, description="A mapping grid: only the sources in this coverage state"
+    )
+
+
+class ExportView(BaseModel):
+    """An export of what a view shows (0.17 EX1, PP-D18): the engine derives the records and the
+    workbook's shape from the view's definition, so an integrator gets the file the page gets."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    applicationKey: str
+    viewKey: str
+    state: ExportViewState = Field(default_factory=ExportViewState)
+    cellField: str | None = Field(
+        default=None,
+        description=(
+            "A matrix whose cells link records: the field of the cell record each cell lists the"
+            " linked records by (0.17 PP-D25): name, or an attribute the cell type's records are"
+            " identified by (its display attribute, or a unique one). The file records the choice and"
+            " an import reads it back. Left out, a cell lists each record as its name with its display"
+            " field in parentheses"
+        ),
+    )
+
+
 class ExportRequest(BaseModel):
-    """An export of a stated scope of one workspace, run as a background job."""
+    """An export of a stated scope or a view of one workspace, run as a background job."""
 
     model_config = ConfigDict(extra="forbid")
 
     workspaceKey: str
     context: ExportContext = Field(default_factory=ExportContext)
-    scope: ExportScope
+    scope: ExportScope | None = Field(
+        default=None, description="The records exported; or name a view, which derives them"
+    )
+    view: ExportView | None = None
     include: ExportInclude = Field(default_factory=ExportInclude)
     format: ExportFormat
-    layout: ExportLayout = "technical"
+    layout: ExportLayout | None = Field(
+        default=None,
+        description='"technical" for a scope, "people" for a view when omitted',
+    )
     people: PeopleLayout | None = None
+
+    @model_validator(mode="after")
+    def scope_or_view(self) -> ExportRequest:
+        if (self.scope is None) == (self.view is None):
+            raise ValueError("Name the records exported in scope, or a view in view, not both")
+        return self

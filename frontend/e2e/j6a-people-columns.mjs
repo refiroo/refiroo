@@ -122,13 +122,16 @@ try {
     await workspaceAction(page, "Export…", { keyboard: true });
     const dialog = page.getByRole("dialog", { name: "Export" });
     await dialog.waitFor();
-    await dialog.locator("label", { hasText: "For people" }).click();
+    await dialog.locator("label", { hasText: "For editing in a spreadsheet" }).click();
     await dialog.getByText("Advanced: columns and sheets").click();
     const sheets = dialog.getByRole("group", { name: "Relationships with a sheet of their own" });
     await sheets.getByRole("checkbox", { name: OWNED }).check();
     await dialog.locator("label", { hasText: "Columns per parent" }).click();
     await dialog.getByRole("combobox", { name: `Search: ${GROUPS}` }).fill("FR-J6A");
-    await dialog.getByRole("listbox", { name: GROUPS }).getByRole("option", { name: /FR-J6A/ }).click();
+    await dialog
+      .getByRole("listbox", { name: GROUPS })
+      .getByRole("option", { name: /FR-J6A/ })
+      .click();
     const fields = dialog.getByRole("group", { name: `${OWNED}: fields per parent` });
     for (const key of ["translated-description", "translated-value", "active"])
       await fields.getByRole("checkbox", { name: attributeName(key) }).uncheck();
@@ -170,7 +173,9 @@ try {
   expect(found.first === "Wert 1", `the German cell holds ${found.first}`);
   expect(found.empty === null, `the French cell holds ${found.empty}`);
   expect(found.border === "thin", `the header's border is ${found.border}`);
-  checks.push(`openpyxl: sheets ${found.sheets.join(", ")}; columns ${found.visible.join(" | ")}; border ${found.border}`);
+  checks.push(
+    `openpyxl: sheets ${found.sheets.join(", ")}; columns ${found.visible.join(" | ")}; border ${found.border}`,
+  );
 
   // 4. Imported without a profile, previewed, loaded.
   await page.goto(`${uiUrl}${COLLECTION}`);
@@ -214,7 +219,13 @@ try {
     checks.push(`axe export dialog with columns per parent (${theme}): ${result.violations.length} violations`);
   }
 
-  const report = { browser: browser.version(), viewports: ["1440x900", "390x844"], checks, failures, passed: !failures.length };
+  const report = {
+    browser: browser.version(),
+    viewports: ["1440x900", "390x844"],
+    checks,
+    failures,
+    passed: !failures.length,
+  };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(`J6a browser evidence: ${output}`);
   console.log(`Checks: ${checks.length}`);

@@ -458,10 +458,27 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.17 EM1 (breaking, pre-1.0): the e-mail is the sign-in name. `UserCreate`
     # takes `{name, email}` and no `username`; `UserResponse`, `MeResponse` and `GroupMemberResponse`
     # lose `username` (the member names its `email`); `EMAIL_TAKEN` replaces `USERNAME_TAKEN` and
-    # `EMAIL_REQUIRED` is new.
+    # `EMAIL_REQUIRED` is new. Re-baselined for 0.17 EX1 (additive; diffed against HEAD): the export
+    # request's `scope` becomes optional beside the new `view` (`ExportView`, `ExportViewState`), its
+    # `layout` nullable (a view's default is people), `PeopleLayout.columns` optional, the export output's
+    # `view`; the import profile's `RelatedRecordBinding.idColumn` with `parent` optional and
+    # `RelationBinding.within` (`RelationWithin`, `ContainerRecord`); the matrix containers read's
+    # `suggestedContainerId`. Nothing is removed or required that was not.
+    # Re-baselined for the 0.17 MC1/EX1 extension (PP-D24 to PP-D26, pre-1.0): the matrix containers
+    # read's `derivedPlace` (`RelationMatrixDerivedPlace`) and each container's `cellCount` replace `suggestedContainerId`;
+    # `ExportView.cellField` replaces `newCellContainers`; the import profile's `RelationWithin.field`
+    # and `RelatedRecordBinding.under`; the binding report column's `reading`
+    # (`BindingReportReading`, its `newRecords.message`); the new `POST /jobs/{jobId}/reread` (`ImportRereadRequest`).
+    # Re-baselined for 0.17 PP-D27 and PP-D28 (additive, pre-1.0): the import profile's `Source.under`
+    # (`SourceUnder`: a value sheet's column record); the binding report reading's `valueSheet`,
+    # `updatedRows`, `newRows`, `fromValueSheet`, `createdValues` and its `binding` value `field`, and
+    # `newRecords.typeName` and `under`; the matrix containers read's `derivedPlace.proposed` and
+    # `derivedPlace.applicationKey`, and each container's `applicationKey`. The set of
+    # fields an export may list a cell by (`ExportView.cellField`) widens to every text field, a rule, not
+    # a schema change.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ae4300503ca442ccbe66a78e82121f808bc76862fc843c982e4784ee0621c2f5"
+        "01e21ab16c5b6d591dbf65cf620c4d2cce0296e782d6225e11690190c9c37287"
     )
 
 

@@ -1726,6 +1726,51 @@ through the API delivered in 0.9 J2, its preview and confirmation in 0.9 J3, and
   or has no sheet, a parent the owned type cannot stand under or not in the context, a field it
   lacks, a list for a relationship the workbook does not name: `422 INVALID_EXPORT_LAYOUT` at its
   pointer.
+- **J27.22 A view exported as it is shown** (0.17 EX1): `POST /exports` naming a view (its application,
+  its key and the state the page was narrowed to: search, filters, parent, columns) gives the workbook
+  that view shows, for editing: a table its columns; a tree a sheet per type of the tree; a relationship
+  matrix a row per row record with the view's cell fields per column record, or, where the cells link,
+  the linked records listed by name; a relationships table a row per relationship; a relationships
+  grid a row per `from` record with a column group per `to` record; a mapping grid a row per source with
+  its mapped target. The same view of another model gives the same file. Every XLSX file has an "About
+  this export" sheet, second, saying what was exported, what it holds and how it loads back.
+- **J27.23 A type, an application or a workspace exported for editing** (0.17 EX1): the scope's types
+  are each a sheet of their own (parents' types first): the type's fields, its parent by name and its
+  relationships by name; the hidden profile reads every sheet back, and the file imported unchanged
+  comes back with every row unchanged. The technical workbook, with its About sheet, imports back
+  unchanged too.
+- **J27.24 A matrix's cells read back** (0.17 EX1): in a matrix that creates cell records, an edited cell
+  changes its record under its version, a filled empty cell creates the record in the place the model's
+  candidate rules give under its column (shown as new in the preview), a cleared cell changes nothing, a
+  cell holding several records is written joined and left out, and a column with no one place for a new
+  cell refuses it in plain words, naming the column.
+- **J27.25 A link matrix's cells read back** (0.17 EX1): an edited cell's list becomes that cell's
+  links, adding and removing within that row and column only, under the row's set version; a filled
+  empty cell links; a cleared cell changes nothing; a name that finds no record the column may link
+  creates one in the place the model's rules give where the matrix also creates, the place itself
+  created with it when the column has none (0.17 PP-D24). Cells listed by a chosen field (the name, a
+  display field or a code) read back by it; a value that finds two records is refused naming its row.
+  A file that does not record its field is guessed in the preview ("How the file is read"), which
+  lists each column's field, matches and new places and reads the file again with another field
+  (PP-D26).
+- **J27.27 A link matrix's value sheets** (0.17 EX1, PP-D27): a matrix whose cells link records (link, or link
+  and create) exports a value sheet per column, an Excel table of the records the column offers as full rows
+  (every bound field, the group, a hidden ID and version). The main sheet's cells list the chosen field (any
+  text field of the cell type, the name by default) and their warning-style dropdown reads the sheet's column
+  by a defined name. On import a value-sheet row with an ID updates its record, a row without one is a new
+  record in the column's place (where the view creates), a main-sheet value naming a value-sheet row is that
+  record, a value typed in both places is one record, a value found in neither is a new record named by it
+  (and holding it in the chosen field), and a value-sheet row picked nowhere is still created. A matrix whose
+  cells hold the record's own fields has no value sheet. The preview's "How the file is read" counts the
+  sheet's updated and new rows and the values taken from it.
+- **J27.28 A proposed container** (0.17 MC1, EX1, PP-D28): where neither the model's rules nor the data give a
+  column's place, a new container of the type the view's other columns use, named as most of them are, is
+  proposed: the cell dialog says so and creates it with the record on one OK (the name editable), and the
+  import preview says "will create group … under …" and confirming is the OK.
+- **J27.26 Refusals of an export of a view** (0.17 EX1): an unknown application or view, a view that is
+  not a list view, state the view does not read, a column or container the context does not hold,
+  technical or another format for a view that is not a table: `422 INVALID_EXPORT_LAYOUT` at its
+  pointer.
 - **J27.13 Import a file in the browser**: Import on a collection page loads into the data the page
   shows (live or its change set); New import on Settings › Jobs chooses a workspace and its live
   data or one of its change sets. The user picks a file, a stored profile or none, the policy and
@@ -1753,6 +1798,7 @@ J3, the preview);
 J27.6 in the browser runner `j1u-export` and `ExportDialog.test`, `JobNotifications.test` (0.9 J1u);
 J27.15–J27.17 in `test_j27_people_workbook` and the browser runner `j6-people-workbook`, `ExportDialog.test`, `ImportDialog.test` (0.9 J6);
 J27.18–J27.21 in `test_j27_people_columns` and the browser runner `j6a-people-columns`, `ExportDialog.test` (0.9 J6a);
+J27.22–J27.28 in `test_j27_export_views`, `ExportDialog.test` and the browser runner `ex1-export` (0.17 EX1);
 J27.13 in the browser runner `j4-import` and `ImportDialog.test`, `JobPage.test`,
 `JobNotifications.test` (0.9 J4);
 unit tests of `engine/imports/` (cells, profiles, readers, the binding report) and of the row read,

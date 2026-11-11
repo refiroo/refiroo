@@ -205,9 +205,17 @@ export function jobTitle(model: EngineModel, job: Job): string {
   if (job.kind !== "export" && job.kind !== "batch") return KIND[job.kind];
   if (job.kind !== "export") return "Batch";
   const scope = job.parameters.scope as { types?: { objectTypeKey: string }[] } | undefined;
-  const names = (scope?.types ?? []).map(
-    (item) => model.objectTypes.find((type) => type.key === item.objectTypeKey)?.pluralName ?? item.objectTypeKey,
-  );
+  // An export of a view is named after the view (0.17 EX1), any other after its types.
+  const named = job.parameters.view as { applicationKey: string; viewKey: string } | undefined;
+  const viewName = named
+    ? model.applications.find((item) => item.key === named.applicationKey)?.views.find((v) => v.key === named.viewKey)
+        ?.name
+    : undefined;
+  const names = viewName
+    ? [viewName]
+    : (scope?.types ?? []).map(
+        (item) => model.objectTypes.find((type) => type.key === item.objectTypeKey)?.pluralName ?? item.objectTypeKey,
+      );
   if (forPeople(job)) return names.length ? `Workbook for people of ${names.join(", ")}` : "Workbook for people";
   return names.length ? `Export of ${names.join(", ")}` : "Export";
 }

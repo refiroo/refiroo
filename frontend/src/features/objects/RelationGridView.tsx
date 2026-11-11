@@ -37,6 +37,7 @@ import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import type { ViewComponentProps } from "./views/types";
+import { useExportExtra } from "./views/useViewExport";
 
 type End = "from" | "to";
 
@@ -76,6 +77,7 @@ export function RelationGridView({
   lenses,
   onOpen,
   bulkSelection,
+  exportExtraRef,
 }: ViewComponentProps) {
   const view = rawView as RelationTableViewDefinition;
   const { config } = view;
@@ -170,6 +172,12 @@ export function RelationGridView({
   );
   const current = shown.key === queryKey ? shown : { ...shown, key: queryKey };
   const columns = current.columns;
+  useExportExtra(exportExtraRef, {
+    size: {
+      rows: list.loading || shown.key !== queryKey ? undefined : current.rowTotal,
+      columns: shown.key !== queryKey ? undefined : (query.gridColumnIds?.length ?? current.columnTotal),
+    },
+  });
 
   // --- columns and attributes shown (the Display menu, as the relationships table has it) ---
   const fieldLabel = (end: End, field: string) => {

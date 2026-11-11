@@ -286,6 +286,42 @@ export interface BindingReportColumn {
   resolved?: number;
   notFound?: number;
   ambiguous?: number;
+  /** How a matrix or relationship column was read (0.17 PP-D26). */
+  reading?: BindingReportReading;
+}
+
+export interface BindingReportReading {
+  binding: "relation" | "relatedRecord" | "field";
+  /** `name`, an attribute key, or `@label` (the older name with its display field). */
+  field?: string | null;
+  label?: string | null;
+  recorded: boolean;
+  guessed: boolean;
+  note?: string | null;
+  options: {
+    field: string;
+    label: string;
+    cells?: number | null;
+    matched?: number | null;
+    ambiguous?: number | null;
+  }[];
+  newRecords?: {
+    objectTypeKey: string | null;
+    name: string | null;
+    willBeCreated: boolean;
+    /** With `willBeCreated`: the new container's type in words, and the column record it goes under (PP-D28). */
+    typeName?: string | null;
+    under?: string | null;
+    reason?: "none" | "several" | null;
+    message?: string | null;
+  } | null;
+  /** A value sheet's first column (PP-D27): its rows that update a record and that are new records. */
+  valueSheet?: boolean | null;
+  updatedRows?: number | null;
+  newRows?: number | null;
+  /** A link column of a file with value sheets: values naming a value-sheet row, and values naming no record. */
+  fromValueSheet?: number | null;
+  createdValues?: number | null;
 }
 
 export interface BindingReportSource {
@@ -486,8 +522,8 @@ export type ExportLayout = "technical" | "people";
 
 /** What a workbook for people holds (0.9 J6, D188). */
 export interface PeopleLayout {
-  /** The main sheet's columns, as a table view names them. */
-  columns: string[];
+  /** The main sheet's columns, as a table view names them; the engine's default when omitted. */
+  columns?: string[];
   /** The relationships (relation keys or reverse keys) that get a sheet of their own. */
   sheets: string[];
   /** A `related:<key>` column's field shown instead of the related records' names. */
@@ -513,16 +549,43 @@ export type ExportCriterion =
       not?: boolean;
     };
 
-/** `POST /api/v1/exports` (0.9 J1). */
+/** What the page showing a view had narrowed it to (0.17 EX1, PP-D18). */
+export interface ExportViewState {
+  search?: string;
+  /** The page's filters as criteria on the view's rows. */
+  where?: ExportCriterion[];
+  /** A relationships table or grid: criteria on the `to` records. */
+  toWhere?: ExportCriterion[];
+  toSearch?: string;
+  parentObjectId?: string;
+  /** A table: the columns shown, in order. */
+  columns?: string[];
+  /** A matrix's column records, or a grid's `to` records, shown. */
+  columnIds?: string[];
+  cellState?: "one" | "several" | "inactive" | "historyOnly" | "none";
+  mappingState?: "mapped" | "unmapped" | "ambiguous";
+}
+
+/** An export of what a view shows (0.17 EX1, PP-D18); the engine derives the file from the view. */
+export interface ExportView {
+  applicationKey: string;
+  viewKey: string;
+  state?: ExportViewState;
+  /** A matrix whose cells link records: the field of the cell record each cell lists them by (PP-D25). */
+  cellField?: string;
+}
+
+/** `POST /api/v1/exports` (0.9 J1): a scope of types, or a view. */
 export interface ExportRequest {
   workspaceKey: string;
   context: { changeSetId: string | null; publicationId: string | null };
-  scope: {
+  scope?: {
     types: { objectTypeKey: string; where: ExportCriterion[] }[];
     parentObjectId: string | null;
     asOf: string | null;
   };
-  include: { relations: ExportRelations };
+  view?: ExportView;
+  include?: { relations: ExportRelations };
   format: ExportFormat;
   layout?: ExportLayout;
   people?: PeopleLayout;
@@ -532,8 +595,10 @@ export interface ExportRequest {
 export interface ExportOutput {
   format: ExportFormat;
   layout?: ExportLayout;
-  /** A workbook for people's sheets, in order. */
+  /** A workbook for people's data sheets, in order: the About sheet is second and not listed. */
   sheets?: string[];
+  /** The view an export of a view named (0.17 EX1). */
+  view?: { applicationKey: string; viewKey: string };
   contentType: string;
   counts: { records: Record<string, number>; relations: Record<string, number> };
   context: {

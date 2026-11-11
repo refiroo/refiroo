@@ -8,7 +8,7 @@ Fill in records that belong to each exported row, arranged as columns beneath ch
 This works for any model declaring that ownership and placement; languages are one example.
 Read [Importing and exporting](/docs/use/importing-and-exporting/#a-workbook-for-people).
 
-1. Open the owner records' collection. Choose **Workspace actions › Export** and **For people**.
+1. Open the owner records' collection. Choose **Workspace actions › Export** and **For editing in a spreadsheet**.
 2. Open **Advanced: columns and sheets**. Select the owned-record relationship and choose
    **Columns per parent** for its layout. Choose the fields to fill.
 3. Under **More columns for these …**, search for and select the additional parent records.
