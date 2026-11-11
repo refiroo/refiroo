@@ -15,12 +15,18 @@ import { CellRoom, RowActive } from "@/ui/tableCell";
 
 export type EditLayout = "row" | "title" | "subtitle";
 
-/** The value as a control: what it shows, and the pencil that says a click edits it. */
+/**
+ * The value as a control: what it shows, and the pencil that says a click edits it. A value that holds a
+ * control of its own (`holdsControl`: a link that opens what the value names) cannot be inside the edit
+ * button, since a button holds no other control (and a click on the link would also edit): the value reads
+ * as before, its link works as a link, and the pencil is the edit button next to it, which Tab reaches.
+ */
 export function EditInPlaceValue({
   layout,
   name,
   empty = false,
   disabled = false,
+  holdsControl = false,
   controlRef,
   onEdit,
   children,
@@ -31,11 +37,34 @@ export function EditInPlaceValue({
   /** Nothing is set yet: a plus, and in a title or subtitle "Add {name}" instead of the value. */
   empty?: boolean;
   disabled?: boolean;
+  /** The value holds a link or button of its own: only the pencil edits. */
+  holdsControl?: boolean;
   controlRef?: Ref<HTMLButtonElement>;
   onEdit: () => void;
   /** The value as it reads. */
   children: ReactNode;
 }) {
+  const hint = (
+    <span className="attribute-edit-hint">
+      <Icon name={empty ? "plus" : "pencil"} size={layout === "title" ? 16 : 13} />
+    </span>
+  );
+  if (holdsControl)
+    return (
+      <span
+        className={`attribute-edit attribute-edit-${layout} attribute-edit-holds-control`}
+        data-edit-hint={readEditHint()}
+        data-disabled={disabled || undefined}
+      >
+        {children}
+        <button ref={controlRef} type="button" className="attribute-edit-pencil" disabled={disabled} onClick={onEdit}>
+          <span className="visually-hidden">
+            {empty ? "Add" : "Edit"} {name}:
+          </span>
+          {hint}
+        </button>
+      </span>
+    );
   return (
     <button
       ref={controlRef}
@@ -60,9 +89,7 @@ export function EditInPlaceValue({
           {children}
         </>
       )}
-      <span className="attribute-edit-hint">
-        <Icon name={empty ? "plus" : "pencil"} size={layout === "title" ? 16 : 13} />
-      </span>
+      {hint}
     </button>
   );
 }

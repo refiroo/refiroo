@@ -146,9 +146,7 @@ def load_inputs(session: Session, job: Job, count: int) -> list[tuple[int, dict[
                 JobInput.item_index < job.processed + count,
             )
             .order_by(JobInput.item_index)
-        )
-        .tuples()
-        .all()
+        ).all()
     )
 
 
@@ -735,9 +733,7 @@ def release_public_ids(session: Session, jobs: Iterable[Job]) -> dict[int, str]:
     return dict(
         session.execute(
             select(ModelRelease.id, ModelRelease.public_id).where(ModelRelease.id.in_(ids))
-        )
-        .tuples()
-        .all()
+        ).all()
     )
 
 

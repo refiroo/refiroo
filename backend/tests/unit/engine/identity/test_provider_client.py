@@ -64,7 +64,9 @@ def test_an_id_token_is_checked_claim_by_claim(discovery):
 
 
 def test_only_asymmetric_algorithms_are_accepted(discovery):
-    _refused(discovery, jwt.encode({"sub": "s"}, "shared-secret", "HS256", {"kid": "k1"}), "token")
+    _refused(
+        discovery, jwt.encode({"sub": "s"}, "shared-secret" * 3, "HS256", {"kid": "k1"}), "token"
+    )
     unsigned = jwt.encode({"sub": "s"}, None, "none")
     _refused(discovery, unsigned, "token")
     _refused(

@@ -136,5 +136,5 @@ def assignments_of(session: Session, workspace_keys: Iterable[str]) -> dict[str,
             select(WorkspaceModel, ModelRelease)
             .join(ModelRelease, ModelRelease.id == WorkspaceModel.model_release_id)
             .where(WorkspaceModel.workspace_key.in_(set(workspace_keys)))
-        ).tuples()
+        )
     }

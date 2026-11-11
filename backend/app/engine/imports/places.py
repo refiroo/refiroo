@@ -16,6 +16,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...models.schema import CandidateCriterion, EngineModel
@@ -332,7 +333,7 @@ def _used_containers(
                 )
             )
         )
-        .distinct(holders.c.object_id)
+        .ext(distinct_on(holders.c.object_id))
     ).all()
 
 

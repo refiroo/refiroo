@@ -13,7 +13,7 @@ import threading
 import time
 from uuid import uuid4
 
-import httpx
+import httpx2
 import pytest
 import uvicorn
 from harness_identity import token
@@ -65,9 +65,9 @@ class Follower:
     def _read(self, base, job_id):
         url = f"{base}/api/v1/jobs/{job_id}/events"
         # The harness's token (0.12 I1), obtained from the same engine.
-        bearer = token(lambda path, **kwargs: httpx.post(f"{base}{path}", **kwargs))
+        bearer = token(lambda path, **kwargs: httpx2.post(f"{base}{path}", **kwargs))
         headers = {"Authorization": f"Bearer {bearer}"}
-        with httpx.stream("GET", url, headers=headers, timeout=30) as response:
+        with httpx2.stream("GET", url, headers=headers, timeout=30) as response:
             assert response.status_code == 200, response.read()
             assert response.headers["content-type"].startswith("text/event-stream")
             event = None

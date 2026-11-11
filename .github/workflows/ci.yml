@@ -18,24 +18,27 @@ jobs:
     # Ubuntu 24.04, not ubuntu-latest (26.04): Playwright's Chromium does not install on 26.04 yet.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
-        env:
-          # A password unlike any name: J31.2 checks that it appears nowhere in a response.
-          POSTGRES_PASSWORD: ci-db-secret-7f3a
-          POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=und --locale=C"
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s
-          --health-retries 10
     env:
       # The test harness uses this server instead of starting its own (tests/postgres_server.py).
       RDM_TEST_DATABASE_SERVER: postgresql+psycopg://postgres:ci-db-secret-7f3a@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # Started here and not as a job service: a service's whole log is printed when the job ends, and
+      # it holds the refusals the tests provoke on purpose (a duplicate key, for one). Here the log is
+      # printed only when a step failed (0.17 RF7).
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name ci-postgres -p 5432:5432 \
+            -e POSTGRES_PASSWORD=ci-db-secret-7f3a \
+            -e POSTGRES_INITDB_ARGS="--locale-provider=icu --icu-locale=und --locale=C" \
+            postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+          for attempt in $(seq 1 30); do
+            docker exec ci-postgres pg_isready -U postgres -h 127.0.0.1 && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready" >&2
+          exit 1
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
@@ -43,12 +46,18 @@ jobs:
       - run: pip install -c backend/constraints.txt -e 'backend[dev]'
       - run: python -m ruff check backend
       - run: python -m pytest backend/tests/unit -n auto -q -rfE
+      - name: PostgreSQL log (failed runs only)
+        if: failure()
+        run: docker logs ci-postgres
+      - name: Stop PostgreSQL
+        if: always()
+        run: docker rm -f ci-postgres > /dev/null
 
   frontend:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm

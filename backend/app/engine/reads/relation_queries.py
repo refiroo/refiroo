@@ -32,6 +32,7 @@ from sqlalchemy import (
     true,
     type_coerce,
 )
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session, aliased
 
 from ...common.cursors import encode_cursor
@@ -534,7 +535,7 @@ def _nearest_ancestor(
             *(item.label(f"value_{index}") for index, item in enumerate(values)),
         )
         .where(lookup(walk.c.current, "object_type_key") == literal(type_key, String))
-        .distinct(walk.c.start)
+        .ext(distinct_on(walk.c.start))
         .order_by(walk.c.start, walk.c.depth.desc())
         .cte(name)
     )
@@ -794,4 +795,3 @@ def held_records_query(
             **({"workspaceKey": workspace_key} if context is None else {"context": context.id}),
         },
     )
-

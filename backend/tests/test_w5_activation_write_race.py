@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 
-import httpx
+import httpx2
 import pytest
 from harness_identity import TestClient
 from sqlalchemy import event, func, select
@@ -103,7 +103,7 @@ def _domain_representation_one_to_one(source: dict) -> None:
     pair["cardinality"] = "one-to-one"
 
 
-def _activate(client: TestClient, release: ModelRelease, workspace: str) -> httpx.Response:
+def _activate(client: TestClient, release: ModelRelease, workspace: str) -> httpx2.Response:
     """``release`` activated into ``workspace`` (0.11 M1), claiming its current assignment."""
     state = client.get(f"/api/v1/workspaces/{workspace}/model").json()
     return client.post(
@@ -121,8 +121,8 @@ def _race(
     client: TestClient,
     release: ModelRelease,
     workspace: str,
-    write: Callable[[], httpx.Response],
-) -> httpx.Response:
+    write: Callable[[], httpx2.Response],
+) -> httpx2.Response:
     """Hold ``write`` after it resolved release A, activate ``release`` into its workspace, then
     let it continue."""
     resolved, activated = threading.Event(), threading.Event()
@@ -150,7 +150,7 @@ def _race(
     return response
 
 
-def _assert_stale_release_refused(response: httpx.Response, release: ModelRelease) -> None:
+def _assert_stale_release_refused(response: httpx2.Response, release: ModelRelease) -> None:
     assert response.status_code == 409, response.text
     error = response.json()["error"]
     assert error["code"] == "MODEL_RELEASE_CHANGED"
@@ -254,7 +254,7 @@ def test_relation_write_resolved_under_a_is_refused_after_b_activates(monkeypatc
     )
     domain = _create(client, workspace_key, "domain", "Domain", **{"domain-code": unique_key("d")})
 
-    def represent(value: dict) -> httpx.Response:
+    def represent(value: dict) -> httpx2.Response:
         return client.post(
             "/api/v1/relations",
             json={

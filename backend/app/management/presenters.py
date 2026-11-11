@@ -507,9 +507,7 @@ def feed_page(session: Session, page: FeedRead) -> FeedPage:
         dict(
             session.execute(
                 select(ModelRelease.id, ModelRelease.public_id).where(ModelRelease.id.in_(ids))
-            )
-            .tuples()
-            .all()
+            ).all()
         )
         if ids
         else {}

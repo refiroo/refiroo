@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from ..common.cursors import decode_cursor, signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
 from ..common.route_markers import reads_own_parameters
-from ..db import SessionLocal
+from ..db import SessionLocal, begin_snapshot_read
 from ..engine.authorization.permissions import permissions_of
 from ..engine.identity.authentication import authenticate, require_started
 from ..engine.model.consumer_definitions import consumer_api as declared_api
@@ -564,7 +564,7 @@ def get_events(
     or a cursor, narrowed by ``event`` and the definition's parameters, with each object or its
     identity only (C10, C-D88–C-D92, C-D7 revised). The read is one snapshot, so ``stateAt`` is the
     position its objects show."""
-    session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+    begin_snapshot_read(session)
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = _served(request, session, active, consumer_api, contract_version)
     if not definition.events:

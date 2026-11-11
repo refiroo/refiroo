@@ -72,7 +72,24 @@ describe("App", () => {
     forgetWorkspaceModel();
     vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null });
     // Import offers the AI assistant where a provider is set (0.16 AP6a): none is, here.
+    // Settings opens on About, which reads the engine and the active release: the answer is whole.
     vi.mocked(api.system).mockResolvedValue({
+      engine: {
+        version: "0.9.0-alpha.1",
+        managementApi: "v1",
+        license: "AGPL-3.0-or-later",
+        sourceCode: "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+        build: { commit: null, tag: null },
+      },
+      schemaLanguages: ["0.7", "0.8"],
+      activeModelRelease: {
+        id: "r1",
+        key: "test",
+        name: "Test",
+        version: "1",
+        schemaVersion: "0.8",
+        activatedAt: "2026-09-05T00:00:00Z",
+      },
       ai: { configured: false, provider: null, sendLevel: "structure" },
       mcp: { enabled: false },
     } as SystemResponse);

@@ -25,7 +25,7 @@ import time
 from collections.abc import Callable, Generator
 from typing import Any
 
-import httpx
+import httpx2
 from fastapi.testclient import TestClient as _FastApiTestClient
 
 # The key every test database's secrets are sealed with: 32 bytes, URL-safe base64. Test data only.
@@ -105,11 +105,11 @@ def basic_header(client_id: str, secret: str) -> str:
 
 
 def request_token(
-    post: Callable[..., httpx.Response],
+    post: Callable[..., httpx2.Response],
     client_id: str,
     secret: str,
     scope: str = "management",
-) -> httpx.Response:
+) -> httpx2.Response:
     """``POST /oauth/token`` with the client credentials grant, through any client's ``post``."""
     return post(
         "/oauth/token",
@@ -126,7 +126,7 @@ def audience(path: str) -> str:
     return "consumer" if path.startswith("/api/consumer") and not describing else "management"
 
 
-def token(post: Callable[..., httpx.Response], scope: str = "management") -> str | None:
+def token(post: Callable[..., httpx2.Response], scope: str = "management") -> str | None:
     """This process's harness token for ``scope``, obtained once through ``post`` and renewed near
     its expiry; none when the database answering has no harness client."""
     with _lock:
@@ -143,7 +143,7 @@ def token(post: Callable[..., httpx.Response], scope: str = "management") -> str
         return held[0]
 
 
-def own_token(post: Callable[..., httpx.Response], scope: str = "management") -> str | None:
+def own_token(post: Callable[..., httpx2.Response], scope: str = "management") -> str | None:
     """A token of a client made in the configured database, for one not cloned from the seed; none
     when that database cannot hold one (not migrated, or unreachable)."""
     from sqlalchemy.exc import SQLAlchemyError
@@ -172,7 +172,7 @@ def own_token(post: Callable[..., httpx.Response], scope: str = "management") ->
         return _own_tokens[(url, scope)]
 
 
-def _consumer_refusal(response: httpx.Response) -> tuple[str, str] | None:
+def _consumer_refusal(response: httpx2.Response) -> tuple[str, str] | None:
     """The consumer API and workspace a consumer route refused for want of a grant (D309)."""
     if response.status_code != 403 or not response.request.url.path.startswith("/api/consumer"):
         return None
@@ -206,15 +206,15 @@ def grant_consumer_api(client_id: str, consumer_api: str, workspace_key: str) ->
     return True
 
 
-class HarnessAuth(httpx.Auth):
+class HarnessAuth(httpx2.Auth):
     """Adds the harness token to a request without an ``Authorization`` header of its own, and
     sends it again with the database's own client's token when the shared one is refused, or once
     its client is granted the consumer API it was refused (D312)."""
 
-    def __init__(self, post: Callable[..., httpx.Response]):
+    def __init__(self, post: Callable[..., httpx2.Response]):
         self._post = post
 
-    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response]:
+    def auth_flow(self, request: httpx2.Request) -> Generator[httpx2.Request, httpx2.Response]:
         if "Authorization" in request.headers:
             yield request
             return

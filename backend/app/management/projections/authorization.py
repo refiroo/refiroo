@@ -298,9 +298,9 @@ def held_anywhere(session: Session, permissions: Permissions) -> HeldAnywhereLis
     keys = {key for workspaces in where.values() if workspaces for key in workspaces}
     labels = (
         dict(
-            session.execute(select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys)))
-            .tuples()
-            .all()
+            session.execute(
+                select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys))
+            ).all()
         )
         if keys
         else {}

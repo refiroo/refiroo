@@ -63,6 +63,7 @@ from sqlalchemy import (
     true,
     union_all,
 )
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...common.pagination import PageRequest, integer_key, paginate_statement, text_key
@@ -102,7 +103,10 @@ def xref_terms(values: Sequence[str]) -> list[str]:
     terms = [stripped for value in values if (stripped := value.strip())]
     if not terms:
         raise api_error(
-            400, "QUERY_REQUIRED", "XREF needs a query: one or more terms in 'query'", {"path": "/query/query"}
+            400,
+            "QUERY_REQUIRED",
+            "XREF needs a query: one or more terms in 'query'",
+            {"path": "/query/query"},
         )
     if len(terms) > MAX_TERMS:
         raise api_error(
@@ -118,7 +122,9 @@ def contains_ceiling(match: ConsumerMatch) -> int:
     """The highest score a contains match can give an object: its own contains weights together,
     or the highest promoted contains weight (C-D52)."""
     own = sum(rule.contains or 0 for rule in match.own)
-    promoted = max((rule.contains or 0 for entry in match.promoted for rule in entry.firstMatch), default=0)
+    promoted = max(
+        (rule.contains or 0 for entry in match.promoted for rule in entry.firstMatch), default=0
+    )
     return max(own, promoted)
 
 
@@ -173,7 +179,11 @@ class _Terms:
     and per value type the terms that parse for it as ``(item, term, value)``."""
 
     def __init__(self, model: EngineModel, lookups: Sequence[Sequence[str]]) -> None:
-        rows = [(item, number, term) for item, terms in enumerate(lookups) for number, term in enumerate(terms)]
+        rows = [
+            (item, number, term)
+            for item, terms in enumerate(lookups)
+            for number, term in enumerate(terms)
+        ]
         self.rows = rows
         self.relation = _unnest(
             "terms",
@@ -273,11 +283,17 @@ class _Scoring:
             return self._relation_arms(rule, contains, columns, route)
         if contains:
             return [
-                select(literal(item).label("item"), literal(number).label("term"), matched.c.id, *columns)
-                .select_from(matched)
+                select(
+                    literal(item).label("item"),
+                    literal(number).label("term"),
+                    matched.c.id,
+                    *columns,
+                ).select_from(matched)
                 for item, number, term in self.terms.rows
                 if len(term) >= MIN_INDEXED_LENGTH
-                for matched in [self._matched(rule.field, type_keys, contains_pattern=f"%{escape_like(term)}%")]
+                for matched in [
+                    self._matched(rule.field, type_keys, contains_pattern=f"%{escape_like(term)}%")
+                ]
             ]
         source = self.terms.relation
         if rule.field not in ("id", "name"):
@@ -287,7 +303,11 @@ class _Scoring:
                 if source is None:
                     return []
         bounded = self._matched(rule.field, type_keys, terms=source).lateral()
-        return [select(source.c.item, source.c.term, bounded.c.id, *columns).select_from(source).join(bounded, true())]
+        return [
+            select(source.c.item, source.c.term, bounded.c.id, *columns)
+            .select_from(source)
+            .join(bounded, true())
+        ]
 
     def _relation_arms(
         self, rule: ConsumerMatchRule, contains: bool, columns: tuple[Any, ...], route: str
@@ -307,13 +327,20 @@ class _Scoring:
                 stored = relation.attributes[key].as_string()
                 matched = (
                     select(relation.id)
-                    .where(relation.relation_type_key == route, _text_match(stored, None, f"%{escape_like(term)}%"))
+                    .where(
+                        relation.relation_type_key == route,
+                        _text_match(stored, None, f"%{escape_like(term)}%"),
+                    )
                     .limit(MATCH_LIMIT + 1)
                     .subquery()
                 )
                 arms.append(
-                    select(literal(item).label("item"), literal(number).label("term"), matched.c.id, *columns)
-                    .select_from(matched)
+                    select(
+                        literal(item).label("item"),
+                        literal(number).label("term"),
+                        matched.c.id,
+                        *columns,
+                    ).select_from(matched)
                 )
             return arms
         terms = self.terms.relation
@@ -325,10 +352,19 @@ class _Scoring:
             .limit(MATCH_LIMIT + 1)
             .lateral()
         )
-        return [select(terms.c.item, terms.c.term, bounded.c.id, *columns).select_from(terms).join(bounded, true())]
+        return [
+            select(terms.c.item, terms.c.term, bounded.c.id, *columns)
+            .select_from(terms)
+            .join(bounded, true())
+        ]
 
     def _matched(
-        self, field: str, type_keys: Sequence[str], *, terms: Any = None, contains_pattern: str | None = None
+        self,
+        field: str,
+        type_keys: Sequence[str],
+        *,
+        terms: Any = None,
+        contains_pattern: str | None = None,
     ) -> Any:
         """The IDs of the records of ``type_keys`` in the workspace whose ``field`` equals a term of
         ``terms`` ignoring case (a typed field by its parsed value), or holds ``contains_pattern``;
@@ -336,18 +372,25 @@ class _Scoring:
         tables unaliased: aliasing them for each of hundreds of terms cost SQLAlchemy more time than
         PostgreSQL took to run them (0.9 C14b)."""
         record = self.source.object_alias() if terms is not None else self.source.objects
-        scope = [record.workspace_key == self.source.workspace_key, record.object_type_key.in_(list(type_keys))]
+        scope = [
+            record.workspace_key == self.source.workspace_key,
+            record.object_type_key.in_(list(type_keys)),
+        ]
         if field == "id":
             # Object IDs are UUIDs in lower case; validation keeps contains off them.
             matched = select(record.id).where(*scope, record.id == func.lower(terms.c.text))
         elif field == "name":
-            matched = select(record.id).where(*scope, _text_match(record.name, terms, contains_pattern))
+            matched = select(record.id).where(
+                *scope, _text_match(record.name, terms, contains_pattern)
+            )
         else:
             value_type = self.model.attribute_type(field).valueType
             value = self.source.value_alias() if terms is not None else self.source.values
             stored = getattr(value, VALUE_COLUMNS[value_type])
             comparison = (
-                _text_match(stored, terms, contains_pattern) if value_type in _TEXT_TYPES else stored == terms.c.value
+                _text_match(stored, terms, contains_pattern)
+                if value_type in _TEXT_TYPES
+                else stored == terms.c.value
             )
             matched = (
                 select(record.id)
@@ -408,7 +451,11 @@ class _Scoring:
                     literal(weight).label("weight"),
                     literal(not contains and position in safe).label("safe"),
                     *(
-                        [literal(split_relation_reference(rule.field) is not None).label("relationship")]
+                        [
+                            literal(split_relation_reference(rule.field) is not None).label(
+                                "relationship"
+                            )
+                        ]
                         if by_relation
                         else []
                     ),
@@ -419,7 +466,9 @@ class _Scoring:
 
     def hits(self) -> list[Any]:
         """The hit relations that can match: the own one and one per promoted entry."""
-        return ([self.own] if self.own is not None else []) + [hits for _promoted, hits in self.promoted]
+        return ([self.own] if self.own is not None else []) + [
+            hits for _promoted, hits in self.promoted
+        ]
 
     # --- scores ---
 
@@ -473,20 +522,24 @@ class _Scoring:
                     resolved.c.safe,
                     resolved.c.owner_id,
                 )
-                .distinct(resolved.c.item, resolved.c.relation_id, resolved.c.term)
-                .order_by(resolved.c.item, resolved.c.relation_id, resolved.c.term, resolved.c.position)
+                .ext(distinct_on(resolved.c.item, resolved.c.relation_id, resolved.c.term))
+                .order_by(
+                    resolved.c.item, resolved.c.relation_id, resolved.c.term, resolved.c.position
+                )
             )
             if scoring is not None:
                 related, through = self.source.object_alias(), self.source.relation_alias()
-                best = best.join(related, related.id == resolved.c.id).join(
-                    through, through.id == resolved.c.relation_id
-                ).where(scoring(related, through))
+                best = (
+                    best.join(related, related.id == resolved.c.id)
+                    .join(through, through.id == resolved.c.relation_id)
+                    .where(scoring(related, through))
+                )
             best = best.subquery()
             owner_id = best.c.owner_id
         else:
             best = (
                 select(hits.c.item, hits.c.id, hits.c.term, hits.c.weight, hits.c.safe)
-                .distinct(hits.c.item, hits.c.id, hits.c.term)
+                .ext(distinct_on(hits.c.item, hits.c.id, hits.c.term))
                 .order_by(hits.c.item, hits.c.id, hits.c.term, hits.c.position)
             )
             if scoring is not None:
@@ -495,7 +548,12 @@ class _Scoring:
             best = best.subquery()
             owner_id = own
         preferred = list(promoted.preferTargetTypes)
-        columns = [best.c.item, owner_id.label("object_id"), best.c.weight.label("score"), best.c.safe]
+        columns = [
+            best.c.item,
+            owner_id.label("object_id"),
+            best.c.weight.label("score"),
+            best.c.safe,
+        ]
         if preferred:
             is_preferred = owner.object_type_key.in_(preferred)
             columns += [
@@ -506,9 +564,12 @@ class _Scoring:
             ]
         passed = select(*columns).select_from(best)
         if not (by_relationship or scoring is not None):
-            passed = passed.join(relation, and_(relation.relation_type_key == route.relation, other == best.c.id))
+            passed = passed.join(
+                relation, and_(relation.relation_type_key == route.relation, other == best.c.id)
+            )
         passed = passed.join(owner, owner.id == owner_id).where(
-            owner.workspace_key == self.source.workspace_key, owner.object_type_key.in_(self.exposed)
+            owner.workspace_key == self.source.workspace_key,
+            owner.object_type_key.in_(self.exposed),
         )
         if not preferred:
             return passed
@@ -525,7 +586,9 @@ class _Scoring:
         if not hits:
             return None
         ids = union_all(*(select(item.c.item, item.c.id) for item in hits)).subquery()
-        return select(ids.c.item, func.count(func.distinct(ids.c.id)).label("matched")).group_by(ids.c.item)
+        return select(ids.c.item, func.count(func.distinct(ids.c.id)).label("matched")).group_by(
+            ids.c.item
+        )
 
     def ranked(self) -> _Ranked | None:
         """``(item, id, score, safe_score, public_name, name)`` of the scored objects the parameters
@@ -578,7 +641,9 @@ class _Scoring:
             .where(*self.narrowed.on(objects))
             .subquery("ranked")
         )
-        return _Ranked(select(ranked.c.id, ranked.c.score, ranked.c.public_name, ranked.c.name), ranked.c)
+        return _Ranked(
+            select(ranked.c.id, ranked.c.score, ranked.c.public_name, ranked.c.name), ranked.c
+        )
 
     def tops(self, session: Session) -> dict[int, tuple[int, list[Any]]]:
         """Each lookup's matched count and its top ``AMBIGUOUS_CANDIDATES + 1`` objects in order, each
@@ -676,7 +741,9 @@ def resolve_lookups(
         else:
             unsettled.append(item)
     for chunk in _chunks(unsettled, lookups):
-        full = _Scoring(model, definition, source, [lookups[item] for item in chunk], narrowed).tops(session)
+        full = _Scoring(
+            model, definition, source, [lookups[item] for item in chunk], narrowed
+        ).tops(session)
         for number, item in enumerate(chunk):
             matched, rows = full.get(number, (0, []))
             answers[item] = _too_broad() if matched > MATCH_LIMIT else _decided(rows)
@@ -716,7 +783,12 @@ def _decided(rows: Sequence[Any]) -> Found | ApiError:
             {
                 "count": top.same,
                 "candidates": [
-                    {"id": row.id, "objectType": row.public_name, "name": row.name, "matchScore": row.score}
+                    {
+                        "id": row.id,
+                        "objectType": row.public_name,
+                        "name": row.name,
+                        "matchScore": row.score,
+                    }
                     for row in tied[:AMBIGUOUS_CANDIDATES]
                 ],
             },
@@ -752,7 +824,10 @@ def read_xref(
         if isinstance(answer, ApiError):
             raise answer
         composed = composer.compose(session, source, [answer.id], narrowed)
-        return {**one_target(composed[answer.id], answer.id, narrowed.target), "matchScore": answer.score}
+        return {
+            **one_target(composed[answer.id], answer.id, narrowed.target),
+            "matchScore": answer.score,
+        }
     ranked = None
     if definition.match is not None:
         scoring = _Scoring(model, definition, source, [terms], narrowed)
@@ -762,7 +837,13 @@ def read_xref(
             raise _too_broad()
         ranked = scoring.ranked()
     if ranked is None:
-        nothing = {"nextCursor": None, "prevCursor": None, "anchor": None, "totalCount": 0, "startIndex": 0}
+        nothing = {
+            "nextCursor": None,
+            "prevCursor": None,
+            "anchor": None,
+            "totalCount": 0,
+            "startIndex": 0,
+        }
         return _envelope([], terms, source, page_size, nothing, narrowed)
     found = paginate_statement(
         session,
@@ -773,7 +854,9 @@ def read_xref(
             "workspace": source.workspace_key,
             "contractVersion": definition.contractVersion,
             "query": sorted(set(terms)),
-            "parameters": {name: sorted(values) for name, values in sorted(without_target(parameters).items())},
+            "parameters": {
+                name: sorted(values) for name, values in sorted(without_target(parameters).items())
+            },
             **as_of_filter(narrowed.as_of),
         },
         page=replace(page, include_total=True),
@@ -812,4 +895,3 @@ def _envelope(
         "pageSize": page_size,
         **links,
     }
-

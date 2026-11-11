@@ -13,7 +13,7 @@ dependencies = [
   "openpyxl>=3.1,<4",
   "pydantic>=2.10,<3",
   "python-multipart>=0.0.20,<1",
-  "sqlalchemy>=2.0,<3",
+  "sqlalchemy>=2.1,<3",
   "psycopg[binary]>=3.2,<4",
   "pyjwt>=2.10,<3",
   "webauthn>=2.7,<3",
@@ -27,6 +27,7 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-xdist>=3.6,<4",
   "pytest-testmon>=2.2,<3",
+  "httpx2>=2.0,<3",  # starlette.testclient builds on it; with httpx alone it warns
   "ruff==0.16.5",  # one linter for CI and the developer instance: rule sets change between minors
 ]
 
@@ -36,6 +37,9 @@ testpaths = ["tests"]
 # `-n auto` runs modules in parallel, each module on one worker (TEST_HARNESS_PLAN H2), and journey
 # tests one at a time (tests/conftest.py, S1).
 addopts = ["--strict-markers", "--dist", "loadfile"]
+# A warning fails the test: the run prints none (0.17 RF7). Exceptions go below, one per third-party
+# warning that cannot be fixed from our side, naming the package, the message and the reason.
+filterwarnings = ["error"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

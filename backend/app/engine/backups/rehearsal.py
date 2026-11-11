@@ -225,7 +225,7 @@ def _count_copy(session: Session, checks: list[WorkspaceCheck]) -> None:
         ("publications", select(Publication.workspace_key, func.count())),
     ):
         column = statement.selected_columns[0]
-        rows = session.execute(statement.where(column.in_(list(by_key))).group_by(column)).tuples()
+        rows = session.execute(statement.where(column.in_(list(by_key))).group_by(column))
         for key, count in rows:
             setattr(by_key[key], attribute, count)
 

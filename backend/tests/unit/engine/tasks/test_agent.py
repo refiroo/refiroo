@@ -270,14 +270,15 @@ def test_the_words_go_to_the_sessions_standard_input_in_a_container(monkeypatch,
     from app.engine.tasks import agent
 
     monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
-    process = subprocess.Popen(["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    agent._feed(process, "Words\nof two lines")
-    assert process.stdout.read() == "Words\nof two lines"
-    process.wait()
+    with subprocess.Popen(
+        ["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+    ) as process:
+        agent._feed(process, "Words\nof two lines")
+        assert process.stdout.read() == "Words\nof two lines"
     # A session that has ended before it read the words is no failure of the feeding.
-    gone = subprocess.Popen(["true"], stdin=subprocess.PIPE, text=True)
-    gone.wait()
-    agent._feed(gone, "x" * 200_000)
+    with subprocess.Popen(["true"], stdin=subprocess.PIPE, text=True) as gone:
+        gone.wait()
+        agent._feed(gone, "x" * 200_000)
 
 
 def test_the_session_sees_only_the_named_variables(monkeypatch, tmp_path):
@@ -845,6 +846,7 @@ def test_the_progress_of_a_turn_is_read_through_the_descriptor_it_opened(tmp_pat
     with held.open("a") as more:
         more.write(json.dumps({"type": "result", "result": "second"}) + "\n")
     progress.read()
+    progress.close()
     assert progress.result["result"] == "second"
     # A link in its place from the start is not a log, and nor is anything but a regular file.
     planted = _Progress(tmp_path / "planted.log")

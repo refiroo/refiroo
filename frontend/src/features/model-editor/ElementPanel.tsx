@@ -834,8 +834,9 @@ export function ElementPanel({
               label: "Shows",
               cell: (view) => (
                 <span className="type-links">
-                  {view.shows.map((key) => (
-                    <TypeLink key={key} outline={outline} typeKey={key} onSelect={onSelect} />
+                  {/* A matrix shows a type twice (as rows and as columns): the position makes the key. */}
+                  {view.shows.map((key, position) => (
+                    <TypeLink key={`${position}-${key}`} outline={outline} typeKey={key} onSelect={onSelect} />
                   ))}
                 </span>
               ),
@@ -885,6 +886,7 @@ export function ElementPanel({
               edit: (group) => ({
                 label: "Label",
                 value: group.label,
+                holdsControl: true,
                 operations: (label) => [
                   { kind: "setNavigationGroup", applicationKey: application.key, group: group.key, label },
                 ],

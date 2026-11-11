@@ -57,6 +57,7 @@ corrects that result, and the way to import when no provider is configured.
 | [RF4](#rf4-review-findings-build-and-deployment) | RF1 | The build and deployment findings: pinned versions, a content security policy, CI permissions, safe forwarding defaults |
 | [RF5](#rf5-assistant-sessions-in-a-container) | RF1 | An assistant session in a container reads only its own task, and holds no more of the provider's credentials than it needs (plan first) |
 | [RF6](#rf6-webhook-addresses-on-private-ranges) | RF1 | A webhook address on a loopback or private range is refused unless an instance setting allows it |
+| [RF7](#rf7-clean-test-output) | — | A passing test run has no errors or warnings in its output, frontend and backend: each is fixed at its cause, and from now on fails the run |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
 **Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. EM1 was added by the user on 2026-11-11 and
@@ -832,6 +833,45 @@ address but link-local ones.
   naming it; the delivery log named it before RF6 and still does. The subscription check's DNS lookup now runs
   before the row lock for an edit's new URL and for the stored URL of an edit or a resume (re-checked if the
   stored URL changed meanwhile).
+
+## RF7: Clean test output
+
+_Added by the user on 2026-11-12._ A passing run with errors or warnings in its output is not accepted. Applies
+to the frontend and the backend: each message is fixed at its cause, and from now on such output fails the run.
+
+- **Frontend.**
+  - **Delivered 2026-11-12.** The CI log of b13d3569 held four sources. (1) `App.test` opened Settings, which
+    opens on About, with a `GET /system` answer that had no `engine`: only the test's mock was short (the engine
+    always answers `engine` and `activeModelRelease`; About already shows its loading state while the answer is
+    absent); the default mock is whole. (2) A navigation group's label cell put the link that opens the group
+    inside the edit button, a button in a button: `EditInPlaceValue` takes `holdsControl`, and then the value reads
+    as before, its link is a link and the pencil is the edit button beside it (Tab reaches both). (3) A relation
+    matrix lists its type twice (rows and columns): the Views table's "Shows" links are keyed by position and key.
+    (4) The History test's entries were not newest first, so one day came twice; the fixture is in the API's order
+    (the grouping is by run of a day, correct for the API's order).
+    The rule: `src/test/consoleGuard.ts`, loaded by both Vitest projects, fails a test that logs through
+    `console.error` or `console.warn` and prints the message; a test that does so on purpose says it with
+    `expectConsoleError(pattern)` or `expectConsoleWarn(pattern)` (the message is then required); no list of
+    allowed messages. The ErrorBoundary tests use it. The whole suite revealed nothing further. Why a local run
+    showed no `stderr |` blocks: Vitest 4 chooses a terse "agent" reporter, without console output, when
+    `AI_AGENT` or `CLAUDECODE` is set (every Claude Code session); `vite.config.ts` pins the default reporter
+    so a run reads the same everywhere. Not verified: Node 22, which CI runs (here Node 26, whose `localStorage`
+    differs, see `test/setup.ts`).
+
+- **Backend and CI.**
+  - **Delivered 2026-11-12.** The CI log of b13d3569 held SQLAlchemy 2.1 deprecations (`Result.tuples()` in 19
+    places, `distinct(<expression>)` in 9), Starlette's `httpx` deprecation, two short-key HMAC warnings, the
+    Node 20 notice of three actions and the PostgreSQL service log with its intended duplicate-key errors.
+    Each is fixed at its cause (see CHANGELOG). `filterwarnings = ["error"]` now makes any warning fail a test,
+    with no exceptions; it exposed a real fault, the consumer events read ignoring its REPEATABLE READ request
+    (now `begin_snapshot_read`), and leaked files and sockets in test doubles.
+  - **Decisions.** SQLAlchemy `>=2.1` is the lower bound, since `distinct_on` exists only from 2.1 and the engine
+    is PostgreSQL-only. `httpx2` joins the dev extra only: the engine's own calls and the MCP client keep `httpx`,
+    and the two tests that hand an `httpx` ASGI transport to the MCP client stay on it. PostgreSQL in CI is a
+    `docker run` step, because a job service's log is always printed when the job ends. What cannot be removed
+    from our side: the `(node:...) DeprecationWarning` lines come from inside an action's bundled code, and
+    the `initdb: warning: enabling "trust" authentication` line is the postgres image's own start, which only the
+    failed-run log now shows.
 
 ## R: Build acceptance and release
 

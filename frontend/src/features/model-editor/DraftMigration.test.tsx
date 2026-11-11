@@ -42,7 +42,6 @@ describe("useDraftMigration (R13-F22)", () => {
 
 describe("DraftMigrationNotice notes (0.13 R)", () => {
   it("lists a note each, however many steps raised the same one, without a duplicate key", () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const note = { code: "MODEL_REPLACED", message: "A step replaced the whole model" };
     const migration = {
       steps: [{ step: 1 }, { step: 2 }],
@@ -61,7 +60,6 @@ describe("DraftMigrationNotice notes (0.13 R)", () => {
       />,
     );
     expect(screen.getAllByText(/A step replaced the whole model/).length).toBeGreaterThan(0);
-    expect(error).not.toHaveBeenCalled();
-    error.mockRestore();
+    // A duplicate key would be a console error, which fails the test (`test/consoleGuard`).
   });
 });

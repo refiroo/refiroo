@@ -65,7 +65,7 @@ def delete_blockers(session: Session, release_ids: Iterable[int]) -> dict[int, D
         for blocker, table, column in _restricting_columns()
     ]
     found: dict[int, set[str]] = {}
-    for release_id, blocker in session.execute(union_all(*parts)).tuples():
+    for release_id, blocker in session.execute(union_all(*parts)):
         found.setdefault(release_id, set()).add(blocker)
     return {
         release_id: next(item for item in _BLOCKER_ORDER if item in blockers)

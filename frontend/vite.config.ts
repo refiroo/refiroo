@@ -94,6 +94,10 @@ export default defineConfig({
   test: {
     // The tests name the engine at its usual development address, not the jsdom page's.
     env: { VITE_API_URL: "http://localhost:8000" },
+    // Vitest 4 switches to a terse "agent" reporter, which leaves out console output, when it detects a
+    // coding agent (`AI_AGENT`, `CLAUDECODE`); CI shows `stderr |` blocks. One reporter everywhere, so a run
+    // looks the same wherever it is made (0.17 RF7).
+    reporters: ["default"],
     // Selection groups (docs/testing/EXECUTION_GUIDE.md). `unit` runs pure `.test.ts` files
     // without a DOM: jsdom setup cost ~1 s per file against ~10 ms of test time. A `.test.ts`
     // file that needs browser globals declares `// @vitest-environment jsdom`.
@@ -101,7 +105,13 @@ export default defineConfig({
       {
         extends: true,
         // `tokens.css` is read as text by its contrast test (`?raw`), so CSS processing keeps it.
-        test: { name: "unit", environment: "node", include: ["src/**/*.test.ts"], css: { include: [/tokens\.css/] } },
+        test: {
+          name: "unit",
+          environment: "node",
+          include: ["src/**/*.test.ts"],
+          setupFiles: "./src/test/consoleGuard.ts",
+          css: { include: [/tokens\.css/] },
+        },
       },
       {
         extends: true,

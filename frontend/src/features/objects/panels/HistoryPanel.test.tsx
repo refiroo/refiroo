@@ -245,7 +245,8 @@ describe("HistoryPanel", () => {
       version: index,
       changedFields: ["name"],
       attributeTypeKeys: [],
-      occurredAt: `2026-09-0${1 + (index % 8)}T10:00:00Z`,
+      // Newest first, as the API answers: an older entry is on an earlier day (a day is one group).
+      occurredAt: `2026-09-${String(30 - index).padStart(2, "0")}T10:00:00Z`,
       actor: null,
     });
     vi.mocked(api.objectHistory)

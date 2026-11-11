@@ -18,7 +18,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import httpx
+import httpx2
 import pytest
 from harness_identity import TestClient
 from sqlalchemy import event, func, select, text, update
@@ -155,8 +155,8 @@ def waiting_on(pattern: str, count: int = 1) -> bool:
 
 
 def race(
-    hold: Hold, first: Callable[[], httpx.Response], second: Callable[[], httpx.Response]
-) -> tuple[httpx.Response, httpx.Response]:
+    hold: Hold, first: Callable[[], httpx2.Response], second: Callable[[], httpx2.Response]
+) -> tuple[httpx2.Response, httpx2.Response]:
     """Hold ``first``, show ``second`` waiting for the workspace lock, then let both finish."""
     with ThreadPoolExecutor(max_workers=2) as pool:
         hold.arm()
@@ -193,7 +193,7 @@ def post_object(
     parent: str | None = None,
     initial: list[dict] | None = None,
     **attributes: Any,
-) -> httpx.Response:
+) -> httpx2.Response:
     return client.post(
         "/api/v1/objects",
         json={
@@ -211,7 +211,7 @@ def post_object(
     )
 
 
-def created(response: httpx.Response) -> dict:
+def created(response: httpx2.Response) -> dict:
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -262,7 +262,7 @@ def system(client, workspace_key: str) -> dict:
     return created(post_object(client, workspace_key, "system", system_code=unique_key("s")))
 
 
-def relate(client, relation_type_key: str, source: dict, target: dict) -> httpx.Response:
+def relate(client, relation_type_key: str, source: dict, target: dict) -> httpx2.Response:
     return client.post(
         "/api/v1/relations",
         json={
@@ -273,14 +273,14 @@ def relate(client, relation_type_key: str, source: dict, target: dict) -> httpx.
     )
 
 
-def move(client, item: dict, parent: dict) -> httpx.Response:
+def move(client, item: dict, parent: dict) -> httpx2.Response:
     return client.patch(
         f"/api/v1/objects/{item['objectTypeKey']}/{item['id']}",
         json={"expectedVersion": item["version"], "parentObjectId": parent["id"]},
     )
 
 
-def refused(response: httpx.Response, status: int, code: str) -> None:
+def refused(response: httpx2.Response, status: int, code: str) -> None:
     assert response.status_code == status, response.text
     assert response.json()["error"]["code"] == code
 
@@ -358,7 +358,7 @@ def test_a_required_relation_racing_with_the_deletion_of_its_source(client, work
     refused(second, 409, "OBJECT_HAS_DEPENDANTS")
 
 
-def mapping(client, workspace_key: str, source: dict, target: dict) -> httpx.Response:
+def mapping(client, workspace_key: str, source: dict, target: dict) -> httpx2.Response:
     return client.put(
         f"/api/v1/workspaces/{workspace_key}/mappings",
         json={
@@ -584,7 +584,7 @@ def test_retiring_a_workspace_waits_for_a_change_set_write(client, workspace, at
     change_set = create_change_set(client, workspace).json()
     version = client.get(f"/api/v1/workspaces/{workspace}").json()["version"]
 
-    def write(code: str) -> httpx.Response:
+    def write(code: str) -> httpx2.Response:
         current = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
         return client.post(
             "/api/v1/objects",

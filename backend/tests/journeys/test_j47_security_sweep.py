@@ -22,7 +22,7 @@ import threading
 from dataclasses import dataclass
 from uuid import uuid4
 
-import httpx
+import httpx2
 import pytest
 from harness_identity import TestClient, request_token
 from scenario import W1, W2, ok
@@ -465,14 +465,14 @@ def _opened(base: str, bearer: str | None) -> dict:
     def read() -> None:
         headers = {"Authorization": f"Bearer {bearer}"} if bearer else {}
         try:
-            with httpx.stream(
+            with httpx2.stream(
                 "GET", f"{base}/api/v1/me/notifications/events", headers=headers, timeout=15
             ) as response:
                 answer["status"] = response.status_code
                 answer["type"] = response.headers.get("content-type", "")
                 if response.status_code != 200:
                     answer["body"] = response.read().decode()
-        except httpx.HTTPError as failure:
+        except httpx2.HTTPError as failure:
             answer["failure"] = repr(failure)
 
     thread = threading.Thread(target=read, daemon=True)
@@ -495,7 +495,7 @@ def test_the_inbox_stream_answers_as_its_class_says(world, served):  # noqa: F81
     assert served_person["type"].startswith("text/event-stream")
 
     client = ok(world.api.post("/clients", {"name": "Stream probe"}), 201)
-    post = lambda path, **kwargs: httpx.post(f"{served}{path}", **kwargs)
+    post = lambda path, **kwargs: httpx2.post(f"{served}{path}", **kwargs)
     consumer = ok(request_token(post, client["id"], client["secret"], "consumer"))["access_token"]
     wrong = _opened(served, consumer)
     assert wrong["status"] == 401, wrong

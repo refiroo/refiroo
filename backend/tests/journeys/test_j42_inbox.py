@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import UTC, datetime, timedelta
 
-import httpx
+import httpx2
 import pytest
 from harness_identity import token
 from scenario import W1, dispatch, ok, refused
@@ -468,11 +468,11 @@ class _Inbox:
         assert self.first.wait(10), "the stream sent nothing"
 
     def _read(self, base: str) -> None:
-        bearer = token(lambda path, **kwargs: httpx.post(f"{base}{path}", **kwargs))
+        bearer = token(lambda path, **kwargs: httpx2.post(f"{base}{path}", **kwargs))
         headers = {"Authorization": f"Bearer {bearer}"}
         url = f"{base}/api/v1/me/notifications/events"
         try:
-            with httpx.stream("GET", url, headers=headers, timeout=30) as response:
+            with httpx2.stream("GET", url, headers=headers, timeout=30) as response:
                 assert response.status_code == 200, response.read()
                 assert response.headers["content-type"].startswith("text/event-stream")
                 name = None
@@ -482,7 +482,7 @@ class _Inbox:
                     elif line.startswith("data:") and name:
                         self.events.append((name, json.loads(line.split(":", 1)[1])))
                         self.first.set()
-        except httpx.RemoteProtocolError:
+        except httpx2.RemoteProtocolError:
             pass  # the test ended and the server closed the stream
 
     def wait_for(self, name: str, condition=lambda body: True) -> dict:

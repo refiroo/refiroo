@@ -8,7 +8,7 @@ import threading
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 
-import httpx
+import httpx2
 import pytest
 from harness_identity import TestClient
 from sqlalchemy import func, select
@@ -50,7 +50,7 @@ def _detail(client: TestClient, key: str) -> dict:
     return response.json()
 
 
-def _delete(client: TestClient, key: str, version: int) -> httpx.Response:
+def _delete(client: TestClient, key: str, version: int) -> httpx2.Response:
     return client.delete(f"/api/v1/workspaces/{key}", params={"expectedVersion": version})
 
 
@@ -288,7 +288,7 @@ def test_live_write_resolved_before_deletion_saves_nothing(monkeypatch, client):
         assert session.get(Workspace, key) is None
 
 
-def _post_domain(client: TestClient, key: str, name: str) -> httpx.Response:
+def _post_domain(client: TestClient, key: str, name: str) -> httpx2.Response:
     return client.post(
         "/api/v1/objects",
         json={

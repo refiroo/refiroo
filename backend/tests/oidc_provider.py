@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Self
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-import httpx
+import httpx2
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -100,7 +100,7 @@ class OidcProvider:
             **person,
             "groups": ",".join(groups) if isinstance(groups, list) else groups,
         }
-        response = httpx.post(f"{self.issuer}/authorize", data=form, follow_redirects=False)
+        response = httpx2.post(f"{self.issuer}/authorize", data=form, follow_redirects=False)
         assert response.status_code == 302, response.text
         return response.headers["location"]
 
@@ -109,7 +109,7 @@ class OidcProvider:
     def sign_out(self, logout_url: str) -> str:
         """Answer the sign-out request at ``logout_url``: the address the provider sends the browser
         to afterwards (the request's ``post_logout_redirect_uri`` with its ``state``)."""
-        response = httpx.get(logout_url, follow_redirects=False)
+        response = httpx2.get(logout_url, follow_redirects=False)
         assert response.status_code == 302, response.text
         return response.headers["location"]
 

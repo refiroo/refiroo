@@ -1376,12 +1376,36 @@ th[aria-sort] {
   opacity: var(--edit-hint-rest);
   transition: opacity 120ms ease;
 }
-.attribute-edit:hover:not(:disabled) .attribute-edit-hint,
-.attribute-edit:focus-visible .attribute-edit-hint {
+.attribute-edit:hover:not(:disabled, [data-disabled]) .attribute-edit-hint,
+.attribute-edit:focus-visible .attribute-edit-hint,
+.attribute-edit-pencil:focus-visible .attribute-edit-hint {
   opacity: 1;
 }
-.attribute-edit:disabled .attribute-edit-hint {
+.attribute-edit:disabled .attribute-edit-hint,
+.attribute-edit[data-disabled] .attribute-edit-hint {
   opacity: 0;
+}
+/* A value that holds a link of its own: the same soft fill, the pencil is a button beside the link. */
+.attribute-edit-holds-control:hover:not([data-disabled]) {
+  background: var(--surface-hover);
+}
+.attribute-edit-pencil {
+  display: inline-flex;
+  align-self: center;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.attribute-edit-pencil:disabled {
+  opacity: 1;
+  cursor: default;
 }
 /* Remove: a small icon at the row's end, shown with the row's hover or focus; always on touch.
    An `IconButton` (UA8), red at rest as before; its classes beat the quiet icon's. */

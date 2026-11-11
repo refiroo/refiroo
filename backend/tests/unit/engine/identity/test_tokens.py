@@ -65,7 +65,7 @@ def test_a_token_refused_with_its_reason(token, audience, reason):
 
 def test_an_hmac_token_is_never_accepted():
     """Algorithm confusion: a token signed with HS256 is refused before any key is chosen."""
-    forged = jwt.encode(_claims(), "secret", algorithm="HS256", headers={"kid": "k1"})
+    forged = jwt.encode(_claims(), "s" * 32, algorithm="HS256", headers={"kid": "k1"})
     with pytest.raises(TokenRefused) as refused:
         read_unverified(forged)
     assert refused.value.reason == "malformed"

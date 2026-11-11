@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { expectConsoleError } from "@/test/consoleGuard";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 
 function Broken(): never {
@@ -8,7 +9,8 @@ function Broken(): never {
 
 describe("ErrorBoundary (reported 2026-10-14: a blank page)", () => {
   it("shows what failed and a reload instead of an empty page, and clears when the address changes", () => {
-    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    // React reports the error the boundary catches.
+    expectConsoleError(/reading 'length'/);
     const { rerender } = render(
       <ErrorBoundary resetKey="/a">
         <Broken />
@@ -24,11 +26,10 @@ describe("ErrorBoundary (reported 2026-10-14: a blank page)", () => {
       </ErrorBoundary>,
     );
     expect(screen.getByText("Another page")).toBeTruthy();
-    quiet.mockRestore();
   });
 
   it("never shows an Error: prefix, whatever was thrown", () => {
-    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    expectConsoleError(/Error/);
     function Silent(): never {
       throw new Error("");
     }
@@ -38,6 +39,5 @@ describe("ErrorBoundary (reported 2026-10-14: a blank page)", () => {
       </ErrorBoundary>,
     );
     expect(screen.getByText(/failed while showing: Error\./).textContent).not.toMatch(/: Error: /);
-    quiet.mockRestore();
   });
 });

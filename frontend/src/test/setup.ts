@@ -1,4 +1,6 @@
 import "@testing-library/jest-dom/vitest";
+// First, so its after-hook runs last: a component unmounted by `cleanup` has logged by then.
+import "./consoleGuard";
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
 

@@ -82,6 +82,10 @@ class FakeSmtp:
                     self.session()
                 except OSError:
                     pass  # the client hung up
+                finally:
+                    # After STARTTLS or implicit TLS the request is the wrapping socket, which the
+                    # server does not know to close.
+                    self.request.close()
 
             def wrap(self) -> None:
                 self.request = tls.wrap_socket(self.request, server_side=True)

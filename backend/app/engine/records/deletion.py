@@ -48,6 +48,7 @@ from sqlalchemy import (
     union_all,
     values,
 )
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...common.cursors import decode_cursor, encode_cursor
@@ -855,7 +856,7 @@ def _attributed(scope: DeletionScope) -> Any:
             source.c.workspace_key,
         )
         .join(source, source.c.object_id == _REACH.c.object_id)
-        .distinct(_REACH.c.object_id)
+        .ext(distinct_on(_REACH.c.object_id))
         .order_by(_REACH.c.object_id, _REACH.c.item, _REACH.c.reason != "root")
     )
     return insert(_OBJECTS).from_select(

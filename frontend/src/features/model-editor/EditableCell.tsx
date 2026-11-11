@@ -20,6 +20,8 @@ export type CellEdit = {
   /** A text cell that may be emptied (a public name back to its default, a default taken out). */
   optional?: boolean;
   operations: (value: string) => DraftOperation[];
+  /** The cell shows a link or button of its own (a group's label opens the group): only the pencil edits. */
+  holdsControl?: boolean;
 };
 
 export const YES_NO = [
@@ -71,7 +73,13 @@ export function EditableCell({
 
   if (!editing)
     return (
-      <EditInPlaceValue controlRef={control} layout="row" name={edit.label} onEdit={() => setEditing(true)}>
+      <EditInPlaceValue
+        controlRef={control}
+        layout="row"
+        name={edit.label}
+        holdsControl={edit.holdsControl}
+        onEdit={() => setEditing(true)}
+      >
         <span className="attribute-value">{children}</span>
       </EditInPlaceValue>
     );

@@ -5,6 +5,7 @@ each."""
 from collections.abc import Iterable
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...engine.identity.principals import names, ref
@@ -22,7 +23,7 @@ def latest_submissions(
     rows = session.scalars(
         select(ChangeSetSubmission)
         .where(ChangeSetSubmission.change_set_id.in_(ids))
-        .distinct(ChangeSetSubmission.change_set_id)
+        .ext(distinct_on(ChangeSetSubmission.change_set_id))
         .order_by(ChangeSetSubmission.change_set_id, ChangeSetSubmission.sequence_id.desc())
     )
     return {row.change_set_id: row for row in rows}

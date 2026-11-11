@@ -6,6 +6,31 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.17 RF7: clean test output)
+
+- **Backend and CI log without warnings.** SQLAlchemy 2.1 deprecations are gone at the cause: no
+  `Result.tuples()` (a row unpacks as a tuple) and `DISTINCT ON` is written `.ext(distinct_on(...))`
+  (`sqlalchemy.dialects.postgresql`), which needs SQLAlchemy 2.1 (lower bound raised from 2.0). Starlette's test
+  client wants `httpx2`: it is a dev dependency and the test harness uses it (the engine itself keeps `httpx`).
+  The tests that build an HMAC token to show it refused use a 32-byte key. Actions run on Node 24
+  (`checkout`, `setup-python`, `setup-node` v7, artifact actions and Docker actions on their current majors).
+  The CI PostgreSQL runs as a step, and its log (with the refusals tests provoke on purpose) is printed only when
+  the job failed.
+- **Warnings fail the test run.** `filterwarnings = ["error"]` in pytest's configuration, with no exceptions.
+  That showed three real faults, fixed: the consumer events read asked for REPEATABLE READ on a connection
+  already open, so the level was ignored and the request failed (`begin_snapshot_read`); test doubles that left a
+  progress log, subprocess pipes and the fake mail server's TLS sockets unclosed.
+
+- **No button inside a button.** A navigation group's label in the editor tables held its link inside the edit
+  button; the link is now a link beside the pencil, which is the edit button (`EditInPlaceValue` `holdsControl`),
+  and both are reached by Tab.
+- **Unique keys.** The Views table's "Shows" links no longer share a key when a relation matrix shows a type as
+  rows and as columns.
+- **Test output is checked.** A frontend test that logs through `console.error` or `console.warn` fails and
+  prints the message, unless it says so with `expectConsoleError`/`expectConsoleWarn`; the Vitest reporter is
+  pinned, so a run in a coding agent's session shows the same output as CI. Two test fixtures were corrected (a
+  short `GET /system` mock, a history out of order).
+
 ### Changed (0.17 RF3: review findings, frontend)
 
 - **The reset token leaves the address bar.** The application's `/reset-password?token=` page replaces its

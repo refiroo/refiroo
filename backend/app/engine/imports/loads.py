@@ -12,6 +12,7 @@ read, whatever the number of profiles. A job past its retention is no longer fou
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...models.database import AuditEvent, ChangeSet, Job
@@ -27,7 +28,7 @@ def last_loads(session: Session, keys: list[str]) -> dict[str, dict[str, Any]]:
     jobs = session.scalars(
         select(Job)
         .where(Job.kind == "import", key.in_(keys))
-        .distinct(key)
+        .ext(distinct_on(key))
         .order_by(key, Job.sequence_id.desc())
     ).all()
     change_sets = {job.change_set_id for job in jobs if job.change_set_id is not None}

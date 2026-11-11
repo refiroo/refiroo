@@ -118,9 +118,7 @@ def _place_entries(session: Session, _context: Any, _instances: Any) -> None:
         found.update(
             session.execute(
                 select(ChangeSet.id, ChangeSet.workspace_key).where(ChangeSet.id.in_(ids))
-            )
-            .tuples()
-            .all()
+            ).all()
         )
     for item, change_set in wanted.items():
         named = item.changes.get("workspaceKey") if isinstance(item.changes, dict) else None

@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from sqlalchemy import select, tuple_
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
@@ -67,9 +68,9 @@ class _Names:
         self.models: dict[str, EngineModel | None] = {}
         keys = {event.workspace_key for event in events if event.workspace_key}
         self.labels = dict(
-            session.execute(select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys)))
-            .tuples()
-            .all()
+            session.execute(
+                select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys))
+            ).all()
         )
         change_sets = {item for item in map(_change_set, events) if item}
         self.change_set_names = self._change_set_names(change_sets)
@@ -117,9 +118,7 @@ class _Names:
                 select(ModelDraft.public_id, ModelDraft.name).where(
                     ModelDraft.public_id.in_(drafts)
                 )
-            )
-            .tuples()
-            .all()
+            ).all()
         )
         releases = {
             e.aggregate_id
@@ -141,9 +140,9 @@ class _Names:
         if not ids:
             return {}
         names: dict[str, str | None] = dict(
-            self.session.execute(select(ChangeSet.id, ChangeSet.name).where(ChangeSet.id.in_(ids)))
-            .tuples()
-            .all()
+            self.session.execute(
+                select(ChangeSet.id, ChangeSet.name).where(ChangeSet.id.in_(ids))
+            ).all()
         )
         self.open_change_sets = set(names)
         gone = ids - set(names)
@@ -156,10 +155,10 @@ class _Names:
                     AuditEvent.aggregate_id.in_(gone),
                     named.is_not(None),
                 )
-                .distinct(AuditEvent.aggregate_id)
+                .ext(distinct_on(AuditEvent.aggregate_id))
                 .order_by(AuditEvent.aggregate_id, AuditEvent.sequence_id.desc())
             )
-            names.update(rows.tuples().all())
+            names.update(rows.all())
         return names
 
     def _staged(self, table: Any, column: Any, pairs: set[tuple[str, str]]) -> dict[Any, Any]:

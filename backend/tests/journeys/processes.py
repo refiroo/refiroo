@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
+import httpx2
 from configurations import Configuration
 from harness_identity import HarnessAuth
 from scenario import Api, World, model_path
@@ -75,7 +75,7 @@ def run(
             command, cwd=BACKEND, env=env, stdout=sink, stderr=subprocess.STDOUT
         )
     base = f"http://127.0.0.1:{port}"
-    client = httpx.Client(base_url=base, timeout=60)
+    client = httpx2.Client(base_url=base, timeout=60)
     # The harness's token (0.12 I1, D263), valid on this clone of the schema seed.
     client.auth = HarnessAuth(client.post)
     try:
@@ -93,7 +93,7 @@ def run(
         shutil.rmtree(files, ignore_errors=True)
 
 
-def _wait_until_serving(server: subprocess.Popen, client: httpx.Client, log: Path) -> None:
+def _wait_until_serving(server: subprocess.Popen, client: httpx2.Client, log: Path) -> None:
     deadline = time.monotonic() + STARTUP_SECONDS
     while time.monotonic() < deadline:
         if server.poll() is not None:
@@ -101,7 +101,7 @@ def _wait_until_serving(server: subprocess.Popen, client: httpx.Client, log: Pat
         try:
             if client.get("/health").status_code == 200:
                 return
-        except httpx.TransportError:
+        except httpx2.TransportError:
             pass
         time.sleep(0.2)
     raise AssertionError(f"the server did not serve: {log.read_text()[-LOG_TAIL:]}")

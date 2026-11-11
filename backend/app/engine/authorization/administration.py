@@ -473,7 +473,7 @@ def seen(session: Session, group: UserGroup, user_ids: list[int]) -> dict[int, d
             UserGroupMember.group_id == group.id, UserGroupMember.user_id.in_(user_ids)
         )
     )
-    return dict(rows.tuples().all())
+    return dict(rows.all())
 
 
 def _managed_by_provider(group: UserGroup) -> None:

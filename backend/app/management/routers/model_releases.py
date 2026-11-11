@@ -314,9 +314,7 @@ def raise_model_release(
     labels = dict(
         session.execute(
             select(Workspace.key, Workspace.label).where(Workspace.key.in_(result.workspaces))
-        )
-        .tuples()
-        .all()
+        ).all()
     )
     if result.applied:
         session.commit()

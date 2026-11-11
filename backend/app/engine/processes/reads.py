@@ -70,7 +70,7 @@ def workspace_readiness(
             select(WorkspaceModel.workspace_key, ModelRelease)
             .join(ModelRelease, ModelRelease.id == WorkspaceModel.model_release_id)
             .where(WorkspaceModel.workspace_key.in_(workspace_keys))
-        ).tuples()
+        )
     }
     unavailable: dict[str, list[ProcessUnavailable]] = {}
     for process in processes:
@@ -139,7 +139,7 @@ def instance_gauges(session: Session, processes: list[EngineProcess]) -> Instanc
             .where(Job.state.in_(ACTIVE_JOB_STATES))
             .group_by(Job.kind, Job.state)
             .order_by(Job.kind, Job.state)
-        ).tuples()
+        )
     ]
     subscriptions: dict[str, Any] = {"active": 0, "failing": 0, "suspended": 0}
     for status, failing, count in session.execute(
@@ -148,7 +148,7 @@ def instance_gauges(session: Session, processes: list[EngineProcess]) -> Instanc
             ConsumerSubscription.failing_since.is_not(None),
             func.count(),
         ).group_by(ConsumerSubscription.status, ConsumerSubscription.failing_since.is_not(None))
-    ).tuples():
+    ):
         state = "failing" if status == "active" and failing else status
         subscriptions[state] = subscriptions.get(state, 0) + count
     return InstanceGauges(

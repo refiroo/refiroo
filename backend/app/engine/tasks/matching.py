@@ -650,7 +650,7 @@ def _owner_rows(
         return None, []
     session.execute(_ROWS_OF_KEY, {"t": owner["type"], "f": owner["field"], "col": owner["col"]})
     info = types[owner["type"]]
-    identifying = set(session.execute(text("SELECT t, f FROM match_identifying")).tuples())
+    identifying = set(session.execute(text("SELECT t, f FROM match_identifying")))
     owner_header = match.columns[owner["col"]]["header"]
     list_header = match.columns[listing["col"]]["header"]
     columns: list[dict[str, Any]] = [

@@ -45,5 +45,5 @@ def held_elsewhere(
                 RdmObject.id.in_(ids[start : start + 1000]),
                 RdmObject.workspace_key != workspace_key,
             )
-        ).tuples()
+        )
     return found

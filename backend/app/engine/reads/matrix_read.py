@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import Select, String, and_, func, literal, or_, select, union_all
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session, aliased
 
 from ...errors import api_error
@@ -459,7 +460,7 @@ def proposed_place(read: MatrixRead, column: Any) -> DerivedPlace | None:
             containers.c.object_id.in_(select(cells.c.parent_object_id)),
             containers.c.object_id.not_in(select(below.c.object_id)),
         )
-        .distinct(containers.c.object_id)
+        .ext(distinct_on(containers.c.object_id))
     ).all()
     chain_types = sorted(
         {read.config.columnObjectTypeKey}
