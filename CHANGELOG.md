@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (the 0.14 and 0.17 release review)
+
+- **Every error response in the API reference has an example body**: each code an operation lists shows the refusal's `{"error": {"code", "message"}}` envelope, instead of an empty response.
+
 ### Changed (0.17 NG1: any view can stand in a navigation group)
 
 - **A navigation group places a view of any kind**, not only a relation matrix: a table, a tree, a mapping grid, a

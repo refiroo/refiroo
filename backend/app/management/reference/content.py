@@ -283,6 +283,15 @@ def _status_description(lines: list[ErrorLine]) -> str:
     )
 
 
+def _message(line: ErrorLine) -> str:
+    """An example ``message``: the line's text as a sentence, or the code in words."""
+    text = line.text or line.code.replace("_", " ").lower()
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    first = text.split(" ", 1)[0]
+    # A field name (``expectedVersion``) keeps its spelling.
+    return text if any(c.isupper() for c in first) else text[0].upper() + text[1:]
+
+
 def _add_errors(operation: dict[str, Any], lines: list[ErrorLine], components: dict) -> None:
     by_status: dict[str, list[ErrorLine]] = {}
     for line in lines:
@@ -300,7 +309,18 @@ def _add_errors(operation: dict[str, Any], lines: list[ErrorLine], components: d
             f"{response['description']}\n\n{listed}" if response.get("description") else listed
         )
         if shape is not None:
-            response.setdefault("content", copy.deepcopy(shape))
+            media = response.setdefault("content", copy.deepcopy(shape)).get("application/json")
+            if media is not None and media.get("schema") == shape["application/json"]["schema"]:
+                # One example body per code, so the page shows the refusal's shape, not an empty one.
+                examples = media.setdefault("examples", {})
+                for line in by_status[status]:
+                    examples.setdefault(
+                        line.code,
+                        {
+                            "summary": line.code,
+                            "value": {"error": {"code": line.code, "message": _message(line)}},
+                        },
+                    )
 
 
 def _describe_parameters(
