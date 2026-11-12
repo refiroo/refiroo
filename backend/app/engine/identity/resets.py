@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import PasswordResetLink, User, UserSession
+from ..mail import security_notice
 from . import managed, providers, security_events, sessions, sign_in
 from .passwords import check_password, digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
@@ -110,6 +111,7 @@ def use_link(session: Session, settings: IdentitySettings, token: str, password:
     if link.requested and user.sign_in_managed:
         return False
     check_password(password, user.email, settings.password_min_length)
+    was_reset = user.password_hash is not None
     _set(user, password, now)
     link.used_at = now
     # Using one link ends the person's others, so a link asked for beside an administrator's cannot
@@ -124,6 +126,8 @@ def use_link(session: Session, settings: IdentitySettings, token: str, password:
         session, "user", user.public_id, "password-set", about=[user.public_id],
         version=user.version, by=("user", user.id),
     )  # fmt: skip
+    if was_reset:
+        security_notice.notify(session, settings, user, "password-reset", now=now)
     session.commit()
     return True
 
@@ -174,4 +178,5 @@ def change_password(
         session, "user", user.public_id, "password-changed", about=[user.public_id],
         version=user.version, by=("user", user.id),
     )  # fmt: skip
+    security_notice.notify(session, settings, user, "password-changed", now=now)
     session.commit()

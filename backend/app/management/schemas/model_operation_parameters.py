@@ -238,9 +238,9 @@ PARAMETERS: dict[str, dict[str, Param]] = {
         "collapsed": opt(BOOLEAN, "Whether the group starts collapsed (default false)."),
         "position": opt(INTEGER, _ADD_POSITION),
         "collections": opt(
-            array(either(TEXT, shape({"view": req(TEXT, "Key of a relation matrix view.")}))),
+            array(either(TEXT, shape({"view": req(TEXT, "Key of a view of the application.")}))),
             "The group's entries in order: object type keys (their collections), or `{view}` for a "
-            "relation matrix view. Empty when left out.",
+            "view of any kind. Empty when left out.",
         ),
     },
     "addObjectType": {
@@ -500,7 +500,7 @@ PARAMETERS: dict[str, dict[str, Param]] = {
         ),
         "view": cond(
             TEXT,
-            "Key of a relation matrix view to place.",
+            "Key of a view of the application to place (any kind).",
             _ENTRY_WHEN,
         ),
         "group": opt(

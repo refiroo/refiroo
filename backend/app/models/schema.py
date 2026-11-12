@@ -447,7 +447,7 @@ class DetailViewDefinition(ModelDefinition):
 
 
 class NavigationViewEntry(ModelDefinition):
-    """A relation matrix standing in a navigation group as an entry of its own."""
+    """A view standing in a navigation group as an entry of its own."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -456,7 +456,7 @@ class NavigationViewEntry(ModelDefinition):
 
 class NavigationGroupDefinition(ModelDefinition):
     """A labelled, collapsible sidebar section of an application's collections (schema 0.10, 0.10
-    N1) and relation matrices (``{"view": key}``), in one shared order: presentation only, carrying
+    N1) and views of any kind (``{"view": key}``), in one shared order: presentation only, carrying
     no data, validation or permission."""
 
     model_config = ConfigDict(extra="forbid")

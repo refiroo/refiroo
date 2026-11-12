@@ -1,12 +1,7 @@
+import type { IconName } from "@/ui/Icon";
 import { objectTypeFor } from "@/model/lookup";
 import { childObjectTypeKeys } from "@/model/placements";
-import type {
-  ApplicationDefinition,
-  EngineModel,
-  NavigationGroupDefinition,
-  RelationMatrixViewDefinition,
-  ViewDefinition,
-} from "@/types";
+import type { ApplicationDefinition, EngineModel, NavigationGroupDefinition, ViewDefinition } from "@/types";
 
 export interface CollectionGroup {
   objectTypeKey: string;
@@ -20,6 +15,14 @@ export function viewSourceObjectTypeKey(view: ViewDefinition): string {
   if (view.type === "tree") return view.config.rootObjectTypeKeys[0];
   if (view.type === "relationTable") return view.config.fromObjectTypeKey;
   return view.config.direction === "outgoing" ? view.config.fromObjectTypeKey : view.config.toObjectTypeKey;
+}
+
+/** The interface glyph of a view kind: a view standing on its own in a group is marked by it. */
+export function viewGlyph(view: { type?: string | null }): IconName {
+  if (view.type === "relationMatrix") return "matrix";
+  if (view.type === "mappingGrid") return "mapping";
+  if (view.type === "relationTable") return "link";
+  return view.type === "tree" ? "tree" : "table";
 }
 
 export function collectionGroups(application: ApplicationDefinition): CollectionGroup[] {
@@ -41,10 +44,10 @@ export function collectionGroups(application: ApplicationDefinition): Collection
   }));
 }
 
-/** An entry of a navigation group: a collection, or a relation matrix standing on its own. */
+/** An entry of a navigation group: a collection, or a view of any kind standing on its own. */
 export type NavigationEntry =
   | { kind: "collection"; collection: CollectionGroup }
-  | { kind: "matrix"; view: RelationMatrixViewDefinition; rowObjectTypeKey: string };
+  | { kind: "view"; view: ViewDefinition; sourceObjectTypeKey: string };
 
 /** The key an entry is listed under, unique within an application's sidebar. */
 export const navigationEntryKey = (entry: NavigationEntry) =>
@@ -58,8 +61,8 @@ export interface NavigationSection {
 
 /**
  * The sidebar's collections (0.10 N1, D22): those in no group first, in their own order, then each
- * declared group in declared order with its entries in its order. A relation matrix placed in a group
- * is an entry of its own there; one placed nowhere stays a lens of its row type's collection. Without
+ * declared group in declared order with its entries in its order. A view of any kind placed in a group
+ * is an entry of its own there; one placed nowhere stays a lens of its source type's collection. Without
  * groups, every collection is ungrouped, as before schema 0.10.
  */
 export function navigationSections(application: ApplicationDefinition): {
@@ -68,9 +71,7 @@ export function navigationSections(application: ApplicationDefinition): {
 } {
   const collections = collectionGroups(application);
   const byType = new Map(collections.map((collection) => [collection.objectTypeKey, collection]));
-  const matrices = new Map(
-    application.views.flatMap((view) => (view.type === "relationMatrix" ? [[view.key, view] as const] : [])),
-  );
+  const views = new Map(application.views.map((view) => [view.key, view] as const));
   const groups = (application.navigation?.groups ?? []).map((group) => ({
     group,
     entries: group.collections.flatMap((entry): NavigationEntry[] => {
@@ -78,8 +79,8 @@ export function navigationSections(application: ApplicationDefinition): {
         const collection = byType.get(entry);
         return collection ? [{ kind: "collection", collection }] : [];
       }
-      const view = matrices.get(entry.view);
-      return view ? [{ kind: "matrix", view, rowObjectTypeKey: view.config.rowObjectTypeKey }] : [];
+      const view = views.get(entry.view);
+      return view ? [{ kind: "view", view, sourceObjectTypeKey: viewSourceObjectTypeKey(view) }] : [];
     }),
   }));
   const grouped = new Set(
@@ -90,7 +91,7 @@ export function navigationSections(application: ApplicationDefinition): {
   return { ungrouped: collections.filter((item) => !grouped.has(item.objectTypeKey)), groups };
 }
 
-/** What the sidebar calls an entry: a collection's plural name, a matrix's view name. */
+/** What the sidebar calls an entry: a collection's plural name, a view's own name. */
 export function entryLabel(model: EngineModel, entry: NavigationEntry): string {
   return entry.kind === "collection"
     ? (objectTypeFor(model, entry.collection.objectTypeKey)?.pluralName ?? entry.collection.objectTypeKey)
@@ -100,10 +101,10 @@ export function entryLabel(model: EngineModel, entry: NavigationEntry): string {
 /**
  * What a collection's page is titled (0.17 SH1, PP-D37): the name of its sidebar entry, so a type's
  * lens (its tree, its table, its mapping) is a tab under the type's name and not a page title of
- * its own. A relation matrix placed in a group is an entry of its own and keeps its own name.
+ * its own. A view placed in a group is an entry of its own and keeps its own name.
  */
 export function pageTitle(model: EngineModel, application: ApplicationDefinition, view: ViewDefinition): string {
-  if (view.type === "relationMatrix" && placedMatrixKeys(application).has(view.key)) return view.name;
+  if (placedViewKeys(application).has(view.key)) return view.name;
   return objectTypeFor(model, viewSourceObjectTypeKey(view))?.pluralName ?? view.name;
 }
 
@@ -137,8 +138,8 @@ export function narrowNavigation(
   };
 }
 
-/** The relation matrices placed in a group of the application, by view key. */
-export function placedMatrixKeys(application: ApplicationDefinition): Set<string> {
+/** The views placed in a group of the application, by view key. */
+export function placedViewKeys(application: ApplicationDefinition): Set<string> {
   return new Set(
     (application.navigation?.groups ?? []).flatMap((group) =>
       group.collections.flatMap((entry) => (typeof entry === "string" ? [] : [entry.view])),

@@ -743,6 +743,25 @@ describe("Explorer", () => {
       expect(onOpenCollection).toHaveBeenLastCalledWith(application.defaultView);
     });
 
+    it("gives a placed table view its own entry in its group, keeping it as a lens of its collection (0.17 NG1)", async () => {
+      serve();
+      const onOpenCollection = vi.fn();
+      const model = groupedModel(false);
+      const application = model.applications[0];
+      const table = application.views.find((view) => view.type === "table");
+      if (!table) throw new Error("Expected a table fixture");
+      application.views.push({ ...table, key: "domains-short", name: "Domains, short" });
+      application.navigation = { groups: [{ key: "lists", label: "Lists", collections: [{ view: "domains-short" }] }] };
+      render(explorer({ model, onOpenCollection, activeViewKey: "domains-short" }));
+      await screen.findByRole("tree", { name: "Browse records" });
+      const entry = within(collections()).getByRole("button", { name: "Domains, short" });
+      expect(entry).toHaveAttribute("aria-current", "page");
+      // The collection keeps its entry among the ungrouped and is not marked while the grouped view is open.
+      expect(within(collections()).getByRole("button", { name: "Domains" })).not.toHaveAttribute("aria-current");
+      fireEvent.click(entry);
+      expect(onOpenCollection).toHaveBeenLastCalledWith("domains-short");
+    });
+
     it("marks a folded group holding the open collection, and the group whose page is open", async () => {
       serve();
       const { rerender } = render(explorer({ model: groupedModel(true), activeViewKey: "units" }));

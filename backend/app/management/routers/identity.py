@@ -29,6 +29,7 @@ from ...engine.identity.clients import (
     remove_secret,
     update_client,
 )
+from ...engine.identity.product import product_name
 from ...engine.identity.users import create_user, load_user, update_user, user_page
 from ...engine.mail import links as mail_links
 from ...engine.mail import settings as mail_settings
@@ -200,7 +201,7 @@ def post_my_second_factor(
         session,
         request.app.state.identity_settings,
         user,
-        second_factor.product_name(session, "RDM Engine"),
+        product_name(session, "RDM Engine"),
         datetime.now(UTC),
     )
     return SecondFactorEnrolment(secret=made.secret, otpauthUri=made.uri, qrSvg=made.svg)
@@ -315,7 +316,7 @@ def delete_my_passkey(
         now=datetime.now(UTC),
         address=_address(request),
     )
-    passkeys.remove(session, user, passkey_id, by="self")
+    passkeys.remove(session, request.app.state.identity_settings, user, passkey_id, by="self")
     return Response(status_code=204)
 
 
@@ -336,10 +337,18 @@ def list_user_passkeys(
 
 @router.delete("/users/{user_id}/passkeys/{passkey_id}", status_code=204)
 @requires("security.manage", at=INSTANCE)
-def delete_user_passkey(user_id: str, passkey_id: str, session: DbSession) -> Response:
+def delete_user_passkey(
+    user_id: str, passkey_id: str, request: Request, session: DbSession
+) -> Response:
     """Remove a person's passkey, for someone who lost the device (D387, D394); a security event
     records it."""
-    passkeys.remove(session, load_user(session, user_id), passkey_id, by="administrator")
+    passkeys.remove(
+        session,
+        request.app.state.identity_settings,
+        load_user(session, user_id),
+        passkey_id,
+        by="administrator",
+    )
     return Response(status_code=204)
 
 
@@ -435,11 +444,13 @@ def delete_user_identity(user_id: str, provider: str, session: DbSession) -> Res
 
 @router.delete("/users/{user_id}/second-factor", status_code=204)
 @requires("security.manage", at=INSTANCE)
-def delete_user_second_factor(user_id: str, session: DbSession) -> Response:
+def delete_user_second_factor(user_id: str, request: Request, session: DbSession) -> Response:
     """Remove a person's second factor and recovery codes, for someone who lost the phone and the
     codes (D387); a security event records it, and they set one up again at their next sign-in
     when the instance requires it. ``404 SECOND_FACTOR_NOT_FOUND`` when they have none."""
-    second_factor.remove_for(session, load_user(session, user_id))
+    second_factor.remove_for(
+        session, request.app.state.identity_settings, load_user(session, user_id)
+    )
     return Response(status_code=204)
 
 

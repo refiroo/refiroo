@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { EditorSelection, ModelDraftOutline, OutlineApplication, OutlineMark, OutlineTypeNode } from "@/types";
+import { viewGlyph } from "@/model/collections";
 import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
@@ -162,12 +163,12 @@ export function paneRows(
               borrowed.has(entry.collection) ? borrowedRow(entry.collection, 3, id) : typeRow(entry.collection, 3, id),
             );
         } else if (entry.view)
-          // A matrix has no panel of its own: its row shows the group it stands in.
+          // A grouped view has no panel of its own: its row shows the group it stands in.
           rows.push({
-            id: `matrix:${application.key}:${group.key}:${entry.view}`,
+            id: `view:${application.key}:${group.key}:${entry.view}`,
             level: 3,
             label: application.views.find((view) => view.key === entry.view)?.name ?? entry.view,
-            icon: "matrix",
+            icon: viewGlyph(application.views.find((view) => view.key === entry.view) ?? { type: "" }),
             selection: { show: "group", application: application.key, key: group.key },
           });
       }

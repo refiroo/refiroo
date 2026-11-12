@@ -589,13 +589,13 @@ describe("the editor's operation descriptors (D38)", () => {
     expect(names({ parent: "area", relationType: "holds" })).not.toContain("relationName");
   });
 
-  it("says what Remove group does to relation matrices only when the group holds some", () => {
+  it("says what Remove group does to views only when the group holds some", () => {
     const confirm = operationById("group-remove")!.confirm!;
     const target = { on: "group", applicationKey: "shop", group: "lists" } as never;
     expect(confirm(target, outline)).toMatch(/top of the sidebar\.$/);
     const withMatrix = structuredClone(outline);
     withMatrix.applications[0].navigation.groups[0].entries.push({ view: "bins-by-shelf" });
-    expect(confirm(target, withMatrix)).toContain("relation matrices go back inside their row type's entry");
+    expect(confirm(target, withMatrix)).toContain("views go back inside their source type's entry");
   });
 
   it("places a collection in a group of its application, or back at the top of the sidebar", () => {

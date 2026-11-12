@@ -18,7 +18,7 @@ import re
 import secrets
 import struct
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
 import segno
@@ -33,7 +33,7 @@ from ...models.database import (
     UserRecoveryCode,
     UserSecondFactor,
 )
-from ..model.registry import resolve_model_snapshot
+from ..mail import security_notice
 from . import managed, passkeys, providers, security_events, sign_in
 from .passwords import digest, new_token, verify_secret
 from .settings import IdentitySettings
@@ -76,15 +76,6 @@ def accepted_step(key: bytes, code: str, now: datetime, last_step: int | None) -
         if hmac.compare_digest(hotp(key, step), typed) and (last_step is None or step > last_step):
             found = step
     return found
-
-
-def product_name(session: Session, fallback: str) -> str:
-    """The name the authenticator app labels the account with, and the pages carry: the default
-    workspace's product."""
-    try:
-        return resolve_model_snapshot(session, None).model.product.name
-    except ApiError:
-        return fallback
 
 
 def context(user_id: str) -> bytes:
@@ -375,6 +366,7 @@ def confirm(
         session, "user", user.public_id, "second-factor-added", about=[user.public_id],
         details={"method": "authenticator-app"},
     )  # fmt: skip
+    security_notice.notify(session, settings, user, "second-factor-added", now=now)
     session.commit()
     return codes
 
@@ -439,7 +431,7 @@ def remove(
         check(session, settings, user, code, now=now, address=address)
     except CodeRefused as failure:
         raise _refused(failure) from None
-    _delete(session, user, "self")
+    _delete(session, settings, user, "self", now)
     session.commit()
 
 
@@ -486,20 +478,23 @@ def prove(
     raise api_error(422, "CODE_INCORRECT", "That is not right")
 
 
-def remove_for(session: Session, user: User) -> None:
+def remove_for(session: Session, settings: IdentitySettings, user: User) -> None:
     """A Security administrator removes a person's factor, with its recovery codes (D387)."""
     _confirmed(session, user)
-    _delete(session, user, "administrator")
+    _delete(session, settings, user, "administrator", datetime.now(UTC))
     session.commit()
 
 
-def _delete(session: Session, user: User, by: str) -> None:
+def _delete(
+    session: Session, settings: IdentitySettings, user: User, by: str, now: datetime
+) -> None:
     session.execute(delete(UserRecoveryCode).where(UserRecoveryCode.user_id == user.id))
     session.execute(delete(UserSecondFactor).where(UserSecondFactor.user_id == user.id))
     security_events.record(
         session, "user", user.public_id, "second-factor-removed", about=[user.public_id],
         details={"by": by},
     )  # fmt: skip
+    security_notice.notify(session, settings, user, "second-factor-removed", now=now)
 
 
 # --- the sign-in page's second step -----------------------------------------------------------------

@@ -605,9 +605,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `headings` with `Unpivot` and `HeadingRows`; no existing path or schema otherwise changed.
     # Re-baselined for CE1 (additive): the canvas document gains `folded` and `scope` (CanvasResponse,
     # CanvasUpdate; `positions` is optional in the update); no path changed.
+    # Re-baselined for SM1 and NG1 (descriptions only): MailMessageResponse.kind names `security`, and a
+    # navigation group's view member is any view of the application, not only a relation matrix.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "b5e61ec4a65fb269f9869ff66033d29ddf82efc7180361f03d6491e6e241226f"
+        "8aaafb0f5791454d9f16316b6684f9ff9a2696dca1f2a5454bb2003ab783654e"
     )
 
 

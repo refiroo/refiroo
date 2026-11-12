@@ -787,15 +787,15 @@ A containment hierarchy as a tree, from its root types down through its node typ
 
 ### NavigationViewEntry
 
-- view: The `key` of a relation matrix view of the application, shown as an entry of its own.
+- view: The `key` of a view of the application, of any kind, shown as an entry of its own.
 
 ### NavigationGroupDefinition
 
-A labelled, collapsible sidebar section of an application's collections and relationship matrices (`{"view": key}`), in one shared order. It is presentation only and carries no data, validation or permission.
+A labelled, collapsible sidebar section of an application's collections and views of any kind (`{"view": key}`), in one shared order. It is presentation only and carries no data, validation or permission.
 
 - key: Names the group within the application.
 - label: The group's heading.
-- collections: The entries in order: an object type key (the collection of that type) or `{"view": key}` for a relation matrix. An entry is in one group at most.
+- collections: The entries in order: an object type key (the collection of that type) or `{"view": key}` for a view of any kind. An entry is in one group at most.
 - collapsed: Whether the group starts folded. `false` by default.
 
 ### NavigationDefinition

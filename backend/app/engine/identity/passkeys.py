@@ -40,6 +40,7 @@ from webauthn.helpers.structs import (
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import SignInStep, User, UserPasskey, UserSecondFactor
+from ..mail import security_notice
 from . import managed, providers, security_events, sign_in
 from .passwords import digest, new_token
 from .settings import IdentitySettings
@@ -159,7 +160,9 @@ def rename(session: Session, user: User, public_id: str, name: str) -> UserPassk
     return row
 
 
-def remove(session: Session, user: User, public_id: str, *, by: str) -> None:
+def remove(
+    session: Session, settings: IdentitySettings, user: User, public_id: str, *, by: str
+) -> None:
     """Remove a passkey: the person's own (refused while the instance requires a second factor and
     it is their last one, ``409 SECOND_FACTOR_REQUIRED``; ``403 SIGN_IN_MANAGED`` when an
     administrator manages their sign-in, SA1) or an administrator's (D394)."""
@@ -188,6 +191,7 @@ def remove(session: Session, user: User, public_id: str, *, by: str) -> None:
         session, "user", user.public_id, "passkey-removed", about=[user.public_id],
         details={"name": row.name, "by": by},
     )  # fmt: skip
+    security_notice.notify(session, settings, user, "passkey-removed")
     session.commit()
 
 
@@ -318,6 +322,7 @@ def finish_registration(
         session, "user", user.public_id, "passkey-added", about=[user.public_id],
         details={"name": passkey.name},
     )  # fmt: skip
+    security_notice.notify(session, settings, user, "passkey-added", now=now)
     session.commit()
     return passkey
 

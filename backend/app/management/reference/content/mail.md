@@ -257,7 +257,7 @@ How mail is sent, replacing what was saved. `expectedVersion` is the saved versi
 ### MailMessageResponse
 
 - id: The message's ID.
-- kind: `activation`, `password-reset`, `test`, `notice` or `digest`.
+- kind: `activation`, `password-reset`, `test`, `notice`, `digest` or `security` (a change to the person's sign-in).
 - to: The address it is sent to.
 - subject: Its subject.
 - status: `pending`, `sent` or `failed`.

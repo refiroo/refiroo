@@ -93,7 +93,6 @@ const EXPECTED_UNOFFERED: string[] = [
   "view-matrix-change",
   "view-tree-change",
   "view-grid-change",
-  "view-group",
   "view-table-layout",
   "view-table-remove",
   "view-matrix-remove",

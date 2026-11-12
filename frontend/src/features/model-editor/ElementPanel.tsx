@@ -14,6 +14,7 @@ import type {
   OutlineNavigationGroup,
   OutlineRelation,
 } from "@/types";
+import { viewGlyph } from "@/model/collections";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { Tabs } from "@/ui/Tabs";
@@ -1007,7 +1008,7 @@ export function ElementPanel({
                 {
                   kind: "placeCollection",
                   applicationKey: application.key,
-                  ...(entry.kind === "matrix" ? { view: entry.key } : { collection: entry.key }),
+                  ...(entry.kind === "view" ? { view: entry.key } : { collection: entry.key }),
                   group: group.key,
                   position,
                 },
@@ -1021,13 +1022,13 @@ export function ElementPanel({
                 on: "groupEntry",
                 applicationKey: application.key,
                 group: group.key,
-                ...(entry.kind === "matrix" ? { view: entry.key } : { collection: entry.key }),
+                ...(entry.kind === "view" ? { view: entry.key } : { collection: entry.key }),
               }}
               outline={outline}
               onOperation={onOperation}
             />
           )}
-          emptyMessage="This group has no entries yet. Add collections and relation matrices to it."
+          emptyMessage="This group has no entries yet. Add collections and views to it."
           columns={[
             {
               key: "entry",
@@ -1040,8 +1041,8 @@ export function ElementPanel({
               key: "kind",
               label: "Kind",
               cell: (entry) =>
-                entry.kind === "matrix"
-                  ? "Relation matrix"
+                entry.kind === "view"
+                  ? (VIEW_KINDS[application.views.find((view) => view.key === entry.key)?.type ?? ""] ?? "View")
                   : application.borrowed.some((item) => item.objectType === entry.key)
                     ? "Borrowed list"
                     : "List",
@@ -1050,11 +1051,11 @@ export function ElementPanel({
               key: "opens",
               label: "Opens on",
               cell: (entry) =>
-                entry.kind === "matrix"
+                entry.kind === "view"
                   ? openingLabel(application.views.find((view) => view.key === entry.key))
                   : openingLabel(openingView(application, entry.key)),
               edit: (entry) => {
-                if (entry.kind === "matrix") return undefined;
+                if (entry.kind === "view") return undefined;
                 const views = collectionViews(application, entry.key);
                 if (views.length < 2) return undefined;
                 const natural = openingView(
@@ -1355,23 +1356,27 @@ function openingLabel(view?: { name: string; type?: string | null }) {
   return view ? `${(VIEW_KINDS[view.type ?? ""] ?? view.type ?? "view").toLowerCase()} · ${view.name}` : "—";
 }
 
-/** A relation matrix named in a table: its glyph in its row type's hue, then its name. */
-export function MatrixTag({
+/** A view named in a table: its kind's glyph in its source type's hue, then its name. */
+export function ViewTag({
   outline,
   view,
 }: {
   outline: ModelDraftOutline;
-  view: { name: string; collection?: string | null };
+  view: { name: string; type?: string | null; collection?: string | null };
 }) {
   return (
     <span className="type-link matrix-tag">
-      <HueTile hue={view.collection ? draftTypeHue(outline, view.collection) : undefined} glyph="matrix" size={18} />
+      <HueTile
+        hue={view.collection ? draftTypeHue(outline, view.collection) : undefined}
+        glyph={viewGlyph(view)}
+        size={18}
+      />
       {view.name}
     </span>
   );
 }
 
-/** An entry of a navigation group in a table: a collection links to its type; a matrix is named. */
+/** An entry of a navigation group in a table: a collection links to its type; a view is named. */
 function EntryTag({
   outline,
   application,
@@ -1385,10 +1390,10 @@ function EntryTag({
 }) {
   if (entry.kind === "collection") return <TypeLink outline={outline} typeKey={entry.key} onSelect={onSelect} />;
   const view = application.views.find((item) => item.key === entry.key);
-  return view ? <MatrixTag outline={outline} view={view} /> : <>{entry.key}</>;
+  return view ? <ViewTag outline={outline} view={view} /> : <>{entry.key}</>;
 }
 
-/** A group's entries as chips: its types, which link to them, and its matrices. */
+/** A group's entries as chips: its types, which link to them, and its views. */
 function EntryChips({
   outline,
   application,

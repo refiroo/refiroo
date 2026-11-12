@@ -1760,10 +1760,11 @@ def test_a_matrix_entry_follows_its_view_key_and_goes_with_its_view(world):
 @pytest.mark.journey("J33.9")
 @pytest.mark.structures("A1")
 def test_navigation_entries_that_name_nothing_valid_are_refused(world):
-    """Given an application with a matrix. When an operation places a table view or an unknown view,
-    or sets an opening on a view of another collection, it is refused INVALID_OPERATION at its
-    parameter. When a document names a table as a matrix entry, a matrix in two groups, or an opening
-    for a view of another collection, validation refuses each at its pointer."""
+    """Given an application with a matrix. When an operation places an unknown view, a view together
+    with a collection, or sets an opening on a view of another collection, it is refused
+    INVALID_OPERATION at its parameter. When a document names a view the application does not
+    declare as a group entry, a view in two groups, or an opening for a view of another collection,
+    validation refuses each at its pointer."""
     draft, built = _matrix_application(world)
     place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
     tongue_view = next(
@@ -1772,7 +1773,6 @@ def test_navigation_entries_that_name_nothing_valid_are_refused(world):
         if v.get("objectTypeKey") == "j33-tongue"
     )
     for operation, parameter in (
-        ({**place, "view": tongue_view, "group": "first"}, "view"),
         ({**place, "view": "j33-nowhere", "group": "first"}, "view"),
         (
             {**place, "view": "j33-rows-by-tongue", "collection": "j33-row", "group": "first"},
@@ -1807,7 +1807,7 @@ def test_navigation_entries_that_name_nothing_valid_are_refused(world):
             {
                 "key": "first",
                 "label": "First",
-                "collections": [{"view": tongue_view}, {"view": "j33-rows-by-tongue"}],
+                "collections": [{"view": "j33-nowhere"}, {"view": "j33-rows-by-tongue"}],
             },
             {"key": "second", "label": "Second", "collections": [{"view": "j33-rows-by-tongue"}]},
         ],
@@ -1834,6 +1834,185 @@ def test_navigation_entries_that_name_nothing_valid_are_refused(world):
         if d["severity"] == "error"
     }
     assert found == {("INVALID_REFERENCE", f"{pointer}/opens/j33-tongue")}, found
+
+
+def _grouped_views_application(world) -> tuple[dict[str, Any], dict[str, Any], dict[str, str]]:
+    """The matrix application with a tree over the tongue and its words besides the matrix and the
+    tables the types came with; returns the draft, the answer and the keys of a table and a tree."""
+    draft, built = _matrix_application(world)
+    tree = {
+        "key": "j33-tongue-tree",
+        "name": "Tongue tree",
+        "type": "tree",
+        "config": {
+            "rootObjectTypeKeys": ["j33-tongue"],
+            "objectTypeKeys": ["j33-tongue", "j33-word"],
+            "labelField": "name",
+            "pageSize": 50,
+            "actions": ["createChild", "move"],
+        },
+    }
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            {"kind": "addView", "applicationKey": "j33-nav", "view": tree},
+        )
+    )
+    assert answer["valid"] is True, answer["diagnostics"]
+    table = next(
+        v["key"]
+        for v in _application(_model(world, draft), "j33-nav")["views"]
+        if v.get("objectTypeKey") == "j33-row"
+    )
+    return draft, answer, {"table": table, "tree": tree["key"]}
+
+
+@pytest.mark.journey("J33.9", "J33.2")
+@pytest.mark.structures("A1")
+def test_a_table_and_a_tree_view_are_placed_in_a_group_moved_and_taken_out(world):
+    """Given an application with a table, a tree, a matrix and two groups. When the table and the tree
+    are placed in the first group beside a collection, the tree moved to the second group, and both
+    taken out, then each step shows in the model and the outline in the group's one order, a view
+    stands in one group only, the views stay declared and the draft installs."""
+    draft, built, keys = _grouped_views_application(world)
+    table, tree = keys["table"], keys["tree"]
+    place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
+
+    step = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            {**place, "collection": "j33-tongue", "group": "first"},
+            {**place, "view": table, "group": "first"},
+            {**place, "view": tree, "group": "first", "position": 0},
+        )
+    )
+    assert _navigation(world, draft)["groups"][0]["collections"] == [
+        {"view": tree},
+        "j33-tongue",
+        {"view": table},
+    ]
+    outline = _by_key(_outline(world, draft)["applications"], "j33-nav")["navigation"]
+    assert outline["groups"][0]["entries"] == [
+        {"view": tree},
+        {"collection": "j33-tongue"},
+        {"view": table},
+    ]
+
+    step = ok(_apply(world, draft, step["version"], {**place, "view": tree, "group": "second"}))
+    assert [g["collections"] for g in _navigation(world, draft)["groups"]] == [
+        ["j33-tongue", {"view": table}],
+        [{"view": tree}],
+    ]
+    undone = ok(_undo(world, draft, step["version"]))
+    assert _navigation(world, draft)["groups"][0]["collections"][0] == {"view": tree}
+    redone = ok(_redo(world, draft, undone["version"]))
+
+    step = ok(
+        _apply(
+            world,
+            draft,
+            redone["version"],
+            {**place, "view": table, "group": None},
+            {**place, "view": tree, "group": None},
+        )
+    )
+    assert [g["collections"] for g in _navigation(world, draft)["groups"]] == [["j33-tongue"], []]
+    declared = {v["key"] for v in _application(_model(world, draft), "j33-nav")["views"]}
+    assert {table, tree} <= declared
+    release = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/installation", {"expectedVersion": step["version"]}
+        ),
+        201,
+    )
+    assert release["id"]
+
+
+@pytest.mark.journey("J33.9", "J33.2")
+@pytest.mark.structures("A1")
+def test_a_table_or_tree_entry_follows_its_view_key_and_goes_with_its_view(world):
+    """Given a table and a tree in groups. When a view is given a new key, its entry follows it; when
+    the other is removed, its entry goes with it, and one undo returns the entry."""
+    draft, built, keys = _grouped_views_application(world)
+    table, tree = keys["table"], keys["tree"]
+    place = {"kind": "placeCollection", "applicationKey": "j33-nav"}
+    step = ok(
+        _apply(
+            world,
+            draft,
+            built["version"],
+            {**place, "view": table, "group": "first"},
+            {**place, "view": tree, "group": "second"},
+        )
+    )
+    renamed = ok(
+        _apply(
+            world,
+            draft,
+            step["version"],
+            {
+                "kind": "setKey",
+                "element": {"applicationKey": "j33-nav", "view": table},
+                "key": "j33-row-table",
+            },
+        )
+    )
+    assert _navigation(world, draft)["groups"][0]["collections"] == [{"view": "j33-row-table"}]
+    undone = ok(_undo(world, draft, renamed["version"]))
+    assert _navigation(world, draft)["groups"][0]["collections"] == [{"view": table}]
+
+    removed = ok(
+        _apply(
+            world,
+            draft,
+            undone["version"],
+            {"kind": "removeView", "applicationKey": "j33-nav", "view": tree},
+        )
+    )
+    assert removed["valid"] is True, removed["diagnostics"]
+    assert [g["collections"] for g in _navigation(world, draft)["groups"]] == [
+        [{"view": table}],
+        [],
+    ]
+    ok(_undo(world, draft, removed["version"]))
+    assert _navigation(world, draft)["groups"][1]["collections"] == [{"view": tree}]
+
+
+@pytest.mark.journey("J33.9")
+@pytest.mark.structures("A1")
+def test_a_view_in_a_second_group_or_one_the_application_lacks_is_refused_for_every_kind(world):
+    """Given a table and a tree. When a document names one of them in two groups, validation refuses
+    the second entry at its pointer; a view of another application's is no view of this one."""
+    draft, _, keys = _grouped_views_application(world)
+    model = _model(world, draft)
+    navigation = _application(model, "j33-nav")["navigation"] = {
+        "groups": [
+            {"key": "first", "label": "First", "collections": [{"view": keys["table"]}]},
+            {
+                "key": "second",
+                "label": "Second",
+                "collections": [{"view": keys["tree"]}, {"view": keys["table"]}],
+            },
+        ]
+    }
+
+    def errors():
+        return {
+            (d["code"], d["path"])
+            for d in ok(world.api.post("/model-validations", {"model": model}))["diagnostics"]
+            if d["severity"] == "error"
+        }
+
+    pointer = "/applications/j33-nav/navigation/groups"
+    assert errors() == {("INVALID_MODEL", f"{pointer}/second/collections/1")}
+    navigation["groups"][1]["collections"].pop()
+    assert errors() == set()
+    navigation["groups"][1]["collections"].append({"view": "j33-no-such-view"})
+    assert errors() == {("INVALID_REFERENCE", f"{pointer}/second/collections/1/view")}
 
 
 @pytest.mark.journey("J33.20")

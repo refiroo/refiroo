@@ -785,22 +785,23 @@ export function unrelateOperations(relation: Pick<OutlineRelation, "relationType
   return [{ kind: "disallowRelation", relationType: relation.relationType, from: relation.from, to: relation.to }];
 }
 
-/** A list dropped on a navigation group, or on New group with its label. */
+/** A list (its type key) or a view of any kind (`{ view }`) dropped on a navigation group, or on New group with its label. */
 export function groupOperations(
-  typeKey: string,
+  entry: string | { view: string },
   applicationKey: string,
   group: { key: string } | { label: string } | null,
   outline: ModelDraftOutline,
 ): DraftOperation[] {
+  const placed = typeof entry === "string" ? { collection: entry } : { view: entry.view };
   if (group && "label" in group) {
     const application = outline.applications.find((item) => item.key === applicationKey);
     const key = keyFromLabel(group.label, new Set(application?.navigation.groups.map((item) => item.key) ?? []));
     return [
       { kind: "addNavigationGroup", applicationKey, key, label: group.label, collapsed: false },
-      { kind: "placeCollection", applicationKey, collection: typeKey, group: key },
+      { kind: "placeCollection", applicationKey, ...placed, group: key },
     ];
   }
-  return [{ kind: "placeCollection", applicationKey, collection: typeKey, group: group?.key ?? null }];
+  return [{ kind: "placeCollection", applicationKey, ...placed, group: group?.key ?? null }];
 }
 
 // --- joins over every row (PP-D8) ---

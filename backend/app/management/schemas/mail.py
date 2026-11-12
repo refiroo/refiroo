@@ -73,7 +73,9 @@ class MailMessageResponse(BaseModel):
     """A message in the outbox. Its text is never answered: it holds a one-time link."""
 
     id: str
-    kind: str = Field(description="`activation`, `password-reset`, `test`, `notice` or `digest`")
+    kind: str = Field(
+        description="`activation`, `password-reset`, `test`, `notice`, `digest` or `security` (a change to the person's sign-in)"
+    )
     to: str
     subject: str
     status: Literal["pending", "sent", "failed"]

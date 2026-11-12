@@ -150,6 +150,10 @@ After downtime, only one digest is sent, rather than one for each missed morning
 mail settings, the due time waits until mail is set up. Daylight-saving changes preserve 07:00 in
 the person's saved time zone; it is not the engine server's clock zone.
 
+## Security messages
+
+When a person's way of signing in changes, refiroo writes to them: their password was changed or reset, an authenticator app was added or removed, or a passkey was added or removed. The message says what changed and when (in UTC) and tells them to contact an administrator if it was not them, so a change they did not make is noticed. It carries no password, code or sign-in link. People cannot switch these messages off. Nothing is sent while mail is not set up or for a person with no e-mail address, and choosing a first password sends nothing. They appear in **Messages and retries** like any other message, and the e-mail template wraps them.
+
 ## Correct a failure or replace the mail login
 
 Use the test's heading to decide who needs to act:

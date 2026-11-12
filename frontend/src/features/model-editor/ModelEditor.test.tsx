@@ -434,7 +434,7 @@ describe("ModelEditor", () => {
     expect(screen.queryByText(/2 more than before/)).toBeNull();
   });
 
-  describe("navigation groups: relation matrices as entries (0.13)", () => {
+  describe("navigation groups: views as entries (0.13 relation matrices, 0.17 NG1 every kind)", () => {
     /** Shop with a Lists group holding Bins and a matrix of shelves by bins, an empty More group, Area and Shelf in none. */
     function matrixOutline() {
       const outline = outlineFixture();
@@ -536,7 +536,7 @@ describe("ModelEditor", () => {
       fireEvent.click(await screen.findByRole("button", { name: "Add to group…" }));
       const dialog = await screen.findByRole("dialog", { name: "Add to More" });
       expect(within(dialog).getByRole("group", { name: "Collections" })).toBeTruthy();
-      expect(within(dialog).getByRole("group", { name: "Relation matrices" })).toBeTruthy();
+      expect(within(dialog).getByRole("group", { name: "Views" })).toBeTruthy();
       const area = within(dialog).getByRole("checkbox", { name: /Area/ });
       expect(area.closest("label")?.textContent).toContain("Top of the sidebar");
       expect(
@@ -546,7 +546,7 @@ describe("ModelEditor", () => {
       ).toContain("In Lists");
       const send = within(dialog).getByRole("button", { name: "Add 0 items" });
       expect(send).toBeDisabled();
-      fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and matrices" }), {
+      fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and views" }), {
         target: { value: "bin" },
       });
       expect(within(dialog).queryByRole("checkbox", { name: /Area/ })).toBeNull();
@@ -556,7 +556,7 @@ describe("ModelEditor", () => {
           .getByRole("checkbox", { name: /Shelves by bin/ })
           .closest("label")?.textContent,
       ).toContain("Moves from Lists");
-      fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and matrices" }), {
+      fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and views" }), {
         target: { value: "" },
       });
       fireEvent.click(within(dialog).getByRole("checkbox", { name: /Area/ }));
@@ -587,6 +587,33 @@ describe("ModelEditor", () => {
           { kind: "placeCollection", applicationKey: "shop", collection: "area", group: "more" },
         ]),
       );
+    });
+
+    it("places a table view in a group from its own menu in the Views table, and in the group's Add to group… dialog", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+      renderEditor({ show: "application", key: "shop" });
+      await screen.findByRole("table", { name: "Views of Shop" });
+      fireEvent.click(screen.getByRole("button", { name: "Operations for the view Shelves" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Move to group…" }));
+      const dialog = await screen.findByRole("dialog", { name: /Place Shelves in a navigation group/ });
+      fireEvent.change(within(dialog).getByLabelText("Group"), { target: { value: "more" } });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
+      await waitFor(() =>
+        expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+          { kind: "placeCollection", applicationKey: "shop", view: "shelves", group: "more" },
+        ]),
+      );
+    });
+
+    it("offers a table view among the views a group can add", async () => {
+      vi.mocked(api.modelDraftOutline).mockResolvedValue(matrixOutline());
+      renderEditor({ show: "group", application: "shop", key: "more" });
+      fireEvent.click(await screen.findByRole("button", { name: "Add to group…" }));
+      const dialog = await screen.findByRole("dialog", { name: "Add to More" });
+      const views = within(dialog).getByRole("group", { name: "Views" });
+      expect(within(views).getByRole("checkbox", { name: /^Shelves\b(?! by)/ })).toBeTruthy();
+      expect(within(views).getByRole("checkbox", { name: /Shelves by bin/ })).toBeTruthy();
     });
 
     it("moves a relation matrix to a group from its own menu in the Views table", async () => {

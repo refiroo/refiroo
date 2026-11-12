@@ -613,7 +613,7 @@ class OutlineTypeNode(BaseModel):
 
 
 class OutlineNavigationEntry(BaseModel):
-    """An entry of a navigation group: a collection (by its type) or a relation matrix (by its view)."""
+    """An entry of a navigation group: a collection (by its type) or a view of any kind (by its key)."""
 
     collection: str | None = None
     view: str | None = None

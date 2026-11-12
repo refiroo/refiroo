@@ -233,8 +233,8 @@ export function suggestedVersion(outline: ModelDraftOutline): string {
   return match ? `${match[1]}${Number(match[2]) + 1}${match[3]}` : own;
 }
 
-/** An entry of a navigation group in the editor: a collection (its type) or a relation matrix (its view). */
-export type NavigationEntryRef = { kind: "collection"; key: string } | { kind: "matrix"; key: string };
+/** An entry of a navigation group in the editor: a collection (its type) or a view of any kind. */
+export type NavigationEntryRef = { kind: "collection"; key: string } | { kind: "view"; key: string };
 
 export const entryRefId = (entry: NavigationEntryRef) => `${entry.kind}:${entry.key}`;
 
@@ -243,7 +243,7 @@ export function groupEntries(application: OutlineApplication, groupKey: string):
   const group = application.navigation.groups.find((item) => item.key === groupKey);
   return (group?.entries ?? []).flatMap((entry): NavigationEntryRef[] =>
     entry.view
-      ? [{ kind: "matrix", key: entry.view }]
+      ? [{ kind: "view", key: entry.view }]
       : entry.collection
         ? [{ kind: "collection", key: entry.collection }]
         : [],
@@ -257,9 +257,9 @@ export function groupOfEntry(application: OutlineApplication, entry: NavigationE
   );
 }
 
-/** The relation matrix views of an application. */
-export function matricesOf(application: OutlineApplication) {
-  return application.views.filter((view) => view.type === "relationMatrix");
+/** The views of an application, of any kind: each may stand in a navigation group. */
+export function viewsOf(application: OutlineApplication) {
+  return application.views;
 }
 
 /** The application's collections: those in no group, then those in its groups. */

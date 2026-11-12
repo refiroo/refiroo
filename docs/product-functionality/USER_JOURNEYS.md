@@ -2602,6 +2602,15 @@ password by I6 and inbox notices by M2 (2026-10-27).
   template to the caller's own address. The raw HTML in the Markdown is shown as text, images in it are
   not drawn and links other than http, https and mailto are not links. Only the Operator role (Operations
   at the instance) may use it.
+- **J46.13 A message when sign-in changes** (0.17 SM1): once mail is set up, a person is written to when
+  their password is changed (by them, with the current one) or reset (with a one-time link an
+  administrator or they asked for; choosing a first password sends nothing), when an authenticator app
+  is added or removed (by them or a security administrator), and when a passkey is added or removed
+  (the same). The message names what changed and when (UTC) and says to contact an administrator if it
+  was not them, sits in the saved e-mail template with its plain-text part, and carries no password,
+  code or link that signs in (D421). It is queued with the change, so a refused change sends nothing; a
+  person cannot switch these messages off; with no mail set up or no address the change is made and
+  nothing is queued.
 
 **Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `422 UNKNOWN_NOTICE_KIND`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_CREDENTIAL_REQUIRED`, `422 MAIL_CERTIFICATE_INVALID`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.

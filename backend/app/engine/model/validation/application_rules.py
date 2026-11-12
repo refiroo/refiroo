@@ -108,13 +108,11 @@ def _check_navigation(
     model: EngineModel, application: ApplicationDefinition, navigation_path: str
 ) -> None:
     """Schema 0.10 navigation groups (0.10 N1): unique keys, each entry a collection of the
-    application or a relation matrix view of it (``{"view": key}``), each in at most one group, and
+    application or a view of it of any kind (``{"view": key}``), each in at most one group, and
     the views collections open on (``opens``). An empty group is valid (D27)."""
     navigation = application.navigation
     collections = set(collection_keys(application))
-    matrices = {
-        view.key for view in application.views if isinstance(view, RelationMatrixViewDefinition)
-    }
+    view_keys = {view.key for view in application.views}
     group_of: dict[tuple[str, str], str] = {}
     keys: set[str] = set()
     for group in navigation.groups if navigation else ():
@@ -139,14 +137,14 @@ def _check_navigation(
                         f"{sorted(collections)}",
                     )
             else:
-                name, what = ("view", entry.view), "Relation matrix"
-                if entry.view not in matrices:
+                name, what = ("view", entry.view), "View"
+                if entry.view not in view_keys:
                     raise ModelReferenceError(
                         "INVALID_REFERENCE",
                         f"{entry_path}/view",
                         f"Navigation group '{group.key}' names view '{entry.view}', which is no "
-                        f"relation matrix view of application '{application.key}'; its matrices "
-                        f"are {sorted(matrices)}",
+                        f"view of application '{application.key}'; its views are "
+                        f"{sorted(view_keys)}",
                     )
             if name in group_of:
                 raise ModelReferenceError(

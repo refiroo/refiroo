@@ -22,6 +22,7 @@ const MESSAGE_KIND: Record<string, string> = {
   activation: "Account link",
   "password-reset": "Password reset",
   notification: "Inbox notice",
+  security: "Sign-in change",
 };
 
 export const messageKind = (message: Pick<MailMessage, "kind">) => MESSAGE_KIND[message.kind] ?? message.kind;

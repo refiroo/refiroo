@@ -4386,7 +4386,7 @@ the layout places the change took.
 | `addNavigationGroup` | `applicationKey`, `key`?, `label`, `collapsed`, `position` | additive | `removeNavigationGroup` |
 | `removeNavigationGroup` | group (its collections return to the top level) | additive | `addNavigationGroup` with its collections |
 | `setNavigationGroup` | group; `label`, `collapsed`, `position` | additive | `setNavigationGroup` back |
-| `placeCollection` | `applicationKey`, `collection` (a collection's type) **or** `view` (a relation matrix view of the application, which then has a sidebar entry of its own), `group` (`null`: out of its group), `position` (in the group's one order of collections and matrices; the entry moves from the group it stood in) | additive | `placeCollection` back. Several entries added to a group are several `placeCollection` operations in one request, so one step and one undo; a matrix view removed, or given a new key, takes its entry and its opening with it or follows it (`removeView`, `setKey`) |
+| `placeCollection` | `applicationKey`, `collection` (a collection's type) **or** `view` (a view of the application, of any kind, which then has a sidebar entry of its own), `group` (`null`: out of its group), `position` (in the group's one order of collections and views; the entry moves from the group it stood in) | additive | `placeCollection` back. Several entries added to a group are several `placeCollection` operations in one request, so one step and one undo; a view removed, or given a new key, takes its entry and its opening with it or follows it (`removeView`, `setKey`) |
 | `setCollectionOpening` | `applicationKey`, `collection`, `view` (a view of that collection; `null`: the application's default view) | additive | `setCollectionOpening` back |
 | `replaceModel` | the whole model; written by `PATCH /model-drafts/{id}`, refused in a request | — | `replaceModel` with the previous model |
 | `restoreElements` | `undoes` (the operation it takes back), `removes` (the elements that operation created, which putting things back takes away: marked as needing a migration once released) and `changes` (the stored prior state); refused in a request | — | the kind it undid |
@@ -4588,7 +4588,7 @@ can be read, beside its diagnostics.
   draft's version changes only by `setRelease`.
 - **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
   Each group lists its `collections` (types) and its `entries` in their one order, each `{ "collection": key }`
-  or `{ "view": key }` (a relation matrix); `navigation.opens` maps a collection to the view its
+  or `{ "view": key }` (a view of any kind); `navigation.opens` maps a collection to the view its
   entry opens on.
 - **`views`** lists an application's views: `key`, `name`, `type`, the `collection` each belongs to (its source type), the types each `shows`, its `mark`, and
   for a relation matrix its configuration as `matrix` and for a tree or a mapping grid as `config`.

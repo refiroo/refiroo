@@ -19,6 +19,7 @@ import {
   columnDropOperations,
   containOperations,
   filterOperations,
+  groupOperations,
   joinBinding,
   joinOperations,
   joinRequest,
@@ -953,5 +954,24 @@ describe("the whole model on the board (0.17 CE1)", () => {
     expect(a.y).toBe(b.y);
     expect(a.x + a.width).toBeLessThanOrEqual(b.x);
     expect(b.x + b.width).toBeLessThanOrEqual(900);
+  });
+});
+
+describe("groupOperations (0.17 NG1)", () => {
+  const outline = outlineFixture();
+
+  it("places a list or a view of any kind through the same operation, in a group or a new one", () => {
+    expect(groupOperations("bin", "shop", { key: "lists" }, outline)).toEqual([
+      { kind: "placeCollection", applicationKey: "shop", collection: "bin", group: "lists" },
+    ]);
+    expect(groupOperations({ view: "bins" }, "shop", { key: "lists" }, outline)).toEqual([
+      { kind: "placeCollection", applicationKey: "shop", view: "bins", group: "lists" },
+    ]);
+    expect(groupOperations({ view: "bins" }, "shop", null, outline)).toEqual([
+      { kind: "placeCollection", applicationKey: "shop", view: "bins", group: null },
+    ]);
+    const [add, place] = groupOperations({ view: "bins" }, "shop", { label: "Fresh" }, outline);
+    expect(add).toMatchObject({ kind: "addNavigationGroup", label: "Fresh" });
+    expect(place).toMatchObject({ kind: "placeCollection", view: "bins" });
   });
 });

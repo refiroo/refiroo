@@ -108,7 +108,7 @@ import {
   consumerApiOf,
   keyFromLabel,
   keysOf,
-  matricesOf,
+  viewsOf,
   objectTypeOf,
   relationTypeOf,
   sameName,
@@ -1050,9 +1050,7 @@ export const OPERATIONS: OperationSpec[] = [
     on: "view",
     label: "Move to group…",
     title: (t, o) => `Place ${viewOf(t, o)?.name ?? t.view} in a navigation group`,
-    available: (t, o) =>
-      viewOf(t, o)?.type === "relationMatrix" &&
-      (o.applications.find((a) => a.key === t.applicationKey)?.navigation.groups.length ?? 0) > 0,
+    available: (t, o) => (o.applications.find((a) => a.key === t.applicationKey)?.navigation.groups.length ?? 0) > 0,
     fields: (t, o) => {
       const application = o.applications.find((a) => a.key === t.applicationKey);
       const rowType = viewOf(t, o)?.collection;
@@ -1062,7 +1060,7 @@ export const OPERATIONS: OperationSpec[] = [
           label: "Group",
           type: "select",
           options: [
-            { value: "", label: `No group: inside ${rowType ? typeName(o, rowType) : "its row type"}` },
+            { value: "", label: `No group: inside ${rowType ? typeName(o, rowType) : "its source type"}` },
             ...(application?.navigation.groups ?? []).map((g) => ({ value: g.key, label: g.label })),
           ],
         },
@@ -1070,7 +1068,7 @@ export const OPERATIONS: OperationSpec[] = [
     },
     initial: (t, o) => {
       const application = o.applications.find((a) => a.key === t.applicationKey);
-      const group = application && groupOfEntry(application, { kind: "matrix", key: t.view });
+      const group = application && groupOfEntry(application, { kind: "view", key: t.view });
       return { group: group?.key ?? "" };
     },
     build: (values, t) => [
@@ -2155,7 +2153,7 @@ export const OPERATIONS: OperationSpec[] = [
     confirm: (t, o) =>
       `Remove the group ${groupOf(t, o)?.label ?? t.group}? Its collections return to the top of the sidebar` +
       (groupOf(t, o)?.entries.some((entry) => entry.view)
-        ? ", and its relation matrices go back inside their row type's entry."
+        ? ", and its views go back inside their source type's entry."
         : "."),
     build: (_, t) => [{ kind: "removeNavigationGroup", applicationKey: t.applicationKey, group: t.group }],
   }),
@@ -2927,7 +2925,7 @@ function placeEntries(applicationKey: string, group: string, values: FieldValues
 }
 
 /**
- * The checkbox list of the Add to group dialog: the application's collections and relation matrices
+ * The checkbox list of the Add to group dialog: the application's collections and views
  * not already in the group, each with where it stands now, and where a chosen one moves from.
  */
 function entriesField(
@@ -2938,17 +2936,17 @@ function entriesField(
   const application = outline.applications.find((item) => item.key === applicationKey);
   return {
     name: "entries",
-    label: "Collections and relation matrices",
+    label: "Collections and views",
     type: "checkboxes",
     required: true,
-    search: "Search collections and matrices",
+    search: "Search collections and views",
     options: (values) => {
       if (!application) return [];
       const target = groupOf(values);
       const chosen = chosenEntries(values);
       const groupLabel = (key: string) =>
         application.navigation.groups.find((group) => group.key === key)?.label ?? key;
-      const place = (entry: { kind: "collection" | "matrix"; key: string }, unplaced: string, id: string) => {
+      const place = (entry: { kind: "collection" | "view"; key: string }, unplaced: string, id: string) => {
         const current = groupOfEntry(application, entry);
         if (current?.key === target) return undefined;
         if (!current) return unplaced;
@@ -2960,11 +2958,11 @@ function entriesField(
         const note = place({ kind: "collection", key }, "Top of the sidebar", id);
         if (note) options.push({ value: id, label: typeName(outline, key), group: "Collections", note });
       }
-      for (const view of matricesOf(application)) {
+      for (const view of viewsOf(application)) {
         const id = `${ENTRY_VIEW}${view.key}`;
-        const row = view.collection ? typeName(outline, view.collection) : "its row type";
-        const note = place({ kind: "matrix", key: view.key }, `Inside ${row}`, id);
-        if (note) options.push({ value: id, label: view.name, group: "Relation matrices", note });
+        const row = view.collection ? typeName(outline, view.collection) : "its source type";
+        const note = place({ kind: "view", key: view.key }, `Inside ${row}`, id);
+        if (note) options.push({ value: id, label: view.name, group: "Views", note });
       }
       return options;
     },
@@ -2976,9 +2974,7 @@ function entryApplication(t: On<"groupEntry">, o: ModelDraftOutline) {
 }
 
 function entryRef(t: On<"groupEntry">) {
-  return t.view
-    ? ({ kind: "matrix", key: t.view } as const)
-    : ({ kind: "collection", key: t.collection ?? "" } as const);
+  return t.view ? ({ kind: "view", key: t.view } as const) : ({ kind: "collection", key: t.collection ?? "" } as const);
 }
 
 function entryIndex(t: On<"groupEntry">, o: ModelDraftOutline) {

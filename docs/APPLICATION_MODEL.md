@@ -322,11 +322,11 @@ sections (0.10 N1, A-D2), and choose the view a collection opens on:
   their one order, and `collapsed` (default `false`), the state a reader first sees; a reader's own
   fold is kept in their browser. A group may be empty.
 - An entry of `collections` is a collection of the application (the source type of one of its views,
-  by the rule above: a string) or a relation matrix view of the application (`{ "view": "<key>" }`).
-  A matrix in a group is an entry of its own, named after the view, with a matrix glyph in its row
-  type's hue, and opens the matrix directly; its row type's collection stays where it stands and the
-  matrix stays among that collection's views. A matrix in no group stays a view of its row type's
-  collection, as before.
+  by the rule above: a string) or a view of the application, of any kind (`{ "view": "<key>" }`; 0.17 NG1 extended
+  it from relation matrices). A view in a group is an entry of its own, named after the view, with a glyph
+  of its kind in its source type's hue, and opens the view directly; its source type's collection stays
+  where it stands and the view stays among that collection's views. A view in no group stays a view of
+  its source type's collection, as before.
 - `opens` (optional) maps a collection key to a view of that collection: the view the collection's
   sidebar entry opens on, in place of the application's `defaultView` for that collection. It is
   left out when it names nothing.
@@ -339,8 +339,8 @@ sections (0.10 N1, A-D2), and choose the view a collection opens on:
 Validation, each refusal at its pointer under `/applications/{app}/navigation`: `navigation` in a
 document below schema 0.10 (`INVALID_MODEL`); a group key twice (`DUPLICATE_KEY`, at the second
 group); an entry that is no collection of the application (`INVALID_REFERENCE`, at
-`…/groups/{group}/collections/{index}`); a `view` entry that is no relation matrix view of the
-application (`INVALID_REFERENCE`, at `…/collections/{index}/view`); a collection or a matrix in a
+`…/groups/{group}/collections/{index}`); a `view` entry that is no view of the
+application (`INVALID_REFERENCE`, at `…/collections/{index}/view`); a collection or a view in a
 second group (`INVALID_MODEL`, at its entry there); an `opens` key that is no collection of the
 application, or whose view is not a view of that collection (`INVALID_REFERENCE`, at
 `…/opens/{collection}`). A member a group or `navigation` does not define is refused by shape.

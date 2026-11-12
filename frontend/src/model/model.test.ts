@@ -8,7 +8,8 @@ import {
   collectionGroups,
   navigationEntryKey,
   navigationSections,
-  placedMatrixKeys,
+  pageTitle,
+  placedViewKeys,
   viewSourceObjectTypeKey,
 } from "@/model/collections";
 
@@ -293,7 +294,7 @@ describe("fallbackDetail", () => {
     expect(keys(navigationSections(application))).toEqual([
       ["view:domains-by-codelist", "collection:unit", "collection:domain"],
     ]);
-    expect(placedMatrixKeys(application)).toEqual(new Set([matrix.key, "missing"]));
+    expect(placedViewKeys(application)).toEqual(new Set([matrix.key, "missing"]));
     // The row type's entry stays and keeps the matrix among its views.
     expect(navigationSections(application).ungrouped).toEqual([]);
     expect(collectionGroups(application)[0].views.map((view) => view.key)).toEqual([domains.key, matrix.key]);
@@ -304,5 +305,37 @@ describe("fallbackDetail", () => {
     expect(collectionGroups(application)[0].defaultView.key).toBe(matrix.key);
     application.navigation.opens = { domain: "gone" };
     expect(collectionGroups(application)[0].defaultView.key).toBe(application.defaultView);
+  });
+
+  it("gives a placed table or tree view an entry of its own too, titled by its own name (0.17 NG1)", () => {
+    const application = structuredClone(testModel.applications[0]);
+    const domains = application.views[0];
+    if (domains.type !== "table") throw new Error("Expected table fixture");
+    const units = { ...domains, key: "units", name: "Units list", objectTypeKey: "unit" };
+    const tree = {
+      key: "domain-tree",
+      name: "Domain tree",
+      type: "tree" as const,
+      config: { rootObjectTypeKeys: ["domain"], nodeObjectTypeKeys: ["domain"], displayFields: { domain: ["name"] } },
+    };
+    application.views = [domains, units, tree as never];
+    application.navigation = {
+      groups: [{ key: "places", label: "Places", collections: [{ view: "units" }, { view: tree.key }] }],
+    };
+    const [section] = navigationSections(application).groups;
+    expect(section.entries.map((entry) => navigationEntryKey(entry))).toEqual(["view:units", "view:domain-tree"]);
+    expect(section.entries.map((entry) => (entry.kind === "view" ? entry.sourceObjectTypeKey : ""))).toEqual([
+      "unit",
+      "domain",
+    ]);
+    expect(placedViewKeys(application)).toEqual(new Set(["units", tree.key]));
+    // The collections keep the views as lenses; a placed view is titled by its own name, the others by their type.
+    expect(collectionGroups(application).flatMap((group) => group.views.map((view) => view.key))).toEqual([
+      "domains",
+      "domain-tree",
+      "units",
+    ]);
+    expect(pageTitle(testModel, application, units)).toBe("Units list");
+    expect(pageTitle(testModel, application, domains)).toBe(objectTypeFor(testModel, "domain")?.pluralName);
   });
 });

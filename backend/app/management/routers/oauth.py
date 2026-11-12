@@ -38,6 +38,7 @@ from ...engine.identity import (
     tokens,
 )
 from ...engine.identity.clients import authenticate_client
+from ...engine.identity.product import product_name
 from ...engine.identity.settings import IdentitySettings
 from ...errors import ApiError
 from ...models.commands import (
@@ -163,7 +164,7 @@ def json_web_keys(session: DbSession) -> dict[str, object]:
 
 def _product(session: Session) -> str:
     """The name the pages carry: the default workspace's product, as the app's top bar shows it."""
-    return second_factor.product_name(session, "Sign in")
+    return product_name(session, "Sign in")
 
 
 def _origins(settings: IdentitySettings, checked: dict[str, str] | None = None) -> tuple[str, ...]:

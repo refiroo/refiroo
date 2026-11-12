@@ -10,14 +10,16 @@ import {
   navigationEntries,
   navigationEntryKey,
   navigationSections,
-  placedMatrixKeys,
+  placedViewKeys,
   rootObjectTypeKeys,
+  viewGlyph,
+  viewSourceObjectTypeKey,
   type CollectionGroup,
   type NavigationEntry,
 } from "@/model/collections";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import { objectTypeHue } from "@/model/hues";
-import type { ApplicationDefinition, EngineModel, ObjectItem, RelationMatrixViewDefinition } from "@/types";
+import type { ApplicationDefinition, EngineModel, ObjectItem, ViewDefinition } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { SearchField } from "@/ui/SearchField";
@@ -65,7 +67,7 @@ export function Explorer({
   const narrowed = finding ? narrowNavigation(model, allSections, find) : undefined;
   const sections = narrowed?.sections ?? allSections;
   const highlight = finding ? find.trim() : "";
-  const placed = useMemo(() => placedMatrixKeys(application), [application]);
+  const placed = useMemo(() => placedViewKeys(application), [application]);
   const [folded, toggleFolded] = useFoldedGroups(application);
 
   // The sidebar drags and moves as the lens does (UA9, U-D22, U-D28), by the one move rule; a type
@@ -220,7 +222,7 @@ export function Explorer({
                         onOpen={onOpenCollection}
                       />
                     ) : (
-                      <MatrixEntry
+                      <ViewEntry
                         key={navigationEntryKey(entry)}
                         model={model}
                         view={entry.view}
@@ -308,12 +310,12 @@ export function Explorer({
   );
 }
 
-/** The views an entry stands for: its lenses, or the matrix alone. */
+/** The views an entry stands for: its lenses, or the view alone. */
 const entryViews = (entry: NavigationEntry) => (entry.kind === "collection" ? entry.collection.views : [entry.view]);
 
 /**
  * A collection in the sidebar: its type's tile and plural name, opening the view it opens on. A
- * matrix with an entry of its own highlights that entry, not its row type's.
+ * view with an entry of its own highlights that entry, not its source type's.
  */
 function CollectionEntry({
   model,
@@ -325,7 +327,7 @@ function CollectionEntry({
 }: {
   model: EngineModel;
   group: CollectionGroup;
-  /** Matrices that have an entry of their own. */
+  /** Views that have an entry of their own. */
   placed: ReadonlySet<string>;
   activeViewKey?: string;
   /** The words of the sidebar's search, shown in bold where the name holds them. */
@@ -354,8 +356,8 @@ function CollectionEntry({
   );
 }
 
-/** A relation matrix placed in a group: its own entry, named after the view, opening the matrix. */
-function MatrixEntry({
+/** A view placed in a group: its own entry, named after the view, opening it. */
+function ViewEntry({
   model,
   view,
   activeViewKey,
@@ -363,7 +365,7 @@ function MatrixEntry({
   onOpen,
 }: {
   model: EngineModel;
-  view: RelationMatrixViewDefinition;
+  view: ViewDefinition;
   activeViewKey?: string;
   highlight?: string;
   onOpen?: (viewKey: string) => void;
@@ -376,7 +378,7 @@ function MatrixEntry({
       aria-current={active ? "page" : undefined}
       onClick={() => onOpen?.(view.key)}
     >
-      <HueTile hue={objectTypeHue(model, view.config.rowObjectTypeKey)} glyph="matrix" />
+      <HueTile hue={objectTypeHue(model, viewSourceObjectTypeKey(view))} glyph={viewGlyph(view)} />
       <span className="collection-name">
         <Highlighted text={view.name} words={highlight} />
       </span>
@@ -387,7 +389,7 @@ function MatrixEntry({
 /** More entries than this and the sidebar offers Find a list. */
 const FIND_LIST_AFTER = 10;
 
-/** The view an entry opens: a collection's opening view, a matrix itself. */
+/** The view an entry opens: a collection's opening view, a view itself. */
 const entryOpens = (entry: NavigationEntry) =>
   entry.kind === "collection" ? entry.collection.defaultView.key : entry.view.key;
 

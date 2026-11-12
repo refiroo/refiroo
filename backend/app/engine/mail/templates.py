@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ...common.brand import is_default_product_name
-from ..identity.second_factor import product_name
+from ..identity.product import product_name
 from ..notifications import kinds
 from . import html as mailhtml
 
@@ -24,7 +24,8 @@ PASSWORD_RESET = "password-reset"
 TEST = "test"
 NOTICE = "notice"
 DIGEST = "digest"
-KINDS = (ACTIVATION, PASSWORD_RESET, TEST, NOTICE, DIGEST)
+SECURITY = "security"
+KINDS = (ACTIVATION, PASSWORD_RESET, TEST, NOTICE, DIGEST, SECURITY)
 
 IGNORE = "If you did not expect this message, ignore it; nothing changes."
 SETTINGS_POINTER = "on Settings › Notifications."
@@ -345,5 +346,72 @@ def digest(
         f"You get this message because you asked for a {every} digest of your inbox. Choose which "
         f"notices are in it, change it to {other_every}, or switch it off, on Settings > "
         "Notifications.\n",
+        html,
+    )
+
+
+# What a change to a person's sign-in says, by its event (SM1): the subject's words, the heading and
+# what changed.
+SECURITY_CHANGES = {
+    "password-changed": (
+        "your password was changed",
+        "Your password was changed",
+        "the password of your {product} account was changed",
+    ),
+    "password-reset": (
+        "your password was reset",
+        "Your password was reset",
+        "the password of your {product} account was reset with a one-time link",
+    ),
+    "second-factor-added": (
+        "an authenticator app was added to your account",
+        "An authenticator app was added",
+        "an authenticator app was added to your {product} account as a second step when you sign in",
+    ),
+    "second-factor-removed": (
+        "the authenticator app was removed from your account",
+        "Your authenticator app was removed",
+        "the authenticator app was removed from your {product} account",
+    ),
+    "passkey-added": (
+        "a passkey was added to your account",
+        "A passkey was added",
+        "a passkey was added to your {product} account",
+    ),
+    "passkey-removed": (
+        "a passkey was removed from your account",
+        "A passkey was removed",
+        "a passkey was removed from your {product} account",
+    ),
+}
+NOT_YOU = "If this was not you, contact an administrator of {product} at once."
+
+
+def security_change(product: str, name: str, change: str, when: datetime) -> Rendered:
+    """A person's sign-in changed: what changed and when, and what to do if it was not them. It
+    carries no password, code or link that signs in, and is sent whether or not the person asked
+    for mail (D421)."""
+    subject_words, heading, what = SECURITY_CHANGES[change]
+    what = what.format(product=product)
+    at = f"{when:%A} {when.day} {when:%B %Y}, {when:%H:%M} UTC"
+    advice = NOT_YOU.format(product=product)
+    html = mailhtml.layout(
+        product,
+        heading,
+        [
+            mailhtml.paragraph(f"Hello {mailhtml.e(name)}, {mailhtml.e(what)}."),
+            mailhtml.pill(at),
+            mailhtml.paragraph(mailhtml.e(advice)),
+            mailhtml.paragraph("If it was you, nothing more is needed.", small=True),
+        ],
+        f"Sent by {mailhtml.e(product)} because the way you sign in changed. "
+        "These messages cannot be switched off.",
+        f"{heading}.",
+    )
+    return Rendered(
+        SECURITY,
+        f"{product}: {subject_words}",
+        f"Hello {name},\n\n{what[0].upper()}{what[1:]} on {at}.\n\n{advice}\n"
+        "If it was you, nothing more is needed.\n",
         html,
     )

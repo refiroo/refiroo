@@ -67,11 +67,12 @@ is remembered in this browser. The model sets whether a group starts folded on y
 Choose the group's name to open its page, search entries by name and open one in the same
 Live, change-set or publication context.
 
-A relation matrix the model places in a group has its own entry, named after the matrix's
-view. Its matrix symbol uses the row collection's colour. Choose it to open the matrix
-directly, from either the sidebar or the group page. The row collection stays in the sidebar
-and still offers the matrix among its view tabs. A matrix without its own group entry is
-available through that collection. Groups have one level and show no record counts.
+A view of any kind the model places in a group (a table, a tree, a mapping grid, a relationships
+table or a relation matrix) has its own entry, named after the view. Its symbol shows the kind and
+uses the source collection's colour. Choose it to open the view directly, from either the sidebar or
+the group page. The source collection stays in the sidebar and still offers the view among its view
+tabs. A view without its own group entry is available through that collection. Groups have one level
+and show no record counts.
 
 A record page combines panels for fields, children, relationships, tables, hierarchy and history.
 The model chooses their arrangement. If it declares no detail layout, refiroo provides a default.

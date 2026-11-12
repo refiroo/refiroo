@@ -275,20 +275,20 @@ def _drop_unreachable_columns(document: Document, panel_path: Path, page: str) -
 
 
 def _drop_orphan_collections(document: Document, app: Path) -> None:
-    """Navigation entries naming a collection or matrix no view of the application provides any
+    """Navigation entries naming a collection or view no view of the application provides any
     more, and the views collections open on that are gone or no longer theirs."""
     application = document.at(app)
     collections = set()
     sources: dict[str, str | None] = {}
-    matrices = set()
+    view_keys = set()
     for view in application.get("views") or []:
+        view_keys.add(view.get("key"))
         config = view.get("config") or {}
         source = None
         if view.get("type") == "table":
             source = view.get("objectTypeKey")
         elif view.get("type") == "relationMatrix":
             source = config.get("rowObjectTypeKey")
-            matrices.add(view.get("key"))
         elif view.get("type") == "tree":
             source = (config.get("rootObjectTypeKeys") or [None])[0]
         elif view.get("type") == "relationTable":
@@ -305,7 +305,7 @@ def _drop_orphan_collections(document: Document, app: Path) -> None:
             gone = (
                 entry not in collections
                 if isinstance(entry, str)
-                else entry.get("view") not in matrices
+                else entry.get("view") not in view_keys
             )
             if gone:
                 document.remove(
@@ -454,8 +454,7 @@ def _clear_opening(document: Document, app: Path, collection: str) -> None:
 
 
 def drop_view_navigation(document: Document, app: Path, view_key: str) -> bool:
-    """The navigation entries of a view taken out of its application: its place in a group (a
-    relation matrix) and the collection opening on it. True when something went."""
+    """The navigation entries of a view taken out of its application: its place in a group and the collection opening on it. True when something went."""
     navigation = document.at(app).get("navigation")
     if not isinstance(navigation, dict):
         return False
@@ -477,7 +476,7 @@ def drop_view_navigation(document: Document, app: Path, view_key: str) -> bool:
 def _rename_view_entries(
     document: Document, old: str, new: str, within: Callable[[Slot], bool] | None
 ) -> None:
-    """A renamed view as a navigation entry (a relation matrix in a group) and as the view a
+    """A renamed view as a navigation entry (a view in a group) and as the view a
     collection opens on."""
     for application in document.items("applications"):
         navigation = application.get("navigation")

@@ -2459,7 +2459,7 @@ def set_navigation_group(context: Context, raw: dict[str, Any]) -> Applied:
 @kind("placeCollection", params=("applicationKey", "collection", "view", "group", "position"))
 def place_collection(context: Context, raw: dict[str, Any]) -> Applied:
     """Place an entry in a navigation group, or take it out (``group`` null): a collection (its
-    type, ``collection``) or a relation matrix view (``view``, which then has an entry of its own),
+    type, ``collection``) or a view of any kind (``view``, which then has an entry of its own),
     at ``position`` of the group's one order, moving it from where it stood."""
     params = Params(raw)
     app = params.text("applicationKey")
@@ -2474,12 +2474,6 @@ def place_collection(context: Context, raw: dict[str, Any]) -> Applied:
         view = next((v for v in application.get("views") or [] if v.get("key") == view_key), None)
         if view is None:
             raise Refusal("view", "unknownElement", f"No view '{view_key}' in '{app}'")
-        if view.get("type") != "relationMatrix":
-            raise Refusal(
-                "view",
-                "invalidValue",
-                f"View '{view_key}' is not a relation matrix; only a matrix has an entry of its own",
-            )
         entry, named_entry = {"view": view_key}, atom("view", app, view_key)
         identifies = {"view": view_key}
     else:

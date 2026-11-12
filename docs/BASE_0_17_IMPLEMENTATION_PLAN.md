@@ -1,7 +1,7 @@
 # Base 0.17 implementation plan
 
 **Status:** Planned 2026-10-31 at the user's request. The plan and the canvas mock-up were approved by the user
-on 2026-10-31; PP-D1 was decided on 2026-11-03. Nothing of PL0 to PL6 and SM1 is built yet. NG1 was added by the user
+on 2026-10-31; PP-D1 was decided on 2026-11-03. PL0 to PL6 were built on 2026-11-12; SM1 and the rest of NG1 were found unbuilt that day and are delivered before R. NG1 was added by the user
 on 2026-11-05; its relation-matrix part was built in 0.13 on 2026-11-09
 ([0.13 NG](BASE_0_13_IMPLEMENTATION_PLAN.md#ng-relation-matrices-in-navigation-groups)), and what is left of it is the
 other view kinds; its decisions PP-D11–PP-D13 are open for them.
@@ -44,20 +44,20 @@ corrects that result, and the way to import when no provider is configured.
 | [PL4](PLAIN_PATH_PLAN.md#pl4-new-workspace-from-a-workbook) | PL3, PL3b | The file and a name, what refiroo found, Create workspace. **Delivered 2026-11-12** without PL3b: Adjust opens today's model editor on the draft (PP-D44 to PP-D47); not tried in a browser |
 | [PL5](PLAIN_PATH_PLAN.md#pl5-plain-words-and-identifiers) | PL0 | One list of replacements; Settings index; Back to the workspace. **Delivered 2026-11-12** (the list is in PLAIN_PATH_PLAN.md) |
 | [PL6](PLAIN_PATH_PLAN.md#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first; Export for people; draft steps grouped. **Delivered 2026-11-12** (its import runner not run) |
-| [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, not only a whole collection. Relation matrices are built (0.13 NG); left: the other view kinds, Move to group… on their rows and the canvas's group drop |
-| [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey |
-| [EM1](#em1-the-e-mail-is-the-sign-in-name) | — | The e-mail address is required, unique and the name a person signs in with; the separate username is gone |
-| [EX1](#ex1-export-says-what-it-exports) | — | Export follows what is exported: a view gives a workbook shaped as the view, a type, an application or a workspace a sheet per type; every file says what it holds and imports back. Takes over PL6's "Export for people" |
-| [MC1](#mc1-reuse-or-create-in-any-matrix-cell) | — | A filled matrix cell offers Link existing and Create wherever the model allows more than one record per cell; a user guide page with examples |
-| [CA1](#ca1-the-parent-carries-fields-and-related-blocks) | — | A consumer API's parent serves any field and related blocks of its own, a related block may be served only on request (`include`), and an On related filter may narrow a parent block |
-| [RF1](#rf1-review-findings) | — | Three engine defects from the project review of 2026-11-11: approve and publish lock in one order, a re-read never cancels a confirmed import, a failed file cleanup no longer keeps background work off |
-| [SA1](#sa1-sign-in-managed-by-an-administrator) | EM1 | A person whose sign-in an administrator manages cannot change their own password, second factor or passkeys, and sees and ends only their own session |
-| [RF2](#rf2-review-findings-engine) | RF1 | The engine findings of the review that need no new decision: CSV exports a spreadsheet cannot run, set-based placing of matrix cells, the provider first sign-in race, reset links |
-| [RF3](#rf3-review-findings-frontend) | RF1 | The frontend findings: the reset token leaves the address bar, one search box, no lost events on reconnect, pages loaded when opened |
-| [RF4](#rf4-review-findings-build-and-deployment) | RF1 | The build and deployment findings: pinned versions, a content security policy, CI permissions, safe forwarding defaults |
-| [RF5](#rf5-assistant-sessions-in-a-container) | RF1 | An assistant session in a container reads only its own task, and holds no more of the provider's credentials than it needs (plan first) |
-| [RF6](#rf6-webhook-addresses-on-private-ranges) | RF1 | A webhook address on a loopback or private range is refused unless an instance setting allows it |
-| [RF7](#rf7-clean-test-output) | — | A passing test run has no errors or warnings in its output, frontend and backend: each is fixed at its cause, and from now on fails the run |
+| [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, not only a whole collection. Relation matrices are built (0.13 NG); left: the other view kinds, Move to group… on their rows and the canvas's group drop **Delivered 2026-11-12** |
+| [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey **Delivered 2026-11-12** |
+| [EM1](#em1-the-e-mail-is-the-sign-in-name) | — | The e-mail address is required, unique and the name a person signs in with; the separate username is gone **Delivered** (commit 1bcbad00) |
+| [EX1](#ex1-export-says-what-it-exports) | — | Export follows what is exported: a view gives a workbook shaped as the view, a type, an application or a workspace a sheet per type; every file says what it holds and imports back. Takes over PL6's "Export for people" **Delivered** (commit 80425848) |
+| [MC1](#mc1-reuse-or-create-in-any-matrix-cell) | — | A filled matrix cell offers Link existing and Create wherever the model allows more than one record per cell; a user guide page with examples **Delivered** (commit 80425848) |
+| [CA1](#ca1-the-parent-carries-fields-and-related-blocks) | — | A consumer API's parent serves any field and related blocks of its own, a related block may be served only on request (`include`), and an On related filter may narrow a parent block **Delivered** (commit 7fab0d53) |
+| [RF1](#rf1-review-findings) | — | Three engine defects from the project review of 2026-11-11: approve and publish lock in one order, a re-read never cancels a confirmed import, a failed file cleanup no longer keeps background work off **Delivered** (commit bfc8d811) |
+| [SA1](#sa1-sign-in-managed-by-an-administrator) | EM1 | A person whose sign-in an administrator manages cannot change their own password, second factor or passkeys, and sees and ends only their own session **Delivered** (commit bfc8d811) |
+| [RF2](#rf2-review-findings-engine) | RF1 | The engine findings of the review that need no new decision: CSV exports a spreadsheet cannot run, set-based placing of matrix cells, the provider first sign-in race, reset links **Delivered** (commit cc9465e3) |
+| [RF3](#rf3-review-findings-frontend) | RF1 | The frontend findings: the reset token leaves the address bar, one search box, no lost events on reconnect, pages loaded when opened **Delivered** (commit cc9465e3) |
+| [RF4](#rf4-review-findings-build-and-deployment) | RF1 | The build and deployment findings: pinned versions, a content security policy, CI permissions, safe forwarding defaults **Delivered** (commit cc9465e3) |
+| [RF5](#rf5-assistant-sessions-in-a-container) | RF1 | An assistant session in a container reads only its own task, and holds no more of the provider's credentials than it needs (plan first) **Delivered** (commit cc9465e3) |
+| [RF6](#rf6-webhook-addresses-on-private-ranges) | RF1 | A webhook address on a loopback or private range is refused unless an instance setting allows it **Delivered** (commit cc9465e3) |
+| [RF7](#rf7-clean-test-output) | — | A passing test run has no errors or warnings in its output, frontend and backend: each is fixed at its cause, and from now on fails the run **Delivered** (commit 6d571456) |
 | [SH1](#sh1-one-frame-one-location-line) | — | The frame says where you are once: a page for each workspace with a search across it, a one-row context band, one line above a record, Settings by task with Back to the workspace, tables whose names are never cut. Takes over PL3 (except what needs PL4), the band of PL1, the record header of PL2 and the Settings part of PL5 **Delivered 2026-11-12** |
 | [UX1](#ux1-themes-with-their-frames-and-one-way-to-edit) | SH1 | Four themes, each light and dark, that carry look, frame and density (Current, Hearth, Studio, Instrument); every component drawn from the theme base; one way to edit, pick, confirm and open a record in all of them; the search on ⌘K; Home as the hub **Delivered 2026-11-12** |
 | [UX2](#ux2-one-field-saves-when-it-is-left) | UX1 | One field edited in place has no form: the value becomes its input and leaving it saves, told with the remove icon's toast and Undo (PP-D68) **Delivered 2026-11-12** |
@@ -88,9 +88,9 @@ plan for one approval and is then delivered whole.
 | PP-D8 | **The join is found over every row.** A list dropped on a field compares the two columns in PostgreSQL over the whole set. The stored overlaps of the profile (first 1,000 distinct values, best five) stay a hint only. When two candidates tie, the panel asks; nothing is guessed silently. | Rule: checks cover the whole set |
 | PP-D9 | **The canvas never waits for a check.** The existing dry-run job runs after each step and a newer run cancels the older; the count reads "Checking…" until it answers, and the person may keep dropping. | Planning default |
 | PP-D10 | **Phone:** the canvas works by the ⋯ menu at 390px; dragging is a desktop and tablet fast path. | Planning default |
-| PP-D11 | **A view placed in a group leaves its collection** (recommended: it shows once, in the group; otherwise the sidebar shows it twice) or also stays as one of its collection's views. | Open. 0.13 NG built the second for relation matrices (the matrix stays among its row type's views); not put to the user |
-| PP-D12 | **One ordered member list per group,** each member a collection or a view (recommended: the sidebar order is the declared order, mixing both), or `views` beside `collections` with collections first. The first changes the shape of `collections`; pre-1.0 allows it. | Open. 0.13 NG built the first (`{ "view": "<key>" }` beside collection keys in `collections`); not put to the user |
-| PP-D13 | **Schema version:** the new member in schema 0.10 (recommended: additive, refused nowhere today) or a new schema version. | Open. 0.13 NG built schema 0.10, additive; not put to the user |
+| PP-D11 | **A view placed in a group leaves its collection** (recommended: it shows once, in the group; otherwise the sidebar shows it twice) or also stays as one of its collection's views. | **Taken 2026-11-12, by the built behaviour** (the user asked for no decision stops before R): a grouped view has one sidebar entry, in its group, and its collection keeps it among its view tabs, as 0.13 NG built for relation matrices. The sidebar shows it once, the recommendation's reason |
+| PP-D12 | **One ordered member list per group,** each member a collection or a view (recommended: the sidebar order is the declared order, mixing both), or `views` beside `collections` with collections first. The first changes the shape of `collections`; pre-1.0 allows it. | **Taken 2026-11-12 as recommended and built** (0.13 NG: `{ "view": "<key>" }` beside collection keys in `collections`, one order) |
+| PP-D13 | **Schema version:** the new member in schema 0.10 (recommended: additive, refused nowhere today) or a new schema version. | **Taken 2026-11-12 as recommended and built** (schema 0.10, additive) |
 | PP-D14 | **The e-mail is the sign-in name** (EM1): required for an active person, unique ignoring case; the username is removed. | **Approved by the user 2026-11-11** |
 | PP-D15 | **A provider's person needs an `email` claim;** an address another person holds refuses the first sign-in, and an administrator resolves it. Matching stays by `sub` (D363). | **Approved by the user 2026-11-11** |
 | PP-D16 | **A deactivated person may have no e-mail,** so the address can be freed; reactivating needs one. | Planning default |
@@ -352,6 +352,15 @@ for any view kind, in the model, the API, the sidebar and the editor.
 - **Tests and docs:** journey tests through the API for the refusals, the cascade on view removal and the
   move; the guide pages on navigation groups and relation matrices updated with their screens.
 
+**State (2026-11-12): delivered.** Every view kind is a group member through the mechanism 0.13 NG built, not a second one:
+`_check_navigation` accepts any declared view, `placeCollection` with `view` places, moves and takes out any view, and the
+cascade (`cascade.py`: `drop_view_navigation`, `_rename_view_entries`, `_drop_orphan_collections`) drops or follows the member
+for every kind. `navigationSections` makes an entry of kind `view` for each, with the glyph of its kind (`viewGlyph`); the
+group page, **Move to group…** on a view's row and **Add to group…** (group **Views**) offer every kind; `groupOperations`
+takes `{ view }`. Journey tests: a table and a tree placed, moved, taken out; a re-keyed or removed view; the refusals
+(`test_j33_operations.py`). The canvas has no drag source for a view (only a list's **Connect** is dragged); a view reaches a
+group on the canvas through its ⋯ menu, the same operation.
+
 ## SM1: Account security messages
 
 _Added by the user on 2026-11-03,_ after the branded mail templates. Today a person gets mail only to activate
@@ -362,6 +371,17 @@ changed and when, and what to do if it was not them, in the shared branded layou
 carries no secret, code or link that signs in (D421). It is queued in the same transaction as the change, as
 activation is. The exact list of events and whether a person can switch these messages off are settled in
 SM1's plan.
+
+**State (delivered 2026-11-12).** The events, by this plan's text: the password changed by the person
+(`identity/resets.py`, `change_password`), the password reset with a one-time link whether an administrator made it or
+the person asked for it (`use_link`; a first password, chosen from an activation link, sends nothing, as nothing
+changed), an authenticator app added (`second_factor.confirm`) or removed (`remove`, `remove_for`), a passkey added
+(`passkeys.finish_registration`) or removed (`remove`). Each calls `mail/security_notice.notify`, which queues the message
+through `outbox.enqueue`, the path the activation mail uses, before the change commits, inside the saved e-mail template;
+a refused change queues nothing. Nothing is queued when mail is not set up or the person has no address. **Decision SM1-D1
+(planning default, recommended): the messages cannot be switched off**, by a person or by an administrator; they are
+security mail. They name what changed and when in UTC, and say to contact an administrator if it was not the person; the
+outbox kind is `security`. Journey J46.13 (`test_j46_security_messages`).
 
 ## EM1: The e-mail is the sign-in name
 

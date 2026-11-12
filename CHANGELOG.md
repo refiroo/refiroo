@@ -6,6 +6,30 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.17 NG1: any view can stand in a navigation group)
+
+- **A navigation group places a view of any kind**, not only a relation matrix: a table, a tree, a mapping grid, a
+  relationships table or a relation matrix. `{ "view": "<key>" }` beside collection keys, in the group's one order, now
+  accepts any view of the application (schema 0.10, additive; `INVALID_REFERENCE` for a view the application does not declare,
+  `INVALID_MODEL` for a view in a second group, as for collections). `placeCollection` with `view` places, moves and takes out
+  any view, and removing a view or giving it a new key drops or follows its member as it did for matrices. A grouped view has
+  one sidebar entry in its group, named after the view, and its collection keeps it among its view tabs (PP-D11 to PP-D13).
+  The sidebar and the group page show every kind as its own entry with the glyph of its kind; **Move to group…** on a view's
+  row in **Views** and **Add to group…** in the group's panel offer every view; `groupOperations` (the canvas's group drop)
+  takes a view through the same `placeCollection`. A document that named a table or tree in a group was refused before and is
+  valid now.
+
+### Added (0.17 SM1: a message when a person's sign-in changes)
+
+- **A person is written to when their sign-in changes**, so a change they did not make is noticed: their password was changed
+  (by them, with the current one) or reset (with a one-time link), an authenticator app was added or removed, a passkey was
+  added or removed (by them or by a security administrator). Choosing a first password sends nothing. The message says what
+  changed and when (UTC) and to contact an administrator if it was not them, sits in the saved e-mail template with its
+  plain-text part, and carries no password, code or link that signs in (D421). It is queued with the change in one
+  transaction, as the activation mail is, so a refused change sends nothing. A person cannot switch these messages off; with no
+  mail set up or no e-mail address the change is made and nothing is queued. The mail outbox lists them as kind `security`
+  (additive); `identity.product` now holds `product_name`, which was in `identity.second_factor`.
+
 ### Changed (0.17 CE1: shared pieces of the model editor, first part)
 
 - **An Editor | Canvas switch** stands at the top of the model editor in place of the Open as canvas link, and the canvas page
