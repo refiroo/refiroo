@@ -373,7 +373,7 @@ describe("ChangeSetReview records", () => {
       .mockResolvedValue(page(objectChanges));
     renderReview({ changeKinds: ["removed"] });
     expect(await screen.findByText("The change list is unavailable")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Review changes" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Changes in this change set" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findAllByRole("listitem")).toHaveLength(4);
     expect(vi.mocked(api.objectChanges).mock.calls.map((call) => call[1].kinds)).toEqual([["removed"], ["removed"]]);
@@ -463,12 +463,12 @@ describe("Review changes on the change set bar", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Review changes" }));
     expect(onReview).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("button", { name: "Validate change set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
     rerender(
       <ChangeSetActions readOnly={false} reviewing onReview={onReview} onExit={vi.fn()} onModelChanged={vi.fn()} />,
     );
     expect(screen.queryByRole("button", { name: "Review changes" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Validate change set" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Publish" })).toBeInTheDocument();
   });
 
   it("links the publish confirmation to the review", async () => {
@@ -476,9 +476,7 @@ describe("Review changes on the change set bar", () => {
     vi.spyOn(api, "latestPublication").mockResolvedValue({ items: [], nextCursor: null });
     const onReview = vi.fn();
     render(<ChangeSetActions readOnly={false} onReview={onReview} onExit={vi.fn()} onModelChanged={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Validate change set" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Publish change set" })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: "Publish change set" }));
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Review changes" }));
     expect(onReview).toHaveBeenCalledOnce();

@@ -3,7 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
-import type { EngineModel, ObjectItem, ObjectTypeDefinition, ObjectAttributeInput } from "@/types";
+import type {
+  AttributeTypeDefinition,
+  EngineModel,
+  ObjectItem,
+  ObjectTypeDefinition,
+  ObjectAttributeInput,
+} from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Modal } from "@/ui/Modal";
@@ -12,6 +18,39 @@ import { CurrentObjectContent } from "@/features/objects/CurrentObjectContent";
 import { parentObjectTypeKeys } from "@/model/placements";
 import { candidateScope } from "@/model/candidates";
 import { ObjectLookup } from "@/ui/ObjectLookup";
+import { Icon } from "@/ui/Icon";
+import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
+
+/** Where a type's More fields state is remembered in this browser (0.17 PL2). */
+const moreFieldsKey = (objectTypeKey: string) => `rdm.moreFields.${objectTypeKey}`;
+/** The problems but for one field's, which has just been put right. */
+const without = (problems: Record<string, string>, key: string) =>
+  Object.fromEntries(Object.entries(problems).filter(([field]) => field !== key));
+const isFlag = (value: unknown): value is boolean => typeof value === "boolean";
+
+/** What is wrong with a typed value, in words; nothing when it is fine or empty. */
+function valueProblem(attribute: AttributeTypeDefinition, input: HTMLInputElement | HTMLTextAreaElement | null) {
+  if (!input || attribute.valueType === "boolean") return undefined;
+  const raw = input.value;
+  const bad = input instanceof HTMLInputElement && input.validity?.badInput;
+  if (attribute.valueType === "integer" || attribute.valueType === "decimal") {
+    if (bad || (raw !== "" && Number.isNaN(Number(raw)))) return "Enter a number.";
+    if (raw === "") return undefined;
+    if (attribute.valueType === "integer" && !Number.isInteger(Number(raw))) return "Enter a whole number.";
+    const { minimum, maximum } = attribute.validation;
+    if (typeof minimum === "number" && Number(raw) < minimum) return `Enter a number of at least ${minimum}.`;
+    if (typeof maximum === "number" && Number(raw) > maximum) return `Enter a number of at most ${maximum}.`;
+  } else if (attribute.valueType === "date" || attribute.valueType === "dateTime") {
+    if (bad) return "Enter a valid date.";
+  } else if (attribute.valueType === "json" && raw !== "") {
+    try {
+      JSON.parse(raw);
+    } catch {
+      return "Enter valid JSON.";
+    }
+  }
+  return undefined;
+}
 
 export function ObjectFormDialog({
   model,
@@ -22,6 +61,8 @@ export function ObjectFormDialog({
   object,
   parentObjectId,
   parentObjectTypeKey,
+  parentName,
+  collectionName,
   initialRelationObjects = {},
   lockedInitialRelationKeys = [],
   onClose,
@@ -39,6 +80,10 @@ export function ObjectFormDialog({
   object?: ObjectItem;
   parentObjectId?: string;
   parentObjectTypeKey?: string;
+  /** The parent's name, where the page the dialog was opened from knows it: the parent is then said, not asked. */
+  parentName?: string;
+  /** The collection the record is added to, said above the title; the type's plural name where not given. */
+  collectionName?: string;
   initialRelationObjects?: Record<string, ObjectItem>;
   lockedInitialRelationKeys?: string[];
   onClose: () => void;
@@ -59,6 +104,9 @@ export function ObjectFormDialog({
   const owner = model.applications.find((application) => application.key === ownerKey);
   const [parentTypeKey, setParentTypeKey] = useState(initialParentType);
   const [parentId, setParentId] = useState<string | null>(parentObjectId ?? object?.parentObjectId ?? null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [changingParent, setChangingParent] = useState(false);
+  const [fetchedParentName, setFetchedParentName] = useState<string>();
   const attributeMap = useMemo(
     () => new Map(model.attributeTypes.map((attribute) => [attribute.key, attribute])),
     [model.attributeTypes],
@@ -67,6 +115,27 @@ export function ObjectFormDialog({
     .filter((binding) => binding.ui?.hidden !== true && attributeMap.get(binding.attributeTypeKey)?.ui?.hidden !== true)
     .slice()
     .sort((a, b) => a.order - b.order);
+  const requiredBindings = bindings.filter((binding) => binding.required);
+  const optionalBindings = bindings.filter((binding) => !binding.required);
+  // The optional fields wait under More fields; the person's last choice for the type is remembered
+  // in this browser, and a record being edited opens them where it holds a value in one.
+  const storedMore = readLocalPreference<boolean | undefined>(
+    moreFieldsKey(objectType.key),
+    undefined,
+    (value): value is boolean | undefined => isFlag(value),
+  );
+  const [moreOpen, setMoreOpen] = useState(
+    () =>
+      storedMore ??
+      Boolean(
+        object &&
+        optionalBindings.some((binding) =>
+          object.attributes.some(
+            (item) => item.attributeTypeKey === binding.attributeTypeKey && item.value !== null && item.value !== "",
+          ),
+        ),
+      ),
+  );
   const parentRelationKeys = new Set(objectType.behavior.parentRelationTypeKeys ?? []);
   // Where the model lets this type stand, in any application, and in the record's own one: a parent
   // must belong to the record's application, so only those are offered.
@@ -81,6 +150,24 @@ export function ObjectFormDialog({
     !object && !parentObjectId && parentRequired && modelParentTypeKeys.length > 0 && parentTypeKeys.length === 0;
   const activeParentTypeKey =
     parentTypeKey && parentTypeKeys.includes(parentTypeKey) ? parentTypeKey : parentTypeKeys[0];
+  const knownParentId = parentObjectId ?? object?.parentObjectId ?? null;
+  const givenParentName = parentName ?? object?.path.at(-2)?.name ?? fetchedParentName;
+  const soleParentTypeKey = parentTypeKeys.length === 1 ? parentTypeKeys[0] : undefined;
+  useEffect(() => {
+    // A parent the page knows only by id is read once, so the dialog can say it.
+    if (!knownParentId || parentName || object || !soleParentTypeKey) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => api.object(soleParentTypeKey, knownParentId, activeWorkspaceKey))
+      .then(
+        (parent) => active && setFetchedParentName(parent.name),
+        () => undefined,
+      );
+    return () => {
+      active = false;
+    };
+  }, [api, knownParentId, parentName, object, soleParentTypeKey, activeWorkspaceKey]);
+  const parentSaid = Boolean(parentId && parentId === knownParentId && givenParentName && !changingParent);
   const requiredRelationGroups = useMemo(() => {
     const groups = new Map<string, typeof model.objectTypeRelations>();
     for (const relation of model.objectTypeRelations) {
@@ -110,8 +197,55 @@ export function ObjectFormDialog({
   }, [activeWorkspaceKey]);
 
   const finishNavigation = useNavigationGuard(dirty, saving, onClose);
+  /** The required and typed values that are not right, by field, each said in words. */
+  function problems(form: HTMLFormElement) {
+    const found: Record<string, string> = {};
+    if (parentTypeKeys.length > 0 && parentRequired && !parentId && !parentSaid)
+      found.parent = "Choose where this goes.";
+    if (!object)
+      for (const group of requiredRelationGroups)
+        if (!requiredRelationObjects[group.relationTypeKey]) {
+          const label = model.relationTypes.find((relation) => relation.key === group.relationTypeKey)?.reverseName;
+          found[`relation:${group.relationTypeKey}`] = `Choose a record for ${label ?? group.relationTypeKey}.`;
+        }
+    if (!String(new FormData(form).get("name") ?? "").trim()) found.name = "Enter a name.";
+    for (const binding of bindings) {
+      if (binding.readOnly) continue;
+      const attribute = attributeMap.get(binding.attributeTypeKey)!;
+      const input = form.elements.namedItem(attribute.key);
+      const control = input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement ? input : null;
+      if (
+        attribute.valueType !== "boolean" &&
+        binding.required &&
+        !control?.value.trim() &&
+        !control?.validity?.badInput
+      )
+        found[attribute.key] = `${attribute.name} is required.`;
+      else {
+        const problem = valueProblem(attribute, control);
+        if (problem) found[attribute.key] = problem;
+      }
+    }
+    return found;
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const found = problems(event.currentTarget);
+    setErrors(found);
+    const first = Object.keys(found)[0];
+    if (first) {
+      // A problem in a field behind More fields opens them, so it can be seen.
+      if (optionalBindings.some((binding) => binding.attributeTypeKey in found)) setMoreOpen(true);
+      const form = event.currentTarget;
+      setTimeout(() => {
+        const control = form.elements.namedItem(first);
+        (control instanceof HTMLElement
+          ? control
+          : form.querySelector<HTMLElement>(`[data-field="${first}"] input, [data-field="${first}"] select`)
+        )?.focus();
+      }, 0);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -179,7 +313,7 @@ export function ObjectFormDialog({
           setError(
             isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")
               ? "The change set changed. Current content is loaded; your edits are preserved. Review and save again."
-              : "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
+              : "The record changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
           );
         } catch (reloadCause) {
           setError(errorMessage(reloadCause));
@@ -189,21 +323,44 @@ export function ObjectFormDialog({
     }
   }
 
+  const fieldError = (key: string) =>
+    errors[key] ? (
+      <p className="field-error" role="alert">
+        {errors[key]}
+      </p>
+    ) : null;
+  const attributeField = (binding: (typeof bindings)[number], mark: "required" | "optional") => (
+    <AttributeField
+      key={binding.attributeTypeKey}
+      binding={binding}
+      attribute={attributeMap.get(binding.attributeTypeKey)!}
+      value={object?.attributes.find((item) => item.attributeTypeKey === binding.attributeTypeKey)?.value}
+      mark={mark}
+      error={errors[binding.attributeTypeKey]}
+    />
+  );
+
   return (
     <Modal
       title={object ? object.name : `New ${objectType.name}`}
-      eyebrow={object ? "Edit object" : "Create in context"}
+      eyebrow={collectionName ?? objectType.pluralName}
       busy={saving}
       dirty={dirty}
       onClose={onClose}
     >
       <form
+        noValidate
         onSubmit={submit}
         onChange={(event) => {
           setDirty(true);
           const target = event.target;
-          if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+          if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
             editedFields.current.add(target.name);
+            setErrors((current) => {
+              if (!(target.name in current)) return current;
+              return without(current, target.name);
+            });
+          }
         }}
       >
         {applicationChoices && !object && applicationChoices.length === 1 && (
@@ -239,9 +396,26 @@ export function ObjectFormDialog({
             {applicationChoices && applicationChoices.length > 1 && " Choose another application."}
           </Notice>
         )}
-        {parentTypeKeys.length > 0 && (
-          <fieldset className="lookup-field">
-            <legend>Parent</legend>
+        {parentTypeKeys.length > 0 && parentSaid && (
+          <p className="parent-fact">
+            <span>In</span>
+            <strong>{givenParentName}</strong>
+            <span aria-hidden="true">·</span>
+            <button type="button" className="ghost" onClick={() => setChangingParent(true)}>
+              Change
+            </button>
+          </p>
+        )}
+        {parentTypeKeys.length > 0 && !parentSaid && (
+          <fieldset className="lookup-field" data-field="parent">
+            <legend>
+              Parent
+              {parentRequired && (
+                <span className="field-mark" aria-hidden="true">
+                  *
+                </span>
+              )}
+            </legend>
             {parentTypeKeys.length > 1 && (
               <select
                 aria-label="Parent type"
@@ -266,15 +440,17 @@ export function ObjectFormDialog({
               workspaceKey={activeWorkspaceKey}
               excludeId={object?.id}
               selectedId={parentId}
-              selectedLabel={object?.path.at(-2)?.name}
+              selectedLabel={givenParentName}
               required={parentRequired}
               onChange={(item) => {
                 setDirty(true);
                 editedParent.current = true;
                 setParentId(item?.id ?? null);
+                if (item) setErrors((current) => without(current, "parent"));
               }}
               label="Parent"
             />
+            {fieldError("parent")}
           </fieldset>
         )}
         {!object &&
@@ -284,8 +460,17 @@ export function ObjectFormDialog({
             const selectedBinding = group.relations.find((relation) => relation.fromObjectTypeKey === selectedType);
             const locked = lockedInitialRelationKeys.includes(group.relationTypeKey);
             return (
-              <fieldset key={group.relationTypeKey}>
-                <legend>{definition?.reverseName ?? group.relationTypeKey}</legend>
+              <fieldset
+                key={group.relationTypeKey}
+                className="lookup-field"
+                data-field={`relation:${group.relationTypeKey}`}
+              >
+                <legend>
+                  {definition?.reverseName ?? group.relationTypeKey}
+                  <span className="field-mark" aria-hidden="true">
+                    *
+                  </span>
+                </legend>
                 {locked ? (
                   <p>
                     <strong>{requiredRelationObjects[group.relationTypeKey]?.name}</strong>
@@ -294,9 +479,9 @@ export function ObjectFormDialog({
                   <>
                     {group.relations.length > 1 && (
                       <label>
-                        Object type
+                        Record type
                         <select
-                          aria-label={`${definition?.reverseName ?? group.relationTypeKey} object type`}
+                          aria-label={`${definition?.reverseName ?? group.relationTypeKey} record type`}
                           value={selectedType}
                           onChange={(event) => {
                             setRequiredRelationTypes((current) => ({
@@ -328,30 +513,60 @@ export function ObjectFormDialog({
                       onChange={(item) => {
                         setDirty(true);
                         setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }));
+                        if (item) setErrors((current) => without(current, `relation:${group.relationTypeKey}`));
                       }}
                     />
+                    {fieldError(`relation:${group.relationTypeKey}`)}
                   </>
                 )}
               </fieldset>
             );
           })}
-        <label>
+        <p className="field-key">
+          <span aria-hidden="true">*</span> marks a required field.
+        </p>
+        <label className={errors.name ? "field-has-error" : undefined}>
           Name
-          <input name="name" required autoFocus defaultValue={object?.name} />
-        </label>
-        {bindings.map((binding) => (
-          <AttributeField
-            key={binding.attributeTypeKey}
-            binding={binding}
-            attribute={attributeMap.get(binding.attributeTypeKey)!}
-            value={object?.attributes.find((item) => item.attributeTypeKey === binding.attributeTypeKey)?.value}
+          <span className="field-mark" aria-hidden="true">
+            *
+          </span>
+          <input
+            name="name"
+            aria-label="Name"
+            aria-required="true"
+            aria-invalid={errors.name ? true : undefined}
+            autoFocus
+            defaultValue={object?.name}
           />
-        ))}
+          {fieldError("name")}
+        </label>
+        {requiredBindings.map((binding) => attributeField(binding, "required"))}
+        {optionalBindings.length > 0 && (
+          <div className="plain-disclosure more-fields">
+            <button
+              type="button"
+              className="ghost plain-disclosure-toggle"
+              aria-expanded={moreOpen}
+              aria-controls="more-fields"
+              onClick={() => {
+                writeLocalPreference(moreFieldsKey(objectType.key), !moreOpen);
+                setMoreOpen(!moreOpen);
+              }}
+            >
+              More fields ({optionalBindings.length})
+              <Icon name="chevron-down" size={14} />
+            </button>
+            {/* Kept in the form while closed, so a field's default still goes with the new record. */}
+            <div id="more-fields" className="plain-disclosure-body" hidden={!moreOpen}>
+              {optionalBindings.map((binding) => attributeField(binding, "optional"))}
+            </div>
+          </div>
+        )}
         {object && baselineObject && baselineObject !== object && (
           <CurrentObjectContent model={model} object={baselineObject} />
         )}
         {error && (
-          <Notice tone="error" title="The object was not saved" focusOnMount>
+          <Notice tone="error" title="The record was not saved" focusOnMount>
             {error}
           </Notice>
         )}
@@ -364,15 +579,8 @@ export function ObjectFormDialog({
           >
             Cancel
           </button>
-          <button
-            className="primary"
-            disabled={
-              saving ||
-              noPermittedParent ||
-              (!object && requiredRelationGroups.some((group) => !requiredRelationObjects[group.relationTypeKey]))
-            }
-          >
-            {saving ? "Saving…" : object ? "Save changes" : "Create"}
+          <button className="primary" disabled={saving || noPermittedParent}>
+            {saving ? "Saving…" : object ? "Save" : `Add ${objectType.name}`}
           </button>
         </div>
       </form>

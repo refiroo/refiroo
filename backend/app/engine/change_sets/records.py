@@ -35,6 +35,7 @@ from ..records.deletion import (
     ChangeSetScope,
     Deletion,
     delete_records,
+    deletion_impact,
     deletion_preview_changed,
     require_deletion_preview,
 )
@@ -131,9 +132,7 @@ def decide_change_set_object_create(
     """Check a new change set record against the rules under the change set's claim and lay it
     over ``lookup``; nothing is written (0.9.0-alpha.1 PG3b)."""
     rules.object_identity(model, payload.applicationKey, payload.objectTypeKey, CHANGE_SET)
-    attributes = stored_attributes(
-        model, payload.objectTypeKey, payload.attributes, partial=False
-    )
+    attributes = stored_attributes(model, payload.objectTypeKey, payload.attributes, partial=False)
     validate_object_attribute_rules(model.object_type(payload.objectTypeKey), attributes)
     if payload.parentObjectId is not None and lookup.object(str(payload.parentObjectId)) is None:
         raise api_error(422, "PARENT_WRONG_SCOPE", "Parent must exist in the change set")
@@ -422,10 +421,9 @@ def apply_change_set_object_delete(
     model = change_set_model(session, change_set)
     # The aggregate claim serializes all change set mutations before the hierarchy is re-read. A preview
     # response rolls this claim back; a confirmed delete retains it in the mutation transaction.
-    writes.claim(expected_change_set_version,
-        conflict_code=(
-            "DELETION_PREVIEW_CHANGED" if cascade else "CHANGE_SET_VERSION_CONFLICT"
-        ),
+    writes.claim(
+        expected_change_set_version,
+        conflict_code=("DELETION_PREVIEW_CHANGED" if cascade else "CHANGE_SET_VERSION_CONFLICT"),
         conflict_message=(
             "The object was modified by another session. Please retry."
             if cascade
@@ -451,6 +449,21 @@ def apply_change_set_object_delete(
     )
     if result.error is not None:
         raise result.error
+
+
+def read_change_set_object_deletion_impact(
+    session: Session, change_set_id: str, object_type_key: str, object_id: str
+) -> dict[str, Any]:
+    """The impact of deleting a record in a change set, as ``apply_change_set_object_delete`` would
+    find it; nothing is written and the change set is not claimed."""
+    change_set = load_change_set(session, change_set_id)
+    root = ChangeSetLookup.of(session, change_set_id).object(object_id)
+    if root is None:
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
+    if root.object_type_key != object_type_key:
+        raise object_type_changed(object_id, root.object_type_key, object_type_key)
+    scope = ChangeSetScope(session, change_set_model(session, change_set), change_set)
+    return deletion_impact(scope, object_id, object_type_key)
 
 
 def tombstone_change_set_records(
@@ -616,9 +629,7 @@ def _place(lookup: ChangeSetBatchLookup, model: Any, record: Record) -> None:
     for relation in removed:
         lookup.remove_relation(relation)
     if added is not None:
-        lookup.add_relation(
-            Relation(str(uuid4()), added, parent.object_id, record.object_id, {})
-        )
+        lookup.add_relation(Relation(str(uuid4()), added, parent.object_id, record.object_id, {}))
 
 
 def _advance_sets(
@@ -837,9 +848,7 @@ def patch_change_set_attribute(
     row = writes.own_object(base, flush=True)
     require_record_version(expected_record_version, row.version, "Object record")
     model = change_set_model(session, change_set)
-    normalized = stored_attributes(
-        model, row.object_type_key, {key: value}, partial=True
-    )
+    normalized = stored_attributes(model, row.object_type_key, {key: value}, partial=True)
     rules.effective_period(
         model.object_type(row.object_type_key), {**(row.attributes or {}), **normalized}
     )

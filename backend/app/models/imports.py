@@ -427,6 +427,44 @@ class SourceUnder(BaseModel):
     creates: bool = False
 
 
+class Unpivot(BaseModel):
+    """A wide table read as rows (0.17 PP-D6): each row becomes one row per listed column whose cell
+    is filled, with that column's header in the new column ``nameColumn`` and its cell in the new
+    column ``valueColumn``. Both are columns the source's bindings can name; the listed columns
+    keep their cells but are not read as such."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    columns: list[str] = Field(min_length=2)
+    nameColumn: str = Field(min_length=1)
+    valueColumn: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def distinct(self) -> Unpivot:
+        if len(set(self.columns)) != len(self.columns):
+            raise ValueError("unpivot lists each column once")
+        if self.nameColumn == self.valueColumn:
+            raise ValueError("unpivot names its two new columns differently")
+        return self
+
+
+class HeadingRows(BaseModel):
+    """Rows grouped under a heading (0.17 PP-D7): a row whose only filled cell is in ``column`` is a
+    heading, not a record; its text is the value of the new column ``into`` on every row beneath it,
+    until the next heading. Rows above the first heading have none."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    column: str = Field(min_length=1)
+    into: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def distinct(self) -> HeadingRows:
+        if self.column == self.into:
+            raise ValueError("headings reads the heading column into a new column of another name")
+        return self
+
+
 class Source(BaseModel):
     """One object type loaded from a sheet (the first sheet when omitted, the file for CSV).
     ``record: existing`` finds each row's record by its key and writes only its relationships and
@@ -459,6 +497,42 @@ class Source(BaseModel):
     rowsWithoutKey: Literal["refuse", "skip"] | None = None
     parent: FixedParent | None = None
     under: SourceUnder | None = None
+    headings: HeadingRows | None = Field(
+        default=None,
+        description=(
+            "Rows that hold a heading only are read as the parent of the rows beneath them: the"
+            " heading's text fills the new column ``into`` (0.17 PP-D7). Applied before ``fillDown``"
+            " and ``unpivot``"
+        ),
+    )
+    fillDown: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Columns repeated by blanks: an empty cell takes the nearest filled cell above it in"
+            " the column (0.17 PP-D7). Applied after ``headings`` and before ``unpivot``"
+        ),
+    )
+    unpivot: Unpivot | None = Field(
+        default=None,
+        description="A wide table read as rows (0.17 PP-D6), applied last",
+    )
+
+    @model_validator(mode="after")
+    def readings_fit(self) -> Source:
+        if self.fillDown is not None and len(set(self.fillDown)) != len(self.fillDown):
+            raise ValueError("fillDown lists each column once")
+        if self.unpivot is not None and self.fillDown is not None:
+            both = set(self.unpivot.columns) & set(self.fillDown)
+            if both:
+                raise ValueError(f"A column is filled down or unpivoted, not both: {min(both)}")
+        added = [
+            *([self.unpivot.nameColumn, self.unpivot.valueColumn] if self.unpivot else []),
+            *([self.headings.into] if self.headings else []),
+        ]
+        if len(set(added)) != len(added):
+            raise ValueError("The readings add columns of different names")
+        return self
 
     @model_validator(mode="after")
     def existing_needs_key(self) -> Source:

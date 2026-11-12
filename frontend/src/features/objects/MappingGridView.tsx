@@ -9,6 +9,7 @@ import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow
 import { useTableDisplay } from "@/ui/TableDisplay";
 import { Icon } from "@/ui/Icon";
 import { SearchField } from "@/ui/SearchField";
+import { pageTitle } from "@/model/collections";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
 import { RecordChip } from "@/ui/RecordChip";
@@ -190,7 +191,7 @@ export function MappingGridView({
     return (
       <div className="empty-state">
         <h2>{view.name}</h2>
-        <p>This mapping view references an object type that does not exist in the active model.</p>
+        <p>This mapping view shows a record type that does not exist in the current model.</p>
       </div>
     );
   }
@@ -259,7 +260,7 @@ export function MappingGridView({
       <PageHeader
         focusTitle
         icon={<HueTile hue={objectTypeHue(model, sourceType.key)} icon={sourceType.icon} size={40} />}
-        title={view.name}
+        title={pageTitle(model, application, view)}
         descriptionClassName="mapping-direction"
         description={
           <>
@@ -764,11 +765,11 @@ function MappingActionDialog({
             </Notice>
           )}
 
-          <div className="dialog-actions">
-            {targetCount > 0 && !clearable && (
-              <span className="muted">This mapping is required; choose a replacement to change it.</span>
-            )}
-            {targetCount > 0 && clearable && (
+          {targetCount > 0 && !clearable && (
+            <p className="muted">This mapping is required; choose a replacement to change it.</p>
+          )}
+          {targetCount > 0 && clearable && (
+            <div>
               <button
                 type="button"
                 className="danger-ghost"
@@ -777,8 +778,9 @@ function MappingActionDialog({
               >
                 Remove mapping
               </button>
-            )}
-            <span className="dialog-actions-spacer" />
+            </div>
+          )}
+          <div className="dialog-actions">
             <button type="button" className="secondary" disabled={saving} onClick={onClose}>
               Cancel
             </button>
@@ -794,7 +796,7 @@ function MappingActionDialog({
               </button>
             )}
             <button className="primary" disabled={saving || !selectedId || !dirty || blockedByConflict}>
-              {saving ? "Saving…" : "Save mapping"}
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </form>

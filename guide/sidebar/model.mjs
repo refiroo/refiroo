@@ -14,6 +14,7 @@ export default [
     [
       ["model/the-model-editor", "About the model editor"],
       "guide/model/find-your-way-around-the-editor",
+      "guide/model/edit-a-model-on-the-canvas",
       "guide/model/undo-and-review-the-draft-history",
       "guide/model/work-on-a-draft-with-others",
       "model/ai-model-changes",
@@ -75,6 +76,7 @@ export default [
       "guide/model/start-a-draft-from-a-workbook",
       "guide/model/map-a-column",
       "guide/model/read-lists-in-a-sheet",
+      "guide/model/shape-a-workbook-on-the-canvas",
       "guide/model/propose-again-with-a-newer-workbook",
       "guide/model/check-a-workbook-with-a-dry-run",
       "guide/model/load-a-workbook-into-a-change-set",

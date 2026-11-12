@@ -8,7 +8,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
-import { chooseObject } from "./helpers/lists.mjs";
+import { chooseObject, openMoreFields } from "./helpers/lists.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { harnessToken, ignoreEventStreamsIn, sendTokenTo, signInContext, watchPageErrors } from "./helpers/harness.mjs";
 
@@ -157,7 +157,7 @@ try {
     );
     await shown(page.getByRole("button", { name: "Record actions", exact: true }));
   }
-  async function save(label = "Save changes", status = 200) {
+  async function save(label = "Save", status = 200) {
     const response = page.waitForResponse(
       (response) =>
         (label === "Save"
@@ -165,18 +165,21 @@ try {
           : response.request().method() === (label === "Create" ? "POST" : "PATCH")) &&
         response.url().includes("/api/v1/objects"),
     );
-    await dialog().getByRole("button", { name: label, exact: true }).click();
+    await dialog()
+      .getByRole("button", label === "Create" ? { name: /^Add / } : { name: label })
+      .click();
     const result = await response;
     if (result.status() !== status)
       assert.fail(`Expected ${status}, received ${result.status()}: ${await result.text()}`);
     if (status === 200 || status === 201) await dialog().waitFor({ state: "hidden" });
     return result.json();
   }
-  async function saveInline(status = 200) {
+  // Leaving the field saves it (0.17 UX2): Enter in a one-line input, Control+Enter in a long text.
+  async function saveInline(status = 200, key = "Enter") {
     const response = page.waitForResponse(
       (response) => ["POST", "PATCH"].includes(response.request().method()) && response.url().includes("/attributes/"),
     );
-    await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
+    await page.keyboard.press(key);
     const result = await response;
     assert.equal(result.status(), status, await result.text());
     if (status < 300) await page.getByRole("form").waitFor({ state: "hidden" });
@@ -185,6 +188,7 @@ try {
     await open(owner);
     await page.getByRole("button", { name: `Add ${typeName}`, exact: true }).click();
     await dialog().getByLabel("Name", { exact: true }).fill(name);
+    await openMoreFields(dialog());
     for (const [label, val] of Object.entries(fields)) await dialog().getByLabel(label, { exact: true }).fill(val);
     return save("Create", 201);
   }
@@ -207,7 +211,9 @@ try {
     );
     await dialog().getByLabel("Name", { exact: true }).fill(`${label} original`);
     await dialog().getByLabel(`${label} code`, { exact: true }).fill(type.toUpperCase());
+    await openMoreFields(dialog());
     await dialog().getByLabel("Count", { exact: true }).fill("0");
+    await openMoreFields(dialog());
     await dialog().getByLabel("Active", { exact: true }).uncheck();
     const item = await save("Create", 201);
     roots[type] = item;
@@ -217,6 +223,7 @@ try {
     await shown(page.getByRole("button", { name: "Record actions", exact: true }));
     await recordAction(page, "Edit record");
     await dialog().getByLabel("Name", { exact: true }).fill(`${label} mine`);
+    await openMoreFields(dialog());
     await dialog().getByLabel("Count", { exact: true }).fill("1");
     await api(
       `/objects/${type}/${item.id}`,
@@ -227,10 +234,11 @@ try {
       },
       "PATCH",
     );
-    await save("Save changes", 409);
+    await save("Save", 409);
     await shown(dialog().getByRole("region", { name: "Current saved content" }));
     await shown(dialog().getByText(`${label} theirs`, { exact: true }));
     assert.equal(await dialog().getByLabel("Name", { exact: true }).inputValue(), `${label} mine`);
+    await openMoreFields(dialog());
     await dialog().getByLabel("Count", { exact: true }).fill("0");
     await save();
     const fresh = await get(item);
@@ -265,42 +273,52 @@ try {
         .getByRole("button", { name: /^Edit / })
         .focus();
       await page.keyboard.press("Enter");
+      // The count already holds 0, and an input left as it was saves nothing: change it, then back to zero.
+      await page.getByRole("form").getByLabel("Count", { exact: true }).fill("5");
+      await saveInline();
+      assert.equal(value(await get(item), "qa-count"), 5);
+      await page.waitForFunction(() => document.activeElement?.textContent?.startsWith("Edit Count:"));
+      await page.keyboard.press("Enter");
       await page.getByRole("form").getByLabel("Count", { exact: true }).fill("0");
       await page.screenshot({ path: resolve(output, `ui-04-${type}-${width}.png`), fullPage: true });
       await saveInline();
       assert.equal(value(await get(item), "qa-count"), 0);
       // Focus returns to the value it edited, which is its own edit control (UA4 revision).
       await page.waitForFunction(() => document.activeElement?.textContent?.startsWith("Edit Count:"));
+      // Each pass sets a value of its own: an input left as it was saves nothing.
+      const day = width === 1440 ? "2026-09-11" : "2026-09-12";
       await row("Date")
         .getByRole("button", { name: /^(Add|Edit) / })
         .click();
-      await page.getByRole("form").getByLabel("Date", { exact: true }).fill("2026-09-11");
+      await page.getByRole("form").getByLabel("Date", { exact: true }).fill(day);
       await saveInline(width === 1440 ? 201 : 200);
-      assert.equal(value(await get(item), "qa-date"), "2026-09-11");
-      await row("Active")
-        .getByRole("button", { name: /^Edit / })
-        .click();
-      await page.getByRole("form").getByLabel("Active", { exact: true }).check();
-      assert.equal(value(await get(item), "active"), false);
-      await page.getByRole("form").getByLabel("Active", { exact: true }).uncheck();
-      await saveInline();
+      assert.equal(value(await get(item), "qa-date"), day);
+      // A yes or no saves itself where it stands (0.17 UX1, PP-D40): the box is the edit, with no form.
+      const flag = row("Active").getByRole("checkbox");
+      await flag.click();
+      await page.waitForFunction(() => document.querySelector(".flag-cell-saved") !== null);
+      assert.equal(value(await get(item), "active"), true);
+      await flag.click();
+      await page.waitForFunction(() => !document.querySelector(".flag-cell input:disabled"));
+      await page.waitForTimeout(300);
       assert.equal(value(await get(item), "active"), false);
       await row("Description")
         .getByRole("button", { name: /^Edit / })
         .click();
-      await page.getByRole("form").getByLabel("Description", { exact: true }).fill("First line");
+      await page.getByRole("form").getByLabel("Description", { exact: true }).fill(`First line ${width}`);
       await page.keyboard.press("End");
       await page.keyboard.press("Enter");
       await page.keyboard.type("Second line");
       assert.equal(await page.getByRole("form").count(), 1);
-      await saveInline();
-      assert.equal(value(await get(item), "description"), "First line\nSecond line");
+      await saveInline(200, "Control+Enter");
+      assert.equal(value(await get(item), "description"), `First line ${width}\nSecond line`);
       await row(`${label} code`)
         .getByRole("button", { name: /^Edit / })
         .click();
-      assert.equal(await page.getByRole("form").getByLabel("Set null").count(), 0);
+      assert.equal(await page.getByRole("form").getByLabel("No value").count(), 0);
       await page.getByRole("form").getByLabel(`${label} code`, { exact: true }).fill("");
-      await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
+      await page.keyboard.press("Tab");
+      await shown(page.getByRole("form").getByText(`${label} code needs a value.`));
       assert.equal(await page.getByRole("form").count(), 1);
       await page.keyboard.press("Escape");
       assert.equal(await page.getByRole("form").count(), 0);
@@ -309,7 +327,7 @@ try {
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   checks.push(
-    "UI-04: Domain and System inline zero, date, false, multiline Enter, required validation, Escape and focus restore at desktop and 390px; no checkbox autosave or horizontal overflow",
+    "UI-04: Domain and System inline zero, date, false, multiline Control+Enter, Enter in a one-line input, required refusal under the field, Escape and focus restore at desktop and 390px; a yes or no saving where it stands (UX1) and no horizontal overflow",
   );
   const codelist = await addChild(roots.domain, "Codelist", "Delivery Methods", { "Codelist code": "DELIVERY" });
   const otherList = await addChild(roots.domain, "Codelist", "Other methods", { "Codelist code": "OTHER" });
@@ -328,10 +346,14 @@ try {
   assert(parentRelations.items.some((item) => item.relation.relationTypeKey === "codelist-contains-value"));
   await open(master);
   await recordAction(page, "Edit record");
+  // The dialog says the parent it holds; Change asks for another (0.17 PL2).
+  await dialog().getByRole("button", { name: "Change", exact: true }).click();
   await chooseObject(dialog(), otherList.id);
   await save();
   assert.equal((await get(master)).parentObjectId, otherList.id);
   await recordAction(page, "Edit record");
+  // The dialog says the parent it holds; Change asks for another (0.17 PL2).
+  await dialog().getByRole("button", { name: "Change", exact: true }).click();
   await chooseObject(dialog(), codelist.id);
   await save();
   checks.push("Master and System containment: one-save child creates and managed parent links; coherent parent move");
@@ -342,7 +364,7 @@ try {
   let response = page.waitForResponse(
     (response) => response.url().endsWith("/api/v1/relations") && response.request().method() === "POST",
   );
-  await dialog().getByRole("button", { name: "Create", exact: true }).click();
+  await dialog().getByRole("button", { name: /^Add / }).click();
   assert.equal((await response).status(), 201);
   await dialog().waitFor({ state: "hidden" });
   await shown(
@@ -354,6 +376,7 @@ try {
   await panel(page, "System representations")
     .getByRole("button", { name: /^Edit values of / })
     .click();
+  await openMoreFields(dialog());
   await dialog().getByLabel("Count", { exact: true }).fill("0");
   await api(
     `/relations/${representation.id}`,
@@ -368,6 +391,7 @@ try {
   assert.equal((await response).status(), 409);
   await shown(dialog().getByText(/Current saved relationship/));
   await shown(dialog().locator("dd", { hasText: /^8$/ }));
+  await openMoreFields(dialog());
   assert.equal(await dialog().getByLabel("Count", { exact: true }).inputValue(), "0");
   response = page.waitForResponse(
     (response) =>
@@ -377,15 +401,14 @@ try {
   assert.equal((await response).status(), 200);
   await dialog().waitFor({ state: "hidden" });
   assert.equal((await api(`/relations/${representation.id}?workspaceKey=${workspaceKey}`)).attributes["qa-count"], 0);
-  await panel(page, "System representations")
-    .getByRole("button", { name: /^Delete / })
-    .click();
+  // Removing a relationship asks nothing: the call goes at once and a toast offers Undo (0.17 UX1).
   response = page.waitForResponse(
     (response) => response.url().includes("/api/v1/relations/") && response.request().method() === "DELETE",
   );
-  await confirm().getByRole("button", { name: "Delete relationship" }).click();
+  await panel(page, "System representations")
+    .getByRole("button", { name: /^Remove / })
+    .click();
   assert.equal((await response).status(), 204);
-  await confirm().waitFor({ state: "hidden" });
   await get(systemValue);
   await api("/relations", {
     relationTypeKey: "reference-has-system-representation",
@@ -419,6 +442,7 @@ try {
   await save("Create", 422);
   assert.equal(await dialog().getByLabel("Name", { exact: true }).inputValue(), "Czech locker");
   assert.equal((await api(`/objects/translation?workspaceKey=${workspaceKey}`)).items.length, 0);
+  await openMoreFields(dialog());
   await dialog().getByLabel("Translated name", { exact: true }).fill("Výdejní místo");
   const translation = await save("Create", 201);
   assert.equal(translation.parentObjectId, group.id);
@@ -431,8 +455,10 @@ try {
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
   await chooseObject(dialog(), group.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Duplicate Czech");
+  await openMoreFields(dialog());
   await dialog().getByLabel("Translated name", { exact: true }).fill("Duplicate text");
   await save("Create", 409);
+  await openMoreFields(dialog());
   assert.equal(await dialog().getByLabel("Translated name", { exact: true }).inputValue(), "Duplicate text");
   assert.equal((await api(`/objects/translation?workspaceKey=${workspaceKey}`)).items.length, 1);
   await dialog().getByRole("button", { name: "Cancel", exact: true }).click();
@@ -440,10 +466,11 @@ try {
   await open(group);
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
   await dialog()
-    .getByRole("combobox", { name: /object type/i })
+    .getByRole("combobox", { name: /record type/i })
     .selectOption("domain");
-  await chooseObject(dialog().locator(".object-lookup").nth(1), roots.domain.id);
+  await chooseObject(dialog().locator(".object-lookup").last(), roots.domain.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Czech domain");
+  await openMoreFields(dialog());
   await dialog().getByLabel("Translated name", { exact: true }).fill("Doména");
   await save("Create", 201);
   checks.push(
@@ -455,20 +482,18 @@ try {
   const translatedName = fields
     .locator(".attribute-grid > div")
     .filter({ has: page.locator("dt", { hasText: /^Translated name$/ }) });
-  await translatedName.getByRole("button", { name: /^Remove / }).click();
   response = page.waitForResponse(
     (response) => response.request().method() === "DELETE" && response.url().includes("/attributes/"),
   );
-  await confirm().getByRole("button", { name: "Remove value" }).click();
+  await translatedName.getByRole("button", { name: /^Remove / }).click();
   assert.equal((await response).status(), 422);
-  await shown(confirm().getByText(/At least one/i));
-  await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
+  await shown(page.getByText(/At least one/i).last());
   const description = fields
     .locator(".attribute-grid > div")
     .filter({ has: page.locator("dt", { hasText: /^Translated description$/ }) });
   await description.getByRole("button", { name: /^Add / }).click();
   await page.getByRole("form").getByLabel("Translated description", { exact: true }).fill("Optional description");
-  await saveInline(201);
+  await saveInline(201, "Control+Enter");
   await translatedName.getByRole("button", { name: /^Edit / }).click();
   await page.getByRole("form").getByLabel("Translated name", { exact: true }).fill("Moje změna");
   const old = await get(translation);
@@ -481,13 +506,11 @@ try {
   await shown(page.getByRole("form").getByText(/Jiná změna/));
   assert.equal(await page.getByRole("form").getByLabel("Translated name", { exact: true }).inputValue(), "Moje změna");
   await saveInline();
-  await description.getByRole("button", { name: /^Remove / }).click();
   response = page.waitForResponse(
     (response) => response.request().method() === "DELETE" && response.url().includes("/attributes/"),
   );
-  await confirm().getByRole("button", { name: "Remove value" }).click();
+  await description.getByRole("button", { name: /^Remove / }).click();
   assert.equal((await response).status(), 204);
-  await confirm().waitFor({ state: "hidden" });
   assert(
     !(await get(translation)).attributes.some((attribute) => attribute.attributeTypeKey === "translated-description"),
   );
@@ -506,7 +529,7 @@ try {
       .evaluate((node) => node === document.activeElement),
     true,
   );
-  await dialog().getByRole("button", { name: "Save changes" }).focus();
+  await dialog().getByRole("button", { name: "Save" }).focus();
   await page.keyboard.press("Tab");
   assert(await dialog().evaluate((node) => node.contains(document.activeElement)));
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -526,41 +549,51 @@ try {
       (response) =>
         response.request().method() === "DELETE" && response.url().includes(`/objects/codelist/${codelist.id}`),
     );
-    await confirm().getByRole("button", { name: label, exact: true }).click();
+    await confirm().getByRole("button", { name: label }).click();
     const result = await response;
     if (result.status() !== status)
       assert.fail(`Expected ${status}, received ${result.status()}: ${await result.text()}`);
     return result.status() === 204 ? undefined : result.json();
   }
-  await recordAction(page, "Delete record");
-  const preview = await deletionClick("Delete", 409);
-  assert(preview.error.details.objectsToDelete.some((item) => item.id === translation.id));
+  // The dialog reads what the deletion would take when it opens (GET deletion-impact) and shows it
+  // before any button to delete with: one confirmation (0.17 UX1).
+  async function opened() {
+    const read = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().includes(`/objects/codelist/${codelist.id}/deletion-impact`),
+    );
+    await recordAction(page, "Delete record");
+    return (await read).json();
+  }
+  const preview = await opened();
+  assert(preview.objectsToDelete.some((item) => item.id === translation.id));
   await shown(confirm().getByText(/Czech locker/));
-  await shown(confirm().getByText(/independent records/));
+  await shown(confirm().getByText(/deleted too/));
   await page.screenshot({ path: resolve(output, "deletion-impact.png"), fullPage: true });
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   await get(master);
   await get(translation);
   await get(systemValue);
-  await recordAction(page, "Delete record");
-  await deletionClick("Delete", 409);
+  await opened();
+  await shown(confirm().getByText(/Czech locker/));
   const changed = await get(translation);
   await api(
     `/objects/translation/${translation.id}`,
     { expectedVersion: changed.version, name: "Changed dependent" },
     "PATCH",
   );
-  const refused = await deletionClick("Confirm deletion", 409);
+  const refused = await deletionClick(/^Delete \d+ records$/, 409);
   assert.equal(refused.error.code, "DELETION_PREVIEW_CHANGED");
   await get(codelist);
   await get(master);
   await get(translation);
-  await shown(confirm().getByText("The object was modified by another session. Please retry.", { exact: true }));
-  await confirm().getByRole("button", { name: "Retry", exact: true }).click();
-  const newPreview = await deletionClick("Delete", 409);
-  assert.notEqual(newPreview.error.details.deletionPreviewToken, preview.error.details.deletionPreviewToken);
+  // The dialog shows the current impact once and asks again.
+  await shown(confirm().getByText(/The record changed after this was shown/));
   await shown(confirm().getByText(/Changed dependent/));
-  await deletionClick("Confirm deletion", 204);
+  const newPreview = await api(`/objects/codelist/${codelist.id}/deletion-impact`);
+  assert.notEqual(newPreview.deletionPreviewToken, preview.deletionPreviewToken);
+  await deletionClick(/^Delete \d+ records$/, 204);
   await confirm().waitFor({ state: "hidden" });
   for (const deleted of [codelist, master, translation])
     assert.equal(
@@ -596,7 +629,7 @@ try {
         .count(),
       0,
     );
-    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await page.locator('[aria-label="Record details"] .trail-back').click();
     await shown(page.getByRole("heading", { name: "Domains", exact: true }));
     assert.equal(await page.getByRole("button", { name: "Add Domain", exact: true }).count(), 0);
   }

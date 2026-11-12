@@ -10,16 +10,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_URL, api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import type { BackupRehearsal, EngineProcess, SystemSummary, WorkspaceReadiness } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { LogFoot, SettingRow, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
+import { settingsHead } from "./navigation";
 import {
   THREAD_LABELS,
   databaseReason,
@@ -117,7 +118,7 @@ export function OperationsPage() {
   const { data, error, loading, refresh, loadMore } = useOperations();
   return (
     <SettingsLayout
-      eyebrow="Administration"
+      {...settingsHead("operations")}
       title="Operations"
       description="How this instance's engine processes are running, which workspaces they serve, and when a backup was last restored and checked. Read only."
       actions={
@@ -157,65 +158,69 @@ export function OperationsPage() {
 
 function Summary({ data }: { data: Operations }) {
   return (
-    <section aria-label="Summary">
-      <ul className="operations-figures">
+    <SettingsGroup
+      title="Summary"
+      description="Whether the engine's processes, workspaces, jobs and webhooks are healthy."
+    >
+      <SettingsPanel>
         {summaryFigures(data.summary, data.readiness, data.processes).map((figure) => (
-          <li key={figure.label}>
-            <span className="operations-figure-label">{figure.label}</span>
+          <SettingRow key={figure.label} name={figure.label} help={figure.note}>
             <StatusPill tone={figure.tone} className="operations-figure-value">
               {figure.value}
             </StatusPill>
-            <span className="settings-note">{figure.note}</span>
-          </li>
+          </SettingRow>
         ))}
-      </ul>
-    </section>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
 function Workspaces({ readiness }: { readiness: WorkspaceReadiness[] }) {
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="Workspaces"
       description="A workspace is served when every live process can serve the release it runs."
     >
-      <SettingsTable label="Workspaces" columns={["Workspace", "Release", "Schema", "State", "Not served by"]}>
-        {readiness.map((item) => (
-          <tr key={item.workspaceKey}>
-            <th scope="row">
-              <code>{item.workspaceKey}</code>
-            </th>
-            <td data-label="Release">
-              {item.release ? (
-                <>
-                  <code>{item.release.key}</code> {item.release.version}
-                </>
-              ) : (
-                "None"
-              )}
-            </td>
-            <td data-label="Schema">{item.release?.schemaVersion ?? "None"}</td>
-            <td data-label="State">
-              <StatusPill tone={item.state === "served" ? "success" : "error"}>
-                {item.state === "served" ? "Served" : "Unavailable"}
-              </StatusPill>
-            </td>
-            <td data-label="Not served by">
-              {item.release === null
-                ? unavailableReason("noRelease")
-                : item.unavailableIn.length
-                  ? item.unavailableIn
-                      .map(
-                        (process) =>
-                          `${shortProcess(process.processId)}: ${unavailableReason(process.reason, process.schemaVersion)}`,
-                      )
-                      .join("; ")
-                  : "None"}
-            </td>
-          </tr>
-        ))}
-      </SettingsTable>
-    </Section>
+      <SettingsPanel>
+        <SettingsTable label="Workspaces" columns={["Workspace", "Release", "Schema", "State", "Not served by"]}>
+          {readiness.map((item) => (
+            <tr key={item.workspaceKey}>
+              <th scope="row">
+                <code>{item.workspaceKey}</code>
+              </th>
+              <td data-label="Release">
+                {item.release ? (
+                  <>
+                    <code>{item.release.key}</code> {item.release.version}
+                  </>
+                ) : (
+                  "None"
+                )}
+              </td>
+              <td data-label="Schema">{item.release?.schemaVersion ?? "None"}</td>
+              <td data-label="State">
+                <StatusPill tone={item.state === "served" ? "success" : "error"}>
+                  {item.state === "served" ? "Served" : "Unavailable"}
+                </StatusPill>
+              </td>
+              <td data-label="Not served by">
+                {item.release === null
+                  ? unavailableReason("noRelease")
+                  : item.unavailableIn.length
+                    ? item.unavailableIn
+                        .map(
+                          (process) =>
+                            `${shortProcess(process.processId)}: ${unavailableReason(process.reason, process.schemaVersion)}`,
+                        )
+                        .join("; ")
+                    : "None"}
+              </td>
+            </tr>
+          ))}
+        </SettingsTable>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
@@ -225,33 +230,33 @@ const wide = () =>
 function Processes({ processes }: { processes: EngineProcess[] }) {
   const [open] = useState(wide);
   return (
-    <Section
+    <SettingsGroup
       title="Engine processes"
       description="Every process on this database, as it last reported itself. The process that answered is current; the others are up to one report old."
     >
-      <ul className="operations-processes">
-        {processes.map((process) => (
-          <li key={process.id}>
-            <details open={open}>
-              <summary>
-                <code>{process.id}</code>
-                <StatusPill tone={process.state === "live" ? "success" : "warning"}>
-                  {process.state === "live" ? "Live" : "Silent"}
-                </StatusPill>
-                <StatusPill tone={process.ready ? "success" : "error"}>
-                  {process.ready ? (process.state === "live" ? "Ready" : "Ready at last report") : "Not ready"}
-                </StatusPill>
-                <span className="settings-note operations-process-times">
-                  Engine {process.engineVersion} · started {formatServerTime(process.startedAt)} · last report{" "}
-                  {formatServerTime(process.heartbeatAt)}
-                </span>
-              </summary>
-              <ProcessFacts process={process} />
-            </details>
-          </li>
-        ))}
-      </ul>
-    </Section>
+      {processes.map((process) => (
+        <SettingsPanel key={process.id} className="operations-process">
+          <details open={open}>
+            <summary>
+              <code>{process.id}</code>
+              <StatusPill tone={process.state === "live" ? "success" : "warning"}>
+                {process.state === "live" ? "Live" : "Silent"}
+              </StatusPill>
+              <StatusPill tone={process.ready ? "success" : "error"}>
+                {process.ready ? (process.state === "live" ? "Ready" : "Ready at last report") : "Not ready"}
+              </StatusPill>
+              <span className="settings-note operations-process-times">
+                Engine {process.engineVersion} · started{" "}
+                <span title={formatServerTime(process.startedAt)}>{formatServerDayTime(process.startedAt)}</span> · last
+                report{" "}
+                <span title={formatServerTime(process.heartbeatAt)}>{formatServerDayTime(process.heartbeatAt)}</span>
+              </span>
+            </summary>
+            <ProcessFacts process={process} />
+          </details>
+        </SettingsPanel>
+      ))}
+    </SettingsGroup>
   );
 }
 
@@ -259,59 +264,49 @@ function ProcessFacts({ process }: { process: EngineProcess }) {
   const missing = Object.entries(process.counters.databaseUnavailable).filter(([, times]) => times > 0);
   const total = missing.reduce((sum, [, times]) => sum + times, 0);
   return (
-    <dl className="operations-process-facts">
-      <div>
-        <dt>Background threads</dt>
-        <dd>
-          <ul className="operations-threads">
-            {process.threads.map((thread) => (
-              <li key={thread.name}>
-                <span>{THREAD_LABELS[thread.name]}</span>
-                <StatusPill
-                  tone={thread.state === "running" ? "success" : thread.state === "failing" ? "warning" : "neutral"}
-                >
-                  {thread.state === "running" ? "Running" : thread.state === "failing" ? "Failing" : "Off"}
-                </StatusPill>
-                {thread.state === "failing" && (
-                  <span className="settings-note">
-                    {thread.since ? `Since ${formatServerTime(thread.since)}: ` : ""}
-                    {databaseReason(thread.reason)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </dd>
-      </div>
-      <div>
-        <dt>Database connections</dt>
-        <dd>
+    <div>
+      <SettingRow fact name="Background threads">
+        <ul className="operations-threads">
+          {process.threads.map((thread) => (
+            <li key={thread.name}>
+              <span>{THREAD_LABELS[thread.name]}</span>
+              <StatusPill
+                tone={thread.state === "running" ? "success" : thread.state === "failing" ? "warning" : "neutral"}
+              >
+                {thread.state === "running" ? "Running" : thread.state === "failing" ? "Failing" : "Off"}
+              </StatusPill>
+              {thread.state === "failing" && (
+                <span className="settings-note">
+                  {thread.since ? `Since ${formatServerTime(thread.since)}: ` : ""}
+                  {databaseReason(thread.reason)}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </SettingRow>
+      <SettingRow fact name="Database connections">
+        <span className="operations-stack">
           {process.pool.inUse} in use of {process.pool.size} + {process.pool.maxOverflow} overflow
           <span className="settings-note">
             {total
               ? `Without a connection ${total} ${total === 1 ? "time" : "times"}: ${missing.map(([reason, times]) => `${reason} ${times}`).join(", ")}`
               : "Never without a connection"}
           </span>
-        </dd>
-      </div>
-      <div>
-        <dt>Requests since start</dt>
-        <dd>
-          {process.counters.requests.toLocaleString("en-GB")} answered,{" "}
-          {process.counters.serverErrors.toLocaleString("en-GB")} with a server error
-        </dd>
-      </div>
-      <div>
-        <dt>Releases it cannot serve</dt>
-        <dd>
-          {process.unavailableReleases.length
-            ? process.unavailableReleases
-                .map((release) => `${release.releaseId}: ${unavailableReason(release.reason, release.schemaVersion)}`)
-                .join("; ")
-            : "None"}
-        </dd>
-      </div>
-    </dl>
+        </span>
+      </SettingRow>
+      <SettingRow fact name="Requests since start">
+        {process.counters.requests.toLocaleString()} answered, {process.counters.serverErrors.toLocaleString()} with a
+        server error
+      </SettingRow>
+      <SettingRow fact name="Releases it cannot serve">
+        {process.unavailableReleases.length
+          ? process.unavailableReleases
+              .map((release) => `${release.releaseId}: ${unavailableReason(release.reason, release.schemaVersion)}`)
+              .join("; ")
+          : "None"}
+      </SettingRow>
+    </div>
   );
 }
 
@@ -327,7 +322,8 @@ function Rehearsals({
   const [showEarlier, setShowEarlier] = useState(false);
   const [latest, ...earlier] = rehearsals;
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="Last backup rehearsal"
       description="A backup restored into a separate database and checked there by the engine, recorded here. Nothing on this page restores data."
     >
@@ -336,164 +332,179 @@ function Rehearsals({
           No restore of this instance's backups has been checked yet. Rehearse one as described below.
         </Notice>
       ) : (
-        <div className="operations-rehearsal">
-          <p className="operations-rehearsal-head">
-            <StatusPill tone={latest.result === "passed" ? "success" : "error"}>
-              {latest.result === "passed" ? "Passed" : "Failed"}
-            </StatusPill>
-            <strong>Checked {formatServerTime(latest.checkedAt)}</strong>
-            {latest.backup && (
-              <span>
-                Backup <code>{latest.backup}</code>
-              </span>
-            )}
-            {latest.dataAsOf && <span>Data as of {formatServerTime(latest.dataAsOf)}</span>}
-          </p>
+        <>
           {latest.failure && (
             <Notice tone="error" title={failureTitle(latest.failure.code)}>
               {latest.failure.message}
             </Notice>
           )}
-          <dl className="operations-process-facts">
-            <div>
-              <dt>Database revision</dt>
-              <dd>
-                {latest.revisionAfter ? (
-                  <>
+          <SettingsPanel>
+            <SettingRow
+              name={
+                <strong title={formatServerTime(latest.checkedAt)}>
+                  Checked {formatServerDayTime(latest.checkedAt)}
+                </strong>
+              }
+              help={
+                <>
+                  {latest.backup && (
                     <span>
-                      <code>{latest.revisionBefore ?? "unversioned"}</code>
-                      {latest.revisionAfter !== latest.revisionBefore && (
-                        <>
-                          {" "}
-                          → <code>{latest.revisionAfter}</code>
-                        </>
-                      )}
+                      Backup <code>{latest.backup}</code>
                     </span>
-                    <span className="settings-note">Prepared as startup would prepare it</span>
-                  </>
-                ) : (
-                  <span>The copy could not be prepared</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>Checked by</dt>
-              <dd>
-                Engine {latest.engineVersion} on <code>{latest.host}</code>
-              </dd>
-            </div>
-          </dl>
-          {latest.workspaces.length > 0 && (
-            <SettingsTable
-              label="Each workspace in the restored copy"
-              columns={[
-                "Workspace",
-                "Release in the copy",
-                "Served",
-                "Records",
-                "Relationships",
-                "Open change sets",
-                "Publications",
-                "Live now",
-              ]}
+                  )}
+                  {latest.backup && latest.dataAsOf && " · "}
+                  {latest.dataAsOf && (
+                    <span title={formatServerTime(latest.dataAsOf)}>
+                      Data as of {formatServerDayTime(latest.dataAsOf)}
+                    </span>
+                  )}
+                </>
+              }
             >
-              {latest.workspaces.map((item) => (
-                <tr key={item.workspaceKey}>
-                  <th scope="row">
-                    <code>{item.workspaceKey}</code>
-                  </th>
-                  <td data-label="Release in the copy">
-                    {item.release ? (
+              <StatusPill tone={latest.result === "passed" ? "success" : "error"}>
+                {latest.result === "passed" ? "Passed" : "Failed"}
+              </StatusPill>
+            </SettingRow>
+            <SettingRow fact name="Database revision">
+              {latest.revisionAfter ? (
+                <span className="operations-stack">
+                  <span>
+                    <code>{latest.revisionBefore ?? "unversioned"}</code>
+                    {latest.revisionAfter !== latest.revisionBefore && (
                       <>
-                        <code>{item.release.key}</code> {item.release.version}
+                        {" "}
+                        → <code>{latest.revisionAfter}</code>
                       </>
-                    ) : (
-                      "None"
                     )}
-                  </td>
-                  <td data-label="Served">
-                    <StatusPill tone={item.state === "served" ? "success" : "error"}>
-                      {item.state === "served"
-                        ? "Served"
-                        : `Not served: ${unavailableReason(item.reason ?? "invalid", item.release?.schemaVersion)}`}
-                    </StatusPill>
-                  </td>
-                  <td data-label="Records" className="numeric">
-                    {item.records.toLocaleString("en-GB")}
-                  </td>
-                  <td data-label="Relationships" className="numeric">
-                    {item.relations.toLocaleString("en-GB")}
-                  </td>
-                  <td data-label="Open change sets" className="numeric">
-                    {item.openChangeSets.toLocaleString("en-GB")}
-                  </td>
-                  <td data-label="Publications" className="numeric">
-                    {item.publications.toLocaleString("en-GB")}
-                  </td>
-                  <td data-label="Live now">{sinceBackup(item)}</td>
-                </tr>
-              ))}
-            </SettingsTable>
+                  </span>
+                  <span className="settings-note">Prepared as startup would prepare it</span>
+                </span>
+              ) : (
+                <span>The copy could not be prepared</span>
+              )}
+            </SettingRow>
+            <SettingRow fact name="Checked by">
+              Engine {latest.engineVersion} on <code>{latest.host}</code>
+            </SettingRow>
+          </SettingsPanel>
+          {latest.workspaces.length > 0 && (
+            <SettingsPanel className="operations-copy">
+              <SettingsTable
+                label="Each workspace in the restored copy"
+                columns={[
+                  "Workspace",
+                  "Release in the copy",
+                  "Served",
+                  { num: "Records" },
+                  { num: "Relationships" },
+                  { num: "Open change sets" },
+                  { num: "Publications" },
+                  "Live now",
+                ]}
+              >
+                {latest.workspaces.map((item) => (
+                  <tr key={item.workspaceKey}>
+                    <th scope="row">
+                      <code>{item.workspaceKey}</code>
+                    </th>
+                    <td data-label="Release in the copy">
+                      {item.release ? (
+                        <>
+                          <code>{item.release.key}</code> {item.release.version}
+                        </>
+                      ) : (
+                        "None"
+                      )}
+                    </td>
+                    <td data-label="Served">
+                      <StatusPill tone={item.state === "served" ? "success" : "error"}>
+                        {item.state === "served"
+                          ? "Served"
+                          : `Not served: ${unavailableReason(item.reason ?? "invalid", item.release?.schemaVersion)}`}
+                      </StatusPill>
+                    </td>
+                    <td data-label="Records" className="num">
+                      {item.records.toLocaleString()}
+                    </td>
+                    <td data-label="Relationships" className="num">
+                      {item.relations.toLocaleString()}
+                    </td>
+                    <td data-label="Open change sets" className="num">
+                      {item.openChangeSets.toLocaleString()}
+                    </td>
+                    <td data-label="Publications" className="num">
+                      {item.publications.toLocaleString()}
+                    </td>
+                    <td data-label="Live now">{sinceBackup(item)}</td>
+                  </tr>
+                ))}
+              </SettingsTable>
+            </SettingsPanel>
           )}
           {(earlier.length > 0 || more) && (
-            <button
-              type="button"
-              className="link-button"
-              aria-expanded={showEarlier}
-              onClick={() => setShowEarlier((value) => !value)}
-            >
-              {showEarlier
-                ? "Hide earlier rehearsals"
-                : `Show earlier rehearsals (${earlier.length}${more ? "+" : ""})`}
-            </button>
-          )}
-          {showEarlier && (
-            <>
-              <ul className="operations-earlier">
-                {earlier.map((item) => (
-                  <li key={item.id}>
+            <SettingsPanel>
+              <SettingRow name="Earlier rehearsals" help={`${earlier.length}${more ? "+" : ""} before this one`}>
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-expanded={showEarlier}
+                  onClick={() => setShowEarlier((value) => !value)}
+                >
+                  {showEarlier
+                    ? "Hide earlier rehearsals"
+                    : `Show earlier rehearsals (${earlier.length}${more ? "+" : ""})`}
+                </button>
+              </SettingRow>
+              {showEarlier &&
+                earlier.map((item) => (
+                  <SettingRow
+                    key={item.id}
+                    name={<span title={formatServerTime(item.checkedAt)}>{formatServerDayTime(item.checkedAt)}</span>}
+                    help={
+                      <>
+                        {item.backup && <code>{item.backup}</code>}
+                        {item.backup && " · "}
+                        {item.failure
+                          ? failureTitle(item.failure.code)
+                          : `${item.workspaces.length} ${item.workspaces.length === 1 ? "workspace" : "workspaces"} served`}
+                      </>
+                    }
+                  >
                     <StatusPill tone={item.result === "passed" ? "success" : "error"}>
                       {item.result === "passed" ? "Passed" : "Failed"}
                     </StatusPill>
-                    <span>{formatServerTime(item.checkedAt)}</span>
-                    {item.backup && <code>{item.backup}</code>}
-                    <span className="settings-note">
-                      {item.failure
-                        ? failureTitle(item.failure.code)
-                        : `${item.workspaces.length} ${item.workspaces.length === 1 ? "workspace" : "workspaces"} served`}
-                    </span>
-                  </li>
+                  </SettingRow>
                 ))}
-              </ul>
-              {more && (
-                <button type="button" className="load-more" onClick={onMore}>
-                  Load more rehearsals
-                </button>
+              {showEarlier && (
+                <LogFoot shown={earlier.length} noun="earlier rehearsals" onMore={more ? onMore : undefined} />
               )}
-            </>
+            </SettingsPanel>
           )}
-        </div>
+        </>
       )}
-      <details className="operations-howto">
-        <summary>How to rehearse a restore</summary>
-        <p>
-          Restore the backup into a new, empty database with the ICU root collation, then check it from the backend
-          directory with this instance's <code>DATABASE_URL</code>. The check upgrades the copy as startup would, loads
-          every workspace's release and counts its data, and records the result here. Delete the copy afterwards.
-        </p>
-        <pre>
-          {`createdb -T template0 --locale-provider=icu --icu-locale=und --locale=C rdm_restore_check
+      <SettingsPanel className="settings-panel-pad">
+        <details className="operations-howto">
+          <summary>How to rehearse a restore</summary>
+          <p>
+            Restore the backup into a new, empty database with the ICU root collation, then check it from the backend
+            directory with this instance's <code>DATABASE_URL</code>. The check upgrades the copy as startup would,
+            loads every workspace's release and counts its data, and records the result here. Delete the copy
+            afterwards.
+          </p>
+          <pre>
+            {`createdb -T template0 --locale-provider=icu --icu-locale=und --locale=C rdm_restore_check
 pg_restore --no-owner -d rdm_restore_check <backup>.dump
 python -m app.cli.restore_check \\
     --restored postgresql+psycopg://<user>@<host>/rdm_restore_check \\
     --backup <backup>.dump
 dropdb rdm_restore_check`}
-        </pre>
-        <p className="settings-note">
-          The operations guide (OPERATIONS.md, Backup and restore) describes recovery in place.
-        </p>
-      </details>
-    </Section>
+          </pre>
+          <p className="settings-note">
+            The operations guide (OPERATIONS.md, Backup and restore) describes recovery in place.
+          </p>
+        </details>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
@@ -530,21 +541,24 @@ function Monitoring() {
     },
   ];
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="For monitoring"
       description="What an orchestrator and a metrics collector read. Keep them off a public network."
     >
-      <SettingsTable label="Monitoring addresses" columns={["Probe", "Address", "What it answers"]}>
-        {probes.map((probe) => (
-          <tr key={probe.name}>
-            <th scope="row">{probe.name}</th>
-            <td data-label="Address">
-              <CopyValue label={`${probe.name} address`} value={`${API_URL}${probe.path}`} labelled={false} />
-            </td>
-            <td data-label="What it answers">{probe.what}</td>
-          </tr>
-        ))}
-      </SettingsTable>
-    </Section>
+      <SettingsPanel>
+        <SettingsTable label="Monitoring addresses" columns={["Probe", "Address", "What it answers"]}>
+          {probes.map((probe) => (
+            <tr key={probe.name}>
+              <th scope="row">{probe.name}</th>
+              <td data-label="Address">
+                <CopyValue label={`${probe.name} address`} value={`${API_URL}${probe.path}`} labelled={false} />
+              </td>
+              <td data-label="What it answers">{probe.what}</td>
+            </tr>
+          ))}
+        </SettingsTable>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }

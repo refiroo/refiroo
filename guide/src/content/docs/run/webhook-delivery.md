@@ -12,14 +12,14 @@ Turning it back on resumes delivery subject to subscription validation and event
 expired positions suspend delivery as `EVENTS_EXPIRED`. Repeated requests to an absent route do
 not turn it on. Check Deployment, enable the setting on the intended instance and recreate it.
 
-An administrator or integration owner manages subscriptions on **Settings › Integration › Webhooks**.
+An administrator or integration owner manages subscriptions on **Settings › Connections › Webhooks**.
 Use [Subscribe a webhook and verify it](/docs/guide/integrate/subscribe-a-webhook-and-verify-it/) for the integration sequence and the
 [API reference](/docs/api) for operations. Receivers need a consumer API that declares events.
 
 ## Find the subscription's state
 
 Subscription management requires Integration administration for its workspace; an Operator role
-alone does not grant it. On **Settings › Integration › Webhooks**, open the subscription by name.
+alone does not grant it. On **Settings › Connections › Webhooks**, open the subscription by name.
 Check the address, consumer API, workspace, selected events, filter tags and request format against
 the receiver's configuration. The **Configuration** tab shows its state, suspension reason and
 recovery advice. Authorised owners can edit, suspend, resume, rotate its key or delete it there.

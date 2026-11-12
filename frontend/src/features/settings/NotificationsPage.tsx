@@ -11,7 +11,9 @@ import { errorMessage } from "@/api/errors";
 import type { NoticeMail } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
+import { settingsHead } from "./navigation";
 import { FollowedWorkspaces } from "./FollowedWorkspaces";
 import { NoticeMailPanel } from "./NoticeMailPanel";
 
@@ -37,11 +39,12 @@ export function NotificationsPage() {
     };
   }, [attempt]);
 
+  const head = settingsHead("notifications");
   // Where it is on, it stays shown so it can be switched off even if mail has since been removed.
   const shown = state && (state.available || state.enabled);
   return (
     <SettingsLayout
-      eyebrow="General"
+      {...head}
       title="Notification email"
       description="Choose which notices reach you by email, and which workspaces you follow. Your inbox keeps all notices."
     >
@@ -56,18 +59,20 @@ export function NotificationsPage() {
       ) : !state ? (
         <Skeleton label="Loading your notification settings" lines={3} />
       ) : shown ? (
-        <div className="account-page">
-          <NoticeMailPanel state={state} onChange={setState} />
-          <FollowedWorkspaces />
-        </div>
+        <>
+          <NoticeMailPanel state={state} onChange={setState} hue={head.hue} />
+          <FollowedWorkspaces hue={head.hue} />
+        </>
       ) : (
         <>
-          <p className="account-muted">{NOTHING_TO_CHOOSE[state.reason ?? ""] ?? "There is nothing to choose here."}</p>
-          {state.reason !== "not-a-person" && (
-            <div className="account-page">
-              <FollowedWorkspaces />
-            </div>
-          )}
+          <SettingsGroup title="Email">
+            <SettingsPanel>
+              <SettingsEmpty icon="bell" hue={head.hue}>
+                {NOTHING_TO_CHOOSE[state.reason ?? ""] ?? "There is nothing to choose here."}
+              </SettingsEmpty>
+            </SettingsPanel>
+          </SettingsGroup>
+          {state.reason !== "not-a-person" && <FollowedWorkspaces hue={head.hue} />}
         </>
       )}
     </SettingsLayout>

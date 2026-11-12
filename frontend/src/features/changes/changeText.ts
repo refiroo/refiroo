@@ -181,3 +181,45 @@ export function changeTarget(entry: ChangeEntry, application: string | undefined
       return undefined;
   }
 }
+
+/** One line of a list of changes: a step of its own, or the consecutive steps on one model draft. */
+export type ChangeItem =
+  | { kind: "entry"; entry: ChangeEntry }
+  | { kind: "draft"; key: string; draftId: string; name: string | null; entries: ChangeEntry[] };
+
+const isDraftStep = (entry: ChangeEntry) => entry.kind === "model" && entry.action in DRAFT_ACTIONS;
+
+/**
+ * Presentation only: consecutive steps on one model draft (newest first, as the feed gives them)
+ * become one line with their count; a single step stays as it is. The steps keep their order.
+ */
+export function groupDraftSteps(entries: readonly ChangeEntry[]): ChangeItem[] {
+  const items: ChangeItem[] = [];
+  for (const entry of entries) {
+    const last = items[items.length - 1];
+    if (isDraftStep(entry)) {
+      if (last?.kind === "draft" && last.draftId === entry.subject.id) {
+        last.entries.push(entry);
+        continue;
+      }
+      const before = last?.kind === "entry" ? last.entry : undefined;
+      if (before && isDraftStep(before) && before.subject.id === entry.subject.id) {
+        items[items.length - 1] = {
+          kind: "draft",
+          key: `draft-${before.id}`,
+          draftId: entry.subject.id,
+          name: before.subject.name ?? entry.subject.name ?? null,
+          entries: [before, entry],
+        };
+        continue;
+      }
+    }
+    items.push({ kind: "entry", entry });
+  }
+  return items;
+}
+
+/** "12 steps on the draft “Spring”". */
+export function draftStepsTitle(count: number, name: string | null) {
+  return `${count} steps on the draft${name ? ` ${quoted(name, "")}` : ""}`;
+}

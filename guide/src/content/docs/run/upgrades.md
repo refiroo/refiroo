@@ -41,8 +41,8 @@ in front and the site stops answering until you run the command again with both 
    docker compose logs --tail=100 engine
    ```
 
-5. Check **Settings › Administration › Deployment › Database › Migration revision** against the
-   migrated version, then `/health` and **Settings › Administration › Operations**. Check every active workspace,
+5. Check **Settings › This instance › Deployment › Database › Migration revision** against the
+   migrated version, then `/health` and **Settings › This instance › Operations**. Check every active workspace,
    not only overall readiness. Verify sign-in and a representative read before reopening writers.
 
 Startup also migrates automatically. The explicit command exposes failure before cutover; a failed

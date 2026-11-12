@@ -964,10 +964,26 @@ parent/child combinations. The relation type's own `id` identifies the type itse
 - `GET /api/v1/workspaces?search=...&status=active|retired|all&pageSize=...&cursor=...`
 - `GET /api/v1/workspaces/{workspaceKey}`
 - `POST /api/v1/workspaces`
+- `POST /api/v1/workspaces/from-workbook`
 - `PATCH /api/v1/workspaces/{workspaceKey}`
 - `DELETE /api/v1/workspaces/{workspaceKey}?expectedVersion=N`
 - `GET /api/v1/workspace-runtime-state`
 - `PATCH /api/v1/workspace-runtime-state`
+
+**A workspace from a workbook (0.17 PL4, J36.13).** `POST /api/v1/workspaces/from-workbook` takes `{draftId,
+expectedVersion, name, key?}`: the draft a workbook made, at the version read, and the workspace's name (its key is made
+from the name without one, with a number after it when taken). In one transaction it installs the draft as a release (a
+release version another model holds becomes the next free one, written into the draft; a profile key another model's
+profile holds becomes a free one), creates the workspace on that release, remembers the draft as the workspace's and
+queues the draft's workbook as an import into the workspace's live data (`policy: independent`, `onExisting:
+overwrite`). It answers `202` with `{workspace, releaseId, releaseKey, releaseVersion, job}`; the job is an ordinary
+import (`GET /jobs/{id}`, its `rows` and `events`), and a refused row is reported there while the rest load. Action
+`workspaces.create-from-workbook` (Workspace administration, at the instance); the route also needs Install a model or
+Model release and Bulk and import at the instance, and refuses with `403 FORBIDDEN` naming the first it lacks. Refused
+before anything is written: `404 MODEL_DRAFT_NOT_FOUND`, `409 VERSION_CONFLICT`, `422 DRAFT_HAS_NO_WORKBOOK`, `409
+SOURCE_FILE_PROFILE_NOT_READY`, `422 INVALID_MODEL` (`details` the model's diagnostics), `422 INVALID_IMPORT_PROFILE`
+(`details.problems`), `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_ALREADY_EXISTS`. Registered with workspace
+administration, model administration and integration jobs all on.
 
 Each workspace item and the detail read carry `availability` (0.12 UW1): `{"state": "available"}`, or
 `{"state": "unavailable", "reason": "schemaLeftWindow" | "schemaAfterWindow" | "invalidRelease",
@@ -1260,6 +1276,7 @@ version rather than assuming every record read returns one.
 - `GET /api/v1/objects/{objectTypeKey}/{objectId}?changeSetId={id}|publicationId={id}` — get one object from a change set or a publication; omit both for the live active projection
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` — update an object
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` — delete an object
+- `GET /api/v1/objects/{objectTypeKey}/{objectId}/deletion-impact?changeSetId={id}` — read what deleting the object would take with it; deletes nothing
 
 Object collections accept the [collection paging](#collection-paging) parameters (including `seek`),
 `pageSize`, `applicationKey`, `workspaceKey`, optional
@@ -1465,6 +1482,22 @@ relationship changes before confirmation, deletion changes nothing and returns `
 DELETION_PREVIEW_CHANGED`: `The object was modified by another session. Please retry.` The client must
 request and display a fresh preview. A missing token returns `409 DELETION_PREVIEW_REQUIRED`; a token
 cannot be reused for another object, workspace, change set or model.
+
+`GET /api/v1/objects/{objectTypeKey}/{objectId}/deletion-impact` reads that impact without deleting
+anything, so a client can show it before it asks for a confirmation. It takes `changeSetId` for a
+change set's record (live data otherwise) and needs what the delete needs: Edit live for a live
+record, Work in change sets for a change set's, in the record's workspace, refused `403 FORBIDDEN`
+as the delete is. The answer is the preview's `details` (`objectsToDelete`, `relationshipsToRemove`,
+`objectCount`, `relationshipCount`, `retainedAssociationCount`, `deletionPreviewToken`; the
+duplicate `objectsToRetire` is not repeated) for a record with dependants and for one without: for a
+record with nothing depending on it the lists are empty and `objectCount` is 1. It adds
+`ownRelationshipCount` (the relationships of the record itself, of the `relationshipCount` that its
+whole impact removes) and `requiresCascade` (`true` when the delete needs `cascade=true` and the
+token, `false` when it deletes without). The token is the one the delete's own preview gives and
+confirms the delete the same way, whichever `requiresCascade` says. A missing record is
+`404 OBJECT_NOT_FOUND`, one of another type `409 OBJECT_TYPE_CHANGED`, a retired workspace
+`409 WORKSPACE_RETIRED`. The read takes no lock and writes nothing: no version moves and no history
+entry is made.
 
 Deletion is always confined to one workspace. If inconsistent stored data contains a containment or
 relationship edge into another workspace, the operation changes nothing and returns `409
@@ -1990,7 +2023,8 @@ refused by a single write's rule carries the same code in its outcome.
 | `CHILD_TYPE_NOT_ALLOWED` | 422 | `changeType`, restructuring | The new type cannot contain one of the record's children; the restructuring plan reports it as `noPossibleType` (J15) |
 | `REQUIRED_RELATION_WITHOUT_PLACE` | 422 | `changeType`, restructuring | The new type cannot hold a relationship another record requires (J15) |
 | `RELATION_ALREADY_EXISTS` | 409 | change back in a change set | A relationship the change back restores already exists in the change set (J15.1) |
-| `WORKSPACE_ALREADY_EXISTS` | 409 | `POST /workspaces` | The key is taken, by an active or a retired workspace (J19) |
+| `WORKSPACE_ALREADY_EXISTS` | 409 | `POST /workspaces`, `POST /workspaces/from-workbook` | The key is taken, by an active or a retired workspace (J19) |
+| `DRAFT_HAS_NO_WORKBOOK` | 422 | `POST /workspaces/from-workbook` | The draft has no workbook to load (J36.13) |
 | `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED` | 409 | `PATCH /workspaces/{key}` | Retiring the default workspace (J19) |
 | `MAPPING_VIEW_REQUIRED` | 422 | `GET /workspaces/{key}/mapping-targets` | `applicationKey` and `viewKey` must come together (J10) |
 | `INCOMPLETE_VIEW_IDENTITY` | 422 | `GET /workspaces/{key}/relations` | `applicationKey` and `viewKey` must come together (J22.2) |
@@ -2994,6 +3028,21 @@ fixed values it matches. A list pages in key order (ADR-030).
   row makes no item, so no outcome rows stand behind the count. `"skip"` on a source without a key
   is refused `INVALID_IMPORT_PROFILE` with `SKIP_NEEDS_KEY` at `/sources/{i}/rowsWithoutKey`. A
   placeholder ID (`?`) is skipped by mapping it to empty and skipping rows without a key.
+- **Readings** (0.17 PL3b, PP-D6, PP-D7), three optional members of a source that change how its table is
+  read before any column is bound, the same in `POST /imports`, a dry run, a profile check and a profile
+  saved for the next file. They apply in this order and add their columns at the end of the table, which a
+  binding names by header like any column. `headings: {column, into}`: a row whose only filled cell is in
+  `column` is a heading and no record; its text fills the new column `into` on every row beneath it until
+  the next heading, so a `parent` binding (with `missing: "create"`) reads it as the parent. A data row must
+  hold a value in another column, or it reads as a heading. `fillDown: [column, …]`: an empty cell takes the
+  nearest filled cell above it in its column. `unpivot: {columns, nameColumn, valueColumn}`: each filled
+  cell of the two or more listed columns becomes a row, the column's header in the new `nameColumn` and the
+  cell in `valueColumn`; a row whose listed cells are all empty gives no row, and the rows keep their sheet
+  row number. A column listed in `fillDown` is not also unpivoted. A new column whose name the table has is
+  `IMPORT_FILE_MISMATCH` with `COLUMN_CLASH`; a listed column the file lacks is `COLUMN_NOT_FOUND`. A column
+  the next file renames is followed as other columns are; one it lacks takes its reading, and the bindings
+  of the columns the reading added, out of the profile. Identity, attribute storage, history, bulk APIs,
+  `match` and mapping coverage are untouched: only the rows a source reads change.
 - **Sources run in order** of their references: a source whose parent, relationship or related
   record's parent names a type another source loads runs after it. Sources that reference each
   other are refused (`SOURCE_CYCLE`).
@@ -4908,7 +4957,7 @@ source file and is checked against the draft's own model (D12).
   draft compiles, and nothing but those three reminders is reported.
 - The same warnings follow the model's in every step's `diagnostics`.
 
-**The kinds** (D76). A source is named by its `id`, a column by its header text (or, since 0.13 AQ, by `letter`, a sheet column letter, beside `column`, exactly one of the two: it reaches a column whose header cell is empty; the reader's names for repeated headers, `Checklist #2`, are accepted too), a sheet by its
+**The kinds** (D76). A source is named by its `id`, a column by its header text (spaces around it do not count: the header as the source-columns read lists it is accepted and saved trimmed, as an import reads it; or, since 0.13 AQ, by `letter`, a sheet column letter, beside `column`, exactly one of the two: it reaches a column whose header cell is empty; the reader's names for repeated headers, `Checklist #2`, are accepted too), a sheet by its
 name in the draft's profiled source file. A sheet or column the file lacks, a source the profile
 lacks, or any kind on a draft without a profiled file is refused `INVALID_OPERATION`
 (`unknownElement`); a binding naming an element the draft's model does not declare or allow is
@@ -4927,6 +4976,12 @@ refused the same way. Bindings use the import profile's vocabulary
 | `setColumnReading` | `source`, `column`, `reading`: `text` (`attributeTypeKey`), `lookup` (a relation matched by name), `relation` (`matchBy`?; keeps `split` and `missing`), `relationFlag` (`target`, the record's name); `relationTypeKey`, `objectTypeKey`, `direction` default to the column's relation | How the column is read. Flag columns of one relation and type join one `relationFlags` binding |
 | `splitColumn` | `source`, `column`, `delimiter` (`null` stops splitting) | A relation column's `split` |
 | `ignoreColumn` | `source`, `column` | `{"column", "ignore": true}` |
+| `setUnpivot` | `source`, `columns` (two or more header names, each once), `nameColumn`, `valueColumn` | `unpivot` (0.17 PL3b): a wide table read as rows; replaces an earlier one. `invalidValue` for fewer than two or repeated columns or a column also filled down, `unknownElement` for a column the file lacks, `keyTaken` for a new name the table (or another reading) already has; bindings of the old added columns that are not kept become `unmapped` entries |
+| `clearUnpivot` | `source` | Takes `unpivot` away (`unknownElement` when the source has none); the bindings of its two columns become `unmapped` entries |
+| `setFillDown` | `source`, `columns` | `fillDown`; the same refusals, `invalidValue` also for a column that is unpivoted |
+| `clearFillDown` | `source` | Takes it away |
+| `setHeadingRows` | `source`, `column`, `into` | `headings: {column, into}`; `keyTaken` for an `into` the table has |
+| `clearHeadingRows` | `source` | Takes it away; the binding of `into` becomes an `unmapped` entry |
 | `addValuesToList` | `source`, `column`, `create`? (default `true`) | A relation or parent column matched by name gets `missing: "create"` (D77); since A6 a flag column's set, and a related record column's `parent` (D93) |
 | `unmapColumn` | `source`, `column` | The column's binding taken out (A6), also a column the file no longer has (a header renamed in a newer workbook); a column not bound is left as it is |
 | `setValueMap` | `name`, `entries` (text to a value or `null`; `null` removes the map and its uses), `source`? and `column`? or `letter`? (that column reads through it) | The profile's `valueMaps`. The step records the one map (`valueMaps/<name>`): its undo restores or removes that map and leaves the others as they are (0.13 AQ) |
@@ -5070,6 +5125,43 @@ the sheet's sources load into; the draft's language list and translation type ar
 SOURCE_FILE_PROFILE_NOT_READY`, `404 SOURCE_SHEET_NOT_FOUND`, `422 INVALID_RANGE` (outside the sheet,
 or nothing under its header but a note), `422 INVALID_INFERENCE_REQUEST` (an application the draft
 lacks), `422 REQUEST_VALIDATION_ERROR`.
+
+**Join candidates** (0.17 PL3b, PP-D8). `POST /api/v1/model-drafts/{draftId}/join-candidates` with
+`{"column": {"sheet": "Items", "column": "Supplier"}, "against": {"sheet": "Suppliers"}}` compares the
+column with every column of the other table, or with the one `against` names (`column` header or `letter`;
+both tables may give `headerRow` and `block`, by default the sheet's own), over every row of both, in one
+statement over the staged cells. Values compare by trimmed text. It answers `{column: {sheet, letter,
+header, rows, distinct}, candidates: [{sheet, letter, header, rows, distinct, matchedValues, matchedRows,
+share, unique}], best, tie, tied}`: candidates that hold a value of the column (all the named ones), by
+`matchedRows`, then `matchedValues`, then column order; `unique` says the candidate's filled cells all
+differ (it reads as a list); `tie` is true when two or more match exactly as much, then `best` is `null`
+and `tied` lists their letters, and the client asks which; nothing is guessed. The profile's stored
+overlaps (the first 1,000 distinct values, the best five) stay a hint. Nothing is stored. Refused: `404
+SOURCE_FILE_NOT_FOUND`, `409 SOURCE_FILE_PROFILE_NOT_READY`, `404 SOURCE_SHEET_NOT_FOUND`, `422
+COLUMN_NOT_FOUND` (`details.path` `/column` or `/against`), `422 INVALID_RANGE`, `422
+REQUEST_VALIDATION_ERROR`. The relationship itself is `addRelationType` (or an existing one),
+`allowRelation` and `mapColumn` with a `relation` binding in one operations request.
+
+**Canvas: positions, folded cards, scope** (0.17 PL3b, PP-D54; CE1, PP-D81). `GET
+/api/v1/model-drafts/{draftId}/canvas` answers `{"positions": {"<cardKey>": {"x", "y"}}, "folded": ["<cardKey>"],
+"scope": "model" | "changed" | "workbook" | null}` (`null`: the default). `PATCH` takes any of `positions`
+(`{"<cardKey>": {"x", "y"} | null}`), `folded` (`{"<cardKey>": true | false | null}`) and `scope` (a scope, or
+`null` for the default), at least one, and answers the same document. `positions` and `folded` merge by key
+(`null` removes a position; `false` or `null` unfolds), so two editors arranging different cards do not
+overwrite each other; `scope` is replaced, and a part left out stays. A key is 1 to 200 characters, a
+coordinate lies within plus or minus 1,000,000, a canvas holds at most 500 placed and 500 folded cards (`422
+INVALID_CANVAS`, as for an unknown scope; nothing changes). All of it is the draft's own: not part of its
+model, version, history or an undo step, or of a release, so a write never changes `expectedVersion`. Both
+need Model authoring at the instance.
+
+**What one request composes** (0.17 PL3b, PP-D4): a drop of the workbook canvas is one `POST …/operations`
+request, one undo step, refused whole. A sheet onto empty space is `addObjectType`, `addAttributeType`,
+`attachAttribute`, `addSource` and `mapColumn` (or the `operations` of `…/inference/list`); a parent and its
+child are `addObjectType`, `setContainment` and `mapColumn` with a `parent` binding; a column onto a list's
+filter box is `addAttributeType` (with `features.filterable`), `attachAttribute`, `mapColumn` and
+`setViewProperty` with `filterFields`; a column that maps to nothing, onto empty space, is `addAttributeType`,
+`attachAttribute`, `mapColumn` and `convertAttributeToListType`; a group is `addNavigationGroup` and
+`placeCollection`.
 
 In **extend** mode the files meet through the stored model and records (D106, D111, D112): a sheet
 maps to a type at least half of whose attribute and relation names (two at least) are its headers;
@@ -7266,6 +7358,37 @@ where one-time links go. Nothing is sent without saved settings.
   out of reach, throttled (429, with the wait it asks for) or failing is `connection`; a mailbox that
   does not exist is `sender` (the message waits, as with SMTP); any other refusal is `rejected`. The sentence names what to change, never
   the secret, the token or Microsoft's own text.
+- **The e-mail template** (Operations at the instance, action `mail-template.manage`, held by the
+  Operator role): one template per instance, Markdown with `{{placeholders}}` and a logo, around the
+  content of every message the engine sends (invitations, resets, notices, digests, the mail test). The
+  message's own heading, text, button and footer sentence are `{{content}}`; the plain-text alternative
+  is the template as text around the message's text. Until a template is saved the engine's own layout
+  is used.
+  - `GET /mail-template`: `{markdown, defaultMarkdown, saved, placeholders, logoType, logoDataUrl,
+    logoMaxBytes, version, updatedAt}`. Unsaved, `markdown` is the default and `version` null.
+  - `PUT /mail-template {markdown, expectedVersion?}`: saves the Markdown (the first save omits the
+    version; `409 VERSION_CONFLICT` with `details.currentVersion`). `{{content}}` exactly once
+    (`422 MAIL_TEMPLATE_CONTENT_REQUIRED`, `details.count`), only the known placeholders `content`,
+    `product_name`, `instance_url`, `recipient_name` (a person's name, "there" where there is none) and
+    `logo` (`422 MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER`, `details.placeholder`), at most 20,000 characters
+    (`422 MAIL_TEMPLATE_TOO_LONG`). Raw HTML in the Markdown is shown as text, images are not drawn, and a
+    link is kept only for http, https and mailto.
+  - `DELETE /mail-template`: back to the default (deletes the Markdown and the logo); `204`, repeats
+    harmlessly.
+  - `PUT /mail-template/logo`: `multipart/form-data` with `file` (PNG, JPEG or SVG, at most 512 KB, read
+    by content) and `expectedVersion`; answers the template. `413 MAIL_LOGO_TOO_LARGE`,
+    `422 MAIL_LOGO_UNSUPPORTED`, `422 MAIL_LOGO_UNSAFE` (an SVG with script, an event handler or an
+    external object). With no template saved, the default Markdown is saved with the logo. The logo is
+    sent inline (`cid:`) in each message; without one `{{logo}}` is the refiroo mark. Many mail clients
+    do not draw SVG; prefer PNG.
+  - `DELETE /mail-template/logo?expectedVersion=`: removes the logo; `409 MAIL_TEMPLATE_NOT_SAVED` with
+    no template.
+  - `POST /mail-template/preview {markdown}`: renders the draft (checked like a save) around a sample
+    message with sample values, saved logo inline as a data URL; answers `{html, text}`. Nothing is
+    saved or sent.
+  - `POST /mail-template/test`: sends the saved template around a sample message to the caller's own
+    address; `{sentTo}`. `403 NOT_A_PERSON` for a client, `409 NO_EMAIL`, `409 MAIL_NOT_SET_UP`,
+    `422 MAIL_SEND_FAILED` as for the mail test.
 - `GET /mail-outbox`: the messages, newest first, cursor paged, `status=` (`pending`, `sent`,
   `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `test`, `notice`), `to`,
   `subject`, `status`, `attempts`, `lastError` (the sentence of the last failure) and `lastErrorKind`

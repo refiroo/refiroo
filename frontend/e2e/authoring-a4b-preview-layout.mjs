@@ -327,7 +327,7 @@ async function journey(label, source) {
     await layout.getByRole("button", { name: /^Default sort:/ }).click();
     await dialog().getByLabel("Descending").check();
     await assertDialogLayout(page, `${label}: Default sort`);
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: "Save", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await layout.getByRole("button", { name: /^Default sort: .* ↓$/ }).waitFor();
     await settled();
@@ -371,7 +371,7 @@ async function journey(label, source) {
     await page.getByRole("button", { name: "Add to the model" }).click();
     await chooseMenu("Object type");
     await dialog().getByLabel("Name", { exact: true }).fill("Pack A4b");
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: "Add type", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await modelPane
       .getByRole("treeitem", { name: /^Pack A4b/ })
@@ -387,7 +387,7 @@ async function journey(label, source) {
     await page.getByRole("button", { name: "Add to the model" }).click();
     await chooseMenu("Application");
     await dialog().getByLabel("Name", { exact: true }).fill("Empty A4b");
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: "Add application", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "Preview", exact: true }).click();
     await preview.getByText(/so it cannot be previewed/).waitFor();

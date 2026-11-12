@@ -168,7 +168,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     expect(api.startBatch).not.toHaveBeenCalled();
   });
 
-  it("explains a change set changed before Apply and previews again", async () => {
+  it("explains a change set changed before Save and previews again", async () => {
     vi.mocked(api.confirmJob).mockRejectedValue(
       new ApiError(409, "CHANGE_SET_VERSION_CONFLICT", "The change set changed since the batch was sent"),
     );
@@ -176,7 +176,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     await setCodeAndPreview();
     await waitFor(() => expect(api.startBatch).toHaveBeenCalledTimes(1));
     await PushedEventSource.push(waiting);
-    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
     expect(await screen.findByText("The change set changed since the preview")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Preview again" }));
     await waitFor(() => expect(api.startBatch).toHaveBeenCalledTimes(2));
@@ -190,7 +190,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
     open(picked, 2);
     await setCodeAndPreview();
     await PushedEventSource.push(waiting);
-    await screen.findByRole("button", { name: "Apply" });
+    await screen.findByRole("button", { name: "Save" });
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(api.cancelJob).toHaveBeenCalledWith("j1"));
 

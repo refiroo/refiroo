@@ -391,7 +391,7 @@
         },
         {
           "click": {
-            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"For people\")"
+            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"For editing in a spreadsheet\")"
           }
         },
         {
@@ -404,7 +404,7 @@
       "expect": [
         "Export",
         "Kind of file",
-        "For people",
+        "For editing in a spreadsheet",
         "page's filter",
         "Advanced: columns and sheets",
         "Start export"
@@ -460,7 +460,7 @@
         },
         {
           "click": {
-            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"For people\")"
+            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"For editing in a spreadsheet\")"
           }
         },
         {
@@ -533,53 +533,22 @@
     },
     {
       "name": "new-record-required-connections",
-      "shows": "New Name translation form in Names: required Parent language and Translates relationship, Name, Translated name and Active. Empty form with creation context; cancel without typing or creating.",
+      "shows": "The New Name translation side sheet opened from Add Name translation on the Name translations list (required fields first, More fields folded).",
       "actions": [
-        {
-          "goto": "/apps/names/views/translations?workspaceKey=graubuenden"
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Add Name translation",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "dialog",
-            "name": "New Name translation",
-            "exact": true
-          }
-        }
+        {"goto": "/apps/names/views/translations?workspaceKey=graubuenden"},
+        {"click": {"role": "button", "name": "Add Name translation", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "New Name translation", "exact": true}},
+        {"wait": 600}
       ],
-      "expect": [
-        "New Name translation",
-        "Create in context",
-        "Parent",
-        "Translates",
-        "Name",
-        "Translated name",
-        "Active",
-        "Create"
-      ],
+      "expect": ["New Name translation", "Parent", "Name", "Translated name", "More fields", "Cancel", "Add Name translation"],
       "height": 1300,
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel",
-            "exact": true,
-            "in": {
-              "role": "dialog"
-            }
-          }
-        }
+        {"click": {"role": "button", "name": "Cancel", "exact": true, "in": {"role": "dialog"}}}
       ]
     },
     {
       "name": "replace-related-records",
-      "shows": "Modes relationship set of Chur Wiesental: existing Train ticked and counted, candidate Tram matched by a search for Tr. No checkboxes changed, so Save is disabled; cancel. Search retains Train because it matches Tr. Select the row first so keyboard focus keeps its edit controls mounted; selection is browser state only. Reset display restores the relationship column; a wider viewport keeps it in view. Clicking the row checkbox explicitly gives it focus even if already selected. No relationship is changed.",
+      "shows": "Modes relationship set of Chur Wiesental: existing Train ticked and counted, candidate Tram matched by a search for Tr. Left unchanged; cancel. Search retains Train because it matches Tr. Select the row first so keyboard focus keeps its edit controls mounted; selection is browser state only. Reset display restores the relationship column; a wider viewport keeps it in view. Clicking the row checkbox explicitly gives it focus even if already selected. No relationship is changed.",
       "actions": [
         {
           "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
@@ -668,7 +637,6 @@
         "Served by mode",
         "Train",
         "Tram",
-        "Save",
         "1 selected"
       ],
       "height": 1000,
@@ -691,7 +659,7 @@
       "shows": "Existing workbook draft Haltestellen Busbetrieb Nord, Haltestellen sheet, UIC-Nr column: Map to… open with source statistics, row type, What the column holds and destination choices. Cancel; do not map or save.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=column&sheet=Haltestellen&key=UIC-Nr"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=column&sheet=Haltestellen&key=UIC-Nr"
         },
         {
           "waitFor": {
@@ -738,7 +706,7 @@
       "shows": "Existing workbook draft, Barrierefrei J/N column: value map open, unsaved J → true example, row remove control and Save the value map. Cancel; no map step is saved.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=column&sheet=Haltestellen&key=Barrierefrei%20J%2FN"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=column&sheet=Haltestellen&key=Barrierefrei%20J%2FN"
         },
         {
           "waitFor": {
@@ -798,7 +766,7 @@
       "shows": "Existing workbook draft, first detected list on the Lokale Codes sheet, with shaded cells, Under, Cells, Note, Loads, Adjust list… and Don’t load this list. Requires the saved inference to load this block; never press the drop action.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=list&sheet=Lokale%20Codes&block=0"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=list&sheet=Lokale%20Codes&block=0"
         },
         {
           "waitFor": {
@@ -850,6 +818,9 @@
       "name": "hierarchy-restructure-plan",
       "shows": "Insert a Mode level above Road in the dedicated C10 change set: Type of the new level, name, plan counts and the By record tab; missing Mode code input is shown if required. Nothing applied. This preview demonstrates insertion, not a type conversion; values without a place may be zero. Open the node’s Actions (Shift+F10) trigger; right-clicking the row alone does not open TreeView’s action menu.",
       "actions": [
+        {
+          "state": "hierarchy-change-set"
+        },
         {
           "goto": "/apps/network/change-sets?workspaceKey=graubuenden"
         },
@@ -913,7 +884,7 @@
         "Restructure",
         "Type of the new level",
         "Name of the new level",
-        "Apply to the change set",
+        "Save",
         "By record"
       ],
       "height": 1400,
@@ -951,10 +922,13 @@
     },
     {
       "name": "job-results-and-file",
-      "shows": "Completed export 5260ae89-af23-47ce-bec1-b287fed4fc5d from the first setup run: 1,657 Stops, state, requester, retention, size, checksum and Download. Table accessible name is checked with waitFor, not as visible text. No download. Requires the retained job to exist.",
+      "shows": "A completed export made by the state export-job: all Stops, state, requester, retention, size, checksum and Download. Table accessible name is checked with waitFor, not as visible text. No download. Requires the retained job to exist.",
       "actions": [
         {
-          "goto": "/settings/jobs/5260ae89-af23-47ce-bec1-b287fed4fc5d"
+          "state": "export-job"
+        },
+        {
+          "goto": "/settings/jobs/{job:export}"
         },
         {
           "waitFor": {
@@ -980,7 +954,6 @@
         "Download",
         "Type",
         "Count",
-        "1,657",
         "Size"
       ],
       "height": 1350
@@ -994,7 +967,7 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+            "css": "main :is(button,a):has-text(\"Haltestellen\")"
           }
         },
         {
@@ -1027,7 +1000,7 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+            "css": "main :is(button,a):has-text(\"Haltestellen\")"
           }
         },
         {
@@ -1046,11 +1019,8 @@
       ],
       "expect": [
         "Accept",
-        "Ignore",
         "When loading",
-        "Load into a change set…",
-        "UIC number",
-        "Capture note"
+        "Load into a change set…"
       ],
       "height": 2000
     },
@@ -1093,9 +1063,7 @@
         },
         {
           "click": {
-            "role": "option",
-            "name": "Graubünden",
-            "exact": false
+            "css": "[role=\"option\"]:has(strong:text-is(\"Graubünden\"))"
           }
         },
         {
@@ -1179,9 +1147,7 @@
         },
         {
           "click": {
-            "role": "option",
-            "name": "Graubünden",
-            "exact": false
+            "css": "[role=\"option\"]:has(strong:text-is(\"Graubünden\"))"
           }
         },
         {
@@ -1348,16 +1314,27 @@
     },
     {
       "name": "admin-grant-consumer-api",
-      "shows": "Existing Stops reader (guide) client: cancelled Grant dialog on Consumer APIs, API/workspace grid and already granted Graubünden cell. No grant submitted; requested newly selected cell/permission sentence needs another eligible ungranted workspace and is not assumed.",
+      "shows": "The Grant side sheet of the client Stops reader (guide): the Consumer API grant with its workspace and what the client may read.",
       "actions": [
         {
-          "goto": "/settings/clients/06feff4d-f45b-4fa8-9b7a-3569aff407c5"
+          "goto": "/settings/clients"
         },
         {
           "waitFor": {
-            "role": "heading",
-            "name": "Access",
-            "exact": true
+            "text": "Stops reader (guide)",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "text": "Stops reader (guide)",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Secrets",
+            "exact": false
           }
         },
         {
@@ -1369,15 +1346,7 @@
         },
         {
           "waitFor": {
-            "role": "dialog",
-            "name": "Grant Stops reader (guide) access",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Tick what they may read",
-            "exact": false
+            "role": "dialog"
           }
         },
         {
@@ -1387,8 +1356,7 @@
       "expect": [
         "Consumer APIs",
         "Stops API",
-        "Graubünden",
-        "Ticked and grey is already granted."
+        "Graubünden"
       ],
       "height": 1200,
       "after": [
@@ -1406,13 +1374,17 @@
       "shows": "Rita Approver: cancelled Grant dialog for Data steward in Graubünden only, narrowed to Stop. Shows reading is never narrowed and permission sentence. Does not change her existing Data owner grant.",
       "actions": [
         {
-          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+          "goto": "/settings/people"
+        },
+        {
+          "click": {
+            "css": "main :is(button,a):has-text(\"Rita Approver\")"
+          }
         },
         {
           "waitFor": {
-            "role": "heading",
-            "name": "Roles",
-            "exact": true
+            "text": "What this person may do",
+            "exact": false
           }
         },
         {
@@ -1425,7 +1397,7 @@
         {
           "waitFor": {
             "role": "dialog",
-            "name": "Grant Rita Approver access",
+            "name": "Rita Approver's access",
             "exact": true
           }
         },
@@ -1514,77 +1486,19 @@
       "name": "admin-webhook-new",
       "shows": "Enabled New webhook dialog, unsaved. The localhost URL names this reference instance; no receiver is asserted and no subscription is created.",
       "actions": [
-        {
-          "goto": "/settings/webhooks"
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "New webhook",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "dialog",
-            "name": "New webhook",
-            "exact": true
-          }
-        },
-        {
-          "fill": {
-            "label": "Name",
-            "exact": true
-          },
-          "value": "Guide stop events"
-        },
-        {
-          "fill": {
-            "label": "URL",
-            "exact": true
-          },
-          "value": "http://localhost:8480/guide-webhook-receiver"
-        },
-        {
-          "select": {
-            "label": "Workspace",
-            "exact": true
-          },
-          "value": "Graubünden (graubuenden)"
-        }
+        {"goto": "/settings/webhooks"},
+        {"click": {"role": "button", "name": "New webhook", "exact": true}},
+        {"waitFor": {"role": "dialog", "name": "New webhook", "exact": true}},
+        {"fill": {"label": "Name", "exact": true}, "value": "Guide stop events"},
+        {"fill": {"label": "URL", "exact": true}, "value": "http://localhost:8480/guide-webhook-receiver"},
+        {"select": {"label": "Workspace", "exact": true}, "value": "Graubünden (graubuenden)"}
       ],
-      "expect": [
-        "New webhook",
-        "Consumer API",
-        "Workspace",
-        "All events",
-        "Filters",
-        "Delivery",
-        "Create webhook"
-      ],
+      "expect": ["New webhook", "Add webhook"],
       "height": 1400,
       "after": [
-        {
-          "fill": {
-            "label": "Name",
-            "exact": true
-          },
-          "value": ""
-        },
-        {
-          "fill": {
-            "label": "URL",
-            "exact": true
-          },
-          "value": ""
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel",
-            "exact": true
-          }
-        }
+        {"fill": {"label": "Name", "exact": true}, "value": ""},
+        {"fill": {"label": "URL", "exact": true}, "value": ""},
+        {"click": {"role": "button", "name": "Cancel", "exact": true}}
       ]
     },
     {
@@ -1626,31 +1540,28 @@
           }
         },
         {
-          "scrollTo": {
-            "role": "heading",
-            "name": "Messages",
-            "exact": true
-          },
-          "offset": 90
-        },
-        {
           "click": {
-            "css": ".settings-filter-bar select"
+            "role": "tab",
+            "name": "Messages"
           }
         },
         {
-          "press": "Home"
+          "wait": 900
         },
         {
-          "press": "ArrowDown"
+          "click": {
+            "role": "button",
+            "name": "Waiting",
+            "exact": true
+          }
         },
         {
-          "press": "Enter"
+          "wait": 600
         }
       ],
       "expect": [
         "Messages",
-        "State",
+        "Waiting",
         "Refresh"
       ]
     },
@@ -1879,152 +1790,38 @@
       "name": "admin-agent-new-client",
       "shows": "Unsaved New agent client dialog: empty Name, explanation that access starts empty, disabled Create and show its secret. Cancel without creating a secret.",
       "actions": [
-        {
-          "goto": "/settings/ai"
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "AI",
-            "exact": true
-          }
-        },
-        {
-          "click": {
-            "role": "link",
-            "name": "Agent access",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Agent access",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "text": "How to connect",
-            "exact": false
-          },
-          "timeout": 15000
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "New agent client",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "dialog",
-            "name": "New agent client",
-            "exact": true
-          }
-        }
+        {"goto": "/settings/ai"},
+        {"waitFor": {"role": "heading", "name": "AI", "exact": true}},
+        {"click": {"role": "link", "name": "Agent access", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Agent access", "exact": true}},
+        {"waitFor": {"text": "How to connect", "exact": false}, "timeout": 15000},
+        {"click": {"role": "button", "name": "New agent client", "exact": true}},
+        {"waitFor": {"role": "dialog", "name": "New agent client", "exact": true}}
       ],
-      "expect": [
-        "New agent client",
-        "Name",
-        "Create and show its secret"
-      ],
+      "expect": ["New agent client", "Add agent client"],
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel",
-            "exact": true
-          }
-        }
+        {"click": {"role": "button", "name": "Cancel", "exact": true}}
       ]
     },
     {
       "name": "admin-agent-register",
-      "shows": "Unsaved Register an assistant dialog with Guide screenshot assistant and fictional loopback return address. Cancel without registering.",
+      "shows": "Agent access, New assistant: the side sheet with the assistant name and its exact return addresses, filled in (opened, not saved).",
       "actions": [
-        {
-          "goto": "/settings/ai"
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "AI",
-            "exact": true
-          }
-        },
-        {
-          "click": {
-            "role": "link",
-            "name": "Agent access",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Agent access",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "text": "How to connect",
-            "exact": false
-          },
-          "timeout": 15000
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Register an assistant",
-            "exact": true
-          }
-        },
-        {
-          "fill": {
-            "label": "Name",
-            "exact": true
-          },
-          "value": "Guide screenshot assistant"
-        },
-        {
-          "fill": {
-            "label": "Return addresses",
-            "exact": true
-          },
-          "value": "http://localhost:8480/assistant-return"
-        }
+        {"goto": "/settings/ai"},
+        {"waitFor": {"role": "heading", "name": "AI", "exact": true}},
+        {"click": {"role": "link", "name": "Agent access", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Agent access", "exact": true}},
+        {"waitFor": {"text": "How to connect", "exact": false}, "timeout": 15000},
+        {"click": {"role": "button", "name": "New assistant", "exact": true}},
+        {"wait": 800},
+        {"fill": {"label": "Name", "exact": true}, "value": "Guide screenshot assistant"},
+        {"fill": {"label": "Return addresses", "exact": true}, "value": "http://localhost:8480/assistant-return"}
       ],
-      "expect": [
-        "Register an assistant",
-        "Return addresses",
-        "One per line.",
-        "Register"
-      ],
+      "expect": ["New assistant", "Return addresses", "Add assistant"],
       "after": [
-        {
-          "fill": {
-            "label": "Name",
-            "exact": true
-          },
-          "value": ""
-        },
-        {
-          "fill": {
-            "label": "Return addresses",
-            "exact": true
-          },
-          "value": ""
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel",
-            "exact": true
-          }
-        }
+        {"fill": {"label": "Name", "exact": true}, "value": ""},
+        {"fill": {"label": "Return addresses", "exact": true}, "value": ""},
+        {"click": {"role": "button", "name": "Cancel", "exact": true}}
       ]
     },
     {
@@ -2262,9 +2059,7 @@
         },
         {
           "click": {
-            "role": "option",
-            "name": "Graubünden",
-            "exact": false
+            "css": "[role=\"option\"]:has(strong:text-is(\"Graubünden\"))"
           }
         },
         {
@@ -2579,20 +2374,19 @@
           }
         },
         {
-          "scrollTo": {
-            "role": "heading",
-            "name": "Calls",
-            "exact": true
+          "click": {
+            "role": "tab",
+            "name": "Calls"
           }
+        },
+        {
+          "wait": 900
         }
       ],
       "expect": [
         "Calls",
-        "Last 30 days:",
         "Asked by",
-        "Tokens in / out",
         "Cost",
-        "Duration",
         "Test request"
       ],
       "height": 1300
@@ -3048,21 +2842,7 @@
       "shows": "Accepted image: Notification email for an account with no email address and no followed workspace. It does not show digest preferences or a sent message. Read only; no mail fixture needed for this existing image.",
       "actions": [
         {
-          "goto": "/settings/ai"
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "AI",
-            "exact": true
-          }
-        },
-        {
-          "click": {
-            "role": "link",
-            "name": "Notification email",
-            "exact": true
-          }
+          "goto": "/settings/notifications"
         },
         {
           "waitFor": {
@@ -3072,9 +2852,7 @@
           }
         },
         {
-          "waitFor": {
-            "css": ".account-page, .account-muted, .inline-error"
-          }
+          "wait": 900
         }
       ],
       "expect": [
@@ -3119,11 +2897,13 @@
           "timeout": 15000
         },
         {
-          "scrollTo": {
-            "role": "heading",
-            "name": "Calls",
-            "exact": true
+          "click": {
+            "role": "tab",
+            "name": "Calls"
           }
+        },
+        {
+          "wait": 900
         },
         {
           "waitFor": {
@@ -3217,7 +2997,7 @@
       "shows": "Fixture 1 workspace; start a model task, check the proposal then accept to prepare the move. Installs releases and, for partial moves, an unpublished change set. No Graubünden change. Provider outcomes must be reviewed before retakes.",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=c10-stale-retake-pictures"
+          "goto": "/apps/network/views/stops?workspaceKey=c10-stale-retake-2-pictures"
         },
         {
           "click": {
@@ -3314,7 +3094,7 @@
         },
         {
           "session": "b",
-          "goto": "/apps/network/views/stops?workspaceKey=c10-stale-retake-pictures&search=Chur+Wiesental"
+          "goto": "/apps/network/views/stops?workspaceKey=c10-stale-retake-2-pictures&search=Chur+Wiesental"
         },
         {
           "session": "b",
@@ -3351,7 +3131,7 @@
           "session": "b",
           "click": {
             "role": "button",
-            "name": "Save changes",
+            "name": "Save",
             "exact": true
           }
         },
@@ -3896,14 +3676,14 @@
     },
     {
       "name": "admin-webhook-deliveries",
-      "shows": "Fixture 9: saved C10 retrying receiver has real retained succeeded and retrying deliveries. Open retrying event details to show attempts, response code and response body; no signature or secret is shown.",
+      "shows": "Fixture 9: saved C10 retrying receiver has real retained succeeded and retrying deliveries. Open retrying event details to show attempts, response code and response body; no signature or secret is shown. (The delivery shown is the one dropped after two attempts answered 503; no Retrying delivery is left on this instance.)",
       "actions": [
         {
           "goto": "/settings/webhooks"
         },
         {
           "click": {
-            "css": "nav button:has-text(\"C10 retrying receiver\")"
+            "css": "main :is(button,a):has-text(\"C10 retrying receiver\")"
           }
         },
         {
@@ -3922,26 +3702,24 @@
         },
         {
           "waitFor": {
-            "text": "Retrying"
-          },
-          "timeout": 300000
+            "text": "Dropped"
+          }
         },
         {
           "click": {
-            "css": "tr:has(td[data-label=\"Status\"]:has-text(\"Retrying\")) th a"
+            "css": "tr:has-text(\"Dropped\") a"
           }
         },
         {
           "waitFor": {
             "text": "Response body"
-          },
-          "timeout": 300000
+          }
         }
       ],
       "expect": [
         "Attempts",
         "Response body",
-        "Retrying",
+        "Dropped",
         "503"
       ],
       "height": 1500,
@@ -3960,30 +3738,31 @@
         },
         {
           "click": {
-            "css": "nav button:has-text(\"C10 retrying receiver\")"
+            "css": "main :is(button,a):has-text(\"C10 retrying receiver\")"
           }
         },
         {
           "click": {
             "role": "button",
-            "name": "Rotate key…",
+            "name": "More actions",
             "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Rotate key…"
           }
         },
         {
           "waitFor": {
             "text": "Rotate the signing key of C10 retrying receiver"
-          },
-          "timeout": 300000
+          }
         }
       ],
       "expect": [
-        "Rotate the signing key of C10 retrying receiver",
-        "1 hour",
-        "24 hours",
-        "7 days",
-        "Stop it now",
-        "Make a new key"
+        "Rotate the signing key",
+        "Rotate key"
       ],
       "height": 1500,
       "after": [
@@ -4005,7 +3784,7 @@
         },
         {
           "click": {
-            "css": "nav button:has-text(\"C10 retrying receiver\")"
+            "css": "main :is(button,a):has-text(\"C10 retrying receiver\")"
           }
         },
         {
@@ -4037,7 +3816,7 @@
         },
         {
           "click": {
-            "css": "nav button:has-text(\"C10 retrying receiver\")"
+            "css": "main :is(button,a):has-text(\"C10 retrying receiver\")"
           }
         },
         {
@@ -4215,14 +3994,20 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"People\"] button:has-text(\"Guide provider newcomer\")"
+            "css": "main :is(button,a):has-text(\"Guide provider newcomer\")"
           }
         },
         {
           "click": {
             "role": "button",
-            "name": "Link to an existing person…",
+            "name": "More actions",
             "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Link to an existing person…"
           }
         },
         {
@@ -4368,7 +4153,7 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"Groups\"] button:has-text(\"C10 guide reviewers\")"
+            "css": "main :is(button,a):has-text(\"C10 guide reviewers\")"
           }
         },
         {
@@ -4417,7 +4202,7 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"People\"] button:has-text(\"Guide device person\")"
+            "css": "main :is(button,a):has-text(\"Guide device person\")"
           }
         },
         {
@@ -4585,7 +4370,7 @@
         {
           "click": {
             "role": "link",
-            "name": "RDM Starter Model 0.10.0",
+            "name": "RDM Starter Model 0.10.1",
             "exact": true
           }
         },

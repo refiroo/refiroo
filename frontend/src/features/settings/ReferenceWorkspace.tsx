@@ -7,25 +7,33 @@
 import { useState } from "react";
 import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
 import { Notice } from "@/ui/Notice";
+import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 
 export function ReferenceWorkspace({ value, onChange }: { value: string; onChange: (key: string) => void }) {
   const [error, setError] = useState("");
+  // Nothing is drawn while there is no choice: the empty panel hides its group (styles/settings.css).
   return (
-    <>
-      {error && (
-        <Notice tone="error" title="Could not read the workspaces">
-          {error}
-        </Notice>
-      )}
-      <WorkspaceField
-        value={value}
-        onChange={onChange}
-        onError={setError}
-        withDefault
-        holding="browse"
-        hideWhenSingle
-        help="The consumer APIs listed, their links and their OpenAPI documents are this workspace's."
-      />
-    </>
+    <SettingsGroup
+      className="reference-workspace"
+      title="Workspace"
+      description="The workspace whose consumer APIs are listed."
+    >
+      <SettingsPanel className="settings-panel-pad">
+        {error && (
+          <Notice tone="error" title="Could not read the workspaces">
+            {error}
+          </Notice>
+        )}
+        <WorkspaceField
+          value={value}
+          onChange={onChange}
+          onError={setError}
+          withDefault
+          holding="browse"
+          hideWhenSingle
+          help="The consumer APIs listed, their links and their OpenAPI documents are this workspace's."
+        />
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }

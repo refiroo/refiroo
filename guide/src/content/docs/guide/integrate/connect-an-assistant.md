@@ -8,7 +8,7 @@ Use this sequence for an external assistant that supports MCP Streamable HTTP. [
 
 ## 1. Get the connection address
 
-Ask a security administrator for the **Address** under **Settings › Security › Agent access › How to connect**. It ends in `/mcp`. If the page says **Agent access is off**, an operator must enable `MCP_ENABLED` and restart the engine. [Set up AI](/docs/run/set-up-ai/#4-enable-external-agent-access-if-needed) covers that deployment step.
+Ask a security administrator for the **Address** under **Settings › Connections › Agent access**, on the **Access** tab under **How to connect**. It ends in `/mcp`. If the page says **Agent access is off**, an operator must enable `MCP_ENABLED` and restart the engine. [Set up AI](/docs/run/set-up-ai/#4-enable-external-agent-access-if-needed) covers that deployment step.
 
 ![Agent access enabled, showing the connection address and connection instructions](/docs/screens/integrate-agent-access-connect.png)
 
@@ -44,4 +44,4 @@ If validation fails, have the assistant use the returned code and diagnostics to
 
 End a person's assistant session from the person's account when it is no longer needed. A security administrator can block the assistant or deactivate a system's agent client. The next call is refused. Restoring an assistant requires a new sign-in for sessions that ended.
 
-On **Agent access**, administrators can inspect **Last used**, **Calls, 30 days** and the **Calls** outcomes. Use the request reference when reporting a failed call, rather than sending credentials or reference-data values.
+On **Agent access**, administrators can inspect **Last used**, **Calls, 30 days** and the outcomes on the **Calls** tab. Use the request reference when reporting a failed call, rather than sending credentials or reference-data values.

@@ -381,14 +381,12 @@ export function TreeMoveDialog({
         <p className="visually-hidden" role="status">
           {moving ? (several ? `Moving ${count} records…` : `Moving ${label}…`) : ""}
         </p>
+        {moving && (
+          <p className="muted tree-move-progress" aria-hidden="true">
+            Moving {several ? `${count} records` : label} and everything in them; a large branch can take a few seconds.
+          </p>
+        )}
         <div className="dialog-actions">
-          {moving && (
-            <span className="muted tree-move-progress" aria-hidden="true">
-              Moving {several ? `${count} records` : label} and everything in them; a large branch can take a few
-              seconds.
-            </span>
-          )}
-          <span className="dialog-actions-spacer" />
           <button type="button" className="secondary" disabled={moving} onClick={onClose}>
             Cancel
           </button>

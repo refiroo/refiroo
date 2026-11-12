@@ -186,10 +186,9 @@ async function journey(label, source, viewport, walks) {
   }
 
   async function publishReview() {
-    await keys.press(page.getByRole("button", { name: "Validate change set", exact: true }));
-    await keys.press(page.getByRole("button", { name: "Publish change set", exact: true }));
-    await keys.press(page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }));
-    await page.getByText(/Reviewed changes are now live/).waitFor({ timeout: 30_000 });
+    await keys.press(page.getByRole("button", { name: "Publish", exact: true }));
+    await keys.press(page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }));
+    await page.getByText(/The changes are live/).waitFor({ timeout: 30_000 });
   }
 
   /** Load into a change set: install, activate and load, the review, validated and published. */

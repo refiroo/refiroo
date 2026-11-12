@@ -480,7 +480,10 @@ export function addFieldSpec(
 export function panelColumnsSpec(model: EngineModel, place: LayoutPlace, panel: PanelDefinition): OperationSpec {
   const current = panelColumns(panel) ?? [];
   const sits = whereItSits(model, place, panel);
-  const offered = [...new Set([...current, ...columnChoices(model, place, panel), ...sits])];
+  // The panel's own columns first, then "Where it sits": a containing type already chosen (Language on Name translations)
+  // stays in its group, so the columns after it are not drawn under that heading (found 2026-11-12).
+  const all = [...new Set([...current, ...columnChoices(model, place, panel), ...sits])];
+  const offered = [...all.filter((key) => !sits.includes(key)), ...all.filter((key) => sits.includes(key))];
   return spec(
     "layout-panel-columns",
     `Columns of ${panel.title}`,
@@ -759,6 +762,7 @@ export function pageHeaderSpec(model: EngineModel, place: LayoutPlace, detail: D
     ),
   ]);
   const { header, breadcrumbs } = detail;
+  // `breadcrumbs.showApplication` stays in the model but draws nothing since 0.17 SH1, so it is not offered here.
   return spec(
     "layout-page-header",
     "Header and breadcrumbs",
@@ -771,7 +775,6 @@ export function pageHeaderSpec(model: EngineModel, place: LayoutPlace, detail: D
         options: [{ value: "", label: "None" }, ...fields],
       },
       { name: "headerType", label: "Show the type's name in the header", type: "checkbox" },
-      { name: "crumbApplication", label: "Breadcrumbs start with the application", type: "checkbox" },
       { name: "crumbType", label: "Breadcrumbs name the type", type: "checkbox" },
       { name: "crumbAncestors", label: "Breadcrumbs name the records above it", type: "checkbox" },
     ],
@@ -779,7 +782,6 @@ export function pageHeaderSpec(model: EngineModel, place: LayoutPlace, detail: D
       title: header.titleField,
       subtitle: header.subtitleField ?? "",
       headerType: header.showObjectType,
-      crumbApplication: breadcrumbs.showApplication,
       crumbType: breadcrumbs.showObjectType,
       crumbAncestors: breadcrumbs.showAncestors,
     },
@@ -788,11 +790,6 @@ export function pageHeaderSpec(model: EngineModel, place: LayoutPlace, detail: D
         { property: "header.titleField", now: header.titleField, next: text(values.title) },
         { property: "header.subtitleField", now: header.subtitleField, next: text(values.subtitle) || null },
         { property: "header.showObjectType", now: header.showObjectType, next: values.headerType === true },
-        {
-          property: "breadcrumbs.showApplication",
-          now: breadcrumbs.showApplication,
-          next: values.crumbApplication === true,
-        },
         { property: "breadcrumbs.showObjectType", now: breadcrumbs.showObjectType, next: values.crumbType === true },
         { property: "breadcrumbs.showAncestors", now: breadcrumbs.showAncestors, next: values.crumbAncestors === true },
       ]),

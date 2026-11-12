@@ -25,14 +25,15 @@ For preparing specific kinds of change, see [Relate records](/docs/guide/use/rel
 ## Where a change set starts
 
 A change set starts from a copy of data at a particular moment. Its source is shown alongside
-its name, version and model release.
+its name, version and model release in the change-set list; inside it, open **Details** in the
+band to read its source, creator, creation time, version and model.
 
 | Source | What the change set initially contains |
 | --- | --- |
 | Current live data | Live records and relationships at creation, including direct corrections made since the last publication. |
 | A publication | The records and relationships in that retained snapshot, using the model release it was published under. |
 
-**Start from current live data** creates the first kind. A publication's menu offers
+**New change set**, then **Start change set**, creates the first kind. The form asks for a name; **Options** shows its start point and, where your Model release access and installed releases allow a choice, its model version. A publication's menu offers
 **Start a change set from this publication** for the second. Neither action changes live data or
 creates a publication. See the
 [starting instructions](/docs/guide/use/prepare-and-publish-a-change-set/#start-or-open-a-change-set).
@@ -52,8 +53,8 @@ Inside a change set, lists and record pages show the starting copy with your pro
 applied. Later live edits do not refresh that copy. People reading Live continue to see live
 data, and other people can keep correcting it while the change set is open.
 
-The orange **Change set** banner names the change set and says **Edits stay in this change set
-until it is published**. The green **Live** banner says that edits apply immediately in the
+The orange **Change set** band shows its name, number of changes and state in one row on a
+computer. Edits stay in this change set until it is published. The green **Live** banner says that edits apply immediately in the
 workspace. Check this context before saving. The ordinary record controls work in either context;
 their destination is different. See
 [Make the changes](/docs/guide/use/prepare-and-publish-a-change-set/#make-the-changes) and
@@ -61,8 +62,7 @@ their destination is different. See
 
 ![An open change set above a collection of records](/docs/screens/change-set-open.png)
 
-*Above: December 2026 timetable change is open over the Stops list. The orange banner identifies
-the proposed data and offers Review changes, Validate change set and Publish change set.*
+*Above: December 2026 timetable change is open over the Stops list. The orange banner identifies the proposed data and offers Details, Review changes, Publish and a menu for further actions.*
 
 A change set can be shared by people with access to the workspace. It has its own version,
 so a save based on an older change-set version can be refused after another person changes it.
@@ -71,7 +71,10 @@ version described in [Records](/docs/use/records/#versions-and-refused-saves).
 
 ## Review explains the differences
 
-**Review changes** compares the change set with its starting data. **Records** shows additions,
+Opening a change set from the list opens **Changes in this change set**, which compares it
+with its starting data. Choose **See the data with these changes** to browse or edit its lists.
+A newly created change set, or your own open change set from Home’s **Continue where you left off**,
+opens on the data. From there, **Review changes** in the band opens the comparison. **Records** shows additions,
 changes and removals, including moves and type changes where applicable. A row identifies the
 record and its path; expanding it shows the before and after details. **Relationships** shows
 changes to connections. Filters help narrow the review to a kind of change or a type.
@@ -90,14 +93,12 @@ The Records tab lists them; Relationships is a separate tab for connection chang
 
 ## Validation checks the whole proposal
 
-**Validate change set** checks the complete proposed data against its model, including required
+**Validate now** in **More change set actions** (⋯) checks the complete proposed data against its model, including required
 values and relationships, allowed structure and uniqueness rules. Some problems can only be
 judged across the whole set of records. Individual successful saves do not replace this check.
 
 Validation changes no live data and creates no publication. Problems identify what needs
-attention. A successful check displays **Change set validation passed**. In the direct publication
-flow, that check enables **Publish change set** for the validated version. Editing afterwards
-requires validation again.
+attention. A successful check displays **Change set validation passed**. **Publish** also runs validation before opening a confirmation; a separate validation step is optional. A failed check publishes nothing and lists the problems with links to the affected records. After editing, publication checks the new version again.
 
 A passed check is not a reservation of live data. Someone can still make a live edit or publish
 another change set before you publish. Publishing checks the current situation again. For the
@@ -171,7 +172,7 @@ These actions have different effects:
 | Discard change set | Removes the change set and its staged work after confirmation. | Live records and existing publications stay unchanged. |
 | Withdraw publication | Keeps the snapshot, marking it Withdrawn and no longer Current. | Live records and history stay unchanged; no publication is current. |
 
-**Discard change set** is on the change-set menu when the set is editable. A pending request
+**Discard** is on the change-set menu when the set is editable. A pending request
 must first leave its submitted state. Discarding is still possible when the change set's model
 release differs from the workspace's release. See the
 [change-set guide](/docs/guide/use/prepare-and-publish-a-change-set/) for the editing context.
@@ -276,8 +277,7 @@ the job can stop at its next chunk and retain earlier applied chunks. Read its r
 
 A submitted change set cannot be edited or moved to another release until its request is
 withdrawn by the submitter or an approver. Open work is shared with authorised workers, not
-reserved for its creator. **More change set actions** holds discard and version actions;
-there is no rename form here.
+reserved for its creator. **More change set actions** holds **Validate now**, **Change model version**, **Rename** and **Discard**. **Rename** opens a form for the name; it keeps the proposed data.
 
 A release switch protects unsaved input and reloads the pinned model before enabling edits.
 Old list positions are cleared; a disappeared page can lead to another model-declared view.

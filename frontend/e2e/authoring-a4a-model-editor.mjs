@@ -83,15 +83,18 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     const kind = title.split(" ")[0];
     if (dialogsChecked.has(title)) return;
     dialogsChecked.add(title);
+    // A choice of one thing (the group a type stands in) is a popover beside its trigger, not a dialog's frame.
+    if (await dialog().evaluate((element) => element.closest(".control-popover") !== null)) return;
     await assertDialogLayout(page, `${label}: ${title}`);
     if (!dialogsChecked.has(`shot:${kind}`)) {
       dialogsChecked.add(`shot:${kind}`);
       await shot(`dialog-${kind.toLowerCase()}-1440`);
     }
   };
-  const apply = async () => {
+  /** The dialog's primary button: Save, Add ‹thing›, or Move (PP-D40); Apply only for a popover that picks several. */
+  const apply = async (words = "Save") => {
     await measure();
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: words, exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
   };
   const operations = (name) => page.getByRole("button", { name: `Operations for ${name}`, exact: true });
@@ -150,7 +153,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .selectOption({ label: `Under ${top.name}` });
     await dialog().getByLabel("Relation name (from the parent)").fill("Holds shelf");
     await dialog().getByLabel("Reverse name (from the child)").fill("Shelf of");
-    await apply();
+    await apply("Add type");
     await row("Shelf A4a").waitFor();
     assert.match(await row("Shelf A4a").textContent(), /New/);
     assert.match(await row(top.name).textContent(), /Changed/);
@@ -165,7 +168,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await page.getByRole("heading", { name: /Shelf A4a/, level: 2 }).waitFor();
     await page.getByRole("button", { name: "New attribute" }).click();
     await dialog().getByLabel("Name", { exact: true }).fill("Shelf code");
-    await apply();
+    await apply("Add attribute");
     await page
       .getByRole("cell", { name: /Shelf code/ })
       .first()
@@ -235,7 +238,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await chooseMenu("Object type");
     await dialog().getByLabel("Application").selectOption({ label: application.name });
     await dialog().getByLabel("Name", { exact: true }).fill("Bin A4a");
-    await apply();
+    await apply("Add type");
     await row("Bin A4a").waitFor();
 
     // The relationship matrix by keyboard: from Shelf's row to Bin's column, Enter, allow.
@@ -256,7 +259,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .getByLabel(/^Name \(from/)
       .fill("Stores in");
     await dialog().getByLabel("Reverse name").fill("Stored on");
-    await apply();
+    await apply("Add relation");
     await pair.getByText("Stores in").waitFor();
     await assertAccessible(page, `a4a-${label}-matrix`);
     await assertFullSurface(page, ".model-editor", [".model-editor-model", ".model-editor-centre"], `${label} matrix`);
@@ -268,12 +271,12 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await chooseMenu("Navigation group");
     await dialog().getByLabel("Application").selectOption({ label: application.name });
     await dialog().getByLabel("Label").fill("Storage A4a");
-    await apply();
+    await apply("Add group");
     await row("Shelf A4a").click();
     await operations("Shelf A4a").click();
     await chooseMenu("Move to group");
     await dialog().getByLabel("Group").selectOption({ label: "Storage A4a" });
-    await apply();
+    await apply("Move");
     await pane.getByRole("treeitem", { name: /^Storage A4a/ }).waitFor();
     // A grouped type stands in its group only (c120ff18), one level under the group row.
     const shelfRows = pane.getByRole("treeitem", { name: /^Shelf A4a/ });
@@ -342,7 +345,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .waitFor();
     await assertDialogLayout(page, `${label}: Move to… from a drop`);
     await dialog()
-      .getByRole("button", { name: `Move to the top level of ${application.name}` })
+      .getByRole("button", { name: "Move", exact: true })
       .click();
     await dialog().waitFor({ state: "hidden" });
     await page.waitForFunction(
@@ -398,7 +401,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
         .getByRole("option", { name: new RegExp(`Top level of ${otherApp.name}`), selected: true })
         .waitFor();
       await dialog()
-        .getByRole("button", { name: `Move to the top level of ${otherApp.name}` })
+        .getByRole("button", { name: "Move", exact: true })
         .click();
       await dialog().waitFor({ state: "hidden" });
       await page.locator(`[data-row^="type:${otherApp.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
@@ -472,7 +475,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await page.getByRole("button", { name: "Allow between two types…" }).click();
     await dialog().getByLabel("From").selectOption({ label: "Bin A4a" });
     await dialog().getByLabel("To").selectOption({ label: "Shelf A4a" });
-    await apply();
+    await apply("Add relation");
     await pairs.getByRole("row").nth(2).waitFor();
     await assertAccessible(page, `a4a-${label}-relation-type`);
     await shot("relation-type-1440");
@@ -483,9 +486,9 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .focus();
     await page.keyboard.press("Enter");
     const cellForm = page.getByRole("form", { name: "Edit Cardinality" });
-    await cellForm.getByRole("combobox").selectOption("one-to-one");
     await shot("cell-edit-1440");
-    await cellForm.getByRole("button", { name: "Save" }).click();
+    // The choice saves as it is made (0.17 UX2).
+    await cellForm.getByRole("combobox").selectOption("one-to-one");
     await pairs
       .getByRole("button", { name: /^Edit Cardinality: One to one/ })
       .first()
@@ -531,12 +534,12 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await chooseMenu("Relation type");
     await dialog().getByLabel("Name", { exact: true }).fill("Lists A4a");
     await dialog().getByLabel("Reverse name").fill("Listed by A4a");
-    await apply();
+    await apply("Add relation type");
     await pane.getByRole("treeitem", { name: /^Lists A4a/ }).click();
     await page.getByRole("button", { name: "Allow between two types…" }).click();
     await dialog().getByLabel("From").selectOption({ label: "Shelf A4a" });
     await dialog().getByLabel("To").selectOption({ label: "Bin A4a" });
-    await apply();
+    await apply("Add relation");
     await operations("Lists A4a").click();
     await chooseMenu("Remove relation type");
     const removal = page.getByRole("alertdialog");
@@ -557,7 +560,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     assert.equal(await attached.getByRole("row").count(), 2);
     await page.getByRole("button", { name: "Attach to a type…" }).click();
     await dialog().getByLabel("Type", { exact: true }).selectOption({ label: "Shelf A4a" });
-    await apply();
+    await apply("Add attribute");
     await attached.getByRole("row").nth(2).waitFor();
     await assertAccessible(page, `a4a-${label}-attribute-type`);
     await shot("attribute-type-1440");
@@ -601,8 +604,8 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .getByRole("navigation", { name: `${application.name} collections` })
       .getByRole("button", { name: /Shelves A4a/ })
       .click();
-    // The collection's title is its generated view's name, made from the plural the type was added with.
-    await page.getByRole("heading", { name: "Shelf A4as", level: 1 }).waitFor();
+    // The collection's title is its sidebar entry: the type's plural (0.17 UX1).
+    await page.getByRole("heading", { name: "Shelves A4a", level: 1 }).waitFor();
     await page.locator(".page-header").getByRole("button", { name: "Add Shelf A4a", exact: true }).click();
     await page.getByRole("dialog").getByLabel("Name", { exact: true }).fill("First shelf");
     await assertDialogLayout(page, `${label}: a record's create dialog`);
@@ -610,7 +613,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       page.waitForResponse(
         (response) => response.request().method() === "POST" && response.url().includes("/api/v1/objects"),
       ),
-      page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click(),
+      page.getByRole("dialog").getByRole("button", { name: /^Add /i }).click(),
     ]);
     assert.equal(created.status(), 201, await created.text());
     checks.push(`${label}: install and activate in one confirmed step; the new collection opens and holds a record`);
@@ -674,7 +677,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       await page.getByRole("button", { name: "Add to the model" }).click();
       await chooseMenu("Application");
       await dialog().getByLabel("Name", { exact: true }).fill("Depot A4a");
-      await apply();
+      await apply("Add application");
       for (const [name, stands] of [
         ["Room A4a", "At the top level"],
         ["Rack A4a", "Under Room A4a"],
@@ -687,7 +690,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
           await dialog().getByLabel("Relation name (from the parent)").fill("Holds rack");
           await dialog().getByLabel("Reverse name (from the child)").fill("In room");
         }
-        await apply();
+        await apply("Add type");
       }
       assert.equal(await row("Rack A4a").getAttribute("aria-level"), "3");
       // A parent link is removed from its row's menu like any relation, saying where the type is left.

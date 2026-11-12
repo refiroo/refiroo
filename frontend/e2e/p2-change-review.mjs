@@ -89,7 +89,7 @@ try {
   await review.waitFor();
   await review.focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("heading", { level: 1, name: "Review changes" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Changes in this change set" }).waitFor();
   await rows.first().waitFor();
   const reviewUrl = new URL(page.url());
   expect(reviewUrl.pathname === `/apps/rdm-master/change-sets/${changeSet.id}/changes`, `review URL is ${reviewUrl.pathname}`);
@@ -205,7 +205,7 @@ try {
     expect(opened.pathname.startsWith(`/apps/${application}/objects/`) && opened.searchParams.get("changeSetId") === changeSet.id, `open ${name}: ${opened}`);
     if (name === "Click and collect") await page.getByText("Collection point").first().waitFor();
     await page.goBack();
-    await page.getByRole("heading", { level: 1, name: "Review changes" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Changes in this change set" }).waitFor();
     await rows.first().waitFor();
   }
   checks.push("opening Click and collect (RDM Master, changed) and SV Express (RDM Systems, added) from the list shows each record in the change set with its staged values; Back returns to the review");

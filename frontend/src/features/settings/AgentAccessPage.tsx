@@ -8,27 +8,37 @@
 import { useEffect, useRef, useState } from "react";
 import { agentAccess } from "@/api/agentAccessClient";
 import { errorMessage } from "@/api/errors";
-import { formatServerDayTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
+import { useAddressTab } from "@/lib/hooks/useAddressTab";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
+import type { Hue } from "@/model/hues";
 import type { AgentAccessStatus, AgentApplication, AgentCall, AgentClient, RouteState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
-import { DescriptionList } from "@/ui/DescriptionList";
-import { EmptyState } from "@/ui/EmptyState";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import {
+  LogFoot,
+  NameMark,
+  SettingRow,
+  SettingsEmpty,
+  SettingsGroup,
+  SettingsPanel,
+  SettingsTile,
+} from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
-import { StatusPill } from "@/ui/StatusPill";
+import { StatusPill, type StatusTone } from "@/ui/StatusPill";
+import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { NewClientDialog, SecretDialog, type Made } from "@/features/security/ClientsPage";
 import { clientAccessLine } from "@/features/security/securityText";
+import { settingsHead } from "./navigation";
 
 const number = (value: number) => value.toLocaleString("en");
 
@@ -40,9 +50,23 @@ export const OUTCOME: Record<AgentCall["outcome"], string> = {
   failed: "Failed",
 };
 
+const OUTCOME_TONE: Record<AgentCall["outcome"], StatusTone> = {
+  answered: "success",
+  refused: "neutral",
+  limited: "warning",
+  failed: "error",
+};
+
 export function AgentAccessPage({ onNavigate }: { onNavigate: (route: RouteState) => void }) {
   const [status, setStatus] = useState<AgentAccessStatus>();
   const [error, setError] = useState("");
+  const [tab, setTab] = useAddressTab(["access", "calls"]);
+  // The page's one primary is in its header, so the agent client it makes is handled here.
+  const [creating, setCreating] = useState(false);
+  const [made, setMade] = useState<Made>();
+  const [clientsVersion, setClientsVersion] = useState(0);
+  const newButtonRef = useRef<HTMLButtonElement>(null);
+  const head = settingsHead("agent-access");
 
   function load() {
     agentAccess.status().then(
@@ -57,12 +81,19 @@ export function AgentAccessPage({ onNavigate }: { onNavigate: (route: RouteState
 
   return (
     <SettingsLayout
-      eyebrow="Security"
+      {...head}
       title="Agent access"
       description={
         status?.enabled
           ? "Assistants that speak MCP can reach this instance. They read and prepare changes within what their person or client may do. They never approve or publish."
           : undefined
+      }
+      actions={
+        status?.enabled ? (
+          <button ref={newButtonRef} type="button" className="primary" onClick={() => setCreating(true)}>
+            New agent client
+          </button>
+        ) : undefined
       }
     >
       {error ? (
@@ -76,96 +107,120 @@ export function AgentAccessPage({ onNavigate }: { onNavigate: (route: RouteState
         </Notice>
       ) : (
         <>
-          <ConnectSection status={status} />
-          <ClientsSection onNavigate={onNavigate} />
-          <ApplicationsSection />
-          <CallsSection />
+          <Tabs
+            label="Agent access"
+            selected={tab}
+            onChange={setTab}
+            tabs={[
+              {
+                id: "access",
+                label: "Access",
+                content: (
+                  <>
+                    <ConnectSection status={status} hue={head.hue} />
+                    <ClientsSection version={clientsVersion} onNavigate={onNavigate} />
+                    <ApplicationsSection hue={head.hue} />
+                  </>
+                ),
+              },
+              { id: "calls", label: "Calls", content: <CallsSection /> },
+            ]}
+          />
+          {creating && (
+            <NewClientDialog
+              kind="agent"
+              onClose={() => {
+                setCreating(false);
+                newButtonRef.current?.focus();
+              }}
+              onCreated={(client) => {
+                setCreating(false);
+                setClientsVersion((value) => value + 1);
+                setMade({ client, created: true });
+              }}
+            />
+          )}
+          {made && <SecretDialog {...made} onClose={() => setMade(undefined)} />}
         </>
       )}
     </SettingsLayout>
   );
 }
 
-function ConnectSection({ status }: { status: AgentAccessStatus }) {
+function ConnectSection({ status, hue }: { status: AgentAccessStatus; hue: Hue }) {
   return (
-    <Section title="How to connect">
-      <DescriptionList
-        items={[
-          { term: "Address", value: <CopyValue label="Address" value={status.url} labelled={false} /> },
-          {
-            term: "A person's assistant",
-            value:
-              "Add the address in the assistant. It opens this instance's sign-in page; the assistant then works as that person.",
-          },
-          {
-            term: "A system's assistant",
-            value: (
-              <>
-                Create an agent client below and give it access. It asks for a token with <code>scope=agent</code>.
-              </>
-            ),
-          },
-          { term: "Limit", value: `${number(status.ratePerMinute)} calls a minute for each person or client` },
-        ]}
-      />
-      <pre className="mono agent-command" tabIndex={0} aria-label="Command line for Claude Code">
-        {`claude mcp add --transport http refiroo ${status.url}`}
-      </pre>
-    </Section>
+    <SettingsGroup title="How to connect">
+      <SettingsPanel>
+        <SettingRow fact name="Address">
+          <CopyValue label="Address" value={status.url} labelled={false} />
+        </SettingRow>
+        <SettingRow
+          name="A person's assistant"
+          help="Add the address in the assistant. It opens this instance's sign-in page; the assistant then works as that person."
+        />
+        <SettingRow
+          name="A system's assistant"
+          help={
+            <>
+              Create an agent client below and give it access. It asks for a token with <code>scope=agent</code>.
+            </>
+          }
+        />
+        <SettingRow fact name="Limit">
+          {`${number(status.ratePerMinute)} calls a minute for each person or client`}
+        </SettingRow>
+        <SettingRow
+          under
+          lead={<SettingsTile icon="bot" hue={hue} />}
+          name="Command line for Claude Code"
+          help="Run it once where Claude Code is installed."
+        >
+          <CopyValue
+            label="Command line for Claude Code"
+            labelled={false}
+            value={`claude mcp add --transport http refiroo ${status.url}`}
+          />
+        </SettingRow>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
-function ClientsSection({ onNavigate }: { onNavigate: (route: RouteState) => void }) {
-  const feed = useCursorFeed((cursor) => agentAccess.clients(cursor), []);
-  const [creating, setCreating] = useState(false);
-  const [made, setMade] = useState<Made>();
-  const newButtonRef = useRef<HTMLButtonElement>(null);
+function ClientsSection({ version, onNavigate }: { version: number; onNavigate: (route: RouteState) => void }) {
+  const feed = useCursorFeed((cursor) => agentAccess.clients(cursor), [version]);
 
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="Agent clients"
-      actions={
-        <button ref={newButtonRef} type="button" className="primary" onClick={() => setCreating(true)}>
-          New agent client
-        </button>
-      }
+      description="Systems whose assistant asks for a token. Make one with New agent client."
     >
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : feed.loading && !feed.items.length ? (
-        <Skeleton label="Loading agent clients" lines={3} />
-      ) : !feed.items.length ? (
-        <EmptyState>
-          No agent client yet. Create one for a system whose assistant should reach this instance.
-        </EmptyState>
-      ) : (
-        <SettingsTable label="Agent clients" columns={["Name", "Access", "Last used", "Calls, 30 days"]}>
-          {feed.items.map((client) => (
-            <ClientRow key={client.id} client={client} onNavigate={onNavigate} />
-          ))}
-        </SettingsTable>
-      )}
-      {feed.hasMore && !feed.error && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more agent clients
-        </button>
-      )}
-      {creating && (
-        <NewClientDialog
-          kind="agent"
-          onClose={() => {
-            setCreating(false);
-            newButtonRef.current?.focus();
-          }}
-          onCreated={(client) => {
-            setCreating(false);
-            feed.reload();
-            setMade({ client, created: true });
-          }}
-        />
-      )}
-      {made && <SecretDialog {...made} onClose={() => setMade(undefined)} />}
-    </Section>
+      <SettingsPanel>
+        {feed.error ? (
+          <InlineError message={feed.error} onRetry={feed.retry} />
+        ) : feed.loading && !feed.items.length ? (
+          <Skeleton label="Loading agent clients" lines={3} />
+        ) : !feed.items.length ? (
+          <SettingsEmpty icon="api" hue={settingsHead("agent-access").hue}>
+            No agent client yet. Create one for a system whose assistant should reach this instance.
+          </SettingsEmpty>
+        ) : (
+          <>
+            <SettingsTable label="Agent clients" columns={["Name", "Access", "Last used", { num: "Calls, 30 days" }]}>
+              {feed.items.map((client) => (
+                <ClientRow key={client.id} client={client} onNavigate={onNavigate} />
+              ))}
+            </SettingsTable>
+            <LogFoot
+              shown={feed.items.length}
+              noun="agent clients"
+              onMore={feed.hasMore && !feed.error ? feed.loadMore : undefined}
+              loading={feed.loading}
+            />
+          </>
+        )}
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
@@ -174,9 +229,12 @@ function ClientRow({ client, onNavigate }: { client: AgentClient; onNavigate: (r
   return (
     <tr>
       <th scope="row">
-        <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
-          {client.name}
-        </RouteLink>
+        <span className="settings-name-cell">
+          <NameMark name={client.name} size={36} />
+          <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
+            {client.name}
+          </RouteLink>
+        </span>
         {!client.active && (
           <>
             {" "}
@@ -187,13 +245,17 @@ function ClientRow({ client, onNavigate }: { client: AgentClient; onNavigate: (r
         )}
       </th>
       <td data-label="Access">{clientAccessLine(client)}</td>
-      <td data-label="Last used">{client.lastCallAt ? formatServerDayTime(client.lastCallAt) : "Never"}</td>
-      <td data-label="Calls, 30 days">{number(client.calls30Days)}</td>
+      <td data-label="Last used" className="when" title={client.lastCallAt ? formatServerTime(client.lastCallAt) : ""}>
+        {client.lastCallAt ? formatServerDayTime(client.lastCallAt) : "Never"}
+      </td>
+      <td data-label="Calls, 30 days" className="num">
+        {number(client.calls30Days)}
+      </td>
     </tr>
   );
 }
 
-function ApplicationsSection() {
+function ApplicationsSection({ hue }: { hue: Hue }) {
   const feed = useCursorFeed((cursor) => agentAccess.applications(cursor), []);
   const [registering, setRegistering] = useState(false);
   const [blocking, setBlocking] = useState<AgentApplication>();
@@ -222,11 +284,13 @@ function ApplicationsSection() {
   }
 
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="Assistants people sign in with"
-      actions={
+      description="The name is what the assistant says about itself. Blocking ends its sessions on their next call."
+      action={
         <button ref={registerRef} type="button" className="secondary" onClick={() => setRegistering(true)}>
-          Register an assistant
+          New assistant
         </button>
       }
     >
@@ -235,78 +299,87 @@ function ApplicationsSection() {
           {error}
         </Notice>
       )}
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : feed.loading && !feed.items.length ? (
-        <Skeleton label="Loading assistants" lines={3} />
-      ) : !feed.items.length ? (
-        <EmptyState>
-          No assistant has signed anyone in yet. One appears here when a person adds the address in their assistant, or
-          when you register it.
-        </EmptyState>
-      ) : (
-        <SettingsTable
-          label="Assistants people sign in with"
-          columns={["Assistant", "Returns to", "Signed in now", "Last used", { hidden: "Actions" }]}
-        >
-          {feed.items.map((application) => (
-            <tr key={application.id}>
-              <th scope="row">
-                {application.name}
-                {application.blocked && (
-                  <>
-                    {" "}
-                    <StatusPill tone="neutral" marker={false}>
-                      Blocked
-                    </StatusPill>
-                  </>
-                )}
-              </th>
-              <td data-label="Returns to">{application.returnsTo.join(", ")}</td>
-              <td data-label="Signed in now">
-                {number(application.signedIn)} {application.signedIn === 1 ? "person" : "people"}
-              </td>
-              <td data-label="Last used">
-                {application.lastUsedAt ? formatServerDayTime(application.lastUsedAt) : "Never"}
-              </td>
-              <td className="grant-action">
-                {application.blocked ? (
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={pending}
-                    aria-label={`Restore ${application.name}`}
-                    onClick={() => void change(application, "restore")}
+      <SettingsPanel>
+        {feed.error ? (
+          <InlineError message={feed.error} onRetry={feed.retry} />
+        ) : feed.loading && !feed.items.length ? (
+          <Skeleton label="Loading assistants" lines={3} />
+        ) : !feed.items.length ? (
+          <SettingsEmpty icon="bot" hue={hue}>
+            No assistant has signed anyone in yet. One appears here when a person adds the address in their assistant,
+            or when you register it.
+          </SettingsEmpty>
+        ) : (
+          <>
+            <SettingsTable
+              label="Assistants people sign in with"
+              columns={["Assistant", "Returns to", "Signed in now", "Last used", { hidden: "Actions" }]}
+            >
+              {feed.items.map((application) => (
+                <tr key={application.id}>
+                  <th scope="row">
+                    <span className="settings-name-cell">
+                      <SettingsTile icon="bot" hue={hue} size={32} />
+                      {application.name}
+                    </span>
+                    {application.blocked && (
+                      <>
+                        {" "}
+                        <StatusPill tone="neutral" marker={false}>
+                          Blocked
+                        </StatusPill>
+                      </>
+                    )}
+                  </th>
+                  <td data-label="Returns to">{application.returnsTo.join(", ")}</td>
+                  <td data-label="Signed in now">
+                    {number(application.signedIn)} {application.signedIn === 1 ? "person" : "people"}
+                  </td>
+                  <td
+                    data-label="Last used"
+                    className="when"
+                    title={application.lastUsedAt ? formatServerTime(application.lastUsedAt) : ""}
                   >
-                    Restore
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={pending}
-                    aria-label={`Block ${application.name}`}
-                    onClick={() => {
-                      setError("");
-                      setBlocking(application);
-                    }}
-                  >
-                    Block
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </SettingsTable>
-      )}
-      <p className="section-description">
-        The name is what the assistant says about itself. Blocking ends its sessions on their next call.
-      </p>
-      {feed.hasMore && !feed.error && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more assistants
-        </button>
-      )}
+                    {application.lastUsedAt ? formatServerDayTime(application.lastUsedAt) : "Never"}
+                  </td>
+                  <td className="grant-action">
+                    {application.blocked ? (
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={pending}
+                        aria-label={`Restore ${application.name}`}
+                        onClick={() => void change(application, "restore")}
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={pending}
+                        aria-label={`Block ${application.name}`}
+                        onClick={() => {
+                          setError("");
+                          setBlocking(application);
+                        }}
+                      >
+                        Block
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </SettingsTable>
+            <LogFoot
+              shown={feed.items.length}
+              noun="assistants"
+              onMore={feed.hasMore && !feed.error ? feed.loadMore : undefined}
+              loading={feed.loading}
+            />
+          </>
+        )}
+      </SettingsPanel>
       {registering && (
         <RegisterDialog
           onClose={() => {
@@ -339,7 +412,7 @@ function ApplicationsSection() {
           </p>
         </ConfirmDialog>
       )}
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -372,7 +445,7 @@ function RegisterDialog({
 
   return (
     <Modal
-      title="Register an assistant"
+      title="New assistant"
       eyebrow="Agent access"
       size="compact"
       busy={pending}
@@ -422,7 +495,7 @@ function RegisterDialog({
             Cancel
           </button>
           <button className="primary" disabled={pending || !name.trim() || !redirectUris.length}>
-            {pending ? "Registering…" : "Register"}
+            {pending ? "Adding…" : "Add assistant"}
           </button>
         </div>
       </form>
@@ -433,37 +506,51 @@ function RegisterDialog({
 function CallsSection() {
   const feed = useCursorFeed((cursor) => agentAccess.calls(cursor), []);
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="Calls"
       description="Every tool call an assistant made, newest first. Argument names are kept, never their values."
     >
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : feed.loading && !feed.items.length ? (
-        <Skeleton label="Loading calls" lines={4} />
-      ) : !feed.items.length ? (
-        <EmptyState>No call has been made yet.</EmptyState>
-      ) : (
-        <SettingsTable label="Calls" columns={["When", "Who", "Through", "Tool", "Arguments", "Outcome"]}>
-          {feed.items.map((call) => (
-            <tr key={call.id}>
-              <th scope="row">{formatServerDayTime(call.occurredAt)}</th>
-              <td data-label="Who">{call.principal}</td>
-              <td data-label="Through">{call.application ?? "Its own client"}</td>
-              <td data-label="Tool">
-                <code>{call.tool}</code>
-              </td>
-              <td data-label="Arguments">{call.arguments.length ? call.arguments.join(", ") : "None"}</td>
-              <td data-label="Outcome">{OUTCOME[call.outcome] ?? call.outcome}</td>
-            </tr>
-          ))}
-        </SettingsTable>
-      )}
-      {feed.hasMore && !feed.error && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more
-        </button>
-      )}
-    </Section>
+      <SettingsPanel>
+        {feed.error ? (
+          <InlineError message={feed.error} onRetry={feed.retry} />
+        ) : feed.loading && !feed.items.length ? (
+          <Skeleton label="Loading calls" lines={4} />
+        ) : !feed.items.length ? (
+          <SettingsEmpty icon="bot" hue={settingsHead("agent-access").hue}>
+            No call has been made yet.
+          </SettingsEmpty>
+        ) : (
+          <>
+            <SettingsTable label="Calls" columns={["When", "Who", "Through", "Tool", "Arguments", "Outcome"]}>
+              {feed.items.map((call) => (
+                <tr key={call.id}>
+                  <th scope="row" className="when" title={formatServerTime(call.occurredAt)}>
+                    {formatServerDayTime(call.occurredAt)}
+                  </th>
+                  <td data-label="Who">{call.principal}</td>
+                  <td data-label="Through">{call.application ?? "Its own client"}</td>
+                  <td data-label="Tool">
+                    <code>{call.tool}</code>
+                  </td>
+                  <td data-label="Arguments">{call.arguments.length ? call.arguments.join(", ") : "None"}</td>
+                  <td data-label="Outcome">
+                    <StatusPill tone={OUTCOME_TONE[call.outcome] ?? "neutral"}>
+                      {OUTCOME[call.outcome] ?? call.outcome}
+                    </StatusPill>
+                  </td>
+                </tr>
+              ))}
+            </SettingsTable>
+            <LogFoot
+              shown={feed.items.length}
+              noun="calls"
+              onMore={feed.hasMore && !feed.error ? feed.loadMore : undefined}
+              loading={feed.loading}
+            />
+          </>
+        )}
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }

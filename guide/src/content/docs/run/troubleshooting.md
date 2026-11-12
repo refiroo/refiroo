@@ -16,7 +16,7 @@ docker compose logs --tail=100 web
 
 If liveness answers but readiness does not, investigate the database or model readiness. Restarting
 a healthy process repeatedly does not restore its database. With Operations access, open
-**Settings › Administration › Operations** for workspace and process detail.
+**Settings › This instance › Operations** for workspace and process detail.
 
 ## Requests and startup
 

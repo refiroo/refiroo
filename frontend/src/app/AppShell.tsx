@@ -133,6 +133,7 @@ export function AppShell({
           model={model}
           currentApplicationKey={application.key}
           workspaceKey={activeRoute.workspaceKey}
+          dataContext={{ changeSetId, publicationId }}
           onHome={onHome}
           onSelectApplication={onSelectApplication}
           onNavigate={onNavigate}

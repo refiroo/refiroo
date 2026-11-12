@@ -1,0 +1,27 @@
+{
+  "operation": "GET /api/v1/model-drafts/{draft_id}/canvas",
+  "name": "twoCards",
+  "summary": "Read the cards' positions back",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "positions": {
+        "sheet:Fahrzeuge": {
+          "x": 40.0,
+          "y": 80.0
+        },
+        "type:vehicle": {
+          "x": 420.0,
+          "y": 80.0
+        }
+      },
+      "folded": [],
+      "scope": null
+    }
+  }
+}

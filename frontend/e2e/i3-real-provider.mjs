@@ -242,7 +242,7 @@ async function walk(configuration) {
         ["Issuer", kc.issuer],
         ["Client ID", "refiroo-engine"],
         ["Client secret", kc.secret],
-        ["Groups claim", "groups"],
+        ["Groups claim (optional)", "groups"],
       ])
         await dialog.getByLabel(label, { exact: true }).fill(value);
       expect(

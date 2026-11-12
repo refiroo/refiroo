@@ -63,7 +63,8 @@ const harness = await bootHarness({
   transformModel: (model) => {
     model.consumerApis = [...model.consumerApis, FEED];
   },
-  backendEnv: { CONSUMER_SUBSCRIPTIONS_ENABLED: "true" },
+  // The webhook the client creates points at this machine, which an instance refuses unless it allows private addresses.
+  backendEnv: { CONSUMER_SUBSCRIPTIONS_ENABLED: "true", WEBHOOK_PRIVATE_ADDRESSES_ALLOWED: "true" },
 });
 try {
   const { uiUrl, apiUrl, api, output, browser, signedOutContext, page } = harness;
@@ -119,7 +120,7 @@ try {
   await shot(page, "secret-shown-once");
   await axe(page, "secret-dialog");
   await shown.getByRole("button", { name: "I have copied it" }).click();
-  await page.getByRole("heading", { level: 2, name: "catalogue-sync" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "catalogue-sync" }).waitFor();
   await page.getByText("No token yet").first().waitFor();
   checks.push("a new client by keyboard; its ID and secret shown once");
 
@@ -139,31 +140,39 @@ try {
     [SECOND, secondApi],
   ];
   await page.getByRole("button", { name: "Grant", exact: true }).click();
-  let dialog = page.getByRole("dialog", { name: "Grant catalogue-sync access" });
+  let dialog = page.getByRole("dialog", { name: "catalogue-sync's access" });
   for (const [workspace, consumerApi] of pairs) {
     await dialog.getByRole("checkbox", { name: `${consumerApi.name} in ${workspace.label}`, exact: true }).click();
   }
-  await dialog.getByText("2 grants will be made", { exact: false }).waitFor();
+  await dialog.getByText("catalogue-sync will read", { exact: false }).waitFor();
   await shot(page, "grant-consumer-api");
   await axe(page, "grant-dialog");
-  await dialog.getByRole("button", { name: "Grant 2", exact: true }).click();
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await dialog.waitFor({ state: "detached" });
   for (const [workspace, consumerApi] of pairs) {
     await access
-      .getByRole("row", { name: new RegExp(`${workspace.label}.*Consumer API: ${consumerApi.name}`) })
+      .getByRole("list", { name: `Consumer APIs in ${workspace.label}` })
+      .getByText(consumerApi.name, { exact: true })
       .waitFor();
   }
   await page.getByRole("button", { name: "Grant", exact: true }).click();
-  dialog = page.getByRole("dialog", { name: "Grant catalogue-sync access" });
+  dialog = page.getByRole("dialog", { name: "catalogue-sync's access" });
   await dialog.getByText("Roles", { exact: true }).click();
   await dialog.getByRole("checkbox", { name: "Reader", exact: true }).check();
   // The default workspace is chosen already (the first the dialog lists).
   await dialog.getByText(`catalogue-sync will read everything in ${defaultWorkspace.label}.`).waitFor();
-  await dialog.getByRole("button", { name: "Grant", exact: true }).click();
-  await access.getByRole("row", { name: new RegExp(`${defaultWorkspace.label}.*Reader`) }).waitFor();
-  const entry = page.getByRole("navigation", { name: "Clients" }).getByRole("button", { name: /catalogue-sync/ });
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await access
+    .getByRole("list", { name: `Roles in ${defaultWorkspace.label}` })
+    .getByText("Reader", { exact: true })
+    .waitFor();
+  // Back by the trail: the list names their access, and the row opens the page again.
+  await page.getByLabel("Where you are").getByRole("link", { name: "Clients", exact: true }).click();
+  const entry = page.getByRole("button", { name: /catalogue-sync/ });
   await entry.getByText(new RegExp(`${firstApi.key} · ${defaultWorkspace.label}`)).waitFor();
   await entry.getByText(/Reader · /).waitFor();
+  await entry.click();
+  await page.getByRole("heading", { level: 1, name: "catalogue-sync" }).waitFor();
   checks.push(
     `a consumer API granted in each workspace's model and Reader, from the client's page; the list names them`,
   );
@@ -176,7 +185,7 @@ try {
   await rotate.getByText("1 hour", { exact: true }).click();
   await shot(page, "rotate");
   await axe(page, "rotate-dialog");
-  await rotate.getByRole("button", { name: "Make a new secret" }).click();
+  await rotate.getByRole("button", { name: "Rotate secret" }).click();
   shown = page.getByRole("dialog", { name: "New secret for catalogue-sync" });
   await shown.getByText(/The previous secret keeps working until/).waitFor();
   const second = (await shown.locator("code").allInnerTexts()).find((value) => value.length > 36);
@@ -198,12 +207,12 @@ try {
   );
 
   // 5. Rename, deactivate and restore.
-  await page.getByRole("button", { name: "Rename…" }).click();
-  const rename = page.getByRole("dialog", { name: "Rename catalogue-sync" });
-  await rename.getByLabel("Name", { exact: true }).fill("catalogue-sync-2");
-  await rename.getByRole("button", { name: "Save" }).click();
-  await page.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();
-  await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+  await page.getByRole("button", { name: /Edit Name:/ }).click();
+  await page.getByLabel("Name", { exact: true }).fill("catalogue-sync-2");
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { level: 1, name: "catalogue-sync-2" }).waitFor();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Deactivate", exact: true }).click();
   const confirm = page.getByRole("alertdialog");
   await confirm.getByRole("button", { name: "Deactivate", exact: true }).click();
   await page.getByRole("button", { name: "Restore" }).waitFor();
@@ -213,7 +222,9 @@ try {
     `a deactivated client is refused by the token endpoint: ${deactivated.status} ${JSON.stringify(deactivated.body)}`,
   );
   await page.getByRole("button", { name: "Restore" }).click();
-  await page.getByRole("button", { name: "Deactivate", exact: true }).waitFor();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Deactivate", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
   // Grouped by day since 0.12 RA1: the name is the group's, a list under each day's heading.
   const activity = page.getByRole("group", { name: "catalogue-sync-2's recent activity" });
   for (const line of ["Client created", "Renamed to catalogue-sync-2", "Deactivated", "Restored", "A secret was ended"])
@@ -242,9 +253,9 @@ try {
   await page.reload();
   const webhooks = page.getByRole("group", { name: "Webhooks it created" });
   await webhooks.getByRole("link", { name: "Areas to the catalogue" }).click();
-  await page.getByRole("heading", { level: 2, name: "Areas to the catalogue" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Areas to the catalogue" }).waitFor();
   await page.getByRole("link", { name: "catalogue-sync-2" }).click();
-  await page.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "catalogue-sync-2" }).waitFor();
   await access.waitFor();
   await shot(page, "client");
   await axe(page, "client");
@@ -283,9 +294,9 @@ try {
   await mei.getByLabel("E-mail address").fill("mei-sp2@example.org");
   await mei.getByLabel("Password").fill(PASSWORD);
   await mei.getByRole("button", { name: "Sign in" }).click();
-  await mei.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();
+  await mei.getByRole("heading", { level: 1, name: "catalogue-sync-2" }).waitFor();
   await mei.getByRole("button", { name: "Grant", exact: true }).click();
-  dialog = mei.getByRole("dialog", { name: "Grant catalogue-sync-2 access" });
+  dialog = mei.getByRole("dialog", { name: "catalogue-sync-2's access" });
   await dialog.getByText("Roles", { exact: true }).click();
   await dialog.getByRole("checkbox", { name: "Data steward", exact: true }).check();
   // The first workspace is chosen already; swap it for the second.
@@ -298,8 +309,11 @@ try {
   await mei.getByRole("option").first().waitFor();
   await mei.getByRole("button", { name: "Done" }).click();
   await dialog.getByText("Consumer APIs", { exact: true }).click();
-  // Already granted to this client in step 3, so the cell is shown ticked and locked.
-  await dialog.getByRole("checkbox", { name: `${secondApi.name} in ${SECOND.label}: already granted` }).waitFor();
+  // Already granted to this client in step 3, so the cell is a ticked, ordinary checkbox.
+  const heldCell = dialog.getByRole("checkbox", { name: `${secondApi.name} in ${SECOND.label}`, exact: true });
+  await heldCell.waitFor();
+  expect(await heldCell.isChecked(), "the granted cell is ticked");
+  expect(await heldCell.isEnabled(), "the granted cell can be unticked");
   expect(!(await dialog.getByText(/Browse/).count()), "no Browse refusal in the dialog");
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await theirs.close();
@@ -327,7 +341,7 @@ try {
   const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
   const night = await dark.newPage();
   await night.goto(`${uiUrl}/settings/clients/${client.id}`);
-  await night.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();
+  await night.getByRole("heading", { level: 1, name: "catalogue-sync-2" }).waitFor();
   await night.getByRole("group", { name: "Secrets" }).waitFor();
   await shot(night, "client-dark");
   await axe(night, "client-dark");
@@ -342,11 +356,8 @@ try {
   await phone.getByRole("heading", { level: 1, name: "Clients" }).waitFor();
   expect((await overflow(phone)) <= 0, "Clients scrolls sideways at 390px");
   await shot(phone, "clients-narrow");
-  await phone
-    .getByRole("navigation", { name: "Clients" })
-    .getByRole("button", { name: /catalogue-sync-2/ })
-    .click();
-  await phone.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();
+  await phone.getByRole("button", { name: /catalogue-sync-2/ }).click();
+  await phone.getByRole("heading", { level: 1, name: "catalogue-sync-2" }).waitFor();
   await phone.getByRole("group", { name: "Secrets" }).waitFor();
   expect((await overflow(phone)) <= 0, "a client's page scrolls sideways at 390px");
   await shot(phone, "client-narrow");

@@ -31,7 +31,8 @@ Default runs a different model from Graubünden. No records were copied.*
 
 1. Select the refiroo name in the top bar.
 2. Under **Your workspaces**, check the destination card's model and release.
-3. Choose an application button on that card. Check the sidebar and banner in the page that opens.
+3. Choose the workspace’s name or tile to open its page, then choose an application.
+   Check the sidebar and banner in the application that opens.
    Continue with [Open an application](/docs/guide/use/open-an-application/).
 
 If the selector is absent, only one workspace is available. If the intended workspace is missing,

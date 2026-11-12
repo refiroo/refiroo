@@ -5,11 +5,15 @@ reader: steward
 ---
 
 Select the refiroo name in the top bar to return to **Home**. It brings together the workspaces
-you can read and the work waiting for you.
+you can read and the work waiting for you. **Waiting for your approval**, where you may approve, and **Your change sets** appear above the workspace cards.
 
 ![Home with a greeting, workspace cards, open change sets and recent changes](/docs/screens/use-home.png)
 
-*Above: Guide Admin can browse two workspaces. Graubünden has an open change set; Default has none.*
+*Above: Guide Admin’s Home shows two workspaces, Graubünden and Default, and one open change set. Your change sets lists work to continue; Your workspaces and Your recent changes follow.*
+
+## Find a record
+
+Use **Find a record in any workspace** to search record names across every workspace you may browse. Results are grouped by workspace and show the record's type and where it stands. Press ⌘K on a Mac or Ctrl+K elsewhere to focus the search, Up/Down to choose a result and Enter to open it. Escape closes the results. Check the workspace after opening a result.
 
 ## Your workspaces
 
@@ -58,7 +62,7 @@ and publish. A person required to obtain a second person's approval cannot decid
 request. The [inbox](/docs/use/inbox-and-approvals/) also carries notices of waiting requests and
 of the decisions on your submissions.
 
-**Your recent changes** lists your five latest actions. **See all your changes** opens the longer list,
+**Your recent changes** shows your latest actions. Consecutive steps on one model draft fold into one expandable line with their count; expand it to read each step. **See all your changes** opens the longer list,
 with workspace, kind and period filters. See [History](/docs/use/history/) for what those entries mean.
 
 The greeting names you and shows your roles. For the workspace-by-workspace detail, open your

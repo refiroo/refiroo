@@ -144,12 +144,52 @@ describe("ImportDialog (0.9 J4)", () => {
     expect(vi.mocked(api.startImport).mock.calls[0][1]).toMatchObject({ otherWorkspaceIds: "refuse" });
   });
 
-  it("lists a profile no longer valid without letting it be chosen, and warns of a profile without a key", async () => {
+  it("shows only the profiles that fit, never an invalid one, and warns of a profile without a key", async () => {
     open({ context: { workspaceKey: "west" } });
     await chooseFileAndProfile("keyless");
-    expect(screen.getByRole("option", { name: /Profile broken \(no longer valid: 1 problem\)/ })).toBeDisabled();
+    expect(screen.queryByRole("option", { name: /broken/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "None",
+      "Profile supplier",
+      "Profile keyless",
+    ]);
     expect(screen.getByText("This profile has no key")).toBeInTheDocument();
     expect(screen.getByText(/sending the file twice creates its records twice/)).toBeInTheDocument();
+  });
+
+  it("opens on the file alone: no profile field until a file is chosen, none for JSON Lines", async () => {
+    open({ context: { workspaceKey: "west" } });
+    expect(screen.getByLabelText("File")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Profile")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("File"), {
+      target: { files: [new File(["{}"], "items.jsonl")] },
+    });
+    const select = await screen.findByLabelText("Profile");
+    expect(within(select).getAllByRole("option")).toHaveLength(1);
+  });
+
+  it("chooses the one profile that fits the file for the person, who may still choose none", async () => {
+    vi.mocked(api.importProfiles).mockResolvedValue({ items: [PROFILES[0], PROFILES[2]], nextCursor: null });
+    open({ context: { workspaceKey: "west" } });
+    await chooseFileAndProfile();
+    const select = screen.getByLabelText("Profile");
+    await waitFor(() => expect(select).toHaveValue("supplier"));
+    expect(screen.getByText(/Chosen because it fits this file/)).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "" } });
+    preview();
+    await waitFor(() => expect(api.startImport).toHaveBeenCalled());
+    expect(vi.mocked(api.startImport).mock.calls[0][1]).toMatchObject({ profileKey: null, onExisting: "reject" });
+  });
+
+  it("folds the three loading switches under Options with today's defaults", async () => {
+    open({ context: { workspaceKey: "west" } });
+    await chooseFileAndProfile();
+    const options = screen.getByText("Options").closest("details");
+    expect(options).not.toHaveAttribute("open");
+    expect(within(options as HTMLElement).getByRole("radio", { name: "Load the rows that can load" })).toBeChecked();
+    expect(
+      within(options as HTMLElement).getByRole("radio", { name: "Load them as this workspace's own" }),
+    ).toBeChecked();
   });
 
   it("offers a profile valid in the workspace the file loads into (0.13 DOC11)", async () => {

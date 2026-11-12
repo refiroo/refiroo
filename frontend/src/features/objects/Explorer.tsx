@@ -4,7 +4,6 @@ import { holds } from "@/features/security/permissions";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import {
   narrowNavigation,
@@ -56,8 +55,7 @@ export function Explorer({
   /** Records were moved, so what shows them reads again. */
   onChanged?: () => void;
 }) {
-  const [searchInput, setSearchInput] = useState("");
-  const search = useDebouncedValue(searchInput.trim());
+  const [browseOpen, setBrowseOpen] = useBrowseOpen();
   const allSections = navigationSections(application);
   // Past this many entries the collections can be searched (0.13 LB-D1).
   const [find, setFind] = useState("");
@@ -239,30 +237,37 @@ export function Explorer({
         </nav>
       )}
       <div className="browse-section">
-        <p className="nav-label" id={`${application.key}-browse-label`}>
-          Browse records
-        </p>
-        <SearchField
-          className="compact"
-          value={searchInput}
-          onChange={setSearchInput}
-          label="Search this explorer"
-          placeholder="Find a record"
-        />
-        <RecordTree
-          model={model}
-          application={application}
-          workspaceKey={workspaceKey}
-          search={search}
-          activeObjectId={activeObjectId}
-          activeObjectTypeKey={activeObjectTypeKey}
-          refreshToken={refreshToken}
-          labelledBy={`${application.key}-browse-label`}
-          config={treeConfig}
-          onOpen={onOpen}
-          onOpenCollection={onOpenCollection}
-          onSelectionChange={setSelection}
-        />
+        {/* Folded until opened, and remembered in this browser (0.17 SH1, PP-D35). */}
+        <button
+          type="button"
+          className="browse-fold"
+          aria-expanded={browseOpen}
+          aria-controls={`${application.key}-browse-body`}
+          onClick={() => setBrowseOpen(!browseOpen)}
+        >
+          <span className="nav-label" id={`${application.key}-browse-label`}>
+            Browse records
+          </span>
+          <Icon name={browseOpen ? "chevron-down" : "chevron-right"} size={14} />
+        </button>
+        {browseOpen && (
+          <div id={`${application.key}-browse-body`}>
+            <RecordTree
+              model={model}
+              application={application}
+              workspaceKey={workspaceKey}
+              search=""
+              activeObjectId={activeObjectId}
+              activeObjectTypeKey={activeObjectTypeKey}
+              refreshToken={refreshToken}
+              labelledBy={`${application.key}-browse-label`}
+              config={treeConfig}
+              onOpen={onOpen}
+              onOpenCollection={onOpenCollection}
+              onSelectionChange={setSelection}
+            />
+          </div>
+        )}
       </div>
       {menu && (
         <AnchoredMenu
@@ -400,6 +405,22 @@ function Highlighted({ text, words }: { text: string; words: string }) {
   }
   parts.push(text.slice(from));
   return <>{parts}</>;
+}
+
+export const BROWSE_OPEN_KEY = "rdm:navigation:browse-records:v1";
+
+/** Whether Browse records is open: folded until opened, then as the person left it in this browser. */
+function useBrowseOpen() {
+  const [open, setOpen] = useState(() =>
+    readLocalPreference(BROWSE_OPEN_KEY, false, (value): value is boolean => typeof value === "boolean"),
+  );
+  return [
+    open,
+    (next: boolean) => {
+      setOpen(next);
+      writeLocalPreference(BROWSE_OPEN_KEY, next);
+    },
+  ] as const;
 }
 
 const isFoldMap = (value: unknown): value is Record<string, boolean> =>

@@ -1,15 +1,16 @@
 /**
- * Grant roles or consumer APIs (0.12 SP1, SP2, U8, U9): one dialog for a workspace's Access and a
- * person's, group's or client's page. From Access it asks who (a person, group or client); from a
- * principal it asks where. Consumer APIs are offered only when the holder is a client. Several things are granted at once: consumer APIs by ticking cells of a
- * grid (APIs × workspaces), roles by ticking cards and choosing workspaces or the whole instance.
- * One tick is one grant; what the holder already has is shown and not sent again, and a failed one
- * stays ticked with its reason while the others are made. A consumer API is granted in a workspace,
- * never narrowed (D306, D354). The choices come from the workspace's grant options, which a Security
- * administrator reads without Browse (D355). A workspace grant of one role with narrowable groups may
- * narrow what they may change to applications and record types of that workspace's model, and
- * reading is never narrowed (D243). A role held only at the instance offers only the whole instance
- * (D302). A sentence says what the grants allow.
+ * Set or grant access (0.12 SP1, SP2, U8, U9; 0.17 edits): one dialog for a workspace's Access and a person's,
+ * group's or client's page. From Access it asks who (a person, group or client) and only grants. From a
+ * principal's page it is that holder's access, "<name>'s access", and sets it: what the holder has is ticked,
+ * unticking removes it on Save and ticking adds it, in one Save. Consumer APIs (a client's alone) are cells of a
+ * grid (APIs x workspaces); roles are ticked as cards at the chosen workspaces or the whole instance. A grant
+ * the dialog cannot express (a role narrowed to applications or record types, one held through a group) has no
+ * control here; it stays removable by its chip on the page. A failed change stays as it was ticked with its
+ * reason while the others are made. A consumer API is granted in a workspace, never narrowed (D306, D354). The
+ * choices come from the workspace's grant options, which a Security administrator reads without Browse (D355).
+ * A workspace grant of one role with narrowable groups may narrow what they may change to applications and
+ * record types of that workspace's model, and reading is never narrowed (D243). A role held only at the
+ * instance offers only the whole instance, said in words (D302). A sentence says what is added and removed.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,16 +22,22 @@ import { Choice } from "@/ui/Choice";
 import { Modal } from "@/ui/Modal";
 import { MultiSelect } from "@/ui/MultiSelect";
 import { Notice } from "@/ui/Notice";
+import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { Skeleton } from "@/ui/Skeleton";
 import { ConsumerApiGrid } from "./ConsumerApiGrid";
 import {
   cellKey,
+  changeSentence,
   consumerPlanSentence,
   consumerRequests,
-  heldConsumerApis,
-  heldRoles,
+  grantCells,
+  list as joinList,
+  recreation,
+  removals,
+  roleKey,
   roleRequests,
   rolePlanSentence,
+  type GrantChange,
 } from "./grantPlan";
 import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
 import { grantSentence, instanceOnly } from "./securityText";
@@ -53,16 +60,18 @@ export function GrantDialog({
   who,
   workspace,
   onClose,
-  onGranted,
+  onChanged,
 }: {
   /** The person, group or client the page is about; without it the dialog asks who. */
   who?: PickedPrincipal;
   /** The workspace the page is about; without it the dialog asks where. */
   workspace?: Place;
   onClose: () => void;
-  /** After the dialog closes having made grants (all that were made, even if others failed). */
-  onGranted: (grants: Grant[]) => void;
+  /** After the dialog closes having changed access: all that was added and removed, even if others failed. */
+  onChanged: (change: GrantChange) => void;
 }) {
+  /** From a principal's page the dialog sets the holder's access; from Access it only grants. */
+  const editing = !!who;
   const [roles, setRoles] = useState<Role[]>();
   const [catalogue, setCatalogue] = useState<ActionGroup[]>();
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
@@ -70,20 +79,22 @@ export function GrantDialog({
   const [principal, setPrincipal] = useState<PickedPrincipal | undefined>(who);
   const [wanted, setWanted] = useState<"roles" | "apis">(who?.kind === "client" ? "apis" : "roles");
   const [held, setHeld] = useState<Grant[]>([]);
+  const [heldLoaded, setHeldLoaded] = useState(!who);
   const [options, setOptions] = useState<Record<string, GrantOptions | "error">>({});
   // Only a client holds a consumer API (CONSUMER_API_CLIENTS_ONLY); for anyone else, or no one yet,
   // the choice is hidden and only roles are granted.
   const clientHolder = principal?.kind === "client";
   const what: "roles" | "apis" = clientHolder ? wanted : "roles";
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
-  const [pickedRoles, setPickedRoles] = useState<string[]>([]);
+  // Role cells (`roleKey`) ticked: when editing, seeded with what the holder has.
+  const [wantedRoles, setWantedRoles] = useState<ReadonlySet<string>>(new Set());
   const [whereKind, setWhereKind] = useState<"workspace" | "instance">("workspace");
   const [placeKeys, setPlaceKeys] = useState<string[]>(workspace ? [workspace.key] : []);
   const [narrow, setNarrow] = useState<"everything" | "some">("everything");
   const [narrowedTo, setNarrowedTo] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [failures, setFailures] = useState<string[]>([]);
-  const [made, setMade] = useState<Grant[]>([]);
+  const [made, setMade] = useState<GrantChange>({ added: [], removed: [] });
   const requested = useRef(new Set<string>());
 
   useEffect(() => {
@@ -106,19 +117,32 @@ export function GrantDialog({
     };
   }, [workspace]);
 
-  // What the principal already holds, to show it and not grant it twice.
+  // What the principal already holds: ticked when editing, said in words when granting.
   const principalId = principal?.id;
   useEffect(() => {
     if (!principalId) return;
     let active = true;
     grantsHeldBy(principalId).then(
-      (grants) => active && setHeld(grants),
-      () => active && setHeld([]),
+      (grants) => {
+        if (!active) return;
+        setHeld(grants);
+        if (editing) {
+          const cells = grantCells(grants);
+          setTicked(new Set(cells.apis.keys()));
+          setWantedRoles(new Set(cells.roles.keys()));
+        }
+        setHeldLoaded(true);
+      },
+      () => {
+        if (!active) return;
+        setHeld([]);
+        setHeldLoaded(true);
+      },
     );
     return () => {
       active = false;
     };
-  }, [principalId]);
+  }, [principalId, editing]);
 
   /** The grid's rows and the narrowing's choices: what each workspace's model offers (D355). */
   const loadOptions = useCallback((keys: readonly string[]) => {
@@ -140,16 +164,10 @@ export function GrantDialog({
 
   const instance = !workspace && what === "roles" && whereKind === "instance";
   const chosenPlaces = placeKeys.filter((key) => places.some((place) => place.key === key));
-  const narrowKey = what === "roles" && !instance && chosenPlaces.length === 1 ? chosenPlaces[0] : undefined;
 
-  useEffect(() => {
-    if (what === "apis" && workspaces !== undefined) loadOptions(places.map((place) => place.key));
-    if (what === "apis" && workspace) loadOptions([workspace.key]);
-    if (narrowKey) loadOptions([narrowKey]);
-  }, [what, workspaces, workspace, places, narrowKey, loadOptions]);
-
-  const heldApis = useMemo(() => heldConsumerApis(held), [held]);
-  const heldRoleSet = useMemo(() => heldRoles(held), [held]);
+  const cells = useMemo(() => grantCells(held), [held]);
+  const heldApis = useMemo(() => new Set(cells.apis.keys()), [cells]);
+  const heldRoleSet = useMemo(() => new Set(cells.roles.keys()), [cells]);
 
   const roleList = (roles ?? []).filter((item) => {
     // In a named workspace, a role held only at the instance is not offered (D302).
@@ -158,8 +176,47 @@ export function GrantDialog({
   function isInstanceOnly(role: Role, groups: ActionGroup[]) {
     return role.actionGroups.length > 0 && instanceOnly(role.actionGroups, groups).length === role.actionGroups.length;
   }
+  const allInstanceOnly = (role: Role) => !!catalogue && isInstanceOnly(role, catalogue);
+  /** A role is ticked where the dialog places it; a role held only at the instance has no workspace to tick. */
+  const placeable = (role: Role) => instance || !allInstanceOnly(role);
+  const roleCells = (role: string) =>
+    instance ? [roleKey(role, "*")] : chosenPlaces.map((place) => roleKey(role, place));
+  const shownRoleCells = new Set(
+    what === "roles" ? roleList.filter(placeable).flatMap((item) => roleCells(item.key)) : [],
+  );
+  /** Roles ticked to be added go with a change of where: the held ones stay, the added ones are made wherever
+   * the dialog now places roles. */
+  function retarget(targets: readonly string[] | "instance") {
+    setNarrowedTo([]);
+    // With no place chosen yet the ticks wait where they are, for the next place chosen.
+    if (targets !== "instance" && !targets.length) return;
+    setWantedRoles((current) => {
+      const next = new Set<string>();
+      const carried = new Set<string>();
+      for (const cell of current) {
+        if (heldRoleSet.has(cell)) next.add(cell);
+        else carried.add(cell.split("|")[0] ?? "");
+      }
+      for (const role of carried)
+        for (const target of targets === "instance" ? ["*"] : targets) next.add(roleKey(role, target));
+      return next;
+    });
+  }
+  const wantedShownRoles = [...wantedRoles].filter((cell) => shownRoleCells.has(cell));
+  const addedRoleCells = wantedShownRoles.filter((cell) => !heldRoleSet.has(cell));
+  const removedRoleGrants = editing ? removals(cells.roles, wantedRoles, shownRoleCells) : [];
 
-  const onlyOneRole = pickedRoles.length === 1 ? roles?.find((item) => item.key === pickedRoles[0]) : undefined;
+  // Narrowing is offered for a single role grant added in one workspace.
+  const [addedRole, addedWhere] = addedRoleCells.length === 1 ? (addedRoleCells[0] ?? "").split("|") : [];
+  const narrowKey = what === "roles" && addedWhere && addedWhere !== "*" ? addedWhere : undefined;
+  const onlyOneRole = addedRole ? roles?.find((item) => item.key === addedRole) : undefined;
+
+  useEffect(() => {
+    if (what === "apis" && workspaces !== undefined) loadOptions(places.map((place) => place.key));
+    if (what === "apis" && workspace) loadOptions([workspace.key]);
+    if (narrowKey) loadOptions([narrowKey]);
+  }, [what, workspaces, workspace, places, narrowKey, loadOptions]);
+
   const narrowable =
     !!narrowKey &&
     !!onlyOneRole &&
@@ -189,12 +246,26 @@ export function GrantDialog({
     recordTypes: narrowing.filter((id) => id.startsWith("t:")).map((id) => id.slice(2)),
   };
 
+  // The grid's cells the workspaces' models declare: the only ones a tick can add or remove.
+  const gridCells = useMemo(() => {
+    const declared = new Set<string>();
+    for (const place of places) {
+      const loaded = options[place.key];
+      if (loaded && loaded !== "error")
+        for (const item of loaded.consumerApis) declared.add(cellKey(item.key, place.key));
+    }
+    return declared;
+  }, [places, options]);
+  const removedApiGrants = editing && what === "apis" ? removals(cells.apis, ticked, gridCells) : [];
+
   const identity = principal ? { kind: principal.kind, id: principal.id } : undefined;
   const requests: GrantCreate[] = !identity
     ? []
     : what === "apis"
       ? consumerRequests(identity, ticked, heldApis)
-      : roleRequests(identity, pickedRoles, instance ? "instance" : chosenPlaces, narrowingKeys, heldRoleSet);
+      : roleRequests(identity, addedRoleCells, heldRoleSet, narrowingKeys);
+  const removed = what === "apis" ? removedApiGrants : removedRoleGrants;
+  const changed = requests.length > 0 || removed.length > 0;
 
   const apiName = (key: string) => {
     for (const loaded of Object.values(options))
@@ -205,28 +276,36 @@ export function GrantDialog({
     return key;
   };
   const roleName = (key: string) => roles?.find((item) => item.key === key)?.name ?? key;
+  const whereOf = (scope: GrantCreate["scope"]) => ("workspaceKey" in scope ? labelOf(scope.workspaceKey) : "");
 
   /** What one request gives, as a failure names it: "Master data in default". */
   const describe = (request: GrantCreate) =>
     request.consumerApi
-      ? `${apiName(request.consumerApi)} in ${labelOf("workspaceKey" in request.scope ? request.scope.workspaceKey : "")}`
-      : `${roleName(request.role ?? "")} ${"instance" in request.scope ? "for the whole instance" : `in ${labelOf("workspaceKey" in request.scope ? request.scope.workspaceKey : "")}`}`;
+      ? `${apiName(request.consumerApi)} in ${whereOf(request.scope)}`
+      : `${roleName(request.role ?? "")} ${"instance" in request.scope ? "for the whole instance" : `in ${whereOf(request.scope)}`}`;
 
   const sentence = (() => {
-    if (!principal || !requests.length) return "";
+    if (!principal || !changed) return "";
     if (what === "apis") {
-      const byApi = new Map<string, string[]>();
-      for (const request of requests) {
-        const key = request.consumerApi ?? "";
-        const where = labelOf("workspaceKey" in request.scope ? request.scope.workspaceKey : "");
-        byApi.set(key, [...(byApi.get(key) ?? []), where]);
-      }
-      return consumerPlanSentence(
-        principal.name,
-        [...byApi].map(([key, where]) => ({ api: apiName(key), where })),
-      );
+      const byApi = (items: GrantCreate[]) => {
+        const grouped = new Map<string, string[]>();
+        for (const request of items) {
+          const key = request.consumerApi ?? "";
+          grouped.set(key, [...(grouped.get(key) ?? []), whereOf(request.scope)]);
+        }
+        return [...grouped].map(([key, where]) => ({ api: apiName(key), where }));
+      };
+      if (!editing) return consumerPlanSentence(principal.name, byApi(requests));
+      const part = (read: { api: string; where: string[] }) => `${read.api} in ${joinList(read.where)}`;
+      return changeSentence({
+        who: principal.name,
+        verb: "read",
+        added: byApi(requests).map(part),
+        removed: byApi(removed.map(recreation)).map(part),
+      });
     }
-    if (pickedRoles.length === 1 && catalogue && onlyOneRole) {
+    const addedRoles = [...new Set(addedRoleCells.map((cell) => cell.split("|")[0] ?? ""))];
+    if (addedRoles.length === 1 && catalogue && onlyOneRole && (!editing || !removed.length)) {
       return grantSentence({
         who: principal.name,
         groups: onlyOneRole.actionGroups,
@@ -235,7 +314,15 @@ export function GrantDialog({
         narrowedTo: narrowOptions.filter((option) => narrowing.includes(option.id)).map((option) => option.label),
       });
     }
-    const skipped = pickedRoles.length * (instance ? 1 : chosenPlaces.length) - requests.length;
+    if (editing)
+      return changeSentence({
+        who: principal.name,
+        verb: "hold",
+        added: requests.map(describe),
+        removed: removed.map((grant) => describe(recreation(grant))),
+      });
+    const pickedRoles = [...new Set(wantedShownRoles.map((cell) => cell.split("|")[0] ?? ""))];
+    const skipped = wantedShownRoles.length - requests.length;
     return rolePlanSentence({
       who: principal.name,
       roles: pickedRoles.map(roleName),
@@ -245,51 +332,76 @@ export function GrantDialog({
     });
   })();
 
-  const alreadyHeld =
-    !!principal &&
-    !requests.length &&
-    (what === "apis" ? false : pickedRoles.length > 0 && (instance || chosenPlaces.length > 0));
+  const alreadyHeld = !editing && !!principal && !requests.length && what === "roles" && wantedShownRoles.length > 0;
 
   function finish() {
-    if (made.length) onGranted(made);
+    if (made.added.length || made.removed.length) onChanged(made);
     else onClose();
   }
 
-  async function grant() {
-    if (!requests.length) return;
+  async function save() {
+    if (!changed) return;
     setPending(true);
     setFailures([]);
+    const gone: Grant[] = [];
     const done: Grant[] = [];
-    const failed: { request: GrantCreate; message: string }[] = [];
+    const failed: string[] = [];
+    // Removals first, so a grant made again in the same place is not refused as a duplicate.
+    for (const grant of removed) {
+      try {
+        await security.deleteGrant(grant.id);
+        gone.push(grant);
+      } catch (cause) {
+        failed.push(`Removing ${describe(recreation(grant))}: ${errorMessage(cause)}`);
+      }
+    }
     for (const request of requests) {
       try {
         done.push(await security.createGrant(request));
       } catch (cause) {
-        failed.push({ request, message: errorMessage(cause) });
+        failed.push(`${describe(request)}: ${errorMessage(cause)}`);
       }
     }
-    const all = [...made, ...done];
+    const goneIds = new Set(gone.map((grant) => grant.id));
+    const nextHeld = [...held.filter((grant) => !goneIds.has(grant.id)), ...done];
+    const nextCells = grantCells(nextHeld);
+    const all: GrantChange = {
+      added: [...made.added.filter((grant) => !goneIds.has(grant.id)), ...done],
+      removed: [...made.removed, ...gone.filter((grant) => !made.added.some((item) => item.id === grant.id))],
+    };
     setMade(all);
-    setHeld((current) => [...current, ...done]);
-    // What was made is no longer a tick to make; a failure stays ticked to be tried again.
+    setHeld(nextHeld);
+    // What was made and is not held as a cell (a narrowed role) is no tick to make again; a failure stays
+    // as it was ticked or unticked, to be tried again.
     setTicked((current) => {
       const next = new Set(current);
       for (const grant of done)
-        if (grant.consumerApi && grant.scope.workspaceKey)
-          next.delete(cellKey(grant.consumerApi.key, grant.scope.workspaceKey));
+        if (grant.consumerApi && grant.scope.workspaceKey) {
+          const cell = cellKey(grant.consumerApi.key, grant.scope.workspaceKey);
+          if (!nextCells.apis.has(cell)) next.delete(cell);
+        }
+      return next;
+    });
+    setWantedRoles((current) => {
+      const next = new Set(current);
+      for (const grant of done)
+        if (grant.role) {
+          const cell = roleKey(grant.role.key, grant.scope.instance ? "*" : (grant.scope.workspaceKey ?? ""));
+          if (!nextCells.roles.has(cell)) next.delete(cell);
+        }
       return next;
     });
     setPending(false);
     if (!failed.length) {
-      onGranted(all);
+      onChanged(all);
       return;
     }
-    setFailures(failed.map(({ request, message }) => `${describe(request)}: ${message}`));
+    setFailures(failed);
   }
 
   if (loadError)
     return (
-      <Modal title="Grant access" eyebrow="Security" onClose={onClose}>
+      <Modal title="Grant access" eyebrow="People and access" onClose={onClose}>
         <div className="dialog-body">
           <Notice tone="error" title="The roles could not be read">
             {loadError}
@@ -298,20 +410,19 @@ export function GrantDialog({
       </Modal>
     );
 
-  const title = who ? `Grant ${who.name} access` : `Grant access in ${workspace?.label ?? ""}`;
-  const allInstanceOnly = (role: Role) => !!catalogue && isInstanceOnly(role, catalogue);
+  const title = who ? `${who.name}'s access` : `Grant access in ${workspace?.label ?? ""}`;
 
   return (
     <Modal
       title={title}
-      eyebrow="Security"
+      eyebrow="People and access"
       size="wide"
       busy={pending}
       // Compared by id: a page that builds `who` inline hands a new object on every render.
-      dirty={requests.length > 0 || (!!principal && principal.id !== who?.id)}
+      dirty={changed || (!!principal && principal.id !== who?.id)}
       onClose={finish}
     >
-      {!roles || !catalogue || (!workspace && !workspaces) ? (
+      {!roles || !catalogue || (!workspace && !workspaces) || !heldLoaded ? (
         <div className="dialog-body">
           <Skeleton label="Loading roles" lines={4} />
         </div>
@@ -320,7 +431,7 @@ export function GrantDialog({
           className="grant-form"
           onSubmit={(event) => {
             event.preventDefault();
-            void grant();
+            void save();
           }}
         >
           {!who && (
@@ -333,6 +444,7 @@ export function GrantDialog({
                 setHeld([]);
                 // Consumer APIs are a client's alone: ticks made for a client go with it.
                 setTicked(new Set());
+                setWantedRoles(new Set());
               }}
             />
           )}
@@ -359,13 +471,13 @@ export function GrantDialog({
           {what === "apis" ? (
             <div className="grant-pick">
               <p className="admin-hint">
-                Tick what they may read, one tick for one grant. A row or column heading ticks the whole line; Shift
-                extends a range. Ticked and grey is already granted.
+                {editing ? "Tick what they may read, untick what they may not" : "Tick what they may read"}, one tick
+                for one grant. A row or column heading ticks the whole line; Shift extends a range.
               </p>
               <ConsumerApiGrid
                 workspaces={places}
                 options={Object.fromEntries(places.map((place) => [place.key, options[place.key]]))}
-                held={heldApis}
+                held={editing ? new Set() : heldApis}
                 ticked={ticked}
                 onChange={setTicked}
               />
@@ -387,14 +499,22 @@ export function GrantDialog({
                     </thead>
                     <tbody>
                       {roleList.map((item) => {
-                        const disabled = !workspace && whereKind === "workspace" && allInstanceOnly(item);
-                        const on = pickedRoles.includes(item.key);
-                        const toggleRole = () =>
-                          setPickedRoles((current) =>
-                            current.includes(item.key)
-                              ? current.filter((key) => key !== item.key)
-                              : [...current, item.key],
-                          );
+                        const offered = placeable(item);
+                        const rowCells = roleCells(item.key);
+                        const ticks = rowCells.filter((cell) => wantedRoles.has(cell)).length;
+                        const state = ticks === 0 ? "none" : ticks === rowCells.length ? "all" : "some";
+                        const toggleRole = () => {
+                          if (!rowCells.length) return;
+                          setNarrowedTo([]);
+                          setWantedRoles((current) => {
+                            const next = new Set(current);
+                            for (const cell of rowCells) {
+                              if (state === "all") next.delete(cell);
+                              else next.add(cell);
+                            }
+                            return next;
+                          });
+                        };
                         const groupNames = catalogue
                           .filter((group) => item.actionGroups.includes(group.key))
                           .map((group) => group.name)
@@ -402,23 +522,17 @@ export function GrantDialog({
                         return (
                           <tr
                             key={item.key}
-                            className={`${on ? "grant-on" : ""}${disabled ? " grant-off" : ""}`}
+                            className={`${state !== "none" ? "grant-on" : ""}${offered ? "" : " grant-off"}`}
                             onClick={(event) => {
-                              if (!disabled && !(event.target instanceof HTMLInputElement)) toggleRole();
+                              if (offered && !(event.target instanceof HTMLInputElement)) toggleRole();
                             }}
                           >
                             <td className="grant-tick">
-                              <input
-                                type="checkbox"
-                                aria-label={item.name}
-                                checked={on}
-                                disabled={disabled}
-                                onChange={toggleRole}
-                              />
+                              {offered && <SelectionCheckbox label={item.name} state={state} onSelect={toggleRole} />}
                             </td>
                             <th scope="row">{item.name}</th>
                             <td className="grant-muted">
-                              {disabled ? "Whole instance only. " : ""}
+                              {offered ? "" : "Whole instance only. "}
                               {groupNames || "Nothing"}
                             </td>
                           </tr>
@@ -429,7 +543,7 @@ export function GrantDialog({
                 </div>
                 {!workspace && whereKind === "workspace" && roleList.some(allInstanceOnly) && (
                   <p className="admin-hint">
-                    Roles in grey are held for the whole instance only: choose “The whole instance” below.
+                    A role marked “Whole instance only” has no workspace to tick: choose “The whole instance” below.
                   </p>
                 )}
               </fieldset>
@@ -445,13 +559,7 @@ export function GrantDialog({
                     ]}
                     onChange={(value) => {
                       setWhereKind(value);
-                      if (value === "workspace")
-                        setPickedRoles((current) =>
-                          current.filter((key) => {
-                            const role = roles.find((item) => item.key === key);
-                            return role ? !allInstanceOnly(role) : false;
-                          }),
-                        );
+                      retarget(value === "instance" ? "instance" : chosenPlaces);
                     }}
                   />
                   {instance ? (
@@ -463,7 +571,7 @@ export function GrantDialog({
                       selected={placeKeys}
                       onChange={(keys) => {
                         setPlaceKeys(keys);
-                        setNarrowedTo([]);
+                        retarget(keys.filter((key) => places.some((place) => place.key === key)));
                       }}
                       addLabel="Add workspace"
                       emptyLabel="No workspace chosen yet"
@@ -499,12 +607,9 @@ export function GrantDialog({
                   <p className="admin-hint">Reading is never narrowed: they read the whole workspace.</p>
                 </fieldset>
               )}
-              {!narrowable &&
-                !instance &&
-                pickedRoles.length > 0 &&
-                (pickedRoles.length > 1 || chosenPlaces.length > 1) && (
-                  <p className="admin-hint">Narrowing is offered when one role is granted in one workspace.</p>
-                )}
+              {!narrowable && !instance && addedRoleCells.length > 1 && (
+                <p className="admin-hint">Narrowing is offered when one role is granted in one workspace.</p>
+              )}
             </>
           )}
 
@@ -519,27 +624,33 @@ export function GrantDialog({
             </p>
           )}
           {failures.length > 0 && (
-            <Notice tone="error" title={`${failures.length} could not be granted`}>
+            <Notice tone="error" title={`${failures.length} could not be ${editing ? "saved" : "granted"}`}>
               <ul className="grant-failures">
                 {failures.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
-              {made.length > 0 && <p>The others were made.</p>}
+              {(made.added.length > 0 || made.removed.length > 0) && (
+                <p>The others were {editing ? "saved" : "made"}.</p>
+              )}
             </Notice>
           )}
           <div className="dialog-actions">
             <button type="button" className="secondary" disabled={pending} onClick={finish}>
-              {made.length ? "Close" : "Cancel"}
+              {made.added.length || made.removed.length ? "Close" : "Cancel"}
             </button>
-            <button className="primary" disabled={pending || !requests.length}>
-              {pending
-                ? "Granting…"
-                : requests.length > 1
-                  ? `Grant ${requests.length}`
-                  : failures.length
-                    ? "Try again"
-                    : "Grant"}
+            <button className="primary" disabled={pending || !changed}>
+              {editing
+                ? pending
+                  ? "Saving…"
+                  : "Save"
+                : pending
+                  ? "Adding…"
+                  : requests.length > 1
+                    ? `Add ${requests.length} grants`
+                    : failures.length
+                      ? "Try again"
+                      : "Add grant"}
             </button>
           </div>
         </form>

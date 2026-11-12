@@ -8,6 +8,50 @@ import { useState, type ReactNode } from "react";
 import { errorMessage } from "@/api/errors";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 
+/** The question a deletion asks, opened by whatever offers it (a button, a ⋯ menu item); a refusal stays in it. */
+export function DeleteDialog({
+  title,
+  confirmLabel,
+  children,
+  onDelete,
+  onClose,
+}: {
+  title: string;
+  confirmLabel: string;
+  children: ReactNode;
+  onDelete: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    setPending(true);
+    setError("");
+    try {
+      await onDelete();
+      onClose();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <ConfirmDialog
+      title={title}
+      confirmLabel={confirmLabel}
+      pending={pending}
+      error={error}
+      onCancel={onClose}
+      onConfirm={() => void confirm()}
+    >
+      <p>{children}</p>
+    </ConfirmDialog>
+  );
+}
+
 export function DeleteAction({
   label,
   title,
@@ -28,41 +72,15 @@ export function DeleteAction({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-
-  async function confirm() {
-    setPending(true);
-    setError("");
-    try {
-      await onDelete();
-      setOpen(false);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
     <>
       <button type="button" className={className} onClick={() => setOpen(true)}>
         {label}
       </button>
       {open && (
-        <ConfirmDialog
-          title={title}
-          confirmLabel={confirmLabel}
-          pending={pending}
-          error={error}
-          onCancel={() => {
-            setOpen(false);
-            setError("");
-          }}
-          onConfirm={() => void confirm()}
-        >
-          <p>{children}</p>
-        </ConfirmDialog>
+        <DeleteDialog title={title} confirmLabel={confirmLabel} onDelete={onDelete} onClose={() => setOpen(false)}>
+          {children}
+        </DeleteDialog>
       )}
     </>
   );

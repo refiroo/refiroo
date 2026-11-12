@@ -696,6 +696,90 @@ def test_a_source_file_is_read_by_the_draft_proposed_as_a_model_and_dry_run(mode
         summary="Read the manufacturer column as a list",
     )
     assert listed["pattern"] == "listBlock" and listed["operations"]
+    joined = s.call(
+        "POST",
+        DRAFT + "/join-candidates",
+        path={"draft_id": draft["id"]},
+        body={
+            "column": {"sheet": "Fahrzeuge", "column": "Hersteller"},
+            "against": {"sheet": "Fahrzeuge", "column": "Hersteller"},
+        },
+        status=200,
+        record="manufacturers",
+        summary="Compare the manufacturer column over every row: four different values, not a list",
+    )
+    assert joined["best"] == "C" and joined["candidates"][0]["unique"] is False
+    s.call(
+        "POST",
+        DRAFT + "/join-candidates",
+        path={"draft_id": draft["id"]},
+        body={
+            "column": {"sheet": "Fahrzeuge", "column": "Hersteller"},
+            "against": {"sheet": "Fahrzeuge", "column": "Hersteller", "letter": "C"},
+        },
+        status=422,
+        code="REQUEST_VALIDATION_ERROR",
+    )
+    s.call(
+        "POST",
+        DRAFT + "/join-candidates",
+        path={"draft_id": draft["id"]},
+        body={
+            "column": {"sheet": "Fahrzeuge", "column": "Nowhere"},
+            "against": {"sheet": "Fahrzeuge"},
+        },
+        status=422,
+        code="COLUMN_NOT_FOUND",
+    )
+    s.call(
+        "PATCH",
+        DRAFT + "/canvas",
+        path={"draft_id": draft["id"]},
+        body={
+            "positions": {
+                "sheet:Fahrzeuge": {"x": 40, "y": 80},
+                "type:vehicle": {"x": 420, "y": 80},
+            }
+        },
+        status=200,
+        record="twoCards",
+        summary="Place a sheet card and a list card on the board",
+    )
+    placed = s.call(
+        "GET",
+        DRAFT + "/canvas",
+        path={"draft_id": draft["id"]},
+        status=200,
+        record="twoCards",
+        summary="Read the cards' positions back",
+    )
+    assert placed["positions"]["type:vehicle"] == {"x": 420.0, "y": 80.0}
+    folded = s.call(
+        "PATCH",
+        DRAFT + "/canvas",
+        path={"draft_id": draft["id"]},
+        body={"folded": {"type:vehicle": True}, "scope": "changed"},
+        status=200,
+        record="foldAndScope",
+        summary="Fold a card and show only what the draft changed",
+    )
+    assert (folded["folded"], folded["scope"]) == (["type:vehicle"], "changed")
+    s.call(
+        "PATCH",
+        DRAFT + "/canvas",
+        path={"draft_id": draft["id"]},
+        body={"positions": {f"card:{n}": {"x": n, "y": n} for n in range(501)}},
+        status=422,
+        code="INVALID_CANVAS",
+    )
+    s.call(
+        "PATCH",
+        DRAFT + "/canvas",
+        path={"draft_id": draft["id"]},
+        body={"scope": "everything"},
+        status=422,
+        code="REQUEST_VALIDATION_ERROR",
+    )
     profile = s.call(
         "GET",
         DRAFT + "/profile",
@@ -983,3 +1067,75 @@ def test_the_workspace_is_migrated_to_a_third_release_and_spares_are_removed(mod
         summary="Delete a draft nobody needs",
     )
     s.call("GET", DRAFT, path={"draft_id": scratch["id"]}, status=404)
+
+
+def test_a_workspace_is_created_from_a_workbook_and_its_rows_load(model):
+    s = model
+    empty = {
+        "schemaVersion": "0.10",
+        "release": {"key": "depot-register", "name": "Depot register", "version": "1.0.0"},
+        "product": {"name": "Depot register"},
+        "attributeTypes": [],
+        "objectTypes": [],
+        "relationTypes": [],
+        "objectTypeRelations": [],
+        "applications": [],
+    }
+    draft = s.call(
+        "POST", "/api/v1/model-drafts", body={"name": "Depot register", "model": empty}, status=201
+    )
+    workbook = s.scratch / "Depots.xlsx"
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Depots"
+    sheet.append(["Depotnummer", "Name", "Ort", "Stellplaetze"])
+    for row in (
+        (1, "Depot Chur", "Chur", 40),
+        (2, "Depot Davos", "Davos", 18),
+        (3, "Depot Ilanz", "Ilanz", 12),
+        (4, "Depot Scuol", "Scuol", 15),
+    ):
+        sheet.append(row)
+    book.save(workbook)
+    stored = _upload(
+        s,
+        "/api/v1/source-files",
+        {"owner": {"draftId": draft["id"]}, "format": "xlsx", "workspaceKey": "graubuenden"},
+        workbook,
+        status=201,
+    )
+    assert _wait(s, stored["profile"]["jobId"])["state"] == "completed"
+    s.call(
+        "POST",
+        DRAFT + "/inference",
+        path={"draft_id": draft["id"]},
+        body={"mode": "newApplication", "applicationKey": "depots", "applicationName": "Depots"},
+        status=202,
+    )
+    _until(s, DRAFT + "/inference", {"draft_id": draft["id"]}, ("checking",))
+    applied = s.call(
+        "POST",
+        DRAFT + "/inference/application",
+        path={"draft_id": draft["id"]},
+        body={"expectedVersion": draft["version"]},
+        status=200,
+    )
+    assert _wait(s, applied["dryRun"]["jobId"])["state"] == "completed"
+    s.call(
+        "POST",
+        "/api/v1/workspaces/from-workbook",
+        body={"draftId": draft["id"], "expectedVersion": draft["version"], "name": "Depots"},
+        status=409,
+        code="VERSION_CONFLICT",
+    )
+    created = s.call(
+        "POST",
+        "/api/v1/workspaces/from-workbook",
+        body={"draftId": draft["id"], "expectedVersion": applied["version"], "name": "Depots"},
+        status=202,
+        record="depots",
+        summary="Create the workspace Depots from the depot workbook's draft and load the workbook",
+    )
+    assert created["workspace"]["key"] == "depots" and created["job"]["kind"] == "import"
+    done = _wait(s, created["job"]["id"])
+    assert done["state"] == "completed" and done["counts"]["created"] >= 4, done

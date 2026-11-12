@@ -8,7 +8,11 @@ refiroo includes keyboard navigation, visible focus and layouts for narrow scree
 
 ## Work with a keyboard
 
-A **Skip to main content** link bypasses repeated navigation. Labelled regions, semantic tables and trees, and named controls provide structure. Menus and dialogs support keyboard operation; dialogs keep focus inside while open and restore it when closed. Editors guard against leaving unsaved input behind.
+A **Skip to main content** link bypasses repeated navigation. Labelled regions, semantic tables and trees, and named controls provide structure. Menus and dialogs support keyboard operation; dialogs keep focus inside while open and restore it when closed. Leaving a single-value input with Tab saves it, as does Enter for a single-line field.
+In text of several lines, Enter adds a new line and Ctrl+Enter (Cmd+Enter on a Mac) saves.
+Escape puts the old value back. An unchanged input closes without saving. A refused input
+stays open with the reason and **Cancel** and **Save again** beneath it. Forms with several
+fields keep **Save** and **Cancel** and guard against leaving unsaved input behind.
 
 Trees support arrow-key navigation and record menus. **Move to…** provides an alternative to dragging records. Resizable panel separators can be focused and adjusted with arrow keys; Shift makes larger changes, and Home and End choose their limits.
 
@@ -16,12 +20,12 @@ Long lists load and draw a bounded part of their records. Use the collection's s
 
 ## Choose the display
 
-**Settings → Appearance** offers **Normal** and **Website purple** under **Theme**.
+**Settings → Appearance** offers **Current**, **Hearth**, **Studio**, **Instrument** and **Website purple** under **Theme**.
 The separate **Light or dark** choice offers **System**, **Light** and **Dark**; System follows
-the device's light or dark setting. Both colour themes work with either light or dark. **Table density** sets a comfortable or compact default; a table's own display choice can override it. **Type colours** offers two palettes, and **Edit pencil** controls whether edit hints appear on hover and focus or remain faintly visible. Touch screens always show the hints.
+the device's light or dark setting. Every theme works with either light or dark. **Table density** sets a comfortable or compact default; a table's own display choice can override it. **Type colours** offers two palettes, and **Edit pencil** controls whether edit hints appear on hover and focus or remain faintly visible. Touch screens always show the hints.
 
 Choices take effect immediately without a Save button and are saved in that browser, so another
-browser or device keeps its own settings. To reset them, choose **Normal**, **System**,
+browser or device keeps its own settings. To reset them, choose **Current**, **System**,
 **Comfortable**, **B: magenta and olive** and **On hover and focus** again. Panel widths can be adjusted where the layout offers a separator. See [Change how refiroo looks](/docs/guide/use/change-how-refiroo-looks/).
 
 ## Use a phone or touch screen

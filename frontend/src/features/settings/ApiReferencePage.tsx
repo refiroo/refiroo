@@ -12,10 +12,11 @@ import { downloadFrom } from "@/api/download";
 import type { SettingsRoute } from "@/types";
 import { DownloadLink } from "@/ui/DownloadLink";
 import { InlineError } from "@/ui/InlineError";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
+import { settingsHead } from "./navigation";
 import { ReferenceWorkspace } from "./ReferenceWorkspace";
 import { allConsumerApis, consumerSlug, openapiUrl, referenceUrl } from "./consumerAddresses";
 import { useSettingsRead, useSystem } from "./useSystem";
@@ -35,7 +36,7 @@ export function ApiReferencePage({
   const failure = systemError || error;
   return (
     <SettingsLayout
-      eyebrow="Integration"
+      {...settingsHead("api-reference")}
       title="API reference"
       description="The engine's interactive API reference, one source per API. It is built from the active model release when it opens."
     >
@@ -54,39 +55,45 @@ export function ApiReferencePage({
       ) : !system || !entries ? (
         <Skeleton label="Loading the API reference's sources" lines={4} />
       ) : (
-        <Section title="Sources">
-          <SettingsTable label="API reference sources" columns={["Source", "Version", "OpenAPI document"]}>
-            <tr>
-              <th scope="row">
-                <a href={referenceUrl("management")}>Management API</a>
-              </th>
-              <td data-label="Version">
-                <code>{system.engine.managementApi}</code> (engine {system.engine.version})
-              </td>
-              <td data-label="OpenAPI document">
-                <a href={`${API_URL}/openapi.json`}>openapi.json</a>
-              </td>
-            </tr>
-            {entries.map((entry) => (
-              <tr key={entry.consumerApi}>
+        <SettingsGroup
+          stacked
+          title="Sources"
+          description="The management API and each consumer API of the active release, with its OpenAPI document."
+        >
+          <SettingsPanel>
+            <SettingsTable label="API reference sources" columns={["Source", "Version", "OpenAPI document"]}>
+              <tr>
                 <th scope="row">
-                  <a href={referenceUrl(consumerSlug(entry), workspaceKey)}>{entry.name}</a>
+                  <a href={referenceUrl("management")}>Management API</a>
                 </th>
                 <td data-label="Version">
-                  <code>v{entry.contractVersion}</code>
+                  <code>{system.engine.managementApi}</code> (engine {system.engine.version})
                 </td>
                 <td data-label="OpenAPI document">
-                  <DownloadLink
-                    href={openapiUrl(entry)}
-                    save={() => downloadFrom(openapiUrl(entry), `${consumerSlug(entry)}-openapi.json`)}
-                  >
-                    openapi.json
-                  </DownloadLink>
+                  <a href={`${API_URL}/openapi.json`}>openapi.json</a>
                 </td>
               </tr>
-            ))}
-          </SettingsTable>
-        </Section>
+              {entries.map((entry) => (
+                <tr key={entry.consumerApi}>
+                  <th scope="row">
+                    <a href={referenceUrl(consumerSlug(entry), workspaceKey)}>{entry.name}</a>
+                  </th>
+                  <td data-label="Version">
+                    <code>v{entry.contractVersion}</code>
+                  </td>
+                  <td data-label="OpenAPI document">
+                    <DownloadLink
+                      href={openapiUrl(entry)}
+                      save={() => downloadFrom(openapiUrl(entry), `${consumerSlug(entry)}-openapi.json`)}
+                    >
+                      openapi.json
+                    </DownloadLink>
+                  </td>
+                </tr>
+              ))}
+            </SettingsTable>
+          </SettingsPanel>
+        </SettingsGroup>
       )}
     </SettingsLayout>
   );

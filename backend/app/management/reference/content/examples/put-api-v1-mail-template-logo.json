@@ -1,0 +1,28 @@
+{
+  "operation": "PUT /api/v1/mail-template/logo",
+  "name": "uploaded",
+  "summary": "Upload a PNG as the logo; the template's version moves on",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "markdown": "{{logo}}\n\nDear {{recipient_name}},\n\n{{content}}\n\n--\n[{{product_name}}]({{instance_url}})\n",
+      "defaultMarkdown": "{{logo}}\n\nHello {{recipient_name}},\n\n{{content}}\n\n---\n\nThis message was sent by [{{product_name}}]({{instance_url}}).\n",
+      "saved": true,
+      "placeholders": [
+        "content",
+        "product_name"
+      ],
+      "logoType": "image/png",
+      "logoDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "logoMaxBytes": 524288,
+      "version": 2,
+      "updatedAt": "2026-11-02T09:42:00Z"
+    }
+  },
+  "notes": [
+    "The `file` part: `logo.png`.",
+    "The `expectedVersion` part: `1`.",
+    "`placeholders`: the first 2 of 5 items are shown."
+  ]
+}

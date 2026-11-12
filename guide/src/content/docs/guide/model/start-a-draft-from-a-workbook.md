@@ -28,7 +28,7 @@ For the next-upload exercise, a second file is available in
 
 1. Open **Settings**, **Model**. Choose **New from a workbook**. **New draft** starts model
    authoring without this workbook proposal task.
-2. Enter **Draft name** and choose the **Workbook**, an Excel workbook or CSV file.
+2. Enter **Draft name** and choose the **Workbook**, an Excel workbook or CSV file, or drop it onto the field.
 3. Under **Propose**, choose **A new application**, **A new model**, **Additions to the model**
    or **Nothing: I will map it by hand**. Read the explanations: a new application adds to the
    starting model, while a new model starts empty. Set **Application name** where offered.

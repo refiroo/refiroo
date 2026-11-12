@@ -4,7 +4,7 @@ description: Manage webhook delivery, keys, suspended subscriptions and delivery
 reader: access-admin
 ---
 
-Use **Settings › Integration › Webhooks** to send a consumer API’s declared record events or the workspace’s change-set events to another system. You need **Integration administration** in the source workspace. Security administration alone does not grant it. The operator must also enable webhooks in the deployment.
+Use **Settings › Connections › Webhooks** to send a consumer API’s declared record events or the workspace’s change-set events to another system. You need **Integration administration** in the source workspace. Security administration alone does not grant it. The operator must also enable webhooks in the deployment.
 
 Work with the receiving system’s owner before creating or changing delivery. [Webhooks](/docs/integrate/consumer-events-and-webhooks/) explains the receiving system’s responsibilities. Here you manage the subscription in the browser.
 
@@ -53,7 +53,7 @@ Follow [Create a webhook](/docs/guide/administer/create-a-webhook/).
 
 ## State and delivery position
 
-The catalogue shows **Active**, **Retrying** or **Suspended**. Select a webhook for **Configuration** and **Deliveries**. Configuration shows its destination, source, events, filters, creator, delivery progress, signing-key dates and any failure or suspension findings.
+The catalogue shows **Active**, **Retrying** or **Suspended**. Open a webhook’s row for its own page with **Configuration** and **Deliveries** tabs. **← Webhooks** on the first line returns to the list. Configuration shows its destination, source, events, filters, creator, delivery progress, signing-key dates and any failure or suspension findings.
 
 **Suspend** stops delivery immediately, without a confirmation. **Resume…** checks the subscription against the current model and workspace. Choose **The first event not acknowledged** to continue from where it stopped. **Now, with reset** skips waiting changes and starts after the current position; arrange a fresh synchronisation with the receiver’s owner. Reset first, then synchronise from the publication identified by the page so changes do not fall between.
 
@@ -79,7 +79,7 @@ Follow [Find out why a webhook paused](/docs/guide/administer/find-out-why-a-web
 
 Creating a webhook shows **Keep the signing key** once. Store it securely with the receiver’s configuration before **I have stored the key**. It cannot be read back. Each delivery is signed so the receiver can check its origin.
 
-**Rotate key…** replaces that webhook’s key. An overlap of **1 hour**, **24 hours** or **7 days** lets the receiver switch while both keys work. **Stop it now** is for a leaked key: deliveries use the replacement alone and may be refused until the receiver has it. Follow [Rotate a webhook key](/docs/guide/administer/rotate-a-webhook-key/).
+**More actions › Rotate key…** replaces that webhook’s key. An overlap of **1 hour**, **24 hours** or **7 days** lets the receiver switch while both keys work. **Stop it now** is for a leaked key: deliveries use the replacement alone and may be refused until the receiver has it. Follow [Rotate a webhook key](/docs/guide/administer/rotate-a-webhook-key/).
 
 This key is separate from [client secrets](/docs/administer/clients/) and the instance’s [signing keys](/docs/administer/signing-keys/).
 
@@ -87,13 +87,13 @@ This key is separate from [client secrets](/docs/administer/clients/) and the in
 
 The **Deliveries** tab filters **Status** to **Queued**, **Sending**, **Retrying**, **Succeeded**, **Failed** or **Dropped**. Choose **Refresh** for the current state. Each row identifies the event and record, status, attempts, response and sent time. Open the event to inspect **Attempts** and the saved request and response; select an attempt to inspect its answer. These details can contain record data, so share them only with authorised people.
 
-![Retrying webhook delivery with its attempts and receiver response](/docs/screens/admin-webhook-deliveries.png)
+![Dropped webhook delivery with two attempts and a 503 receiver response](/docs/screens/admin-webhook-deliveries.png)
 
 Deliveries are normally kept for seven days; the page states the configured retention. A request still being retried or awaiting resume is kept longer. The list is a delivery log, not permanent data history.
 
 **Resend** asks **Resend a delivered event?** Confirm **Resend event** only with the receiver owner’s agreement, or choose **Don’t resend**. It sends the saved request again and can repeat an action in the receiving system. It is unavailable when the saved request is no longer held. It does not replace repairing and resuming a suspended webhook.
 
-**Delete…** asks **Delete this webhook?** Confirm **Delete webhook** to stop sending and discard its signing key, or choose **Keep the webhook**. A replacement is a new subscription with a new position and key. A workspace with subscriptions cannot be deleted until they are removed.
+**More actions › Delete…** asks **Delete this webhook?** Confirm **Delete webhook** to stop sending and discard its signing key, or choose **Keep the webhook**. A replacement is a new subscription with a new position and key. A workspace with subscriptions cannot be deleted until they are removed.
 
 Edits and actions check that the webhook has not changed meanwhile. If **Not saved** appears, review the current configuration and the explanation before applying the action again.
 
@@ -104,7 +104,7 @@ separately when moving an integration to another installation.
 ## Change a receiver or stop it permanently
 
 Use **Edit…** on the selected webhook to change **Name**, **URL**, chosen events, filters
-or delivery choices, then **Save changes**. A rename preserves a request being retried.
+or delivery choices, then **Save**. A rename preserves a request being retried.
 Other configuration edits clear that saved retry and build the next request from the
 first event not acknowledged, using the new configuration. The receiver may already have
 seen an earlier attempt, so agree the change with its owner. Editing a suspended webhook
@@ -128,7 +128,7 @@ another. Rotation is also possible while suspended; it does not resume delivery.
 
 
 For temporarily stopping delivery use **Suspend**; for removing the destination use
-**Delete…**. Deletion has no undo and a new subscription does not restore the old delivery
+**More actions › Delete…**. Deletion has no undo and a new subscription does not restore the old delivery
 position. An installation restore needs its database and secret storage, through the
 operator's [backup and restore procedure](/docs/run/backup-and-restore/). Coordinate a
 restore with receivers: returning to an older acknowledged position can repeat deliveries.

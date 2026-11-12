@@ -7,15 +7,17 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import type { Hue } from "@/model/hues";
 import type { FollowedWorkspace } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
+import { SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
+import { Skeleton } from "@/ui/Skeleton";
 
 const since = (at: string) =>
   `Following since ${new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`;
 
-export function FollowedWorkspaces() {
+export function FollowedWorkspaces({ hue }: { hue?: Hue }) {
   const [items, setItems] = useState<FollowedWorkspace[]>();
   const [error, setError] = useState("");
   const [problem, setProblem] = useState("");
@@ -47,47 +49,49 @@ export function FollowedWorkspaces() {
   }
 
   return (
-    <Section title="Workspaces I follow">
-      <div className="account-panel">
-        <p className="account-panel-note account-muted">
-          When a change set is published in one of these, a notice arrives in your inbox. Follow a workspace from its
-          card on Home.
-        </p>
-        {error ? (
-          <InlineError
-            message={error}
-            onRetry={() => {
-              setError("");
-              setAttempt((value) => value + 1);
-            }}
-          />
-        ) : !items ? (
-          <p className="account-panel-note account-muted">Loading…</p>
-        ) : items.length === 0 ? (
-          <p className="account-panel-note account-muted">You do not follow a workspace.</p>
-        ) : (
-          <ul className="account-list">
-            {items.map((item) => (
-              <li className="account-row" key={item.workspaceKey}>
-                <div className="account-row-text">
-                  <span>{item.label}</span>
-                  <span className="account-muted">{since(item.since)}</span>
-                </div>
+    <SettingsGroup
+      title="Workspaces I follow"
+      description="When a change set is published in one of these, a notice arrives in your inbox."
+    >
+      {error ? (
+        <InlineError
+          message={error}
+          onRetry={() => {
+            setError("");
+            setAttempt((value) => value + 1);
+          }}
+        />
+      ) : !items ? (
+        <Skeleton label="Loading the workspaces you follow" lines={2} />
+      ) : (
+        <SettingsPanel note="Follow a workspace from its card on Home.">
+          {items.length === 0 ? (
+            <SettingsEmpty icon="workspace" hue={hue}>
+              You do not follow a workspace.
+            </SettingsEmpty>
+          ) : (
+            items.map((item) => (
+              <SettingRow
+                key={item.workspaceKey}
+                lead={<SettingsTile icon="workspace" hue={hue} />}
+                name={item.label}
+                help={since(item.since)}
+              >
                 <button
                   type="button"
-                  className="secondary"
+                  className="ghost"
                   disabled={pending === item.workspaceKey}
                   aria-label={`Stop following ${item.label}`}
                   onClick={() => void stop(item)}
                 >
                   Stop following
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {problem && <Notice tone="error">{problem}</Notice>}
-      </div>
-    </Section>
+              </SettingRow>
+            ))
+          )}
+        </SettingsPanel>
+      )}
+      {problem && <Notice tone="error">{problem}</Notice>}
+    </SettingsGroup>
   );
 }

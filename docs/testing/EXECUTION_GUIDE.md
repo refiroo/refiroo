@@ -245,6 +245,7 @@ seed clone adds about 0.5 s). Pick by surface:
 | `e2e/wp9-change-sets.mjs` (`test:browser:change-sets`) | C-DR-SRC/EDIT/ACT, change set C-DEL |
 | `e2e/wp9-publications.mjs` (`test:browser:publications`) | C-REV, historical sources, C-PUB-RET, C-WS-RET |
 | `e2e/wp11-model-admin.mjs` (`test:browser:wp11`) | C-DR-PIN version-change dialog |
+| `e2e/ce1-canvas-editor.mjs` (`test:browser:ce1`) | 0.17 CE1: the canvas edits the whole model (a model built from nothing and installed; a released model opened whole) |
 | `e2e/wp12-release-identity.mjs` (`test:browser:wp12`) | C-MOD-DIFF release identity and history comparison |
 | `e2e/wp14-contextual-browser.mjs` (`test:browser:wp14`) | C-Q-SCOPE, C-MAP-UI, contextual collections |
 | `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, change-set-context mapping, non-active-release change set, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |

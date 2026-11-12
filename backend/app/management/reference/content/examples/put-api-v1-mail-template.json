@@ -1,0 +1,30 @@
+{
+  "operation": "PUT /api/v1/mail-template",
+  "name": "saved",
+  "summary": "Save the template; every message is now this letter around its own text",
+  "request": {
+    "body": {
+      "markdown": "{{logo}}\n\nDear {{recipient_name}},\n\n{{content}}\n\n--\n[{{product_name}}]({{instance_url}})\n"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "markdown": "{{logo}}\n\nDear {{recipient_name}},\n\n{{content}}\n\n--\n[{{product_name}}]({{instance_url}})\n",
+      "defaultMarkdown": "{{logo}}\n\nHello {{recipient_name}},\n\n{{content}}\n\n---\n\nThis message was sent by [{{product_name}}]({{instance_url}}).\n",
+      "saved": true,
+      "placeholders": [
+        "content",
+        "product_name"
+      ],
+      "logoType": null,
+      "logoDataUrl": null,
+      "logoMaxBytes": 524288,
+      "version": 1,
+      "updatedAt": "2026-11-02T09:35:00Z"
+    }
+  },
+  "notes": [
+    "`placeholders`: the first 2 of 5 items are shown."
+  ]
+}

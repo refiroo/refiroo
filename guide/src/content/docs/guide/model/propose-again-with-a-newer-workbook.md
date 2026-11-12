@@ -9,7 +9,7 @@ Use a saved workbook draft when a corrected file needs the same modelling work. 
 
 1. Open the draft and read **History** before replacing its source. In **More actions**, choose
    **Upload a newer workbook…**. A draft without a source offers **Add a workbook…** instead.
-2. Choose **Workbook**, an XLSX workbook or CSV file, and review **Compare with the records of**.
+2. Choose **Workbook**, an XLSX workbook or CSV file, or drop it onto the field. Review **Compare with the records of**.
    Upload and wait for the new source to be profiled. If it fails, read the file error and retry
    with a corrected file; do not rely on the previous source's counts.
 3. Inspect every sheet, changed header and list range. Existing reading instructions may no

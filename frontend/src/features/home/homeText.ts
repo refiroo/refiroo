@@ -75,6 +75,22 @@ export function roleLine(grants: Grant[], workspaceKey: string): string {
   return listedNames(rolesIn(grants, workspaceKey));
 }
 
+/**
+ * The person's roles in one workspace on one line (0.17 SH1): the first that fit, then "and n more"; the
+ * whole list is `roleLine`, which the card keeps as the line's title and accessible name.
+ */
+export function roleSummary(grants: Grant[], workspaceKey: string, budget = 44): string {
+  const names = rolesIn(grants, workspaceKey);
+  if (names.length <= 1) return listedNames(names);
+  const text = (shown: number) => {
+    const rest = names.length - shown;
+    return rest ? `${names.slice(0, shown).join(", ")} and ${rest} more` : listedNames(names);
+  };
+  // As many names as the line holds (`budget` characters), then "and n more": never a cut word.
+  for (let shown = names.length; shown > 1; shown -= 1) if (text(shown).length <= budget) return text(shown);
+  return text(1);
+}
+
 /** The two letters of a workspace's tile: the first letters of its first two words, or its first two. */
 export function tileLetters(label: string): string {
   const words = label.trim().split(/\s+/).filter(Boolean);

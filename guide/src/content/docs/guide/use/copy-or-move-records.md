@@ -9,7 +9,7 @@ Use a saved mapping prepared for the two workspace models. See
 omissions and the difference between Copy and Move. For mapping design, ask a model
 administrator to follow [Model mappings](/docs/model/model-mappings/).
 
-1. Open **Settings › Data operations › Copy and move**. Check **Recent copies and moves**
+1. Open **Settings › Workspaces and models › Copy and move**. Check **Recent copies and moves**
    for an existing operation before choosing **New copy or move…**.
 2. Choose **From workspace** and **To workspace**. Check their model names and releases.
    Under **Mapping**, select the agreed saved mapping. If none fits, stop and have its owner

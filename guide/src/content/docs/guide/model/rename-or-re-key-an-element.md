@@ -9,9 +9,13 @@ key needs a migration, even when there are no records; integrations naming it mu
 
 1. Open the element in a draft with **Model authoring**. Read **Key editable until released**
    or **Released: a key change needs a migration** in its facts.
-2. To change the displayed words, choose **Rename…** or select the editable title. Enter **Name**;
-   a record type also offers **Plural name**. Save, then check navigation and views using it.
-   A shared attribute rename appears on every type that attaches it.
+2. To change the displayed words in place, select the editable title and enter the name.
+   Leave the field or press Enter to save; Escape puts the old name back. An unchanged input
+   saves nothing. If refused, the input stays open with the reason and **Cancel** and
+   **Save again** beneath it. The menu's **Rename…** instead opens a short form beneath
+   its control: enter **Name** and, for a record type, **Plural name**, then choose **Save**.
+   Check navigation and views using the name. A shared attribute rename appears on every
+   type that attaches it.
 3. To change identity, choose **Change key…** and enter the new key. Relation types offer
    **Change keys…**. Save and inspect the affected definitions and **Issues**. The editor follows
    references in the draft; check documents and external systems you maintain separately.

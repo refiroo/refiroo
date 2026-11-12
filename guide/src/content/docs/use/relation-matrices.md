@@ -123,10 +123,16 @@ within that row: **Keep** cancels; **Unlink** removes only the connection. A req
 connection cannot be removed on its own.
 
 Where editing is permitted, change a value where it stands. A Yes or no checkbox saves with
-one click. Other fields open a small editor over the cell, keeping the table in place. Enter
-submits an ordinary single-line value; Escape cancels. A click outside closes an unchanged
-record-field editor. Relationship-value editors also attempt a save when focus leaves them.
-Review any error before closing. A save refreshes the cell and leaves the table open.
+one click. Other values become their input over the cell, keeping the table in place, without
+**Save** or **Cancel** buttons. Leaving a field by clicking elsewhere or pressing Tab saves it;
+Enter also saves a single-line value. In text of several lines, Enter adds a new line and
+Ctrl+Enter (Cmd+Enter on a Mac) saves. Escape puts the old value back; an unchanged input
+closes without saving or showing a notice. A saved input shows **‹Field› saved** with **Undo**,
+including for a relationship's value or a value set for the first time. Emptying an optional
+input and leaving it removes the value and shows **‹Field› removed** with **Undo**.
+A refusal keeps the input open with the reason and **Cancel** and **Save again** beneath it;
+leaving it again retries only after its input changes. Review any error before closing.
+A save refreshes the cell and leaves the table open.
 
 ![A populated matrix cell with record fields, tinted relationship values and a small editor open](/docs/screens/matrix-cell-relationship-table-editor.png)
 

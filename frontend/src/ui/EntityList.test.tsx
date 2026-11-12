@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EntityList, type EntityGroup } from "@/ui/EntityList";
-import { TrailBar, TrailLink } from "@/ui/TrailBar";
+import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 
 const row = (key: string, title: string, onOpen = vi.fn()) => ({
   key,
@@ -118,20 +118,26 @@ describe("EntityList", () => {
   });
 });
 
-describe("TrailBar", () => {
-  it("has a back button and a trail whose last item is the page", () => {
+describe("Trail", () => {
+  it("is one line: where the person came from, then the places, the last being the page", () => {
     const back = vi.fn();
     const up = vi.fn();
     render(
-      <TrailBar
-        back={{ label: "← All things", onClick: back }}
-        trail={[<TrailLink onClick={up}>Things</TrailLink>, "Thing one"]}
+      <Trail
+        back={{ label: "All things", onClick: back }}
+        items={crumbs(<TrailLink onClick={up}>Things</TrailLink>, "Thing one")}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "← All things" }));
+    fireEvent.click(screen.getByRole("button", { name: "All things" }));
     fireEvent.click(screen.getByRole("button", { name: "Things" }));
     expect(back).toHaveBeenCalled();
     expect(up).toHaveBeenCalled();
-    expect(screen.getByText("Thing one")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Thing one")).toHaveAttribute("aria-current", "location");
+    expect(screen.getAllByRole("navigation")).toHaveLength(1);
+  });
+
+  it("skips left-out places", () => {
+    render(<Trail items={[false, { key: "a", content: "Only", current: true }, undefined]} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 });

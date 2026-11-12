@@ -7,7 +7,7 @@ reader: model-admin
 Open **Settings › Model**, select a model, **Releases**, then the release to inspect.
 See [Releases](/docs/model/releases/) for immutable definitions and permissions.
 
-1. In **Release history**, find **Changes in this release**. Read **Before** and **After**;
+1. Find **Changes in this release**. Read **Before** and **After**;
    After is the open release. The suggested predecessor comes from activation history or the
    earlier installed release. It is not necessarily the workspace you currently have open.
 2. Use **Compare with** to choose another baseline. A comparison may cross model families,
@@ -22,5 +22,5 @@ See [Releases](/docs/model/releases/) for immutable definitions and permissions.
 
 ![Release history with baseline selector and semantic before and after changes](/docs/screens/model-release-compare.png)
 
-The separate **Activation check** reads each workspace's data. A small or empty comparison alone
+The separate activation check under **Workspaces running** reads each workspace’s data. A small or empty comparison alone
 does not establish that activation in a chosen workspace is safe.

@@ -201,7 +201,7 @@ def queue_notices(
     if row is None:
         return 0
     notices = session.execute(
-        select(Notification, User.email)
+        select(Notification, User.email, User.name)
         .join(User, User.id == Notification.user_id)
         .where(
             Notification.mailed_at.is_(None),
@@ -223,9 +223,14 @@ def queue_notices(
         return 0
     product = templates.product(session)
     url = mail_settings.application_url(identity, row)
-    for notification, address in notices:
+    for notification, address, name in notices:
         outbox.enqueue(
-            session, identity, address, templates.notice(product, notification.kind, url), now=now
+            session,
+            identity,
+            address,
+            templates.notice(product, notification.kind, url),
+            now=now,
+            recipient_name=name,
         )
         notification.mailed_at = now
     session.commit()
@@ -334,6 +339,7 @@ def _queue_digest(
                 ],
             ),
             now=now,
+            recipient_name=user.name,
         )
         session.execute(
             update(Notification)

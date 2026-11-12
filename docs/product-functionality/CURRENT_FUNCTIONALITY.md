@@ -39,6 +39,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 | F28 | Send mail | Settings › Integration › Mail | The organisation's mail server (SMTP, or Microsoft 365 through Microsoft Graph, signing in with a client secret, a certificate or a managed identity) saved with its secret sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1, 0.13 MS |
+| F28a | Brand the mail refiroo sends | Settings › This instance › E-mail template (Operator) | One template for the instance: Markdown with placeholders (the message's own text, the product's name, the instance's address, the person's name, the logo) and an uploaded logo, around every mail refiroo sends, with a text version; a preview with sample values, a test to your own address and a reset to the default; until one is saved refiroo's own layout is used | e-mail template |
 | F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -108,6 +109,15 @@ only be retired; **Delete…** is for correcting a mistyped key on an empty work
 administration is a deployment setting (on by default until sign-in exists, not a permission); when it
 is off the screen is read only and names the setting.
 
+A new workspace can be made from a workbook: **New workspace from a workbook** (on Home by the workspaces heading,
+in Settings › Workspaces and on a workspace's page, for an administrator who may also author and install models and
+import) opens a side sheet. The person drops the workbook and names the workspace (the file's name is suggested);
+refiroo reads the workbook, proposes its lists and checks every row, and says what it found: each list with its rows,
+which rows load and which do not, and why. **Create workspace** then makes the workspace on a model of its own and
+loads the workbook into its live data, and lands on the new workspace's page, which shows the load's progress and the
+rows that did not load. **Adjust** opens the model editor on the proposed model first; **More ways to start** leads to a
+workspace on an installed model.
+
 Each workspace names the model and release it runs, in the selector and in Settings › Workspaces,
 and a new workspace starts on the default workspace's model or on another installed release chosen
 when it is created.
@@ -131,13 +141,31 @@ top-level record.
 Settings › Model opens on a list of models; a model's page has the tabs Overview, Releases, Drafts and Structure (a release's applications, object types, attributes and relations, read only); an opened release or draft has a way back to the tab it came from. Settings › Workspaces opens on a list of workspaces (active ones first, then retired, with search); a workspace's page has tabs: Overview (its facts and its applications, each opening in the workspace), Access,
 Approval and Activity (its changes, newest first, by day); a person sees the tabs they may use.
 
+**A workspace's page and one location line.** A workspace has a page of its own (a card on Home opens it): a
+search over the names of every record in the workspace whatever its list or application, with the results grouped by
+type and where each stands (the arrow keys move through them, Enter opens the record), the applications, the person's
+change sets that wait there, the five latest changes there, **Edit model** and a ⋯ menu to Rename, Access, Approval,
+Copy or move and Retire, each only for a person who may use it. The same search is in the top bar on every page of
+the workspace; applications that do not fit the bar are under **More**, and inside Settings the bar offers **← Back
+to the workspace** (the one the person came from) instead of its application tabs. The coloured strip under the bar
+says which data the page reads (Live, a change set, a publication) once: it no longer repeats the workspace and the
+application, and a change set's strip is one row (its name, how many changes it holds and its state, with who made it,
+when, its version and model under **Details**). A record has one line above its title, "← the list it was opened
+from" and the records above it; its ID and version are under **Details** and **Copy ID** is in its ⋯ menu. A list's
+page is titled by the sidebar entry it was opened from, its other views being tabs under the title. **Browse
+records** in the sidebar is folded until opened (and stays as it was left); a change set opened from the change set
+list shows its changes first, with **See the data with these changes**. **Settings** opens on an index of its pages
+by task (You, Workspaces and models, People and access, Connections, This instance), the same groups as its menu;
+an opened item inside it shows one line of where it is, and its own name is the page title. Lists that do not fit
+their width fold the columns that do not fit behind **Columns · n of m**, and never cut a name.
+
 **Help and one header.** **?** in the top bar, left of the bell, opens the documentation in a new tab. The guide and the API reference carry the same bar (logo to the application, Documentation | API reference with the current one underlined, search in the guide) and the same theme choice (System, Light, Dark): picking it in one changes the others, open tabs included.
 
 **Home.** Signing in, the bare address and the product name in the top bar open the home page: a
 greeting with the person's roles and one sentence on what is open; **Continue where you left off**,
 back to the last list, record or review they opened in this browser; the workspaces they may browse
 as large cards, the default first, each with a coloured tile, its model and version, their role
-there and its applications (a workspace's name opens the workspace, an application its default view);
+there and its applications (a workspace's name opens its own page, an application its default view);
 under each card, buttons with the number of their own open change sets and, for someone who
 publishes there, every open change set; and their open change sets across workspaces with how much
 each changes, each opening its review. Someone who may browse no workspace reads there that there is
@@ -789,6 +817,27 @@ takes its column along, splitting and merging types carry their columns, and a r
 leaves its column marked as no longer mapped until it is mapped again. After each step that could
 change the load the dry run runs again by itself. Installing the draft saves its profile for loading
 the workbook, and any import may use "create missing values" on a lookup.
+
+A draft's source can also be read in three ways before its columns are mapped, each a step of its own in the draft's
+history: a wide sheet read as rows (the columns listed, one row for each filled cell, with the column's header in one new
+column and the cell in another), rows grouped under a heading row read as the parent of the rows beneath them, and
+columns repeated by blanks filled from the cell above. The new columns are mapped like any column. The readings are
+part of the profile, so the dry run, the import and the profile saved for the next file read a workbook the same way.
+The engine also compares one column of the workbook with the columns of another table over every row and says which
+the values point at, with the figures, and says so when two match equally instead of choosing; and it keeps where the
+cards of the workbook canvas sit on the draft, without that being a change of the model. The canvas itself shows the workbook beside
+the model: sheets dragged onto a board make lists, a column dropped on a list, a field or a list's filters is one step, Connect
+puts one list under another or relates them and fills the link from the column that names the other list's records (asked when
+two match equally), several chosen columns are read as rows, the sheet's first rows let a row be the header, a column's menu
+fills blanks from above and reads heading rows, a card's refused count gives the reasons and the rows (wrong values corrected
+with a value map), and what the inference proposed is marked Proposed. Every gesture has a menu or keyboard path; on a phone
+the menus do what the drags do. From it a draft becomes a workspace (Create workspace…), is applied to its workspace, or is
+loaded into a change set; the Editor | Canvas switch moves between the model editor and the canvas, and Adjust in New from a workbook leads to it.
+
+The canvas also edits the whole model, with or without a workbook: every list of the model in a frame per application (a switch
+chooses the whole model, what the draft changed or the workbook's lists), lists and fields made by hand and renamed where they stand,
+every list, field, relationship, group and application with the model editor's own operations in its menu, a panel at the right
+with the editor's panels (and Navigation, Views and Consumer APIs), Find, zoom, folded cards, and issues and history at the foot.
 
 **The editor with a workbook.** Settings › Model has **New from a workbook**: a draft of the active
 release (or an empty one) with the workbook uploaded to it, opened in the editor; an open draft takes

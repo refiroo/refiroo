@@ -8,6 +8,8 @@ A record is one item of reference data: something your organisation names, descr
 to other items. Its record type defines the fields it holds, the relationships it may have and
 where it belongs. The model defines these types; your records are the data kept using them.
 
+On a desktop, opening a table row shows the record beside its list, keeping your place. Choose **Expand to full page** to open the record's page. On a phone, the row opens the full page directly.
+
 For the steps to locate and inspect one, see [Find records](/docs/guide/use/find-records/).
 
 For choosing the dataset and view, see [Workspaces](/docs/use/workspaces/) and [Applications](/docs/use/applications/).
@@ -58,11 +60,9 @@ The model also chooses how the record's page presents it. Fields may appear in t
 in a details panel; other panels show children, relationships and history. For ways to edit a
 single value or several fields together, see [Correct a record](/docs/guide/use/correct-a-record/).
 
-![A record page with a heading, hierarchy path, fields and relationship tables](/docs/screens/stop-details.png)
+![A record opened beside its collection with a heading, fields and hierarchy path](/docs/screens/stop-details.png)
 
-*Above: Chur Wiesental is a Stop in the Network application of the Graubünden workspace.
-Stop details holds its number, abbreviation and other fields; Modes and Operator show connected
-records. The heading shows its ID and version.*
+*Above: Chur Wiesental is open beside the Stops list in Network. Stop details holds its number, abbreviation and other fields, and Hierarchy shows its parent. Details and Expand to full page are in the record header.*
 
 ## Relationships and a place in the hierarchy
 
@@ -74,7 +74,8 @@ values follow the related record's columns. **Display** lists them under **Attri
 relationship**. They cannot be used to sort this panel; see [Relationships](/docs/use/relationships/).
 
 A **parent** gives a record its place in a hierarchy. Some types can stand at the top; others
-need a parent of an allowed type. The path on a record's page shows its ancestors. A parent is
+need a parent of an allowed type. The line above a record’s title starts with **←** and the list’s name when you opened it from
+a list, followed by its ancestors where the model shows them. Choose the list’s name to return. A parent is
 more than an ordinary connection: changing it moves the record in the hierarchy and keeps the
 parent connection consistent. An invalid parent or a move that creates a cycle is refused.
 
@@ -125,7 +126,7 @@ several date changes.
 
 ## Versions and refused saves
 
-The version beside a record's heading protects it from being overwritten by an older edit.
+The version under **Details** in a record’s header protects it from being overwritten by an older edit.
 When you save, refiroo checks the version you read. If someone else saved a change first, your
 save is refused, even if you changed a different field on the same record. Their saved change
 remains in place.
@@ -154,18 +155,14 @@ and [See who changed what](/docs/guide/use/see-who-changed-what/) for the steps 
 
 ## Deleting a record
 
-**Delete record** on the record menu requests permanent removal. The confirmation describes what
-is being removed. If there are dependent records or relationships, refiroo shows their impact
-before the additional confirmation:
+**Delete record** on the record menu opens one confirmation. It reads what deletion would remove before offering the delete button; opening it deletes nothing. The impact follows these rules:
 
 - Descendants in the hierarchy are removed with their parent.
 - Records owned through required relationships are removed with their owner, including dependants
   in another application. Their dependants are included too.
 - Relationships to independent records are removed, but those records and their hierarchies remain.
 
-The impact lists affected records and relationships and gives their counts. Cancelling leaves
-everything in place. If the record or the impact changes before confirmation, deletion is refused;
-**Retry** obtains the current record so the deletion can be reviewed again. A required connection
+The confirmation counts the records and relationships removed and names up to eight dependants with their types, followed by **and N more** where needed. Choose **Delete N records** when dependants are included, or **Delete** followed by the type's name for one record. Cancelling leaves everything in place. A failed impact read offers **Retry** and no delete button. If the record or impact changes before deletion, the stale attempt is refused and the refreshed impact must be reviewed and confirmed again. A required connection
 cannot simply be removed on its own while leaving a dependant without its owner.
 
 In Live, deletion takes effect immediately. In a change set, it remains a proposed deletion until
@@ -214,20 +211,39 @@ rules can limit counting records beneath an ancestor; see [Relationships](/docs/
 A missing value is different from No, zero or a deliberately stored empty value.
 
 Click a value on the record page, or focus it and press Enter, to open its editor. Selecting
-text to copy does not start an edit. Choose **Save** or press Enter to save where offered;
-Escape cancels. Click an empty field to add a value. An optional value's trash button asks for
-confirmation before clearing it. Read-only fields have no editing control.
+text to copy does not start an edit. The value becomes its field where it stands, without
+**Save** or **Cancel** buttons. Leaving the field, by clicking elsewhere or pressing Tab,
+saves it; Enter also saves a single-line value. In text of several lines, Enter adds a new
+line and Ctrl+Enter (Cmd+Enter on a Mac) saves. Escape puts the old value back. An unchanged
+input closes without saving or showing a notice. Click an empty field to add a value.
+An editable Yes/No value in the details is a switch: changing it saves immediately; in a
+list cell, the tick saves as soon as it changes. A choice from a list saves when selected.
+You can open another field while one is open; the first saves as you leave it.
+
+Saving through an input shows **‹Field› saved** with **Undo**, including a value set for the first time:
+Undo makes that field **Not set** again. If the record changed again in the meantime, Undo is
+refused with “Undo was not possible: the record changed again in the meantime.” An optional
+value's trash button removes it immediately and offers **Undo** in the notice. Read-only
+fields have no editing control.
+
+If a save is refused, the field stays open with your input and the reason beneath it.
+**Cancel** and **Save again** then appear under the reason. Correct the input or review the
+current saved value before choosing **Save again**; **Cancel** abandons the correction.
+Leaving a refused field again retries only after its input has changed.
 
 The header's title and subtitle edit the same way. An empty subtitle offers **Add**.
-The header also has the record's ID with a copy button. Use **Edit record** in the **⋯** menu
+Open **Details** in the header for the record’s ID, its copy button and version.
+**Copy ID** is also in the record’s **⋯** menu. Use **Edit record** in the **⋯** menu
 for the form containing all fields. A new record form saves its fields, allowed parent and
-required relationships together: complete all required choices before choosing **Create**.
+required relationships together: complete all required choices before choosing **Add** followed by the type's name. Required fields come first; optional fields are under **More fields (n)**, remembered per type in this browser. Missing or wrongly typed values are explained beneath their fields. On a desktop, forms and confirmations open as dialogs in the middle of the window.
 A refusal leaves the invalid record uncreated; correct the named field or connection.
 
 In a table, use the cell's pencil to edit without opening the record. Optional values and
 single relationships can have a trash button. These icons appear on hover and stay visible
 on touch screens; the row's menu is the keyboard alternative. Clicking the value elsewhere
-still opens the record. A success notice says whether you saved in Live or the open change set.
+still opens the record. A saved value shows one **‹Field› saved** notice with **Undo**;
+the context band shows whether you are in Live or a change set. A relationship picker’s
+save notice names that context.
 Ancestor fields, containment, owned relationships, computed fields and publications have no
 cell editing icons. Relationship rows use tooltip-labelled icons for changing the other record,
 editing the connection's fields or deleting it; a lock explains a required or parent-managed row.
@@ -239,9 +255,10 @@ searching today's lists does not automatically select the records valid on anoth
 
 A Contributor sees **Propose a change** on a record and **Propose a new …** on a collection.
 The first use asks for a change-set name, then opens your proposal for editing. Later uses
-continue your newest change set. The band names it and its change count and says who publishes.
+continue your newest change set. The band names it, its change count and state. Open **Details**
+for who started it, when, its version and model.
 A Reader's band says **You can read this workspace** and whom to ask. With narrowed write
-permissions, controls appear only on the allowed record types and the band names those types.
+permissions, controls appear only on the allowed record types and the Live band names those types.
 
 For several records, permitted collections offer selection and **Change values**,
 **Change relationships** and **Delete** with a preview before applying. Deletion previews count
@@ -259,10 +276,13 @@ save. Workspace-wide uniqueness prevents two records holding the same nonempty u
 missing values and empty text do not reserve one. A conditional relationship rule can further
 limit which records count within an ancestor; see [Relationships](/docs/use/relationships/).
 
-To clear an optional field, confirm **Remove value** in **Remove …?**. It makes the value unset
-and keeps the record. If **Value removed; refresh needed** appears, removal succeeded but the
-screen could not refresh. Choose **Retry refresh** and inspect the saved state before trying
-another edit.
+To clear an optional field, empty its input and leave the field, or use its remove-value
+button. Either removes the value without asking for confirmation and keeps the record.
+The field reads **Not set**, and **‹Field› removed** offers **Undo** to put it back.
+Leaving a required field empty is refused beneath it: **‹Field› needs a value.**
+**Cleared** and **Empty text** still appear when already stored. There is no **No value**
+choice in the input: emptying a text input removes its value rather than setting either state. After any refusal or refresh problem, inspect the current saved state
+before another edit.
 
 A multi-record relationship cell opens a checklist and saves additions and removals together.
 See [Replace a record’s related records](/docs/guide/use/replace-a-records-related-records/).
@@ -274,7 +294,7 @@ For full workflows, use [Add a record](/docs/guide/use/add-a-record/),
 
 ## When a record cannot open
 
-**Object unavailable** is a failed read, not an empty record. Read its reason and choose
+**Record unavailable** is a failed read, not an empty record. Read its reason and choose
 **Retry**, or **Back to list** to inspect another result. A record belonging to another
 application follows that application's route where the model allows it. A record belonging
 to another workspace cannot be read by silently substituting the workspace you have open.

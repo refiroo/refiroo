@@ -963,8 +963,9 @@ def _note_matrix(session: Session, change_set_id: str | None) -> None:
     matrix_states.note_removed(session, removed, relations, change_set_id)
 
 
-def _dependants_with_lists(scope: DeletionScope, outcome: Deleted) -> ApiError:
-    """The single ``DELETE``'s refusal: the impact's records and relationships listed (API.md)."""
+def _impact_details(scope: DeletionScope, outcome: Deleted) -> dict[str, Any]:
+    """The impact's records and relationships listed, from the run's tables (API.md): what the
+    single ``DELETE`` refuses with and the read of a record's deletion impact answers."""
     session = scope.session
     impact = dict(outcome.impact or {})
     root = session.scalar(select(_ROOTS.c.object_id).where(_ROOTS.c.item == outcome.item))
@@ -991,20 +992,65 @@ def _dependants_with_lists(scope: DeletionScope, outcome: Deleted) -> ApiError:
             .order_by(_RELATIONS.c.relation_id)
         )
     ]
+    return {
+        "objectsToDelete": dependants,
+        "objectsToRetire": dependants,
+        "relationshipsToRemove": relationships,
+        "objectCount": impact["objectCount"],
+        "relationshipCount": impact["relationshipCount"],
+        "retainedAssociationCount": impact["retainedAssociationCount"],
+        "deletionPreviewToken": impact["deletionPreviewToken"],
+    }
+
+
+def _dependants_with_lists(scope: DeletionScope, outcome: Deleted) -> ApiError:
+    """The single ``DELETE``'s refusal: the impact's records and relationships listed (API.md)."""
     return api_error(
         409,
         "OBJECT_HAS_DEPENDANTS",
         "Object has dependant records or relationships; repeat with cascade=true",
-        {
-            "objectsToDelete": dependants,
-            "objectsToRetire": dependants,
-            "relationshipsToRemove": relationships,
-            "objectCount": impact["objectCount"],
-            "relationshipCount": impact["relationshipCount"],
-            "retainedAssociationCount": impact["retainedAssociationCount"],
-            "deletionPreviewToken": impact["deletionPreviewToken"],
-        },
+        _impact_details(scope, outcome),
     )
+
+
+def deletion_impact(scope: DeletionScope, object_id: str, object_type_key: str) -> dict[str, Any]:
+    """What deleting a record would take with it, nothing written: the impact the single ``DELETE``
+    refuses with (the same decide step and token), for a record with or without dependants, plus
+    ``ownRelationshipCount`` (the relationships of the record itself) and ``requiresCascade``
+    (whether the delete needs ``cascade=true`` and the token). The caller has found the record in
+    the context. A caller whose grants do not cover the impact is refused as the delete is."""
+    session = scope.session
+    deletion = Deletion(0, object_id, object_type_key, cascade=True)
+    session.flush()
+    session.connection().exec_driver_sql(_TABLES)
+    rows = _decide(scope, [deletion])
+    results = {row.item: _verdict(scope, row, previewing=True) for row in rows}
+    _refuse_unpermitted(scope, rows, results)
+    outcome = results[0]
+    try:
+        if outcome.error is not None:
+            raise outcome.error
+        details = _impact_details(scope, outcome)
+        (row,) = rows
+        details["ownRelationshipCount"] = (
+            session.scalar(
+                select(func.count())
+                .select_from(_RELATIONS)
+                .where(
+                    _RELATIONS.c.item == 0,
+                    or_(
+                        _RELATIONS.c.from_object_id == object_id,
+                        _RELATIONS.c.to_object_id == object_id,
+                    ),
+                )
+            )
+            or 0
+        )
+        details["requiresCascade"] = bool((row.objects or 0) > 1 or row.linked)
+        return details
+    finally:
+        # Reading changes nothing: end the transaction, which drops the run's tables.
+        session.rollback()
 
 
 def _offside(scope: DeletionScope, row: _Row) -> ApiError:
@@ -1139,6 +1185,23 @@ def delete_object_record(
         model_identity=model_identity,
     )
     session.commit()
+
+
+def read_object_deletion_impact(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    *,
+    model_identity: str,
+) -> dict[str, Any]:
+    """The impact of deleting a live record, as ``apply_object_delete`` would find it; nothing is
+    written and no workspace lock is taken."""
+    root = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, root.workspace_key, require_active=True)
+    return deletion_impact(
+        LiveScope(session, model, root.workspace_key, model_identity), object_id, object_type_key
+    )
 
 
 def apply_object_delete(

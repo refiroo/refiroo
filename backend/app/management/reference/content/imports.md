@@ -440,6 +440,24 @@ One object type loaded from a sheet (the first sheet when omitted, the file for 
 - rowsWithoutKey: What a load does with a row whose key is empty after value maps: `refuse` (the default, `MISSING_RECORD_KEY`) or `skip`, counted as skipped.
 - parent: One parent for every row. A source with it binds no `parent` column.
 - under: Marks the source as a value sheet: the records one column record of a matrix offers.
+- headings: Rows holding only a heading, in the heading column, are read as the parent of the rows beneath them: the heading's text fills a new column that a `parent` binding can name. Applied before `fillDown` and `unpivot`.
+- fillDown: Columns repeated by blanks: an empty cell takes the nearest filled cell above it in its column. Applied after `headings` and before `unpivot`.
+- unpivot: A wide table read as rows: each filled cell of the listed columns becomes a row, with the column's header in one new column and the cell in another, which bindings name like any column. Applied last.
+
+### Unpivot
+
+A wide table read as rows. The listed columns keep their cells but are not read as such. A row whose listed cells are all empty gives no row.
+
+- columns: The headers of the wide columns, at least two, each once.
+- nameColumn: The new column holding the header of the column each row came from.
+- valueColumn: The new column holding the cell.
+
+### HeadingRows
+
+Rows grouped under a heading. A row whose only filled cell is in `column` is a heading and no record; a data row therefore holds a value in some other column.
+
+- column: The header of the column holding the heading.
+- into: The new column holding the heading on every row beneath it, until the next heading; empty above the first.
 
 ### SourceKey
 

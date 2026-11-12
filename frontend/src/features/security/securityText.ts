@@ -4,7 +4,7 @@
  * what a grant allows. Roles, workspaces, applications and record types are named as data.
  */
 
-import { formatServerAgo, formatServerDayTime, formatServerTime } from "@/lib/dates";
+import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
 import type {
   ActionGroup,
   Client,
@@ -70,7 +70,7 @@ export function providerUseLine(
 /** How a person signs in, on their page (I3): "Signs in with Northfield Entra ID · last signed
  * in …", "Has not set a password yet", "Last signed in …", "Never signed in". */
 export function personSignInLine(user: Pick<User, "identities" | "hasPassword" | "lastSignInAt">): string {
-  const last = user.lastSignInAt ? formatServerTime(user.lastSignInAt) : undefined;
+  const last = user.lastSignInAt ? formatServerDayTime(user.lastSignInAt) : undefined;
   if (user.identities.length) {
     const names = [...new Set(user.identities.map((identity) => identity.provider.name))].join(" and ");
     return `Signs in with ${names}${last ? ` · last signed in ${last}` : ""}`;

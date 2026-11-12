@@ -591,9 +591,23 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # recompute it there if they land in another order.
     # Re-baselined for info.version 0.16.2-alpha.1 (an interim release): with 0.16.1-alpha.5 the document
     # hashes to the previous lock exactly.
+    # Re-baselined for the e-mail template (additive): GET/PUT/DELETE /mail-template, PUT/DELETE
+    # /mail-template/logo, POST /mail-template/preview and POST /mail-template/test (action
+    # `mail-template.manage`, Operations), their schemas and the reference text of the mail area.
+    # Re-baselined for the deletion impact (additive): GET /objects/{objectTypeKey}/{objectId}/deletion-impact
+    # (`changeSetId`; action `records.write`, as the delete), its response schemas and the reference text.
+    # Re-baselined for a workspace from a workbook (additive): POST /workspaces/from-workbook (action
+    # `workspaces.create-from-workbook`, Workspace administration), its two schemas and the reference text.
+    # Re-baselined for the workbook canvas, engine and API (additive; 0.17 PL3b): GET/PATCH
+    # /model-drafts/{id}/canvas and POST /model-drafts/{id}/join-candidates (action `model.author`), their
+    # schemas, six operation kinds (`setUnpivot`, `clearUnpivot`, `setFillDown`, `clearFillDown`,
+    # `setHeadingRows`, `clearHeadingRows`), and the import profile's `Source.unpivot`, `fillDown` and
+    # `headings` with `Unpivot` and `HeadingRows`; no existing path or schema otherwise changed.
+    # Re-baselined for CE1 (additive): the canvas document gains `folded` and `scope` (CanvasResponse,
+    # CanvasUpdate; `positions` is optional in the update); no path changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "224efd8d1ff5fc0413a65b750ce4ab074a0b7e663aed3ba2c88dcef0655f1f85"
+        "b5e61ec4a65fb269f9869ff66033d29ddf82efc7180361f03d6491e6e241226f"
     )
 
 
@@ -849,6 +863,8 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
     } == {
         "/api/v1/model-drafts": frozenset({"get", "post"}),
         "/api/v1/model-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),
+        "/api/v1/model-drafts/{draft_id}/canvas": frozenset({"get", "patch"}),
+        "/api/v1/model-drafts/{draft_id}/join-candidates": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/compile": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/impact-summary": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/installation": frozenset({"post"}),

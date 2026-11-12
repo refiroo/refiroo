@@ -318,10 +318,12 @@ the release must then be installed and activated in each workspace that serves i
    retained **Version**, **Superseded** day and **Sunset day**. Earlier versions keep their
    output shape but read current data; they are not historical copies of records.
 3. To announce an end date, select the row's **Sunset day** value or its pencil. In
-   **Sunset day (YYYY-MM-DD)**, enter the calendar date and choose **Save**. Emptying it and
-   saving withdraws the announcement; the table then shows a dash. A refused date stays in
-   the form with **Not saved** and its reason; the saved date is unchanged. Correct it and
-   save again, or **Cancel**. The day is announced to consumers in the response's Sunset
+   **Sunset day (YYYY-MM-DD)**, enter the calendar date, then leave the field or press Enter
+   to save. Escape puts the old date back; an unchanged input saves nothing. Emptying it and
+   leaving the field withdraws the announcement; the table then shows a dash. A refused date
+   stays in the input with **Not saved** and its reason; the saved date is unchanged.
+   **Cancel** and **Save again** appear beneath the reason. Correct the date before leaving
+   it to retry, or choose **Save again** after reviewing the reason. The day is announced to consumers in the response's Sunset
    header after activation. It is an announcement: refiroo serves the version until you
    explicitly stop it, whatever the date.
 4. Review Issues and the generated documents, then install and activate the release. Installing

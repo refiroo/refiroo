@@ -1,0 +1,33 @@
+{
+  "operation": "GET /api/v1/objects/{object_type_key}/{object_id}/deletion-impact",
+  "name": "deletionImpact",
+  "summary": "Read what deleting a stop with relationships would take, deleting nothing",
+  "request": {
+    "path": {
+      "object_type_key": "stop",
+      "object_id": "00000000-0000-4000-8000-000000000026"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "objectsToDelete": [],
+      "relationshipsToRemove": [
+        {
+          "id": "00000000-0000-4000-8000-000000000040",
+          "relationTypeKey": "municipality-contains-stop"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000036",
+          "relationTypeKey": "stop-served-by-mode"
+        }
+      ],
+      "objectCount": 1,
+      "relationshipCount": 2,
+      "ownRelationshipCount": 2,
+      "retainedAssociationCount": 2,
+      "requiresCascade": true,
+      "deletionPreviewToken": "eyJmaWx0ZXJzIjoiNTM4NmZlMzk5NDIyZjFjNWQ0YWRjODNiM2ZjNWE1ZWEzMDQ0ZDQ4OTA1ZWFjMmFlYTU1Nzg4YTYwNmM5ZDQ3MCIsInBvc2l0aW9uIjpbIjc4MjVhNGI0NDMxNDlkNzBiNzUzOGZkNDVlMjdjNjIzMWYyMmIyNjBmMThlZjMxNjE1MjIwZGQ3MjU2ZTNiNTAiXSwic2NvcGUiOiJsaXZlLWRlbGV0aW9uIiwic29ydCI6WyJkZWxldGlvbi1pbXBhY3QiXSwidmVyc2lvbiI6MX0.ahJJhu8VV7EBQJ4CMbixjsUl1umukuNScYZCT1eO8C0"
+    }
+  }
+}

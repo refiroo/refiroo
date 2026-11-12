@@ -13,7 +13,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/features/security/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
 import type { AiTask, EngineModel, JourneyRef, RouteState } from "@/types";
-import { Breadcrumbs } from "@/ui/Breadcrumbs";
+import { Trail } from "@/ui/Trail";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
@@ -117,7 +117,7 @@ export function AiTaskPage({
     ? { kind: "settings", page: "workspaces", workspaceKey }
     : undefined;
   const trail = (
-    <Breadcrumbs
+    <Trail
       items={[
         !!workspace &&
           !!workspaceKey && {

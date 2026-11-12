@@ -12,7 +12,7 @@ Work in a draft with **Model authoring**. See
 
 1. Select the application. Choose **Add a navigation group…** from its menu, or **Navigation
    group…** from **Add** and choose **Application**.
-2. Enter **Label** and choose whether it is **Folded when the sidebar opens**. Apply and check
+2. Enter **Label** and choose whether it is **Folded when the sidebar opens**. Choose **Add group** and check
    **Navigation groups** in the application panel. An empty group is allowed.
 3. Choose the group's name in that table, or select it in the model pane. Its panel shows the
    application it belongs to, its starting state and entry count. The **Entries** table lists
@@ -22,14 +22,14 @@ Work in a draft with **Model authoring**. See
 
 ## Add collections and matrices
 
-1. In the group panel, choose **Add to group…**. The dialog lists **Collections** and
+1. In the group panel, choose **Add to group…**. The popover lists **Collections** and
    **Relation matrices** separately. Entries already in this group are left out.
 2. Use **Search collections and matrices** to find entries by name. Tick all the entries you
    want to add. Beside each, **Top of the sidebar** means an ungrouped collection;
    **Inside** followed by a type's name means a matrix available through that row collection.
    **In** followed by a group name means the entry is in another group. Ticking it changes
    that note to **Moves from** followed by the old group name.
-3. Review those moves, then choose **Add** with the selected count. The entries appear in
+3. Review those moves, then choose **Apply** in the popover. The same button saves selections made from the application's **Add to a group…** control. The entries appear in
    the group's table. A collection or matrix belongs to at most one group in this application;
    choosing a new group replaces its old placement. This does not move records under a parent.
 4. Check the result. Adding several entries at once is one saved step: one **Undo** takes
@@ -38,7 +38,7 @@ Work in a draft with **Model authoring**. See
 ![Add-to-group dialog with collections and relation matrices selected and their current locations](/docs/screens/model-group-add-entries-dialog.png)
 
 From the application panel, **In no group:** lists ungrouped collections. Its **Add to a group…**
-opens the same dialog with those collections ticked; choose **Group** and adjust the selection
+opens the same popover with those collections ticked; choose **Group** and adjust the selection
 before adding them.
 
 You can also place one entry at a time. On a type listed in the application, choose
@@ -60,7 +60,8 @@ collection stays where it was, and its view tabs still offer the matrix.
    when another group exists. **Take out of the group** returns a collection to the top of the
    sidebar; a matrix returns to being available only through its row collection.
 3. For a collection with several views, select its **Opens on** cell. Choose the view people
-   should see when they open that collection, then **Save**. **Cancel** leaves it unchanged.
+   should see when they open that collection; the choice saves immediately. Escape closes
+   an unchanged input without saving.
    With only one view there is no choice to edit. A matrix entry shows **Itself** and always
    opens that matrix.
 4. Check the chosen view's name and kind in **Opens on**. It sets the collection's opening
@@ -70,22 +71,22 @@ collection stays where it was, and its view tabs still offer the matrix.
 
 ![Navigation group panel with a collection, a relation matrix and their opening views](/docs/screens/model-navigation-group-panel.png)
 
-*Above: a group in the Graubünden model contains a collection and the Municipalities by system
-relation matrix.*
+*Above: a new group, Translations, in a draft of the Graubünden model holds the Municipality names
+relation matrix and the Languages collection, each with the view it opens on.*
 
 ## Adjust or remove the group
 
 1. Use **Rename…** and **Start unfolded** / **Start folded** in the group panel to change its
    label and initial state. A person's later folding choice is remembered in their browser.
-2. Drag a group's row by its grip in the application table, or use the group menu's **Move up** or
-   **Move down**, to order groups. The table also lets you edit **Label** directly, and **Starts
+2. Drag a group's row by its grip in the application table, or, when the application has more than
+   one group, use the group menu's **Move up** or **Move down**, to order groups. The table also lets you edit **Label** directly, and **Starts
    folded** is a box you click to change. **Change key…** is for unreleased keys only.
 3. To remove the grouping, choose **Remove group**, read the confirmation and confirm.
    The confirmation says that its collections return to the top of the sidebar and, when the
    group holds relation matrices, that they go back inside their row type's entry; matrices
    remain available through their row collections. The views and records are kept. Check **Issues** and use **Undo** if needed.
 
-![Navigation group menu with ordering and initial-state choices](/docs/screens/model-group-menu.png)
+![Navigation group menu with Add to group, Rename, Start folded, Change key and Remove group](/docs/screens/model-group-menu.png)
 
 These are model defaults. The active workspace keeps its current navigation until the release
 is activated. If an action says **Not applied**, correct the stated problem before retrying.

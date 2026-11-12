@@ -130,3 +130,23 @@ def test_a_source_whose_header_row_is_unchanged_keeps_its_bindings():
     profile, _ = _apply(_profile(), block={"firstColumn": "A", "lastColumn": "C", "lastRow": 5})
     assert _columns(profile) == ["Name", "Name de", "Name fr"]
     assert _unmapped(profile) == []
+
+
+def test_a_header_is_matched_without_its_surrounding_whitespace_and_saved_trimmed():
+    """The profile lists a header as its cell holds it; the import's reader names it trimmed."""
+    profile = _profile()
+    profile["sources"][0]["columns"] = []
+    model = copy.deepcopy(MODEL)
+    document = Document(model)
+    sheet = Sheet("S", 3, ("Name", "Name de", "Name fr"), lambda row: dict(GRID.get(row, {})))
+    context = Context(
+        document,
+        lambda _atom: False,
+        Document(profile, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log),
+        {"S": sheet},
+    )
+    for name in ("Name ", " Name de"):
+        apply_operation(context, {"kind": "ignoreColumn", "source": "s", "column": name})
+    apply_operation(context, {"kind": "setSource", "source": "s", "key": {"column": "Name fr "}})
+    assert _columns(profile) == ["Name", "Name de"]
+    assert profile["sources"][0]["key"] == {"column": "Name fr"}

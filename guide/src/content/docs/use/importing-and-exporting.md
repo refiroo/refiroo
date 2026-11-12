@@ -13,6 +13,8 @@ Use [Export records](/docs/guide/use/export-records/),
 [Edit in Excel and import back](/docs/guide/use/edit-in-excel-and-import-back/), or
 [Import a file](/docs/guide/use/import-a-file/).
 
+If a workbook should become a workspace of its own, see [A workspace from a workbook](/docs/use/workspaces/#a-workspace-from-a-workbook).
+
 ## What an export contains
 
 Open **Workspace actions › Export**. On a view, **What** starts with **This view** and its
@@ -164,10 +166,24 @@ job runs. Reduce parents or fields and export again.
 ## Read a file through a profile
 
 An import profile tells refiroo how sheets and columns become records, names, fields, parents
-and relationships, and which values identify existing records. Choose a stored profile for a
-CSV or workbook that was not exported by refiroo. Profile setup belongs to
+and relationships, and which values identify existing records. Choose the file first, or drop it onto the file field. The form selects a profile when exactly one valid profile fits; you can still choose **None** or another fitting profile. JSON Lines uses none; CSV accepts a profile with CSV settings or a single source, and a workbook accepts any valid profile for this workspace's model. Invalid profiles and profiles for other models are omitted. The three loading-policy choices are under **Options**. Profile setup belongs to
 [Workbook onboarding](/docs/model/workbook-onboarding/); a steward can
 [load its next version](/docs/guide/use/load-the-next-version-of-a-workbook/).
+
+A saved profile can also read selected columns of a wide sheet as rows: each filled cell
+makes a row with its column header and value; empty cells make no row. It can fill blanks
+from the nearest filled cell above in a column, and read heading rows as the parent of the
+rows beneath them. A heading row has just one filled cell in the chosen column; it is not
+loaded as a record. Its heading applies until the next heading. These instructions are reused
+for the next file, including its check and load. Column headers match without surrounding spaces.
+
+A model administrator sets these readings on the
+[canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/#correct-how-the-sheet-is-read)
+or in the model editor. In the editor, a column's **Readings** row offers
+**Fill blanks from the cell above**, **Rows holding only this column are headings…** and
+**Read these columns as rows…**, with a **Stop…** entry for each reading that is on.
+A loaded list's **Readings** row also offers **Read these columns as rows…**.
+The **Source** pane marks columns that have a reading.
 
 Under **Settings › Data operations › Import profiles**, **Upload the next version…** stores
 an XLSX or CSV file and starts a job to read its sheets and columns. While waiting, the page
@@ -195,9 +211,13 @@ in one sheet or several sheets of the file, combine into one record; conflicting
 do not conflict with another row's supplied value. A profile without a stable key warns that
 later uploads may create new records instead of finding earlier ones.
 
-A profile can keep or delete records missing from the next file. Deletion of missing records
-is allowed only in a change set, so review those removals before publication. A profile must
-still fit the workspace's model; ask its model administrator to fix named problems.
+For a source that loads its own records by a key, the model administrator chooses
+**Records no row names** in its list panel in the model editor or the canvas inspector.
+**Report them** is the default: the load reports missing records and keeps them.
+**Delete them** asks for confirmation with **Delete them on load**. Every subsequent load
+then stages those removals in a change set; live data changes only when it is published.
+Choosing **Report them** again stops future deletions. A profile must still fit the workspace's
+model; ask its model administrator to fix named problems.
 
 ## Preview and load
 
@@ -253,7 +273,7 @@ has written nothing.*
 In **Settings › Data operations › Import profiles**, **Valid** means the profile fits its
 model; **Needs a fix** means a named problem must be resolved. Neither guarantees that every
 row in the next file is valid. **Not loaded yet** means no retained last load is shown.
-**Load more profiles** continues the catalogue. If there are no profiles, ask a model
+Scroll to the end of the catalogue to read more profiles. If there are no profiles, ask a model
 administrator to prepare one through [Workbook onboarding](/docs/model/workbook-onboarding/).
 
 **Last load** offers **Open the change set review** while its work is proposed, or
@@ -319,15 +339,15 @@ retained; [AI and your data](/docs/use/ai-and-your-data/) explains those rules.
 
 ## Remove an uploaded file or an import profile
 
-Open **Settings › Data operations › Import profiles** and select the profile. People with
-**Bulk and import** are offered the deletion buttons; without that access the buttons are absent.
+Open **Settings › Data operations › Import profiles** and open the profile’s row. **← Import profiles** on the first line returns to the list. People with
+**Bulk and import** find the deletion actions under **More actions**; without that access the actions are absent.
 Deleting either item does not undo a load or remove records already loaded into a workspace.
 
-- **Delete the file…** asks **Delete <file name>?**. **Delete the file** removes that upload,
+- **More actions › Delete the file…** asks **Delete <file name>?**. **Delete the file** removes that upload,
   its stored cells and the analysis of its sheets and columns. This analysis is not the saved
   import profile that maps the columns. A check still reading it is
   asked to stop. The import profile stays. Upload the file again before checking or loading it.
-- **Delete the profile…** asks **Delete the profile <profile name>?**. **Delete the profile**
+- **More actions › Delete the profile…** asks **Delete the profile <profile name>?**. **Delete the profile**
   removes the saved instructions for reading the workbook and returns you to the profile list.
   Loading the workbook again needs a new profile saved by installing a model draft that holds it;
   ask a model administrator to prepare this through [Workbook onboarding](/docs/model/workbook-onboarding/).

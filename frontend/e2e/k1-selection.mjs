@@ -195,7 +195,9 @@ try {
     await page.evaluate((value) => localStorage.setItem("rdm:theme:v1", JSON.stringify(value)), theme);
     await open(collections[0]);
     await page.getByRole("checkbox", { name: "Select the records shown" }).click();
-    await bar.getByRole("button", { name: "Select all 80 matching" }).waitFor();
+    // The 80 rows are read whole a moment after the list opens, so the header may already hold them all:
+    // the offer, or the full count, either way a selection stands for the check.
+    await bar.getByText(/^(Select all 80 matching|80 selected)$/).first().waitFor();
     const result = await runAxe(page, [], `k1-selection-${theme}`);
     if (result.violations.length) failures.push(`selection ${theme}:\n${formatViolations(result.violations)}`);
     if (theme === "dark") await shot("k1-selection-dark");

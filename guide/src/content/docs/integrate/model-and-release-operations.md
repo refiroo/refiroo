@@ -22,6 +22,62 @@ Attached source files can be profiled, bound and dry-run without writing data. A
 
 Compilation checks the draft against its base release, or its model's latest installed release when it has no base. It reports contract changes and workspace compatibility. Installing saves an immutable release but does not activate it. If activation subsequently fails, that installed release remains. `MODEL_DRAFT_NOT_FOUND`, `INVALID_MODEL`, `MODEL_HASH_CHANGED` and `RELEASE_IDENTITY_CONFLICT` require the intended validated draft and release identity, not a forced overwrite. `RELEASE_IDENTITY_CONFLICT` means another release of the same key already has that version, for example one an assistant task installed. Its `details.freeVersion` names a free version: send `setRelease` with it and install again. The draft's outline proposes a free version before you install, as `suggestedReleaseVersion`.
 
+## Edit a workbook's reading
+
+Use `POST /api/v1/model-drafts/{id}/operations` to change how a source reads its sheet.
+The six reading operations change the draft's import profile, are validated and can be undone:
+
+| Set a reading | Clear it | What it does |
+| --- | --- | --- |
+| `setUnpivot` | `clearUnpivot` | Read selected wide-sheet columns as rows, adding a header column and a value column. |
+| `setFillDown` | `clearFillDown` | Fill selected columns' blanks from the nearest filled cell above. |
+| `setHeadingRows` | `clearHeadingRows` | Read heading-only rows into an added column, which can name the following rows' parent. |
+
+Use the explicit clear operation to remove a reading. Clearing a reading that is absent is
+refused. Removing or replacing added columns leaves their bindings, and a key naming them,
+as unmapped entries; review the profile before loading. Undo restores the step's changes.
+The [operations reference](/docs/api/?api=management#tag/model%20administration/POST/api/v1/model-drafts/{draft_id}/operations)
+defines parameters and refusals. [File readings](/docs/integrate/files-imports-and-exports/#import-with-a-profile)
+explains the order and how saved profiles read the next file.
+
+`setMissing` chooses whether a load reports or deletes keyed records that no row names.
+Report is the default. Delete needs a source that loads its own records by a key, and execution
+requires a change set; it does not delete live records while editing the draft. Removing the
+source's key also removes its delete choice. This operation uses the same versioned draft
+step and undo mechanism as the reading operations.
+
+## Find a column for a relationship
+
+`POST /api/v1/model-drafts/{id}/join-candidates` compares a column of the draft's stored
+workbook with the columns of another table in that workbook, or with one named column.
+It compares every row in the selected tables, using trimmed, case-sensitive text. This is
+separate from the sampled overlaps in source-file profiling. The read stores nothing and
+creates no relationship or binding.
+
+Candidates are ranked by the starting column's matched rows, then its matched distinct
+values, then sheet column order. Candidates without a match are omitted unless explicitly
+named; an unnamed search also excludes the starting column itself. If the leading candidates
+share both match counts, `tie` is true, `tied` names them and `best` is null. Ask the caller
+to choose; column order does not break that tie. No match also gives no best candidate.
+Use the [join-candidates reference](/docs/api/?api=management#tag/model%20administration/POST/api/v1/model-drafts/{draft_id}/join-candidates)
+for table selectors, figures and refusals. Apply the chosen relationship and its column
+binding through an operations request.
+
+## Keep canvas arrangement separate
+
+`GET /api/v1/model-drafts/{id}/canvas` reads card positions, folded cards and the chosen
+scope. `PATCH` merges positions and folded cards by card key, replaces scope, and leaves
+omitted parts unchanged. Moving or folding different cards therefore preserves both editors'
+changes; the later write wins when both change the same card. Scope selects `model`,
+`changed` or `workbook`; null returns to the default.
+
+This arrangement belongs only to the draft. It changes neither its model, version nor update
+time, appears in no history or undo step, and is excluded from releases. Do not send a model
+operation just to move or fold a card. The
+[canvas reference](/docs/api/?api=management#tag/model%20administration/PATCH/api/v1/model-drafts/{draft_id}/canvas)
+defines the read and update shapes, removal rules and limits. Both canvas routes and the
+join-candidates route need **Model authoring** at the instance.
+
 ## Activate in one workspace
 
 Read the workspace's current assignment and claim its version and release when activating. Other workspaces keep their assignments. Read placements in the target context to discover allowed root types, children and replacement types; parent candidates can be narrowed without losing truthful totals.

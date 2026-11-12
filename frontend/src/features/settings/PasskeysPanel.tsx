@@ -1,6 +1,6 @@
 /**
  * Settings › Account › Passkeys (0.12 I4c, D389–D394): a person's passkeys by the name they gave
- * them, with when each was added and last used; rename and remove (a confirmation). A passkey is
+ * them, with when each was added and last used; rename in place and remove (a confirmation). A passkey is
  * made on the engine's own page, so **Add a passkey** leaves for it and comes back here: the
  * passkey belongs to the engine's host, where the sign-in page is. A passkey signs the person in
  * alone, or as the second step after a password.
@@ -16,23 +16,24 @@ import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
-import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
+import { SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
+import { TextInPlace } from "@/ui/TextInPlace";
 import { useToast } from "@/ui/Toast";
+import { settingsHead } from "./navigation";
 import { useSettingsRead } from "./useSystem";
 
 export function PasskeysPanel() {
   const { data: passkeys, error, retry } = useSettingsRead<Passkey[]>(api.myPasskeys);
-  const [renaming, setRenaming] = useState<Passkey>();
   const [removing, setRemoving] = useState<Passkey>();
   const toast = useToast();
 
   return (
-    <Section
+    <SettingsGroup
       title="Passkeys"
-      actions={
-        <button type="button" className="primary" onClick={() => void addPasskey()}>
+      description="Sign in with your fingerprint, face or device PIN instead of a password, or after it as the second step. A passkey cannot be stolen by a look-alike page."
+      action={
+        <button type="button" className="secondary" onClick={() => void addPasskey()}>
           <Icon name="plus" /> Add a passkey
         </button>
       }
@@ -42,57 +43,49 @@ export function PasskeysPanel() {
       ) : !passkeys ? (
         <Skeleton label="Loading your passkeys" lines={2} />
       ) : (
-        <div className="account-panel">
-          <p className="account-muted account-panel-note">
-            Sign in with your fingerprint, face or device PIN instead of a password, or after it as the second step. A
-            passkey cannot be stolen by a look-alike page.
-          </p>
-          {passkeys.length > 0 && (
+        <SettingsPanel>
+          {passkeys.length === 0 ? (
+            <SettingsEmpty icon="key" hue={settingsHead("account").hue}>
+              You have no passkey yet.
+            </SettingsEmpty>
+          ) : (
             <ul className="account-list" aria-label="Your passkeys">
               {passkeys.map((passkey) => (
-                <li key={passkey.id} className="account-row">
-                  <span className="account-tile" aria-hidden="true">
-                    <Icon name="lock" size={20} />
-                  </span>
-                  <div className="account-row-text">
-                    <strong>{passkey.name}</strong>
-                    <span className="account-muted">
-                      Added {formatServerDayTime(passkey.createdAt)} ·{" "}
-                      {passkey.lastUsedAt ? `last used ${formatServerAgo(passkey.lastUsedAt)}` : "not used yet"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="ghost"
-                    aria-label={`Rename ${passkey.name}`}
-                    onClick={() => setRenaming(passkey)}
+                <li key={passkey.id}>
+                  <SettingRow
+                    lead={<SettingsTile icon="key" hue={settingsHead("account").hue} />}
+                    name={
+                      <TextInPlace
+                        value={passkey.name}
+                        label={`Name of ${passkey.name}`}
+                        maxLength={100}
+                        onSave={async (name) => {
+                          await api.renamePasskey(passkey.id, name);
+                          retry();
+                          return () => api.renamePasskey(passkey.id, passkey.name).then(retry);
+                        }}
+                      >
+                        <strong>{passkey.name}</strong>
+                      </TextInPlace>
+                    }
+                    help={`Added ${formatServerDayTime(passkey.createdAt)} · ${
+                      passkey.lastUsedAt ? `last used ${formatServerAgo(passkey.lastUsedAt)}` : "not used yet"
+                    }`}
                   >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    className="danger-ghost"
-                    aria-label={`Remove ${passkey.name}`}
-                    onClick={() => setRemoving(passkey)}
-                  >
-                    Remove…
-                  </button>
+                    <button
+                      type="button"
+                      className="danger-ghost"
+                      aria-label={`Remove ${passkey.name}`}
+                      onClick={() => setRemoving(passkey)}
+                    >
+                      Remove…
+                    </button>
+                  </SettingRow>
                 </li>
               ))}
             </ul>
           )}
-        </div>
-      )}
-      {renaming && (
-        <RenameDialog
-          passkey={renaming}
-          onClose={() => setRenaming(undefined)}
-          onRenamed={() => {
-            setRenaming(undefined);
-            toast("Saved.");
-            retry();
-          }}
-        />
+        </SettingsPanel>
       )}
       {removing && (
         <RemoveDialog
@@ -105,7 +98,7 @@ export function PasskeysPanel() {
           }}
         />
       )}
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -137,7 +130,7 @@ function RemoveDialog({
   }
 
   return (
-    <Modal title={`Remove ${passkey.name}?`} eyebrow="Passkey" size="compact" busy={pending} onClose={onClose}>
+    <Modal title={`Remove ${passkey.name}?`} eyebrow="You" size="compact" busy={pending} onClose={onClose}>
       <form noValidate onSubmit={(event) => void submit(event)}>
         <p>
           You can no longer sign in with {passkey.name}. Remove the passkey from your device or password manager as
@@ -162,61 +155,6 @@ function RemoveDialog({
           </button>
           <button className="danger" disabled={pending || !proof}>
             {pending ? "Removing…" : "Remove passkey"}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function RenameDialog({
-  passkey,
-  onClose,
-  onRenamed,
-}: {
-  passkey: Passkey;
-  onClose: () => void;
-  onRenamed: () => void;
-}) {
-  const [name, setName] = useState(passkey.name);
-  const [problem, setProblem] = useState("");
-  const [pending, setPending] = useState(false);
-
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    setProblem("");
-    try {
-      await api.renamePasskey(passkey.id, name.trim());
-      onRenamed();
-    } catch (cause) {
-      setProblem(errorMessage(cause));
-      setPending(false);
-    }
-  }
-
-  return (
-    <Modal title={`Rename ${passkey.name}`} eyebrow="Passkey" size="compact" busy={pending} onClose={onClose}>
-      <form noValidate onSubmit={(event) => void save(event)}>
-        <FormField label="Name" help="So you can tell your passkeys apart." error={problem || undefined}>
-          {(control) => (
-            <input
-              {...control}
-              required
-              maxLength={100}
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          )}
-        </FormField>
-        {problem && <Notice tone="error">{problem}</Notice>}
-        <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary" disabled={pending || !name.trim() || name.trim() === passkey.name}>
-            {pending ? "Saving…" : "Save"}
           </button>
         </div>
       </form>

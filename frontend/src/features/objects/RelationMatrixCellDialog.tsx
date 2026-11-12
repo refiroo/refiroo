@@ -439,7 +439,6 @@ function CellRecordForm({
   saving,
   ready = true,
   children,
-  extra,
   cancelLabel = "Cancel",
   relationAttributes = [],
   onDirty,
@@ -458,8 +457,6 @@ function CellRecordForm({
   ready?: boolean;
   /** Fields placed before the cell fields. */
   children?: ReactNode;
-  /** Further actions beside Cancel. */
-  extra?: ReactNode;
   cancelLabel?: string;
   onDirty: () => void;
   onCancel: () => void;
@@ -507,8 +504,6 @@ function CellRecordForm({
       ))}
       <RelationAttributes attributes={relationAttributes} mode="edit" />
       <div className="dialog-actions">
-        {extra}
-        <span className="dialog-actions-spacer" />
         <button type="button" className="secondary" disabled={saving} onClick={onCancel}>
           {cancelLabel}
         </button>
@@ -620,7 +615,7 @@ function CreateCellRecord({
       fields={config.cellFields}
       values={prefill ?? {}}
       relationAttributes={relationAttributes}
-      submitLabel={`Create ${cellType.name.toLowerCase()}`}
+      submitLabel={`Add ${cellType.name.toLowerCase()}`}
       saving={saving}
       // A submit before the containers answer would have no container; once they do, a single one
       // is shown without the list that says one is missing, and the submit was lost (0.9 R).
@@ -971,7 +966,6 @@ function LinkCandidates({
       </fieldset>
       <RelationAttributes attributes={relationAttributes} mode="edit" />
       <div className="dialog-actions">
-        <span className="dialog-actions-spacer" />
         <button type="button" className="secondary" disabled={saving} onClick={onCancel}>
           Back
         </button>

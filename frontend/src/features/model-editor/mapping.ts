@@ -313,7 +313,7 @@ export interface MapChoice {
   /** A target of `mapTargets`, for the kinds that have one. */
   target?: string;
   /** A new attribute's name and value type, and whether it is unique. */
-  newAttribute?: { name: string; valueType: string; unique: boolean };
+  newAttribute?: { name: string; valueType: string; unique: boolean; filterable?: boolean };
   /** The attribute becomes the source's key. */
   useAsKey?: boolean;
   /** A lookup's delimiter, when a cell names several. */
@@ -389,7 +389,10 @@ export function mapOperations(
         key: attribute,
         name: choice.newAttribute.name,
         valueType: choice.newAttribute.valueType,
-        features: choice.newAttribute.unique ? { unique: true } : {},
+        features: {
+          ...(choice.newAttribute.unique ? { unique: true } : {}),
+          ...(choice.newAttribute.filterable ? { filterable: true } : {}),
+        },
       },
       { kind: "attachAttribute", objectType: choice.rowType, attributeType: attribute },
     );

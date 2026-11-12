@@ -1,6 +1,6 @@
 {
   "wave": "USE2",
-  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the 'Use refiroo' pages: Home, Account, Workspaces, Loading a workbook, Publications, History, Inbox and approvals. Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file USE2.screens.json) into guide/public/screens/<name>.png. 'shows' says what the picture is for; 'expect' lists texts that must be visible. Dialogs are cancelled. Three kinds of screen need instance state that USE2.data-changes.md describes: the use-wb-* editor screens read the model draft 'Haltestellen Busbetrieb Nord' (id 23ef12bf-85a8-4a2a-993c-a5c8b93572d0; created from guide/samples/Haltestellen_Busbetrieb_Nord.xlsx through 'New from a workbook', since deleted, so recreate it and put its id in the editor URLs to retake them); use-pub-review and use-pub-confirm are one-off (they read the change set ae6d8306-7f41-4404-b269-bcd50efc13f1, which use-pub-confirm publishes); use-pub-*, use-history-stop-changed need that publication to exist. use-notification-job marks one notice read.",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the 'Use refiroo' pages: Home, Account, Workspaces, Loading a workbook, Publications, History, Inbox and approvals. Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file USE2.screens.json) into guide/public/screens/<name>.png. 'shows' says what the picture is for; 'expect' lists texts that must be visible. Dialogs are cancelled. Three kinds of screen need instance state that USE2.data-changes.md describes: the use-wb-* editor screens read the model draft 'Haltestellen Busbetrieb Nord' (id {draft:Haltestellen Busbetrieb Nord}; created from guide/samples/Haltestellen_Busbetrieb_Nord.xlsx through 'New from a workbook', since deleted, so recreate it and put its id in the editor URLs to retake them); use-pub-review and use-pub-confirm are one-off (they read the change set ae6d8306-7f41-4404-b269-bcd50efc13f1, which use-pub-confirm publishes); use-pub-*, use-history-stop-changed need that publication to exist. use-notification-job marks one notice read.",
   "base": "http://localhost:8480",
   "screens": [
     {
@@ -136,12 +136,13 @@
         },
         {
           "click": {
-            "role": "combobox"
+            "role": "combobox",
+            "nth": 1
           }
         },
         {
           "click": {
-            "text": "RDM Starter Model 0.10.0",
+            "text": "RDM Starter Model 0.10.1",
             "exact": true
           }
         },
@@ -159,7 +160,7 @@
         "RDM Master",
         "RDM Systems",
         "RDM Translations",
-        "Default runs RDM Starter Model 0.10.0"
+        "Default runs RDM Starter Model 0.10.1"
       ]
     },
     {
@@ -189,14 +190,15 @@
     },
     {
       "name": "use-workspaces-detail",
-      "shows": "One workspace in Manage workspaces (Graubünden): its key, the actions Open workspace, Edit model, Copy or move data, Rename, Retire, and the tabs Overview, Access, Approval, Activity.",
+      "shows": "One workspace in Manage workspaces (Graubünden): its name editable where it stands, its key, the actions Open workspace and Edit model with the ⋯ menu for the rest, and the tabs Overview, Access, Approval, Activity.",
       "actions": [
         {
           "goto": "/settings/workspaces/graubuenden"
         },
         {
           "waitFor": {
-            "text": "Open workspace",
+            "role": "button",
+            "name": "Open workspace",
             "exact": true
           }
         },
@@ -207,8 +209,6 @@
       "expect": [
         "Open workspace",
         "Edit model",
-        "Rename",
-        "Retire",
         "Overview",
         "Access",
         "Approval",
@@ -288,12 +288,64 @@
       ]
     },
     {
+      "name": "use-wb-setup",
+      "setup": true,
+      "shows": "Makes the draft the use-wb-* screens read: New from a workbook with Haltestellen_Busbetrieb_Nord.xlsx (a new application), proposals applied and the dry run checked. Run it before them when no draft of that name is left (use-wb-delete-draft deletes it).",
+      "actions": [
+        {
+          "goto": "/settings/model"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New from a workbook"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Draft name"
+          },
+          "value": "Haltestellen Busbetrieb Nord"
+        },
+        {
+          "upload": {
+            "css": "input[type=file]"
+          },
+          "value": "guide/samples/Haltestellen_Busbetrieb_Nord.xlsx"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Create and propose"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false,
+            "timeout": 120000
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ]
+    },
+    {
       "name": "use-wb-editor",
       "height": 1000,
       "shows": "The model editor right after the workbook was loaded into a draft: the source pane (Haltestellen ·54, Namen ·15, Lokale Codes ·27 sheets with each column's profile and Proposed marks), the model tree with the new application Haltestellen Busbetrieb Nord (Proposed), the proposed type Haltestellen with its 'Proposed because' reason, and the bar 'No issues, 16 steps, Dry run: Checked, 9 refused'.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -326,7 +378,7 @@
       "shows": "The 'Proposed because' evidence for the type Haltestellen: the column UIC-Nr is filled and different on all 51 rows, so it is the key.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -368,7 +420,7 @@
       "shows": "The source pane on the second sheet, Namen: its columns and how each is profiled and proposed.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -405,7 +457,7 @@
       "shows": "The Issues tab of the bottom panel 'Issues, history and dry run': no issues, the draft is valid and can be installed.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -456,7 +508,7 @@
       "shows": "The Dry run tab: Checked, 94 rows of the sources, nothing written, the figures of the first sheet (Haltestellen: 51 created, 97 values, 260 relationships, 21 related records created). Each figure opens the rows behind it.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -516,7 +568,7 @@
       "shows": "The Dry run tab scrolled to the second sheet: Namen 4 created, 6 values, 9 rows refused (REFERENCE_NOT_FOUND, shown in red), then the two kinds of local codes created. Each figure opens the rows behind it.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -592,7 +644,7 @@
       "shows": "The rows the dry run would refuse (Namen, 9 rows, REFERENCE_NOT_FOUND: no record matches the reference). Nothing was written. Closed afterwards.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -647,7 +699,7 @@
       "shows": "The History tab of the bottom panel: the steps of the draft, each proposal one step that can be undone.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -706,7 +758,7 @@
       "shows": "'Load the workbook into a change set': install and activate the model (release key, version, name), open a change set (name, workspace), load the rows. Cancelled: nothing is installed or loaded.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -751,7 +803,7 @@
       "shows": "The editor's actions menu: Upload a newer workbook, Propose again, Delete draft. Closed afterwards.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -795,7 +847,7 @@
       "shows": "'Delete this draft?': deleting the draft removes its steps, proposals and the attached workbook; installed releases are not affected. One-off: the capture then confirms, which deletes the draft (see USE2.data-changes.md); after that the use-wb-* editor screens cannot be retaken without recreating it.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -805,7 +857,7 @@
         },
         {
           "waitFor": {
-            "text": "16 steps",
+            "text": "steps",
             "exact": false
           }
         },
@@ -852,16 +904,26 @@
       ]
     },
     {
-      "name": "use-pub-review",
-      "shows": "Review changes of the new change set 'Correct Thusis Süd abbreviation': the one changed record, Thusis Süd, with the changed Abbreviation. One-off: the change set is published by use-pub-confirm and is then gone.",
+      "name": "use-pub-setup",
+      "setup": true,
+      "shows": "Makes the state of the publication screens: Thusis Süd's Abbreviation THSS in live data and a fresh change set 'Correct Thusis Süd abbreviation' changing it to THSD.",
       "actions": [
         {
-          "goto": "/apps/network/change-sets/ae6d8306-7f41-4404-b269-bcd50efc13f1/changes?workspaceKey=graubuenden"
+          "state": "thusis-change-set"
+        }
+      ]
+    },
+    {
+      "name": "use-pub-review",
+      "shows": "The change set page (Changes in this change set) of the new change set 'Correct Thusis Süd abbreviation': the one changed record, Thusis Süd, with the changed Abbreviation. Made fresh by use-pub-setup; use-pub-confirm publishes it.",
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets/{cs:Correct Thusis Süd abbreviation}/changes?workspaceKey=graubuenden"
         },
         {
           "waitFor": {
             "role": "heading",
-            "name": "Review changes"
+            "name": "Changes in this change set"
           }
         },
         {
@@ -869,22 +931,22 @@
         }
       ],
       "expect": [
-        "Review changes",
+        "Changes in this change set",
         "Thusis Süd",
         "Changed: Abbreviation"
       ]
     },
     {
       "name": "use-pub-review-record",
-      "shows": "Review changes with the changed record Thusis Süd opened: Abbreviation THSS before, THSD after. One-off like use-pub-review.",
+      "shows": "The change set page with the changed record Thusis Süd opened: Abbreviation THSS before, THSD after. ",
       "actions": [
         {
-          "goto": "/apps/network/change-sets/ae6d8306-7f41-4404-b269-bcd50efc13f1/changes?workspaceKey=graubuenden"
+          "goto": "/apps/network/change-sets/{cs:Correct Thusis Süd abbreviation}/changes?workspaceKey=graubuenden"
         },
         {
           "waitFor": {
             "role": "heading",
-            "name": "Review changes"
+            "name": "Changes in this change set"
           }
         },
         {
@@ -909,7 +971,8 @@
         {
           "click": {
             "role": "button",
-            "name": "Publish change set",
+            "name": "Publish",
+            "exact": true,
             "nth": -1
           }
         },
@@ -917,21 +980,27 @@
           "wait": 3000
         }
       ],
-      "shows": "The change set after Validate change set (validation passed) and the 'Publish this change set?' confirmation, shown before it is confirmed. The capture then confirms: the change set is published (the data change in USE2.data-changes.md).",
+      "shows": "The change set after Validate now (validation passed) and the 'Publish this change set?' confirmation, shown before it is confirmed. The capture then confirms: the change set is published (the data change in USE2.data-changes.md).",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId=ae6d8306-7f41-4404-b269-bcd50efc13f1"
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId={cs:Correct Thusis Süd abbreviation}"
         },
         {
           "waitFor": {
             "role": "button",
-            "name": "Validate change set"
+            "name": "More change set actions"
           }
         },
         {
           "click": {
             "role": "button",
-            "name": "Validate change set"
+            "name": "More change set actions"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Validate now"
           }
         },
         {
@@ -943,7 +1012,8 @@
         {
           "click": {
             "role": "button",
-            "name": "Publish change set"
+            "name": "Publish",
+            "exact": true
           }
         },
         {
@@ -954,9 +1024,8 @@
         }
       ],
       "expect": [
-        "Please confirm",
         "Publish this change set?",
-        "Unrelated live changes are preserved",
+        "Other changes made in live data",
         "Cancel"
       ]
     },
@@ -979,7 +1048,7 @@
       ],
       "expect": [
         "Publications",
-        "Publication 1",
+        "Publication",
         "Current",
         "Open publication"
       ]
@@ -1017,7 +1086,7 @@
         }
       ],
       "expect": [
-        "Viewing Publication 1",
+        "Viewing Publication",
         "Read-only",
         "THSD",
         "Back to publications"
@@ -1215,63 +1284,24 @@
       "name": "use-notification-job",
       "shows": "What a notice opens: 'Batch finished' opens the job page (state, result, items). Opening it marks that notice read.",
       "actions": [
-        {
-          "goto": "/notifications"
-        },
-        {
-          "waitFor": {
-            "text": "Notices are kept for 90 days.",
-            "exact": false
-          }
-        },
-        {
-          "click": {
-            "text": "Batch finished",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "text": "The result",
-            "exact": true
-          }
-        },
-        {
-          "wait": 600
-        }
+        {"goto": "/notifications"},
+        {"waitFor": {"text": "Notices are kept for 90 days.", "exact": false}},
+        {"click": {"role": "button", "name": "Batch finished"}},
+        {"waitFor": {"text": "The result", "exact": true}},
+        {"wait": 600}
       ],
-      "expect": [
-        "Batch",
-        "The result",
-        "The items"
-      ]
+      "expect": ["Batch", "The result", "The items"]
     },
     {
       "name": "use-home",
       "height": 1500,
       "shows": "Home, the page a person lands on: the greeting with the person's roles, Your workspaces as cards (workspace, model, roles, Follow, its applications, counts of the person's change sets and change sets to publish), Your change sets, Your recent changes with See all your changes; the bell with the unread count and the avatar at the top right.",
       "actions": [
-        {
-          "goto": "/"
-        },
-        {
-          "waitFor": {
-            "text": "Your recent changes",
-            "exact": true
-          }
-        },
-        {
-          "wait": 1000
-        }
+        {"goto": "/"},
+        {"waitFor": {"text": "Your recent changes", "exact": true}},
+        {"wait": 1000}
       ],
-      "expect": [
-        "Good evening",
-        "Your workspaces",
-        "Follow",
-        "Your change sets",
-        "Your recent changes",
-        "See all your changes"
-      ]
+      "expect": ["Good ", "Your workspaces", "Follow", "Your change sets", "Your recent changes", "See all your changes"]
     },
     {
       "name": "use-home-continue",
@@ -1289,12 +1319,13 @@
         },
         {
           "click": {
-            "role": "combobox"
+            "role": "combobox",
+            "nth": 1
           }
         },
         {
           "click": {
-            "text": "RDM Starter Model 0.10.0",
+            "text": "RDM Starter Model 0.10.1",
             "exact": true
           }
         },

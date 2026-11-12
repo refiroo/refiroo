@@ -18,6 +18,8 @@ against a real mail server.
 """
 
 import asyncio
+import base64
+import json
 import os
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -36,6 +38,7 @@ from test_reference_change_sets import (
     _version,
 )
 from test_reference_recording import (
+    BASE,
     RECORDING,
     SEED,
     Scenario,
@@ -459,3 +462,121 @@ def test_a_person_follows_a_workspace_and_reads_the_notices_that_arrive(mail):
         status=409,
         code="MAIL_NOT_SET_UP",
     )
+
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+)
+LOGO = "/api/v1/mail-template/logo"
+LETTER = "{{logo}}\n\nDear {{recipient_name}},\n\n{{content}}\n\n--\n[{{product_name}}]({{instance_url}})\n"
+
+
+def test_the_operator_edits_the_email_template_that_wraps_every_message(mail):
+    """The e-mail template: read the default, refuse a draft, look at one, save it, add a logo, send a
+    test to the caller's own address, remove the logo and go back to the default."""
+    s, smtp = mail
+    s.call("PUT", "/api/v1/mail-settings", body=_settings(smtp), status=200)
+    default = s.call(
+        "GET",
+        "/api/v1/mail-template",
+        status=200,
+        record="default",
+        summary="No template is saved: the default Markdown is answered and the engine's own layout is used",
+    )
+    assert default["saved"] is False and "{{content}}" in default["markdown"]
+    s.call(
+        "PUT",
+        "/api/v1/mail-template",
+        body={"markdown": "Dear {{recipient_name}}, {{nickname}}\n\n{{content}}\n"},
+        status=422,
+        code="MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER",
+    )
+    s.call(
+        "PUT",
+        "/api/v1/mail-template",
+        body={"markdown": "Dear {{recipient_name}}\n"},
+        status=422,
+        code="MAIL_TEMPLATE_CONTENT_REQUIRED",
+    )
+    s.call("DELETE", LOGO, status=409, code="MAIL_TEMPLATE_NOT_SAVED")
+    preview = s.call(
+        "POST",
+        "/api/v1/mail-template/preview",
+        body={"markdown": LETTER},
+        status=200,
+        record="preview",
+        summary="A draft rendered around a sample message with sample values; nothing is saved",
+    )
+    assert "Dear Alex Example" in preview["text"] and "<html" in preview["html"]
+    saved = s.call(
+        "PUT",
+        "/api/v1/mail-template",
+        body={"markdown": LETTER},
+        status=200,
+        record="saved",
+        summary="Save the template; every message is now this letter around its own text",
+    )
+    assert saved["saved"] is True and saved["version"] == 1
+    s.call(
+        "PUT",
+        "/api/v1/mail-template",
+        body={"markdown": LETTER},
+        status=409,
+        code="VERSION_CONFLICT",
+    )
+    for kind, data, status, code in (
+        ("text/plain", b"not an image", 422, "MAIL_LOGO_UNSUPPORTED"),
+        (
+            "image/svg+xml",
+            b"<svg xmlns='http://www.w3.org/2000/svg'><script>1</script></svg>",
+            422,
+            "MAIL_LOGO_UNSAFE",
+        ),
+    ):
+        refused = s.client.put(
+            LOGO,
+            files={"file": ("logo", data, kind)},
+            headers={"Origin": BASE, "Authorization": "Bearer " + s.api.token},
+        )
+        assert refused.status_code == status and refused.json()["error"]["code"] == code
+    uploaded = s.client.put(
+        LOGO,
+        files={"file": ("logo.png", PNG, "image/png")},
+        data={"expectedVersion": "1"},
+        headers={"Origin": BASE, "Authorization": "Bearer " + s.api.token},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    answer = uploaded.json()
+    assert answer["logoType"] == "image/png" and answer["version"] == 2
+    s._record(
+        "PUT",
+        LOGO,
+        "uploaded",
+        "Upload a PNG as the logo; the template's version moves on",
+        {},
+        {},
+        None,
+        200,
+        answer,
+        ["The `file` part: `logo.png`.", f"The `expectedVersion` part: `{json.dumps(1)}`."],
+    )
+    sent = s.call(
+        "POST",
+        "/api/v1/mail-template/test",
+        status=200,
+        record="test",
+        summary="The saved template around a sample message goes to the caller's own address",
+    )
+    assert sent["sentTo"] and smtp.messages[-1]["To"] == sent["sentTo"]
+    s.call(
+        "DELETE",
+        LOGO,
+        query={"expectedVersion": 2},
+        status=200,
+        record="removeLogo",
+        summary="Remove the logo; the refiroo mark is used again",
+    )
+    s.call(
+        "DELETE", "/api/v1/mail-template", status=204, record="reset", summary="Back to the default"
+    )
+    assert s.call("GET", "/api/v1/mail-template", status=200)["saved"] is False

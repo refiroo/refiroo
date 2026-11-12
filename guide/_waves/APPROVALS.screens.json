@@ -1,19 +1,32 @@
 {
   "wave": "APPROVALS",
-  "note": "Real screens of the reference instance for the approval flow and a completed workbook load. Taken by guide/tools/screens.mjs --file APPROVALS.screens.json into guide/public/screens/appr-*.png and wbload-*.png. Screens with \"as\": \"approver\" sign in as GUIDE_APPROVER_USERNAME (rita.approver, a Data owner in Graubuenden). The screens are one-off and run in order against instance state APPROVALS.data-changes.md describes: the appr-* screens read the change set 93b863fb-d82b-4faa-b0c7-778377fa448a ('Guide approval example'), which they send back, resubmit and approve (appr-send-back-reason, appr-resubmit and appr-approve act in their 'after' step), so they cannot be taken twice; the second-person rule had to be on for appr-own-approval. The wbload-* screens read the model draft 5ff78a6f-4353-4a3d-8929-47f6bb14b5c7 and the change set 96a3e4df-358c-4461-8c93-1801f0a27842 in the workspace guide-workbook-test; wbload-running and wbload-finished continue in the session of wbload-dialog (run those three in one call). appr-inbox-notice needs the approver's notice unread: opening the review page marks it read.",
+  "note": "Real screens of the reference instance for the approval flow and a completed workbook load. Taken by guide/tools/screens.mjs --file APPROVALS.screens.json into guide/public/screens/appr-*.png and wbload-*.png. Screens with \"as\": \"approver\" sign in as GUIDE_APPROVER_USERNAME (rita.approver, a Data owner in Graubuenden). The screens are one-off and run in order against instance state APPROVALS.data-changes.md describes: the appr-* screens read the change set {cs:Guide approval example} ('Guide approval example'), which they send back, resubmit and approve (appr-send-back-reason, appr-resubmit and appr-approve act in their 'after' step), so they cannot be taken twice; the second-person rule had to be on for appr-own-approval. The wbload-* screens read the model draft {draft:Haltestellen Busbetrieb Nord} and the change set {cs:Load Haltestellen_Busbetrieb_Nord.xlsx@guide-workbook-test} in the workspace guide-workbook-test; wbload-running and wbload-finished continue in the session of wbload-dialog (run those three in one call). appr-inbox-notice needs the approver's notice unread: opening the review page marks it read.",
   "base": "http://localhost:8480",
   "screens": [
+    {
+      "name": "appr-setup",
+      "setup": true,
+      "shows": "Makes the state of the approval screens: approval switched on with the second-person rule in Graubünden, Davos Platz's Height back at 1540.192 in live data, and a fresh change set 'Guide approval example' (Height 1540.2), validated and submitted by Guide Admin with its comment. The screens that follow send it back, resubmit it and approve it, so run the whole file in order.",
+      "actions": [
+        {
+          "state": "approver-account"
+        },
+        {
+          "state": "approval-scenario"
+        }
+      ]
+    },
     {
       "name": "appr-submitted",
       "shows": "The submitter's change set 'Guide approval example' right after submitting: banner 'Waiting for approval', submitted by Guide Admin, version 2, the comment, Review and decide and Withdraw request.",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId=93b863fb-d82b-4faa-b0c7-778377fa448a"
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId={cs:Guide approval example}"
         },
         {
           "waitFor": {
-            "text": "Waiting for approval",
-            "exact": true
+            "text": "waits for approval",
+            "exact": false
           }
         },
         {
@@ -22,7 +35,7 @@
       ],
       "expect": [
         "Guide approval example",
-        "Waiting for approval",
+        "waits for approval",
         "Withdraw request"
       ]
     },
@@ -31,12 +44,12 @@
       "shows": "The submitter opens Review and decide on their own request: with the second-person rule on there is no decision panel, only 'A second person must decide this request.' above the changes.",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId=93b863fb-d82b-4faa-b0c7-778377fa448a"
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId={cs:Guide approval example}"
         },
         {
           "waitFor": {
-            "text": "Waiting for approval",
-            "exact": true
+            "text": "waits for approval",
+            "exact": false
           }
         },
         {
@@ -56,7 +69,7 @@
         }
       ],
       "expect": [
-        "Review changes",
+        "Changes in this change set",
         "A second person must decide this request.",
         "Davos Platz"
       ]
@@ -80,7 +93,7 @@
         }
       ],
       "expect": [
-        "Good evening, Rita",
+        "Rita",
         "Waiting for your approval",
         "Guide approval example",
         "Review"
@@ -130,7 +143,7 @@
       "shows": "The approver's review page of 'Guide approval example': the Decision panel (who submitted, version, the submitter's comment, a Comment field required to send back, Send back, Approve and publish) above the one changed record.",
       "actions": [
         {
-          "goto": "/apps/network/change-sets/93b863fb-d82b-4faa-b0c7-778377fa448a/changes?workspaceKey=graubuenden"
+          "goto": "/apps/network/change-sets/{cs:Guide approval example}/changes?workspaceKey=graubuenden"
         },
         {
           "waitFor": {
@@ -155,7 +168,7 @@
       "shows": "The approver's Decision panel with a reason typed into Comment, before pressing Send back (the comment is required to send back).",
       "actions": [
         {
-          "goto": "/apps/network/change-sets/93b863fb-d82b-4faa-b0c7-778377fa448a/changes?workspaceKey=graubuenden"
+          "goto": "/apps/network/change-sets/{cs:Guide approval example}/changes?workspaceKey=graubuenden"
         },
         {
           "waitFor": {
@@ -195,7 +208,7 @@
       "shows": "The submitter's change set after the approver sent it back: the request is no longer waiting; the banner shows it was sent back with the approver's reason.",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId=93b863fb-d82b-4faa-b0c7-778377fa448a"
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId={cs:Guide approval example}"
         },
         {
           "waitFor": {
@@ -255,7 +268,7 @@
       "shows": "The submitter presses Submit for publication again after a send back: the dialog (the change set is validated, then waits for someone who may approve it; cannot be edited while it waits) with a new comment typed.",
       "actions": [
         {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId=93b863fb-d82b-4faa-b0c7-778377fa448a"
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId={cs:Guide approval example}"
         },
         {
           "waitFor": {
@@ -310,7 +323,7 @@
       "shows": "The approver's Decision panel for the resubmitted request, with the new comment, just before Approve and publish.",
       "actions": [
         {
-          "goto": "/apps/network/change-sets/93b863fb-d82b-4faa-b0c7-778377fa448a/changes?workspaceKey=graubuenden"
+          "goto": "/apps/network/change-sets/{cs:Guide approval example}/changes?workspaceKey=graubuenden"
         },
         {
           "waitFor": {
@@ -423,18 +436,25 @@
       ]
     },
     {
+      "name": "appr-policy-off",
+      "setup": true,
+      "shows": "Switches approval off again in Graubünden, as it was before the approval screens.",
+      "actions": [
+        {
+          "state": "approval-off"
+        }
+      ]
+    },
+    {
       "name": "wbload-dialog",
       "height": 1000,
       "shows": "'Load the workbook': the three steps with Guide workbook test chosen as the workspace: install and activate the model (release key, version 1.0.1, name), open a change set, load the rows; button 'Install, activate and load'.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=type&key=haltestellen"
+          "state": "workbook-workspace"
         },
         {
-          "waitFor": {
-            "role": "heading",
-            "name": "Haltestellen Busbetrieb Nord"
-          }
+          "goto": "/settings/model/drafts/{draft:Haltestellen Busbetrieb Nord}/editor?show=type&key=haltestellen"
         },
         {
           "waitFor": {
@@ -458,12 +478,24 @@
         },
         {
           "wait": 600
+        },
+        {
+          "select": {
+            "label": "Workspace",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Guide workbook test"
+        },
+        {
+          "wait": 400
         }
       ],
       "expect": [
         "Load Haltestellen_Busbetrieb_Nord.xlsx into a change set",
         "Install and activate the model",
-        "Guide workbook test",
+        "Workspace",
         "Install, activate and load"
       ]
     },
@@ -507,12 +539,12 @@
       "shows": "The change set review in the test workspace (opened from 'Open the change set review'): what the load created, as a list of record changes with their counts.",
       "actions": [
         {
-          "goto": "/apps/haltestellen-busbetrieb-nord/change-sets/96a3e4df-358c-4461-8c93-1801f0a27842/changes?workspaceKey=guide-workbook-test"
+          "goto": "/apps/haltestellen-busbetrieb-nord/change-sets/{cs:Load Haltestellen_Busbetrieb_Nord.xlsx@guide-workbook-test}/changes?workspaceKey=guide-workbook-test"
         },
         {
           "waitFor": {
-            "text": "Review changes",
-            "exact": false
+            "role": "heading",
+            "name": "Changes in this change set"
           }
         },
         {
@@ -520,7 +552,7 @@
         }
       ],
       "expect": [
-        "Review changes"
+        "Changes in this change set"
       ]
     },
     {
@@ -528,7 +560,7 @@
       "shows": "The load's change set in the test workspace, in the new application's Haltestellen list: the records the workbook created (the change set is open, not published).",
       "actions": [
         {
-          "goto": "/apps/haltestellen-busbetrieb-nord/views/haltestellens?workspaceKey=guide-workbook-test&changeSetId=96a3e4df-358c-4461-8c93-1801f0a27842"
+          "goto": "/apps/haltestellen-busbetrieb-nord/views/haltestellens?workspaceKey=guide-workbook-test&changeSetId={cs:Load Haltestellen_Busbetrieb_Nord.xlsx@guide-workbook-test}"
         },
         {
           "wait": 3000

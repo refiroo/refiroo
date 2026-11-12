@@ -10,7 +10,7 @@ for the automatic schedule and how these keys differ from client secrets.
 
 ## Start a normal replacement
 
-1. Open **Settings › Security › Signing keys**. Note the key marked **Signing** and its
+1. Open **Settings › People and access › Signing keys**. Note the key marked **Signing** and its
    **Created** time. A previously replaced key may still show **Verifying until**.
 2. Choose **Start a new key** when ready. **This acts immediately, without a dialog.**
    It is not a preview or the start of a confirmation sequence.
@@ -18,9 +18,9 @@ for the automatic schedule and how these keys differ from client secrets.
    verification deadline. Existing access continues until it expires. People and clients
    move to the replacement through normal renewal; no secret handover is needed.
 
-![Signing keys list with current and replaced key states](/docs/screens/admin-signing-keys.png)
+![Signing keys list with one current key marked Signing](/docs/screens/admin-signing-keys.png)
 
-*Above: the reference instance shows a new Signing key and a previous key still verifying.*
+*Above: The reference instance has one current key, marked Signing.*
 
 ## Retire the current key after suspected disclosure
 

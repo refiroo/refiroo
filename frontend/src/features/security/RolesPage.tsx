@@ -18,8 +18,10 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { SelectField } from "@/ui/Selection";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
+import { settingsHead } from "@/features/settings/navigation";
 
 // A role's fields by the names its form shows them under.
 const ROLE_FIELDS = { name: "Name", description: "Description", actionGroups: "Action groups" };
@@ -121,7 +123,7 @@ export function RolesPage() {
 
   return (
     <SettingsLayout
-      eyebrow="Security"
+      {...settingsHead("roles")}
       title="Roles"
       description="A role is a set of action groups. Predefined roles cannot change; copy one to make your own."
       actions={
@@ -135,141 +137,157 @@ export function RolesPage() {
       ) : !roles || !catalogue ? (
         <Skeleton label="Loading roles" lines={8} />
       ) : (
-        <>
-          <div className="role-matrix-wrap" role="group" aria-label="Roles by action group" tabIndex={0}>
-            <table className="role-matrix">
-              <thead>
-                <tr>
-                  <th scope="col" className="role-matrix-group">
-                    Action group
-                  </th>
-                  {roles.map((role) => (
-                    <th
-                      key={role.key}
-                      scope="col"
-                      className={
-                        role.predefined ? undefined : `role-custom${editing?.role.key === role.key ? " editing" : ""}`
-                      }
-                    >
-                      <span>{editing?.role.key === role.key ? editing.name || role.name : role.name}</span>
-                      {!role.predefined && (
-                        <>
-                          <small>Custom</small>
-                          {editing?.role.key !== role.key && (
-                            <button
-                              type="button"
-                              className="ghost role-edit"
-                              disabled={!!editing}
-                              aria-label={`Edit ${role.name}`}
-                              onClick={() => edit(role)}
-                            >
-                              <Icon name="pencil" size={13} /> Edit
-                            </button>
-                          )}
-                        </>
-                      )}
+        <SettingsGroup
+          stacked
+          title="Roles by action group"
+          description="Each column is a role, each row an action group. A custom role is edited in its own column."
+        >
+          <SettingsPanel>
+            <div className="role-matrix-wrap" role="group" aria-label="Roles by action group" tabIndex={0}>
+              <table className="role-matrix">
+                <thead>
+                  <tr>
+                    <th scope="col" className="role-matrix-group">
+                      Action group
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {catalogue.map((group) => (
-                  <tr key={group.key}>
-                    <th scope="row" className="role-matrix-group">
-                      {group.name}
-                      <small>{group.description}</small>
-                    </th>
-                    {roles.map((role) =>
-                      editing?.role.key === role.key ? (
-                        <td key={role.key} className="role-custom editing">
-                          <input
-                            type="checkbox"
-                            aria-label={`${editing.name || role.name}: ${group.name}`}
-                            checked={editing.groups.includes(group.key)}
-                            onChange={(event) =>
-                              setEditing({
-                                ...editing,
-                                groups: event.target.checked
-                                  ? [...editing.groups, group.key]
-                                  : editing.groups.filter((key) => key !== group.key),
-                              })
-                            }
-                          />
-                        </td>
-                      ) : (
-                        <td key={role.key} className={role.predefined ? undefined : "role-custom"}>
-                          {role.actionGroups.includes(group.key) ? (
-                            <span className="role-yes">
-                              <Icon name="check" size={14} />
-                              <span className="visually-hidden">Yes</span>
-                            </span>
-                          ) : (
-                            <span className="visually-hidden">No</span>
-                          )}
-                        </td>
-                      ),
-                    )}
+                    {roles.map((role) => (
+                      <th
+                        key={role.key}
+                        scope="col"
+                        className={
+                          role.predefined ? undefined : `role-custom${editing?.role.key === role.key ? " editing" : ""}`
+                        }
+                      >
+                        <span>{editing?.role.key === role.key ? editing.name || role.name : role.name}</span>
+                        {!role.predefined && (
+                          <>
+                            <small>Custom</small>
+                            {editing?.role.key !== role.key && (
+                              <button
+                                type="button"
+                                className="ghost role-edit"
+                                disabled={!!editing}
+                                aria-label={`Edit ${role.name}`}
+                                onClick={() => edit(role)}
+                              >
+                                <Icon name="pencil" size={13} /> Edit
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {catalogue.map((group) => (
+                    <tr key={group.key}>
+                      <th scope="row" className="role-matrix-group">
+                        {group.name}
+                        <small>{group.description}</small>
+                      </th>
+                      {roles.map((role) =>
+                        editing?.role.key === role.key ? (
+                          <td key={role.key} className="role-custom editing">
+                            <input
+                              type="checkbox"
+                              aria-label={`${editing.name || role.name}: ${group.name}`}
+                              checked={editing.groups.includes(group.key)}
+                              onChange={(event) =>
+                                setEditing({
+                                  ...editing,
+                                  groups: event.target.checked
+                                    ? [...editing.groups, group.key]
+                                    : editing.groups.filter((key) => key !== group.key),
+                                })
+                              }
+                            />
+                          </td>
+                        ) : (
+                          <td key={role.key} className={role.predefined ? undefined : "role-custom"}>
+                            {role.actionGroups.includes(group.key) ? (
+                              <span className="role-yes">
+                                <Icon name="check" size={14} />
+                                <span className="visually-hidden">Yes</span>
+                              </span>
+                            ) : (
+                              <span className="visually-hidden">No</span>
+                            )}
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SettingsPanel>
           {editing && (
             <form
-              className="role-editor"
               aria-label={`Edit ${editing.role.name}`}
               onSubmit={(event) => {
                 event.preventDefault();
                 void save();
               }}
             >
-              <label>
-                Name
-                <input
-                  required
-                  maxLength={200}
-                  value={editing.name}
-                  onChange={(event) => setEditing({ ...editing, name: event.target.value })}
-                />
-              </label>
-              <label>
-                Description (optional)
-                <input
-                  maxLength={2000}
-                  value={editing.description}
-                  onChange={(event) => setEditing({ ...editing, description: event.target.value })}
-                />
-              </label>
-              <p className="admin-hint">
-                {editing.role.name} is {held(editing.role.grants)}
-                {editing.role.grants > 0 && "; a change applies on their next request"}.
-              </p>
-              {error && !deleting && (
-                <Notice tone="error" title="The role was not saved">
-                  {error}
-                </Notice>
-              )}
-              <div className="dialog-actions">
-                <button
-                  type="button"
-                  className="danger-ghost"
-                  disabled={pending || editing.role.grants > 0}
-                  title={editing.role.grants > 0 ? "A role still granted cannot be deleted" : undefined}
-                  onClick={() => setDeleting(true)}
-                >
-                  Delete role
-                </button>
-                <span className="role-editor-spacer" />
-                <button type="button" className="secondary" disabled={pending} onClick={() => setEditing(undefined)}>
-                  Cancel
-                </button>
-                <button className="primary" disabled={pending || !changed || !editing.name.trim()}>
-                  {pending ? "Saving…" : "Save role"}
-                </button>
-              </div>
+              <SettingsPanel
+                foot={
+                  <>
+                    <span className="settings-panel-state">
+                      {editing.role.name} is {held(editing.role.grants)}
+                      {editing.role.grants > 0 && "; a change applies on their next request"}.
+                    </span>
+                    <button
+                      type="button"
+                      className="danger-ghost"
+                      disabled={pending || editing.role.grants > 0}
+                      title={editing.role.grants > 0 ? "A role still granted cannot be deleted" : undefined}
+                      onClick={() => setDeleting(true)}
+                    >
+                      Delete role
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={pending}
+                      onClick={() => setEditing(undefined)}
+                    >
+                      Cancel
+                    </button>
+                    <button className="primary" disabled={pending || !changed || !editing.name.trim()}>
+                      {pending ? "Saving…" : "Save"}
+                    </button>
+                  </>
+                }
+              >
+                <div className="settings-fields">
+                  <label>
+                    Name
+                    <input
+                      required
+                      maxLength={200}
+                      value={editing.name}
+                      onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Description (optional)
+                    <input
+                      maxLength={2000}
+                      value={editing.description}
+                      onChange={(event) => setEditing({ ...editing, description: event.target.value })}
+                    />
+                  </label>
+                  {error && !deleting && (
+                    <Notice tone="error" title="The role was not saved">
+                      {error}
+                    </Notice>
+                  )}
+                </div>
+              </SettingsPanel>
             </form>
           )}
-        </>
+        </SettingsGroup>
       )}
       {creating && roles && (
         <NewRoleDialog
@@ -338,7 +356,7 @@ function NewRoleDialog({
   }
 
   return (
-    <Modal title="New role" eyebrow="Security" size="compact" busy={pending} dirty={!!name} onClose={onClose}>
+    <Modal title="New role" eyebrow="People and access" size="compact" busy={pending} dirty={!!name} onClose={onClose}>
       <form
         className="grant-form"
         onSubmit={(event) => {
@@ -369,7 +387,7 @@ function NewRoleDialog({
             Cancel
           </button>
           <button className="primary" disabled={pending || !name.trim()}>
-            {pending ? "Creating…" : "Create role"}
+            {pending ? "Adding…" : "Add role"}
           </button>
         </div>
       </form>

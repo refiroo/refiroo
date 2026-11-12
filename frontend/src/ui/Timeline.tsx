@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { byDay, formatServerTime } from "@/lib/dates";
+import type { Hue } from "@/model/hues";
 
 export interface TimelineEntry {
   key: string;
@@ -14,6 +15,8 @@ export interface TimelineEntry {
   details?: ReactNode;
   /** The marker's colour, where entries of different kinds stand together. */
   tone?: string;
+  /** The marker in a hue of the type palette: the colour of the entry's kind (0.17 ST1, PP-D67). */
+  hue?: Hue;
 }
 
 /**
@@ -45,7 +48,7 @@ export function Timeline({
       <ol className="history-timeline" aria-label={label}>
         {entries.map((entry) => (
           <li key={entry.key}>
-            <span className="history-marker" />
+            <span className="history-marker" data-hue={entry.hue} />
             <div>
               <strong>{entry.title}</strong>
               {entry.summary && <p>{entry.summary}</p>}
@@ -55,6 +58,19 @@ export function Timeline({
                 </time>
                 {entry.after}
               </small>
+              {entry.details && (
+                <>
+                  <button
+                    type="button"
+                    className="plain-fold-toggle"
+                    aria-expanded={open.has(entry.key)}
+                    onClick={() => toggle(entry.key)}
+                  >
+                    {open.has(entry.key) ? "Hide the steps" : "Show the steps"}
+                  </button>
+                  {open.has(entry.key) && <div className="history-line-details">{entry.details}</div>}
+                </>
+              )}
             </div>
           </li>
         ))}
@@ -70,7 +86,12 @@ export function Timeline({
               const expanded = open.has(entry.key);
               const line = (
                 <>
-                  <span className="history-line-marker" data-tone={entry.tone} aria-hidden="true" />
+                  <span
+                    className="history-line-marker"
+                    data-tone={entry.tone}
+                    data-hue={entry.hue}
+                    aria-hidden="true"
+                  />
                   <span className="history-line-text">
                     <strong>{entry.title}</strong>
                     {entry.summary && <span className="history-line-summary"> · {entry.summary}</span>}

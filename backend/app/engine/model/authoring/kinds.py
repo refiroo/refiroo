@@ -14,7 +14,7 @@ A compound kind (a removal, a split, a merge, a move, a containment change) has 
 import copy
 import json
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -123,8 +123,12 @@ class Context:
         file_name: str | None = None,
         in_use: Callable[[str], bool] | None = None,
         base: dict[str, Any] | None = None,
+        profile_keys: Iterable[str] = (),
     ) -> None:
         self.document = document
+        # The keys instance import profiles already hold: a draft's profile starts under a free one
+        # (0.17 PL4), so installing it never meets another model's profile.
+        self.profile_keys = frozenset(profile_keys)
         # The document of the draft's base release, which a consumer API version is frozen from (DF3).
         self.base = base
         # What the operation being applied changes that needs a migration: ``(atom, key change)``.

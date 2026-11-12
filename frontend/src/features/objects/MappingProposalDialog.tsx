@@ -254,7 +254,7 @@ export function MappingProposalDialog({
             </Notice>
           )}
           <div className="dialog-actions">
-            <button type="button" className="ghost" disabled={step === "starting"} onClick={close}>
+            <button type="button" className="secondary" disabled={step === "starting"} onClick={close}>
               {unmapped === 0 ? "Close" : "Cancel"}
             </button>
             {unmapped !== null && unmapped > 0 && (

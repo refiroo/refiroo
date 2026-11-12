@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { openFoldedGroups } from "./helpers/tree.mjs";
+import { openBrowseRecords, openFoldedGroups } from "./helpers/tree.mjs";
 
 export async function checkHierarchySelection({ page, api, uiUrl, output, checks }) {
   const domain = await api("/objects", { objectTypeKey: "domain", applicationKey: "rdm-master", workspaceKey: "warehouse", name: "Hierarchy domain", attributes: [{ attributeTypeKey: "domain-code", value: "UI03-HIERARCHY" }] });
@@ -17,6 +17,7 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     await page.getByRole("navigation", { name: "RDM Master collections" }).waitFor();
     const explorer = page.getByRole("region", { name: "RDM Master explorer" });
     // The open codelist's branch leads to it; search results list each match with its path (S6).
+    await openBrowseRecords(explorer);
     const tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
     const list = tree.getByRole("treeitem", { name: "Hierarchy list", exact: true });
     await list.waitFor();
@@ -44,15 +45,11 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();
     await branchValue.waitFor();
     assert.equal(await list.getAttribute("aria-expanded"), "true");
-    await explorer.getByRole("textbox", { name: "Search this explorer", exact: true }).fill("Hierarchy");
-    await tree
-      .getByRole("treeitem", { name: "Hierarchy value, in Hierarchy domain / Hierarchy list", exact: true })
-      .locator(".tree-node")
-      .click();
+    await branchValue.locator(".tree-node").click();
     await page.getByRole("heading", { name: value.name, level: 1, exact: true }).waitFor();
     assert.equal(await page.locator(".record-collection").count(), 0);
     assert.equal(await page.locator(".record-inspector").count(), 0);
-    assert.equal(await page.getByRole("button", { name: "Back to list", exact: true }).count(), 0);
+    assert.equal(await page.locator('[aria-label="Record details"] .trail-back').count(), 0);
     assert.equal(await page.evaluate(() => history.state.rdmNavigation.collectionPath), undefined);
     const details = page.locator("section.panel").filter({ has: page.getByRole("heading", { name: "Value details", exact: true }) });
     await details.getByText("UI03-ID", { exact: true }).waitFor();
@@ -62,7 +59,7 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     await page.getByRole("heading", { name: value.name, level: 1, exact: true }).waitFor();
     assert.equal(await page.locator(".record-collection").count(), 0);
     assert.equal(await page.locator(".record-inspector").count(), 0);
-    assert.equal(await page.getByRole("button", { name: "Back to list", exact: true }).count(), 0);
+    assert.equal(await page.locator('[aria-label="Record details"] .trail-back').count(), 0);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   }
   checks.push("Unified browser: collections and hierarchy coexist without a mode switch; independent collapse does not navigate, collapsed and expanded state survives reload, and keyboard expansion works at desktop/mobile. UI-03B hierarchy regression: select a master value from the browser while a codelist inspector is open; discard the unrelated collection, restore the full record view with Value details, and retain it after reload at 1440px and 390px");

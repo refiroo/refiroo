@@ -59,6 +59,21 @@ const POLICIES: readonly (readonly [ImportPolicy, string])[] = [
   ["atomic", "Load nothing unless every row loads"],
 ];
 
+/**
+ * The profiles that can read this file for this workspace's model: those still valid under the
+ * workspace's release (the server checks each, so another model's profiles are not among them). A
+ * JSON Lines file is batch items and needs none; a CSV file is one table, read by a profile that
+ * says so or has a single source; a workbook by any.
+ */
+export function profilesFor(profiles: readonly ImportProfile[], file: File | undefined): ImportProfile[] {
+  if (!file) return [];
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".jsonl") || name.endsWith(".ndjson")) return [];
+  const valid = profiles.filter((item) => item.valid);
+  if (name.endsWith(".csv")) return valid.filter((item) => item.csv || item.sources.length === 1);
+  return valid;
+}
+
 export function ImportDialog({
   model,
   start,
@@ -73,9 +88,10 @@ export function ImportDialog({
   const { capabilities } = useCapabilities();
   const [file, setFile] = useState<File | undefined>(start.file);
   const [profiles, setProfiles] = useState<ImportProfile[]>();
-  const [profileKey, setProfileKey] = useState("");
+  // Undefined until the person chooses a profile or none: until then the file chooses for them.
+  const [picked, setPicked] = useState<string>();
   const [policy, setPolicy] = useState<ImportPolicy>("independent");
-  const [onExisting, setOnExisting] = useState<ImportOnExisting>(defaultOnExisting(null));
+  const [pickedOnExisting, setOnExisting] = useState<ImportOnExisting>();
   const [otherWorkspace, setOtherWorkspace] = useState<OtherWorkspaceIds>("counterparts");
   const [workspaceKey, setWorkspaceKey] = useState(start.context?.workspaceKey ?? "");
   const [changeSets, setChangeSets] = useState<ChangeSet[]>();
@@ -118,12 +134,19 @@ export function ImportDialog({
             : {}),
         }
       : undefined);
-  const profile = profiles?.find((item) => item.key === profileKey);
+  const matching = profilesFor(profiles ?? [], file);
+  // One profile fits the file: it is chosen for the person; none or several leave the choice to them.
+  const autoKey = matching.length === 1 ? matching[0].key : "";
+  // A choice the new file no longer allows gives way to what the file fits.
+  const stillFits = picked !== undefined && (picked === "" || matching.some((item) => item.key === picked));
+  const profileKey = stillFits ? picked : autoKey;
+  const profile = matching.find((item) => item.key === profileKey);
+  // The default follows the file's kind: a profile's file carries no versions (D92).
+  const onExisting = pickedOnExisting ?? defaultOnExisting(profileKey || null);
 
   function chooseProfile(key: string) {
-    setProfileKey(key);
-    // The default follows the file's kind: a profile's file carries no versions (D92).
-    setOnExisting(defaultOnExisting(key || null));
+    setPicked(key);
+    setOnExisting(undefined);
   }
 
   async function submit() {
@@ -160,7 +183,7 @@ export function ImportDialog({
     ? ""
     : context.changeSet
       ? `the change set “${context.changeSet.name ?? "Unnamed"}”`
-      : `live data in workspace “${context.workspaceKey}”`;
+      : "the workspace’s live data";
 
   return (
     <Modal title="Import" size="wide" busy={pending} onClose={onClose}>
@@ -216,33 +239,33 @@ export function ImportDialog({
           >
             {(control) => <FileField control={control} accept={ACCEPT} onFile={setFile} disabled={pending} />}
           </FormField>
-          <FormField
-            label="Profile"
-            help={
-              profile
-                ? `Reads ${profileSummary(model, profile)}.`
-                : "Without a profile: a workbook exported for people, read as it was written; a JSON Lines file of batch items; or a table an export wrote."
-            }
-            error={fieldError("profile")}
-          >
-            {(control) => (
-              <select
-                {...control}
-                value={profileKey}
-                disabled={!profiles}
-                onChange={(event) => chooseProfile(event.target.value)}
-              >
-                <option value="">None</option>
-                {(profiles ?? []).map((item) => (
-                  <option key={item.key} value={item.key} disabled={!item.valid}>
-                    {item.valid
-                      ? item.name
-                      : `${item.name} (no longer valid: ${item.problems.length} ${item.problems.length === 1 ? "problem" : "problems"})`}
-                  </option>
-                ))}
-              </select>
-            )}
-          </FormField>
+          {(file || error?.field === "profile") && (
+            <FormField
+              label="Profile"
+              help={
+                profile
+                  ? `${profile.key === autoKey ? "Chosen because it fits this file. " : ""}Reads ${profileSummary(model, profile)}.`
+                  : "Without a profile: a workbook exported for people, read as it was written; a JSON Lines file of batch items; or a table an export wrote."
+              }
+              error={fieldError("profile")}
+            >
+              {(control) => (
+                <select
+                  {...control}
+                  value={profileKey}
+                  disabled={!profiles}
+                  onChange={(event) => chooseProfile(event.target.value)}
+                >
+                  <option value="">None</option>
+                  {matching.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </FormField>
+          )}
           {profile && keyless(profile) && (
             <Notice tone="warning" title="This profile has no key">
               Rows are not matched to records already there, so sending the file twice creates its records twice.
@@ -250,8 +273,8 @@ export function ImportDialog({
           )}
         </section>
 
-        <section className="dialog-form-section" aria-labelledby="import-loading">
-          <h3 id="import-loading">Loading</h3>
+        <details className="dialog-form-section plain-import-options">
+          <summary>Options</summary>
           <FormField label="Rows that cannot load" group>
             {() => <Choice name="import-policy" value={policy} options={POLICIES} onChange={setPolicy} />}
           </FormField>
@@ -290,10 +313,10 @@ export function ImportDialog({
               />
             )}
           </FormField>
-          <p className="admin-hint">
-            Nothing is written yet: the preview shows what loading would do, then you confirm it.
-          </p>
-        </section>
+        </details>
+        <p className="admin-hint">
+          Nothing is written yet: the preview shows what loading would do, then you confirm it.
+        </p>
 
         {error?.field === "form" && (
           <Notice tone="error" title="The import was not started">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type InputHTMLAttributes, type KeyboardEvent } from "react";
 import { Icon } from "@/ui/Icon";
 
 /** The search box every list uses: the icon, then an input named by `label`. */
@@ -13,6 +13,8 @@ export function SearchField({
   type,
   autoFocus,
   disabled,
+  inputProps,
+  onInputKeyDown,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -29,11 +31,16 @@ export function SearchField({
   /** The box takes focus when it opens, as a dialog's candidate search does. */
   autoFocus?: boolean;
   disabled?: boolean;
+  /** Further attributes of the input, such as the combobox roles of a search that opens results. */
+  inputProps?: InputHTMLAttributes<HTMLInputElement>;
+  /** Runs before the box's own keys; a handler that prevents the default keeps them from acting. */
+  onInputKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className={className ? `search-box ${className}` : "search-box"}>
       <Icon name="search" />
       <input
+        {...inputProps}
         type={type}
         aria-label={label}
         autoFocus={autoFocus}
@@ -41,8 +48,10 @@ export function SearchField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={
-          clearOnEscape || onSubmit
+          clearOnEscape || onSubmit || onInputKeyDown
             ? (event) => {
+                onInputKeyDown?.(event);
+                if (event.defaultPrevented) return;
                 if (clearOnEscape && event.key === "Escape" && value) {
                   event.preventDefault();
                   onChange("");

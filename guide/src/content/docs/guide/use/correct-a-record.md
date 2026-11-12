@@ -19,13 +19,21 @@ To change connections, follow [Relate records](/docs/guide/use/relate-records/).
    **Live** banner. To prepare work for later publication, [open a change set
    first](/docs/guide/use/prepare-and-publish-a-change-set/), then check its name in the orange banner.
 3. Select the value you need to correct in the heading or a details panel. An editor opens for
-   that field. Enter the verified replacement using the control shown: text, number, date or
-   Yes/No. Where **Set null** is offered, it stores an explicit null value. To make an optional
-   field **Not set** instead, cancel this edit and use its remove-value button and confirmation.
-4. Choose **Save**. On success, the editor closes and the saved value appears. Check it before
-   leaving. Choose **Cancel** instead to abandon the correction.
+   that field where the value stands. Enter the verified replacement using the text, number or
+   date control. A Yes/No value is a switch that saves as soon as you change it. To make an
+   optional field **Not set**, empty its input and leave it, or use its remove-value button.
+   The removal notice says **‹Field› removed** and offers **Undo**. A required field left
+   empty stays open with **‹Field› needs a value.** beneath it.
+4. Click elsewhere or press Tab to save. Enter also saves a single-line field; in text of
+   several lines, Enter adds a new line and Ctrl+Enter (Cmd+Enter on a Mac) saves. Escape
+   puts the old value back. There are no **Save** or **Cancel** buttons unless a save is refused.
+   An unchanged input closes without saving or showing a notice. On success, the saved value
+   appears and **‹Field› saved** offers **Undo**, including for a field set for the first time:
+   Undo makes it **Not set** again. If the record changed again in the meantime, Undo is refused
+   with “Undo was not possible: the record changed again in the meantime.” Check the result
+   before leaving. You can open another field while one is open; the first saves as you leave it.
 
-![One numeric field open for correction with Cancel and Save](/docs/screens/stop-edit-field.png)
+![One numeric field open for correction in place with Enter to save and Escape to cancel](/docs/screens/stop-edit-field.png)
 
 *Above: Stop number (UIC) is open on Chur Wiesental in Network, in the Graubünden workspace.
 Its current value is 8509006; the screenshot shows the editor before a correction is saved.*
@@ -33,35 +41,36 @@ Its current value is 8509006; the screenshot shows the editor before a correctio
 If the value cannot be selected, check whether you are viewing a read-only publication. A field
 may also be read-only or your access may not allow editing it. Ask a workspace administrator if
 you need access. If a save is refused, read the message and correct the reported problem before
-trying again. A refused save has not applied your input.
+trying again. A refused save has not applied your input. The field stays open with your input
+and the reason beneath it, followed by **Cancel** and **Save again**. Leaving it again retries
+only after its input has changed.
 
 ## Change several fields together
 
-1. Open the **…** menu beside the record version in the heading and choose **Edit record**.
-   The **Edit object** form opens with the current values.
+1. Open the **…** menu in the record’s header and choose **Edit record**.
+   The record’s ID and version are under **Details**.
+   The form is titled with the record's name and opens in the middle of the window on a desktop, with the current values.
 2. Correct the fields you need. **Name** identifies the record; the other fields describe it.
    Check each field's label rather than assuming similarly named fields change together.
-3. Leave **Parent** selected as it is unless you intend to move the record. To move it, search
+3. Keep **In** followed by the current parent's name unless you intend to move the record. Choose **Change** to show **Parent**, then search
    for and select the intended parent, checking its path to distinguish matching names.
-4. Scroll through the form and choose **Save changes**. On success, the form closes and the
+4. Scroll through the form and choose **Save**. On success, the form closes and the
    record page shows the result. If a message identifies an invalid or missing value, correct
    it and save again. Choose **Cancel** to leave without saving the form.
 
-![The record editing form showing Parent, Name and other fields](/docs/screens/stop-edit-record.png)
+![Record editing dialog with its parent, required fields, expanded More fields and Save](/docs/screens/stop-edit-record.png)
 
-*Above: Edit object for Chur Wiesental shows Chur as the selected Parent, followed by Name,
-Designation, Stop number (UIC) and the other stop fields. The remaining fields and save control
-are further down the form.*
+*Above: Chur Wiesental’s edit form shows In Chur with Change, followed by required Name, Designation and Stop number (UIC). More fields is open, and Cancel and Save are visible at the foot.*
 
 ## If someone else changed it first
 
 1. If a single-field save reports **The value was not saved** and **Object version has changed**,
    leave the editor open. Your input is preserved. Read **Current saved value**, then review
    the refreshed record for the other person's changes, including changes to other fields.
-2. Decide whether your correction still applies. Adjust the input if needed. Choose **Save**
-   again only after reviewing the current values, or **Cancel** to abandon your correction.
+2. Decide whether your correction still applies. Adjust the input if needed. Choose **Save again**
+   only after reviewing the current values, or **Cancel** to abandon your correction.
 3. Check the result. Another intervening edit can cause another refusal; review again rather
-   than repeatedly pressing Save. If **Reload current value** appears, use it to load the
+   than repeatedly choosing **Save again**. If **Reload current value** appears, use it to load the
    current value before retrying.
 
 ![A refused field save with the current saved value and the user's preserved input](/docs/screens/save-conflict.png)

@@ -1,11 +1,11 @@
 /**
  * A list's cells edited in place (0.10 A9, D131–D138), for `ui/ObjectTable`: a collection and a
  * record's table panel. A value cell (the name or a bound attribute) edits through `EditableField`'s
- * `cell` layout and removes through `RemoveValueDialog`; a relation cell where the row holds at
- * most one sets or changes it through `RelationFormDialog` and deletes it through
- * `DeleteRelationDialog`; where it holds several, `RelatedRecordsDialog`. Ancestor and containment
+ * `cell` layout (the value becomes its field and saves when it is left, 0.17 UX2) and removes at once with an Undo toast (`useRemovals`); a relation cell where the row holds at
+ * most one sets or changes it through `RelationFormDialog` and removes it at once with an Undo toast; where it holds several, `RelatedRecordsDialog`. Ancestor and containment
  * columns, computed fields, read-only bindings and a read-only list show no icons. One cell edits at
- * a time. A save reloads the list where it is and says where it went in a toast.
+ * a time. A save reloads the list where it is; a value's field says so itself with Undo, a relationship's
+ * dialog says where it went in a toast.
  *
  * `renderCell` changes only with what the cells show (the cell being edited, whether editing is
  * possible, the model and the permissions); its handlers read the rest through a ref, so the table's
@@ -18,15 +18,14 @@ import { errorMessage } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { holds, recordWrites } from "@/features/security/permissions";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
-import { attributeName, relatedRecords } from "@/model/fields";
+import { relatedRecords } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedCellEdit, type RelatedCellEdit } from "@/model/lookup";
-import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem, RelationPage } from "@/types";
+import type { EngineModel, ObjectItem, RelationItem, RelationPage } from "@/types";
 import { EditInPlaceCell } from "@/ui/EditInPlace";
 import { useToast } from "@/ui/Toast";
 import { EditableField, fieldEditing } from "./EditableField";
-import { DeleteRelationDialog } from "./DeleteRelationDialog";
 import { RelatedRecordsDialog } from "./RelatedRecordsDialog";
-import { RemoveValueDialog } from "./RemoveValueDialog";
+import { useRemovals } from "./useRemovals";
 import { RelationFormDialog } from "./panels/RelationFormDialog";
 
 /** What a table cell shows, given the row, the column and the value as the list renders it. */
@@ -34,10 +33,8 @@ export type CellRenderer = (item: ObjectItem, column: string, shown: ReactNode) 
 
 type Open =
   | { kind: "value"; id: string; field: string }
-  | { kind: "remove"; item: ObjectItem; attribute: AttributeTypeDefinition }
   | { kind: "set"; item: ObjectItem; edit: RelatedCellEdit }
   | { kind: "change"; item: ObjectItem; edit: RelatedCellEdit; held: RelationItem }
-  | { kind: "delete"; item: ObjectItem; held: RelationItem }
   | { kind: "many"; item: ObjectItem; edit: RelatedCellEdit };
 
 export function useCellEditing({
@@ -58,6 +55,7 @@ export function useCellEditing({
   const writes = useRecordWrites();
   const batches = useMemo(() => (permissions ? recordWrites(permissions, "bulk") : undefined), [permissions]);
   const toast = useToast();
+  const { removeRelationship, removeValue } = useRemovals();
   const [open, setOpen] = useState<Open>();
   const [reading, setReading] = useState(false);
 
@@ -68,15 +66,22 @@ export function useCellEditing({
     toast(warning || `${what} of “${item.name}” saved to ${changeSet ? `change set “${changeSet.name}”` : "Live"}`);
   }
 
+  function reloaded() {
+    list.reload();
+    onChanged?.();
+  }
+
   const heldOne = (item: ObjectItem, edit: RelatedCellEdit) => heldRelation(api.relations, item, edit);
 
   async function openSingle(item: ObjectItem, edit: RelatedCellEdit, removing: boolean) {
     setReading(true);
     try {
       const held = await heldOne(item, edit);
-      if (removing) setOpen(held ? { kind: "delete", item, held } : undefined);
-      else setOpen(held ? { kind: "change", item, edit, held } : { kind: "set", item, edit });
-      if (!held && removing) list.reload();
+      if (removing) {
+        // One call puts a relationship back, so removing it asks nothing and offers Undo (0.17 UX1, PP-D40).
+        if (held) await removeRelationship(held, relationName(model, held), reloaded);
+        else list.reload();
+      } else setOpen(held ? { kind: "change", item, edit, held } : { kind: "set", item, edit });
     } catch (cause) {
       toast(errorMessage(cause), { tone: "info" });
     } finally {
@@ -84,10 +89,20 @@ export function useCellEditing({
     }
   }
 
-  const busy = Boolean(open) || reading || Boolean(warning);
-  const latest = useRef({ openSingle, saved, list });
+  // A value's field saves when it is left, so another cell can be opened straight from it; a dialog holds the rest.
+  const busy = (open !== undefined && open.kind !== "value") || reading || Boolean(warning);
+  /** A value cell closes only itself: the save of a cell left for another ends after that one opened. */
+  function closeValue(id: string, field: string) {
+    setOpen((now) => (now?.kind === "value" && now.id === id && now.field === field ? undefined : now));
+  }
+  /** A value saved in its cell: the field's own toast says so with Undo, the list reads the row again. */
+  function valueSaved(id: string, field: string) {
+    closeValue(id, field);
+    reloaded();
+  }
+  const latest = useRef({ openSingle, valueSaved, closeValue, list, removeValue, reloaded });
   useLayoutEffect(() => {
-    latest.current = { openSingle, saved, list };
+    latest.current = { openSingle, valueSaved, closeValue, list, removeValue, reloaded };
   });
 
   const renderCell = useCallback<CellRenderer>(
@@ -134,13 +149,15 @@ export function useCellEditing({
           layout="cell"
           display={shown}
           editing={editing}
-          disabled={busy && !editing}
+          disabled={busy}
           onEdit={() => setOpen({ kind: "value", id: item.id, field: column })}
-          onClose={() => setOpen(undefined)}
-          onSaved={() => latest.current.saved(attributeName(model, column), item)}
+          onClose={() => latest.current.closeValue(item.id, column)}
+          onSaved={() => latest.current.valueSaved(item.id, column)}
           onConflict={async () => latest.current.list.reload()}
           onRemove={
-            editable.isName ? undefined : () => setOpen({ kind: "remove", item, attribute: editable.attribute })
+            editable.isName
+              ? undefined
+              : () => void latest.current.removeValue(item, editable.attribute, latest.current.reloaded)
           }
         />
       );
@@ -150,16 +167,6 @@ export function useCellEditing({
 
   const dialogs = open && (
     <>
-      {open.kind === "remove" && (
-        <RemoveValueDialog
-          object={open.item}
-          attribute={open.attribute}
-          reload={async () => list.reload()}
-          onChanged={onChanged}
-          onCancel={() => setOpen(undefined)}
-          onRemoved={() => saved(open.attribute.name, open.item)}
-        />
-      )}
       {(open.kind === "set" || open.kind === "change") && (
         <RelationFormDialog
           model={model}
@@ -173,14 +180,6 @@ export function useCellEditing({
           setting={open.kind === "set"}
           onClose={() => setOpen(undefined)}
           onSaved={() => saved(open.edit.choices[0].label, open.item)}
-        />
-      )}
-      {open.kind === "delete" && (
-        <DeleteRelationDialog
-          relation={open.held}
-          workspaceKey={open.item.workspaceKey}
-          onCancel={() => setOpen(undefined)}
-          onDeleted={() => saved(relationName(model, open.held), open.item)}
         />
       )}
       {open.kind === "many" && (

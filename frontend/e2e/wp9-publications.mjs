@@ -212,14 +212,15 @@ try {
     .getByRole("button", { name: `More actions for Publication ${oldPublication.publicationNumber}`, exact: true })
     .click();
   await page.getByRole("menuitem", { name: "Start a change set from this publication" }).click();
-  await page.getByRole("dialog").getByLabel("Change set name").fill("Earlier review");
-  await page.getByRole("dialog").getByRole("button", { name: "Create change set" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("Earlier review");
+  await page.getByRole("dialog").getByRole("button", { name: "Start change set" }).click();
   await page
     .getByRole("region", { name: "Change set publication" })
     .getByRole("heading", { name: "Earlier review", exact: true })
     .waitFor();
+  await page.getByRole("button", { name: "Details", exact: true }).click();
   const changeSetText = await page.locator("main").innerText();
-  assert.match(changeSetText, new RegExp(`From publication ${oldPublication.id}`));
+  assert.match(changeSetText, new RegExp(`Started from publication ${oldPublication.id}`));
   assert.match(changeSetText, /This change set uses a different model version/);
   checks.push(
     "Deriving from an earlier publication is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override",

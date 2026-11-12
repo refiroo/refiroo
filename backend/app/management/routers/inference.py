@@ -17,8 +17,14 @@ from ...engine.sources.inference.run import (
     read_inference,
     submit_inference,
 )
+from ...engine.sources.join_candidates import join_candidates
 from ...errors import api_error
-from ...models.sources import InferenceApplicationRequest, InferenceRequest, ListProposalRequest
+from ...models.sources import (
+    InferenceApplicationRequest,
+    InferenceRequest,
+    JoinCandidatesRequest,
+    ListProposalRequest,
+)
 from ..access import (
     INSTANCE,
     AuthorizedRoute,
@@ -30,6 +36,7 @@ from ..presenters import diagnostic_details
 from ..schemas.model import ModelDraftStepResponse
 from ..schemas.sources import (
     InferenceResponse,
+    JoinCandidatesResponse,
     ListProposalResponse,
     ProposalPage,
     ProposalResponse,
@@ -151,3 +158,21 @@ def propose_one_list(draft_id: str, payload: ListProposalRequest, session: DbSes
     value under its header, ``422 INVALID_INFERENCE_REQUEST`` for an application the draft lacks.
     """
     return ListProposalResponse.model_validate(propose_list(session, draft_id, payload))
+
+
+@router.post("/model-drafts/{draft_id}/join-candidates", response_model=JoinCandidatesResponse)
+@requires("model.author", at=INSTANCE)
+def find_join_candidates(
+    draft_id: str, payload: JoinCandidatesRequest, session: DbSession
+) -> JoinCandidatesResponse:
+    """Which column of a table the values of one column point at (0.17 PP-D8): the column ``column``
+    compared over every row with the column ``against`` names, or with every column of its table, in
+    one statement over the draft's staged file. Answered and not stored. Candidates come best first
+    with their figures; two that match exactly as much are a ``tie``: ``best`` is then ``null`` and
+    the client asks which. Values compare as an import matches names, by their trimmed text.
+
+    Refused: ``404 SOURCE_FILE_NOT_FOUND`` (no file), ``409 SOURCE_FILE_PROFILE_NOT_READY``, ``404
+    SOURCE_SHEET_NOT_FOUND``, ``422 COLUMN_NOT_FOUND`` for a header or letter the table lacks, ``422
+    INVALID_RANGE`` for a block whose last column is before its first.
+    """
+    return JoinCandidatesResponse.model_validate(join_candidates(session, draft_id, payload))

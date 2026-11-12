@@ -64,7 +64,7 @@ drag. Beginning to move your finger before it lifts scrolls the tree instead.
 ## Add the first top-level record
 
 In an editable tree, choose **Add …** for the intended top-level type in the header or empty
-view. Complete the new record’s name and required fields, then choose **Create**. This form
+view. Complete the new record’s name and required fields, then choose **Add** followed by the record type's name. This form
 has no parent field: the record starts at the top of this tree. Add children from its menu
 afterwards. The action appears only for types allowed at the top, when the view allows creation
 and your permissions allow writing that type.
@@ -75,7 +75,7 @@ and your permissions allow writing that type.
    Enter the intended name and confirm the rename. Check the new label; the record retains
    its identity and connections.
 2. To add within a parent, choose the menu's add-child action for an offered type. Complete
-   the new record form, check its parent and choose **Create**. If the needed type is absent,
+   the new record form, check its parent and choose **Add** followed by the record type's name. If the needed type is absent,
    ask a model administrator about the permitted children.
 3. Where an availability action is offered, use it only to change whether the record is
    available under that model's rule. It does not delete the record.

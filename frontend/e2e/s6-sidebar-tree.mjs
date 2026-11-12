@@ -14,7 +14,7 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
-import { openFoldedGroups } from "./helpers/tree.mjs";
+import { openBrowseRecords, openFoldedGroups } from "./helpers/tree.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const scale = process.env.S6_VOLUME_SCALE ?? "0.1";
@@ -108,6 +108,8 @@ let harness = await bootHarness({
 });
 try {
   const { page, uiUrl, api } = harness;
+  // Browse records is folded until opened (0.17 SH1); these runs browse the tree, so it starts open.
+  await page.context().addInitScript(() => { try { localStorage.setItem("rdm:navigation:browse-records:v1", "true"); } catch {} });
   const base = `${uiUrl}/apps/vol-catalogue`;
   const read = (type, id) => api(`/objects/${type}/${id}?workspaceKey=vol-workspace`);
   const heavy = await read("vol-group", dataset.heavy_group_id);
@@ -129,6 +131,7 @@ try {
     const requests = treeRequests(page);
     await page.goto(`${base}/views/groups?workspaceKey=vol-workspace${suffix}`);
     const explorer = page.getByRole("region", { name: "Volume catalogue explorer" });
+    await openBrowseRecords(explorer);
     const tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
     const roots = await list("vol-group", "topLevel=true", suffix);
     await tree.getByRole("treeitem", { name: `vol-groups, ${format(roots.totalCount)}`, exact: true }).waitFor();
@@ -144,9 +147,17 @@ try {
     assert.equal(rows.setSize, String(roots.totalCount), `${context}: set size from the total`);
 
     // A branch shows exactly its own children, per child type, with their counts.
-    const search = explorer.getByRole("textbox", { name: "Search this explorer" });
-    await search.fill(small.name);
     const smallRow = tree.getByRole("treeitem", { name: small.name, exact: true });
+    // The explorer has no search of its own now: scroll the root group, as a person does, until the row is drawn.
+    const reveal = async (row) => {
+      for (const edge of ["last", "first", "last"])
+        for (let step = 0; step < 40 && (await row.count()) === 0; step++) {
+          await rootGroup.locator(":scope > ul > [data-row-key]")[edge]().scrollIntoViewIfNeeded();
+          await page.waitForTimeout(300);
+        }
+      await row.scrollIntoViewIfNeeded();
+    };
+    await reveal(smallRow);
     await smallRow.focus();
     await page.keyboard.press("ArrowRight");
     const smallItems = await list("vol-item", `parentObjectId=${small.id}`, suffix);
@@ -161,8 +172,8 @@ try {
     );
     assert.equal(await tree.getByRole("group", { name: `vol-nodes within ${small.name}` }).count(), 0);
 
-    await search.fill(heavy.name);
     const heavyRow = tree.getByRole("treeitem", { name: heavy.name, exact: true });
+    await reveal(heavyRow);
     await heavyRow.focus();
     await page.keyboard.press("ArrowRight");
     const heavyItems = await list("vol-item", `parentObjectId=${heavy.id}`, suffix);
@@ -188,12 +199,12 @@ try {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     let most = 0;
     for (let step = 0; step < 4000 && rows.last < heavyItems.totalCount - 1; step++) {
-      await page.mouse.wheel(0, 1500);
-      await page.waitForTimeout(25);
-      if (step % 10 === 9) {
-        rows = await windowRows(itemsGroup);
-        most = Math.max(most, rows.count);
-      }
+      // The sidebar now lists every later group after the heavy one, so the group leaves the page once
+      // scrolled past: step by less than the viewport, give each page time to arrive, read each step.
+      await page.mouse.wheel(0, 500);
+      await page.waitForTimeout(200);
+      rows = await windowRows(itemsGroup);
+      most = Math.max(most, rows.count);
     }
     rows = await windowRows(itemsGroup);
     assert.equal(rows.last, heavyItems.totalCount - 1, `${context}: scrolled to the last item`);
@@ -263,7 +274,8 @@ try {
     await heavyRow.locator(".tree-toggle").first().click();
     await itemsGroup.waitFor({ state: "detached" });
     const after = await tree.locator("[role='treeitem']").count();
-    assert.ok(after < 10 && held > TREE_PAGE_SIZE, `${context}: collapse released ${held} → ${after} items`);
+    // The root group keeps its own window of top-level rows now (no search narrows it), so the count falls but not to a handful.
+    assert.ok(after < held && held > TREE_PAGE_SIZE, `${context}: collapse released ${held} → ${after} items`);
 
     // Every tree read is scoped: top level, a parent or a search; never a global per-type load.
     for (const url of requests.seen)
@@ -290,8 +302,14 @@ try {
   await phone.getByRole("button", { name: "Browse application", exact: true }).tap();
   const drawer = phone.getByRole("dialog", { name: "Application navigation" });
   const phoneTree = drawer.getByRole("tree", { name: "Browse records", exact: true });
-  await drawer.getByRole("textbox", { name: "Search this explorer" }).fill(heavy.name);
+  await openBrowseRecords(drawer);
   const phoneHeavy = phoneTree.getByRole("treeitem", { name: heavy.name, exact: true });
+  // The drawer's tree has no search of its own: its rows are read as the tree scrolls, until the group is held.
+  for (let step = 0; step < 60 && (await phoneHeavy.count()) === 0; step++) {
+    await phoneTree.locator("[data-row-key]").last().scrollIntoViewIfNeeded();
+    await phone.waitForTimeout(300);
+  }
+  await phoneHeavy.scrollIntoViewIfNeeded();
   await phoneHeavy.locator(".tree-toggle").first().tap();
   await openFoldedGroups(phone, phoneHeavy);
   const phoneItems = phoneTree.getByRole("group", { name: `vol-items within ${heavy.name}`, exact: true });
@@ -331,12 +349,15 @@ try {
 harness = await bootHarness();
 try {
   const { page, uiUrl, records } = harness;
+  // Browse records is folded until opened (0.17 SH1); these runs browse the tree, so it starts open.
+  await page.context().addInitScript(() => { try { localStorage.setItem("rdm:navigation:browse-records:v1", "true"); } catch {} });
   const domain = records.domain[0];
   const system = records.system[0];
 
   // Master: one child type per level. Keyboard: Right expands, Right enters, Down, Left returns.
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
   let explorer = page.getByRole("region", { name: "RDM Master explorer" });
+  await openBrowseRecords(explorer);
   let tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
   const domains = tree.getByRole("treeitem", { name: "Domains, 5", exact: true });
   await domains.waitFor();
@@ -383,18 +404,14 @@ try {
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { name: "Codelists", level: 1 }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get("parentObjectId"), domain.id);
-  // Search lists matches of every type with their ancestor path.
-  await explorer.getByRole("textbox", { name: "Search this explorer" }).fill("Alpha");
-  const match = tree.getByRole("treeitem", { name: `Codelist Alpha, in ${domain.name}`, exact: true });
-  await match.waitFor();
-  assert.equal(await match.locator(".tree-path").textContent(), domain.name);
   checks.push(
-    "starter master: Domains page from the top level with a count; a domain expands to its codelists by keyboard (level, position and set size), an empty codelist says Nothing inside, Left collapses and returns to the parent, Enter opens a record and a heading's scoped collection, search shows a match's ancestor path; axe clean",
+    "starter master: Domains page from the top level with a count; a domain expands to its codelists by keyboard (level, position and set size), an empty codelist says Nothing inside, Left collapses and returns to the parent, Enter opens a record and a heading's scoped collection; axe clean",
   );
 
   // Systems: two child types; the empty one draws no group.
   await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
   explorer = page.getByRole("region", { name: "RDM Systems explorer" });
+  await openBrowseRecords(explorer);
   tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
   await openFoldedGroups(page, tree);
   const systemRow = tree.getByRole("treeitem", { name: system.name, exact: true });

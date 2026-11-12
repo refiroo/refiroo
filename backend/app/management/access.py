@@ -289,6 +289,14 @@ RECORD_WRITE = Where(
     ),
     reads_body=True,
 )
+RECORD_WRITE_QUERY = Where(
+    "the query's change set, or the record's workspace",
+    lambda context, groups: _live_or_change_set(
+        context,
+        context.query("changeSetId"),
+        lambda: _record_workspace(context, context.path("object_id")),
+    ),
+)
 RELATION_WRITE = Where(
     "the change set, or the relationship's workspace",
     lambda context, groups: _live_or_change_set(

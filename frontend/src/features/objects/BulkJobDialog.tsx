@@ -407,7 +407,7 @@ export function BulkJobDialog({
             : step === "result" && job
               ? `${job.state === "completed" ? "Applied" : job.state === "failed" ? "Failed" : "Stopped"}: ${job.counts.created + job.counts.updated + job.counts.deleted} ${did}, ${job.counts.rejected} refused`
               : "";
-  const applying = job && applyButton ? applyButton(job) : { label: "Apply", className: "primary" as const };
+  const applying = job && applyButton ? applyButton(job) : { label: "Save", className: "primary" as const };
 
   return (
     <Modal
@@ -467,18 +467,18 @@ export function BulkJobDialog({
               {problem.message}
             </Notice>
           )}
-          <div className="dialog-actions bulk-actions">
-            {summary && (
-              <span className="bulk-summary" aria-live="polite">
-                {summary}
-              </span>
-            )}
+          {summary && (
+            <p className="bulk-summary" aria-live="polite">
+              {summary}
+            </p>
+          )}
+          <div className="dialog-actions">
             {step === "reading" ? (
               <button type="button" className="secondary" onClick={() => stop.current?.abort()}>
                 Stop
               </button>
             ) : (
-              <button type="button" className="ghost" disabled={busy} onClick={() => close()}>
+              <button type="button" className="secondary" disabled={busy} onClick={() => close()}>
                 Cancel
               </button>
             )}

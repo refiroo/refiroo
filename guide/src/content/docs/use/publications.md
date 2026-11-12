@@ -52,7 +52,7 @@ for confirmation.
 ## Starting work from a snapshot
 
 With Work in change sets permission, the publication menu offers **Start a change set from this
-publication**. Give it a **Change set name**, then choose **Create change set**. The result is editable
+publication**. Enter a **Name**, then choose **Start change set**. The result is editable
 and keeps the snapshot's model release. This does not restore Live: only changes you deliberately
 author can be published later. If its model differs from the workspace's current model, resolve
 that difference before publishing. See [Change sets](/docs/use/change-sets/) and

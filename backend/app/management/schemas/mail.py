@@ -159,3 +159,35 @@ class NoticeMailUpdate(BaseModel):
         if self.enabled is None and self.kinds is None and self.digest is None:
             raise ValueError("Send `enabled`, `kinds`, `digest` or more")
         return self
+
+
+class MailTemplateResponse(BaseModel):
+    """The e-mail template: Markdown with ``{{placeholders}}`` and a logo, around the content of every
+    mail the engine sends. Without a saved template (``saved`` false) ``markdown`` is the default and
+    the engine's own layout is used until one is saved."""
+
+    markdown: str
+    defaultMarkdown: str = Field(
+        description="The shipped default; `DELETE /mail-template` restores it"
+    )
+    saved: bool
+    placeholders: list[str] = Field(
+        description="The placeholders a template may use; `{{content}}` is required exactly once"
+    )
+    logoType: str | None = Field(
+        description="`image/png`, `image/jpeg` or `image/svg+xml`; null for the refiroo mark"
+    )
+    logoDataUrl: str | None = Field(
+        description="The uploaded logo as a data URL, for a thumbnail; null when none"
+    )
+    logoMaxBytes: int
+    version: int | None = Field(description="Null until saved; send it as expectedVersion")
+    updatedAt: datetime | None
+
+
+class MailTemplatePreviewResponse(BaseModel):
+    """A draft rendered around a sample message with sample values: the HTML document (the logo as a
+    data URL) and the plain-text alternative."""
+
+    html: str
+    text: str

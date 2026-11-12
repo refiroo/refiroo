@@ -66,7 +66,7 @@ try {
     const { draft, version } = await withField(workspace, suffix);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${uiUrl}/?workspaceKey=${workspace}`);
-    await page.getByRole("combobox", { name: "Workspace" }).waitFor();
+    await page.getByRole("combobox", { name: "Workspace", exact: true }).waitFor();
     if (suffix === "a") {
       assert.equal(await page.getByRole("button", { name: "Import", exact: true }).count(), 0);
       assert.equal(await page.getByRole("button", { name: "Export", exact: true }).count(), 0);
@@ -91,7 +91,7 @@ try {
     await shot(`apply-${suffix}`);
     await dialog.getByRole("button", { name: `Apply to ${label}` }).focus();
     await page.keyboard.press("Enter");
-    await page.getByRole("combobox", { name: "Workspace" }).waitFor();
+    await page.getByRole("combobox", { name: "Workspace", exact: true }).waitFor();
     assert.equal((await api(`/workspaces/${workspace}/model`)).releaseVersion, version);
     checks.push(`1. ${label}: menu, editor, Apply and back by keyboard; it runs ${version}`);
   }
@@ -126,7 +126,7 @@ try {
   await page.getByRole("checkbox").first().check();
   await page.getByRole("button", { name: /^Migrate / }).click();
   await page.getByRole("button", { name: /^Back to / }).click();
-  await page.getByRole("combobox", { name: "Workspace" }).waitFor();
+  await page.getByRole("combobox", { name: "Workspace", exact: true }).waitFor();
   assert.equal((await api(`/workspaces/${first}/model`)).releaseVersion, without.release.version);
   checks.push("2. Records must move: preview, confirmation and back in the workspace on the new release");
 

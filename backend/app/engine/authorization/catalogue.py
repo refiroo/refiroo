@@ -279,6 +279,12 @@ ACTIONS: dict[str, Action] = {
             doing="Administering workspaces",
         ),
         Action(
+            "workspaces.create-from-workbook",
+            ("workspace-admin",),
+            "Create a workspace from a workbook's draft: install it, create the workspace, load the workbook",
+            doing="Creating a workspace from a workbook",
+        ),
+        Action(
             "feed.read",
             ("feed",),
             "Read a workspace's change feed",
@@ -301,6 +307,12 @@ ACTIONS: dict[str, Action] = {
             ("operations",),
             "Send the AI provider a test request",
             doing="Testing the AI provider",
+        ),
+        Action(
+            "mail-template.manage",
+            ("operations",),
+            "Edit the e-mail template, its logo and send a test of it",
+            doing="Editing the e-mail template",
         ),
         Action(
             "security.manage",

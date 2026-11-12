@@ -7,6 +7,8 @@ export interface EntityFact {
   label: string;
   value: ReactNode;
   mono?: boolean;
+  /** The column's width in characters, for a value that is not text (chips): text sets its own. */
+  width?: number;
 }
 
 /** One line of a list: an item with a tile, a title, a pill and a second line. */
@@ -19,7 +21,10 @@ export interface EntityRow {
   subtitleMono?: boolean;
   /** Labelled facts shown as aligned columns at the row's end (under the text on a narrow screen). */
   facts?: EntityFact[];
-  icon: IconName;
+  /** The glyph on the row's tile; a row with a `lead` has none. */
+  icon?: IconName;
+  /** The row's own mark in place of the tile: a person's initials, a coloured tile (0.17 ST1). */
+  lead?: ReactNode;
   pill?: ReactNode;
   /** The row of the item shown elsewhere on the page. */
   current?: boolean;
@@ -43,6 +48,29 @@ export interface EntityGroup {
 }
 
 const noRetry = () => undefined;
+
+/** The longest text of a fact's value, in characters; a value that is not text counts as its label. */
+const factLength = (fact: EntityFact | undefined) =>
+  typeof fact?.value === "string" || typeof fact?.value === "number" ? String(fact.value).length : 0;
+
+/**
+ * The width of each fact's column (0.17 SH1): what its longest value and its label need, so a long
+ * version is never cut into the column beside it and the name keeps what the facts leave. One set
+ * for every group of the list, so the columns line up from group to group.
+ */
+function factTracks(groups: EntityGroup[]): string | undefined {
+  const rows = groups.flatMap((group) => group.rows);
+  const labels = rows.find((row) => row.facts?.length)?.facts?.map((fact) => fact.label);
+  if (!labels) return undefined;
+  return labels
+    .map((label, at) => {
+      const set = rows.find((row) => row.facts?.[at]?.width)?.facts?.[at]?.width;
+      if (set) return `${set}ch`;
+      const longest = Math.max(label.length, ...rows.map((row) => factLength(row.facts?.[at])));
+      return `${Math.min(Math.max(longest + 2, 6), 28)}ch`;
+    })
+    .join(" ");
+}
 
 /** Arrow keys step through the search box and the rows of a list. */
 export function moveBetweenRows(event: KeyboardEvent, container: HTMLElement | null) {
@@ -69,31 +97,38 @@ export function EntityList({
   search,
   onSearch,
   empty,
+  statusTrack,
 }: {
   /** What is listed, plural: "workspaces" (the search box is "Search workspaces"). */
   label: string;
   groups: EntityGroup[];
-  search: string;
-  onSearch: (text: string) => void;
+  /** Without `onSearch` the list has no search box: the page's tools above it hold the search (0.17 ST1). */
+  search?: string;
+  onSearch?: (text: string) => void;
   /** The text when nothing is listed. */
   empty: ReactNode;
+  /** The width of the last column where rows hold facts; `0` where no row has a pill (0.17 ST1). */
+  statusTrack?: string;
 }) {
   const body = useRef<HTMLDivElement>(null);
   const settled = groups.every((group) => !group.loading && !group.error);
   const nothing = settled && groups.every((group) => !group.rows.length);
+  const tracks = factTracks(groups);
   return (
     <div className="entity-list" ref={body} onKeyDown={(event) => moveBetweenRows(event, body.current)}>
-      <SearchField
-        className="entity-search"
-        type="search"
-        label={`Search ${label}`}
-        placeholder={`Search ${label}`}
-        value={search}
-        onChange={onSearch}
-      />
+      {onSearch && (
+        <SearchField
+          className="entity-search"
+          type="search"
+          label={`Search ${label}`}
+          placeholder={`Search ${label}`}
+          value={search ?? ""}
+          onChange={onSearch}
+        />
+      )}
       <div className="entity-groups">
         {groups.map((group) => (
-          <EntityGroupSection key={group.key} group={group} label={label} />
+          <EntityGroupSection key={group.key} group={group} label={label} tracks={tracks} statusTrack={statusTrack} />
         ))}
         {nothing && (
           <p className="explorer-empty" role="status">
@@ -105,7 +140,17 @@ export function EntityList({
   );
 }
 
-function EntityGroupSection({ group, label }: { group: EntityGroup; label: string }) {
+function EntityGroupSection({
+  group,
+  label,
+  tracks,
+  statusTrack,
+}: {
+  group: EntityGroup;
+  label: string;
+  tracks?: string;
+  statusTrack?: string;
+}) {
   const sentinel = useRef<HTMLDivElement>(null);
   const { onEnd, loadingMore } = group;
   const rowCount = group.rows.length;
@@ -150,14 +195,12 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
   // Labels once per group, in the heading, above the same columns the rows use. A row keeps its
   // labels for a screen reader and for a narrow screen, where the columns give way to a stack.
   const factLabels = group.rows.find((row) => row.facts?.length)?.facts?.map((fact) => fact.label) ?? [];
-  const tracks = factLabels.length
-    ? `minmax(12rem, 18rem)${factLabels.length > 1 ? ` repeat(${factLabels.length - 1}, 7rem)` : ""}`
-    : undefined;
+  const hasFacts = factLabels.length > 0 && tracks !== undefined;
   return (
     <section
-      className={`entity-group${tracks ? " has-facts" : ""}`}
+      className={`entity-group${hasFacts ? " has-facts" : ""}`}
       aria-label={group.title}
-      style={tracks ? ({ "--fact-tracks": tracks } as CSSProperties) : undefined}
+      style={hasFacts ? ({ "--fact-tracks": tracks, "--status-track": statusTrack } as CSSProperties) : undefined}
     >
       <h2 className="nav-label">
         <span className="entity-group-title">
@@ -177,9 +220,11 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
           aria-current={row.current ? "true" : undefined}
           onClick={row.onOpen}
         >
-          <span className="entity-tile" aria-hidden="true">
-            <Icon name={row.icon} size={16} />
-          </span>
+          {row.lead ?? (
+            <span className="entity-tile" aria-hidden="true">
+              {row.icon && <Icon name={row.icon} size={16} />}
+            </span>
+          )}
           <span className="catalogue-text">
             <strong>{row.title}</strong>
             <small className={row.subtitleMono ? "mono" : undefined}>{row.subtitle}</small>
@@ -200,7 +245,9 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
                     <span className="visually-hidden">: </span>
                   </span>{" "}
                   <span
-                    className={fact.mono ? "entity-fact-value mono" : "entity-fact-value"}
+                    className={`entity-fact-value${fact.mono ? " mono" : ""}${
+                      typeof fact.value === "string" || typeof fact.value === "number" ? "" : " entity-fact-node"
+                    }`}
                     title={typeof fact.value === "string" ? fact.value : undefined}
                   >
                     {fact.value}
@@ -209,7 +256,7 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
               ))}
             </span>
           ) : null}
-          {tracks ? <span className="entity-status">{row.pill}</span> : row.pill}
+          {hasFacts ? <span className="entity-status">{row.pill}</span> : row.pill}
         </button>
       ))}
       {group.error && <InlineError message={group.error} onRetry={group.onRetry ?? noRetry} />}

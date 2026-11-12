@@ -5,14 +5,14 @@
  */
 
 import { API_URL } from "@/api/address";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import type { SettingsRoute } from "@/types";
-import { DescriptionList } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
 import { ProductMark } from "@/ui/ProductMark";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingRow, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
+import { settingsHead } from "./navigation";
 import { useSystem } from "./useSystem";
 
 export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) => void }) {
@@ -23,107 +23,117 @@ export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) =
   const repository = (system?.engine.sourceCode ?? "").replace(/\/tree\/.*$/, "").replace(/\/$/, "");
   const releaseRoute: SettingsRoute | undefined = release && { kind: "settings", page: "model", releaseId: release.id };
   return (
-    <SettingsLayout eyebrow="General" title="About" description="What this deployment runs.">
+    <SettingsLayout {...settingsHead("about")} title="About" description="What this deployment runs.">
       {error ? (
         <InlineError message={error} onRetry={retry} />
       ) : !system || !release || !releaseRoute ? (
         <Skeleton label="Loading what this deployment runs" lines={6} />
       ) : (
         <>
-          <Section title="refiroo">
-            <div className="about-brand">
-              <ProductMark name="refiroo" />
-              <p className="about-tagline">Reference data that stays in step.</p>
-              <p>
-                refiroo is where your organisation keeps the lists everything else depends on: codes, categories,
-                translations and the way one system&rsquo;s value maps to another&rsquo;s. You describe a domain once in
-                a model and refiroo gives it screens, an API, validation, history and search. Corrections go live when
-                saved, bigger changes are prepared in a change set and published together, and every record remembers
-                who changed it and when.
-              </p>
-              <ul className="about-points">
-                <li>
-                  <strong>Shape it to your domain.</strong> Another domain is another model, not another product.
-                </li>
-                <li>
-                  <strong>Connect, don&rsquo;t copy.</strong> Hierarchies, relationships and mappings keep their
-                  meaning.
-                </li>
-                <li>
-                  <strong>One API for everything.</strong> What the browser does, your integrations can do.
-                </li>
-              </ul>
-              <p className="about-links">
-                Read more: the <a href={`${API_URL}/docs/`}>documentation</a>, the{" "}
-                <a href={`${API_URL}/docs/api`}>API reference</a>, and in the repository <code>README.md</code>,{" "}
-                <code>docs/PRODUCT.md</code> (what it does), <code>docs/MODEL_AUTHORING.md</code> (writing a model) and{" "}
-                <code>docs/API.md</code> (the contracts). Under the hood refiroo runs on the RDM engine, shown below.
-              </p>
-            </div>
-          </Section>
-          <Section title="Engine">
-            <DescriptionList
-              items={[
-                { term: "Engine version", value: system.engine.version },
-                { term: "Management API", value: <code>{system.engine.managementApi}</code> },
-                { term: "Schema languages", value: system.schemaLanguages.join(", ") },
-                { term: "Licence", value: system.engine.license },
-                ...(build.tag || build.commit
-                  ? [
-                      {
-                        term: "Build",
-                        value: (
-                          <>
-                            {build.tag && (
-                              <a href={`${repository}/releases/tag/${build.tag}`} target="_blank" rel="noreferrer">
-                                {build.tag}
-                              </a>
-                            )}
-                            {build.tag && build.commit && " "}
-                            {build.commit && (
-                              <a
-                                href={`${repository}/commit/${build.commit}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mono"
-                              >
-                                {build.commit}
-                              </a>
-                            )}
-                          </>
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  term: "Source code",
-                  value: (
-                    <a href={system.engine.sourceCode} target="_blank" rel="noreferrer">
-                      {system.engine.sourceCode}
-                    </a>
-                  ),
-                },
-              ]}
-            />
-          </Section>
-          <Section
+          <SettingsGroup title="refiroo" description="What it is for.">
+            <SettingsPanel className="settings-panel-pad">
+              <div className="about-brand">
+                <ProductMark name="refiroo" />
+                <p className="about-tagline">Reference data that stays in step.</p>
+                <p>
+                  refiroo is where your organisation keeps the lists everything else depends on: codes, categories,
+                  translations and the way one system&rsquo;s value maps to another&rsquo;s. You describe a domain once
+                  in a model and refiroo gives it screens, an API, validation, history and search. Corrections go live
+                  when saved, bigger changes are prepared in a change set and published together, and every record
+                  remembers who changed it and when.
+                </p>
+                <ul className="about-points">
+                  <li>
+                    <strong>Shape it to your domain.</strong> Another domain is another model, not another product.
+                  </li>
+                  <li>
+                    <strong>Connect, don&rsquo;t copy.</strong> Hierarchies, relationships and mappings keep their
+                    meaning.
+                  </li>
+                  <li>
+                    <strong>One API for everything.</strong> What the browser does, your integrations can do.
+                  </li>
+                </ul>
+                <p className="about-links">
+                  Read more: the <a href={`${API_URL}/docs/`}>documentation</a>, the{" "}
+                  <a href={`${API_URL}/docs/api`}>API reference</a>, and in the repository <code>README.md</code>,{" "}
+                  <code>docs/PRODUCT.md</code> (what it does), <code>docs/MODEL_AUTHORING.md</code> (writing a model)
+                  and <code>docs/API.md</code> (the contracts). Under the hood refiroo runs on the RDM engine, shown
+                  below.
+                </p>
+              </div>
+            </SettingsPanel>
+          </SettingsGroup>
+          <SettingsGroup title="Engine" description="The version this instance runs and where its source is.">
+            <SettingsPanel>
+              <SettingRow fact name="Engine version">
+                {system.engine.version}
+              </SettingRow>
+              <SettingRow fact name="Management API">
+                <code>{system.engine.managementApi}</code>
+              </SettingRow>
+              <SettingRow fact name="Schema languages">
+                {system.schemaLanguages.join(", ")}
+              </SettingRow>
+              <SettingRow fact name="Licence">
+                {system.engine.license}
+              </SettingRow>
+              {(build.tag || build.commit) && (
+                <SettingRow fact name="Build">
+                  <span>
+                    {build.tag && (
+                      <a href={`${repository}/releases/tag/${build.tag}`} target="_blank" rel="noreferrer">
+                        {build.tag}
+                      </a>
+                    )}
+                    {build.tag && build.commit && " "}
+                    {build.commit && (
+                      <a
+                        href={`${repository}/commit/${build.commit}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mono"
+                      >
+                        {build.commit}
+                      </a>
+                    )}
+                  </span>
+                </SettingRow>
+              )}
+              <SettingRow fact name="Source code">
+                <a href={system.engine.sourceCode} target="_blank" rel="noreferrer">
+                  {system.engine.sourceCode}
+                </a>
+              </SettingRow>
+            </SettingsPanel>
+          </SettingsGroup>
+          <SettingsGroup
             title="Active model release"
-            actions={
+            description="The model release the engine serves now."
+            action={
               <button type="button" className="secondary" onClick={() => onNavigate(releaseRoute)}>
                 Open release
               </button>
             }
           >
-            <DescriptionList
-              items={[
-                { term: "Name", value: release.name },
-                { term: "Key", value: <code>{release.key}</code> },
-                { term: "Version", value: release.version },
-                { term: "Schema language", value: release.schemaVersion },
-                { term: "Activated", value: formatServerTime(release.activatedAt) },
-              ]}
-            />
-          </Section>
+            <SettingsPanel>
+              <SettingRow fact name="Name">
+                {release.name}
+              </SettingRow>
+              <SettingRow fact name="Key">
+                <code>{release.key}</code>
+              </SettingRow>
+              <SettingRow fact name="Version">
+                {release.version}
+              </SettingRow>
+              <SettingRow fact name="Schema language">
+                {release.schemaVersion}
+              </SettingRow>
+              <SettingRow fact name="Activated">
+                <span title={formatServerTime(release.activatedAt)}>{formatServerDayTime(release.activatedAt)}</span>
+              </SettingRow>
+            </SettingsPanel>
+          </SettingsGroup>
         </>
       )}
     </SettingsLayout>

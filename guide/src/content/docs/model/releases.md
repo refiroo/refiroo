@@ -21,14 +21,14 @@ with each draft's base release.
 
 ![Installed versions on a model's Releases tab](/docs/screens/model-releases.png)
 
-*Above: the Graubünden model has one installed release, 1.0.0, used by Graubünden.*
+*Above: The Graubünden model lists its installed releases, newest first. Graubünden runs 1.8.1; Guide workbook test runs 1.8.3.*
 
 ![Drafts listed separately with their base release and date](/docs/screens/model-drafts.png)
 
-*Above: Guide draft and another draft both start from the Graubünden model's release 1.0.0.*
+*Above: The drafts list shows each base release and how many releases it is behind. Guide draft starts from 1.8.1.*
 
 Open a release to inspect its counts and workspace use, **Create draft from release**, or
-**Activate in a workspace…**. **Structure** on the model’s page is read-only and initially selects the newest release;
+**Activate in a workspace…**. The header shows up to two actions; any remaining action is under **More actions**. **Structure** on the model’s page is read-only and initially selects the newest release;
 its Release picker can show another version.
 
 ![Read-only model structure with application and type counts](/docs/screens/model-structure.png)
@@ -48,7 +48,7 @@ is simply the default destination; it does not impose its model on the rest.
 
 ![Workspace overview identifying its model and applications](/docs/screens/model-workspace-model.png)
 
-*Above: Graubünden runs Public transport stops of Graubünden 1.0.0 and offers Edit model.*
+*Above: Graubünden runs Public transport stops of Graubünden 1.8.1 and offers Edit model.*
 
 ![A second workspace overview with a different model and applications](/docs/screens/model-workspace-other-model.png)
 
@@ -77,7 +77,7 @@ See [Change sets](/docs/use/change-sets/) before applying a model change beside 
 ## Retiring a release
 
 A release can be **Retired** to stop it being chosen for new work. Workspaces and change sets
-already on it keep working. On the release page, **Retire…** asks for confirmation; **Bring back**
+already on it keep working. On the release page, **More actions › Retire…** asks for confirmation; **More actions › Bring back**
 makes a retired release available again. The default workspace's release cannot be retired.
 These controls need installation permission.
 
@@ -100,15 +100,15 @@ If the mutation controls are unavailable, check your permissions in
 The page marks **Runs this release** for a workspace using it and **Run by no workspace** when
 none does. Under **Technical details**, **Release ID** and **Content hash** each have **Copy**;
 these identify a release and its exact content, rather than its displayed version alone.
-**Export JSON** downloads the immutable model document for a specialist model author.
+**Export JSON**, in the header or under **More actions**, downloads the immutable model document for a specialist model author.
 
-**Activation check** checks each workspace running this model separately. Read the workspace name
+Under **Workspaces running** followed by the model’s key, the activation check reads each workspace’s data separately. Read the workspace name
 and result; a successful check for one workspace says nothing about another's data. A failed
 check is not compatibility. The confirmation checks again when you activate.
 
-**Retire…** removes a release from new choices without changing workspaces already running it.
-**Bring back** makes it available again. A release never run and with no records, change sets or
-publications made under it can offer **Delete…** with confirmation. Retirement preserves the
+**More actions › Retire…** removes a release from new choices without changing workspaces already running it.
+**More actions › Bring back** makes it available again. A release never run and with no records, change sets or
+publications made under it can offer **More actions › Delete…** with confirmation. Retirement preserves the
 release; deletion removes an unused one. A model with all releases retired and no running
 workspace appears under Retired.
 
@@ -128,7 +128,7 @@ results; [Migrations](/docs/model/migrations/) explains conversion and explicit 
 [Model language versions](/docs/model/model-language-versions/) explains a historical release that
 cannot be used by this deployment.
 
-The release page's **Activation check** covers workspaces running this model. A workspace running
+The release page’s activation check under **Workspaces running** covers workspaces running this model. A workspace running
 another model is checked separately when selected as a destination. **Historical release** means
 this deployment cannot interpret its model language for the usual comparison and activation checks;
 its metadata and raw export remain readable.

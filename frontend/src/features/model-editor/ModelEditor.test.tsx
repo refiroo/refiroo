@@ -95,12 +95,31 @@ describe("ModelEditor", () => {
     fireEvent.click(item);
     const dialog = await screen.findByRole("dialog", { name: "Change key" });
     fireEvent.change(within(dialog).getByLabelText("Key"), { target: { value: "rack" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
         { kind: "setKey", element: { objectType: "shelf" }, key: "rack" },
       ]),
     );
+  });
+
+  it("opens a one-control operation under the button whose menu started it, (UX1)", async () => {
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    renderEditor();
+    const button = await screen.findByRole("button", { name: "Operations for Shelf" });
+    fireEvent.focusIn(button);
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Change key…/ }));
+    const popover = await screen.findByRole("dialog", { name: "Change key" });
+    expect(popover.closest(".editor-popover")).not.toBeNull();
+    fireEvent.change(within(popover).getByLabelText("Key"), { target: { value: "rack" } });
+    fireEvent.click(within(popover).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        { kind: "setKey", element: { objectType: "shelf" }, key: "rack" },
+      ]),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Change key" })).toBeNull());
   });
 
   it("counts every step of the draft, though only its latest operations are read (R)", async () => {
@@ -137,7 +156,7 @@ describe("ModelEditor", () => {
     const form = await screen.findByRole("form", { name: "Edit Name" });
     fireEvent.change(within(form).getByLabelText(/Name/), { target: { value: "Rack" } });
     vi.mocked(api.modelDraftOutline).mockResolvedValue({ ...outlineFixture(), version: 5 });
-    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    fireEvent.keyDown(within(form).getByLabelText(/Name/), { key: "Enter" });
     const notice = (await screen.findByText(/Another change came first/)).closest(".notice") as HTMLElement;
     expect(within(notice).getByText(/Applied since: Renamed Old bin to Crate\./)).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -198,7 +217,7 @@ describe("ModelEditor", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /^Edit Cardinality:/ }))[0]);
     const form = await screen.findByRole("form", { name: "Edit Cardinality" });
     fireEvent.change(within(form).getByRole("combobox"), { target: { value: "one-to-one" } });
-    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    // The choice saves as it is made (0.17 UX2).
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
         { kind: "setRelationRule", relationType: "stores", from: "shelf", to: "bin", cardinality: "one-to-one" },
@@ -215,7 +234,7 @@ describe("ModelEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Edit Display attribute:/ }));
     const dialog = await screen.findByRole("dialog", { name: /Which attribute names a Shelf record/ });
     fireEvent.change(within(dialog).getByLabelText("Attribute"), { target: { value: "depth" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
         { kind: "setObjectTypeProperty", objectType: "shelf", property: "displayAttributeTypeKey", value: "depth" },
@@ -229,7 +248,7 @@ describe("ModelEditor", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /^Edit Help text on this type:/ }))[0]);
     const form = await screen.findByRole("form", { name: "Edit Help text on this type" });
     fireEvent.change(within(form).getByLabelText(/Help text on this type/), { target: { value: "Where it stands" } });
-    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    fireEvent.keyDown(within(form).getByLabelText(/Help text on this type/), { key: "Enter" });
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
         {
@@ -248,7 +267,7 @@ describe("ModelEditor", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^Edit Minimum:/ }));
     const dialog = await screen.findByRole("dialog", { name: /Smallest and largest Depth accepted/ });
     fireEvent.change(within(dialog).getByLabelText("Minimum"), { target: { value: "2" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
         { kind: "setAttributeTypeProperty", attributeType: "depth", property: "minimum", value: 2 },
@@ -259,7 +278,7 @@ describe("ModelEditor", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^Edit Oriented:/ }));
     const form = await screen.findByRole("form", { name: "Edit Oriented" });
     fireEvent.change(within(form).getByRole("combobox"), { target: { value: "false" } });
-    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+    // The choice saves as it is made (0.17 UX2).
     await waitFor(() =>
       expect(api.applyModelDraftOperations).toHaveBeenLastCalledWith("d1", 4, [
         { kind: "setRelationTypeProperty", relationType: "stores", property: "isOriented", value: false },
@@ -481,7 +500,7 @@ describe("ModelEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Edit Opens on: table · Shelves/ }));
       const form = await screen.findByRole("form", { name: "Edit Opens on" });
       fireEvent.change(within(form).getByRole("combobox"), { target: { value: "shelves-by-bin" } });
-      fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+      // The choice saves as it is made (0.17 UX2).
       await waitFor(() =>
         expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
           { kind: "setCollectionOpening", applicationKey: "shop", collection: "shelf", view: "shelves-by-bin" },
@@ -525,7 +544,7 @@ describe("ModelEditor", () => {
           .getByRole("checkbox", { name: /Shelves by bin/ })
           .closest("label")?.textContent,
       ).toContain("In Lists");
-      const send = within(dialog).getByRole("button", { name: "Add 0" });
+      const send = within(dialog).getByRole("button", { name: "Add 0 items" });
       expect(send).toBeDisabled();
       fireEvent.change(within(dialog).getByRole("textbox", { name: "Search collections and matrices" }), {
         target: { value: "bin" },
@@ -541,7 +560,7 @@ describe("ModelEditor", () => {
         target: { value: "" },
       });
       fireEvent.click(within(dialog).getByRole("checkbox", { name: /Area/ }));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Add 2" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 2 items" }));
       await waitFor(() =>
         expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
           { kind: "placeCollection", applicationKey: "shop", view: "shelves-by-bin", group: "more" },
@@ -562,7 +581,7 @@ describe("ModelEditor", () => {
       const dialog = await screen.findByRole("dialog", { name: "Add to a group" });
       expect(within(dialog).getByRole("checkbox", { name: /Area/ })).toBeChecked();
       fireEvent.change(within(dialog).getByLabelText("Group"), { target: { value: "more" } });
-      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 item" }));
       await waitFor(() =>
         expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
           { kind: "placeCollection", applicationKey: "shop", collection: "area", group: "more" },
@@ -579,7 +598,7 @@ describe("ModelEditor", () => {
       fireEvent.click(await screen.findByRole("menuitem", { name: "Move to group…" }));
       const dialog = await screen.findByRole("dialog", { name: /Place Shelves by bin in a navigation group/ });
       fireEvent.change(within(dialog).getByLabelText("Group"), { target: { value: "more" } });
-      fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
       await waitFor(() =>
         expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
           { kind: "placeCollection", applicationKey: "shop", view: "shelves-by-bin", group: "more" },

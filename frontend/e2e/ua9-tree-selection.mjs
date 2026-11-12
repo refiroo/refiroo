@@ -26,6 +26,8 @@ const expect = (condition, message) => {
 try {
   harness = await bootHarness();
   const { page, browser, uiUrl, api, output } = harness;
+  // Browse records is folded until opened (0.17 SH1); these runs browse the tree, so it starts open.
+  await page.context().addInitScript(() => { try { localStorage.setItem("rdm:navigation:browse-records:v1", "true"); } catch {} });
   page.on("pageerror", (error) => failures.push(error.message));
   const shot = (name) => page.screenshot({ path: resolve(output, `${name}.png`), fullPage: false });
   const axe = async (label) => {

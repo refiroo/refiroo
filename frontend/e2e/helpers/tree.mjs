@@ -5,11 +5,24 @@
 export const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
+ * Opens the sidebar's folded "Browse records" row inside `scope` (a locator, by default the page) if it is
+ * folded; the row starts folded and the browser remembers it once opened (0.17 SH1, PP-D35).
+ */
+export async function openBrowseRecords(scope) {
+  const fold = scope.getByRole("button", { name: "Browse records", exact: true }).first();
+  // The row is drawn with the sidebar; a page without one (no sidebar, or the row gone) is left as it is.
+  await fold.waitFor({ timeout: 5000 }).catch(() => undefined);
+  if ((await fold.count()) && (await fold.getAttribute("aria-expanded")) === "false") await fold.click();
+}
+
+/**
  * Opens every type group folded inside `scope` (a locator, by default the page), one chevron at a
  * time as a user would, until none is left or `limit` clicks are made. The record tree's groups
  * start folded (UA9, U-D21).
  */
 export async function openFoldedGroups(page, scope = page.locator("body"), limit = 40) {
+  // The sidebar's "Browse records" row starts folded (0.17 SH1): open it first, where the page has one.
+  await openBrowseRecords(page);
   // A tree that is still loading has no heading yet: wait for its first one, briefly.
   await scope
     .locator(".tree-heading")

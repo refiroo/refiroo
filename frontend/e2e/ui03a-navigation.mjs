@@ -7,8 +7,15 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   await table.getByRole("button", { name, exact: true }).click();
   const heading = page.getByRole("heading", { name, level: 1, exact: true });
   await heading.waitFor();
-  const recordUrl = page.url();
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // A row opens the record beside its list (0.17 UX1, PP-D41); Expand makes it the full page this journey checks.
+  const expand = page.getByRole("button", { name: "Expand to full page", exact: true });
+  await page.waitForFunction(
+    () => document.querySelector(".record-inspector") === null || document.querySelector(".expand-record") !== null,
+  );
+  if (await expand.count()) await expand.click();
+  await page.waitForFunction(() => !document.querySelector(".record-inspector"));
+  const recordUrl = page.url();
   const record = page.locator(".record-detail");
   assert.equal(await page.locator(".record-inspector").count(), 0);
   assert.equal(await table.isVisible(), false);
@@ -97,7 +104,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
     const url = new URL(response.url());
     return response.request().method() === "GET" && url.searchParams.has("includeTotal") && url.searchParams.has("sort") && !url.searchParams.has("parentObjectId");
   });
-  await page.getByRole("dialog").getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   await requestStarted;
   const busy = page.waitForEvent("dialog").then(async (dialog) => {
     assert.equal(dialog.type(), "alert");
@@ -116,12 +123,12 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   assert.equal((await refreshed).status(), 200);
   await recordAction(page, "Edit record");
   await page.getByRole("dialog").getByLabel("Name", { exact: true }).fill(name);
-  await page.getByRole("dialog").getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await heading.waitFor();
 
   // Forward also requires a deliberate discard, and cancellation preserves the forward entry.
-  await page.getByRole("button", { name: "Back to list", exact: true }).click();
+  await page.locator('[aria-label="Record details"] .trail-back').click();
   await page.waitForURL(origin);
   await page.goBack();
   await heading.waitFor();
@@ -140,7 +147,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   await heading.waitFor();
   await page.reload();
   await heading.waitFor();
-  await page.getByRole("button", { name: "Back to list", exact: true }).click();
+  await page.locator('[aria-label="Record details"] .trail-back').click();
   await page.waitForURL(origin);
   await table.getByRole("button", { name, exact: true }).waitFor();
   await page.screenshot({ path: resolve(output, `ui03a-${tag}-restored.png`), fullPage: true });
@@ -152,7 +159,7 @@ export async function checkRecordReturn({ page, table, name, origin, output, tag
   await page.getByRole("menuitem", { name: "Edit record", exact: true }).click();
   assert.equal(await page.getByRole("dialog").getByLabel("Name", { exact: true }).inputValue(), name);
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("button", { name: "Back to list", exact: true }).click();
+  await page.locator('[aria-label="Record details"] .trail-back').click();
   await row.waitFor();
   await row.focus();
   await page.keyboard.press("Shift+F10");

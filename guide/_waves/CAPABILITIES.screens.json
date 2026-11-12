@@ -8,56 +8,21 @@
       "height": 1000,
       "shows": "Home with both workspaces as cards: Graubünden (model Public transport stops of Graubünden 1.0.0, applications Network, Systems, Names) and Default (model RDM Starter Model 0.10.0, applications RDM Master, RDM Systems, RDM Translations).",
       "actions": [
-        {
-          "goto": "/"
-        },
-        {
-          "waitFor": {
-            "text": "Your change sets",
-            "exact": true
-          }
-        }
+        {"goto": "/"},
+        {"waitFor": {"text": "Your change sets", "exact": true}}
       ],
-      "expect": [
-        "Your workspaces",
-        "2 workspaces",
-        "Graubünden",
-        "Default",
-        "RDM Starter Model 0.10.0",
-        "RDM Translations"
-      ]
+      "expect": ["Your workspaces", "workspaces", "Graubünden", "Default", "RDM Starter Model 0.10.1", "RDM Translations"]
     },
     {
       "name": "workspace-switcher",
-      "shows": "The workspace switcher in the left pane of an application, open: Graubünden and Default (marked 'Other model'), and 'Manage workspaces'.",
+      "shows": "The workspace switcher in the left pane of an application, open: Graubünden and the other workspaces with their model badge (Other model). On a clean reference instance no workspace runs another release of the same model, so no Other release badge is shown.",
       "actions": [
-        {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Stops"
-          }
-        },
-        {
-          "click": {
-            "role": "combobox"
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Manage workspaces",
-            "exact": true
-          }
-        }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden"},
+        {"waitFor": {"role": "heading", "name": "Stops"}},
+        {"click": {"role": "combobox", "nth": 1}},
+        {"waitFor": {"text": "Other model", "exact": true}}
       ],
-      "expect": [
-        "Graubünden",
-        "Default",
-        "Other model",
-        "Manage workspaces"
-      ]
+      "expect": ["Graubünden", "Other model"]
     },
     {
       "name": "app-network",
@@ -141,196 +106,74 @@
     {
       "name": "relationships-stop",
       "height": 1300,
-      "shows": "Chur Wiesental's relationship sections: Modes (Train, with Add relationship and a delete button), Operator (Rhätische Bahn, with change and delete buttons), System codes (two codes) and Name translations.",
+      "shows": "Chur Wiesental's full page (Expand to full page) with its relationship sections: Modes (Train, with Add relationship and a delete button), Operator (Rhätische Bahn, with change, edit values and delete) and System codes.",
       "actions": [
-        {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
-        },
-        {
-          "click": {
-            "text": "Chur Wiesental",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Chur Wiesental"
-          }
-        },
-        {
-          "wait": 1500
-        }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "heading", "name": "Modes"}},
+        {"wait": 1200}
       ],
-      "expect": [
-        "Modes",
-        "Train",
-        "Add relationship",
-        "Operator",
-        "Rhätische Bahn",
-        "System codes"
-      ]
+      "expect": ["Modes", "Train", "Add relationship", "Operator", "Rhätische Bahn"]
     },
     {
       "name": "relationship-picker-mode",
-      "shows": "'Add relationship' on the Modes panel of Chur Wiesental: the 'Connect an object' dialog, relationship 'Served by mode (outgoing)', a search box and the candidate modes (Boat, Bus, Cable car, Cableway ...). Cancelled.",
+      "shows": "'Add relationship' on the Modes panel of Chur Wiesental's full page: the 'Add Mode' side sheet with the list of modes to choose from, Cancel and Add Mode. Opened and cancelled; nothing is saved.",
       "actions": [
-        {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
-        },
-        {
-          "click": {
-            "text": "Chur Wiesental",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Chur Wiesental"
-          }
-        },
-        {
-          "wait": 1200
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Add relationship",
-            "nth": 0
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Connect an object",
-            "exact": true
-          }
-        },
-        {
-          "wait": 800
-        }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "heading", "name": "Modes"}},
+        {"wait": 1200},
+        {"click": {"role": "button", "name": "Add relationship", "nth": 0}},
+        {"waitFor": {"role": "heading", "name": "Add Mode"}},
+        {"wait": 800}
       ],
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel"
-          }
-        }
+        {"click": {"role": "button", "name": "Cancel"}}
       ],
-      "expect": [
-        "Create relationship",
-        "Connect an object",
-        "Relationship",
-        "Boat",
-        "Bus",
-        "Cancel",
-        "Create"
-      ]
+      "expect": ["Add Mode", "Relationship: Served by mode", "Boat", "Bus", "Cancel"]
     },
     {
       "name": "relationship-picker-operator",
-      "shows": "'Change' on the Operator panel of Chur Wiesental (a stop has exactly one operator): 'Operated by', 'Now: Rhätische Bahn. Choose the record that replaces it.', search box and candidate operators. Cancelled.",
+      "shows": "'Change' on the Operator panel of Chur Wiesental's full page (a stop has exactly one operator): the 'Operated by' side sheet with the operators to choose from, Cancel and Change. Opened and cancelled; nothing is saved.",
       "actions": [
-        {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
-        },
-        {
-          "click": {
-            "text": "Chur Wiesental",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Chur Wiesental"
-          }
-        },
-        {
-          "wait": 1200
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Change Operated by: Rhätische Bahn"
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Choose the record that replaces it",
-            "exact": false
-          }
-        },
-        {
-          "wait": 800
-        }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "heading", "name": "Modes"}},
+        {"wait": 1200},
+        {"click": {"role": "button", "name": "Change Operated by: Rhätische Bahn"}},
+        {"waitFor": {"role": "heading", "name": "Operated by"}},
+        {"wait": 800}
       ],
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel"
-          }
-        }
+        {"click": {"role": "button", "name": "Cancel"}}
       ],
-      "expect": [
-        "Change relationship",
-        "Operated by",
-        "Rhätische Bahn",
-        "Aelplibahn Malans Genossenschaft",
-        "Cancel"
-      ]
+      "expect": ["Operated by", "Cancel", "Change"]
     },
     {
       "name": "relationship-delete-confirm",
-      "shows": "Deleting the Served by mode relationship of Chur Wiesental: 'Delete relationship?' with 'The connected objects will remain. Only this relationship will be deleted.' Cancelled.",
+      "shows": "Chur Wiesental's full page right after the Served by mode relationship to Train was removed: the Modes panel is empty and the removal notice offers Undo. The picture is taken, then Undo restores the relationship.",
       "actions": [
-        {
-          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
-        },
-        {
-          "click": {
-            "text": "Chur Wiesental",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "heading",
-            "name": "Chur Wiesental"
-          }
-        },
-        {
-          "wait": 1200
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Delete Served by mode: Train"
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Delete relationship?",
-            "exact": true
-          }
-        }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "heading", "name": "Modes"}},
+        {"wait": 1200},
+        {"click": {"role": "button", "name": "Remove Served by mode: Train"}},
+        {"waitFor": {"role": "button", "name": "Undo"}},
+        {"wait": 500}
       ],
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel"
-          }
-        }
+        {"click": {"role": "button", "name": "Undo"}},
+        {"wait": 1500}
       ],
-      "expect": [
-        "Please confirm",
-        "Delete relationship?",
-        "The connected objects will remain",
-        "Cancel"
-      ]
+      "expect": ["Modes", "No relationships yet", "Undo"]
     },
     {
       "name": "tree-geography-chur",
@@ -544,38 +387,14 @@
     {
       "name": "mapping-grid-codes-to-stops",
       "height": 1060,
-      "shows": "The Systems mapping grid 'Codes to stops', searched for FICTIONAL: Mapped codes (T-0412 Chur Wiesental ...), the ambiguous code T-0300 (Ambiguous (2): Chur West and Chur) and the deliberately unmapped T-9999 (Unmapped, with Map). The filter All / Unmapped / Mapped / Ambiguous is above the table.",
+      "shows": "The Systems mapping grid 'Codes to stops', searched for FICTIONAL: Mapped codes (T-0412 Chur Wiesental), T-0300 mapped to two stops (Mapped (2)) and the unmapped T-9999 with its Map button.",
       "actions": [
-        {
-          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
-        },
-        {
-          "waitFor": {
-            "role": "button",
-            "name": "Ambiguous",
-            "exact": true
-          }
-        },
-        {
-          "fill": {
-            "placeholder": "Search system codes"
-          },
-          "value": "FICTIONAL"
-        },
-        {
-          "wait": 1800
-        }
+        {"goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"},
+        {"waitFor": {"role": "button", "name": "Unmapped", "exact": true}},
+        {"fill": {"placeholder": "Search system codes"}, "value": "FICTIONAL"},
+        {"wait": 1800}
       ],
-      "expect": [
-        "Unmapped",
-        "Mapped",
-        "Ambiguous",
-        "T-0300",
-        "Ambiguous (2)",
-        "T-0412",
-        "T-9999",
-        "End"
-      ]
+      "expect": ["Unmapped", "Mapped", "T-0300", "Mapped (2)", "T-0412", "T-9999", "End"]
     },
     {
       "name": "mapping-grid-filter-ambiguous",
@@ -615,60 +434,20 @@
     {
       "name": "mapping-grid-map-dialog",
       "height": 1060,
-      "shows": "'Map' on the unmapped code T-9999 (special day pass): 'Change mapping', 'Currently Not mapped', a stop search with radio candidates, 'Create new stop', Cancel and Save mapping. Cancelled.",
+      "shows": "'Change' on the mapped code T-0412 in the Codes to stops grid: the mapping side sheet with the current stop (Chur Wiesental), the stop search, Create new stop, and Save, Cancel and Remove mapping. Opened and cancelled; nothing is saved.",
       "actions": [
-        {
-          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
-        },
-        {
-          "waitFor": {
-            "role": "button",
-            "name": "Ambiguous",
-            "exact": true
-          }
-        },
-        {
-          "fill": {
-            "placeholder": "Search system codes"
-          },
-          "value": "FICTIONAL"
-        },
-        {
-          "wait": 1800
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Change mapping for T-9999"
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Currently",
-            "exact": false
-          }
-        },
-        {
-          "wait": 800
-        }
+        {"goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"},
+        {"waitFor": {"role": "button", "name": "Unmapped", "exact": true}},
+        {"fill": {"placeholder": "Search system codes"}, "value": "FICTIONAL"},
+        {"wait": 1800},
+        {"click": {"role": "button", "name": "Change mapping for T-0412"}},
+        {"waitFor": {"text": "Currently", "exact": false}},
+        {"wait": 800}
       ],
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel"
-          }
-        }
+        {"click": {"role": "button", "name": "Cancel"}}
       ],
-      "expect": [
-        "Mapping",
-        "Change mapping",
-        "T-9999",
-        "Not mapped",
-        "Create new stop",
-        "Save mapping",
-        "Cancel"
-      ]
+      "expect": ["Change mapping", "T-0412", "Currently", "Chur Wiesental", "Create new stop", "Save", "Cancel", "Remove mapping"]
     },
     {
       "name": "matrix-filter-panel",
@@ -711,60 +490,20 @@
     },
     {
       "name": "matrix-cell-editor",
-      "shows": "A cell of the matrix opened for an existing translation: Chur in Romansh, 'Chur · rm', state One, 'Translated name' Cuira, Active, with Open Chur (rm), Cancel and Save. Cancelled.",
+      "shows": "A cell of the matrix opened for an existing translation: the side panel 'Chur · rm' with the translated name Cuira editable where it stands and Open Chur (rm).",
       "actions": [
-        {
-          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
-        },
-        {
-          "waitFor": {
-            "text": "Albula/Alvra",
-            "exact": true
-          }
-        },
-        {
-          "fill": {
-            "placeholder": "Search municipalities"
-          },
-          "value": "Chur"
-        },
-        {
-          "wait": 1800
-        },
-        {
-          "click": {
-            "text": "Cuira",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "text": "Translated name",
-            "exact": true
-          }
-        },
-        {
-          "wait": 600
-        }
+        {"goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"},
+        {"waitFor": {"text": "Albula/Alvra", "exact": true}},
+        {"fill": {"placeholder": "Search municipalities"}, "value": "Chur"},
+        {"wait": 1800},
+        {"click": {"text": "Cuira", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur · rm"}},
+        {"wait": 600}
       ],
       "after": [
-        {
-          "click": {
-            "role": "button",
-            "name": "Cancel"
-          }
-        }
+        {"click": {"role": "button", "name": "Close", "exact": true}}
       ],
-      "expect": [
-        "Municipality names",
-        "Chur",
-        "One",
-        "Translated name",
-        "Cuira",
-        "Active",
-        "Open Chur (rm)",
-        "Save"
-      ]
+      "expect": ["Municipality names", "Chur", "One", "Chur · rm", "Cuira"]
     },
     {
       "name": "matrix-operator-names",
@@ -888,8 +627,11 @@
     },
     {
       "name": "matrix-missing-name",
-      "shows": "A missing translation: the matrix searched for Bonaduz. The Romansh cell is None (no related record) while English, French, German and Italian are One. Needs the gap in CAPABILITIES.data-changes.md.",
+      "shows": "A missing translation: the matrix searched for Bonaduz. The Romansh cell is None (no related record) while English, French, German and Italian are One. Made by the state bonaduz-gap (the name translation is deleted, then loaded again afterwards).",
       "actions": [
+        {
+          "state": "bonaduz-gap"
+        },
         {
           "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
         },
@@ -914,12 +656,20 @@
         "None",
         "One",
         "Romansh"
+      ],
+      "after": [
+        {
+          "state": "bonaduz-restore"
+        }
       ]
     },
     {
       "name": "matrix-missing-name-cell",
-      "shows": "Clicking the None cell (Bonaduz, Romansh): 'Bonaduz · rm', 'None · no name translation yet' and the button 'Create name translation'. Closed; nothing is saved. Needs the gap in CAPABILITIES.data-changes.md.",
+      "shows": "Clicking the None cell (Bonaduz, Romansh): 'Bonaduz · rm', 'None · no name translation yet' and the button 'Create name translation'. Closed; nothing is saved. Made by the state bonaduz-gap (the name translation is deleted, then loaded again afterwards).",
       "actions": [
+        {
+          "state": "bonaduz-gap"
+        },
         {
           "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
         },
@@ -959,6 +709,9 @@
             "name": "Close",
             "exact": true
           }
+        },
+        {
+          "state": "bonaduz-restore"
         }
       ],
       "expect": [
@@ -969,8 +722,11 @@
     },
     {
       "name": "matrix-missing-name-add",
-      "shows": "The form behind 'Create name translation': 'For Bonaduz under rm', Name (proposed 'Bonaduz rm'), 'Goes in Romansh', an empty 'Translated name' and Active, with Back and Create name translation. Back out; nothing is saved here. Needs the gap in CAPABILITIES.data-changes.md.",
+      "shows": "The form behind 'Create name translation': 'For Bonaduz under rm', Name (proposed 'Bonaduz rm'), 'Goes in Romansh', an empty 'Translated name' and Active, with Back and Create name translation. Back out; nothing is saved here. Made by the state bonaduz-gap (the name translation is deleted, then loaded again afterwards).",
       "actions": [
+        {
+          "state": "bonaduz-gap"
+        },
         {
           "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
         },
@@ -1028,6 +784,9 @@
             "name": "Close",
             "exact": true
           }
+        },
+        {
+          "state": "bonaduz-restore"
         }
       ],
       "expect": [

@@ -2,7 +2,7 @@
 // MCP_ENABLED=true (the runner starts its own backend and database; it touches nothing else). As the
 // harness person, by keyboard: the page lists under Security and shows the address, the two ways to
 // connect, the limit and the command line; New agent client makes a client and shows its secret once;
-// the client opens its own page with the Agent pill; Register an assistant refuses an address that is
+// the client opens its own page with the Agent pill; New assistant refuses an address that is
 // not allowed, with the API's words, then registers one; Block asks first, Restore does not; a token of
 // the agent client calls a tool that answers and one that is refused, and both are listed with their
 // words. At 1440px and 390px, axe on each state, no horizontal page scroll. Then a backend without
@@ -90,18 +90,18 @@ async function whenOn() {
     // 3. The client opens its own page; the Clients list and detail say Agent.
     await press(row.getByRole("link", { name: "Reporting assistant" }));
     await page.waitForURL(new RegExp(`/settings/clients/${client.id}$`));
-    await page.getByRole("heading", { level: 2, name: "Reporting assistant" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Reporting assistant" }).waitFor();
     await page.getByText("Agent", { exact: true }).first().waitFor();
     await accessible(page, "ag1-client-page");
     checks.push("the agent client opens the existing client page, which says Agent");
 
-    // 4. Register an assistant: an address that is not allowed is refused in the API's words.
+    // 4. New assistant: an address that is not allowed is refused in the API's words.
     await page.goto(`${uiUrl}/settings/agent-access`);
-    await press(page.getByRole("button", { name: "Register an assistant" }));
+    await press(page.getByRole("button", { name: "New assistant" }));
     await dialog().getByLabel("Name").fill("Helper");
     await dialog().getByLabel("Return addresses").fill("http://assistant.example.com/callback");
     await page.keyboard.press("Tab");
-    await press(dialog().getByRole("button", { name: "Register", exact: true }));
+    await press(dialog().getByRole("button", { name: "Add assistant", exact: true }));
     await dialog().getByRole("alert").waitFor();
     const refusal = await dialog().getByRole("alert").innerText();
     assert.ok(
@@ -113,7 +113,7 @@ async function whenOn() {
     await dialog()
       .getByLabel("Return addresses")
       .fill("https://assistant.example.com/callback\nhttp://localhost:8765/callback");
-    await press(dialog().getByRole("button", { name: "Register", exact: true }));
+    await press(dialog().getByRole("button", { name: "Add assistant", exact: true }));
     await dialog().waitFor({ state: "detached" });
     const helper = page.getByRole("row", { name: /Helper/ });
     await helper.getByText("0 people").waitFor();
@@ -149,6 +149,12 @@ async function whenOn() {
     await mcpCall(apiUrl, token, "describe_access", {});
     await mcpCall(apiUrl, token, "list_workspaces", { cursor: "x" });
     await page.goto(`${uiUrl}/settings/agent-access`);
+    // The clients' call counts are on the Access tab; the calls themselves on the Calls tab (0.17 ST1).
+    await page
+      .getByRole("row", { name: /Reporting assistant/ })
+      .getByText("2", { exact: true })
+      .waitFor();
+    await page.getByRole("tab", { name: "Calls" }).click();
     const calls = page.getByRole("group", { name: "Calls", exact: true });
     const answered = calls.getByRole("row", { name: /describe_access/ });
     await answered.getByText("Answered", { exact: true }).waitFor();
@@ -157,10 +163,6 @@ async function whenOn() {
     const refused = calls.getByRole("row", { name: /list_workspaces/ });
     await refused.getByText("cursor", { exact: true }).waitFor();
     await refused.getByText(/^(Refused|Failed)$/).waitFor();
-    await page
-      .getByRole("row", { name: /Reporting assistant/ })
-      .getByText("2", { exact: true })
-      .waitFor();
     await shot("calls-1440");
     await accessible(page, "ag1-calls");
     checks.push(
@@ -171,11 +173,13 @@ async function whenOn() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${uiUrl}/settings/agent-access`);
     await page.getByRole("heading", { level: 1, name: "Agent access" }).waitFor();
+    await page.getByRole("tab", { name: "Calls" }).click();
     await page.getByRole("row", { name: /describe_access/ }).waitFor();
     assert.equal(await overflow(page), 0, "no horizontal page scroll at 390px");
     await shot("page-390");
     await accessible(page, "ag1-390");
-    await press(page.getByRole("button", { name: "Register an assistant" }));
+    await page.getByRole("tab", { name: "Access" }).click();
+    await press(page.getByRole("button", { name: "New assistant" }));
     await dialog().waitFor();
     assert.equal(await overflow(page), 0, "no horizontal page scroll with the dialog at 390px");
     await shot("register-390");
@@ -207,7 +211,7 @@ async function whenOff() {
     await page.getByText("Agent access is off").waitFor();
     await page.getByText("MCP_ENABLED=true").waitFor();
     assert.equal(await page.getByRole("button", { name: "New agent client" }).count(), 0);
-    assert.equal(await page.getByRole("button", { name: "Register an assistant" }).count(), 0);
+    assert.equal(await page.getByRole("button", { name: "New assistant" }).count(), 0);
     assert.equal(await overflow(page), 0);
     await accessible(page, "ag1-off");
     checks.push("without MCP_ENABLED the page says agent access is off and offers nothing");

@@ -1,0 +1,82 @@
+[
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-open",
+    "caption": "The Busbetrieb Nord workbook draft after Adjust. Workbook check shows 85 rows to load and 9 refused; the proposed cards have not created a workspace."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-connect",
+    "caption": "Haltestellen is related to Namen. The notice says no workbook column was found to fill the link; Undo is available."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-columns-as-rows",
+    "caption": "Perron A, Perron B and Perron C are selected. Read 3 columns as rows into asks which object type or attribute to fill."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-readings",
+    "caption": "The Perron A menu offers Fill blanks from the cell above, Rows holding only this column are headings…, Make an object type of its values and Leave out."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-navigation",
+    "caption": "Navigation shows the proposed Haltestellen lists group, entries Not in a group and a New group destination."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-refused",
+    "caption": "Namen has 9 refused rows because no record matches the reference. See the rows opens their details."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+    "name": "canvas-workbook-create-dialog",
+    "caption": "Create workspace proposes Busbetrieb Nord canvas as the name and reports 85 rows to load and 9 refused rows that stay out. Creation has not been confirmed."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-whole",
+    "caption": "Whole model is selected in Guide canvas draft. Network and Systems frame their object types; visible cards are marked Released, and Fit is at the lower right."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-add-menu",
+    "caption": "The header’s + menu offers Application…, Object type…, Attribute type…, Relation type… and Navigation group…."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-attribute",
+    "caption": "FSO number on Canton is a Whole number. Required is off and Unique is on; the inspector also offers Move to… and further operations."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-relation-rule",
+    "caption": "Canton contains District is selected. Its popover explains the parent and child types and offers Which records may be chosen and All operations."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-navigation",
+    "caption": "Network, Systems and Names each show collections Not in a group and a New group destination."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-views",
+    "caption": "Canton has a Geography tree in Network and no view in Names. Preview tables and record page and Edit layout are available."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-consumer",
+    "caption": "The Consumer APIs tab lists Stops API, version 1, marked Released, with a + control to add another contract."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-issues",
+    "caption": "The draft has one issue: a view refers to a field that does not exist. The link opens the affected Municipalities view in Network."
+  },
+  {
+    "page": "guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md",
+    "name": "canvas-model-history",
+    "caption": "History records one whole-model edit by Guide Admin and offers Undo for that step."
+  }
+]

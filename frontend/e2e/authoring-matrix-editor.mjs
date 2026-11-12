@@ -77,7 +77,7 @@ async function journey(label, source) {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await dialog().getByLabel("Name", { exact: true }).fill("Browser matrix");
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: "Add view", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     const views = page.getByRole("table", { name: `Views of ${application.name}` });
     const added = views.getByRole("row", { name: /Browser matrix/ });
@@ -95,7 +95,7 @@ async function journey(label, source) {
     await page.getByRole("menuitem", { name: /^Change/ }).click();
     assert.equal(await dialog().getByLabel("Rows").inputValue(), outside);
     await dialog().getByLabel("Name", { exact: true }).fill("Browser matrix two");
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: "Save", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await views.getByRole("row", { name: /Browser matrix two/ }).waitFor();
 

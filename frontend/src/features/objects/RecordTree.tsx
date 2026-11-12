@@ -48,7 +48,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { collectionGroups, rootObjectTypeKeys } from "@/model/collections";
 import { objectTypeHue } from "@/model/hues";
@@ -965,6 +965,7 @@ function TreeGroup({
 }) {
   const tree = useTree();
   const api = useDataApi();
+  const readIn = useWorkspaceData().publication?.id ?? "";
   const { model, application, workspaceKey, search, register, rowsChanged, config } = tree;
   const groupKey = `${parentKey}|${objectTypeKey}`;
   const scope = parent ? { parentObjectId: parent.id } : search ? { search } : { topLevel: true };
@@ -980,7 +981,10 @@ function TreeGroup({
         ...selector,
         pageSize,
       }),
-    [application.key, workspaceKey, objectTypeKey, parent?.id ?? null, parent ? "" : search, sort, pageSize],
+    // The publication is part of what is read: a group that began reading while the publication was still
+    // loading read live data, and reads again once the publication is there (its following pages, read in the
+    // publication, were otherwise refused and the tree stopped at its first rows).
+    [application.key, workspaceKey, objectTypeKey, parent?.id ?? null, parent ? "" : search, sort, pageSize, readIn],
     { refreshToken: tree.refreshToken },
   );
 

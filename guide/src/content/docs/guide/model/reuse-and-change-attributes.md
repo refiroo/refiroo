@@ -9,11 +9,11 @@ Work in a draft with **Model authoring**. Read
 
 1. Select the receiving type and open **Attributes**. Choose **Attach an existing attribute…**
    and select the field. Already attached fields are not offered. Choose **Required** only if
-   every record of this type must supply it, then apply the attachment.
+   every record of this type must supply it, then choose **Add attribute**.
 2. Check **Shared with**. A shared attribute's name, value type and uniqueness are used by all
    attached types. Open **Attribute types** to inspect the common definition and its attachments.
 3. In the type's table, select an editable **Required** or **Read-only** cell, choose **Yes**
-   or **No**, then **Save**. The menu also offers **Make required** / **Make optional** and
+   or **No**. The choice saves immediately. The menu also offers **Make required** / **Make optional** and
    **Make read-only** / **Make editable**. These choices apply to this type's attachment.
 4. To change the shared field, use **Rename…**, **Value type…**, **Make unique** or **Allow
    repeated values**. On the attribute type, **Features…** chooses **Searchable**, **Filterable**,
@@ -40,10 +40,11 @@ not mean remove the attribute from every type. Read the confirmation, or cancel 
 
 1. Select the shared definition under **Attribute types**. For Whole number or Decimal number,
    edit **Minimum** or **Maximum** in **Settings**. Both open **Minimum and maximum…**. Enter
-   either or both, or leave them empty to remove bounds, then **Apply**. A minimum greater
+   either or both, or leave them empty to remove bounds, then **Save** in the popover. A minimum greater
    than the maximum is invalid. All uses of the shared field receive these bounds.
-2. Edit **Hidden** or **Help text** in the same Settings table and **Save**. These are shared
-   presentation choices. Hidden leaves the field off record forms without deleting its data.
+2. Edit **Hidden** or **Help text** in the same Settings table. A Hidden choice saves as
+   soon as you select it. Help text saves when you leave its input or press Enter; Escape
+   puts the old text back. An unchanged input saves nothing. These are shared presentation choices. Hidden leaves the field off record forms without deleting its data.
 3. To provide guidance for just one type, select that type’s **Attributes** table and edit
    **Hidden** or **Help text** there. A local help text replaces the shared help; clearing it
    returns to shared help. A field hidden by the shared definition remains hidden even when

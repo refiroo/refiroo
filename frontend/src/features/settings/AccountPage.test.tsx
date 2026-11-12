@@ -215,7 +215,10 @@ describe("Settings › Account (0.12 I2)", () => {
     // The column labels stand once above the cards; each cell carries its own hidden label.
     expect(document.querySelector(".account-columns")).toHaveAttribute("aria-hidden", "true");
     const row = rowOf("Default");
-    expect(within(row).getByRole("link", { name: "Default" })).toHaveAttribute("href", "/?workspaceKey=default");
+    expect(within(row).getByRole("link", { name: "Default" })).toHaveAttribute(
+      "href",
+      "/workspace?workspaceKey=default",
+    );
     expect(within(row).getByText("Data steward").closest(".access-chip")).toBeInTheDocument();
     expect(within(row).getByText("Reader through the group Curators")).toBeInTheDocument();
     expect(cellsOf(row).map((cell) => cell.textContent)).toEqual([
@@ -290,7 +293,7 @@ describe("Settings › Account (0.12 I2)", () => {
     // The workspace's name opens it.
     expect(within(row).getByRole("link", { name: "Field stations" })).toHaveAttribute(
       "href",
-      "/?workspaceKey=field-stations",
+      "/workspace?workspaceKey=field-stations",
     );
   });
 
@@ -412,19 +415,19 @@ describe("Settings › Account (0.12 I2)", () => {
     fireEvent.change(next, { target: { value: "a new long passphrase" } });
     fireEvent.click(screen.getByRole("button", { name: "Show current password", pressed: false }));
     expect(current).toHaveAttribute("type", "text");
-    fireEvent.click(screen.getByRole("button", { name: "Save new password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("The current password is not right")).toBeInTheDocument();
     expect(current).toHaveAttribute("aria-invalid", "true");
 
     vi.mocked(api.changePassword).mockRejectedValueOnce(
       new ApiError(422, "PASSWORD_REJECTED", "A password needs at least 15 characters", { reason: "tooShort" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Save new password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("A password needs at least 15 characters")).toBeInTheDocument();
     expect(next).toHaveAttribute("aria-invalid", "true");
 
     vi.mocked(api.changePassword).mockResolvedValueOnce(undefined);
-    fireEvent.click(screen.getByRole("button", { name: "Save new password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText(/Your password is changed/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Change password" })).toBeInTheDocument();

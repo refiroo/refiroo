@@ -11,18 +11,17 @@ instance-wide audit page in Settings.
 
 ## Changes by a person or client
 
-Open **Settings › Security › People** or **Clients**, select the identity and choose
-**See changes**. You can also follow a person's name from history where it is offered.
+Open **Settings › People and access › People** or **Settings › Connections › Clients**, open the identity’s row and choose
+**More actions › See changes**. **← Back** on the first line returns to the previous page. You can also follow a person's name from history where it is offered.
 The page shows newest first, grouped by day, across the workspaces you may read.
 
 ![A person's Changes page with workspace, kind and period filters](/docs/screens/admin-audit-person.png)
 
-*Above: fictional Rita Approver's changes include a publication and the height correction
-it applied to Davos Platz in Graubünden.*
+*Above: Fictional Rita Approver’s changes are listed newest first, with Workspace, What and Period filters. The visible entries include record edits, a model draft change and a publication.*
 
 Filter by **Workspace**, **What** and **Period**. What offers **Everything**, **Records**,
 **Relationships**, **Change sets**, **Publications** and **Model**. Period offers **Any time**,
-**Last 24 hours**, **Last 7 days** and **Last 30 days**. **Load more** retrieves older results.
+**Last 24 hours**, **Last 7 days** and **Last 30 days**. **Show more** retrieves older results.
 
 An entry names the action, subject, time and workspace, with the change set or cause where
 relevant. Data changes from a job name its requester. Changes applied by a publication

@@ -10,7 +10,7 @@ allow reading or editing data.
 
 ## Open the grant dialog
 
-1. Open **Settings › Security › People**, **Groups** or **Clients** and select the recipient.
+1. Open **Settings › People and access › People** or **Groups**, or **Settings › Connections › Clients** and open the recipient’s row.
    Choose **Grant** in their roles or access section. The recipient is already chosen.
 2. Alternatively, open **Settings › Workspaces**, select the workspace and choose **Access**,
    then **Grant**. Choose **Who** by searching for the person, group or client by name.
@@ -35,7 +35,7 @@ Check the selected workspace's displayed name rather than assuming the default i
    **Narrow what they may change**. Keep **Everything in …** for all permitted writes there,
    or choose **Only these applications and record types** and add the intended entries.
    This never restricts reading. To narrow several grants, make them one role and workspace at a time.
-5. Read the summary in **Grant access** and choose **Grant**. **Cancel** before submitting makes no grants. Closing after some were saved does not undo those grants. If several grants are
+5. Read the summary in **Grant access** and choose **Add grant**, or **Add N grants** for several. **Cancel** before submitting makes no grants. Closing after some were saved does not undo those grants. If several grants are
    attempted and some fail, the dialog lists the failures and says whether the others were
    made. Successful grants remain. Failed choices stay selected with their reasons; correct them and use **Try again**.
 

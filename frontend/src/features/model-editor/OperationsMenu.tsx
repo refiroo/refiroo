@@ -4,7 +4,7 @@
  */
 
 import type { ModelDraftOutline } from "@/types";
-import { ActionMenu } from "@/ui/ActionMenu";
+import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import {
   menuItems,
   type FieldValues,
@@ -23,6 +23,7 @@ export function OperationsMenu({
   tooltip = "Operations",
   isOpen,
   onOpenChange,
+  extra = [],
 }: {
   label: string;
   target: OperationTarget;
@@ -32,6 +33,8 @@ export function OperationsMenu({
   tooltip?: string;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Items of the page's own, after the element's operations (the canvas's gestures, in a section of their own). */
+  extra?: readonly ActionMenuItem[];
 }) {
   return (
     <ActionMenu
@@ -41,9 +44,12 @@ export function OperationsMenu({
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       // The Add menu holds one kind of action; its sections would repeat one heading.
-      items={menuItems(target, outline, (item) => onOperation(item, target), {
-        sections: target.on !== "draft" && target.on !== "consumerApis",
-      })}
+      items={[
+        ...menuItems(target, outline, (item) => onOperation(item, target), {
+          sections: target.on !== "draft" && target.on !== "consumerApis",
+        }),
+        ...extra,
+      ]}
     />
   );
 }

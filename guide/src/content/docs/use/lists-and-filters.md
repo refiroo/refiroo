@@ -9,12 +9,14 @@ and the **Live**, change-set or publication context determine which data you sea
 Follow [Find records](/docs/guide/use/find-records/) to narrow a list, or
 [Continue a long list](/docs/guide/use/continue-a-long-list/) to reach a distant result.
 
+Use the pin button in the list's header to bring this view to **Your shelf** on the [workspace's page](/docs/use/workspaces/#the-workspaces-page). The shelf stays in this browser.
+
 ## Search and combine conditions
 
 ![A collection narrowed by a date condition and a named relationship, with both shown as removable pills](/docs/screens/list-filter-pills.png)
 
 *Above: Stops in Network, Graubünden, narrowed by Valid from and Operated by. The footer
-shows the total for these conditions; the related-record chips identify each stop’s operator.*
+shows the total for these conditions; the **Served by mode** column shows each stop’s modes as chips.*
 
 
 Search matches names and fields the model makes searchable. It works together with filters;
@@ -76,7 +78,8 @@ contains types without that field. Structured fields and computed paths do not s
 Created and updated times are not available where that context has no recorded timestamps.
 
 **Display** chooses the shown columns and table density. Resizing a column changes how much
-fits. Rows stay on one line; an ellipsis marks a cut value. Hover, focus or long press to read
+fits. The name column stays whole; columns that do not fit fold behind **Columns · n of m**.
+Choose it to show all columns, scrolling sideways if needed. Other values stay on one line; an ellipsis marks a cut value. Hover, focus or long press to read
 it in full. A related-record column shows coloured chips and **+N more** when some do not fit.
 That count is not a button: widen the column or open the record to see all its connections.
 A column with at most one related record can sort by its name. Multi-record columns and columns
@@ -87,7 +90,7 @@ showing a related record's field do not sort; use a relationship filter to narro
 The rows scroll inside the table while its headings and footer remain visible. The footer
 shows the current range and total, page entry and start/end controls. Where available,
 **Go to** seeks a value in the selected sort. The address keeps your search, filters, sort and
-position, including when you return with **Back to list**. These controls also work in change
+position, including when you return using **←** and the list’s name above a record’s title. These controls also work in change
 sets and publications.
 
 Only visible and nearby rows are drawn. The browser's Find command searches those drawn rows;
@@ -106,7 +109,7 @@ have checkboxes. **Density** offers Default, Comfortable and Compact; **Per page
 **Wide** and **Reset display**. Choices stay on this device per view; rows per page stays in
 the address too. Created/updated stamps are filters in Live rather than default table columns.
 
-**Not set**, **Null** and **Empty text** distinguish missing, stored null and empty text.
+**Not set**, **Cleared** and **Empty text** distinguish missing, stored null and empty text.
 Related-record chips open those records. Opening a record can take you to the application
 where it belongs, even if its type was listed in the application you started from.
 On phones, **Show all … columns** and **Show fewer columns** control extra columns.
@@ -114,15 +117,15 @@ Selecting text does not open or edit a row. Full-text popups close with Escape.
 
 There are no named saved searches, saved filters or saved views. Keep the page address instead.
 There is no multi-column sort, grouping or aggregation in the list, and no cross-collection
-search page. The explorer's search can find records across its types; a collection's search
-stays within that collection. See [Appearance and devices](/docs/use/appearance-and-devices/)
+search page. **Find any record** in the top bar searches record names across the workspace;
+a collection’s search stays within that collection. See [Appearance and devices](/docs/use/appearance-and-devices/)
 for local keyboard commands.
 
 ## Open, edit and recover a result
 
 Choose a row to open its record; a related-record chip opens that connected record instead.
-The record heading takes focus when the page opens. **Back to list** returns to the saved
-conditions and position. A failed panel can be retried without clearing the rest of the record.
+The record heading takes focus when the page opens. Choose **←** and the list’s name above
+the title to return to the saved conditions and position. A failed panel can be retried without clearing the rest of the record.
 For field and relationship edits from table cells, see [Records](/docs/use/records/#edit-a-value-or-create-a-record).
 To select results for an action, see [Changing many records](/docs/use/changing-many-records/).
 

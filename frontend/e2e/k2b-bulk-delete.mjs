@@ -154,12 +154,26 @@ try {
   checks.push("domains, live, by hand: a leaf and a domain with 2 codelists; the preview's totals by type and Delete 4 records (destructive); applied, the rows and the codelists gone, the selection empty");
 
   // 6a. All matching in a change set; a value added under a previewed system before Apply.
+  // Hold the list's follow-up pages back (the product reads a short list whole in the background,
+  // and Cmd+A then selects by name); release them once the bar has said "All 60 matching selected".
+  const held = [];
+  const holdPages = (route) => {
+    const request = route.request();
+    if (request.method() === "GET" && /[?&]cursor=/.test(request.url()) && request.resourceType() !== "document") held.push(route);
+    else route.continue();
+  };
+  const releasePages = async () => {
+    await page.unroute("**/*", holdPages);
+    for (const route of held.splice(0)) await route.continue().catch(() => undefined);
+  };
+  await page.route("**/*", holdPages);
   await open(systemsPath, "Systems", "K2b System 001");
   // More systems than the rows loaded: Cmd+A (Ctrl+A) in the table selects all matching (D104
   // amended), whose records are read when the preview starts.
   await box("K2b System 002").focus();
   await page.keyboard.press("ControlOrMeta+a");
   await bar.getByText("All 60 matching selected", { exact: true }).waitFor({ timeout: 5000 });
+  await releasePages();
   await box("K2b System 001").click();
   const except = await barCount();
   expect(except === "All 60 matching except 1", `systems: the bar says "${except}"`);

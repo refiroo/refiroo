@@ -41,7 +41,7 @@ For help choosing a workspace and record, follow [Preview a type](/docs/guide/mo
    Read the **Columns:** line beneath the choice to see the columns the new panel gets.
 4. Choose **Region**: **Main** or **Side**. Review **Title**. For related or contained records,
    it starts from your choice and you can change it. For a field group, enter a title.
-5. Choose **Apply**. The panel appears in the chosen region as one draft step. Use **Undo**
+5. Choose **Add panel**. The panel appears in the chosen region as one draft step. Use **Undo**
    if it was not what you wanted. Adding the panel does not create or change records.
 
 ![Add panel with a relationship chosen, its proposed columns, region and title](/docs/screens/model-add-panel-relationship.png)
@@ -60,12 +60,12 @@ relationships, add each one here rather than expecting **Declare its page** to r
    not just the immediate parent. **Type** is also offered when the panel lists several types.
 3. Choose **Apply** and inspect the column frames. Keep at least one column.
 4. On a related-record panel whose menu offers **Sort…**, choose it, select **Sorted by**
-   and choose **Apply**. The choices come from the panel's allowed sort fields.
+   and choose **Save**. The choices come from the panel's allowed sort fields.
 
 ![Panel Columns dialog with containing types under Where it sits](/docs/screens/model-panel-columns-where-it-sits.png)
 
-Above: the **Has name translation** panel on a Stop page offers **Language** under
-**Where it sits**. It shows each translation's language name. To show a field of that
+Above: the **Name translations** panel on a Stop page offers its own columns under **Columns** and
+**Language** under **Where it sits**. It shows each translation's language name. To show a field of that
 language, such as **Language code**, use a
 [table's related-field columns](/docs/guide/model/choose-table-columns-filters-and-sort/) instead.
 Fields stored on the relationship itself cannot be columns.
@@ -82,7 +82,7 @@ Fields stored on the relationship itself cannot be columns.
    **Remove from panel** takes it off that group. Dragging a field onto another group or
    field is another way to move it.
 4. To make a field group in **Main**, choose **New field group**, give it **Title** and select
-   **Fields**. Choose **Apply**. Selected fields move into it from their current positions.
+   **Fields**. Choose **Apply** in the popover. Selected fields move into it from their current positions.
    To add an omitted field to an existing group, use its **Add fields…** menu and select
    from **Fields not on the page**. This does not create a new field definition.
 
@@ -101,10 +101,11 @@ choice and try again.
 1. In **Record page**, choose **Header and breadcrumbs…**.
 2. Select **Title of the record** from Name or an attached field. **Line under the title**
    adds a second field; choose **None** to remove it.
-3. Choose **Show the type’s name in the header** as needed. Set **Breadcrumbs start with the
-   application**, **Breadcrumbs name the type** and **Breadcrumbs name the records above it**
-   independently. These change this page’s context, not a record’s parent or name.
-4. Apply and inspect the preview with a record that has parents. Undo restores the saved step.
+3. Choose **Show the type’s name in the header** as needed. **Breadcrumbs name the type**
+   also shows the type in the header; **Breadcrumbs name the records above it** shows parents
+   in the line above the title. That line starts with the list link when opened from a list,
+   without an application entry. These choices do not change a record’s parent or name.
+4. Choose **Save** and inspect the preview with a record that has parents. Undo restores the saved step.
 
 ![Record page Header and breadcrumbs dialog](/docs/screens/model-header-breadcrumbs.png)
 
@@ -121,7 +122,7 @@ choice and try again.
    contained-record or table panel, choose **Rows on a page**. A table also offers **List
    only the records under this one**; clear it only when the page should show that type’s
    records beyond the open record’s direct children.
-5. Apply and review columns, sorting and Issues. Changing settings does not rewrite stored
+5. Choose **Save** and review columns, sorting and Issues. Changing settings does not rewrite stored
    connections. A panel with no matching records is empty; check its direction and selection
    before concluding that data is missing.
 

@@ -147,7 +147,7 @@ async function journey(label, source) {
     assert.match(await dialog().textContent(), /its records move with it to .* and become top-level records/);
     await assertDialogLayout(page, `${label}: Move to… a released type`);
     await shot("move-1440");
-    await dialog().getByRole("button", { name: `Move to the top level of ${other.name}` }).click();
+    await dialog().getByRole("button", { name: "Move", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     checks.push(`${label}: Move to… on a released type says it needs a migration, then applies`);
 

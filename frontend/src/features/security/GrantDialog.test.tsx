@@ -13,6 +13,7 @@ vi.mock("@/api/securityClient", () => ({
     grantsOf: vi.fn(),
     grantOptions: vi.fn(),
     createGrant: vi.fn(),
+    deleteGrant: vi.fn(),
   },
 }));
 
@@ -70,54 +71,153 @@ beforeEach(() => {
   }));
 });
 
-describe("granting consumer APIs by ticking a grid (0.12 U9)", () => {
+const roleGrant = (role: string, workspaceKey: string, applications: string[] = []) =>
+  ({
+    id: `${role}-${workspaceKey}-${applications.join("")}`,
+    principal: client,
+    role: { key: role, name: role },
+    scope: { instance: false, workspaceKey, applications, recordTypes: [] },
+  }) as unknown as Grant;
+
+describe("setting a client's consumer APIs by ticking a grid (0.12 U9, 0.17)", () => {
+  it("is the client's access, with a Save that stays off until something changes", async () => {
+    render(<GrantDialog who={client} onClose={vi.fn()} onChanged={vi.fn()} />);
+    const dialog = await screen.findByRole("dialog", { name: "Test client's access" });
+    expect(await within(dialog).findByLabelText("RDM in all workspaces")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(within(dialog).queryByText(/Ticked and grey/)).not.toBeInTheDocument();
+  });
+
   it("ticks a whole row with its heading and makes one grant per cell", async () => {
     vi.mocked(security.createGrant).mockImplementation(async (body) =>
       created(body.consumerApi ?? "", "workspaceKey" in body.scope ? body.scope.workspaceKey : ""),
     );
-    const onGranted = vi.fn();
-    render(<GrantDialog who={client} onClose={vi.fn()} onGranted={onGranted} />);
+    const onChanged = vi.fn();
+    render(<GrantDialog who={client} onClose={vi.fn()} onChanged={onChanged} />);
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(await within(dialog).findByLabelText("RDM in all workspaces"));
-    expect(
-      within(dialog).getByText(/2 grants will be made: Test client reads RDM in Default and Pilot/),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/Test client will read RDM in Default and Pilot\./)).toBeInTheDocument();
     expect(within(dialog).getByText("not in this model")).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Grant 2" }));
-    await waitFor(() => expect(onGranted).toHaveBeenCalled());
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(security.createGrant).toHaveBeenCalledTimes(2);
-    expect(onGranted.mock.calls[0]?.[0]).toHaveLength(2);
+    expect(onChanged.mock.calls[0]?.[0].added).toHaveLength(2);
+    expect(onChanged.mock.calls[0]?.[0].removed).toHaveLength(0);
   });
 
-  it("shows what is already granted locked, and does not send it again", async () => {
+  it("shows what is held as a normal tick; unticking removes it on Save, ticking adds, and the sentence says both", async () => {
+    vi.mocked(security.grantsOf).mockResolvedValue({
+      items: [created("rdm", "default"), created("rdm-translation", "default")],
+      nextCursor: null,
+    } as never);
+    vi.mocked(security.createGrant).mockImplementation(async (body) =>
+      created(body.consumerApi ?? "", "workspaceKey" in body.scope ? body.scope.workspaceKey : ""),
+    );
+    vi.mocked(security.deleteGrant).mockResolvedValue(undefined as never);
+    const onChanged = vi.fn();
+    render(<GrantDialog who={client} onClose={vi.fn()} onChanged={onChanged} />);
+    const dialog = await screen.findByRole("dialog");
+    const held = await within(dialog).findByLabelText("RDM in Default");
+    expect(held).toBeChecked();
+    expect(held).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByLabelText("Translations in Default"));
+    fireEvent.click(within(dialog).getByLabelText("RDM in Pilot"));
+    expect(
+      within(dialog).getByText("Test client will read RDM in Pilot; Translations in Default is removed."),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(security.deleteGrant).toHaveBeenCalledTimes(1);
+    expect(security.deleteGrant).toHaveBeenCalledWith("rdm-translation-default");
+    expect(security.createGrant).toHaveBeenCalledTimes(1);
+    const change = onChanged.mock.calls[0]?.[0];
+    expect(change.removed.map((grant: Grant) => grant.id)).toEqual(["rdm-translation-default"]);
+    expect(change.added.map((grant: Grant) => grant.id)).toEqual(["rdm-pilot"]);
+  });
+
+  it("is Save-disabled again after unticking and re-ticking the same cell", async () => {
     vi.mocked(security.grantsOf).mockResolvedValue({ items: [created("rdm", "default")], nextCursor: null } as never);
-    render(<GrantDialog who={client} onClose={vi.fn()} onGranted={vi.fn()} />);
+    render(<GrantDialog who={client} onClose={vi.fn()} onChanged={vi.fn()} />);
     const dialog = await screen.findByRole("dialog");
-    const held = await within(dialog).findByLabelText("RDM in Default: already granted");
-    expect(held).toBeDisabled();
-    fireEvent.click(within(dialog).getByLabelText("RDM in all workspaces"));
-    expect(within(dialog).getByRole("button", { name: "Grant" })).toBeEnabled();
-    expect(within(dialog).getByText(/^1 grant will be made: Test client reads RDM in Pilot/)).toBeInTheDocument();
+    const held = await within(dialog).findByLabelText("RDM in Default");
+    fireEvent.click(held);
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(within(dialog).getByText("Test client will no longer read RDM in Default.")).toBeInTheDocument();
+    fireEvent.click(held);
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("keeps a refused grant ticked with its reason while the others are made", async () => {
-    vi.mocked(security.createGrant).mockImplementation(async (body) => {
-      if ("workspaceKey" in body.scope && body.scope.workspaceKey === "pilot")
-        throw new Error("The model no longer declares it");
-      return created(body.consumerApi ?? "", "default");
-    });
-    const onGranted = vi.fn();
+  it("keeps a refused change as it was while the others are made, and reports it", async () => {
+    vi.mocked(security.grantsOf).mockResolvedValue({ items: [created("rdm", "default")], nextCursor: null } as never);
+    vi.mocked(security.deleteGrant).mockRejectedValue(new Error("The grant is protected"));
+    vi.mocked(security.createGrant).mockImplementation(async (body) =>
+      created(body.consumerApi ?? "", "workspaceKey" in body.scope ? body.scope.workspaceKey : ""),
+    );
+    const onChanged = vi.fn();
     const onClose = vi.fn();
-    render(<GrantDialog who={client} onClose={onClose} onGranted={onGranted} />);
+    render(<GrantDialog who={client} onClose={onClose} onChanged={onChanged} />);
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(await within(dialog).findByLabelText("RDM in all workspaces"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Grant 2" }));
-    expect(await within(dialog).findByText("1 could not be granted")).toBeInTheDocument();
-    expect(within(dialog).getByText(/RDM in Pilot: The model no longer declares it/)).toBeInTheDocument();
-    expect(onGranted).not.toHaveBeenCalled();
+    fireEvent.click(await within(dialog).findByLabelText("RDM in Default"));
+    fireEvent.click(within(dialog).getByLabelText("RDM in Pilot"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText("1 could not be saved")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Removing RDM in Default: The grant is protected/)).toBeInTheDocument();
+    expect(within(dialog).getByText("The others were saved.")).toBeInTheDocument();
+    expect(onChanged).not.toHaveBeenCalled();
+    // The refused removal is still a pending change; the made grant is not.
+    expect(within(dialog).getByLabelText("RDM in Pilot")).toBeChecked();
+    expect(within(dialog).getByLabelText("RDM in Default")).not.toBeChecked();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeEnabled();
     fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1)!);
-    expect(onGranted).toHaveBeenCalledTimes(1);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(onChanged.mock.calls[0]?.[0].added).toHaveLength(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("says what is already granted in words when it only grants (from a workspace's Access)", async () => {
+    vi.mocked(security.grantsOf).mockResolvedValue({ items: [created("rdm", "default")], nextCursor: null } as never);
+    render(<GrantDialog workspace={{ key: "default", label: "Default" }} onClose={vi.fn()} onChanged={vi.fn()} />);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick client" }));
+    fireEvent.click(await within(dialog).findByLabelText("Consumer APIs"));
+    expect(await within(dialog).findByText("already granted")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("RDM in Default")).not.toBeInTheDocument();
+    fireEvent.click(await within(dialog).findByLabelText("Translations in Default"));
+    expect(within(dialog).getByRole("button", { name: "Add grant" })).toBeEnabled();
+  });
+});
+
+describe("setting roles in a workspace (0.17)", () => {
+  const workspace = { key: "default", label: "Default" };
+  beforeEach(() => {
+    vi.mocked(security.roles).mockResolvedValue({
+      items: [
+        { key: "reader", name: "Reader", actionGroups: [] },
+        { key: "editor", name: "Editor", actionGroups: [] },
+      ],
+      nextCursor: null,
+    } as never);
+  });
+
+  it("starts the held roles ticked, removes an unticked one and leaves a narrowed grant alone", async () => {
+    vi.mocked(security.grantsOf).mockResolvedValue({
+      items: [roleGrant("reader", "default"), roleGrant("editor", "default", ["a"])],
+      nextCursor: null,
+    } as never);
+    vi.mocked(security.deleteGrant).mockResolvedValue(undefined as never);
+    const onChanged = vi.fn();
+    render(<GrantDialog who={client} workspace={workspace} onClose={vi.fn()} onChanged={onChanged} />);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByLabelText("Roles"));
+    expect(await within(dialog).findByLabelText("Reader")).toBeChecked();
+    expect(within(dialog).getByLabelText("Editor")).not.toBeChecked();
+    fireEvent.click(within(dialog).getByLabelText("Reader"));
+    expect(within(dialog).getByText("Test client will no longer hold Reader in Default.")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(security.deleteGrant).toHaveBeenCalledTimes(1);
+    expect(security.deleteGrant).toHaveBeenCalledWith("reader-default-");
   });
 });
 
@@ -125,7 +225,7 @@ describe("consumer APIs are a client's alone", () => {
   const workspace = { key: "default", label: "Default" };
 
   it("offers roles only until a client is chosen, and not for a person or a group", async () => {
-    render(<GrantDialog workspace={workspace} onClose={vi.fn()} onGranted={vi.fn()} />);
+    render(<GrantDialog workspace={workspace} onClose={vi.fn()} onChanged={vi.fn()} />);
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByText("Consumer APIs")).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "pick person" }));
@@ -138,7 +238,7 @@ describe("consumer APIs are a client's alone", () => {
   });
 
   it("clears ticked consumer APIs when the holder changes from a client to a person", async () => {
-    render(<GrantDialog workspace={workspace} onClose={vi.fn()} onGranted={vi.fn()} />);
+    render(<GrantDialog workspace={workspace} onClose={vi.fn()} onChanged={vi.fn()} />);
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "pick client" }));
     fireEvent.click(await within(dialog).findByLabelText("Consumer APIs"));

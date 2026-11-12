@@ -6,6 +6,438 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.17 CE1: shared pieces of the model editor, first part)
+
+- **An Editor | Canvas switch** stands at the top of the model editor in place of the Open as canvas link, and the canvas page
+  mounts the same one. A draft opens on the view the person used last (remembered per draft in this browser), and on the canvas
+  from a workbook flow.
+- **What a load does with the records no row names** (the API's `setMissing`) now has a place in the interface: on a list's
+  panel, Report them or Delete them, changed where it stands. Delete asks once and says what a load will then delete. It is not
+  shown for a list with no key or one that loads no records of its own.
+- The canvas document of a draft (`GET`/`PATCH /api/v1/model-drafts/{id}/canvas`) also keeps the folded cards and the chosen
+  scope (`model`, `changed` or `workbook`), merged by key and replaced as the positions are, outside the draft's version, history
+  and releases (additive).
+- The editor's steps and refusals, operation dialogs, notices, workbook dialogs, More menu actions and the type preview are
+  pieces another page mounts with props only; the editor uses the same ones.
+- **The canvas shows the model editor's own issues and history drawer** (the same bar, counts, tabs, height and dry run), in
+  place of its own foot and the "n to fix" in its strip. An issue about a relationship now selects and centres that relationship's
+  line; it used to do nothing for a parent-and-child relationship, and the drawer no longer changes height between its tabs.
+- **The canvas's strip holds its tools**: Find, Undo, Redo, Tidy and + moved from the top bar into the strip, after the Whole
+  model | Changed in this draft | From the workbook switch. The switch, the tools and the summary (applications, object types,
+  changed) each stand in a rounded box of their own quiet hue.
+- **"From the workbook" is offered only with a workbook**: on a draft without one, the canvas's switch shows Whole model and
+  Changed in this draft, and a scope kept on the draft falls back to the whole model.
+- **Add a workbook… stands beside that switch** on a draft without a workbook, and the empty workbook pane is gone: the board
+  takes its width. Once a workbook is added the workbook pane shows as for an import, and a draft that had no scope chosen
+  stays on the whole model rather than switching to the workbook's (still empty) lists.
+- **Applications stand side by side** when the canvas lays the board out (a draft with no places kept, or Tidy): as many
+  application frames per row as fit, each with its share of the width, instead of the first one taking the whole row.
+- **A card is carried by its name too**: a press on an object type's name moves the card once the pointer moves, and a click
+  still renames it. Only the small grip and the gaps in the card's top bar carried it before, so a card seemed not to move.
+- **Folding a card closes up its column**: the cards under it in the same application move up by the space it gave up (and
+  down again on unfold), so its frame and lines shrink with it instead of leaving an empty area. Space left by folds made
+  before this change goes with one press of Tidy.
+- **The canvas's layout editor and preview use one line in place of the strip**: the type, Layout editor or Preview, the
+  record to show, the note, and Undo, Redo, Preview (or Edit layout) and Back to the board, packed to the left. The
+  application and workspace choices are left out there; the model editor's band keeps them. On a phone the line wraps, and
+  the preview now stands as tall as the board (it had collapsed to a sliver).
+
+### Added (0.17 CE1: the canvas edits the whole model)
+
+- Names of object types and attributes on the canvas are no longer cut short where the row has room; a name
+  that is still too long shows in full on hover.
+- **The canvas does what the model editor does**, on the same draft, with or without a workbook. The page uses the editor's
+  editing hook, dialogs and notices, so every list, field, relationship line, navigation group and application frame is a target of
+  the editor's own operation table: its menu (the ⋯ button, right click, Shift+F10) is the editor's `OperationsMenu`, with the
+  canvas's gestures (Put under…, Relate to…, filters) in a Canvas section, and its forms are the editor's. A test
+  (`parity.test.ts`) fails when the table gains an operation of a kind of target the canvas has no place for.
+- **The whole model on the board**: a switch Whole model | Changed in this draft | From the workbook (kept on the draft), a frame
+  per application with its name on its border, Tidy inside the frames, released lists nothing changed drawn quieter, the editor's
+  New / Changed / Released mark on each card, Find (Ctrl or Command with K; Enter centres and selects), zoom (− 100% + Fit,
+  Ctrl or Command with the wheel; kept in the browser), a card folded to its top bar (kept on the draft). Opening a model,
+  moving cards, Tidy, folding and zoom change neither the draft's version nor its model.
+- **By hand**: the editor's own Add menu in the header (one shared component, `AddMenu`: Application…, Object type…, Attribute type…,
+  Relation type…, group, with the editor's forms; an object type made there is selected and the board centred on it) and the
+  editor's New attribute button at the foot of every card; names of object types and attributes change where they stand. The
+  canvas uses the editor's words (object type, attribute) and "Propose again…" in More actions. An attribute row dragged onto another
+  object type's card moves there (the editor's Move to…), and up or down within its card, or with Alt+ArrowUp / Alt+ArrowDown,
+  changes its position (the editor's Move up / Move down; a line shows where it will land). A draft without a workbook folds the
+  workbook pane away and offers Add a workbook….
+- **Inspector** (Inspector, Navigation, Views, Consumer APIs): the editor's element, column and list panels (with what a load
+  does with the records no row names), a field's rows, the group operations, a list's tables and record page in the editor's
+  preview and layout editing in the main area (Back to the board), the consumer API pane and panel. A click on a line opens its
+  rule popover (how many, required, the fields it carries, which records may be chosen).
+- **Issues and History** in a foot drawer: an issue selects its card, field or line; a chosen step is undone, and a refused undo
+  says what it depends on. The selection is kept in the address (`?show=canvas&element=…`).
+- Header: the Editor | Canvas switch, Find, Undo, Redo, Tidy, the editor's Add menu, Propose again… (in More actions), Create workspace…
+  or Apply to this workspace… and Install and activate…, and ⋯ with Load into a change set…, Add a workbook…, Open as JSON, Delete draft….
+  The load into a workspace the canvas had is now the editor's own Load into a change set….
+- **A layout stored before the cards grew is read apart**: a card whose box overlaps another's is moved down below it, keeping its
+  column, and the moved places are written back once to the draft's canvas (not as a model step), so no Tidy is needed.
+- **What the Add menu makes that has no card is shown**: an attribute type or a relation type made there is selected in the
+  inspector (its own panel), a navigation group in the Navigation tab, each with a toast and Undo. The inspector's panel for such an
+  element is held by the page and cleared by the next pick on the board. The Find field is wide enough for its hint.
+- Browser runner `test:browser:ce1` (a model built from nothing and installed; a released model opened whole). Decisions PP-D86 to PP-D89
+  are numbered after the duplicate PP-D83 to PP-D85 of the same day were resolved (the PL3b ones keep their numbers).
+
+- **The model editor sets the workbook's three readings too** (0.17 CE1, PP-D77): a column's panel offers Fill blanks from the
+  cell above, Rows holding only this column are headings… and Read these columns as rows… (which asks which columns, then
+  the two new columns' names and the object type they are added to, the list's own at first), each with its Stop entry while it is on; a sheet's list offers Read these columns as rows… beside
+  its other actions; a column that a reading is on carries a mark in the source pane. The operations and the questions are the
+  canvas's own, built once (`model-editor/readings.ts`, `ReadingAsks.tsx`); each entry is one request and one undo step.
+
+### Added (0.17 PL3b: the workbook canvas)
+
+- The workbook canvas page: sheets dropped on the board make lists; a column onto a list, a field or a list's Filters is one
+  request and one undo step; Connect finds the column that names the other list over every row and binds it with the link (a
+  tie is asked); several chosen columns are read as rows; the sheet's first rows with a pressable header row; fill down and
+  heading rows from a column's menu; the reasons for refused rows with a value-map correction; Proposed on cards, fields and
+  columns; keyboard paths and a one-column phone layout; Create workspace…, Apply, Load into an existing workspace…; Open as
+  canvas in the model editor; PL4's Adjust opens the canvas.
+- The model editor shares the canvas's draft steps, dependants dialog, workspace choice and Proposed logic.
+- Fixed: the canvas read a column of numbers as text, and drew a line for a list that contains itself.
+- Fixed (found by trying three real workbooks): the canvas's Create workspace… now lands on the workspace's own page, where
+  the load's progress and result are shown. A sheet dropped on a draft with no application, or on a board where a list
+  already reads it, no longer fails or makes a second list. A column dropped on the empty board is now a new list of its
+  values, linked back, with a source of its own, in one request; a column that already fills a field is not made a second
+  field. Connect finds the column that names a parent when both lists read the same sheet. Headers in CamelCase read as
+  words. A card made by a drop sits at the drop point, at least 16px in from the board's edge. The toolbar hides Create
+  workspace…, Load into an existing workspace… and Tidy where an empty board could not finish them.
+- Fixed: a session's log file handle was never closed after a turn (the AI journey J50 failed at teardown with an
+  unclosed-file warning).
+
+
+### Fixed (0.17 UX1: dialogs in the middle of the window)
+
+- **Every dialog opens in the middle of the window again** (PP-D69), in every theme and frame arrangement. UX1 had
+  drawn forms as a sheet at the right edge, as tall as the form, so a short form such as a matrix cell's stood in the
+  top right corner. Dialogs have the widths they had before; a long form scrolls inside the dialog and its buttons
+  stay at the dialog's foot. A phone shows the dialog full width, as before.
+
+### Changed (0.17 ST1: Settings as one family)
+
+- **Every Settings page has one shape.** The header carries the page's group, its glyph on a tile in the group's
+  colour, one or two sentences and the page's one main action. Under it come groups: what the group is about on the
+  left, its values, switches, choices and facts as rows in panels on the right; a table takes the full width.
+  Account and Notification email give up their centred columns; Mail's form and every other form saved as a whole
+  sits in one panel with Save in its foot.
+- **Every list opens its item as a page.** People, Groups, Clients, Sign-in, Import profiles and Webhooks are
+  full-width lists, as Workspaces and Model were; a row opens the item's own page, whose first line leads back to
+  the list. The narrow list beside the item is gone.
+- **An opened item** has a header in its colour with at most two actions; the rest are in a ⋯ menu, what cannot be
+  undone last (a person's Deactivate and Sign out everywhere, a workspace's Retire and Delete, a webhook's Rotate
+  key and Delete).
+- **Logs are on a tab.** Mail (Server, Messages), AI (Settings, Calls), Agent access (Access, Calls) and Jobs
+  (Jobs, Limits); the tab is in the address (`?tab=`). A log words a time as "today, 16:34" with the full time on
+  hover, right-aligns numbers, gives a duration in seconds and minutes, has its states as chips and, on Mail and
+  AI, its totals above; below it says how many are shown ("n of m" where the engine gives a total) with **Show
+  more**. Jobs, Signing keys and Agent access keep their name column first, and Import profiles still reads
+  further rows as the list is scrolled.
+- **Colour.** Each Settings group has a colour, shown on the index, beside each page's title and on its rows'
+  tiles; a person and a client have their initials in a colour of their own; a role keeps its coloured chip in
+  the People list and on a person's page; activity stays a line by day with a marker in its kind's colour.
+- **A person's, group's or client's access is grouped by place:** a line for every workspace first, then one per
+  workspace by name, each with its roles and its consumer APIs as coloured chips and a "+" to grant more there. A
+  grant held through a group says so in its chip and links to the group; only the page's own grants can be removed.
+  The chip is the one a workspace's Access list uses (`features/security/GrantChip`).
+- **A person's, group's or client's access is set in one dialog.** Opened from their page it is "‹name›'s access":
+  what they hold is ticked, unticking removes it and ticking adds, and one **Save** does both; it was an add-only
+  dialog in which everything already held was ticked, grey and locked. A role narrowed to some lists, and a person's
+  role held through a group, are not offered there and stay removable by their chip. The chip's trash button is
+  always shown on these pages. A removal asks no confirmation; every saved change offers **Undo**. From a
+  workspace's Access the dialog still asks who and only grants.
+- **The index** lists every page with one line saying what it is for.
+- **Deployment** shows each setting as a row: its name with what it controls, its value, the default only where
+  the value differs, and where the value came from.
+- **One person's changes** (`/changes?actorId=…`) is drawn from the same parts, begins with a way back, and marks
+  each kind of change with its colour.
+- No route, permission or capability changed. The People list has no Groups column: the people list of the API
+  carries no group data.
+
+### Changed (0.17 UX2: one field saves when it is left)
+
+- **A single field edited in place has no form any more** (PP-D68). Clicking a value's pencil turns the value into
+  its input where it stands: in a list's cell, in a record's details and header, in the record beside its list, in a
+  relationship's value, on the names in Settings and in the model editor. Leaving the field saves it, as Enter does
+  (in a text of several lines Enter is a new line and Ctrl or Cmd with Enter saves); a choice or a tick saves as it
+  is made; Escape puts the old value back; an input left as it was saves nothing. The Cancel and Save buttons and the
+  **No value** tick are gone.
+- A saved value is told **‹Field› saved** with **Undo**, also for a value set for the first time (Undo takes it out
+  again) and for a relationship's value. An optional field left empty is the value removed, told **‹Field› removed**
+  with **Undo**, as the remove icon tells it; a required one left empty is refused under the field.
+- A refusal (a rule of the model, a record changed elsewhere, a change set conflict) keeps the field open with the
+  reason under it and the input kept; **Cancel** and **Save again** then stand under the reason, and leaving the field
+  again saves only once the input has changed.
+- Another field can be opened while one is open; the first saves as it is left. A list's value cell shows one toast
+  instead of two. A one-line field keeps the height of its row.
+- "Cleared" (a stored null) and "Empty text" are still shown, but a field no longer offers to set them (a JSON
+  field still takes `null` as typed); the API sets them as before.
+
+### Added (0.17 PL3b: the workbook canvas, engine and API)
+
+- **Three readings of a source's table** (PP-D6, PP-D7, PP-D48), in the import profile, so they hold for any import, a
+  dry run, a profile check and a profile saved for the next file: `unpivot` (a wide table read as rows: each filled
+  cell of the listed columns becomes a row, the column's header in a new column and the cell in another), `fillDown`
+  (columns repeated by blanks) and `headings` (a row holding only a heading is the parent of the rows beneath it).
+  Bindings name the added columns like any column; a name the table already has is `COLUMN_CLASH`; a column the next
+  file lacks takes its reading with it. A source without readings is read exactly as before.
+- **Six operation kinds** to set and clear them on a draft's source, each undoable and validated, with refusals by
+  code: `setUnpivot`, `clearUnpivot`, `setFillDown`, `clearFillDown`, `setHeadingRows`, `clearHeadingRows` (PP-D49).
+- **`POST /api/v1/model-drafts/{id}/join-candidates`** compares a column of one table with the columns (or one named
+  column) of another over every row in PostgreSQL and answers the candidates with their figures; two that match
+  exactly as much are a `tie` with no `best`, so a client asks (PP-D8, PP-D51).
+- **`GET`/`PATCH /api/v1/model-drafts/{id}/canvas`**: where each card of the workbook canvas sits, by card key, merged
+  by key, validated, with the draft's permission. Not part of the draft's version, its history, an undo step or a
+  release (PP-D54; migration `20261202_01`).
+- **An assistant's design must carry its profile** (PP-D55): when its last check read the workbook through a profile
+  sent with the check and the draft stores none, or another one, the task fails with a plain reason.
+- The other drops of the canvas need no new route: each composes from existing operations in one request, one undo
+  step (PP-D52, J58.1). Journey J58 (`test_j58_workbook_canvas`). The canvas itself is built separately.
+
+### Added (0.17 PL4: a workspace from a workbook)
+
+- **New workspace from a workbook** (PP-D1, PP-D44 to PP-D47). A dialog on Home, in Settings › Workspaces and on a
+  workspace's page: drop a workbook, name the workspace (prefilled from the file's name), read what refiroo found
+  (each list with its rows, what loads and what does not and why, every row checked), then **Create workspace**. It
+  lands on the new workspace's page, which shows the load's progress and what did not load. **Adjust** opens the model
+  editor on the draft; **Cancel** removes it; **More ways to start** leads to today's New workspace. The action is
+  left out for a person who lacks any step's group at the instance.
+- **`POST /api/v1/workspaces/from-workbook`** installs a workbook's draft as a release, creates the workspace on it and
+  queues the workbook as an import job into its live data (`independent`: a refused row is reported, the rest load),
+  and answers 202 with the workspace, the release and the job. A release version or an import profile key another model
+  holds is replaced by a free one, never refused; a draft's profile now starts under a key no stored profile holds.
+  Refused with the draft's problems: `422 INVALID_MODEL`, `422 INVALID_IMPORT_PROFILE`, and `422 DRAFT_HAS_NO_WORKBOOK`
+  (new). Needs Workspace administration, Install a model (or Model release) and Bulk and import, the last two at the
+  instance. New action `workspaces.create-from-workbook`.
+
+### Fixed (security sweep)
+
+- `POST /api/v1/jobs/{jobId}/reread` is in the security oracle, and its reference text names the group that starts the
+  job's kind, as the route checks (it said Bulk and import in the workspace). The consumer sweep expects `404
+  CONSUMER_API_NOT_FOUND` for a key the workspace's model does not declare, as the consumer API's text says.
+
+### Fixed (0.17 PL3b and PL4, from a real workbook)
+
+- A column whose header ends in a space, on a sheet whose header row is not row 1, can be mapped: a header named as the
+  source-columns read lists it is matched without its surrounding whitespace, as the import reads it, and saved trimmed.
+- **New workspace from a workbook** no longer stops with "No proposal of the draft's inference is open" when
+  refiroo reads no list from the workbook by itself: it says so and offers **Adjust**, which opens the canvas. A
+  reading that fails no longer leaves its draft behind.
+- On the canvas, a sheet dropped on the board becomes one list named for the sheet with each column a field, and
+  the first list of a draft without an application brings its application with it.
+
+### Fixed (0.17 UX1)
+
+- AI tasks that move whole types: when the instance already holds a release with the draft's exact content (the same
+  change made earlier for another workspace), installing returns that release and the task lands on it; it failed as
+  "The session installed no release the moves fit".
+- Layout editor, a panel's Columns… dialog: a containing type already chosen (Language on Name translations) no longer
+  drew the panel's own columns under the "Where it sits" heading; the own columns come first, then "Where it sits".
+- The guide's picture runner stops at a failed screen, because later screens may build on its state; `--keep-going`
+  runs on.
+- Settings › E-mail template: the Markdown box is tall again (about thirteen lines). Settings' shared field rule had cut
+  it to two lines.
+- A publication's band no longer squeezes its sentence ("Read-only. A publication's records never change.") into a
+  narrow column beside the Viewing bar: the sentence stands on a row of its own under the bar.
+- A record opened beside its list no longer clips the remove button of a value or lets its details card scroll
+  sideways: the row's controls stay inside a card that has no padding.
+- **Expand to full page** replaces the record beside its list in the browser's history, so Back returns to
+  the list.
+- A page's actions wrap at phone width; Settings › Workspaces no longer scrolls sideways at 390px.
+- A change set's dialog (Change model version, Submit) stays open when the window crosses the phone width.
+- A record opened from the top bar's search inside a change set or a publication stays in that change set or
+  publication.
+- In a publication's view the sidebar tree reads beyond its first 50 rows: a group that started reading while
+  the publication was loading reads again once it is there.
+- At phone width a row opens the record's own page, with its relationships, and no longer a reduced view.
+
+### Changed (0.17 UX1: Instrument's type, Hearth's titles)
+
+- **Instrument reads more clearly.** Its text is set in Inter (bundled, OFL-1.1; `@fontsource-variable/inter`
+  5.3.0) in place of Instrument Sans, which stays for page and record titles; codes keep JetBrains Mono. Its
+  sizes no longer sit half a pixel under the other themes': table cells, labels and small text are 12 to 13px
+  (were 11.5 to 12.5px), running text stays 13.5px, and nothing is smaller than 11px. Colours, frame, corners,
+  control height and row height are unchanged, and so are the other four themes. A long list or group name in
+  Instrument's list panel shortens with an ellipsis and no longer pushes the panel's content past its edge.
+- **Hearth's titles are set in Fraunces** (bundled, OFL-1.1; `@fontsource-variable/fraunces` 5.3.0) at weight
+  500, in place of Instrument Serif, whose single light, narrow weight looked thin beside the sans section
+  headings; the Instrument Serif package is no longer bundled. Title sizes are unchanged from 761px up; on a
+  phone Hearth's page and record titles are 23px (were 26px), so a long name still takes two lines. Hearth's
+  text, colours, corners and frame are unchanged.
+
+### Added (0.17 UX1: themes with their frames, and one way to edit)
+
+- **Themes.** Settings › Appearance offers Current (the look refiroo has had, the reference), Hearth, Studio,
+  Instrument and Website purple, each in light and dark. A theme sets colours, the title typeface (Fraunces
+  in Hearth, Bricolage Grotesque in Studio, both bundled, OFL-1.1), corners, type sizes and control height.
+  Every theme's colours are held to the same contrast minimums by `tokens.test.ts`; the palettes are in
+  `frontend/tools/gen_themes.py`, which writes their token blocks.
+- **A theme arranges the frame** (PP-D39). Current, Hearth and Website purple keep the top bar and sidebar.
+  Studio has one side column (mark, applications, lists) beside a raised page. Instrument has a narrow strip
+  (mark, applications as tiles, Help, Inbox, Settings, account), the lists as a panel, and the data context as a
+  status line along the bottom; a page with no search has no bar. From 761px up; on a phone every theme keeps
+  the bar and the drawer. Hearth, Studio and Instrument also have quiet scrollbars, controls that answer the
+  pointer and surfaces that arrive with a short motion (off under "reduce motion").
+- **The theme base.** Stylesheets no longer write a type size or a corner: 16 size tokens (`--fs-*`) and four
+  corner tokens replace about 320 hard-coded values, with shadow, motion and button-corner tokens beside them.
+  Current's values are unchanged.
+- **One way to edit** (PP-D40), in every theme:
+  - a form opens as a dialog in the middle of the window (the side sheet this package first gave it is withdrawn,
+    PP-D69); a confirmation no longer carries a "Please confirm" line;
+  - a value edited in place becomes its field, with no box and no repeated label; "Set null" reads "No value";
+  - a yes or no in a record's details is a switch that saves itself, as it was in tables;
+  - a saved value offers Undo in a toast (a record's name, and an attribute that had a value before);
+  - a confirmation that destroys nothing has a plain main button, not a red one (`ConfirmDialog` `tone`).
+- **Settings and security pages** follow it. A passkey's, client's, workspace's or group's name, and a group's
+  description, is changed where it stands (`ui/TextInPlace`), and the saved change offers Undo. The "Keeps local
+  sign-in" switch saves at once when turned on and asks only when turning it off removes the password way in.
+  The dialogs that remain are forms: a line names the Settings group, the title reads "New ‹thing›" and the
+  main button "Add ‹thing›" (Add group, Add role, Add person, Add client, Add webhook, Add provider, Add
+  assistant, Add workspace, Add grant); "Save", "Rotate secret", "Rotate key", "Rotate recovery codes", "Remove
+  grant" and "Remove second factor" replace the earlier wording.
+- **The record area** follows it. Removing a relationship, or clearing an optional value, no longer asks: it is
+  done and a toast says "‹thing› removed" with Undo, which creates it again under the record's fresh version. A
+  related panel with five rows or fewer folds its Search, Display and Sort behind one ⋯ menu; a larger panel
+  keeps them. The sheets' footers are unified: Cancel is the secondary button beside one main button, progress
+  text sits in the body, and the mapping sheet's Remove mapping moved into its form. Labels follow one word per
+  action: Save, Add ‹type›, Delete ‹type›, Delete N records, Apply for picking several. A record's edit form
+  says Save (was Save changes); starting a change set from a publication uses Name and Start change set, as
+  the new change set form does; an Undo that is refused because the record changed again says so. A list's header has a
+  pin button that brings the list to the person's shelf.
+- **Deleting a record is one confirmation.** A new read, `GET
+  /api/v1/objects/{objectTypeKey}/{objectId}/deletion-impact` (`changeSetId` for a change set), returns what
+  deleting a record would take with it, live or in a change set, without deleting anything: the records and
+  relationships, their counts, the record's own relationship count, whether the delete needs `cascade=true`,
+  and the `deletionPreviewToken` that confirms exactly that impact. It needs what the delete needs (Edit live,
+  or Work in change sets) and computes the impact with the delete's own code, so the two always agree. The
+  delete dialog reads it when it opens, shows what is lost with one danger button, and deletes under that token;
+  if the impact changed meanwhile it shows the fresh impact once and asks again, and if it cannot be read it
+  says so and offers Retry.
+- **The model editor.** An operation with one or two controls (42 of them: renames, keys, value types, a
+  pick-several list) opens as a small popover under the control that started it (`ui/AnchoredPopover`), with the
+  same fields, checks and undo step as the sheet; three or more controls keep the sheet. The buttons say Save,
+  Add ‹thing›, Move or Apply.
+- **A table row opens the record beside its list first** (PP-D41), with the list still in place; Expand to full
+  page goes to the record's page. On a phone the row opens the page.
+- **Search.** ⌘K (Ctrl+K) puts the caret in the search. The top bar's search also finds the workspace's lists by
+  name. Home has a search over every record of every workspace the person may browse, grouped by workspace.
+- **The workspace's page is redrawn**, at the window's full width. A person's **shelf** holds the lists and other
+  views (a matrix, a tree) they bring there from any application, as tiles with the number of records, in their
+  own order. A list comes to the shelf by dragging it there from an application, by Add a list, or by the pin
+  on the list's own page; a tile is moved by dragging it or from its menu (also on a right click). The shelf is
+  kept in the browser. Above it is
+  the search; under it the applications with their lists one click away, the person's change sets that wait, and what
+  changed by day, with repeats of one change folded ("4 in a row").
+- **Home** follows a large window up to 1680px, with more cards across, and shows what waits for the person
+  (approvals, their own change sets) before the workspace cards, not after them.
+- **A file is chosen or dropped in one place:** the file field is a drop area in every dialog that takes a file.
+- **Tables fold their columns on first load**, also in a tab opened in the background. A wide column in the
+  middle (a long identifier) no longer hides the narrow ones after it: those that fit stay.
+- **Fixed:** a change set's band no longer runs past the page's edge (seen in Website purple): its name and state
+  take the first row and its actions a row of their own when they do not fit.
+- The guide and the API reference know Current and Website purple only and show the other themes in Current.
+
+### Changed (0.17 PL1 and PL2: change sets in two clicks, plain add and edit)
+
+- New change set asks for a name only; the start point and the model version are under Options (the version list
+  is offered only to Model release). The change set bar holds Review changes and Publish, with Validate now,
+  Change model version, Rename and Discard under ⋯. Publish checks first: if the check passes, one plain
+  confirmation names the records and relationships that go live and what happens on a conflict; if it fails,
+  nothing is published and the page lists the problems with links to the records. A model-version mismatch is
+  said in words instead of a disabled Publish.
+- Adding a record from a page says "In ‹parent› · Change" instead of a parent picker (the picker's list no longer
+  runs into the next field); required fields come first and are marked, the optional ones wait under More
+  fields (n), remembered per type in the browser; missing and wrongly typed values are said under the field,
+  never in the browser's bubble. The dialog's line above the title names the collection, the title is "New
+  ‹type›" and the button "Add ‹type›". The relate dialog says "Add a ‹type› to ‹record›" where the relationship
+  is known, and the words "object", "Connect an object" and "(outgoing)" are gone.
+
+### Added (0.17 MT1: the e-mail template)
+
+- An operator can change how every mail refiroo sends looks. Under Settings › This instance › E-mail template,
+  the Operator role edits one template for the instance: Markdown with placeholders for the message's own text
+  (`{{content}}`, exactly once), the product's name, the instance's address, the person's name and a logo. A
+  PNG, JPEG or SVG logo up to 512 KB can be uploaded and is sent inside each mail. A live preview shows the
+  result with sample values, on light and dark paper and as plain text. **Send a test to me** mails it to your
+  own address, and **Reset to default** goes back to refiroo's own layout, which is used until a template is
+  saved. Invitations, password resets, notices, digests and the mail test all use it, with a plain-text version.
+- A template with an unknown placeholder or without exactly one place for the message is refused by code
+  (`MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER`, `MAIL_TEMPLATE_CONTENT_REQUIRED`); raw HTML, images and unsafe links in
+  the Markdown are not carried into the mail; an SVG logo holding script is refused (`MAIL_LOGO_UNSAFE`).
+- **API:** `GET`, `PUT`, `DELETE /api/v1/mail-template`, `PUT`, `DELETE /api/v1/mail-template/logo`, `POST
+  /api/v1/mail-template/preview` and `/test`, under the new action `mail-template.manage` in the Operations group
+  (the Operator role holds it). Migration `20261201_01` adds the one-row table `mail_template`.
+- **Dependency:** `markdown-it-py` (already installed through another package) is now a direct, pinned one.
+- Not done: template changes are not written to the security audit; the mail was not opened in a real mail
+  client (Outlook may ignore the card's width, and many clients do not draw an SVG logo).
+
+### Changed (0.17 PL5 and PL6: plain words, import file-first, grouped draft steps)
+
+- **Import from a collection opens on the file.** A profile is chosen for the person when exactly one valid
+  profile fits the file (they may still pick None or another); otherwise the fitting ones are listed; invalid and
+  other models' profiles are not shown. The three loading switches sit under Options with the same defaults.
+  A file "fits" by this rule: a JSON Lines file takes no profile, a CSV file takes profiles with a CSV setting or
+  a single source, a workbook takes any valid profile.
+- **Your changes and Home's latest** fold consecutive steps on one model draft into one expandable line with
+  their count ("12 steps on the draft ‹name›"); expanding shows the steps as before.
+- **Plain words** on record pages and pickers: "Record unavailable", "Cleared" instead of "Null", "Top level"
+  instead of "Root object", "record" where "object" showed, "the workspace's live data" where a workspace key
+  showed; a picker's lines show the record's path without the application key. The search also takes a person
+  to places by name ("Change sets", "Settings", "Home") under "Go to".
+
+### Changed (0.17 SH1: one frame, one location line)
+
+Frontend only; no engine or API change. The frame said where a person was three to five times and some journeys
+changed the data context without saying so; now it says it once.
+
+- **A page for each workspace.** A card on Home opens `/workspace?workspaceKey=…` in the shared frame: a search over
+  every type's name in the workspace (the cross-type lookup `GET /objects?search=`; results grouped by type with
+  where each stands, Down and Up through them, Enter opens), the applications, the person's change sets that wait
+  there, the five latest changes, **Edit model** (WM1's action, `useEditModel`) and a ⋯ menu to Settings ›
+  Workspaces (Rename, Access, Approval, Retire) and Copy and move, each left out for a person who may not use it.
+  The same search (`WorkspaceSearch`, over `SearchField`) is in the top bar on every page of the workspace.
+- **Top bar.** Applications that do not fit go under **More**, the current one always kept among the tabs. In
+  Settings the bar shows "← Back to ‹workspace›" (the workspace the person came from, the default one when Settings
+  was opened directly, never one just deleted) in place of the application tabs; the Settings link stays current.
+- **The band is one row** on desktop: it no longer repeats the workspace and the application (the phone band keeps
+  both). A change set's row is its pill, name, change count and state, with who, when, version and model under
+  **Details**; the description shows once, on the review page.
+- **One line above a record:** "← ‹the list it was opened from›" and the records above it, in place of Back to list,
+  the breadcrumb's application and type entries and the repeated type label. The model's `detail.breadcrumbs` and
+  `detail.header` flags still decide whether ancestors and the type show (the type once, as the eyebrow, when either
+  type flag asks for it; the application entry is no longer drawn). A record's ID and version are under **Details**;
+  **Copy ID** is in its ⋯ menu beside Copy link.
+- **Settings opens on an index by task** (You; Workspaces and models; People and access; Connections; This
+  instance, About last), and its menu uses the same groups. Every page stays reachable under the permission it had.
+  `Breadcrumbs` and `TrailBar` are one component (`ui/Trail`): the line says where the page is, with no Back
+  button beside it, and an opened item's own name is the page title.
+- **A page is titled by its sidebar entry** (`pageTitle`): a type's lenses are tabs under its name; a relation matrix
+  placed in a navigation group is its own entry and keeps its name.
+- **Browse records is folded** in the sidebar until opened (remembered in this browser) and has no search box of its
+  own; the top bar search finds a record across the workspace.
+- **A change set opened from the list lands on its changes** ("See the data with these changes" leads to the lists);
+  one just started, Continue on Home and the band's link to a person's own open change set still open the data.
+- **Tables that fit.** In record lists and a record's relationship tables the name column is never cut and columns
+  that do not fit fold behind "Columns · n of m", which is the phone layout's column toggle (`mobile-secondary-column`)
+  on a wide screen; widths a person set keep winning. The model list's facts take the width of their values, the draft
+  list's names and Home's cards get the room they need.
+- **Columns fold by what their content needs.** A folding table measures each column with its cells on one line
+  (`measuring-columns`), keeps a column only if its content shows whole (a long free-text value ends in an ellipsis
+  past 320px), folds from the right until the rest fits, and then fills its container. Home's cards show the roles
+  on one line (the first two, then "and n more", the full list as the line's title and for screen readers) and the
+  model name on one line, the tile beside the name. A record header's Details and ⋯ are centred on the title block.
+  Settings' index links use the app's link colour. On a phone the Settings drawer leads with "← Back to ‹workspace›".
+  The model editor no longer offers "Breadcrumbs start with the application" (the flag is still accepted and does
+  nothing). The change set band stays on one row at desktop widths; only the name ends in an ellipsis. The record
+  page's side column sticks below the band, not under it.
+- **Folding runs on the first rows and fills the room.** A folding table finds its container when its rows arrive (not
+  only at mount), and the room the kept columns leave goes to the capped ones up to their content, then to the name.
+  Home's card holds tile, name, badge and Follow on one row, with the model and the roles under it across the card;
+  the roles end in "and n more" when they shorten.
+- **Fixed:** a record's title clipped under the band when the side inspector opens (the inspector sticks below the band);
+  a long version overlapping the draft count in the model list; avatar initials taking a bracket from "Name (temporary)"
+  (letters of the name only); a change set's description shown twice on its review page.
+
 ### Fixed (0.17 RF7: clean test output)
 
 - **Backend and CI log without warnings.** SQLAlchemy 2.1 deprecations are gone at the cause: no

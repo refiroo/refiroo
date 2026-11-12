@@ -11,17 +11,8 @@ import { Icon } from "@/ui/Icon";
 import { SearchField } from "@/ui/SearchField";
 import { RouteLink } from "@/ui/RouteLink";
 import { routePath } from "@/routing/routes";
-import {
-  groupByPrincipal,
-  grantHeld,
-  grantNarrowing,
-  holdsRole,
-  narrowingShort,
-  rolesPresent,
-  type AccessRow,
-} from "./accessGroups";
-import { RoleChip } from "./RoleChip";
-import { staleNote } from "./securityText";
+import { groupByPrincipal, grantHeld, holdsRole, rolesPresent, type AccessRow } from "./accessGroups";
+import { GrantChip } from "./GrantChip";
 import type { PickedPrincipal } from "./PrincipalPicker";
 
 type Kind = Grant["principal"]["kind"];
@@ -102,38 +93,17 @@ export function AccessList({
   }
 
   function chip(row: AccessRow, grant: Grant) {
-    const stale = staleNote(grant);
-    const short = narrowingShort(grant);
-    const title = [
-      grant.scope.instance && "Granted for the whole instance",
-      short && `Writes: ${grantNarrowing(grant)}`,
-      stale,
-    ]
-      .filter(Boolean)
-      .join(". ");
     const held = grantHeld(grant);
     return (
-      <RoleChip key={grant.id} as="li" grant={grant} title={title || undefined}>
-        <span className="access-chip-name">{held}</span>
-        {short && <small>· writes: {short}</small>}
-        {grant.scope.instance && <small>· whole instance</small>}
-        {stale && (
-          <span className="access-chip-stale" role="img" aria-label={stale} title={stale}>
-            <Icon name="state-conflict" size={13} />
-          </span>
-        )}
-        {!grant.scope.instance && (
-          <button
-            type="button"
-            className="access-chip-remove"
-            disabled={removing === grant.id}
-            aria-label={`Remove ${held} from ${row.principal.name}`}
-            onClick={() => setConfirming(grant)}
-          >
-            <Icon name="trash" size={13} />
-          </button>
-        )}
-      </RoleChip>
+      <GrantChip
+        key={grant.id}
+        grant={grant}
+        note={grant.scope.instance ? "Granted for the whole instance" : undefined}
+        extra={grant.scope.instance && <small>· whole instance</small>}
+        removeLabel={`Remove ${held} from ${row.principal.name}`}
+        removing={removing === grant.id}
+        onRemove={grant.scope.instance ? undefined : () => setConfirming(grant)}
+      />
     );
   }
 
@@ -220,7 +190,7 @@ export function AccessList({
       {confirming && (
         <ConfirmDialog
           title={`Remove ${grantHeld(confirming)} from ${confirming.principal.name}?`}
-          confirmLabel="Remove"
+          confirmLabel="Remove grant"
           pending={removing === confirming.id}
           onCancel={() => setConfirming(undefined)}
           onConfirm={() => void confirmRemove(confirming)}

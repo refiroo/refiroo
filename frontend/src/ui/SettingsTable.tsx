@@ -14,9 +14,10 @@ export function SettingsTable({
   /**
    * Column names; one given as `{ hidden }` is named for assistive technology only (a row's
    * actions); one given as `{ key, content }` holds a control, such as the checkbox that selects
-   * every row (0.12 SP1b).
+   * every row (0.12 SP1b); one given as `{ num }` heads a column of numbers and is right-aligned as its
+   * cells are (0.17 ST1).
    */
-  columns: (string | { hidden: string } | { key: string; content: ReactNode })[];
+  columns: (string | { hidden: string } | { key: string; content: ReactNode } | { num: string })[];
   children: ReactNode;
 }) {
   return (
@@ -28,6 +29,10 @@ export function SettingsTable({
               typeof column === "string" ? (
                 <th key={column} scope="col">
                   {column}
+                </th>
+              ) : "num" in column ? (
+                <th key={column.num} scope="col" className="num">
+                  {column.num}
                 </th>
               ) : "hidden" in column ? (
                 <th key={column.hidden} scope="col">

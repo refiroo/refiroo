@@ -4,7 +4,7 @@ description: Find installed versions, read configuration and give the operator u
 reader: access-admin
 ---
 
-Use these Settings pages to identify the installation and discuss a problem with its operator. **General › About** is available to signed-in people. **Administration › Deployment** and **Operations** need **Operations**, held by the predefined Operator role. Security administrator alone does not provide it.
+Use these Settings pages to identify the installation and discuss a problem with its operator. **This instance › About** is available to signed-in people. **This instance › Deployment** and **Operations** need **Operations**, held by the predefined Operator role. Security administrator alone does not provide it.
 
 These pages report information. Deployment settings are changed on the server, and Operations does not restore a backup or restart the service. See [Run refiroo](/docs/run/install-with-compose/) for the operator’s tasks.
 
@@ -20,7 +20,7 @@ The engine version identifies the software. The model release identifies the def
 
 **Deployment** shows **Capability groups** as **On** or **Off**, their limits and the setting responsible. A capability being On does not grant permission to use it. A role also cannot turn on a capability that the operator has disabled.
 
-**Database** shows **Migration revision**, useful to the operator when checking an upgrade. The configuration tables show **Setting**, **Value**, **Default**, **Source** and **What it controls**. **Source** distinguishes **Environment** from **Default**. Secrets show only **Set** or **Not set**; the page does not reveal their values.
+**Database** shows **Migration revision**, useful to the operator when checking an upgrade. Each configuration row shows the setting’s name and what it controls, its value and source; the default appears only when the value differs. **Source** distinguishes **Environment** from **Default**. Secrets show only **Set** or **Not set**; the page does not reveal their values.
 
 Read the explanation next to a setting before asking for a change. Values come from the running service’s environment and change after a restart; there is no Save control here. A warning that cursors do not survive a restart means the operator needs to configure a stable signing key for collection navigation. Give them the warning text rather than repeatedly retrying an old position.
 
@@ -44,8 +44,8 @@ For an access problem, first check the person’s active state and [roles and gr
 
 ## Earlier checks and unavailable information
 
-Under **Last backup rehearsal**, **Show earlier rehearsals** expands older recorded
-results. **Load more rehearsals** reads more; **Hide earlier rehearsals** folds them
+Under **Last backup rehearsal**, **Show earlier rehearsals (n)** expands older recorded
+results, with the count shown in the button. **Show more** reads more; **Hide earlier rehearsals** folds them
 away. Give the operator the failed rehearsal's reason and the affected workspace checks,
 rather than assuming a newer backup fixes the cause. **How to rehearse a restore** is
 operator guidance; use the [restore runbook](/docs/run/backup-and-restore/) with them.

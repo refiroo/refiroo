@@ -40,7 +40,7 @@ continue existing work instead of creating another.
 
 ![Workspace model editor identifying the workspace it applies to](/docs/screens/model-workspace-edit-model.png)
 
-*Above: Guide draft applies to Graubünden and offers Apply to this workspace….*
+*Above: The workspace draft applies to Graubünden and offers Apply to this workspace….*
 
 This route needs model authoring and release access for that workspace. If it is unavailable,
 ask an administrator to check access and whether the workspace is retired.
@@ -55,6 +55,6 @@ If the starting material is a spreadsheet, choose **New from a workbook** instea
 [Load a workbook](/docs/guide/model/start-a-draft-from-a-workbook/). That guide covers the source and proposals.
 
 For an existing model document, choose **Import JSON** under **Starting document**. A specialist
-model author can paste it in **JSON document** or use **Or choose a JSON file**, then create the
+model author can paste it in **JSON document** or use **Or choose a JSON file** (or drop the file onto that field), then create the
 draft. Read validation issues before installing; importing does not activate it. For ordinary
 changes, starting from a release and using the model editor keeps the work in named controls.

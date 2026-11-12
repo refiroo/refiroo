@@ -49,7 +49,7 @@ describe.each([domainObject, codelistObject])("a field edited in place (UA8), $o
     render(<Held start={record} field="name" />);
     fireEvent.click(screen.getByRole("button", { name: `Edit Name: ${record.name}` }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Renamed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(record.objectTypeKey, record.id, {
         name: "Renamed",
@@ -64,7 +64,7 @@ describe.each([domainObject, codelistObject])("a field edited in place (UA8), $o
     render(<Held start={record} field="code" layout="subtitle" />);
     fireEvent.click(screen.getByRole("button", { name: /^Edit Code:/ }));
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "NEW" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.keyDown(screen.getByLabelText("Code"), { key: "Enter" });
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(record.objectTypeKey, record.id, "code", "NEW", record.version),
     );
@@ -84,7 +84,8 @@ describe.each([domainObject, codelistObject])("a field edited in place (UA8), $o
     const onConflict = vi.fn().mockResolvedValue(undefined);
     render(<Held start={record} field="name" onConflict={onConflict} />);
     fireEvent.click(screen.getByRole("button", { name: `Edit Name: ${record.name}` }));
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Renamed" } });
+    fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
     expect(await screen.findByText(/Your input is preserved/)).toBeInTheDocument();
     expect(onConflict).toHaveBeenCalled();
   });
@@ -97,6 +98,12 @@ describe.each([domainObject, codelistObject])("a field edited in place (UA8), $o
     render(<Held start={record} field="name" readOnly />);
     expect(screen.getByText(record.name)).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("shows a yes/no attribute in the row layout as a checkbox, not an edit button (UX1)", () => {
+    render(<Held start={record} field="active" layout="row" />);
+    expect(screen.getByRole("checkbox", { name: `Active of ${record.name}` })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit Active/ })).toBeNull();
   });
 
   it("offers Add where an editable header field is empty", () => {

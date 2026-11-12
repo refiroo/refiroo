@@ -14,6 +14,7 @@ import {
   routeChangeSetId,
   routePath,
   routePublicationId,
+  routeWorkspaceKey,
   type MissingElement,
 } from "@/routing/routes";
 import { historyState, navigationEntry, restoreOrigin, routeWithOrigin } from "@/routing/navigationHistory";
@@ -399,8 +400,8 @@ export function useRouter(): Router {
       if (restoring.current || !allowNavigation()) return false;
       const destination = routeWithOrigin(next, currentRoute.current);
       const current = shown.current;
-      const workspaceKey = isApplicationRoute(destination) ? destination.workspaceKey : current?.workspaceKey;
-      const context = isApplicationRoute(destination) ? routeContext(destination) : current?.context;
+      const workspaceKey = routeWorkspaceKey(destination) ?? current?.workspaceKey;
+      const context = routeWorkspaceKey(destination) ? routeContext(destination) : current?.context;
       const ticket = ++sequence.current;
       if (
         current &&

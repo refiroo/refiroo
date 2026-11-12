@@ -157,19 +157,34 @@ no renderer branches on an application or object-type key.
 - **Global header:** model-declared applications are peer tabs with their model `icon`/`color`. The
   active model and schema versions are shown as plain text; Models is a separate header entry and its
   page has no application browser.
-- **Context bar:** workspace and application with a Live, named Change set or Publication status,
-  and one segmented Live / Change sets / History control that always shows the active context.
+- **Context bar (0.17 SH1):** one row that says which data the page reads: the Live, named Change set
+  or Publication pill, its one sentence and the Live / Change sets / Publications control at the right end. It
+  no longer names the workspace and the application on desktop (the sidebar and the top bar do; the phone band
+  keeps both). A change set's row holds its name, change count and state, with who, when, version and model
+  under Details; its description is shown once, on the review page.
+- **Workspace page:** `/workspace`, in the shared frame without a rail: a search over every type's name in
+  the workspace (`WorkspaceSearch`, also in the top bar), the applications, the person's waiting change sets,
+  the five latest changes, Edit model and a ⋯ menu to Settings › Workspaces; each action hidden without its
+  permission. The top bar shows no application tabs there; elsewhere tabs that do not fit are under More, the
+  current one kept.
 - **Application browser:** Collections list (with the model object-type icon and a mapping-lens hint)
-  above Browse records. Record branches start collapsed; the active record's ancestors and search
+  above Browse records, a folded row until opened (remembered per browser) with no search of its own.
+  Record branches start collapsed; the active record's ancestors and search
   results open by default, and an explicit expand/collapse choice persists per workspace and
   application. A containment collection appears inside an expanded branch as “All ⟨plural⟩”.
+- **Page titles:** a collection's page is titled by its sidebar entry (the type's plural name) and its
+  views are tabs under the title; a relation matrix placed in a navigation group is its own entry and is titled by
+  its own name.
 - **Collections:** page header with the source-type icon and primary create action; direct-parent
   scope as a removable banner; lenses as tabs below the heading. One Filter popover holds every
   declared typed filter and shows how many are applied; applied filters remain removable chips. The
   loaded-page count sits beside pagination. Rows are pointer targets; the identity button remains the
   keyboard path.
-- **Records:** Back to list and the configured breadcrumb share one line; the header shows the type,
-  title, version and a visible Edit record action beside the record menu. Field actions sit beside
+- **Records:** one line above the title, "← the list it was opened from" followed by the records above
+  it (`detail.breadcrumbs.showAncestors`); the type is said once, as the eyebrow, when either
+  `detail.breadcrumbs.showObjectType` or `detail.header.showObjectType` asks for it, and the application entry is no
+  longer drawn: `detail.breadcrumbs.showApplication` is still accepted in the model and has no effect, and the model editor does not offer it. The header shows the type, title and a Details disclosure (ID, version) beside the record menu
+  (Copy ID, Copy link). Field actions sit beside
   their label; unset values are visibly distinct. Record activity uses model field names and relative
   times and omits identifiers and concurrency tokens.
 - **Mapping lenses:** coverage state is a segmented filter (All, Unmapped, Mapped, Ambiguous). A row,
@@ -183,11 +198,43 @@ no renderer branches on an application or object-type key.
 - **Models:** the same rail-and-content frame as data pages. The release/draft catalogue is the
   sidebar navigation; the main column has the context bar (with the active release), the standard
   page header and the selected release or change set.
+- **Settings pages (0.17 ST1):** every page under Settings is drawn from one set of parts
+  (`ui/SettingsLayout`, `ui/SettingsParts`): a header with the page's group, glyph and one main action; groups that
+  say what they are about beside panels of rows; full-width lists whose rows open the item as its own page with a
+  way back; an opened item's header in its colour with at most two actions and a ⋯ menu; logs on a tab with totals,
+  state chips and "n of m". Each Settings group has a colour (`features/settings/navigation`), a person and a client
+  have theirs by name, and a role, a state and a kind of event keep their colours wherever they are shown.
 - **Settings:** a persistent control at the bottom of the rail opens Account and Appearance.
   Account is a placeholder (local single-user session, disabled Sign in) for the planned multi-user
   authentication. Appearance offers System, Light and Dark; the choice is stored per browser and
   applied before first paint. Dark mode redefines the same semantic tokens, so renderers never
   branch on the theme.
+- **One way to edit (0.17 UX1 and UX2, PP-D40, PP-D68):** a value is changed where it stands (`ui/EditInPlace`,
+  `ui/TextInPlace`): the value becomes its control, with no form around it and no Cancel and Save, and leaving it
+  saves, as Enter does (Ctrl or Cmd with Enter in a text of several lines); a choice or a tick saves as it is made;
+  Escape puts the old value back; an untouched input saves nothing; an optional field left empty is the value
+  removed; a refusal stays under the field, which stays open with the input kept; a yes or no is a switch that saves itself; several are picked in a list under the value;
+  one or two controls open as a popover under their control (`ui/AnchoredPopover`); a form of three or more
+  fields opens as a dialog in the middle of the window (`ui/Modal`; PP-D69 withdrew UX1's side sheet; a long form
+  scrolls inside it with its buttons at its foot, a phone shows it full width); at most one confirmation, for
+  what cannot be undone, naming what is lost; a saved or removed thing offers Undo in a toast where putting it
+  back is one call. One word per action: Save, Add ‹thing›, Delete ‹thing›, Remove ‹thing›, Move, Apply (a
+  pick-several), Publish, Cancel; a new thing's form is titled New ‹thing›.
+- **The workspace's page, Home and the search (0.17 UX1, PP-D41):** `/workspace` shows a person's shelf (lists and
+  other views they brought there, in their order, kept in the browser; `features/workspaces/workspacePins`),
+  the search, the applications with their lists, their waiting change sets and what changed by day. A list's
+  header has the pin that brings it to the shelf. Home has the search across every workspace and shows what
+  needs the person before the workspaces. The top bar's search finds records, lists and places ("Go to"); ⌘K
+  or Ctrl+K puts the caret in it. A table row opens the record beside its list; Expand goes to its page.
+- **A workspace from a workbook (0.17 PL4):** `features/workspaces/NewFromWorkbook` is a dialog (`ui/Modal`) in two steps, the file and a name, then "What refiroo found" (each list's rows, what loads and what does not, from the draft's dry run); `NewFromWorkbookAction` puts its button on Home, in Settings › Workspaces and on a workspace's page for a person holding every step's group at the instance, and `WorkspaceLoad` shows the load's job on the new workspace's page. The steps before the route are in `fromWorkbook.ts`.
+- **Themes (0.17 UX1, PP-D38 and PP-D39):** Appearance also offers the theme: Current, Hearth, Studio,
+  Instrument or Website purple, each in light and dark, stored per browser and applied before first paint
+  (`data-scheme`). A theme is a token set (colours, title typeface, corners, type sizes, control height;
+  Instrument also names its text face, Inter, and keeps Instrument Sans for titles), an
+  arrangement of the frame's parts (`data-frame`: the top bar and sidebar; one side column beside a raised
+  page; a strip, a list panel and a status line) and a density. Stylesheets write no colour, type size or
+  corner of their own, and a page never reads which frame it is in. From 761px up; a phone keeps the bar and
+  the drawer in every theme.
 
 Records opened from a collection keep the full-width presentation chosen in UI-03. The inspector
 split view is used by the tree lens (0.8 B3), which keeps the hierarchy beside the record it opens,
@@ -296,6 +343,20 @@ Mapping 0.7 and translation/tree 0.8 preserve generic maintenance while adding s
 
 The structured designer should eventually use reference-aware catalogues, forms, relationship
 matrices and live preview. A dependency graph may help users understand a model, but a node-and-edge
-canvas is not the default authoring surface.
+canvas is not the default authoring surface. Since 0.17 CE1 the canvas is the second structured view of the same draft
+(Editor | Canvas): every change is still an operation of the editor's table, and card positions never enter the model.
 
 See `BASE_0_6_IMPLEMENTATION_PLAN.md` for the accepted decisions, acceptance journeys and work packages.
+
+### Surfaces changed in 0.17 PL3b
+
+| Id | Surface | Where | Pieces | States | Test |
+| --- | --- | --- | --- | --- | --- |
+| PL3b-1 | **Workbook canvas**: workbook pane (sheets, columns chosen by press, Ctrl, Shift and the arrows, readings and Proposed marks, first rows), board of cards (fields, Filters row, counts), navigation pane | `/settings/model/drafts/{id}/editor?show=canvas` | `CanvasBoard`, `WorkbookPane`, `ActionMenu` | Checking, no check yet, failed, invalid (first message); refusals as a Notice, never a toast | `canvasModel.test`, `WorkbookCanvas.test`, `pl3b-workbook-canvas.mjs` |
+| PL3b-2 | **Small questions at a drop**: chooser with search, tied join column, two names of an unpivot, heading column and parent | popovers under the card, field or column (`AnchoredPopover`) | `CanvasAsks` | Escape changes nothing | the same |
+| PL3b-3 | **Refused rows by reason**, See the rows, correct values (value map) | dialog from a card's refused count | `RefusedDialog`, `ValueMapDialog` | reading, error | `WorkbookCanvas.test` |
+| PL3b-4 | **Finish**: Create workspace… (hidden without the steps' groups), Apply, Load into an existing workspace…, Open as canvas in the editor | toolbar and ⋯ | `CreateWorkspaceDialog`, `LoadDialog`, `ApplyDialog` | busy, refusal with problems | `WorkbookCanvas.test` |
+| PL3b-5 | **Phone (390px)**: panes stacked, one column of cards, drags off, menus and choosers do their work | same page | CSS | no sideways scroll, axe | `pl3b-workbook-canvas.mjs` |
+| CE1-1 | **The canvas edits the whole model**: strip (scope, counts), frames per application, cards (fold, in-place names, New attribute, attribute drags, mark), lines with a rule popover, zoom and Find, the editor's Add menu | `/settings/model/drafts/{id}/editor?show=canvas&element=…` | `CanvasBoard`, `BoardCard`, `LinePopover`, `CanvasFind`, `OperationsMenu`, `TextInPlace` | Empty board, no workbook (folded pane), invalid, checking; a refusal under the field or above the board | `canvasView.test`, `CanvasEditor.test`, `ce1-canvas-editor.mjs` |
+| CE1-2 | **Inspector and foot**: tabs Inspector, Navigation, Views, Consumer APIs with the editor's panels; Issues and History drawer | same | `CanvasInspector`, `CanvasDrawer`, `ElementPanel`, `IssuesAndHistory` | Nothing selected, each kind of selection, refused undo (dependants) | `CanvasEditor.test`, `parity.test`, `ce1-canvas-editor.mjs` |
+

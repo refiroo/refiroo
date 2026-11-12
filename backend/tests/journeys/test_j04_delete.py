@@ -1,7 +1,8 @@
 """J04 — Delete a record and what depends on it (USER_JOURNEYS.md)."""
 
 import pytest
-from scenario import ok, refused
+from scenario import W1, ok, refused
+from test_j40_authorization import _client, _forbidden
 
 
 def _delete(world, structure, object_id, version, **params):
@@ -244,3 +245,122 @@ def test_a_dependants_required_relationship_cannot_be_removed_alone(world):
     assert confirmed.status_code == 204, confirmed.text
     refused(world.read("D", d["id"]), 404, "OBJECT_NOT_FOUND")
     refused(world.api.get(f"/relations/{relation['id']}"), 404, "RELATION_NOT_FOUND")
+
+
+def _impact(world, structure, object_id, **params):
+    return world.api.get(f"/objects/{world.key(structure)}/{object_id}/deletion-impact", **params)
+
+
+@pytest.mark.journey("J04.7")
+@pytest.mark.structures("R", "K", "B1n", "G", "D", "D2", "Bown")
+def test_the_impact_is_read_without_deleting_anything(world):
+    """Given R record r owning D record d (with a child) and related to K record k, and R record lone
+    with nothing depending on it. When the impact of each is read. Then lone's impact is empty and
+    needs no cascade; r's names d and its child, counts what DELETE reports, carries its token and
+    needs the cascade; the token confirms the delete; reading changed no record or version."""
+    r = world.made("R", "Owner")
+    k = world.made("K", "Kept token")
+    ok(world.relate("B1n", r["id"], k["id"]), 201)
+    _g, d, (d2,) = _owned_dependant(world, r["id"], children=1)
+    lone = world.made("R", "Lone")
+
+    empty = ok(_impact(world, "R", lone["id"]))
+    assert empty["objectsToDelete"] == [] and empty["relationshipsToRemove"] == []
+    assert empty["objectCount"] == 1 and empty["relationshipCount"] == 0
+    assert empty["ownRelationshipCount"] == 0 and empty["requiresCascade"] is False
+
+    before = {
+        key: world.record(structure, record["id"])["version"]
+        for key, structure, record in (
+            ("r", "R", r),
+            ("d", "D", d),
+            ("d2", "D2", d2),
+            ("k", "K", k),
+        )
+    }
+    impact = ok(_impact(world, "R", r["id"]))
+    assert {item["id"] for item in impact["objectsToDelete"]} == {d["id"], d2["id"]}
+    assert impact["requiresCascade"] is True and impact["ownRelationshipCount"] == 2
+    assert impact["relationshipCount"] > impact["ownRelationshipCount"]
+
+    # Reading again, and after the delete's own preview, gives the answer the delete gives.
+    version, refusal = _preview(world, "R", r["id"])
+    for key in (
+        "objectsToDelete",
+        "relationshipsToRemove",
+        "objectCount",
+        "relationshipCount",
+        "retainedAssociationCount",
+        "deletionPreviewToken",
+    ):
+        assert impact[key] == refusal[key]
+    assert ok(_impact(world, "R", r["id"])) == impact
+    for key, structure, record in (("r", "R", r), ("d", "D", d), ("d2", "D2", d2), ("k", "K", k)):
+        assert world.record(structure, record["id"])["version"] == before[key]
+    assert version == before["r"]
+
+    confirmed = _delete(
+        world,
+        "R",
+        r["id"],
+        version,
+        cascade=True,
+        deletionPreviewToken=impact["deletionPreviewToken"],
+    )
+    assert confirmed.status_code == 204, confirmed.text
+    refused(world.read("D2", d2["id"]), 404, "OBJECT_NOT_FOUND")
+    # The leaf's token also confirms its delete.
+    confirmed = _delete(
+        world,
+        "R",
+        lone["id"],
+        lone["version"],
+        cascade=True,
+        deletionPreviewToken=empty["deletionPreviewToken"],
+    )
+    assert confirmed.status_code == 204, confirmed.text
+    refused(_impact(world, "R", lone["id"]), 404, "OBJECT_NOT_FOUND")
+
+
+@pytest.mark.journey("J04.7")
+@pytest.mark.structures("R", "G", "D", "Bown")
+def test_the_impact_in_a_change_set_and_for_a_caller_who_may_not_delete(world):
+    """Given R record r with a dependant, a change set CS1 and a Contributor and a Reader of the
+    workspace. When the impact is read in CS1. Then it equals the delete's preview there, with its
+    own token, and live data is unchanged. The Contributor reads it in CS1 and is refused live as
+    the delete is (`403 FORBIDDEN`, Edit live); the Reader is refused in both; a record of another
+    type is `409 OBJECT_TYPE_CHANGED`, a missing one `404 OBJECT_NOT_FOUND`."""
+    r = world.made("R", "Owner")
+    _g, d, _none = _owned_dependant(world, r["id"])
+    cs1 = world.change_set()
+    context = {"changeSetId": cs1["id"]}
+
+    impact = ok(_impact(world, "R", r["id"], **context))
+    _version, refusal = _preview(
+        world,
+        "R",
+        r["id"],
+        changeSetId=cs1["id"],
+        expectedChangeSetVersion=world.current(cs1)["version"],
+    )
+    assert impact["deletionPreviewToken"] == refusal["deletionPreviewToken"]
+    assert {item["id"] for item in impact["objectsToDelete"]} == {d["id"]}
+    assert impact["objectCount"] == refusal["objectCount"] == 2
+    assert world.current(cs1)["version"] == cs1["version"]
+    assert world.record("R", r["id"])["version"] == r["version"]
+    assert (
+        ok(_impact(world, "R", r["id"]))["deletionPreviewToken"] != impact["deletionPreviewToken"]
+    )
+
+    _c, contributor = _client(world, "contributor-j04", ("contributor", {"workspaceKey": W1}))
+    assert ok(_impact(contributor, "R", r["id"], **context))["objectCount"] == 2
+    _forbidden(_impact(contributor, "R", r["id"]), "records.write", ["edit-live"], W1)
+    _c, reader = _client(world, "reader-j04", ("reader", {"workspaceKey": W1}))
+    _forbidden(_impact(reader, "R", r["id"]), "records.write", ["edit-live"], W1)
+    _forbidden(_impact(reader, "R", r["id"], **context), "records.write", ["change-sets"], W1)
+
+    refused(_impact(world, "D", r["id"]), 409, "OBJECT_TYPE_CHANGED")
+    refused(_impact(world, "D", r["id"], **context), 409, "OBJECT_TYPE_CHANGED")
+    refused(_impact(world, "R", d["id"], **context), 409, "OBJECT_TYPE_CHANGED")
+    refused(_impact(world, "R", "no-such-record"), 404, "OBJECT_NOT_FOUND")
+    assert world.record("D", d["id"])["id"] == d["id"]

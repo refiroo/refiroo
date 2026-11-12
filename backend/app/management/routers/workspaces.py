@@ -2,6 +2,7 @@ from dataclasses import replace
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import Integer, select
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from ...engine.authorization.permissions import Permissions
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.model.workspace_models import assignments_of, load_assignment
 from ...engine.reads.feed import read_feed
+from ...engine.sources.dry_run import InvalidDraft
 from ...engine.workspaces.catalogue import (
     build_workspace_query,
     create_workspace,
@@ -20,7 +22,9 @@ from ...engine.workspaces.catalogue import (
     set_default_workspace,
     update_workspace,
 )
-from ...models.commands import WorkspaceCreate, WorkspaceUpdate
+from ...engine.workspaces.from_workbook import UnsupportedDraftSchema, create_from_workbook
+from ...errors import api_error
+from ...models.commands import WorkspaceCreate, WorkspaceFromWorkbook, WorkspaceUpdate
 from ...models.database import ModelRelease, Workspace, WorkspaceModel
 from ..access import (
     INSTANCE,
@@ -28,12 +32,15 @@ from ..access import (
     WORKSPACE_PATH,
     AuthorizedRoute,
     CurrentPermissions,
+    forbidden,
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import (
+    diagnostic_details,
     feed_page,
+    job_responses,
     runtime_state_response,
     workspace_assignment_response,
     workspace_detail_response,
@@ -46,6 +53,7 @@ from ..schemas.workspaces import (
     WorkspaceAssignmentPage,
     WorkspaceAssignmentResponse,
     WorkspaceDetailResponse,
+    WorkspaceFromWorkbookResponse,
     WorkspacePage,
     WorkspaceRuntimeStateResponse,
     WorkspaceRuntimeStateUpdate,
@@ -54,6 +62,9 @@ from ..schemas.workspaces import (
 read_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["workspaces"])
 # Workspace catalogue administration, registered only with WORKSPACE_ADMIN_MUTATIONS_ENABLED.
 admin_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["workspaces"])
+# A workspace made from a workbook's draft also installs a model and starts an import: registered
+# only when workspace administration, model administration and integration jobs are all enabled.
+from_workbook_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["workspaces"])
 
 
 def workspace_page(
@@ -257,6 +268,79 @@ def get_workspace_runtime_state(session: DbSession) -> WorkspaceRuntimeStateResp
 @requires("workspaces.manage", at=INSTANCE)
 def post_workspace(payload: WorkspaceCreate, session: DbSession) -> WorkspaceDetailResponse:
     return workspace_detail_response(session, create_workspace(session, payload))
+
+
+@from_workbook_router.post(
+    "/workspaces/from-workbook", response_model=WorkspaceFromWorkbookResponse, status_code=202
+)
+@requires("workspaces.create-from-workbook", at=INSTANCE)
+def post_workspace_from_workbook(
+    payload: WorkspaceFromWorkbook,
+    request: Request,
+    session: DbSession,
+    permissions: CurrentPermissions,
+) -> JSONResponse:
+    """Create a workspace from the model draft a workbook made, and load the workbook.
+
+    One step for what the separate routes do in turn: the draft is installed as a release (its
+    release version raised when the key and version are another model's; its import profile's key
+    made free), the workspace is created on that release, and the draft's workbook is queued as an
+    import into the workspace's live data (policy `independent`: a refused row is reported and the
+    rest load). Answers 202 with the workspace, the release and the import job; follow the job at
+    `GET /jobs/{jobId}`. Everything before the job is one transaction. Needs the groups of the
+    separate steps together: Workspace administration, an instance-wide Install a model or Model
+    release, and an instance-wide Bulk and import (the new workspace has no grants of its own yet).
+    Refused: `409 VERSION_CONFLICT` (the draft changed), `422 INVALID_MODEL` with the draft's
+    diagnostics, `422 INVALID_IMPORT_PROFILE` with the profile's problems, `422
+    DRAFT_HAS_NO_WORKBOOK`, `409 SOURCE_FILE_PROFILE_NOT_READY`, `409 WORKSPACE_ALREADY_EXISTS`,
+    `404 MODEL_DRAFT_NOT_FOUND`, `422 UNSUPPORTED_SCHEMA_VERSION`.
+    """
+    if not (permissions.allows("model-install", None) or permissions.allows("model-release", None)):
+        raise forbidden("model.install", ("model-release", "model-install"), None)
+    if not permissions.allows("bulk", None):
+        raise forbidden("bulk.write", ("bulk",), None)
+    limits = request.app.state.batch_limits
+    try:
+        created = create_from_workbook(
+            session,
+            draft_id=payload.draftId,
+            expected_version=payload.expectedVersion,
+            name=payload.name,
+            key=payload.key,
+            files=request.app.state.job_files,
+            max_bytes=limits.import_max_bytes,
+            retention_days=limits.retention_days,
+        )
+    except InvalidDraft as invalid:
+        raise api_error(
+            422,
+            "INVALID_MODEL",
+            "Model draft is invalid and cannot be installed",
+            diagnostic_details(invalid.diagnostics),
+        ) from None
+    except UnsupportedDraftSchema as unsupported:
+        raise api_error(
+            422,
+            "UNSUPPORTED_SCHEMA_VERSION",
+            f"Model draft uses schema version '{unsupported.schema_version}', which this"
+            " deployment does not support",
+            {
+                "draftId": unsupported.draft_id,
+                "schemaVersion": unsupported.schema_version,
+                "operation": "install",
+            },
+        ) from None
+    worker = getattr(request.app.state, "job_worker", None)
+    if worker is not None:
+        worker.wake()
+    answer = WorkspaceFromWorkbookResponse(
+        workspace=workspace_detail_response(session, created.workspace),
+        releaseId=created.release.public_id,
+        releaseKey=created.release.release_key,
+        releaseVersion=created.release.release_version,
+        job=job_responses(session, [created.job])[0],
+    )
+    return JSONResponse(answer.model_dump(mode="json"), status_code=202)
 
 
 @admin_router.patch("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)

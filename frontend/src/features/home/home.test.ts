@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testModel } from "@/test/fixtures";
 import type { Grant, HeldAnywhere, OwnWorkspace } from "@/types";
 import { continueAddressFor, continueLines, readContinueAddress, rememberContinueAddress } from "./continueAddress";
-import { greeting, quietNote, rolePills, roleLine, summary, tileLetters, workspaceHue } from "./homeText";
+import { greeting, quietNote, rolePills, roleLine, roleSummary, summary, tileLetters, workspaceHue } from "./homeText";
 
 const application = testModel.applications[0];
 
@@ -55,6 +55,18 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllGlobals());
+
+describe("roleSummary (0.17 SH1)", () => {
+  const roles = ["Data owner", "Integration administrator", "Reader", "Steward", "Auditor"];
+  const grants = roles.map((role) => grant(role, { workspaceKey: "a" }));
+
+  it("lists the roles that fit, then says how many more, never a cut word", () => {
+    expect(roleSummary(grants, "a")).toBe("Auditor, Data owner and 3 more");
+    expect(roleSummary(grants.slice(0, 2), "a", 60)).toBe("Data owner and Integration administrator");
+    expect(roleSummary(grants.slice(0, 1), "a")).toBe("Data owner");
+    expect(roleSummary([], "a")).toBe("");
+  });
+});
 
 describe("Continue where you left off (D334)", () => {
   it("is kept per person, and another person's or a broken entry is not read", () => {

@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 from .common import CollectionPage
+from .jobs import JobResponse
 
 
 class WorkspaceModelResponse(BaseModel):
@@ -246,3 +247,14 @@ class WorkspaceRuntimeStateResponse(BaseModel):
     defaultWorkspaceKey: str
     version: int
     updatedAt: datetime
+
+
+class WorkspaceFromWorkbookResponse(BaseModel):
+    """A workspace created from a workbook: the workspace, the release the draft was
+    installed as, and the load of the workbook, an import job to follow at ``GET /jobs/{id}``."""
+
+    workspace: WorkspaceDetailResponse
+    releaseId: str
+    releaseKey: str
+    releaseVersion: str
+    job: JobResponse

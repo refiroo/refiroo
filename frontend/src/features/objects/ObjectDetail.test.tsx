@@ -1,3 +1,4 @@
+import { unfoldPanelTool } from "@/test/panelTools";
 import { fireEvent, render as renderBase, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@/ui/Toast";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -103,7 +104,7 @@ describe("ObjectDetail lifecycle controls", () => {
       />,
     );
     await waitFor(() => expect(onOtherApplication).toHaveBeenCalledWith(there.key));
-    expect(screen.queryByText("Object unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Record unavailable")).not.toBeInTheDocument();
     unmount();
 
     const unlisted = { ...testModel, applications: [here, { ...there, objectTypeKeys: [] }] };
@@ -119,7 +120,7 @@ describe("ObjectDetail lifecycle controls", () => {
         onOtherApplication={onOtherApplication}
       />,
     );
-    expect(await screen.findByText("Object unavailable")).toBeInTheDocument();
+    expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
     expect(onOtherApplication).toHaveBeenCalledTimes(1);
   });
 
@@ -146,7 +147,7 @@ describe("ObjectDetail lifecycle controls", () => {
     );
     await waitFor(() => expect(onTypeChanged).toHaveBeenCalledWith("domain"));
     expect(read).toHaveBeenCalledWith("codelist", codelistObject.id, "default");
-    expect(screen.queryByText("Object unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Record unavailable")).not.toBeInTheDocument();
   });
 
   it.each([domainObject, codelistObject])("retries $objectTypeKey in the selected workspace", async (object) => {
@@ -295,16 +296,49 @@ describe.each([
     return { onOpen, ...view };
   }
 
-  it("shows the record's ID, as the API returns it, and copies it", async () => {
+  it("keeps the record's ID and version under Details, as the API returns them, and copies the ID", async () => {
     vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     show(codelistObject);
     await screen.findByRole("heading", { level: 1, name: codelistObject.name });
+    // Identifiers are out of the page until asked for (PP-D34).
+    expect(screen.queryByText(codelistObject.id)).not.toBeInTheDocument();
+    const details = screen.getByRole("button", { name: "Details" });
+    expect(details).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(details);
+    expect(details).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(codelistObject.id)).toBeInTheDocument();
+    expect(screen.getByText(`Version ${codelistObject.version}`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Copy ID" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(codelistObject.id));
     expect(await screen.findByText("ID copied.")).toBeInTheDocument();
+  });
+
+  it("copies the ID from the record's menu too", async () => {
+    vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    show(codelistObject);
+    await screen.findByRole("heading", { level: 1, name: codelistObject.name });
+    fireEvent.click(screen.getByRole("button", { name: "Record actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Copy ID" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(codelistObject.id));
+    expect(await screen.findByText("Record ID copied.")).toBeInTheDocument();
+  });
+
+  it("says where the record came from in one line: the list it was opened from, then the records above it", async () => {
+    vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
+    const onBack = vi.fn();
+    show(codelistObject, { backLabel: "Codelists", onBack });
+    await screen.findByRole("heading", { level: 1, name: codelistObject.name });
+    const line = within(screen.getByRole("navigation", { name: "Where you are" }));
+    fireEvent.click(line.getByRole("button", { name: "Codelists" }));
+    expect(onBack).toHaveBeenCalled();
+    expect(line.getByRole("button", { name: "Connections" })).toBeInTheDocument();
+    // The application is not an entry of the line any more, nor a separate Back button.
+    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Test App" })).not.toBeInTheDocument();
   });
 
   it("tints the header in the record's type and shows its ancestors as chips in theirs", async () => {
@@ -315,7 +349,7 @@ describe.each([
       "data-hue",
       String(objectTypeHue(model, "codelist")),
     );
-    const ancestor = within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("button", {
+    const ancestor = within(screen.getByRole("navigation", { name: "Where you are" })).getByRole("button", {
       name: "Connections",
     });
     expect(ancestor).toHaveAttribute("data-hue", String(objectTypeHue(model, "domain")));
@@ -343,6 +377,9 @@ describe.each([
     unmount();
 
     show(domainObject);
+    // One related record is few: the panel's search waits behind its ⋯ menu (0.17 UX1).
+    const heading = await screen.findByRole("heading", { name: /Relates to/ });
+    await unfoldPanelTool("Search", heading.parentElement!);
     expect(await screen.findByRole("textbox", { name: "Search relates to" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Connected" })).not.toBeInTheDocument();
   });

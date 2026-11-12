@@ -247,6 +247,10 @@ can complete the task in the application; "API" means another system can.
   Map the workbook step by step in the draft's own import profile, undone like any model change,
   kept valid as the model is renamed and reorganized, and dry-run again after each step; installing
   the draft saves the profile for the load. A lookup may create the list values it names.
+- Shape a workbook into a model on the workbook canvas: drag sheets and columns onto lists, connect lists into a
+  hierarchy or relationship (the column that fills the link is found over every row), read wide sheets as rows, add
+  filters, see every row counted and the refused ones explained, then create a workspace from it. The model editor
+  and the canvas edit the same draft.
 - Start a draft from a workbook and map it in the model editor: the sheets and columns beside the
   model, a column's mapping in the centre, Map to… by keyboard or by dragging a column onto a type,
   value maps, the dry run after each step with the rows behind each figure; then load the workbook

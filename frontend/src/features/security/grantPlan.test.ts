@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Grant } from "@/types";
 import {
+  changeSentence,
   consumerPlanSentence,
+  grantCells,
+  recreation,
+  removals,
   consumerRequests,
   heldConsumerApis,
   heldRoles,
@@ -29,31 +33,67 @@ describe("what a grant dialog's ticks come to (0.12 U9)", () => {
     expect(requests.map((request) => request.consumerApi)).toEqual(["rdm", "rdm-master"]);
   });
 
-  it("grants every role in every workspace, skipping an unnarrowed one already held", () => {
+  it("grants the wanted role cells, skipping those already held, and a role at the instance once", () => {
     const held = heldRoles([
       grant({ role: { key: "reader", name: "Reader" }, scope: { workspaceKey: "pilot" } }),
       grant({ role: { key: "editor", name: "Editor" }, scope: { workspaceKey: "pilot", applications: ["a"] } }),
+      grant({ role: { key: "owner", name: "Owner" }, scope: { instance: true, workspaceKey: null } }),
     ]);
+    const none = { applications: [], recordTypes: [] };
     const requests = roleRequests(
       client,
-      ["reader", "editor"],
-      ["default", "pilot"],
-      { applications: [], recordTypes: [] },
+      ["reader|default", "reader|pilot", "editor|pilot", "owner|*", "auditor|*"],
       held,
+      none,
     );
-    expect(
-      requests.map(
-        (request) => `${request.role}@${"workspaceKey" in request.scope ? request.scope.workspaceKey : "*"}`,
-      ),
-    ).toEqual(["reader@default", "editor@default", "editor@pilot"]);
+    expect(requests).toEqual([
+      { principal: client, role: "reader", scope: { workspaceKey: "default", applications: [], recordTypes: [] } },
+      { principal: client, role: "editor", scope: { workspaceKey: "pilot", applications: [], recordTypes: [] } },
+      { principal: client, role: "auditor", scope: { instance: true } },
+    ]);
   });
 
-  it("grants a role at the instance once", () => {
-    const held = heldRoles([
-      grant({ role: { key: "reader", name: "Reader" }, scope: { instance: true, workspaceKey: null } }),
+  it("removes the held cells that are shown and no longer wanted, and never a narrowed role grant", () => {
+    const cells = grantCells([
+      grant({ id: "a1", consumerApi: { key: "rdm", name: "RDM" } }),
+      grant({ id: "a2", consumerApi: { key: "rdm", name: "RDM" }, scope: { workspaceKey: "pilot" } }),
+      grant({ id: "r1", role: { key: "editor", name: "Editor" }, scope: { applications: ["a"] } }),
     ]);
-    expect(roleRequests(client, ["reader", "editor"], "instance", { applications: [], recordTypes: [] }, held)).toEqual(
-      [{ principal: client, role: "editor", scope: { instance: true } }],
+    expect(cells.roles.size).toBe(0);
+    const shown = new Set(["rdm|default", "rdm|pilot"]);
+    expect(removals(cells.apis, new Set(["rdm|default"]), shown).map((item) => item.id)).toEqual(["a2"]);
+    // A held cell the grid does not show (the model no longer declares it) is not removed by unticking.
+    expect(removals(cells.apis, new Set(), new Set(["rdm|default"])).map((item) => item.id)).toEqual(["a1"]);
+  });
+
+  it("makes a removed grant again in the same place with the same narrowing", () => {
+    expect(
+      recreation(
+        grant({ role: { key: "editor", name: "Editor" }, scope: { workspaceKey: "pilot", applications: ["a"] } }),
+      ),
+    ).toEqual({
+      principal: client,
+      role: "editor",
+      scope: { workspaceKey: "pilot", applications: ["a"] },
+    });
+    expect(recreation(grant({ consumerApi: { key: "rdm", name: "RDM" } }))).toEqual({
+      principal: client,
+      consumerApi: "rdm",
+      scope: { workspaceKey: "default" },
+    });
+  });
+
+  it("says what is added and what is removed", () => {
+    expect(
+      changeSentence({
+        who: "client 1",
+        verb: "read",
+        added: ["RDM API in default"],
+        removed: ["RDM Master API in another"],
+      }),
+    ).toBe("client 1 will read RDM API in default; RDM Master API in another is removed.");
+    expect(changeSentence({ who: "client 1", verb: "read", added: [], removed: ["RDM API in default"] })).toBe(
+      "client 1 will no longer read RDM API in default.",
     );
   });
 

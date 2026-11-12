@@ -6,12 +6,23 @@ import { ToastProvider } from "@/ui/Toast";
 import { GrantsSection } from "./GrantsSection";
 
 vi.mock("@/api/client", () => ({ api: { workspaces: vi.fn().mockResolvedValue({ items: [], nextCursor: null }) } }));
-vi.mock("@/api/securityClient", () => ({ security: { deleteGrant: vi.fn() } }));
+vi.mock("@/api/securityClient", () => ({ security: { deleteGrant: vi.fn(), createGrant: vi.fn() } }));
 const dialog = vi.fn();
+const change: { current: { added: unknown[]; removed: unknown[] } } = { current: { added: [], removed: [] } };
 vi.mock("./GrantDialog", () => ({
-  GrantDialog: (props: { who?: { name: string } }) => {
+  GrantDialog: (props: {
+    who?: { name: string };
+    onChanged: (change: { added: unknown[]; removed: unknown[] }) => void;
+  }) => {
     dialog(props.who);
-    return <div role="dialog">Grant for {props.who?.name ?? "nobody"}</div>;
+    return (
+      <div role="dialog">
+        Grant for {props.who?.name ?? "nobody"}
+        <button type="button" onClick={() => props.onChanged(change.current)}>
+          save change
+        </button>
+      </div>
+    );
   },
 }));
 
@@ -58,6 +69,7 @@ function renderSection() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(security.deleteGrant).mockResolvedValue(undefined as never);
+  vi.mocked(security.createGrant).mockResolvedValue(undefined as never);
 });
 
 describe("workspace Access list", () => {
@@ -86,7 +98,7 @@ describe("workspace Access list", () => {
     renderSection();
     fireEvent.click(await screen.findByRole("button", { name: "Remove Reader from Ana Varga" }));
     expect(security.deleteGrant).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove grant" }));
     await waitFor(() => expect(security.deleteGrant).toHaveBeenCalledWith("g1"));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Reader from Ana Varga" })).toBeNull());
   });
@@ -108,5 +120,85 @@ describe("workspace Access list", () => {
     expect(screen.queryByText("Ana Varga")).toBeNull();
     fireEvent.change(screen.getByLabelText("Search people, groups, clients"), { target: { value: "zzz" } });
     expect(screen.getByText("No one matches.")).toBeInTheDocument();
+  });
+});
+
+describe("a person's roles (0.17 ST1)", () => {
+  it("groups the grants by place: every workspace first, each grant a coloured chip, one held through a group says so, only the person's own can be removed", async () => {
+    const team = { kind: "group" as const, id: "9", name: "Stewards North" };
+    const rows = [
+      grant("p1", ana, "steward", { applicationNames: ["A"] }),
+      grant("p3", ana, "owner"),
+      grant("p2", team, "reader", { instance: true }),
+    ];
+    render(
+      <ToastProvider>
+        <GrantsSection
+          subject={{ principal: ana }}
+          load={() => Promise.resolve({ items: rows, nextCursor: null })}
+          deps={["u"]}
+          onNavigate={() => {}}
+        />
+      </ToastProvider>,
+    );
+    const panel = await screen.findByRole("group", { name: "Roles" });
+    const places = within(panel)
+      .getAllByRole("list")
+      .map((list) => list.getAttribute("aria-label"));
+    expect(places[0]).toBe("Roles in Every workspace");
+    expect(places).toHaveLength(2);
+    const workspace = within(panel).getByRole("list", { name: places[1]! });
+    expect(within(workspace).getByText("Data steward").closest("[data-hue]")).toHaveAttribute("data-hue", "1");
+    expect(within(workspace).getByText(/writes: A/)).toBeInTheDocument();
+    expect(within(workspace).getByText("owner")).toBeInTheDocument();
+    const everywhere = within(panel).getByRole("list", { name: "Roles in Every workspace" });
+    expect(within(everywhere).getByText(/through/)).toBeInTheDocument();
+    expect(within(everywhere).getByRole("link", { name: "Stewards North" })).toBeInTheDocument();
+    expect(within(panel).getAllByRole("button", { name: /^Remove/ })).toHaveLength(2);
+    expect(within(panel).getAllByRole("button", { name: /^Grant .* more/ })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Grant" })).toBeInTheDocument();
+  });
+});
+
+describe("removing and changing from a person's page, with Undo (0.17)", () => {
+  const rows = [grant("p1", ana, "steward", { applicationNames: ["A"], applications: ["a"] })];
+  const renderPerson = () =>
+    render(
+      <ToastProvider>
+        <GrantsSection
+          subject={{ principal: ana }}
+          load={() => Promise.resolve({ items: rows, nextCursor: null })}
+          deps={["u"]}
+          onNavigate={() => {}}
+        />
+      </ToastProvider>,
+    );
+
+  it("removes by the chip's trash without asking, says so, and Undo makes the grant again with its narrowing", async () => {
+    renderPerson();
+    fireEvent.click(await screen.findByRole("button", { name: /^Remove Data steward/ }));
+    await waitFor(() => expect(security.deleteGrant).toHaveBeenCalledWith("p1"));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(await screen.findByText(/Ana Varga no longer holds Data steward/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(security.createGrant).toHaveBeenCalledWith({
+        principal: { kind: "user", id: "1" },
+        role: "steward",
+        scope: { workspaceKey: "w", applications: ["a"] },
+      }),
+    );
+  });
+
+  it("after a saved dialog says what changed, and Undo deletes what was added and makes the removed again", async () => {
+    const made = grant("n1", ana, "reader");
+    change.current = { added: [made], removed: [rows[0]!] };
+    renderPerson();
+    fireEvent.click(await screen.findByRole("button", { name: /^Grant Ana Varga more/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "save change" }));
+    expect(await screen.findByText("Ana Varga’s access changed: 1 added, 1 removed.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(security.deleteGrant).toHaveBeenCalledWith("n1"));
+    await waitFor(() => expect(security.createGrant).toHaveBeenCalledTimes(1));
   });
 });

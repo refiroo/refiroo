@@ -160,6 +160,14 @@ export function RelationMatrixCellTable({
     setOpen(next);
     onRecordDirty(Boolean(next?.changed));
   };
+  /** A record field closes only itself: the save of a field left for another ends after that one opened. */
+  const openNow = useRef(open);
+  useLayoutEffect(() => {
+    openNow.current = open;
+  });
+  const closeField = (id: string, field: string) => {
+    if (openNow.current?.id === id && openNow.current.field === field) changeOpen(undefined);
+  };
   // Several relationship values may hold input at once (one per row); the dialog hears "any".
   const valuesDirty = (key: string) => (dirty: boolean) => {
     if (dirty) dirtyValues.current.add(key);
@@ -298,11 +306,10 @@ export function RelationMatrixCellTable({
                           readOnly={!editRecords}
                           display={formatValue(record.fields[field])}
                           editing={editing}
-                          disabled={Boolean(open) && !editing}
                           onEdit={() => changeOpen({ id: record.id, field, changed: false })}
-                          onClose={() => changeOpen(undefined)}
+                          onClose={() => closeField(record.id, field)}
                           onSaved={() => {
-                            changeOpen(undefined);
+                            closeField(record.id, field);
                             void onRefresh();
                           }}
                           onConflict={onRefresh}

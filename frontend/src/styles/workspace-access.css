@@ -69,12 +69,12 @@
   font-weight: 600;
 }
 .access-avatar[data-kind="group"] {
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--hue-3-fill);
   color: var(--hue-3-ink);
 }
 .access-avatar[data-kind="client"] {
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--hue-2-fill);
   color: var(--hue-2-ink);
 }
@@ -91,7 +91,7 @@
   min-height: 28px;
   padding: 0 8px 0 10px;
   border: 1px solid var(--chip-marker, var(--border-subtle));
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--chip-fill, var(--surface-fill));
   color: var(--chip-ink, var(--text-secondary));
   font-size: var(--text-sm);
@@ -149,7 +149,7 @@
   min-height: 0;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: inherit;
   opacity: 0;
@@ -159,6 +159,14 @@
 .access-chip:focus-within .access-chip-remove,
 .access-chip-remove:focus-visible {
   opacity: 0.8;
+}
+/* On a person's, group's or client's page the trash is always there, quiet until hovered or focused. */
+.grant-place .access-chip-remove {
+  opacity: 0.55;
+}
+.grant-place .access-chip-remove:hover:not(:disabled),
+.grant-place .access-chip-remove:focus-visible {
+  opacity: 1;
 }
 .access-chip-remove:hover:not(:disabled) {
   opacity: 1;
@@ -173,7 +181,7 @@
   min-height: 0;
   padding: 0;
   border: 1px dashed var(--border-control);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -203,7 +211,7 @@
     gap: 10px;
     padding: 12px;
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: var(--radius-panel);
     background: var(--surface-raised);
   }
   .access-chip-remove {

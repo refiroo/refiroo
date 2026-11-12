@@ -64,6 +64,25 @@ describe("CollectionView", () => {
     expect(screen.queryByText("Edit")).not.toBeInTheDocument();
   });
 
+  it("opens a clicked row beside the list (PP-D41)", async () => {
+    const onOpen = vi.fn();
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={testModel.applications[0].views[0]}
+        workspaceKey="west"
+        query={{ search: "", sort: "", filters: [], pageSize: 50 }}
+        onQueryChange={vi.fn()}
+        onOpen={onOpen}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Connections" }));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: domainObject.id }), undefined, {
+      beside: true,
+    });
+  });
+
   it("renders only model-declared typed filters and sorts", async () => {
     const onQueryChange = vi.fn();
     render(
@@ -453,7 +472,10 @@ describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
         onOpen={vi.fn()}
       />,
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Records matrix" })).toBeInTheDocument();
+    // A lens is a tab under the type's name, not a title of its own (0.17 SH1, PP-D37).
+    expect(
+      screen.getByRole("heading", { level: 1, name: row === "domain" ? "Domains" : "Codelists" }),
+    ).toBeInTheDocument();
     expect(await screen.findByRole("grid", { name: /Records matrix/ })).toBeInTheDocument();
     expect(api.relationMatrix).toHaveBeenCalledWith(expect.objectContaining({ viewKey: "matrix" }));
     const lenses = screen.getByRole("navigation", { name: "Collection lenses" });
@@ -499,8 +521,10 @@ describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
         onOpen={vi.fn()}
       />,
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Records tree" })).toBeInTheDocument();
-    expect(await screen.findByRole("tree", { name: "Records tree" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: root === "domain" ? "Domains" : "Codelists" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("tree", { name: root === "domain" ? "Domains" : "Codelists" })).toBeInTheDocument();
     // The tree reads its root type's records without a parent, not the table's query.
     expect(api.objects).toHaveBeenCalledWith(root, expect.objectContaining({ topLevel: true, sort: "name" }));
     const lenses = screen.getByRole("navigation", { name: "Collection lenses" });

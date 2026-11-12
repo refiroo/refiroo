@@ -64,11 +64,11 @@ administrator** roles include it. Grants determine where those rights apply.
 
 Other permissions still matter: AI access alone does not grant permission to import, edit a model
 or work in a change set. People without the action group are not offered AI actions. Operators need
-**Operations** to inspect **Settings › Administration › AI** and send a provider test request.
+**Operations** to inspect **Settings › This instance › AI** and send a provider test request.
 
 External MCP assistants act within their person's or client's permissions, restricted to browsing
 and work in change sets. They cannot approve, publish or write directly to live data. Security
-administrators manage them on **Settings › Security › Agent access**.
+administrators manage them on **Settings › Connections › Agent access**.
 
 ## The assistant's session
 
@@ -142,13 +142,13 @@ proposals before accepting them.
 
 ## Calls and costs
 
-Open **Settings › Administration › AI** to see which switches are on, the send level and, when a
+Open **Settings › This instance › AI**, then its **Settings** tab, to see which switches are on, the send level and, when a
 provider is configured, its model, endpoint, whether a key is set, and the features available.
 The key itself is never shown. This page displays settings; change them in the environment.
 
-**Calls** lists provider requests and assistant turns, newest first: who asked, what for, the model,
+The **Calls** tab lists provider requests and assistant turns, newest first: who asked, what for, the model,
 outcome, tokens, cost when reported, and duration. A failed call includes a failure message.
-**Load more calls** reads older entries. With no entries, the page says **No call has been made yet.**
+**Show more** reads older entries. With no entries, the page says **No call has been made yet.**
 When content logging is on and has not expired, expand **Show what was sent and answered** on a row.
 Treat that content as sensitive.
 
@@ -191,7 +191,7 @@ before removing it.
 ## Provider and assistant settings
 
 Set these in the engine's environment, then recreate the Compose container or restart the host
-service. **Settings › Administration › AI** displays them; it does not edit them.
+service. **Settings › This instance › AI** displays them; it does not edit them.
 
 | Setting | Default | What to choose |
 | --- | --- | --- |
@@ -275,7 +275,7 @@ session. A refused migration leaves the reason and the words box on the task.
 `MCP_ENABLED` enables MCP Streamable HTTP, protocol `2025-11-25`, at `/mcp`. The shipped web proxy
 passes `/mcp` and `/.well-known/`; forward both when supplying your own proxy, and keep `PUBLIC_URL`
 consistent with the public HTTPS address. With the switch off the endpoints return 404 and no agent
-token is issued. **Settings › Security › Agent access** then says **Agent access is off**.
+token is issued. **Settings › Connections › Agent access** then says **Agent access is off**.
 
 | Setting | Default | Effect |
 | --- | --- | --- |

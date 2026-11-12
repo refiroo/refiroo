@@ -17,6 +17,22 @@ function expect(condition, message) {
   if (!condition) failures.push(message);
 }
 
+/** An opened workspace's actions beyond the two shown are in its ⋯ menu (0.17 ST1). */
+async function menuAction(page, name) {
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
+}
+
+/** Whether the ⋯ menu offers an action, and whether it is disabled; the menu is closed again. */
+async function menuItem(page, name) {
+  await page.getByRole("button", { name: "More actions" }).click();
+  const item = page.getByRole("menuitem", { name: new RegExp(`^${name}`) });
+  const present = (await item.count()) > 0;
+  const disabled = present && (await item.first().getAttribute("aria-disabled")) === "true";
+  await page.keyboard.press("Escape");
+  return { present, disabled };
+}
+
 async function axe(page, name) {
   const result = await runAxe(page, [], name);
   if (result.violations.length) failures.push(`${name}:\n${formatViolations(result.violations)}`);
@@ -51,25 +67,31 @@ try {
   // 2. Keyboard: the label's Manage workspaces opens the screen on that workspace.
   await single.getByRole("button", { name: "Manage workspaces" }).focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("heading", { level: 1, name: "Workspaces" }).waitFor();
+  // An opened workspace is its own page: its name the level-1 heading, "Workspaces" the trail back (0.17 ST1).
+  await page.getByLabel("Where you are").getByText("Workspaces").first().waitFor();
   expect(new URL(page.url()).pathname === "/settings/workspaces/default", `manage link url ${page.url()}`);
-  await page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
+  await page.getByRole("heading", { level: 1, name: defaultLabel }).waitFor();
   // The capability status lives on Settings › Deployment since A3 moved it off the workspace and model pages.
   await page.goto(`${uiUrl}/settings/deployment`);
-  const capabilities = page.locator(".capability-groups");
-  const capabilityText = await capabilities.innerText();
-  expect(/Model administration\s*Off/.test(capabilityText), `model group: ${capabilityText}`);
-  expect(capabilityText.includes("MODEL_ADMIN_MUTATIONS_ENABLED"), "disabled model group names its setting");
-  expect(/Workspace administration\s*On/.test(capabilityText), `workspace group: ${capabilityText}`);
+  // Each capability group is its own labelled panel on the Deployment page (0.17 ST1): its name, help, On or Off and setting.
+  const capabilities = page.getByRole("region", { name: "Capability groups" });
+  await capabilities.waitFor();
+  const modelGroup = await capabilities.getByRole("group", { name: "Model administration" }).innerText();
+  expect(/\bOff\b/.test(modelGroup), `model group: ${modelGroup}`);
+  expect(modelGroup.includes("MODEL_ADMIN_MUTATIONS_ENABLED"), "disabled model group names its setting");
+  const workspaceGroup = await capabilities.getByRole("group", { name: "Workspace administration" }).innerText();
+  expect(/\bOn\b/.test(workspaceGroup), `workspace group: ${workspaceGroup}`);
   await page.goto(`${uiUrl}/settings/workspaces/default`);
-  await page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
-  expect(await page.getByRole("button", { name: "Retire…" }).isDisabled(), "default workspace retirable");
-  expect((await page.getByRole("button", { name: "Delete…" }).count()) === 0, "default workspace deletable");
+  await page.getByRole("heading", { level: 1, name: defaultLabel }).waitFor();
+  expect((await menuItem(page, "Retire…")).disabled, "default workspace retirable");
+  expect(!(await menuItem(page, "Delete…")).present, "default workspace deletable");
   await page.getByText("The default workspace cannot be retired or deleted.", { exact: false }).waitFor();
   await axe(page, "w4-workspaces-default");
   checks.push("Manage workspaces (keyboard) opens the default; capability status names the disabled setting");
 
-  // 3. Create a second workspace by keyboard; the key is suggested from the name.
+  // 3. Create a second workspace by keyboard; the key is suggested from the name. New workspace is on the list,
+  // an opened workspace has its Trail back to it (0.17 ST1).
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await page.getByRole("button", { name: "New workspace" }).focus();
   await page.keyboard.press("Enter");
   const createDialog = page.getByRole("dialog", { name: "New workspace" });
@@ -81,21 +103,22 @@ try {
   );
   await axe(page, "w4-create-dialog");
   await page.keyboard.press("Enter");
-  await page.getByRole("heading", { level: 2, name: "Central Europe" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Central Europe" }).waitFor();
   expect(new URL(page.url()).pathname === "/settings/workspaces/central-europe", `created url ${page.url()}`);
   // The page opens on the list of workspaces and shows one workspace at a time (A3a, L2): back to the
   // list to see the new row, then into the workspace again.
   const catalogue = page;
-  await page.getByRole("button", { name: /All workspaces/ }).click();
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await catalogue.getByRole("button", { name: /Central Europe/ }).waitFor();
   await catalogue.getByRole("button", { name: /Central Europe/ }).click();
-  await page.getByRole("heading", { level: 2, name: "Central Europe" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Central Europe" }).waitFor();
   checks.push("keyboard creation suggests the key, selects the new workspace and lists it");
 
   // 4. A duplicate key is refused inside the dialog with the input kept.
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await page.getByRole("button", { name: "New workspace" }).click();
   await createDialog.getByRole("textbox", { name: "Name" }).fill("Central Europe");
-  await createDialog.getByRole("button", { name: "Create workspace" }).click();
+  await createDialog.getByRole("button", { name: "Add workspace" }).click();
   await createDialog.getByText("Workspace 'central-europe' already exists").waitFor();
   await shot("w4-create-duplicate-wide");
   await createDialog.getByRole("button", { name: "Cancel" }).click();
@@ -103,18 +126,21 @@ try {
   checks.push("duplicate key is refused in the dialog and keeps the entered name");
 
   // 5. Rename under a concurrent change: the current name is shown and nothing is overwritten.
-  await page.getByRole("button", { name: "Rename…" }).click();
-  const renameDialog = page.getByRole("dialog", { name: "Rename workspace" });
+  await page.getByRole("button", { name: /Central Europe/ }).click();
+  await page.getByRole("heading", { level: 1, name: "Central Europe" }).waitFor();
+  await page.getByRole("button", { name: /Edit Name:/ }).click();
+  const renameDialog = page.getByRole("form", { name: "Edit Name" });
   await renameDialog.waitFor();
   const before = await api("/workspaces/central-europe");
   await api("/workspaces/central-europe", { expectedVersion: before.version, label: "Central (API)" }, "PATCH");
   await renameDialog.getByRole("textbox", { name: "Name" }).fill("Central Europe East");
-  await renameDialog.getByRole("button", { name: "Save name" }).click();
+  await page.keyboard.press("Enter");
   await renameDialog.getByText(/It is now named “Central \(API\)”/).waitFor();
   expect((await api("/workspaces/central-europe")).label === "Central (API)", "conflict overwrote the name");
   await shot("w4-rename-conflict-wide");
-  await renameDialog.getByRole("button", { name: "Save name" }).click();
-  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
+  await renameDialog.getByRole("button", { name: "Save again" }).waitFor();
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { level: 1, name: "Central Europe East" }).waitFor();
   expect((await api("/workspaces/central-europe")).label === "Central Europe East", "second save not stored");
   checks.push("concurrent rename is reported with the current name; saving again stores the user's name");
 
@@ -127,7 +153,9 @@ try {
   await page.getByRole("button", { name: "Show workspace options" }).click();
   await page.getByRole("option", { name: /Central Europe East/ }).click();
   await page.waitForURL(/workspaceKey=central-europe/);
-  await page.getByLabel("Current context").getByText("Central Europe East").waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector(".workspace-selector input")?.value?.includes("Central Europe East"),
+  );
   checks.push("selector is a combobox with two workspaces and switches to the new one (rdm-systems)");
 
   // 7. The dropdown's Manage workspaces opens administration on the current workspace.
@@ -146,16 +174,16 @@ try {
   if (popover.violations.length) failures.push(`w4-selector-open:\n${formatViolations(popover.violations)}`);
   checks.push(`axe w4-selector-open (popover): ${popover.violations.length} violations`);
   await manage.click();
-  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Central Europe East" }).waitFor();
   expect(new URL(page.url()).pathname === "/settings/workspaces/central-europe", `dropdown manage url ${page.url()}`);
   checks.push("dropdown Manage workspaces opens the current workspace's administration");
 
   // 8. Set it as default: the runtime state moves and an unqualified URL lands there.
-  await page.getByRole("button", { name: "Set as default" }).click();
+  await menuAction(page, "Set as default");
   await page.getByText("Central Europe East is now the default workspace.").waitFor();
   expect((await api("/workspace-runtime-state")).defaultWorkspaceKey === "central-europe", "default not stored");
-  expect(await page.getByRole("button", { name: "Retire…" }).isDisabled(), "new default retirable");
-  await page.getByRole("button", { name: /All workspaces/ }).click();
+  expect((await menuItem(page, "Retire…")).disabled, "new default retirable");
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await catalogue.getByRole("button", { name: /Central Europe East.*Default/s }).waitFor();
   await axe(page, "w4-workspaces-new-default");
   await shot("w4-set-default-wide");
@@ -170,7 +198,7 @@ try {
 
   // 9. A concurrent default switch is reported with the current default instead of retried.
   await page.goto(`${uiUrl}/settings/workspaces/default`);
-  await page.getByRole("button", { name: "Set as default" }).waitFor();
+  await page.getByRole("button", { name: "More actions" }).waitFor();
   const state = await api("/workspace-runtime-state");
   await api("/workspace-runtime-state", { defaultWorkspaceKey: "default", expectedVersion: state.version }, "PATCH");
   await api(
@@ -181,48 +209,50 @@ try {
     },
     "PATCH",
   );
-  await page.getByRole("button", { name: "Set as default" }).click();
+  await menuAction(page, "Set as default");
   await page.getByText(/default workspace changed to “central-europe”/).waitFor();
   expect((await api("/workspace-runtime-state")).defaultWorkspaceKey === "central-europe", "stale switch applied");
   checks.push("a stale default switch is refused and names the current default");
 
   // 10. Make the original default again, then retire the new workspace.
-  await page.getByRole("button", { name: "Set as default" }).click();
+  await menuAction(page, "Set as default");
   await page.getByText(`${defaultLabel} is now the default workspace.`).waitFor();
-  await page.getByRole("button", { name: /All workspaces/ }).click();
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await catalogue.getByRole("button", { name: /Central Europe East/ }).click();
-  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
-  await page.getByRole("button", { name: "Retire…" }).click();
+  await page.getByRole("heading", { level: 1, name: "Central Europe East" }).waitFor();
+  await menuAction(page, "Retire…");
   const confirm = page.getByRole("alertdialog", { name: "Retire Central Europe East?" });
   await confirm.waitFor();
   await axe(page, "w4-retire-confirm");
   await confirm.getByRole("button", { name: "Retire workspace" }).click();
   await page.getByText(/Workspace retired/).waitFor();
-  await page.getByRole("button", { name: "Reactivate" }).waitFor();
+  await page.getByRole("button", { name: "More actions" }).waitFor();
+  expect((await menuItem(page, "Reactivate")).present, "reactivation not offered");
   expect((await api("/workspaces/central-europe")).status === "retired", "retirement not stored");
   // The list shows it in its Retired group.
-  await page.getByRole("button", { name: /All workspaces/ }).click();
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await page
     .getByRole("region", { name: "Retired" })
     .getByRole("button", { name: /Central Europe East/ })
     .waitFor();
   await shot("w4-retired-wide");
   await catalogue.getByRole("button", { name: /Central Europe East/ }).click();
-  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Central Europe East" }).waitFor();
   await page.getByRole("button", { name: "Open workspace" }).click();
   await page.getByText("Read-only workspace").waitFor();
   checks.push("retirement after confirmation lists it as retired, offers reactivation and opens read only");
 
   // 11. W6: a mistyped key is deleted by keyboard and the corrected key created.
-  await page.goto(`${uiUrl}/settings/workspaces/default`);
+  await page.goto(`${uiUrl}/settings/workspaces`);
   await page.getByRole("button", { name: "New workspace" }).click();
   await createDialog.getByRole("textbox", { name: "Name" }).fill("Nordics");
   await createDialog.getByRole("textbox", { name: /^Key/ }).fill("nordcis");
-  await createDialog.getByRole("button", { name: "Create workspace" }).click();
-  await page.getByRole("heading", { level: 2, name: "Nordics" }).waitFor();
+  await createDialog.getByRole("button", { name: "Add workspace" }).click();
+  await page.getByRole("heading", { level: 1, name: "Nordics" }).waitFor();
   expect(new URL(page.url()).pathname === "/settings/workspaces/nordcis", `mistyped url ${page.url()}`);
-  await page.getByRole("button", { name: "Delete…" }).focus();
+  await page.getByRole("button", { name: "More actions" }).focus();
   await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: /^Delete…/ }).press("Enter");
   const deleteConfirm = page.getByRole("alertdialog", { name: "Delete Nordics?" });
   await deleteConfirm.waitFor();
   expect((await deleteConfirm.getByText("nordcis", { exact: true }).count()) === 1, "confirmation names the key");
@@ -246,11 +276,13 @@ try {
   await shot("w6-deleted-wide");
   await page.goto(`${uiUrl}/settings/workspaces/nordcis`);
   await page.getByText("Workspace 'nordcis' not found").waitFor();
+  // The error page keeps its Trail back to the list, where New workspace is (0.17 ST1).
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await page.getByRole("button", { name: "New workspace" }).click();
   await createDialog.getByRole("textbox", { name: "Name" }).fill("Nordics");
   expect((await createDialog.getByRole("textbox", { name: /^Key/ }).inputValue()) === "nordics", "corrected key");
-  await createDialog.getByRole("button", { name: "Create workspace" }).click();
-  await page.getByRole("heading", { level: 2, name: "Nordics" }).waitFor();
+  await createDialog.getByRole("button", { name: "Add workspace" }).click();
+  await page.getByRole("heading", { level: 1, name: "Nordics" }).waitFor();
   expect(new URL(page.url()).pathname === "/settings/workspaces/nordics", `corrected url ${page.url()}`);
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
   await page.getByRole("button", { name: "Show workspace options" }).click();
@@ -264,7 +296,7 @@ try {
   // 12. Narrow: the selected workspace alone with a way back to the catalogue; no page overflow.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/settings/workspaces/central-europe`);
-  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Central Europe East" }).waitFor();
   expect(
     (await page.getByRole("button", { name: /Central Europe East.*Default/s }).count()) === 0,
     "narrow page shows the catalogue beside the workspace",
@@ -272,7 +304,7 @@ try {
   let scroll = await overflow(page);
   expect(scroll <= 0, `narrow Workspaces page scrolls horizontally by ${scroll}px`);
   await shot("w4-workspaces-narrow");
-  await page.getByRole("button", { name: "All workspaces" }).click();
+  await page.locator('nav[aria-label="Where you are"] .trail-back', { hasText: "Workspaces" }).click();
   await catalogue.getByRole("button", { name: /Central Europe East/ }).waitFor();
   expect(new URL(page.url()).pathname === "/settings/workspaces", `narrow back url ${page.url()}`);
   scroll = await overflow(page);
@@ -280,15 +312,15 @@ try {
   await shot("w4-catalogue-narrow");
   await axe(page, "w4-catalogue-narrow");
   await catalogue.getByRole("button", { name: /Central Europe East/ }).click();
-  await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();
-  await page.getByRole("button", { name: "Rename…" }).click();
-  await page.getByRole("dialog", { name: "Rename workspace" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Central Europe East" }).waitFor();
+  await page.getByRole("button", { name: /Edit Name:/ }).click();
+  await page.getByRole("form", { name: "Edit Name" }).waitFor();
   scroll = await overflow(page);
-  expect(scroll <= 0, `narrow rename dialog scrolls horizontally by ${scroll}px`);
+  expect(scroll <= 0, `narrow rename field scrolls horizontally by ${scroll}px`);
   await shot("w4-rename-narrow");
   await page.keyboard.press("Escape");
   checks.push(
-    "390px: the workspace, the catalogue (All workspaces) and the rename dialog take turns and fit without horizontal scroll",
+    "390px: the workspace, the catalogue (All workspaces) and the rename field take turns and fit without horizontal scroll",
   );
   await harness.cleanup();
   harness = undefined;
@@ -307,14 +339,15 @@ try {
     .getByRole("navigation", { name: "Settings" })
     .getByRole("link", { name: "Deployment", exact: true })
     .click();
-  const modelStatus = off.page.locator(".capability-groups");
+  const modelStatus = off.page.getByRole("region", { name: "Capability groups" });
   await modelStatus.waitFor();
   const modelStatusText = await modelStatus.innerText();
   expect(
     modelStatusText.includes("WORKSPACE_ADMIN_MUTATIONS_ENABLED"),
     `models names workspace setting: ${modelStatusText}`,
   );
-  expect(/Model administration\s*On/.test(modelStatusText), `models enabled: ${modelStatusText}`);
+  const modelOn = await modelStatus.getByRole("group", { name: "Model administration" }).innerText();
+  expect(/\bOn\b/.test(modelOn), `models enabled: ${modelOn}`);
   await off.page.screenshot({ path: resolve(off.output, "w4-models-capabilities-wide.png"), fullPage: true });
   // The address the settings area replaced still lands on the page.
   await off.page.goto(`${off.uiUrl}/workspaces`);
@@ -324,9 +357,9 @@ try {
     .getByRole("button", { name: new RegExp(defaultLabel) })
     .first()
     .click();
-  await off.page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
+  await off.page.getByRole("heading", { level: 1, name: defaultLabel }).waitFor();
   expect((await off.page.getByRole("button", { name: "New workspace" }).count()) === 0, "create offered when off");
-  expect((await off.page.getByRole("button", { name: "Rename…" }).count()) === 0, "rename offered when off");
+  expect((await off.page.getByRole("button", { name: /Edit Name:/ }).count()) === 0, "rename offered when off");
   await off.page.getByRole("button", { name: "Open workspace" }).waitFor();
   await axe(off.page, "w4-workspaces-disabled");
   await off.page.screenshot({ path: resolve(off.output, "w4-workspaces-disabled-wide.png"), fullPage: true });

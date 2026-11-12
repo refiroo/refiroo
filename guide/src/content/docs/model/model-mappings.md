@@ -84,7 +84,7 @@ on the instance. When unavailable, the page explains why.
 
 ## Editor tabs and the running job
 
-**Settings › Data operations › Copy and move** lists saved Mappings with their source and target
+**Settings › Workspaces and models › Copy and move** lists saved Mappings with their source and target
 models, version and updated time. **Recent copies and moves** lists workspace pairs, Copy or Move,
 state, change sets and creation time. **Load more mappings** reads older mappings.
 

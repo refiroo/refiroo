@@ -14,7 +14,7 @@ choice, not a special value type. See [Types, attributes and relations](/docs/mo
    type and **Reverse name** from the list records back to it.
 3. Review **Which records may be chosen**. Leave it unrestricted to offer any list record,
    or add the offered criteria. A new list type initially offers criteria on its name.
-4. Apply and inspect the new type and relationship. Check the original type's fields and
+4. Choose **Save** and inspect the new type and relationship. Check the original type's fields and
    layouts and resolve **Issues** before previewing or installing.
 5. If the released attachment holds values, the step applies and **History** marks it
    **Needs a migration**. Saving the draft does not populate live list records. Use **Undo**

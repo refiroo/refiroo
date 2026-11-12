@@ -18,10 +18,12 @@ removes its reads without deleting records or stopping the other versions. Read
 2. Agree a notice period with every consuming team, including owners of webhook receivers.
    You choose that period; refiroo does not enforce a minimum for your consumer contracts.
 3. Select that row's **Sunset day** value or its pencil. In **Sunset day (YYYY-MM-DD)**,
-   enter the agreed calendar date and choose **Save**. Clear it and save to withdraw the
-   announcement; the table shows a dash when no day is set. A date that is not a valid
-   calendar day stays in the form with **Not saved** and the reason; the previously saved
-   value remains unchanged. Correct it and save, or **Cancel**. The date announces the end
+   enter the agreed calendar date, then leave the field or press Enter to save. Escape puts
+   the old date back; an unchanged input saves nothing. Clear it and leave the field to
+   withdraw the announcement; the table shows a dash when no day is set. A date that is not
+   a valid calendar day stays in the input with **Not saved** and the reason; the previously
+   saved value remains unchanged. **Cancel** and **Save again** appear beneath the reason.
+   Correct the date before leaving it to retry, or choose **Save again** after reviewing it. The date announces the end
    in the response's Sunset header after activation; the version stays served until you
    stop it explicitly, whatever the day.
 4. Review and [install and activate](/docs/guide/model/install-and-activate-a-release/) the

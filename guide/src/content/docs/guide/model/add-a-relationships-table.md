@@ -30,7 +30,7 @@ result people use.
    link records. The first selected to-record field labels each grid column group.
 7. For rows, **Head the rows by** chooses **Nothing: one list**, **The from record** or **The to
    record**. Group headings include counts. This choice does not group the grid.
-8. Enter **Name** and choose **Apply**. Check the saved step, **Views** and **Issues**. The
+8. Enter **Name** and choose **Add view**. Check the saved step, **Views** and **Issues**. The
    application lists either endpoint type if it was not already listed. No data is created.
 
 ![Add a relationships table with its directed pair, endpoint fields, relationship attributes and Layout choices](/docs/screens/model-add-relationships-table-layout.png)
@@ -55,7 +55,7 @@ and choose displayed fields without changing the model. Their choices stay in th
 ## Change the layout and activate
 
 1. In **Views**, open the relationships table's menu and choose **Layout…**.
-2. Select either layout and **Apply**. This changes the presentation of the same relationship;
+2. Select either layout in the popover and choose **Save**. This changes the presentation of the same relationship;
    it does not duplicate or remove its connections.
 3. Review **Issues**, then [install and activate the release](/docs/guide/model/install-and-activate-a-release/).
    Open the view in a workspace using the release and check its fields and available actions.

@@ -46,6 +46,23 @@ describe("change set record context", () => {
     });
     expect(changed).toHaveBeenCalledWith(expect.objectContaining({ version: 5 }));
   });
+  it("reads what a deletion would take in the change set, without claiming its version", async () => {
+    const controller = createChangeSetClient(changeSet, vi.fn(), vi.fn());
+    const read = vi.spyOn(api, "objectDeletionImpact").mockResolvedValue({
+      objectsToDelete: [],
+      relationshipsToRemove: [],
+      objectCount: 1,
+      relationshipCount: 0,
+      ownRelationshipCount: 0,
+      retainedAssociationCount: 0,
+      requiresCascade: false,
+      deletionPreviewToken: "signed",
+    });
+    const version = vi.spyOn(api, "changeSet");
+    await controller.client.objectDeletionImpact("domain", "id");
+    expect(read).toHaveBeenCalledWith("domain", "id", "changeSet");
+    expect(version).not.toHaveBeenCalled();
+  });
   it("reads a relation matrix in the change set and stages a claimed unlink in it", async () => {
     const controller = createChangeSetClient(changeSet, vi.fn(), vi.fn());
     vi.spyOn(api, "changeSet").mockResolvedValue({ ...changeSet, version: 5 });

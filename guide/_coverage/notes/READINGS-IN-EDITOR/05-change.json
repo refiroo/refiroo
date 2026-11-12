@@ -1,0 +1,5 @@
+{
+  "page": "guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md",
+  "before": "These are saved reading instructions, used by the dry run and the eventual load alike.",
+  "after": "These are saved reading instructions, used by the dry run and the eventual load alike.\nYou can also set them in the model editor: a column's **Readings** row offers\n**Fill blanks from the cell above**, **Rows holding only this column are headings\u2026** and\n**Read these columns as rows\u2026**, with the corresponding **Stop\u2026** entry while a reading is on.\nA loaded list's **Readings** row also offers **Read these columns as rows\u2026**; there you select\nthe columns before naming the two added columns. The **Source** pane marks columns that have a reading."
+}

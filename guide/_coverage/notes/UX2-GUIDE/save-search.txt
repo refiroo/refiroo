@@ -1,0 +1,237 @@
+guide/src/content/docs/administer/ai.md:9:The page displays settings. Ask your operator to change them and restart the server; there is no Save button. For that task, see [Set up AI](/docs/run/set-up-ai/). To check a connection, follow [Check the AI provider](/docs/guide/administer/check-the-ai-provider/).
+guide/src/content/docs/guide/administer/rotate-a-webhook-key.md:12:4. Choose **Rotate key**. **Cancel** keeps the current key. If **No new key was made** appears, read the reason and reload the webhook to establish its state before another attempt.
+guide/src/content/docs/guide/model/retire-or-delete-a-release.md:13:2. Choose **Retire…**, read the named release and confirm. Cancel keeps it available. Check
+guide/src/content/docs/about/what-is-refiroo.md:15:The agreed list then has a history, people responsible for it and connections to other lists. People edit it in the browser, export a workbook for colleagues and load their changes back; other systems read it through the API. Saved import profiles can read later versions of the original workbook. File loads meet the same rules as other changes. See [Importing and exporting](/docs/use/importing-and-exporting/).
+guide/src/content/docs/about/data-quality-rules.md:31:Bulk changes and file loads offer previews showing what can be applied and what is refused. Their result depends on the chosen operation: publishing a change set is all-or-nothing, while a bulk job may apply independent items and refuse others. Cancellation cannot undo chunks an independent job already saved. Review the result rather than assuming every row succeeded. See [Changing many records](/docs/use/changing-many-records/) and [Imports and exports](/docs/use/importing-and-exporting/).
+guide/src/content/docs/guide/use/follow-and-cancel-a-job.md:16:3. To stop remaining work, use **Cancel job**, **Cancel import** for a waiting import,
+guide/src/content/docs/guide/use/follow-and-cancel-a-job.md:17:   or **Cancel preview** for a waiting batch preview.
+guide/src/content/docs/guide/use/follow-and-cancel-a-job.md:19:   import** / **Discard the preview** for a waiting preview. From the Jobs list, choose **Cancel
+guide/src/content/docs/guide/use/follow-and-cancel-a-job.md:22:4. Wait for the state to settle. **Cancel requested** is still pending. Already committed
+guide/src/content/docs/use/hierarchies.md:103:when the change set publishes. Cancel the preview if the result does not match your intent;
+guide/src/content/docs/model/consumer-apis.md:321:   **Sunset day (YYYY-MM-DD)**, enter the calendar date and choose **Save**. Emptying it and
+guide/src/content/docs/model/consumer-apis.md:324:   save again, or **Cancel**. The day is announced to consumers in the response's Sunset
+guide/src/content/docs/model/consumer-apis.md:345:consumers lose access once the draft is active. Cancel to keep serving it, or confirm the removal.
+guide/src/content/docs/model/consumer-apis.md:373:number and Save, or Cancel to leave it unchanged. The menu’s **Raise contract version to …**
+guide/src/content/docs/model/consumer-apis.md:378:warns that they receive 404 once this draft is active. Cancel keeps it; Undo restores a saved
+guide/src/content/docs/guide/administer/add-a-sign-in-provider.md:15:5. Keep **Offer it on the sign-in page now** selected if it should be enabled, then choose **Add provider**. It shows **Checking and adding…** while checking an enabled provider. If **The provider was not saved** appears, correct the stated issuer, connectivity, certificate or registration problem with the sign-in administrator. **Cancel** leaves it uncreated.
+guide/src/content/docs/guide/administer/add-a-sign-in-provider.md:26:![Saved fictional OpenID Connect provider with redirect address, settings and signing-out choices](/docs/screens/admin-signin-provider.png)
+guide/src/content/docs/guide/administer/add-a-sign-in-provider.md:30:The **Settings** form edits its button name, issuer, registration and groups claim. **Key** is fixed. Leave **Client secret** blank to keep it for an unchanged issuer; enter it again if changing an unused issuer. Once anyone has signed in through the provider, its issuer cannot change. Add another provider and link people instead. Choose **Save** to apply form edits; **Cancel** discards them.
+guide/src/content/docs/journeys/work-with-an-assistant.md:45:and **Save**; the replaced mapping loses its AI mark. Validate and publish through the
+guide/src/content/docs/about/accessibility.md:23:Choices take effect immediately without a Save button and are saved in that browser, so another
+guide/src/content/docs/guide/model/add-a-relationships-table.md:58:2. Select either layout in the popover and choose **Save**. This changes the presentation of the same relationship;
+guide/src/content/docs/guide/model/add-a-relationships-table.md:64:field choices. **Cancel** leaves it unchanged. A publication is read-only, and live editing
+guide/src/content/docs/journeys/look-after-data.md:62:survive the removal of their connections. Cancelling changes nothing. If the impact changes,
+guide/src/content/docs/guide/use/continue-a-long-list.md:22:   Save or share the address if you need to return later. Changes to the underlying data can
+guide/src/content/docs/administer/jobs-and-limits.md:23:For a queued or running job, **Cancel** asks **Cancel this job?** In the list, choose **Cancel job**; on the job detail page, choose **Stop the job**. **Keep the job** leaves it running. Cancellation is taken at the next chunk. Already committed chunks stay applied; an atomic job rolls back completely. Items not yet reached remain unprocessed. If the job finished before cancellation arrived, the page refreshes and explains its final state.
+guide/src/content/docs/guide/administer/create-a-custom-role.md:11:3. Choose **Add role**. The new role appears in the matrix with its editing controls. If **The role was not created** appears, correct the stated problem. **Cancel** closes without creating it.
+guide/src/content/docs/guide/administer/create-a-custom-role.md:12:4. Tick the action groups it needs. Set the name and optional description, then choose **Save**. An empty role permits nothing. Administrative groups do not imply Browse; add Browse only if the responsibility needs workspace data.
+guide/src/content/docs/guide/administer/create-a-custom-role.md:18:To change a custom role later, use its edit control in the matrix, change its action groups and choose **Save**. This changes access for everyone holding that role. Read **The role was not saved** before retrying a failure; reload if the role changed meanwhile.
+guide/src/content/docs/journeys/integrate-a-system.md:93:After interruption, a worker resumes at the first unfinished item. Cancellation or failure of
+guide/src/content/docs/use/records.md:48:**Fields** hold typed values, such as text, numbers, dates and Yes/No values. Zero and No are
+guide/src/content/docs/use/records.md:168:The confirmation counts the records and relationships removed and names up to eight dependants with their types, followed by **and N more** where needed. Choose **Delete N records** when dependants are included, or **Delete** followed by the type's name for one record. Cancelling leaves everything in place. A failed impact read offers **Retry** and no delete button. If the record or impact changes before deletion, the stale attempt is refused and the refreshed impact must be reviewed and confirmed again. A required connection
+guide/src/content/docs/use/records.md:218:**Save** or **Cancel** buttons. Leaving the field, by clicking elsewhere or pressing Tab,
+guide/src/content/docs/use/records.md:222:An editable Yes/No value in the details is a switch: changing it saves immediately; in a
+guide/src/content/docs/use/records.md:233:**Cancel** and **Save again** then appear under the reason. Correct the input or review the
+guide/src/content/docs/use/records.md:234:current saved value before choosing **Save again**; **Cancel** abandons the correction.
+guide/src/content/docs/use/records.md:286:**Cleared** and **Empty text** still appear when already stored, but cannot be set through
+guide/src/content/docs/journeys/shape-a-model.md:124:mapping, inspection of every loss, correction of blockers and explicit confirmation. Cancelling
+guide/src/content/docs/administer/approval-policies.md:39:Changing checkboxes is not enough: choose **Save approval policy** and wait for
+guide/src/content/docs/administer/approval-policies.md:80:choose **Save approval policy**. This also clears the second-person choice. Existing
+guide/src/content/docs/guide/administer/link-a-provider-person.md:12:4. Choose **Link to …** with the intended person’s name. **Cancel** leaves the accounts separate. If **Not linked** appears, read the reason. Check the target is active and the source has no password, direct roles or local groups; resolve the conflict rather than linking to someone else to bypass it.
+guide/src/content/docs/guide/administer/set-an-approval-policy.md:22:## Save the policy
+guide/src/content/docs/guide/administer/set-an-approval-policy.md:33:5. Choose **Save approval policy**. Wait for **Approval policy saved.** The checkboxes
+guide/src/content/docs/guide/administer/set-an-approval-policy.md:36:![Workspace Approval tab showing both policy choices and Save approval policy](/docs/screens/admin-approval.png)
+guide/src/content/docs/guide/model/create-a-workspace.md:30:Correct that cause before retrying. **Cancel** leaves the list unchanged.
+guide/src/content/docs/guide/use/add-a-record.md:15:   cannot be filled through this form. Keep numbers, dates and Yes/No values in their proper controls.
+guide/src/content/docs/guide/administer/manage-a-group.md:16:3. Choose **Add group**. The group opens with its roles and members. **Cancel** closes
+guide/src/content/docs/guide/administer/manage-a-group.md:49:1. Find the group by name and select it. Select its name or description where it stands, edit it and choose **Save**. The save notice offers **Undo**. This does not change who belongs or the group's grants.
+guide/src/content/docs/administer/people-and-groups.md:65:**Edit…**, tick or clear the checkbox, then choose **Save**. **Cancel** leaves it unchanged.
+guide/src/content/docs/administer/people-and-groups.md:100:Select a group's name or description where it stands, then choose **Save**. The save notice offers **Undo**. **Delete group** asks for confirmation,
+guide/src/content/docs/administer/people-and-groups.md:136:**Edit…** opens the named person’s form with **Name** and **E-mail** (optional only for a deactivated person, whose address it frees). Choose **Save** or **Cancel**. Provider-supplied name and e-mail follow the provider at sign-in.
+guide/src/content/docs/guide/administer/rotate-signing-keys.md:31:3. Choose **Retire it now** to proceed, or **Cancel** to leave the key in place.
+guide/src/content/docs/guide/model/add-a-record-type-and-fields.md:68:Select an editable setting cell, choose the value and use **Save**, or **Cancel** to leave it
+guide/src/content/docs/guide/model/add-a-record-type-and-fields.md:77:![Required setting opened in place with Save and Cancel](/docs/screens/model-type-required-edit.png)
+guide/src/content/docs/guide/model/add-a-record-type-and-fields.md:94:**Starts on** and **Ends on**, then **Save**. The fields must differ; the end is exclusive and
+guide/src/content/docs/guide/administer/grant-a-role.md:38:5. Read the summary in **Grant access** and choose **Add grant**, or **Add N grants** for several. **Cancel** before submitting makes no grants. Closing after some were saved does not undo those grants. If several grants are
+guide/src/content/docs/guide/administer/set-up-mail.md:3:description: Save an outgoing mail server, send a test and check waiting messages.
+guide/src/content/docs/guide/administer/set-up-mail.md:11:## Save the server
+guide/src/content/docs/guide/administer/set-up-mail.md:15:3. Enter **User name** and **Password** if the server requires a login. Save is unavailable for a login over an unencrypted connection. A saved password is never displayed; enter it again when changing server or port.
+guide/src/content/docs/guide/administer/set-up-mail.md:17:5. Choose **Save**. Wait for **Mail settings saved. Send a test message to try them.** Saving alone does not prove the mail server works. **Cancel** restores the saved values.
+guide/src/content/docs/guide/administer/set-up-mail.md:41:   sender, and choose **Save**. Blank keeps an existing password for the same server; it
+guide/src/content/docs/guide/administer/require-a-second-factor.md:36:3. Choose **Require it** to apply the policy. **Cancel** leaves it unchanged.
+guide/src/content/docs/guide/administer/require-a-second-factor.md:37:   Wait for the setting to show as checked. There is no separate Save button.
+guide/src/content/docs/guide/administer/find-out-why-a-webhook-paused.md:14:4. For **Delivery failed**, fix the receiver or use **Edit…** to correct its URL. Changing a failed destination retries at once. For **The model changed** or **A filter matches nothing**, edit the fields identified in the findings and choose **Save**. If another person changed the webhook, review the reloaded configuration before saving again.
+guide/src/content/docs/guide/model/delete-a-model-mapping.md:15:   Choose **Cancel** to keep it, or **Delete the mapping** to remove it. There is no Undo here.
+guide/src/content/docs/guide/administer/turn-off-local-sign-in.md:20:3. Choose **Turn off**, or **Cancel** to leave it enabled. Wait until Local accounts shows **Off**. If **Not changed** appears or details changed meanwhile, review the saved state before trying again.
+guide/src/content/docs/guide/administer/create-a-webhook.md:29:3. Choose **Add webhook**. A refusal appears beside the relevant field or as **The webhook was not created**. Correct the stated problem and try again. **Cancel** leaves without creating it.
+guide/src/content/docs/guide/administer/create-a-client.md:16:   history. Choose **Add client**. **Cancel** creates nothing.
+guide/src/content/docs/guide/administer/add-a-person.md:27:5. Choose **Create and make a password link**. **Cancel** leaves the person uncreated.
+guide/src/content/docs/administer/mail.md:33:4. Choose **Save**. Unknown placeholders, a missing or repeated message placeholder, or more than 20,000 characters are refused. Raw HTML and Markdown images are not carried into mail. Links may use HTTP, HTTPS or mail addresses; unsafe links are omitted. Use the logo control for your image.
+guide/src/content/docs/administer/mail.md:38:2. Save your Markdown before choosing **Send a test to me**. The test uses the saved template, not unsaved text, and goes to your own account's e-mail address. Mail delivery must be configured and your account must have an address. If **The test could not be sent** appears, read its reason and correct the address or delivery problem before retrying.
+guide/src/content/docs/administer/mail.md:40:4. To restore the original layout, choose **Reset to default…**, then **Reset to default** in the confirmation. This deletes both the saved Markdown and uploaded logo. Cancel keeps them.
+guide/src/content/docs/administer/mail.md:92:After these sections, set **Application address** to the address people use to reach refiroo. Empty uses the default shown below the field. Check that recipients can open it, then choose **Save**.
+guide/src/content/docs/administer/mail.md:124:**Remove settings…** asks **Remove the mail settings?** Choose **Remove them** to stop sending and delete the saved password, client secret or certificate and key. Waiting messages remain and fail after their 24-hour window unless settings are saved again in time. **Cancel** in the form discards unsaved edits.
+guide/src/content/docs/administer/mail.md:174:**Save**, then **Send test message**. refiroo does not renew the mail account's credentials.
+guide/src/content/docs/model/json-view.md:34:Unsaved text is local to this workbench until **Save draft**. If another author saves first,
+guide/src/content/docs/model/json-view.md:36:**Reload saved version** reads the saved draft without merging. Saved document edits appear
+guide/src/content/docs/guide/administer/help-someone-who-lost-a-device.md:39:   codes stop working. **Cancel** leaves the factor in place. The change is recorded in activity.
+guide/src/content/docs/guide/administer/rotate-a-client-secret.md:20:4. Choose **Rotate secret**. **Cancel** leaves the secrets unchanged. If creation fails,
+guide/src/content/docs/guide/administer/rotate-a-client-secret.md:27:## Save and switch
+guide/src/content/docs/administer/roles-and-grants.md:106:description and choose **Save**. Creating a copy does not change the source role.
+guide/src/content/docs/guide/use/stop-offering-a-value.md:18:   If both dates are present, the end must be later than the start. Save the field.
+guide/src/content/docs/administer/webhooks.md:107:or delivery choices, then **Save**. A rename preserves a request being retried.
+guide/src/content/docs/model/managing-workspaces.md:43:   retrying. Cancel leaves the list unchanged.
+guide/src/content/docs/model/managing-workspaces.md:44:4. To change its displayed name later, select the name where it stands, enter the new name and choose **Save**. The save notice offers **Undo**.
+guide/src/content/docs/use/importing-and-exporting.md:126:preview again. **Save these fields in the profile**, where offered, keeps the reading for
+guide/src/content/docs/use/importing-and-exporting.md:212:**Load the file** confirms; **Cancel import** ends the preview without writes. Expired previews
+guide/src/content/docs/use/importing-and-exporting.md:336:Choose **Cancel** in either confirmation to keep the item. A refusal stays in the confirmation
+guide/src/content/docs/guide/model/review-an-assistants-workbook-design.md:32:   uses the manual import instead. **Cancel** sends nothing.
+guide/src/content/docs/administer/sign-in.md:183:For the administrator’s tasks, follow [Add a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/), [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) and [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/). On the provider catalogue, **No provider yet: people sign in with a password.** describes an empty list, not a connection failure. Saved provider details include separate Enable, Disable and Delete actions; disabling or deleting one ends the sessions it started.
+guide/src/content/docs/administer/sign-in.md:188:enter its replacement **Client secret** under **Settings** and choose **Save**. A blank
+guide/src/content/docs/guide/model/stop-serving-an-earlier-contract-version.md:21:   enter the agreed calendar date and choose **Save**. Clear it and save to withdraw the
+guide/src/content/docs/guide/model/stop-serving-an-earlier-contract-version.md:24:   value remains unchanged. Correct it and save, or **Cancel**. The date announces the end
+guide/src/content/docs/guide/model/stop-serving-an-earlier-contract-version.md:38:   that its consumers lose access once the draft is active. Choose **Cancel** to keep the
+guide/src/content/docs/guide/use/replace-a-records-related-records.md:18:4. Choose **Save**. Additions and removals save together as one operation; there is no partial
+guide/src/content/docs/guide/use/replace-a-records-related-records.md:29:![Relationship editor with one checked record, two matching unchecked candidates, the selected count and Save disabled.](/docs/screens/replace-related-records.png)
+guide/src/content/docs/guide/model/raise-a-contract-version.md:21:   and choose **Save**. The menu advances it by one.
+guide/src/content/docs/guide/model/raise-a-contract-version.md:28:   edit **Sunset day**, enter a calendar date in year-month-day form and **Save**. Clear it
+guide/src/content/docs/guide/model/change-a-workspaces-model.md:60:in a draft. Releases themselves are immutable. **Cancel** leaves the workspace on its
+guide/src/content/docs/guide/model/edit-a-record-page.md:63:   and choose **Save**. The choices come from the panel's allowed sort fields.
+guide/src/content/docs/guide/model/edit-a-record-page.md:108:4. Choose **Save** and inspect the preview with a record that has parents. Undo restores the saved step.
+guide/src/content/docs/guide/model/edit-a-record-page.md:125:5. Choose **Save** and review columns, sorting and Issues. Changing settings does not rewrite stored
+guide/src/content/docs/administer/deployment-pages.md:25:Read the explanation next to a setting before asking for a change. Values come from the running service’s environment and change after a restart; there is no Save control here. A warning that cursors do not survive a restart means the operator needs to configure a stable signing key for collection navigation. Give them the warning text rather than repeatedly retrying an old position.
+guide/src/content/docs/administer/clients.md:21:A client has a stable **Client ID**, a display name and a secret. Select the name where it stands and choose **Save** to rename it. The save notice offers **Undo**. Its ID stays the same, so the connected system needs no new configuration. **New client** asks for **Name**. **Add client** opens **Copy the client's secret**. Store the ID and secret securely before **I have copied it**; the secret is shown once. A new client starts
+guide/src/content/docs/administer/clients.md:100:Save the replacement from its one-time dialog and have the integration owner configure it.
+guide/src/content/docs/model/the-model-editor.md:29:change it with **Save**, or leave it with **Cancel**. Menus offer operations such as **Rename…**,
+guide/src/content/docs/model/the-model-editor.md:32:A short operation, such as renaming or choosing a value type, opens beneath its control in a small popover. Pick several items there with **Apply**; save a single setting with **Save**. Longer forms and forms needing a preview open beside the page as sheets. Adding uses **Add** followed by the thing's name; moving uses **Move**. Confirmations remain small centred dialogs. The same validation and draft **Undo** apply whichever form is shown.
+guide/src/content/docs/model/the-model-editor.md:68:For a collection with several views, edit **Opens on** in place and **Save** the choice.
+guide/src/content/docs/model/the-model-editor.md:176:this does not rename a release. **Saved as you go** means closing keeps the draft and proposals.
+guide/src/content/docs/guide/model/add-a-relationship.md:38:   history step. If refused, correct the named combination or migration problem. **Cancel**
+guide/src/content/docs/guide/model/add-a-relationship.md:82:3. Choose **Save** and inspect the row's summary. These conditions restrict new choices in
+guide/src/content/docs/guide/model/add-a-relationship.md:100:3. To revise limits together, choose **Cardinality and required…** and choose **Save** for the intended
+guide/src/content/docs/guide/model/rename-or-re-key-an-element.md:13:   a record type also offers **Plural name**. Save, then check navigation and views using it.
+guide/src/content/docs/guide/model/rename-or-re-key-an-element.md:16:   **Change keys…**. Save and inspect the affected definitions and **Issues**. The editor follows
+guide/src/content/docs/guide/model/move-records-to-another-model.md:22:   check; it does not copy records. **Cancel** leaves the dialog without starting the flow.
+guide/src/content/docs/use/lists-and-filters.md:112:**Not set**, **Cleared** and **Empty text** distinguish missing, stored null and empty text.
+guide/src/content/docs/guide/model/create-a-model-draft.md:21:   base release or empty draft name prevents creation. **Cancel** closes the dialog without
+guide/src/content/docs/guide/model/retire-or-delete-a-workspace.md:23:   choose **Delete workspace**. Cancel preserves it. Do not treat deletion as reversible retirement.
+guide/src/content/docs/guide/model/map-a-column.md:34:9. Choose **Save the value map** to keep its replacements, or **Cancel** to leave them unchanged.
+guide/src/content/docs/guide/model/raise-a-model-language-version.md:25:4. Choose **Raise and reopen** only after reviewing that scope, or **Cancel** to leave it.
+guide/src/content/docs/guide/model/remove-an-element.md:16:3. Cancel if any named effect is unwanted. Otherwise confirm, inspect the remaining model
+guide/src/content/docs/guide/model/remove-an-element.md:26:   Cancel the review to leave workspace data unchanged.
+guide/src/content/docs/guide/model/install-and-activate-a-release.md:36:   workspace. Wait for the outcome. **Cancel** in the install dialog leaves the draft saved
+guide/src/content/docs/guide/model/install-and-activate-a-release.md:144:consumer checks too. Cancelling a migration preview leaves workspace data unchanged; a release
+guide/src/content/docs/guide/model/delete-a-draft.md:14:   attached workbook. Installed releases are not changed. Choose **Cancel** to keep it.
+guide/src/content/docs/guide/model/choose-what-moves.md:23:4. Choose **Dry run this selection**. Cancel keeps the previous selection. Wait for the fresh
+guide/src/content/docs/guide/model/fix-issues-before-installing.md:20:4. Save the correction and wait for validation. Reopen **Issues** and resolve the remaining errors.
+guide/src/content/docs/guide/model/fix-issues-before-installing.md:47:   their next publication. Use **Cancel** while further work is needed; the draft stays saved.
+guide/src/content/docs/guide/model/migrate-a-workspace.md:16:   Wait for every record to be checked, or **Cancel the preview**. Leaving keeps the job running.
+guide/src/content/docs/guide/model/migrate-a-workspace.md:36:   Choose **Cancel** to keep the current data; a release already installed remains installed.
+guide/src/content/docs/guide/model/arrange-applications-and-views.md:43:one of its views, then **Save**. To remove a non-matrix view, choose **Remove view**. Read
+guide/src/content/docs/guide/model/change-a-model-with-the-assistant.md:24:3. Read the disclosure of what is sent. Choose **Ask the assistant**, or **Cancel** to leave
+guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md:28:   Choose **Cancel** if you do not intend to create it.
+guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md:68:3. Choose **See the data with these changes** to correct anything unexpected. Save those corrections and
+guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md:92:2. Read the confirmation. It names how many records and relationships become live, explains that unrelated live changes stay, and that a conflicting live edit publishes nothing. Follow **Review changes** if you need another look. Choose **Cancel** if you are
+guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md:105:No publication has been confirmed in this screenshot; Cancel leaves it unpublished.*
+guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md:117:   Choose **Cancel** to keep it. Live records and existing publications stay unchanged.
+guide/src/content/docs/guide/model/turn-an-attribute-into-a-list.md:17:4. Choose **Save** and inspect the new type and relationship. Check the original type's fields and
+guide/src/content/docs/guide/model/start-a-draft-from-a-workbook.md:15:Save the file, then select it in **Workbook** in step 2 below. It has three sheets:
+guide/src/content/docs/guide/model/start-a-draft-from-a-workbook.md:38:5. Choose **Create and propose**, or **Cancel** to leave without creating the draft.
+guide/src/content/docs/guide/model/add-a-relation-matrix.md:45:Choose **Save**, review **Issues**, then install and activate the release through your usual
+guide/src/content/docs/guide/model/choose-table-columns-filters-and-sort.md:79:3. Choose **Save**. This saves a draft step; it does not change any record's value or make
+guide/src/content/docs/guide/model/choose-table-columns-filters-and-sort.md:106:3. Choose **Save** and check the arrow on the control.
+guide/src/content/docs/guide/model/reuse-and-change-attributes.md:16:   or **No**, then **Save**. The menu also offers **Make required** / **Make optional** and
+guide/src/content/docs/guide/model/reuse-and-change-attributes.md:43:   either or both, or leave them empty to remove bounds, then **Save** in the popover. A minimum greater
+guide/src/content/docs/guide/model/reuse-and-change-attributes.md:45:2. Edit **Hidden** or **Help text** in the same Settings table and **Save**. These are shared
+guide/src/content/docs/guide/model/preview-a-type.md:18:3. Use **Show an empty record** to see unfilled fields, especially for a new type. No value
+guide/src/content/docs/model/applications-and-views.md:65:**Save**. The choice belongs to that collection in this application; it does not change
+guide/src/content/docs/model/applications-and-views.md:92:view and Save. A collection's **Opens on** choice takes precedence when opening that collection.
+guide/src/content/docs/guide/model/group-collections-in-navigation.md:63:   should see when they open that collection, then **Save**. **Cancel** leaves it unchanged.
+guide/src/content/docs/guide/model/undo-and-review-the-draft-history.md:21:   only if all those reversals are wanted. Cancel keeps them. A field added later cannot stay
+guide/src/content/docs/guide/model/load-a-workbook-into-a-change-set.md:29:   **Install, activate and load**, or **Load** when no activation is needed. **Cancel** leaves
+guide/src/content/docs/guide/model/load-a-workbook-into-a-change-set.md:83:permanently; installed releases remain. Cancelling deletion keeps the draft.
+guide/src/content/docs/guide/model/explain-a-model-change.md:30:6. Decide what to do using the dialog's normal action. Cancel if the result is wrong, fix the
+guide/src/content/docs/guide/model/edit-a-draft-as-json.md:3:description: Save and validate a model document in the specialist draft workbench.
+guide/src/content/docs/guide/model/edit-a-draft-as-json.md:16:4. Choose **Save draft**. This saves your text as a draft step, shown as **JSON edit** in
+guide/src/content/docs/guide/model/edit-a-draft-as-json.md:27:![Workbench actions including Save draft, Compile and compare and Export JSON](/docs/screens/model-json-workbench-actions.png)
+guide/src/content/docs/guide/model/add-a-view.md:20:   choices. **Cancel** leaves the draft unchanged.
+guide/src/content/docs/guide/model/add-a-view.md:70:In **Views**, open a tree or mapping grid’s menu and choose **Change…**. Choose **Save** and
+guide/src/content/docs/guide/model/split-merge-and-move-types.md:29:3. Choose **Save** in the popover and inspect the combined type and **Issues**. Use **Undo** if the result is unwanted.
+guide/src/content/docs/model/model-mappings.md:131:history and proposals. **Cancel** keeps it. Copies and moves already made stay as they are;
+guide/src/content/docs/model/migrations.md:67:## Cancellation, waiting and stale results
+guide/src/content/docs/model/migrations.md:69:**Cancel the preview** stops a running preview; **Cancel** leaves a reviewed one unapplied.
+guide/src/content/docs/use/change-sets.md:263:back to its original fields can still appear as **Saved unchanged**: publishing claims its
+guide/src/content/docs/guide/use/import-a-file.md:31:6. Choose **Load the file**, or **Cancel import** if the result is wrong. Loading checks
+guide/src/content/docs/guide/use/import-a-file.md:53:5. When using a stored profile, choose **Save these fields in the profile** if this reading
+guide/src/content/docs/guide/use/ask-a-list-in-words.md:19:3. Press **Enter**. **Asking…** appears with **Cancel**. Cancel stops waiting for the answer;
+guide/src/content/docs/guide/use/map-codes-between-systems.md:33:3. Choose **Save**. This sets the row to the selected target, replacing any previous
+guide/src/content/docs/guide/use/map-codes-between-systems.md:36:4. Choose **Cancel** if no correction is needed. Where **Save and next** is offered, it saves
+guide/src/content/docs/guide/use/map-codes-between-systems.md:53:   Choose **Add** followed by the target type's name, or **Cancel** to return without creating a target.
+guide/src/content/docs/guide/use/map-codes-between-systems.md:54:3. After creation, review the selected target in the mapping dialog and choose **Save**.
+guide/src/content/docs/guide/use/map-codes-between-systems.md:63:   it. **Cancel** keeps the current mapping.
+guide/src/content/docs/guide/use/map-codes-between-systems.md:68:selection. Choose **Cancel** to leave it as it now stands. Choose **Continue with my selection**
+guide/src/content/docs/guide/use/map-codes-between-systems.md:70:another refusal. Other **Save failed** messages name a rule to resolve before retrying.
+guide/src/content/docs/guide/use/fill-in-a-relation-matrix.md:197:full name record. Cancel leaves its fields unchanged.*
+guide/src/content/docs/guide/model/define-a-consumer-api.md:68:   (objectType, id, code, name)** and choose **Save**. The **Parent** section appears below
+guide/src/content/docs/guide/model/define-a-consumer-api.md:73:   the proposed camelCase name. Edit that name if consumers need another one, then choose **Save**.
+guide/src/content/docs/guide/model/define-a-consumer-api.md:129:   no value. Save the value or cancel. Use the served type: a text fallback cannot stand
+guide/src/content/docs/guide/model/define-a-consumer-api.md:227:stops too. Cancel to retain them, or confirm and inspect the contract difference. **Undo**
+guide/src/content/docs/guide/model/define-a-consumer-api.md:240:only when consumers are ready to lose that access after activation. Cancel keeps it. Undo
+guide/src/content/docs/guide/use/propose-targets.md:27:   Use **Change** and **Save** to replace a wrong target. Its AI mark disappears.
+guide/src/content/docs/guide/use/delete-a-record.md:13:2. Read **Delete …?**. Wait while **Checking what deleting it would take…** is shown. Nothing is deleted while refiroo reads the impact. If that read fails, choose **Retry** after resolving the stated problem, or **Cancel** to leave it.
+guide/src/content/docs/guide/use/delete-a-record.md:17:4. Confirm once, only when that is the intended impact. The button says **Delete N records** when dependants are included, or **Delete** followed by the record type's name for a single record. **Cancel** leaves everything in place.
+guide/src/content/docs/guide/use/approve-a-change-set.md:18:   needs context, then choose **Submit**. **Cancel** leaves it unsubmitted.
+guide/src/content/docs/guide/use/approve-a-change-set.md:95:   The change set is validated again and waits for a new decision. **Cancel** leaves it editable.
+guide/src/content/docs/use/relationships.md:132:connection; the form offers a search labelled with the related type's name and any fields on the connection, then **Set**. Other actions use **Add** followed by the type's name, **Change** or **Save** as appropriate. **Remove relationship** removes only the connection immediately, keeping both records; the notice offers **Undo**.
+guide/src/content/docs/guide/use/correct-a-record.md:3:description: Save a correction, handle a refused save, and check who changed what.
+guide/src/content/docs/guide/use/correct-a-record.md:23:   date control. A Yes/No value is a switch that saves as soon as you change it. To make an
+guide/src/content/docs/guide/use/correct-a-record.md:29:   puts the old value back. There are no **Save** or **Cancel** buttons unless a save is refused.
+guide/src/content/docs/guide/use/correct-a-record.md:36:![One numeric field open for correction with Cancel and Save](/docs/screens/stop-edit-field.png)
+guide/src/content/docs/guide/use/correct-a-record.md:45:and the reason beneath it, followed by **Cancel** and **Save again**. Leaving it again retries
+guide/src/content/docs/guide/use/correct-a-record.md:57:4. Scroll through the form and choose **Save**. On success, the form closes and the
+guide/src/content/docs/guide/use/correct-a-record.md:59:   it and save again. Choose **Cancel** to leave without saving the form.
+guide/src/content/docs/guide/use/correct-a-record.md:72:2. Decide whether your correction still applies. Adjust the input if needed. Choose **Save again**
+guide/src/content/docs/guide/use/correct-a-record.md:73:   only after reviewing the current values, or **Cancel** to abandon your correction.
+guide/src/content/docs/guide/use/correct-a-record.md:75:   than repeatedly choosing **Save again**. If **Reload current value** appears, use it to load the
+guide/src/content/docs/guide/use/edit-in-excel-and-import-back.md:47:Use **Cancel import** if the preview includes unexpected changes.
+guide/src/content/docs/guide/use/continue-an-assistant-task.md:61:   change set, including any edits you or others made there. Cancel to preserve it. Live data
+guide/src/content/docs/guide/use/change-how-refiroo-looks.md:14:   works in either mode. The page changes immediately; there is no Save button.
+guide/src/content/docs/guide/use/delete-many-records.md:28:it did not inspect. Cancellation stops remaining work and leaves already committed removals in place.
+guide/src/content/docs/guide/use/copy-or-move-records.md:27:   or **Start the move** to load the proposal; **Cancel** keeps the work unstarted.
+guide/src/content/docs/guide/use/relate-records.md:36:   check that the connected record appears in the section. **Cancel** abandons the connection;
+guide/src/content/docs/guide/use/relate-records.md:56:   Choose **Cancel** to keep the existing connection.
+guide/src/content/docs/guide/use/relate-records.md:66:and choose **Save**; use **Change** when replacing the related record itself. A version refusal
+guide/src/content/docs/guide/use/relate-records.md:95:   missing values or duplicate before retrying. **Cancel** leaves without creating the record.
+guide/src/content/docs/use/mapping-grids.md:65:finish **Save**. Cancelling the mapping does not undo a target already created.
+guide/src/content/docs/use/mapping-grids.md:109:form but does not save the mapping: finish **Save** separately.
+guide/src/content/docs/use/mapping-grids.md:153:Correct a wrong target through **Change** and **Save**, or remove the mapping if allowed.
+guide/src/content/docs/use/appearance-and-devices.md:8:apply immediately and need no Save button. Other browsers and devices keep their own choices.
+guide/src/content/docs/guide/use/propose-a-change.md:14:   **Cancel** leaves Live unchanged. If one already exists, refiroo continues your newest
+guide/src/content/docs/guide/use/propose-a-change.md:27:Graubünden workspace. Cancel closes the dialog without starting a change set.*
+guide/src/content/docs/use/account.md:51:2. Choose **Save new password**. A successful save keeps this browser signed in and signs out
+guide/src/content/docs/use/account.md:52:   your other browsers. **Cancel** closes the form without changing the password.
+guide/src/content/docs/use/account.md:138:an unattended signed-in browser adding a lasting sign-in method. Cancellation adds nothing.
+guide/src/content/docs/use/account.md:152:Select the passkey's name where it stands to edit it. Choose **Save** after changing it; the notice offers **Undo**. **Remove …**
+guide/src/content/docs/use/account.md:155:**Rotate recovery codes**. Save the replacements: the old recovery codes stop working. Removing the
+guide/src/content/docs/use/account.md:196:1. If **Use a passkey** is offered, choose it and complete the device prompt. Cancelling the
+guide/src/content/docs/use/account.md:206:   continue**. Save the recovery codes when they are shown.
+guide/src/content/docs/use/inbox-and-approvals.md:49:current filters, or **Cancel** to keep them. Unread notices and the jobs or change sets remain.
+guide/src/content/docs/use/inbox-and-approvals.md:190:Choose **Submit** to validate and send the request, or **Cancel** to leave it editable.
+guide/src/content/docs/use/jobs.md:34:   **Failed**, **Completed**, **Cancelled** or **Expired**. Select one to narrow the table;
+guide/src/content/docs/use/jobs.md:38:   **Refresh** reads again; **Load more jobs** continues the list. **Cancel** is offered
+guide/src/content/docs/use/jobs.md:59:**Cancel requested** means stopping has been requested, not that all work has stopped.
+guide/src/content/docs/use/jobs.md:87:## Cancellation and access
+guide/src/content/docs/use/jobs.md:89:Cancel queued, running or waiting work with the offered cancel button and its confirmation.
+guide/src/content/docs/use/jobs.md:90:Cancellation stops future work; it does not roll back already committed chunks. All-or-nothing
+guide/src/content/docs/use/jobs.md:108:| Queued | Waiting to start. Cancel if the work is no longer wanted. |
+guide/src/content/docs/use/jobs.md:113:| Cancelled | Cancellation has finished. Check what was applied before it stopped. |
+guide/src/content/docs/use/jobs.md:118:Cancelled all-or-nothing work rolls back its transaction completely. **Not reached** items
+guide/src/content/docs/use/jobs.md:133:**Cancel this job?** offers **Stop the job** or **Keep the job**. If it finished first, read the
+guide/src/content/docs/use/jobs.md:146:On a waiting preview's own page, **Cancel this import?** offers **Discard the import**,
+guide/src/content/docs/use/jobs.md:147:or **Cancel this preview?** offers **Discard the preview**. **Keep the import** or **Keep the
+guide/src/content/docs/use/jobs.md:149:until expiry. On the Jobs list, the confirmation button is **Cancel job** instead.
+guide/src/content/docs/guide/use/arrange-records-in-a-tree.md:49:   **Cancel** leaves its placement unchanged.
+guide/src/content/docs/guide/use/arrange-records-in-a-tree.md:58:values before applying it. Cancel if you only intended to change the parent.
+guide/src/content/docs/guide/use/change-relationship-values-in-bulk.md:74:selection if you need to investigate refusals beyond those shown. **Cancel** closes without
+guide/src/content/docs/use/workspaces.md:87:**Cancel** closes the sheet and removes the draft made for the review. If removal fails,
+guide/src/content/docs/guide/use/load-the-next-version-of-a-workbook.md:62:3. Choose **Delete the file** to continue or **Cancel** to keep it. After deletion, upload a

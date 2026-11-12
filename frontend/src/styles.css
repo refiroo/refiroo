@@ -12,4 +12,17 @@
 @import "./styles/home.css";
 @import "./styles/sign-in.css";
 @import "./styles/model-editor.css";
+@import "./styles/shell.css";
+@import "./styles/frames.css";
+@import "./styles/interactions.css";
+@import "./styles/editor-popovers.css";
+@import "./styles/plain-path.css";
+@import "./styles/plain-words.css";
+@import "./styles/workspace-page.css";
+@import "./styles/from-workbook.css";
+@import "./styles/settings-inplace.css";
+@import "./styles/mail-template.css";
+@import "./styles/record-area.css";
+@import "./styles/workbook-canvas.css";
+@import "./styles/settings-family.css";
 @import "./styles/responsive.css";

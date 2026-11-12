@@ -63,18 +63,18 @@ async function walk(configuration) {
     await page.goto(`${uiUrl}/settings/people`);
     await page.getByRole("heading", { level: 1, name: "People" }).waitFor();
     const navigation = page.getByRole("navigation", { name: "Settings" });
-    await navigation.getByRole("heading", { name: "Security" }).waitFor();
+    await navigation.getByRole("link", { name: "Roles", exact: true }).waitFor();
     await page.getByRole("button", { name: "New person" }).click();
     const create = page.getByRole("dialog", { name: "New person" });
     // The e-mail address is asked for; a malformed one is refused by the engine and said under its
     // field, not as "Request validation failed" (found by the user, 2026-10-24).
     await create.getByLabel("Name", { exact: true }).fill(lena.name);
     expect(
-      await create.getByRole("button", { name: "Create and make a password link" }).isDisabled(),
+      await create.getByRole("button", { name: "Add person" }).isDisabled(),
       `${tag}: a person without an e-mail address is not sent`,
     );
     await create.getByLabel("E-mail", { exact: true }).fill("not an e-mail");
-    await create.getByRole("button", { name: "Create and make a password link" }).click();
+    await create.getByRole("button", { name: "Add person" }).click();
     await create.getByText("An e-mail address looks like name@example.org.").waitFor();
     expect(
       (await create.getByText("Request validation failed").count()) === 0,
@@ -83,14 +83,14 @@ async function walk(configuration) {
     checks.push(`${tag}: New person asks for the e-mail address, and the engine's e-mail refusal by field`);
     await create.getByLabel("E-mail", { exact: true }).fill(lena.email);
     await create.getByLabel("Name", { exact: true }).fill(lena.name);
-    await create.getByRole("button", { name: "Create and make a password link" }).click();
+    await create.getByRole("button", { name: "Add person" }).click();
     const shown = page.getByRole("dialog", { name: "Pass on the password link" });
     const link = await shown.locator("code").innerText();
     expect(link.includes("/reset-password?token="), `${tag}: the link opens the application's reset page: ${link}`);
     await shot(page, "link-shown-once");
     await axe(page, `${tag}-link-dialog`);
     await shown.getByRole("button", { name: "I have copied it" }).click();
-    await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await page.getByRole("heading", { level: 1, name: lena.name }).waitFor();
     await page.getByText("Has not set a password yet").waitFor();
     checks.push(`${tag}: a new person, their one-time link shown once`);
 
@@ -108,11 +108,11 @@ async function walk(configuration) {
     // 3. Grant Data steward in the default workspace, narrowed to one record type; by keyboard into the
     // dialog, Escape returns to its button.
     await page.reload();
-    await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await page.getByRole("heading", { level: 1, name: lena.name }).waitFor();
     const grantButton = page.getByRole("button", { name: "Grant", exact: true });
     await grantButton.focus();
     await page.keyboard.press("Enter");
-    let dialog = page.getByRole("dialog", { name: `Grant ${lena.name} access` });
+    let dialog = page.getByRole("dialog", { name: `${lena.name}'s access` });
     await dialog.getByText("Where").waitFor();
     await page.keyboard.press("Tab");
     expect(
@@ -140,7 +140,7 @@ async function walk(configuration) {
       `${tag}: Escape returns to Grant`,
     );
     await grantButton.click();
-    dialog = page.getByRole("dialog", { name: `Grant ${lena.name} access` });
+    dialog = page.getByRole("dialog", { name: `${lena.name}'s access` });
     await dialog.getByRole("checkbox", { name: "Data steward" }).check();
     await dialog.getByRole("button", { name: "Add workspace" }).click();
     await chooseOnly(page, /^Default/);
@@ -155,10 +155,12 @@ async function walk(configuration) {
     await dialog.getByText(`changing only ${recordType.name}`, { exact: false }).waitFor();
     await shot(page, "grant-dialog");
     await axe(page, `${tag}-grant-dialog`);
-    await dialog.getByRole("button", { name: "Grant", exact: true }).click();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await dialog.waitFor({ state: "detached" });
     const roles = page.getByRole("group", { name: "Roles" });
-    await roles.getByRole("row", { name: new RegExp(`Data steward.*${recordType.name}`) }).waitFor();
+    await roles
+      .locator(".grant-place", { hasText: new RegExp(`Data steward.*writes: .*${recordType.name}`) })
+      .waitFor();
     checks.push(`${tag}: Data steward granted in the default workspace, narrowed to ${recordType.name}`);
 
     // 3b. With a role, the person signs in; without Security administration they are not shown it.
@@ -178,7 +180,7 @@ async function walk(configuration) {
     expect(
       (await lenaPage
         .getByRole("navigation", { name: "Settings" })
-        .getByRole("heading", { name: "Security" })
+        .getByRole("link", { name: "Roles", exact: true })
         .count()) === 0,
       `${tag}: a person without Security administration is not shown Security`,
     );
@@ -190,8 +192,8 @@ async function walk(configuration) {
     await page.getByRole("button", { name: "New group" }).click();
     const groupDialog = page.getByRole("dialog", { name: "New group" });
     await groupDialog.getByLabel("Name", { exact: true }).fill("Curators");
-    await groupDialog.getByRole("button", { name: "Create group" }).click();
-    await page.getByRole("heading", { level: 2, name: "Curators" }).waitFor();
+    await groupDialog.getByRole("button", { name: "Add group" }).click();
+    await page.getByRole("heading", { level: 1, name: "Curators" }).waitFor();
     // 0.12 SP1b: people searched and ticked, or pasted as a list; added together.
     await page.getByRole("button", { name: "Add members" }).click();
     const memberDialog = page.getByRole("dialog", { name: "Add members to Curators" });
@@ -210,15 +212,16 @@ async function walk(configuration) {
     await page.getByRole("group", { name: "Members" }).getByText(lena.email).waitFor();
     checks.push(`${tag}: a member added from a search and a pasted list (an unknown line said so), together`);
     await page.getByRole("button", { name: "Grant", exact: true }).click();
-    dialog = page.getByRole("dialog", { name: "Grant Curators access" });
+    dialog = page.getByRole("dialog", { name: "Curators's access" });
     await dialog.getByRole("checkbox", { name: "Reader" }).check();
     await dialog.getByRole("button", { name: "Add workspace" }).click();
     await chooseOnly(page, new RegExp(SECOND.label));
     await dialog.getByText(`Curators will read everything in ${SECOND.label}.`).waitFor();
-    await dialog.getByRole("button", { name: "Grant", exact: true }).click();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await page
       .getByRole("group", { name: "Roles" })
-      .getByRole("row", { name: new RegExp(SECOND.label) })
+      .getByRole("list", { name: `Roles in ${SECOND.label}` })
+      .getByText("Reader", { exact: true })
       .waitFor();
     await shot(page, "groups");
     await axe(page, `${tag}-groups`);
@@ -226,16 +229,23 @@ async function walk(configuration) {
 
     // 5. The person's page: both roles, one through the group; their groups.
     await page.getByRole("group", { name: "Members" }).getByRole("link", { name: lena.name }).click();
-    await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
-    await roles.getByRole("row", { name: new RegExp(`${SECOND.label}.*Reader.*Group Curators`) }).waitFor();
+    await page.getByRole("heading", { level: 1, name: lena.name }).waitFor();
+    await roles
+      .getByRole("list", { name: `Roles in ${SECOND.label}` })
+      .locator(".access-chip", { hasText: /Reader.*through Curators/ })
+      .waitFor();
     await page
-      .getByRole("list", { name: `${lena.name}'s groups` })
+      .getByRole("group", { name: `${lena.name}'s groups` })
       .getByRole("link", { name: "Curators" })
       .waitFor();
-    const entry = page.getByRole("navigation", { name: "People" }).getByRole("button", { name: new RegExp(lena.name) });
-    await entry.getByText(/Data steward · /).waitFor();
+    // Back by the trail: the list names their roles as chips, and the row opens the page again.
+    await page.getByLabel("Where you are").getByRole("link", { name: "People", exact: true }).click();
+    const entry = page.getByRole("button", { name: new RegExp(lena.name) });
+    await entry.getByText("Data steward").waitFor();
     await shot(page, "person");
     await axe(page, `${tag}-people`);
+    await entry.click();
+    await page.getByRole("heading", { level: 1, name: lena.name }).waitFor();
     checks.push(`${tag}: the person's page names both roles, one through the group; the list names their roles`);
 
     // 5b. Their recent activity (0.12 Z4, D319): what was done to them and by them, each by whom.
@@ -289,11 +299,11 @@ async function walk(configuration) {
     await roleDialog.getByLabel("Name", { exact: true }).fill("Careful steward");
     await roleDialog.getByRole("button", { name: /Start from$/ }).click();
     await page.getByRole("option", { name: /^Data steward/ }).click();
-    await roleDialog.getByRole("button", { name: "Create role" }).click();
+    await roleDialog.getByRole("button", { name: "Add role" }).click();
     const publish = page.getByRole("checkbox", { name: "Careful steward: Publish" });
     expect(await publish.isChecked(), `${tag}: the copy starts with Data steward's Publish`);
     await publish.uncheck();
-    await page.getByRole("button", { name: "Save role" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByRole("button", { name: "Edit Careful steward" }).waitFor();
     const careful = (await api("/roles?pageSize=500")).items.find((role) => role.name === "Careful steward");
     expect(
@@ -321,7 +331,7 @@ async function walk(configuration) {
     await access.getByRole("button", { name: `Remove Data steward from ${lena.name}` }).click();
     await page
       .getByRole("alertdialog", { name: `Remove Data steward from ${lena.name}?` })
-      .getByRole("button", { name: "Remove", exact: true })
+      .getByRole("button", { name: "Remove grant", exact: true })
       .click();
     await rowOf(new RegExp(`${lena.name}[\\s\\S]*Data steward`)).waitFor({ state: "detached" });
     checks.push(`${tag}: a workspace's Access lists who can do what and removes a grant`);
@@ -352,7 +362,7 @@ async function walk(configuration) {
     await access.getByRole("button", { name: `Remove ${held} from ${sync.name}` }).focus();
     await page.keyboard.press("Enter");
     const removal = page.getByRole("alertdialog", { name: `Remove ${held} from ${sync.name}?` });
-    await removal.getByRole("button", { name: "Remove", exact: true }).focus();
+    await removal.getByRole("button", { name: "Remove grant", exact: true }).focus();
     await page.keyboard.press("Enter");
     await rowOf(new RegExp(sync.name)).waitFor({ state: "detached" });
     expect(!(await api(`/grants?principalId=${sync.id}`)).items.length, `${tag}: the consumer API grant is removed`);
@@ -361,8 +371,9 @@ async function walk(configuration) {
     // 8. Deactivating the only Security administrator is refused as the engine words it.
     const [self] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.email)}`)).items;
     await page.goto(`${uiUrl}/settings/people/${self.id}`);
-    await page.getByRole("heading", { level: 2, name: self.name }).waitFor();
-    await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+    await page.getByRole("heading", { level: 1, name: self.name }).waitFor();
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Deactivate", exact: true }).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.waitFor().catch(async (error) => {
       await shot(page, "debug-deactivate");
@@ -379,7 +390,7 @@ async function walk(configuration) {
     const gone = await api("/users", { email: `gone-${tag}@example.org`, name: `Gone ${tag}` });
     await api(`/users/${gone.id}`, { expectedVersion: gone.version, active: false, email: null }, "PATCH");
     await page.goto(`${uiUrl}/settings/people/${gone.id}`);
-    await page.getByRole("heading", { level: 2, name: `Gone ${tag}` }).waitFor();
+    await page.getByRole("heading", { level: 1, name: `Gone ${tag}` }).waitFor();
     await page.getByRole("button", { name: "Restore", exact: true }).click();
     const restore = page.getByRole("dialog", { name: `Restore Gone ${tag}` });
     await restore.getByLabel("E-mail", { exact: true }).waitFor();
@@ -426,12 +437,12 @@ async function walk(configuration) {
     await managedPage.waitForTimeout(700); // the dialog's opening animation
     await shot(managedPage, "new-person-managed-narrow");
     await axe(managedPage, `${tag}-new-person-managed`);
-    await kioskDialog.getByRole("button", { name: "Create and make a password link" }).click();
+    await kioskDialog.getByRole("button", { name: "Add person" }).click();
     await managedPage
       .getByRole("dialog", { name: "Pass on the password link" })
       .getByRole("button", { name: "I have copied it" })
       .click();
-    await managedPage.getByRole("heading", { level: 2, name: "Kiosk Account" }).waitFor();
+    await managedPage.getByRole("heading", { level: 1, name: "Kiosk Account" }).waitFor();
     const [kioskPerson] = (await api(`/users?q=${encodeURIComponent(kioskEmail)}`)).items;
     expect(kioskPerson?.signInManaged === true, `${tag}: the engine holds signInManaged for the new person`);
     await managedPage.getByRole("button", { name: /^Edit/ }).first().click();
@@ -455,11 +466,8 @@ async function walk(configuration) {
     const night = await dark.newPage();
     await night.goto(`${uiUrl}/settings/people`);
     await night.getByRole("heading", { level: 1, name: "People" }).waitFor();
-    await night
-      .getByRole("navigation", { name: "People" })
-      .getByRole("button", { name: new RegExp(lena.name) })
-      .click();
-    await night.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await night.getByRole("button", { name: new RegExp(lena.name) }).click();
+    await night.getByRole("heading", { level: 1, name: lena.name }).waitFor();
     await night.getByRole("group", { name: "Roles" }).waitFor();
     await shot(night, "person-dark");
     await axe(night, `${tag}-people-dark`);
@@ -474,11 +482,8 @@ async function walk(configuration) {
     await phone.getByRole("heading", { level: 1, name: "People" }).waitFor();
     expect((await overflow(phone)) <= 0, `${tag}: People scrolls sideways at 390px`);
     await shot(phone, "people-narrow");
-    await phone
-      .getByRole("navigation", { name: "People" })
-      .getByRole("button", { name: new RegExp(lena.name) })
-      .click();
-    await phone.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await phone.getByRole("button", { name: new RegExp(lena.name) }).click();
+    await phone.getByRole("heading", { level: 1, name: lena.name }).waitFor();
     expect((await overflow(phone)) <= 0, `${tag}: a person's page scrolls sideways at 390px`);
     await shot(phone, "person-narrow");
     await phone.goto(`${uiUrl}/settings/roles`);

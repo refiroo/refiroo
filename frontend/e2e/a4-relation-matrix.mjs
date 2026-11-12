@@ -567,7 +567,7 @@ try {
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(name);
     await dialog.getByRole("textbox", { name: "Value code" }).fill(name.slice(7, 8) + "X");
     await dialog.getByRole("textbox", { name: "Value name" }).fill(name);
-    await dialog.getByRole("button", { name: "Create system value" }).click();
+    await dialog.getByRole("button", { name: "Add system value" }).click();
     await dialog.waitFor({ state: "detached" });
     const filledRead = await matrixRead("rdm-systems&viewKey=codelists-by-system", "&search=Codelist Alpha");
     const filledCell = filledRead.items

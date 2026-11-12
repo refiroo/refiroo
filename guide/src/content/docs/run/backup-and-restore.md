@@ -72,7 +72,7 @@ After inspection, remove only the scratch database, using the same server connec
 dropdb rdm_restore_check
 ```
 
-Open **Settings › Administration › Operations › Last backup rehearsal**. Before the first check,
+Open **Settings › This instance › Operations › Last backup rehearsal**. Before the first check,
 **No backup has been rehearsed** means no result has been recorded. After a check it shows **Passed**
 or **Failed**, the backup name when supplied, the copy's revision and the workspace results.
 **Records**, **Relationships**, **Open change sets** and **Publications** count the restored copy;

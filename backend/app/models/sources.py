@@ -11,7 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .commands import BatchItem
-from .imports import Block, CsvOptions, InlineProfile
+from .imports import COLUMN_LETTERS, Block, CsvOptions, InlineProfile
 
 SourceFormat = Literal["xlsx", "csv"]
 
@@ -108,6 +108,44 @@ class ListProposalRequest(BaseModel):
     headerRow: int = Field(ge=1)
     block: Block
     applicationKey: str | None = Field(default=None, min_length=1)
+
+
+class JoinColumnRef(BaseModel):
+    """A table of the draft's file, as a source takes it (sheet, header row and block), and one of
+    its columns by its header text or its sheet letter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sheet: str = Field(min_length=1)
+    headerRow: int | None = Field(
+        default=None, ge=1, description="The sheet's own header row when left out"
+    )
+    block: Block | None = None
+    column: str | None = Field(default=None, min_length=1)
+    letter: str | None = Field(default=None, pattern=COLUMN_LETTERS)
+
+    @model_validator(mode="after")
+    def one_column(self) -> JoinColumnRef:
+        if self.column is not None and self.letter is not None:
+            raise ValueError("Name the column by column or by letter, not both")
+        return self
+
+
+class JoinCandidatesRequest(BaseModel):
+    """``POST /model-drafts/{id}/join-candidates`` (0.17 PP-D8): the column ``column`` (one of the
+    two, by header or letter) compared over every row with the column ``against`` names, or, when
+    ``against`` names no column, with every column of its table."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    column: JoinColumnRef
+    against: JoinColumnRef
+
+    @model_validator(mode="after")
+    def column_named(self) -> JoinCandidatesRequest:
+        if self.column.column is None and self.column.letter is None:
+            raise ValueError("column names the dropped column by column or letter")
+        return self
 
 
 class InferenceApplicationRequest(BaseModel):

@@ -46,7 +46,7 @@ Default retention is seven days. Download output and retain the source reconcili
 | `JOB_HAS_NO_OUTPUT` | Use the kind's outcomes or subject rather than a file. |
 | `JOB_OUTPUT_MISSING` | Ask the operator to investigate lost job storage. |
 
-Operators can inspect these same jobs in Settings › Data operations › Jobs, including state, result, counts, cancellation and current limits. For browser tasks, follow [Importing and exporting data](/docs/use/importing-and-exporting/).
+Operators can inspect these same jobs in Settings › This instance › Jobs, including state, result, counts, cancellation and current limits. For browser tasks, follow [Importing and exporting data](/docs/use/importing-and-exporting/).
 
 ## A job’s context and limits
 

@@ -139,3 +139,13 @@ export function useToast(): ShowToast {
   if (!show) throw new Error("useToast needs a ToastProvider");
   return show;
 }
+
+const NO_TOAST: ShowToast = () => undefined;
+
+/**
+ * Shows a confirmation where a `ToastProvider` is above, and nothing where none is: for a control that is
+ * drawn inside and outside the application frame (a field that offers Undo after it saves, 0.17 UX1).
+ */
+export function useOptionalToast(): ShowToast {
+  return useContext(ToastContext) ?? NO_TOAST;
+}

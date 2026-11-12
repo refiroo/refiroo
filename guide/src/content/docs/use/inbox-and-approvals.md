@@ -17,7 +17,7 @@ You can also reach **Notifications** from the avatar menu.
 
 ![Inbox panel with unread notices, Mark all read and See all notifications](/docs/screens/use-inbox-panel.png)
 
-*Above: Guide Admin has eight unread Batch finished notices from jobs they started.*
+*Above: Guide Admin’s inbox includes unread workbook, mapping-proposal, move and batch notices. Mark all read is at the top.*
 
 Notices include a change set waiting for your approval, approval or return of your submission,
 a job that finished, failed or needs confirmation, and publications in workspaces you follow.
@@ -25,7 +25,7 @@ A notice is an invitation to inspect the result; a finished job may still have r
 
 ![Notifications page with search, kind, workspace, read-state and sort controls](/docs/screens/use-notifications-page.png)
 
-*Above: the reference account's notices are job results. One has been read; the others are highlighted.*
+*Above: The reference account’s notices include workbook results, mapping proposals, migrations, batches and moves. Unread notices are highlighted; read notices have a plain background.*
 
 On **Notifications**, search by change set, comment, person or job. **Kind**, **Workspace** and
 **Show** narrow the list; **Sort** chooses newest or oldest first. Filters cover the stored notices,
@@ -78,15 +78,14 @@ requirement. That action records their approval as it publishes.
 ## From submission to decision
 
 **Submit for publication** validates the change set and records its submitted version. An optional
-comment gives the approver context. Submission does not change Live. The banner shows
-**Waiting for approval**, the submitter, version and comment. The proposal cannot be edited while
+comment gives the approver context. Submission does not change Live. The band says **waits for approval**. Open **Details** for the submitter and submitted version,
+and the review’s **Decision** panel for the comment. The proposal cannot be edited while
 it waits. **Withdraw request** ends the request and keeps the proposed work for editing; the
 submitter or an authorised approver can withdraw it.
 
-![Submitted change set with Waiting for approval, its comment and review and withdrawal controls](/docs/screens/appr-submitted.png)
+![Submitted change set awaiting approval with review and withdrawal controls](/docs/screens/appr-submitted.png)
 
-*Above: Guide Admin submitted Guide approval example in Graubünden. Version 2 proposes a height
-correction to Davos Platz; the banner keeps the submission comment visible.*
+*Above: Guide approval example waits for approval in Graubünden. The banner offers Review and decide and Withdraw request; open the review to read the submission details.*
 
 Approvers can find requests under **Waiting for your approval** on [Home](/docs/use/home/), or
 through the bell's **Waiting for your approval** notice. Both lead to the review. Opening a
@@ -122,8 +121,7 @@ new request needing its own decision.
 
 ![Editable change set showing who sent it back and their reason](/docs/screens/appr-sent-back.png)
 
-*Above: Rita asks Guide Admin to name the source of the new height. Review changes, Validate change
-set and Submit for publication are available again; the correction has not reached Live.*
+*Above: Rita asks Guide Admin to name the source of the new height. Review changes and Submit for publication are available again; the correction has not reached Live.*
 
 ## Where the result appears
 

@@ -5,15 +5,16 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page
 from ...common.time import as_utc
 from ...engine.identity.settings import IdentitySettings
-from ...engine.mail import outbox, settings
+from ...engine.mail import mail_template, outbox, settings
 from ...engine.notifications.mailing import NoticeMail
-from ...models.database import MailOutbox, MailSettings
+from ...models.database import MailOutbox, MailSettings, MailTemplate
 from ..schemas.mail import (
     DigestResponse,
     MailCounts,
     MailMessagePage,
     MailMessageResponse,
     MailSettingsResponse,
+    MailTemplateResponse,
     NoticeKindResponse,
     NoticeMailResponse,
 )
@@ -98,4 +99,23 @@ def notice_mail_response(found: NoticeMail) -> NoticeMailResponse:
         )
         if digest
         else None,
+    )
+
+
+def template_response(row: MailTemplate | None) -> MailTemplateResponse:
+    has_logo = row is not None and row.logo is not None and row.logo_type is not None
+    return MailTemplateResponse(
+        markdown=row.body if row else mail_template.DEFAULT_MARKDOWN,
+        defaultMarkdown=mail_template.DEFAULT_MARKDOWN,
+        saved=row is not None,
+        placeholders=list(mail_template.PLACEHOLDERS),
+        logoType=row.logo_type if has_logo and row else None,
+        logoDataUrl=(
+            mail_template.data_url(row.logo, row.logo_type)  # type: ignore[arg-type]
+            if has_logo and row
+            else None
+        ),
+        logoMaxBytes=mail_template.MAX_LOGO_BYTES,
+        version=row.version if row else None,
+        updatedAt=as_utc(row.updated_at) if row else None,
     )

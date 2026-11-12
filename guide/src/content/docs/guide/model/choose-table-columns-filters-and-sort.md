@@ -27,7 +27,7 @@ record choices.
 
 ## Choose columns, including fields of related records
 
-1. Choose **Columns…**. The dialog lists **Name**, the type's fields and its relationships,
+1. Choose **Columns…**. The popover lists **Name**, the type's fields and its relationships,
    including its parent relationship where applicable. Check the columns you want to show.
 2. Check a relationship to show the names of related records as a column. To show one of
    their fields, open **Fields of** followed by the relationship's name beneath that choice.
@@ -57,7 +57,7 @@ record's name inside a record-page panel, use that panel's
 ## Choose available filters
 
 1. Choose **Filters…** and select the fields and relationships people may filter by.
-   Choose the relationship itself to offer a relationship filter. The dialog does not unfold
+   Choose the relationship itself to offer a relationship filter. The popover does not unfold
    its fields: a related-field column does not provide a filter on that field.
 2. Choose **Apply** and check the selection. This defines available filters; it does not
    restrict everyone's table to particular values. In the live table, a relationship filter
@@ -70,13 +70,13 @@ again; a refused step changes nothing.
 ## Choose how the table marks inactive records
 
 1. In the **Table** layout, choose **Inactive records…**, beside **Filters…** and
-   **Sort menu and page size…**. The dialog is titled **Inactive records of** followed by
+   **Sort menu and page size…**. The popover is titled **Inactive records of** followed by
    the view's name.
 2. Under **A record is inactive when this is No**, select a Yes/No field of this record type.
    Choose **None** if this table should have no inactive mark or switch. If the field you
    need is missing, check that it belongs to this type and is Yes/No. A field of another
    type, or a field with another kind of value, is refused for this setting.
-3. Choose **Apply**. This saves a draft step; it does not change any record's value or make
+3. Choose **Save**. This saves a draft step; it does not change any record's value or make
    a read-only field editable. The field does not need to be selected in **Filters…**.
    If **Not applied** appears, read the reason, correct the choice and apply again. Use
    **Undo** to reverse an unwanted draft step.
@@ -103,7 +103,7 @@ for the reader's controls.
 1. Choose **Default sort**, whose control shows the current field and direction arrow.
 2. Select **Sorted by** from the view's allowed sort fields. Check **Descending** to reverse
    the order. Related-field columns cannot be chosen as the initial sort.
-3. Choose **Apply** and check the arrow on the control.
+3. Choose **Save** and check the arrow on the control.
 4. Return to preview and inspect real records, including ones with several related records
    and ones with none. An empty table explains what it will show; it does not mean the view
    is broken. Use **Undo** for an unwanted step and review **Issues** before

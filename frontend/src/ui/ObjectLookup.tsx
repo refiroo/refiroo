@@ -27,7 +27,7 @@ export function ObjectLookup({
   selectedLabel,
   chosenIds,
   required,
-  label = "Select object",
+  label = "Select record",
   candidates,
   onChange,
 }: {
@@ -65,7 +65,7 @@ export function ObjectLookup({
   const pendingStep = useRef<{ from: string; step: 1 | -1 } | undefined>(undefined);
   const priorWorkspace = useRef(workspaceKey);
   const chosenId = value?.id ?? selectedId ?? undefined;
-  const chosenLabel = value ? value.name : chosenId ? (selectedLabel ?? `Current object (${chosenId})`) : undefined;
+  const chosenLabel = value ? value.name : chosenId ? (selectedLabel ?? "Current record") : undefined;
   const options = list.items.map((item, position) => ({ item, index: list.startIndex + position }));
   const choices = options.filter(({ item }) => item.id !== excludeId);
   const optionId = (objectId: string) => `${id}-option-${objectId}`;
@@ -216,9 +216,7 @@ export function ObjectLookup({
                     onClick={() => choose(item)}
                   >
                     <span className="object-lookup-name">{item.name}</span>
-                    <small>
-                      {item.applicationKey} / {item.path.map((part) => part.name).join(" / ")}
-                    </small>
+                    <small>{item.path.map((part) => part.name).join(" / ")}</small>
                   </li>
                 ),
               )}
@@ -226,7 +224,7 @@ export function ObjectLookup({
             </ul>
             {!choices.length && (
               <p className="object-lookup-state">
-                {list.loading ? "Loading…" : list.error ? "" : "No matching objects"}
+                {list.loading ? "Loading…" : list.error ? "" : "No matching records"}
               </p>
             )}
           </>

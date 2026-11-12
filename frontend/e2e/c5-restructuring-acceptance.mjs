@@ -64,7 +64,8 @@ function helpers(harness) {
         if (await isFocused(locator)) return;
         await page.keyboard.press(key);
       }
-      throw new Error(`${key} never reached ${label}`);
+      const where = await page.evaluate(() => `${document.activeElement?.tagName} ${document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent?.slice(0, 40)}`);
+      throw new Error(`${key} never reached ${label} (focus: ${where}; present: ${await locator.count()})`);
     },
     /**
      * Reveals `name` through the lens search, opens it, and puts focus back on its tree row. A
@@ -101,7 +102,7 @@ function helpers(harness) {
       dialog.locator(".restructuring-record").filter({ has: page.locator("strong", { hasText: new RegExp(`^${escape(name)}$`) }) }),
     /** Applies the plan by keyboard: Tab to the apply button, Enter, then Done has focus. */
     async applyByKeyboard(dialog, label) {
-      await h.tabTo(dialog.getByRole("button", { name: "Apply to the change set" }), `${label}: Apply`);
+      await h.tabTo(dialog.getByRole("button", { name: "Save" }), `${label}: Apply`);
       await page.keyboard.press("Enter");
       await dialog.getByText("Applied to the change set").waitFor({ timeout: 30000 });
       await page.waitForFunction(() => document.activeElement?.textContent === "Done");
@@ -129,17 +130,17 @@ function helpers(harness) {
       const card = page.locator(".change-set-card").filter({ has: page.getByRole("heading", { level: 2, name, exact: true }) });
       await h.tabTo(card.getByRole("button", { name: "Open change set", exact: true }), "Open change set");
       await page.keyboard.press("Enter");
+      await page.getByRole("button", { name: "See the data with these changes", exact: true }).click();
       await page.getByRole("region", { name: "Change set publication" }).waitFor();
-      await h.tabTo(page.getByRole("button", { name: "Validate change set", exact: true }), "Validate change set");
-      await page.keyboard.press("Enter");
-      await page.getByText("Change set validation passed", { exact: true }).waitFor({ timeout: 30000 });
-      await h.tabTo(page.getByRole("button", { name: "Publish change set", exact: true }), "Publish change set");
+      // A volume change set lists hundreds of rows with a tab stop each: reach Publish from the other side.
+      const publishButton = page.getByRole("button", { name: "Publish", exact: true });
+      await h.tabTo(publishButton, "Publish").catch(() => h.tabTo(publishButton, "Publish (backwards)", "Shift+Tab", 600));
       await page.keyboard.press("Enter");
       const confirm = page.getByRole("alertdialog");
       await confirm.waitFor();
-      await h.tabTo(confirm.getByRole("button", { name: "Publish change set", exact: true }), "confirm publish");
+      await h.tabTo(confirm.getByRole("button", { name: "Publish", exact: true }), "confirm publish");
       await page.keyboard.press("Enter");
-      await page.getByText(/Reviewed changes are now live/).waitFor({ timeout: 30000 });
+      await page.getByText(/The changes are live/).waitFor({ timeout: 30000 });
       return (await api(`/workspaces/${workspaceKey}/publications?pageSize=1`)).items[0];
     },
     /** The review's row for `name` once its list has drawn. */
@@ -319,7 +320,7 @@ try {
   // The review from the applied preview.
   await h.tabTo(dialog.getByRole("button", { name: "Review the change set" }), "Review the change set", "Shift+Tab");
   await page.keyboard.press("Enter");
-  await page.getByRole("heading", { level: 1, name: /Review/ }).waitFor();
+  await page.getByRole("heading", { level: 1, name: /Changes in this change set/ }).waitFor();
   for (const record of [seed.truck, seed.van])
     expect((await readAs(api, "master-value", record.id, inChangeSet)).record?.parentObjectId === surface?.id, `remove: ${record.name} is not under Surface`);
   expect((await readAs(api, "master-value", seed.road.id, inChangeSet)).error?.includes("404"), "remove: Road is still in the change set");
@@ -363,7 +364,7 @@ try {
   await h.findBySearch("Carriers", "Carriers");
   await page.getByRole("heading", { level: 1, name: "Carriers" }).waitFor();
   await h.item("Carriers").waitFor();
-  const crumbs = (await page.getByRole("navigation", { name: "Breadcrumb" }).last().getByRole("button").allTextContents()).slice(1);
+  const crumbs = (await page.getByRole("navigation", { name: "Where you are" }).last().getByRole("button").allTextContents()).slice(1);
   expect(crumbs.join(" › ") === "Domain 00 › Logistics", `publish: the live breadcrumb reads ${crumbs.join(" › ")}`);
   // A record under a top-level record: its type group is level 3, the record level 4 (UA2 revision).
   expect((await h.item("Logistics").getAttribute("aria-level")) === "4", "publish: Logistics is not drawn under Domain 00 in the live tree");
@@ -462,7 +463,7 @@ try {
   const inChangeSet = `${live}&changeSetId=${changeSet.id}`;
   const openTree = async (id) => {
     await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?${live}&changeSetId=${id}`);
-    await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    await page.locator(".tree-lens").getByRole("tree").first().waitFor();
     // UA9 (U-D21): the lens starts folded; open its groups as a user would.
     await openFoldedGroups(page, page.locator(".tree-lens"));
     await h.item(outer.name).waitFor();
@@ -517,7 +518,7 @@ try {
   await h.applyByKeyboard(dialog, "volume remove");
   await h.tabTo(dialog.getByRole("button", { name: "Review the change set" }), "Review the change set", "Shift+Tab");
   await page.keyboard.press("Enter");
-  await page.getByRole("heading", { level: 1, name: /Review/ }).waitFor();
+  await page.getByRole("heading", { level: 1, name: /Changes in this change set/ }).waitFor();
   expect((await readAs(api, "vol-node", innerItem.id, inChangeSet)).record?.parentObjectId === level?.id, "volume remove: the nested item is not under Node level");
   expect((await readAs(api, "vol-node", inner.id, inChangeSet)).error?.includes("404"), "volume remove: the removed level is still there");
   checks.push("volume levels: Insert level above… the nested node names Node level and asks its Code in place; Remove this level… on the nested node moves the nested item up under Node level and deletes it");

@@ -18,7 +18,7 @@ export function HierarchyPanel({ model, object, panel, onOpen }: PanelProps) {
           {parent ? (
             <button onClick={() => onOpen(parent.objectTypeKey, parent.id)}>{parent.name}</button>
           ) : (
-            <strong>Root object</strong>
+            <strong>Top level</strong>
           )}
         </div>
       )}

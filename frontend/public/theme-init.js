@@ -8,15 +8,24 @@ try {
 } catch {
   // Storage may be unavailable; the system theme applies.
 }
-// The colour theme likewise (Normal sets nothing; Website purple sets data-scheme); see src/lib/scheme.ts.
+// The theme likewise (Normal sets nothing; another sets data-scheme, and data-frame when its frame is not the top
+// bar and sidebar); see src/lib/scheme.ts, whose tables these repeat.
 try {
-  if (JSON.parse(localStorage.getItem("rdm:scheme:v1") || '"normal"') === "purple") {
-    document.documentElement.dataset.scheme = "purple";
-    const colours = { light: "#fbf8f1", dark: "#0e1130" };
-    for (const mode in colours)
+  const scheme = JSON.parse(localStorage.getItem("rdm:scheme:v1") || '"normal"');
+  const themes = {
+    purple: { light: "#fbf8f1", dark: "#0e1130" },
+    hearth: { light: "#f6f2ec", dark: "#181613" },
+    studio: { light: "#efeaf6", dark: "#100f16", frame: "sheet" },
+    instrument: { light: "#fbfaf8", dark: "#111113", frame: "rail" },
+  };
+  const chosen = Object.prototype.hasOwnProperty.call(themes, scheme) ? themes[scheme] : null;
+  if (chosen) {
+    document.documentElement.dataset.scheme = scheme;
+    if (chosen.frame) document.documentElement.dataset.frame = chosen.frame;
+    for (const mode of ["light", "dark"])
       document
         .querySelector('meta[name="theme-color"][media="(prefers-color-scheme: ' + mode + ')"]')
-        .setAttribute("content", colours[mode]);
+        .setAttribute("content", chosen[mode]);
   }
 } catch {
   // Storage may be unavailable; Normal applies.

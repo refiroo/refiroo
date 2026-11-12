@@ -8,10 +8,13 @@
 
 import type { ReactNode } from "react";
 import { formatServerDate } from "@/lib/dates";
+import { settingsHead } from "@/features/settings/navigation";
 import { routePath } from "@/routing/routes";
 import type { ModelDraft, ModelReleaseSummary, ModelTab, Workspace } from "@/types";
 import { OpenableRow } from "@/ui/OpenableRow";
 import { RouteLink } from "@/ui/RouteLink";
+import { SettingsLayout } from "@/ui/SettingsLayout";
+import { ItemHeader, SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs, type TabDefinition } from "@/ui/Tabs";
 import { ModelStructure } from "@/features/model-admin/ModelStructure";
@@ -36,19 +39,18 @@ export const MODEL_TAB_LABELS: Record<ModelTab, string> = {
 
 const MODEL_TAB_ORDER: readonly ModelTab[] = ["overview", "releases", "drafts", "structure"];
 
-/** The header of a model's card without the model's own content: the model's name under "Model". */
-export function ModelNameHeader({ label }: { label: string }) {
+/** A model page that has nothing of the model itself to show (loading, not found): the trail, the model's name and what is wrong. */
+export function ModelNamePage({ trail, label, children }: { trail: ReactNode; label: string; children: ReactNode }) {
   return (
-    <header className="model-detail-header">
-      <div>
-        <p className="eyebrow">Model</p>
-        <h2>{label}</h2>
-      </div>
-    </header>
+    <SettingsLayout {...settingsHead("model")} trail={trail} title={label}>
+      {children}
+    </SettingsLayout>
   );
 }
 
 export function ModelDetail({
+  trail,
+  notice,
   model,
   drafts,
   workspaces,
@@ -64,6 +66,10 @@ export function ModelDetail({
   onOpenDraft,
   onOpenWorkspace,
 }: {
+  /** The bar over the page: Models › this model. */
+  trail: ReactNode;
+  /** What the person should know before the page's groups (read-only model administration). */
+  notice?: ReactNode;
   model: ModelLine;
   /** The drafts started from one of the model's releases, newest first. */
   drafts: ModelDraft[];
@@ -97,158 +103,166 @@ export function ModelDetail({
   const content: Record<ModelTab, ReactNode> = {
     overview: (
       <>
-        <dl className="release-metadata">
-          <div>
-            <dt>Newest release</dt>
-            <dd>
+        <SettingsGroup title="About this model">
+          <SettingsPanel>
+            <SettingRow fact name="Newest release">
               <span className="mono">{newest.version}</span> · schema {newest.schemaVersion}
-            </dd>
-          </div>
-          <div>
-            <dt>Installed</dt>
-            <dd>{formatServerDate(newest.installedAt)}</dd>
-          </div>
-        </dl>
-        <section className="model-detail-section" aria-labelledby="model-running-heading">
-          <h3 id="model-running-heading">
-            Running in{" "}
-            <span className="muted">
-              {running.length} {running.length === 1 ? "workspace" : "workspaces"}
-            </span>
-          </h3>
-          {running.length ? (
-            <ul className="model-rows" aria-label={`Workspaces running ${model.name}`}>
-              {running.map((workspace) => {
-                const open = () => onOpenWorkspace(workspace.key);
-                return (
-                  <OpenableRow key={workspace.key} as="li" className="model-row" onOpen={open}>
-                    <RouteLink className="row-title" href={workspaceHref(workspace.key)} onNavigate={open}>
-                      {workspace.label}
-                    </RouteLink>
-                    <span className="mono">{workspace.model.releaseVersion}</span>
-                    {canActivate && (activatesIn?.(workspace.key) ?? true) ? (
-                      <button
-                        type="button"
-                        className="secondary"
-                        aria-label={`Change the model of ${workspace.label}`}
-                        onClick={() => onActivate(workspace.key)}
-                      >
-                        Change model…
-                      </button>
-                    ) : (
-                      <span />
-                    )}
-                  </OpenableRow>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="muted">No workspace runs this model.</p>
-          )}
-        </section>
+            </SettingRow>
+            <SettingRow fact name="Installed">
+              {formatServerDate(newest.installedAt)}
+            </SettingRow>
+          </SettingsPanel>
+        </SettingsGroup>
+        <SettingsGroup
+          title="Running in"
+          description={`${running.length} ${running.length === 1 ? "workspace" : "workspaces"} run this model.`}
+        >
+          <SettingsPanel>
+            {running.length ? (
+              <ul className="model-rows" aria-label={`Workspaces running ${model.name}`}>
+                {running.map((workspace) => {
+                  const open = () => onOpenWorkspace(workspace.key);
+                  return (
+                    <OpenableRow key={workspace.key} as="li" className="model-row" onOpen={open}>
+                      <RouteLink className="row-title" href={workspaceHref(workspace.key)} onNavigate={open}>
+                        {workspace.label}
+                      </RouteLink>
+                      <span className="mono">{workspace.model.releaseVersion}</span>
+                      {canActivate && (activatesIn?.(workspace.key) ?? true) ? (
+                        <button
+                          type="button"
+                          className="secondary"
+                          aria-label={`Change the model of ${workspace.label}`}
+                          onClick={() => onActivate(workspace.key)}
+                        >
+                          Change model…
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                    </OpenableRow>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="settings-panel-pad muted">No workspace runs this model.</p>
+            )}
+          </SettingsPanel>
+        </SettingsGroup>
       </>
     ),
     releases: (
-      <section className="model-detail-section" aria-labelledby="model-releases-heading">
-        <h3 id="model-releases-heading">
-          Releases <span className="muted">{model.releases.length}</span>
-        </h3>
-        <ul className="model-rows" aria-label={`Releases of ${model.name}`}>
-          {model.releases.map((release) => {
-            const by = running.filter((workspace) => workspace.model.releaseId === release.id);
-            const open = () => onOpenRelease(release.id, selected);
-            return (
-              <OpenableRow key={release.id} as="li" className="model-row" onOpen={open}>
-                <RouteLink
-                  className="row-title mono"
-                  href={releaseHref(release.id)}
-                  onNavigate={open}
-                  aria-label={`${model.name} ${release.version}`}
-                >
-                  {release.version}
-                </RouteLink>
-                <span className="model-row-marks">
-                  {release.status === "retired" && (
-                    <StatusPill tone="warning" marker={false}>
-                      Retired
-                    </StatusPill>
-                  )}
-                  {by.map((workspace) => (
-                    <StatusPill key={workspace.key} tone="success" marker={false}>
-                      {workspace.label}
-                    </StatusPill>
-                  ))}
-                </span>
-                <span className="muted">
-                  schema {release.schemaVersion} · {formatServerDate(release.installedAt)}
-                </span>
-              </OpenableRow>
-            );
-          })}
-        </ul>
-      </section>
+      <SettingsGroup
+        title="Releases"
+        description={`${model.releases.length} installed, the newest first. A release never changes once installed.`}
+      >
+        <SettingsPanel>
+          <ul className="model-rows" aria-label={`Releases of ${model.name}`}>
+            {model.releases.map((release) => {
+              const by = running.filter((workspace) => workspace.model.releaseId === release.id);
+              const open = () => onOpenRelease(release.id, selected);
+              return (
+                <OpenableRow key={release.id} as="li" className="model-row" onOpen={open}>
+                  <RouteLink
+                    className="row-title mono"
+                    href={releaseHref(release.id)}
+                    onNavigate={open}
+                    aria-label={`${model.name} ${release.version}`}
+                  >
+                    {release.version}
+                  </RouteLink>
+                  <span className="model-row-marks">
+                    {release.status === "retired" && (
+                      <StatusPill tone="warning" marker={false}>
+                        Retired
+                      </StatusPill>
+                    )}
+                    {by.map((workspace) => (
+                      <StatusPill key={workspace.key} tone="success" marker={false}>
+                        {workspace.label}
+                      </StatusPill>
+                    ))}
+                  </span>
+                  <span className="muted">
+                    schema {release.schemaVersion} · {formatServerDate(release.installedAt)}
+                  </span>
+                </OpenableRow>
+              );
+            })}
+          </ul>
+        </SettingsPanel>
+      </SettingsGroup>
     ),
     drafts: (
-      <section className="model-detail-section" aria-labelledby="model-drafts-heading">
-        <h3 id="model-drafts-heading">
-          Drafts <span className="muted">{drafts.length}</span>
-        </h3>
-        <ul className="model-rows" aria-label={`Drafts of ${model.name}`}>
-          {drafts.map((draft) => {
-            const index = behind(draft);
-            const open = () => onOpenDraft(draft.id, selected);
-            return (
-              <OpenableRow key={draft.id} as="li" className="model-row" onOpen={open}>
-                <RouteLink className="row-title" href={draftHref(draft.id)} onNavigate={open}>
-                  {draft.name}
-                </RouteLink>
-                <span className="model-row-marks">
-                  {index > 0 && (
-                    <StatusPill tone="warning" marker={false}>
-                      {index} {index === 1 ? "release" : "releases"} behind
-                    </StatusPill>
-                  )}
-                </span>
-                <span className="muted">
-                  from <span className="mono">{model.releases[index]?.version}</span> ·{" "}
-                  {formatServerDate(draft.updatedAt)}
-                </span>
-              </OpenableRow>
-            );
-          })}
-        </ul>
-      </section>
+      <SettingsGroup
+        title="Drafts"
+        description={`${drafts.length} started from one of this model's releases, the newest first.`}
+      >
+        <SettingsPanel>
+          <ul className="model-rows" aria-label={`Drafts of ${model.name}`}>
+            {drafts.map((draft) => {
+              const index = behind(draft);
+              const open = () => onOpenDraft(draft.id, selected);
+              return (
+                <OpenableRow key={draft.id} as="li" className="model-row" onOpen={open}>
+                  <RouteLink className="row-title" href={draftHref(draft.id)} onNavigate={open}>
+                    {draft.name}
+                  </RouteLink>
+                  <span className="model-row-marks">
+                    {index > 0 && (
+                      <StatusPill tone="warning" marker={false}>
+                        {index} {index === 1 ? "release" : "releases"} behind
+                      </StatusPill>
+                    )}
+                  </span>
+                  <span className="muted">
+                    from <span className="mono">{model.releases[index]?.version}</span> ·{" "}
+                    {formatServerDate(draft.updatedAt)}
+                  </span>
+                </OpenableRow>
+              );
+            })}
+          </ul>
+        </SettingsPanel>
+      </SettingsGroup>
     ),
     structure: <ModelStructure releases={model.releases} />,
   };
   const tabs: TabDefinition[] = MODEL_TAB_ORDER.filter((item) => available[item]).map((item) => ({
     id: item,
     label: counts[item] === undefined ? MODEL_TAB_LABELS[item] : `${MODEL_TAB_LABELS[item]} (${counts[item]})`,
-    content: <div className="workspace-tab-panel">{content[item]}</div>,
+    content: content[item],
   }));
 
+  const head = settingsHead("model");
   return (
-    <div className="model-editor-stack">
-      <header className="model-detail-header">
-        <div>
-          <p className="eyebrow">Model</p>
-          <h2>{model.name}</h2>
-          <p>{model.key}</p>
-        </div>
-        <StatusPill tone={running.length ? "success" : "neutral"}>
-          {running.length ? "In use" : "Not in use"}
-        </StatusPill>
-      </header>
-      {canManageDrafts && (
-        <div className="model-actions">
-          <button type="button" className="secondary" onClick={() => onNewDraft(newest)}>
-            New draft from {newest.version}
-          </button>
-        </div>
-      )}
-      <div className="workspace-tabs">
-        <Tabs label="Model" tabs={tabs} selected={selected} keepVisited onChange={(id) => onTab(id as ModelTab)} />
-      </div>
-    </div>
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon="model" hue={head.hue} size={48} />}
+          title={<h1>{model.name}</h1>}
+          meta={
+            <>
+              <span className="mono">{model.key}</span>
+              <StatusPill tone={running.length ? "success" : "neutral"}>
+                {running.length ? "In use" : "Not in use"}
+              </StatusPill>
+            </>
+          }
+          actions={
+            canManageDrafts && (
+              <button type="button" className="secondary" onClick={() => onNewDraft(newest)}>
+                New draft from {newest.version}
+              </button>
+            )
+          }
+        />
+      }
+    >
+      {notice}
+      <Tabs label="Model" tabs={tabs} selected={selected} keepVisited onChange={(id) => onTab(id as ModelTab)} />
+    </SettingsLayout>
   );
 }

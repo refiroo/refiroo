@@ -734,7 +734,7 @@
   "labels": [
    "/api/v1/mail-settings"
   ],
-  "source": "backend/app/management/routers/mail.py:37",
+  "source": "backend/app/management/routers/mail.py:44",
   "section": "administer",
   "operationId": "get_mail_settings_api_v1_mail_settings_get",
   "summary": "Read the mail settings",
@@ -749,7 +749,7 @@
   "labels": [
    "/api/v1/mail-settings"
   ],
-  "source": "backend/app/management/routers/mail.py:46",
+  "source": "backend/app/management/routers/mail.py:53",
   "section": "administer",
   "operationId": "put_mail_settings_api_v1_mail_settings_put",
   "summary": "Save the mail settings",
@@ -764,7 +764,7 @@
   "labels": [
    "/api/v1/mail-settings"
   ],
-  "source": "backend/app/management/routers/mail.py:64",
+  "source": "backend/app/management/routers/mail.py:71",
   "section": "administer",
   "operationId": "delete_mail_settings_api_v1_mail_settings_delete",
   "summary": "Remove the mail settings",
@@ -779,7 +779,7 @@
   "labels": [
    "/api/v1/mail-settings/test"
   ],
-  "source": "backend/app/management/routers/mail.py:73",
+  "source": "backend/app/management/routers/mail.py:80",
   "section": "administer",
   "operationId": "post_mail_test_api_v1_mail_settings_test_post",
   "summary": "Send a test message",
@@ -794,7 +794,7 @@
   "labels": [
    "/api/v1/mail-outbox/{message_id}/stop"
   ],
-  "source": "backend/app/management/routers/mail.py:98",
+  "source": "backend/app/management/routers/mail.py:111",
   "section": "administer",
   "operationId": "post_stop_mail_message_api_v1_mail_outbox__message_id__stop_post",
   "summary": "Stop a message",
@@ -809,7 +809,7 @@
   "labels": [
    "/api/v1/mail-outbox"
   ],
-  "source": "backend/app/management/routers/mail.py:108",
+  "source": "backend/app/management/routers/mail.py:121",
   "section": "administer",
   "operationId": "list_mail_outbox_api_v1_mail_outbox_get",
   "summary": "List the messages in the outbox",
@@ -824,7 +824,7 @@
   "labels": [
    "/api/v1/me/notification-mail"
   ],
-  "source": "backend/app/management/routers/mail.py:123",
+  "source": "backend/app/management/routers/mail.py:136",
   "section": "administer",
   "operationId": "get_my_notification_mail_api_v1_me_notification_mail_get",
   "summary": "Read my notice mail",
@@ -839,10 +839,115 @@
   "labels": [
    "/api/v1/me/notification-mail"
   ],
-  "source": "backend/app/management/routers/mail.py:132",
+  "source": "backend/app/management/routers/mail.py:145",
   "section": "administer",
   "operationId": "put_my_notification_mail_api_v1_me_notification_mail_put",
   "summary": "Change my notice mail",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/mail-template",
+  "labels": [
+   "/api/v1/mail-template"
+  ],
+  "source": "backend/app/management/routers/mail.py:178",
+  "section": "administer",
+  "operationId": "get_mail_template_api_v1_mail_template_get",
+  "summary": "Read the e-mail template",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/mail-template",
+  "labels": [
+   "/api/v1/mail-template"
+  ],
+  "source": "backend/app/management/routers/mail.py:186",
+  "section": "administer",
+  "operationId": "put_mail_template_api_v1_mail_template_put",
+  "summary": "Save the e-mail template",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/mail-template",
+  "labels": [
+   "/api/v1/mail-template"
+  ],
+  "source": "backend/app/management/routers/mail.py:199",
+  "section": "administer",
+  "operationId": "delete_mail_template_api_v1_mail_template_delete",
+  "summary": "Reset the e-mail template to the default",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PUT /api/v1/mail-template/logo",
+  "labels": [
+   "/api/v1/mail-template/logo"
+  ],
+  "source": "backend/app/management/routers/mail.py:208",
+  "section": "administer",
+  "operationId": "put_mail_template_logo_api_v1_mail_template_logo_put",
+  "summary": "Upload the e-mail logo",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "DELETE /api/v1/mail-template/logo",
+  "labels": [
+   "/api/v1/mail-template/logo"
+  ],
+  "source": "backend/app/management/routers/mail.py:227",
+  "section": "administer",
+  "operationId": "delete_mail_template_logo_api_v1_mail_template_logo_delete",
+  "summary": "Remove the e-mail logo",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/mail-template/preview",
+  "labels": [
+   "/api/v1/mail-template/preview"
+  ],
+  "source": "backend/app/management/routers/mail.py:238",
+  "section": "administer",
+  "operationId": "post_mail_template_preview_api_v1_mail_template_preview_post",
+  "summary": "Preview the e-mail template",
+  "writtenSummary": true,
+  "tags": [
+   "mail"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/mail-template/test",
+  "labels": [
+   "/api/v1/mail-template/test"
+  ],
+  "source": "backend/app/management/routers/mail.py:258",
+  "section": "administer",
+  "operationId": "post_mail_template_test_api_v1_mail_template_test_post",
+  "summary": "Send a test of the e-mail template to me",
   "writtenSummary": true,
   "tags": [
    "mail"
@@ -1979,7 +2084,7 @@
   "labels": [
    "/api/v1/workspaces"
   ],
-  "source": "backend/app/management/routers/workspaces.py:90",
+  "source": "backend/app/management/routers/workspaces.py:101",
   "section": "use",
   "operationId": "list_workspaces_api_v1_workspaces_get",
   "summary": "List workspaces",
@@ -1994,7 +2099,7 @@
   "labels": [
    "/api/v1/workspaces"
   ],
-  "source": "backend/app/management/routers/workspaces.py:254",
+  "source": "backend/app/management/routers/workspaces.py:265",
   "section": "use",
   "operationId": "post_workspace_api_v1_workspaces_post",
   "summary": "Create a workspace",
@@ -2009,7 +2114,7 @@
   "labels": [
    "/api/v1/me/workspaces"
   ],
-  "source": "backend/app/management/routers/workspaces.py:115",
+  "source": "backend/app/management/routers/workspaces.py:126",
   "section": "use",
   "operationId": "list_own_workspaces_api_v1_me_workspaces_get",
   "summary": "List my workspaces",
@@ -2024,7 +2129,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}"
   ],
-  "source": "backend/app/management/routers/workspaces.py:155",
+  "source": "backend/app/management/routers/workspaces.py:166",
   "section": "use",
   "operationId": "get_workspace_api_v1_workspaces__workspace_key__get",
   "summary": "Get a workspace",
@@ -2039,7 +2144,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}"
   ],
-  "source": "backend/app/management/routers/workspaces.py:262",
+  "source": "backend/app/management/routers/workspaces.py:346",
   "section": "use",
   "operationId": "patch_workspace_api_v1_workspaces__workspace_key__patch",
   "summary": "Rename, retire or reactivate a workspace",
@@ -2054,7 +2159,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}"
   ],
-  "source": "backend/app/management/routers/workspaces.py:270",
+  "source": "backend/app/management/routers/workspaces.py:354",
   "section": "use",
   "operationId": "delete_workspace_route_api_v1_workspaces__workspace_key__delete",
   "summary": "Delete a workspace",
@@ -2069,7 +2174,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/model"
   ],
-  "source": "backend/app/management/routers/workspaces.py:161",
+  "source": "backend/app/management/routers/workspaces.py:172",
   "section": "use",
   "operationId": "get_workspace_model_api_v1_workspaces__workspace_key__model_get",
   "summary": "Get the release a workspace runs",
@@ -2084,7 +2189,7 @@
   "labels": [
    "/api/v1/workspace-models"
   ],
-  "source": "backend/app/management/routers/workspaces.py:168",
+  "source": "backend/app/management/routers/workspaces.py:179",
   "section": "use",
   "operationId": "list_workspace_models_api_v1_workspace_models_get",
   "summary": "List the release each workspace runs",
@@ -2099,7 +2204,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/feed"
   ],
-  "source": "backend/app/management/routers/workspaces.py:219",
+  "source": "backend/app/management/routers/workspaces.py:230",
   "section": "use",
   "operationId": "get_feed_api_v1_workspaces__workspace_key__feed_get",
   "summary": "Read a workspace's change feed",
@@ -2114,7 +2219,7 @@
   "labels": [
    "/api/v1/workspace-runtime-state"
   ],
-  "source": "backend/app/management/routers/workspaces.py:248",
+  "source": "backend/app/management/routers/workspaces.py:259",
   "section": "use",
   "operationId": "get_workspace_runtime_state_api_v1_workspace_runtime_state_get",
   "summary": "Get the default workspace",
@@ -2129,7 +2234,7 @@
   "labels": [
    "/api/v1/workspace-runtime-state"
   ],
-  "source": "backend/app/management/routers/workspaces.py:280",
+  "source": "backend/app/management/routers/workspaces.py:364",
   "section": "use",
   "operationId": "patch_workspace_runtime_state_api_v1_workspace_runtime_state_patch",
   "summary": "Set the default workspace",
@@ -2489,7 +2594,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/model/activation"
   ],
-  "source": "backend/app/management/routers/model_management.py:125",
+  "source": "backend/app/management/routers/model_management.py:127",
   "section": "use",
   "operationId": "activate_workspace_model_api_v1_workspaces__workspace_key__model_activation_post",
   "summary": "Run a release in a workspace",
@@ -2504,7 +2609,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/model/draft"
   ],
-  "source": "backend/app/management/routers/model_management.py:308",
+  "source": "backend/app/management/routers/model_management.py:310",
   "section": "use",
   "operationId": "open_workspace_model_draft_api_v1_workspaces__workspace_key__model_draft_post",
   "summary": "Open a workspace's model draft",
@@ -2519,7 +2624,7 @@
   "labels": [
    "/api/v1/model-drafts"
   ],
-  "source": "backend/app/management/routers/model_management.py:328",
+  "source": "backend/app/management/routers/model_management.py:330",
   "section": "use",
   "operationId": "list_model_drafts_api_v1_model_drafts_get",
   "summary": "List model drafts",
@@ -2534,7 +2639,7 @@
   "labels": [
    "/api/v1/model-drafts"
   ],
-  "source": "backend/app/management/routers/model_management.py:357",
+  "source": "backend/app/management/routers/model_management.py:359",
   "section": "use",
   "operationId": "save_model_draft_api_v1_model_drafts_post",
   "summary": "Create a model draft",
@@ -2549,7 +2654,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}"
   ],
-  "source": "backend/app/management/routers/model_management.py:351",
+  "source": "backend/app/management/routers/model_management.py:353",
   "section": "use",
   "operationId": "get_model_draft_api_v1_model_drafts__draft_id__get",
   "summary": "Get a model draft",
@@ -2564,7 +2669,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}"
   ],
-  "source": "backend/app/management/routers/model_management.py:374",
+  "source": "backend/app/management/routers/model_management.py:376",
   "section": "use",
   "operationId": "patch_model_draft_api_v1_model_drafts__draft_id__patch",
   "summary": "Rename a draft or replace its model",
@@ -2579,7 +2684,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}"
   ],
-  "source": "backend/app/management/routers/model_management.py:612",
+  "source": "backend/app/management/routers/model_management.py:654",
   "section": "use",
   "operationId": "remove_model_draft_api_v1_model_drafts__draft_id__delete",
   "summary": "Delete a model draft",
@@ -2594,7 +2699,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/operations"
   ],
-  "source": "backend/app/management/routers/model_management.py:395",
+  "source": "backend/app/management/routers/model_management.py:397",
   "section": "use",
   "operationId": "apply_model_draft_operations_api_v1_model_drafts__draft_id__operations_post",
   "summary": "Change a draft with a step",
@@ -2609,7 +2714,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/operations"
   ],
-  "source": "backend/app/management/routers/model_management.py:414",
+  "source": "backend/app/management/routers/model_management.py:416",
   "section": "use",
   "operationId": "list_model_draft_operations_api_v1_model_drafts__draft_id__operations_get",
   "summary": "Read a draft's history",
@@ -2624,7 +2729,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/migration"
   ],
-  "source": "backend/app/management/routers/model_management.py:437",
+  "source": "backend/app/management/routers/model_management.py:439",
   "section": "use",
   "operationId": "read_model_draft_migration_api_v1_model_drafts__draft_id__migration_get",
   "summary": "Read the migration a draft states",
@@ -2639,7 +2744,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/outline"
   ],
-  "source": "backend/app/management/routers/model_management.py:472",
+  "source": "backend/app/management/routers/model_management.py:474",
   "section": "use",
   "operationId": "get_model_draft_outline_api_v1_model_drafts__draft_id__outline_get",
   "summary": "Read a draft's outline",
@@ -2654,7 +2759,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/model"
   ],
-  "source": "backend/app/management/routers/model_management.py:487",
+  "source": "backend/app/management/routers/model_management.py:489",
   "section": "use",
   "operationId": "get_model_draft_model_api_v1_model_drafts__draft_id__model_get",
   "summary": "Preview a draft's compiled model",
@@ -2669,7 +2774,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}"
   ],
-  "source": "backend/app/management/routers/model_management.py:499",
+  "source": "backend/app/management/routers/model_management.py:501",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__get",
   "summary": "Read a draft's consumer API",
@@ -2684,7 +2789,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json"
   ],
-  "source": "backend/app/management/routers/model_management.py:516",
+  "source": "backend/app/management/routers/model_management.py:518",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_schema_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__schema_json_get",
   "summary": "Get a draft consumer API's message schema",
@@ -2699,7 +2804,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json"
   ],
-  "source": "backend/app/management/routers/model_management.py:532",
+  "source": "backend/app/management/routers/model_management.py:534",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_example_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__example_json_get",
   "summary": "Get a draft consumer API's example message",
@@ -2714,7 +2819,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json"
   ],
-  "source": "backend/app/management/routers/model_management.py:548",
+  "source": "backend/app/management/routers/model_management.py:550",
   "section": "use",
   "operationId": "get_model_draft_consumer_api_openapi_api_v1_model_drafts__draft_id__consumer_apis__consumer_api__openapi_json_get",
   "summary": "Get a draft consumer API's OpenAPI document",
@@ -2729,7 +2834,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/undo"
   ],
-  "source": "backend/app/management/routers/model_management.py:566",
+  "source": "backend/app/management/routers/model_management.py:568",
   "section": "use",
   "operationId": "undo_model_draft_step_api_v1_model_drafts__draft_id__undo_post",
   "summary": "Undo a step",
@@ -2744,7 +2849,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/redo"
   ],
-  "source": "backend/app/management/routers/model_management.py:579",
+  "source": "backend/app/management/routers/model_management.py:581",
   "section": "use",
   "operationId": "redo_model_draft_step_api_v1_model_drafts__draft_id__redo_post",
   "summary": "Redo a step",
@@ -2759,10 +2864,40 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/profile"
   ],
-  "source": "backend/app/management/routers/model_management.py:592",
+  "source": "backend/app/management/routers/model_management.py:594",
   "section": "use",
   "operationId": "get_model_draft_profile_api_v1_model_drafts__draft_id__profile_get",
   "summary": "Read a draft's import profile",
+  "writtenSummary": true,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/model-drafts/{draft_id}/canvas",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/canvas"
+  ],
+  "source": "backend/app/management/routers/model_management.py:614",
+  "section": "use",
+  "operationId": "get_model_draft_canvas_api_v1_model_drafts__draft_id__canvas_get",
+  "summary": "Read a draft's canvas",
+  "writtenSummary": true,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "PATCH /api/v1/model-drafts/{draft_id}/canvas",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/canvas"
+  ],
+  "source": "backend/app/management/routers/model_management.py:624",
+  "section": "use",
+  "operationId": "patch_model_draft_canvas_api_v1_model_drafts__draft_id__canvas_patch",
+  "summary": "Arrange a draft's canvas",
   "writtenSummary": true,
   "tags": [
    "model administration"
@@ -2774,7 +2909,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/compile"
   ],
-  "source": "backend/app/management/routers/model_management.py:624",
+  "source": "backend/app/management/routers/model_management.py:666",
   "section": "use",
   "operationId": "compile_model_draft_api_v1_model_drafts__draft_id__compile_post",
   "summary": "Compile a draft",
@@ -2789,7 +2924,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/installation"
   ],
-  "source": "backend/app/management/routers/model_management.py:695",
+  "source": "backend/app/management/routers/model_management.py:737",
   "section": "use",
   "operationId": "install_model_draft_api_v1_model_drafts__draft_id__installation_post",
   "summary": "Install a draft as a release",
@@ -2819,7 +2954,7 @@
   "labels": [
    "/api/v1/objects"
   ],
-  "source": "backend/app/management/routers/objects.py:185",
+  "source": "backend/app/management/routers/objects.py:188",
   "section": "use",
   "operationId": "create_object_api_v1_objects_post",
   "summary": "Create a record",
@@ -2834,7 +2969,7 @@
   "labels": [
    "/api/v1/objects"
   ],
-  "source": "backend/app/management/routers/objects.py:534",
+  "source": "backend/app/management/routers/objects.py:565",
   "section": "use",
   "operationId": "lookup_objects_api_v1_objects_get",
   "summary": "Find records of any type",
@@ -2849,7 +2984,7 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:206",
+  "source": "backend/app/management/routers/objects.py:207",
   "section": "use",
   "operationId": "update_object_api_v1_objects__object_type_key___object_id__patch",
   "summary": "Update or move a record",
@@ -2864,7 +2999,7 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:222",
+  "source": "backend/app/management/routers/objects.py:223",
   "section": "use",
   "operationId": "delete_object_api_v1_objects__object_type_key___object_id__delete",
   "summary": "Delete a record",
@@ -2879,10 +3014,25 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}"
   ],
-  "source": "backend/app/management/routers/objects.py:744",
+  "source": "backend/app/management/routers/objects.py:775",
   "section": "use",
   "operationId": "get_object_api_v1_objects__object_type_key___object_id__get",
   "summary": "Get a record",
+  "writtenSummary": true,
+  "tags": [
+   "objects"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "GET /api/v1/objects/{object_type_key}/{object_id}/deletion-impact",
+  "labels": [
+   "/api/v1/objects/{object_type_key}/{object_id}/deletion-impact"
+  ],
+  "source": "backend/app/management/routers/objects.py:264",
+  "section": "use",
+  "operationId": "read_object_deletion_impact_route_api_v1_objects__object_type_key___object_id__deletion_impact_get",
+  "summary": "Read what deleting a record would take",
   "writtenSummary": true,
   "tags": [
    "objects"
@@ -2894,7 +3044,7 @@
   "labels": [
    "/api/v1/objects/{object_type_key}"
   ],
-  "source": "backend/app/management/routers/objects.py:286",
+  "source": "backend/app/management/routers/objects.py:308",
   "section": "use",
   "operationId": "list_objects_api_v1_objects__object_type_key__get",
   "summary": "List records of a type",
@@ -2909,7 +3059,7 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/parent-candidates"
   ],
-  "source": "backend/app/management/routers/objects.py:816",
+  "source": "backend/app/management/routers/objects.py:847",
   "section": "use",
   "operationId": "get_parent_candidates_api_v1_objects__object_type_key___object_id__parent_candidates_get",
   "summary": "List parent candidates",
@@ -2924,7 +3074,7 @@
   "labels": [
    "/api/v1/objects/{object_type_key}/{object_id}/history"
   ],
-  "source": "backend/app/management/routers/objects.py:871",
+  "source": "backend/app/management/routers/objects.py:902",
   "section": "use",
   "operationId": "get_object_history_api_v1_objects__object_type_key___object_id__history_get",
   "summary": "Get a record's history",
@@ -4158,7 +4308,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/inference"
   ],
-  "source": "backend/app/management/routers/inference.py:42",
+  "source": "backend/app/management/routers/inference.py:49",
   "section": "use",
   "operationId": "run_inference_api_v1_model_drafts__draft_id__inference_post",
   "summary": "Propose a model from the draft's file",
@@ -4173,7 +4323,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/inference"
   ],
-  "source": "backend/app/management/routers/inference.py:76",
+  "source": "backend/app/management/routers/inference.py:83",
   "section": "use",
   "operationId": "get_inference_api_v1_model_drafts__draft_id__inference_get",
   "summary": "Get a draft's latest inference",
@@ -4188,7 +4338,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/inference/proposals"
   ],
-  "source": "backend/app/management/routers/inference.py:85",
+  "source": "backend/app/management/routers/inference.py:92",
   "section": "use",
   "operationId": "list_proposals_api_v1_model_drafts__draft_id__inference_proposals_get",
   "summary": "List an inference's proposals",
@@ -4203,7 +4353,7 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/inference/application"
   ],
-  "source": "backend/app/management/routers/inference.py:120",
+  "source": "backend/app/management/routers/inference.py:127",
   "section": "use",
   "operationId": "apply_proposals_api_v1_model_drafts__draft_id__inference_application_post",
   "summary": "Apply an inference's proposals",
@@ -4218,13 +4368,43 @@
   "labels": [
    "/api/v1/model-drafts/{draft_id}/inference/list"
   ],
-  "source": "backend/app/management/routers/inference.py:141",
+  "source": "backend/app/management/routers/inference.py:148",
   "section": "use",
   "operationId": "propose_one_list_api_v1_model_drafts__draft_id__inference_list_post",
   "summary": "Read a rectangle as a list",
   "writtenSummary": true,
   "tags": [
    "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/model-drafts/{draft_id}/join-candidates",
+  "labels": [
+   "/api/v1/model-drafts/{draft_id}/join-candidates"
+  ],
+  "source": "backend/app/management/routers/inference.py:163",
+  "section": "use",
+  "operationId": "find_join_candidates_api_v1_model_drafts__draft_id__join_candidates_post",
+  "summary": "Find where a column joins",
+  "writtenSummary": true,
+  "tags": [
+   "model administration"
+  ]
+ },
+ {
+  "kind": "management-api",
+  "key": "POST /api/v1/workspaces/from-workbook",
+  "labels": [
+   "/api/v1/workspaces/from-workbook"
+  ],
+  "source": "backend/app/management/routers/workspaces.py:273",
+  "section": "use",
+  "operationId": "post_workspace_from_workbook_api_v1_workspaces_from_workbook_post",
+  "summary": "Create a workspace from a workbook",
+  "writtenSummary": true,
+  "tags": [
+   "workspaces"
   ]
  },
  {
@@ -4248,7 +4428,7 @@
   "labels": [
    "/api/v1/workspaces/{workspace_key}/model/migrations"
   ],
-  "source": "backend/app/management/routers/model_management.py:239",
+  "source": "backend/app/management/routers/model_management.py:241",
   "section": "use",
   "operationId": "start_workspace_migration_api_v1_workspaces__workspace_key__model_migrations_post",
   "summary": "Preview a workspace migration",

@@ -21,14 +21,14 @@ import { api, jobOutputUrl } from "@/api/client";
 import { downloadFrom } from "@/api/download";
 import { DownloadLink } from "@/ui/DownloadLink";
 import { errorMessage } from "@/api/errors";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { routePath } from "@/routing/routes";
 import type { EngineModel, Job, JobItemOutcome, RouteState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { Breadcrumbs } from "@/ui/Breadcrumbs";
+import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { RouteLink } from "@/ui/RouteLink";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -59,7 +59,6 @@ import { JobProduced } from "./JobProduced";
 import { MigrationOutcome } from "./MigrationOutcome";
 import { MoveOutcome } from "./MoveOutcome";
 import { ORIGIN, RESULT, STATE, cancellable, fileSize } from "./jobText";
-import { TrailBar, TrailLink } from "@/ui/TrailBar";
 import { isResting, useJobStream } from "./useJobStream";
 import { useSubjectSeen } from "@/features/inbox/useInbox";
 
@@ -144,18 +143,17 @@ export function JobPage({
     if (fromGroup) {
       const group = job?.origin ? `${ORIGIN[job.origin.kind].label}: ${job.origin.name}` : ORIGIN[fromGroup.kind].label;
       return (
-        <TrailBar
-          back={{ label: `‹ ${group}`, onClick: fromGroup.onOpen }}
-          trail={[
+        <Trail
+          items={crumbs(
             <TrailLink onClick={onJobs}>Jobs</TrailLink>,
             <TrailLink onClick={fromGroup.onOpen}>{group}</TrailLink>,
             page,
-          ]}
+          )}
         />
       );
     }
     return (
-      <Breadcrumbs
+      <Trail
         items={[
           {
             key: "list",
@@ -462,13 +460,15 @@ function ProgressLine({
   );
 }
 
+const when = (value: string) => <span title={formatServerTime(value)}>{formatServerDayTime(value)}</span>;
+
 function times(job: Job, labels: ReadonlyMap<string, string>): DescriptionItem[] {
   return [
     { term: "Workspace", value: labels.get(job.workspaceKey) ?? job.workspaceKey },
     ...(job.requestedBy ? [{ term: "Requested by", value: principalName(job.requestedBy) }] : []),
-    { term: "Created", value: formatServerTime(job.createdAt) },
-    ...(job.startedAt ? [{ term: "Started", value: formatServerTime(job.startedAt) }] : []),
-    ...(job.finishedAt ? [{ term: "Finished", value: formatServerTime(job.finishedAt) }] : []),
-    { term: "Kept until", value: formatServerTime(job.expiresAt) },
+    { term: "Created", value: when(job.createdAt) },
+    ...(job.startedAt ? [{ term: "Started", value: when(job.startedAt) }] : []),
+    ...(job.finishedAt ? [{ term: "Finished", value: when(job.finishedAt) }] : []),
+    { term: "Kept until", value: when(job.expiresAt) },
   ];
 }

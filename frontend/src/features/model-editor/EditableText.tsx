@@ -1,15 +1,15 @@
 /**
  * A text of the model editor edited in place, as a record's title and fields are (`ui/EditInPlace`,
  * the user's request after A4a): an element's name in its heading, a relation type's reverse name, a
- * group's label. The text with its pencil; a click opens the form in its place, and saving is one
- * step. A refusal stays in the form; a stale draft closes it, as the editor then asks what to do
+ * group's label. The text with its pencil; a click makes it its field, which saves when it is left or
+ * on Enter (0.17 UX2), and saving is one step. A refusal stays in the form; a stale draft closes it, as the editor then asks what to do
  * with the change (D41).
  */
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { AttributeTypeDefinition, ModelDraftOutline, ObjectTypeAttributeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
-import { EditInPlaceValue, InlineEditForm } from "@/ui/EditInPlace";
+import { EditInPlaceValue, InlineEditForm, focusValue } from "@/ui/EditInPlace";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
 
@@ -56,15 +56,19 @@ export function EditableText({
 
   // Focus returns to the name when its form closes.
   useEffect(() => {
-    if (wasEditing.current && !editing) requestAnimationFrame(() => controlRef.current?.focus());
+    if (wasEditing.current && !editing) requestAnimationFrame(() => focusValue(controlRef.current));
     wasEditing.current = editing;
   }, [editing]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-    if (!next || next === name) {
+    if (next === name) {
       setEditing(false);
+      return;
+    }
+    if (!next) {
+      setError(`${label} needs a value.`);
       return;
     }
     setSaving(true);
@@ -92,7 +96,7 @@ export function EditableText({
           }}
           notices={
             error && (
-              <Notice tone="error" title={`The ${label.toLowerCase()} was not saved`} focusOnMount>
+              <Notice tone="error" title={`The ${label.toLowerCase()} was not saved`}>
                 {error}
               </Notice>
             )

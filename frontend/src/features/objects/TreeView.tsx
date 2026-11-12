@@ -52,6 +52,7 @@ import type { AttributeTypeDefinition, ObjectItem, ObjectTypeDefinition, TreeVie
 import { parseAttributeValue } from "@/ui/attributeForm";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
 import { Icon } from "@/ui/Icon";
+import { pageTitle } from "@/model/collections";
 import { PageHeader } from "@/ui/PageHeader";
 import { Notice } from "@/ui/Notice";
 import type { ViewComponentProps } from "./views/types";
@@ -466,7 +467,7 @@ export function TreeView({
         focusTitle
         titleId={headingId}
         icon={<HueTile hue={rootType && objectTypeHue(model, rootType.key)} icon={rootType?.icon} size={40} />}
-        title={view.name}
+        title={pageTitle(model, application, view)}
         actions={rootAdds.length > 0 ? rootAddButtons("primary") : undefined}
         descriptionClassName="mapping-direction"
         description={rootNames.map((name, index) => (
@@ -562,6 +563,7 @@ export function TreeView({
           objectType={adding.objectType}
           parentObjectId={adding.parent?.id}
           parentObjectTypeKey={adding.parent?.objectTypeKey}
+          parentName={adding.parent?.name}
           onClose={() => {
             const id = adding.parent?.id;
             setAdding(undefined);

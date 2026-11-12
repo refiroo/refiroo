@@ -29,7 +29,7 @@ Viewing a document is separate from giving a consuming client permission to read
    selected document. Check the API and contract version before handing it over. After
    any draft edit, inspect the newly generated documents again.
 
-![Generated schema tab for a draft consumer API](/docs/screens/model-consumer-tab-schema.png)
+![Generated schema tab of the Stops API in a model draft](/docs/screens/model-consumer-tab-schema.png)
 
 Above: the schema generated for Stops API in the reference model.
 
@@ -64,7 +64,7 @@ The example uses placeholder values based on field types. They do not prove that
 
 ## Hand over the active contract
 
-1. After the release is installed and activated, open **Settings › Integration › Consumer APIs**.
+1. After the release is installed and activated, open **Settings › Connections › Consumer APIs**.
    This read-only page names the active release. Use **Open the release** to check it is
    the release you intended; it does not provide the draft's Schema and Message example tabs.
 2. Find the API's section and version. Use **Base URL** and **OpenAPI document** to copy

@@ -7,8 +7,7 @@ reader: model-admin
 Open a draft with **Model authoring**. A matrix needs row records related to cell records that
 stand under column records. See [Applications and views](/docs/model/applications-and-views/).
 
-1. Select an application and choose **Add a relation matrix…** from its menu, or **Relation
-   matrix** in its panel. The form has a preview beside it.
+1. Select an application and choose **Add a view…** from its menu. In **Kind of view**, choose **Relation matrix: rows and columns with the related records in the cells**. The form has a preview beside it.
 2. Choose **Rows**, then **Each cell shows**. Read the explanation of the relationship offered.
    If a type is missing, check its allowed relationships and the cell type's parent structure.
 3. Choose **Columns**. There is one column per record of a type the cell records sit under.
@@ -19,7 +18,7 @@ stand under column records. See [Applications and views](/docs/model/application
 5. Set **What people can do in a cell** from the offered **Create**, **Edit**, **Link existing**
    and **Unlink** choices. Availability depends on the declared structure. A checked action
    still needs the person's record or relationship permissions at runtime.
-6. Enter **Name**, inspect the preview and choose **Apply**. Review **Issues** before installing.
+6. Enter **Name**, inspect the preview and choose **Add view**. Review **Issues** before installing.
    A preview is a design aid, not proof that every user has permission to perform its actions.
 7. For an existing relation matrix, open its row in **Views** and choose **Change…**. Use
    **Rename…** for its label or **Remove relation matrix** to remove the view. Removing the
@@ -43,7 +42,7 @@ choose **Change…**. In **What people can do in a cell**, select any offered co
 - **Unlink** removes a connection and keeps the record. It is not offered for a required
   relationship.
 
-Choose **Apply**, review **Issues**, then install and activate the release through your usual
+Choose **Save**, review **Issues**, then install and activate the release through your usual
 [model release process](/docs/model/releases/). Check the actions after changing
 row types or cell fields: dependent choices can be reset or removed when they no longer fit.
 

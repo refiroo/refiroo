@@ -21,6 +21,7 @@ import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { Icon } from "@/ui/Icon";
 import { SearchField } from "@/ui/SearchField";
+import { PanelTools, panelFolds } from "./PanelTools";
 import type { PanelProps } from "./types";
 
 export function CollectionPanelTable({
@@ -110,22 +111,30 @@ export function CollectionPanelTable({
   return (
     <div className="embedded-table">
       <div className="embedded-toolbar">
-        <SearchField
-          className="compact"
-          label={`Search ${objectType.pluralName.toLowerCase()}`}
-          value={searchInput}
-          onChange={setSearchInput}
-          placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
+        <PanelTools
+          folded={panelFolds(pages, searchInput.trim() !== "")}
+          sortable={sorting.fields.length > 0}
+          search={
+            <SearchField
+              className="compact"
+              label={`Search ${objectType.pluralName.toLowerCase()}`}
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
+            />
+          }
+          display={
+            <TableDisplay
+              model={model}
+              columns={columns}
+              display={display}
+              pageSize={selectedPageSize}
+              defaultPageSize={pageSize}
+              onPageSize={setPageSize}
+            />
+          }
+          sort={<SortMenu sorting={sorting} />}
         />
-        <TableDisplay
-          model={model}
-          columns={columns}
-          display={display}
-          pageSize={selectedPageSize}
-          defaultPageSize={pageSize}
-          onPageSize={setPageSize}
-        />
-        <SortMenu sorting={sorting} />
         {allowCreate && creatable && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add {objectType.name}
@@ -167,6 +176,8 @@ export function CollectionPanelTable({
           objectType={objectType}
           parentObjectId={parentObjectId}
           parentObjectTypeKey={parentObjectId ? object.objectTypeKey : undefined}
+          parentName={parentObjectId ? object.name : undefined}
+          collectionName={`${objectType.pluralName} of ${object.name}`}
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false);

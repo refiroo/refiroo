@@ -139,7 +139,8 @@ const optionLabel = async (select, value) => (await select.locator(`option[value
 /** New copy or move from the source workspace's page: the target and a new mapping named. */
 async function openNewMove(who, source, target, mappingName) {
   await page.goto(`${uiUrl}/settings/workspaces/${source.key}`);
-  await who.press(page.getByRole("button", { name: "Copy or move data…" }), "Copy or move data…");
+  await page.getByRole("button", { name: "More actions" }).click();
+  await who.press(page.getByRole("menuitem", { name: /^Copy or move data…/ }), "Copy or move data…");
   const dialog = page.getByRole("dialog", { name: "New copy or move" });
   const to = dialog.getByLabel("To workspace");
   await to.locator(`option[value="${target.key}"]`).waitFor({ state: "attached" });
@@ -193,20 +194,18 @@ async function start(who, verb, target, name) {
 
 /** On a change set's page: validated, then published; the answer to the publication. */
 async function validateAndPublish(who, expected = 200) {
-  await who.press(page.getByRole("button", { name: "Validate change set", exact: true }), "Validate change set");
-  await page.getByText("Change set validation passed", { exact: true }).waitFor({ timeout: 60_000 });
-  await who.press(page.getByRole("button", { name: "Publish change set", exact: true }), "Publish change set");
+  await who.press(page.getByRole("button", { name: "Publish", exact: true }), "Publish");
   const answer = page.waitForResponse(
     (response) => response.url().endsWith("/publication") && response.request().method() === "POST",
     { timeout: 120_000 },
   );
   await who.press(
-    page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }),
-    "Publish change set (confirm)",
+    page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }),
+    "Publish (confirm)",
   );
   const response = await answer;
   assert.equal(response.status(), expected, await response.text());
-  if (expected === 200) await page.getByText(/Reviewed changes are now live/).waitFor({ timeout: 60_000 });
+  if (expected === 200) await page.getByText(/The changes are live/).waitFor({ timeout: 60_000 });
   return response;
 }
 

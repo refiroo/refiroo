@@ -44,6 +44,30 @@ Creates an empty, active workspace. It does not become the default; use `PATCH /
 - 422 UNSUPPORTED_SCHEMA_VERSION: this engine cannot run the release's schema
 - 503 MODEL_REGISTRY_UNAVAILABLE: no release named, and the default runs none
 
+## POST /api/v1/workspaces/from-workbook
+
+Title: Create a workspace from a workbook
+
+Turns a workbook's model draft into a running workspace in one step: the draft is installed as a release, the workspace is created on it and the workbook is loaded into its live data as an import job (`GET /api/v1/jobs/{jobId}`). A refused row is reported and the rest load.
+
+- A release version or import profile key already taken is replaced by a free one.
+- A refusal leaves nothing behind.
+- Needs Workspace administration, Install a model (or Model release) and Bulk and import, at the instance.
+
+### Errors
+
+- 403 FORBIDDEN: a group is missing; `details.groups` names it
+- 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
+- 405 HTTP_ERROR: workspace administration, model administration or integration jobs are switched off
+- 409 VERSION_CONFLICT: the draft changed since `expectedVersion`
+- 409 WORKSPACE_ALREADY_EXISTS: the key is taken, even by a retired workspace
+- 409 SOURCE_FILE_PROFILE_NOT_READY: the workbook is not read yet
+- 422 DRAFT_HAS_NO_WORKBOOK: the draft has no workbook
+- 422 INVALID_MODEL: the draft's model does not compile; `details` lists why
+- 422 INVALID_IMPORT_PROFILE: the draft's mapping does not fit its model; `details.problems` lists why
+- 422 UNSUPPORTED_SCHEMA_VERSION: this engine cannot run the draft's schema
+- 422 REQUEST_VALIDATION_ERROR: a field is missing or malformed
+
 ## GET /api/v1/me/workspaces
 
 Title: List my workspaces
@@ -240,6 +264,21 @@ The workspace's model release cannot be served by this version of the engine, so
 ### WorkspaceAssignmentResponse
 
 - workspaceKey: The workspace that runs the release.
+
+### WorkspaceFromWorkbook
+
+- draftId: The ID of the model draft the workbook made.
+- expectedVersion: The draft's `version` as last read.
+- name: The workspace's label, 1 to 300 characters.
+- key: The workspace's key. Without it, one is made from the name, with a number after it when that is taken.
+
+### WorkspaceFromWorkbookResponse
+
+- workspace: The new workspace.
+- releaseId: The release the draft was installed as, which the workspace runs.
+- releaseKey: Shared by all releases of the model.
+- releaseVersion: The release's version, which may differ from the draft's when that version was taken.
+- job: The import job loading the workbook. Follow it at `GET /api/v1/jobs/{jobId}`.
 
 ### WorkspaceCreate
 

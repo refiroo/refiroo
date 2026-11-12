@@ -193,7 +193,7 @@ The API index pages in consumer API name order, without seek. Each entry has `co
 
 Read the authenticated index at `/api/consumer?workspace=graubuenden` in this example. Each entry gives the consumer API name, contract version and its OpenAPI document address. The reference document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Each document is OpenAPI 3.1 and includes the concrete paths and shapes generated from that workspace's declaration. Use it to generate or validate your client after understanding the sequence here.
 
-In the browser, **Settings › Integration › Consumer APIs** lists the declared APIs, and **API reference** opens their interactive documents. Both describe the selected workspace's model; they do not make a contract available in another workspace. The [reference stops source](/docs/api/?api=consumer-stops-v1) is a pointer to this example's instance contract.
+In the browser, **Settings › Connections › Consumer APIs** lists the declared APIs, and **API reference** opens their interactive documents. Both describe the selected workspace's model; they do not make a contract available in another workspace. The [reference stops source](/docs/api/?api=consumer-stops-v1) is a pointer to this example's instance contract.
 
 The examples use the reference dataset of 2026-11-02. The worked object, list, lookup, resolution and Events response bodies on the linked pages were read from the reference instance. The comparison table above was composed with the object renderer; its operator object is not a captured Get by ID response. Cursors, ETags and event positions belong to a particular instance and read context. Obtain them from your own responses. Webhook deliveries remain explicitly illustrative.
 

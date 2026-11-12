@@ -800,6 +800,20 @@ const tableFields = (outline: ModelDraftOutline): OperationField[] => [
 
 export const RELATION_DEFAULTS: FieldValues = { relationType: NEW, cardinality: "many-to-one" };
 
+/** Move to…: an attribute to another object type. The one builder of the dialog and of a drop on a card. */
+export function moveAttributeOperations(attributeType: string, from: string, to: string): DraftOperation[] {
+  return [{ kind: "moveAttribute", attributeType, from, to }];
+}
+
+/** Move up, Move down and a drop between rows: an attribute to a place among its object type's attributes. */
+export function attributePositionOperations(
+  attributeType: string,
+  objectType: string,
+  position: number,
+): DraftOperation[] {
+  return [{ kind: "setAttributeBinding", objectType, attributeType, position }];
+}
+
 export const OPERATIONS: OperationSpec[] = [
   // --- the draft (the Add menu) ---
   spec<On<"draft">>({
@@ -1504,15 +1518,12 @@ export const OPERATIONS: OperationSpec[] = [
     direct: true,
     available: (t, o) =>
       (objectTypeOf(o, t.objectType)?.attributes.findIndex((a) => a.attributeType === t.attributeType) ?? 0) > 0,
-    build: (_, t, o) => [
-      {
-        kind: "setAttributeBinding",
-        objectType: t.objectType,
-        attributeType: t.attributeType,
-        position:
-          (objectTypeOf(o, t.objectType)?.attributes.findIndex((a) => a.attributeType === t.attributeType) ?? 1) - 1,
-      },
-    ],
+    build: (_, t, o) =>
+      attributePositionOperations(
+        t.attributeType,
+        t.objectType,
+        (objectTypeOf(o, t.objectType)?.attributes.findIndex((a) => a.attributeType === t.attributeType) ?? 1) - 1,
+      ),
   }),
   spec<On<"attribute">>({
     id: "attribute-down",
@@ -1523,15 +1534,12 @@ export const OPERATIONS: OperationSpec[] = [
       const attributes = objectTypeOf(o, t.objectType)?.attributes ?? [];
       return attributes.findIndex((a) => a.attributeType === t.attributeType) < attributes.length - 1;
     },
-    build: (_, t, o) => [
-      {
-        kind: "setAttributeBinding",
-        objectType: t.objectType,
-        attributeType: t.attributeType,
-        position:
-          (objectTypeOf(o, t.objectType)?.attributes.findIndex((a) => a.attributeType === t.attributeType) ?? 0) + 1,
-      },
-    ],
+    build: (_, t, o) =>
+      attributePositionOperations(
+        t.attributeType,
+        t.objectType,
+        (objectTypeOf(o, t.objectType)?.attributes.findIndex((a) => a.attributeType === t.attributeType) ?? 0) + 1,
+      ),
   }),
   spec<On<"attribute">>({
     id: "attribute-detach",
@@ -2061,7 +2069,7 @@ export const OPERATIONS: OperationSpec[] = [
     label: "Add to group…",
     title: (t, o) => `Add to ${groupOf(t, o)?.label ?? t.group}`,
     fields: (t, o) => [entriesField(o, t.applicationKey, () => t.group)],
-    submit: (values) => `Add ${chosenEntries(values).length}`,
+    submit: (values) => addedItems(chosenEntries(values).length),
     build: (values, t) => placeEntries(t.applicationKey, t.group, values),
   }),
   spec<On<"application">>({
@@ -2083,7 +2091,7 @@ export const OPERATIONS: OperationSpec[] = [
       },
       entriesField(o, t.applicationKey, (values) => text(values, "group")),
     ],
-    submit: (values) => `Add ${chosenEntries(values).length}`,
+    submit: (values) => addedItems(chosenEntries(values).length),
     build: (values, t) => placeEntries(t.applicationKey, text(values, "group"), values),
   }),
   spec<On<"group">>({
@@ -3021,9 +3029,18 @@ function groupCount(t: On<"group">, o: ModelDraftOutline) {
   return groupsOf(t, o).length;
 }
 
-/** The operations the menu of an element offers, in menu order. */
+/**
+ * The operations the menu of an element offers, in menu order: the one public entry to what a target can
+ * do, for every surface that shows a target's menu (the editor's panes, the canvas's cards). Nothing else
+ * decides which operations an element has.
+ */
 export function operationsFor(target: OperationTarget, outline: ModelDraftOutline): OperationSpec[] {
   return OPERATIONS.filter((item) => item.on === target.on && (item.available?.(target as never, outline) ?? true));
+}
+
+/** Every operation of the table with the kind of target it acts on, for a test that every one is reachable. */
+export function operationTargetKinds(): { id: string; on: OperationTarget["on"] }[] {
+  return OPERATIONS.map((item) => ({ id: item.id, on: item.on }));
 }
 
 export function operationById(id: string): OperationSpec | undefined {
@@ -3172,6 +3189,94 @@ export function menuItems(
     tone: item.confirm ? "danger" : "default",
     onAction: () => onAction(item),
   }));
+}
+
+/** Where an operation is asked (PP-D40): under the control that started it, or in the side sheet. */
+export type OperationSurface = "popover" | "sheet";
+
+/** The field types that fit a popover: one value, a yes or no, or a pick-several list. */
+const POPOVER_FIELDS = new Set<string>(["text", "select", "checkbox", "checkboxes"]);
+
+/**
+ * One or two plain controls open under their control; three or more, a preview, a question or a
+ * field that needs room (JSON, criteria, ordered or paired choices) keep the sheet.
+ */
+export function surfaceOf(item: OperationSpec, target: OperationTarget, outline: ModelDraftOutline): OperationSurface {
+  if (item.preview || item.confirm || item.move || item.direct) return "sheet";
+  const fields = item.fields?.(target as never, outline) ?? [];
+  return fields.length >= 1 && fields.length <= 2 && fields.every((field) => POPOVER_FIELDS.has(field.type))
+    ? "popover"
+    : "sheet";
+}
+
+/** A yes or no on its own with nothing to ask: it flips from where it stands, like a direct operation. */
+export function flipField(item: OperationSpec, target: OperationTarget, outline: ModelDraftOutline) {
+  if (item.preview || item.confirm || item.move || item.direct) return undefined;
+  const fields = item.fields?.(target as never, outline) ?? [];
+  return fields.length === 1 && fields[0].type === "checkbox" ? fields[0] : undefined;
+}
+
+/** A popover that picks several from a list, applied with one Apply. */
+export function isMultiPick(item: OperationSpec, target: OperationTarget, outline: ModelDraftOutline) {
+  return (item.fields?.(target as never, outline) ?? []).some((field) => field.type === "checkboxes");
+}
+
+/** What a thing's adding says it adds, by operation (the primary button reads "Add ‹thing›"). */
+const ADDS: Record<string, string> = {
+  "add-application": "application",
+  "add-type": "type",
+  "add-attribute-type": "attribute type",
+  "add-relation-type": "relation type",
+  "add-group": "group",
+  "application-add-type": "type",
+  "application-add-view": "view",
+  "application-list-type": "type",
+  "application-add-group": "group",
+  "type-new-attribute": "attribute",
+  "type-attach": "attribute",
+  "type-allow": "relation",
+  "type-split": "type",
+  "attribute-type-attach": "attribute",
+  "relation-type-allow": "relation",
+  "consumer-add": "consumer API",
+  "consumer-expose": "type",
+  "consumer-add-field": "field",
+  "consumer-add-related": "related block",
+  "consumer-add-parent-related": "related block",
+  "consumer-add-list": "list",
+  "consumer-add-rule": "rule",
+  "consumer-add-through": "match",
+  "consumer-add-event": "event",
+  "consumer-add-filter": "filter",
+  "layout-new-field-group": "field group",
+  "layout-add-panel": "panel",
+  "layout-add-field": "fields",
+};
+
+/** The operations that put a place somewhere else. */
+const MOVES = new Set(["view-group", "type-group", "entry-move"]);
+
+/** "Add 3 items" (what the Add to group… forms count). */
+export function addedItems(count: number) {
+  return `Add ${count} ${count === 1 ? "item" : "items"}`;
+}
+
+/**
+ * The primary button's words (PP-D40): Save, Add ‹thing›, Move, and Apply only where several are
+ * picked in a popover. An operation's own `submit` still names what it counts.
+ */
+export function submitLabel(
+  item: OperationSpec,
+  target: OperationTarget,
+  outline: ModelDraftOutline,
+  values: FieldValues,
+  surface: OperationSurface,
+) {
+  if (surface === "popover" && isMultiPick(item, target, outline)) return "Apply";
+  if (item.submit) return item.submit(values);
+  const adds = ADDS[item.id];
+  if (adds) return `Add ${adds}`;
+  return MOVES.has(item.id) ? "Move" : "Save";
 }
 
 /** The fields a dialog shows for the values entered so far. */

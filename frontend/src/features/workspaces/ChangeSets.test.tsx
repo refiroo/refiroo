@@ -92,13 +92,20 @@ describe("change set mapping activation diagnostics", () => {
   });
 });
 
+/** The model version is under Options in the start dialog (0.17 PL1). */
+async function openOptions() {
+  fireEvent.click(await screen.findByRole("button", { name: "Options" }));
+}
+
 describe("change set creation with model-release selector", () => {
   it("shows model-release selector when multiple releases are installed", async () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
     vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease, olderRelease], nextCursor: null });
     vi.spyOn(api, "createChangeSet").mockResolvedValue(baseChangeSet);
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    expect(screen.queryByRole("combobox", { name: "Model version" })).not.toBeInTheDocument();
+    await openOptions();
     expect(await screen.findByRole("combobox", { name: "Model version" })).toBeInTheDocument();
     const select = screen.getByRole("combobox", { name: "Model version" });
     expect(select).toHaveValue("");
@@ -120,24 +127,42 @@ describe("change set creation with model-release selector", () => {
     });
     const onOpen = vi.fn();
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={onOpen} />);
-    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    await openOptions();
     await screen.findByRole("combobox", { name: "Model version" });
     fireEvent.change(screen.getByRole("combobox", { name: "Model version" }), {
       target: { value: olderRelease.id },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: "Change set name" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
       target: { value: "Non-active change set" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create change set" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start change set" }));
     await waitFor(() => expect(onOpen).toHaveBeenCalledWith(baseChangeSet.id));
     expect(create).toHaveBeenCalledWith("west", "Non-active change set", olderRelease.id);
+  });
+
+  it("opens a listed change set through onOpen and one just started through onCreated (0.17 SH1, PP-D36)", async () => {
+    vi.spyOn(api, "changeSets").mockResolvedValue({ items: [baseChangeSet], nextCursor: null });
+    vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease], nextCursor: null });
+    vi.spyOn(api, "createChangeSet").mockResolvedValue({ ...baseChangeSet, id: "new-one" });
+    const onOpen = vi.fn();
+    const onCreated = vi.fn();
+    render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={onOpen} onCreated={onCreated} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open change set" }));
+    expect(onOpen).toHaveBeenCalledWith(baseChangeSet.id);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), { target: { value: "New one" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start change set" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("new-one"));
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it("omits release selector when only one release is installed", async () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
     vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease], nextCursor: null });
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    await openOptions();
     await waitFor(() => expect(api.modelReleases).toHaveBeenCalled());
     expect(screen.queryByRole("combobox", { name: "Model version" })).not.toBeInTheDocument();
   });
@@ -175,7 +200,7 @@ describe("an empty change set list", () => {
       vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
       render(<ChangeSets workspaceKey="west" readOnly={readOnly} onOpen={vi.fn()} />);
       expect(await screen.findByText("No change sets.")).toBeInTheDocument();
-      expect(screen.queryAllByRole("button", { name: "Start from current live data" })).toHaveLength(starts);
+      expect(screen.queryAllByRole("button", { name: "New change set" })).toHaveLength(starts);
       expect(screen.queryByRole("list", { name: "Change sets" })).not.toBeInTheDocument();
     },
   );
@@ -187,7 +212,7 @@ describe("permissions not yet read", () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
     expect(await screen.findByText("No change sets.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start from current live data" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New change set" })).not.toBeInTheDocument();
   });
 });
 
@@ -201,15 +226,16 @@ describe("change set creation incompatibility error", () => {
       }),
     );
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-    fireEvent.click((await screen.findAllByRole("button", { name: "Start from current live data" }))[0]);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    await openOptions();
     await screen.findByRole("combobox", { name: "Model version" });
     fireEvent.change(screen.getByRole("combobox", { name: "Model version" }), {
       target: { value: olderRelease.id },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create change set" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start change set" }));
     expect(await screen.findByText(/Content does not fit the target model/)).toBeInTheDocument();
     expect(screen.getByRole("listitem")).toHaveTextContent("Attribute x required");
-    expect(screen.getByRole("textbox", { name: "Change set name" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
   });
 });
 
@@ -220,7 +246,8 @@ it("allows choosing an installed release beyond the first page", async () => {
     .mockResolvedValueOnce({ items: [activeRelease], nextCursor: "page-two" })
     .mockResolvedValueOnce({ items: [olderRelease], nextCursor: null });
   render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-  fireEvent.click(screen.getAllByRole("button", { name: "Start from current live data" })[0]);
+  fireEvent.click(screen.getAllByRole("button", { name: "New change set" })[0]);
+  await openOptions();
   fireEvent.click(await screen.findByRole("button", { name: "Load more model releases" }));
   expect(await screen.findByRole("option", { name: /0.6.0/ })).toHaveValue(olderRelease.id);
   expect(list).toHaveBeenLastCalledWith({ cursor: "page-two", usable: true });
@@ -233,7 +260,8 @@ it("offers only usable releases, every version of each (0.12 MR1)", async () => 
     .spyOn(api, "modelReleases")
     .mockResolvedValue({ items: [olderRelease, activeRelease, newer], nextCursor: null });
   render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
-  fireEvent.click(screen.getAllByRole("button", { name: "Start from current live data" })[0]);
+  fireEvent.click(screen.getAllByRole("button", { name: "New change set" })[0]);
+  await openOptions();
   expect(await screen.findByRole("option", { name: /0.8.0/ })).toHaveValue(newer.id);
   expect(screen.getByRole("option", { name: /0.6.0/ })).toHaveValue(olderRelease.id);
   expect(list).toHaveBeenCalledWith({ cursor: undefined, usable: true });
@@ -301,7 +329,7 @@ it("separates an unpunctuated server message from the preserved-change-set guida
   );
   render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Discard change set" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Discard" }));
   fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard change set" }));
   expect(
     await screen.findByText(
@@ -338,7 +366,13 @@ describe("a change set on a release its workspace no longer runs (0.11 V2)", () 
         onMigrationStarted={started}
       />,
     );
-    expect(screen.getByRole("button", { name: "Publish change set" })).toBeDisabled();
+    // Publish is never a disabled button explained by a tooltip (0.17 PL1): it says why in words.
+    const publish = screen.getByRole("button", { name: "Publish" });
+    expect(publish).toBeEnabled();
+    expect(publish).not.toHaveAttribute("title");
+    fireEvent.click(publish);
+    expect(await screen.findByText(/uses a different model version than live data/)).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Move West office to 0.6.0 and publish…" }));
     await waitFor(() => expect(started).toHaveBeenCalledWith("job-9"));
     expect(start).toHaveBeenCalledWith("west", {
@@ -450,7 +484,7 @@ describe("approval in the change set bar (0.12 A3)", () => {
     vi.spyOn(api, "latestPublication").mockResolvedValue({ items: [], nextCursor: null });
     const submit = vi.spyOn(api, "submitChangeSet").mockResolvedValue(request);
     show(["browse", "change-sets"]);
-    expect(screen.queryByRole("button", { name: "Publish change set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Submit for publication" }));
     fireEvent.change(screen.getByLabelText(/Comment/), { target: { value: "Ready for spring" } });
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
@@ -463,9 +497,12 @@ describe("approval in the change set bar (0.12 A3)", () => {
     vi.spyOn(api, "approvalPolicy").mockResolvedValue(policy);
     const withdraw = vi.spyOn(api, "withdrawSubmission").mockResolvedValue(undefined);
     const refresh = show(["browse", "change-sets"], { ...baseChangeSet, submission: request });
-    expect(screen.getByText("Waiting for approval")).toBeVisible();
+    expect(screen.getByText(/waits for approval/)).toBeVisible();
+    // Who submitted it and when are under Details (0.17 SH1).
+    expect(screen.queryByText(/Submitted by Ana Varga/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
     expect(screen.getByText(/Submitted by Ana Varga · version 1/)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Validate change set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More change set actions" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit for publication" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Withdraw request" }));
     await waitFor(() => expect(withdraw).toHaveBeenCalledWith("change-set-1"));
@@ -476,13 +513,162 @@ describe("approval in the change set bar (0.12 A3)", () => {
     vi.spyOn(api, "approvalPolicy").mockResolvedValue({ ...policy, requireApproval: true, secondPerson: true });
     show(["browse", "change-sets", "publish", "approve"]);
     expect(await screen.findByRole("button", { name: "Submit for publication" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Publish change set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
   });
 
   it("keeps Publish for a publisher when approval is off", async () => {
     vi.spyOn(api, "approvalPolicy").mockResolvedValue(policy);
     show(["browse", "change-sets", "publish"]);
-    expect(await screen.findByRole("button", { name: "Publish change set" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Publish" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Submit for publication" })).not.toBeInTheDocument();
+  });
+});
+
+describe("change set creation asks for a name only (0.17 PL1)", () => {
+  it("shows the name, with the start point and model version behind Options", async () => {
+    vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease, olderRelease], nextCursor: null });
+    render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    const dialog = await screen.findByRole("dialog", { name: "New change set" });
+    expect(within(dialog).getByRole("textbox", { name: "Name" })).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Start change set" })).toHaveClass("primary");
+    expect(dialog).not.toHaveTextContent(/copies|publication/i);
+    expect(within(dialog).queryByText(/Starts from/)).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Options" }));
+    expect(within(dialog).getByText(/Today's live data/)).toBeVisible();
+    expect(within(dialog).getByRole("combobox", { name: "Model version" })).toBeVisible();
+  });
+
+  it("offers no model release list to someone without Model release, and reads none", async () => {
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      warning: "",
+      permissions: permissionsFixture("west", ["browse", "change-sets"]),
+    });
+    vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
+    const releases = vi
+      .spyOn(api, "modelReleases")
+      .mockResolvedValue({ items: [activeRelease, olderRelease], nextCursor: null });
+    const create = vi.spyOn(api, "createChangeSet").mockResolvedValue(baseChangeSet);
+    const onOpen = vi.fn();
+    render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={onOpen} />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "New change set" }))[0]);
+    await openOptions();
+    expect(screen.queryByRole("combobox", { name: "Model version" })).not.toBeInTheDocument();
+    expect(releases).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Spring" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start change set" }));
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(baseChangeSet.id));
+    expect(create).toHaveBeenCalledWith("west", "Spring", undefined);
+  });
+});
+
+describe("Publish on the change set bar (0.17 PL1)", () => {
+  function show(onReview?: () => void, onOpenRecord?: (record: unknown) => void) {
+    const refresh = vi.fn().mockResolvedValue(baseChangeSet);
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      changeSet: baseChangeSet,
+      activeModelReleaseId: baseChangeSet.modelReleaseId,
+      warning: "",
+      refresh,
+      permissions: permissionsFixture("west", ["browse", "change-sets", "publish"]),
+    });
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue({
+      workspaceKey: "west",
+      requireApproval: false,
+      secondPerson: false,
+      version: 0,
+      approverCount: 1,
+    });
+    vi.spyOn(api, "latestPublication").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(api, "objectChanges").mockResolvedValue({ items: [], nextCursor: null, totalCount: 3 } as never);
+    vi.spyOn(api, "relationChanges").mockResolvedValue({ items: [], nextCursor: null, totalCount: 2 } as never);
+    const onExit = vi.fn();
+    render(
+      <ChangeSetActions
+        readOnly={false}
+        onExit={onExit}
+        onModelChanged={vi.fn()}
+        onReview={onReview}
+        onOpenRecord={onOpenRecord}
+      />,
+    );
+    return { onExit };
+  }
+
+  it("holds Review changes and Publish in the bar and the rest in the menu", async () => {
+    show(vi.fn());
+    expect(screen.getByRole("button", { name: "Review changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Publish" })).toHaveClass("primary");
+    expect(screen.queryByRole("button", { name: /^Validate/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+    const items = (await screen.findAllByRole("menuitem")).map((item) => item.textContent);
+    expect(items).toEqual(["Validate now", "Change model version", "Rename", "Discard"]);
+  });
+
+  it("checks first, then confirms once in plain words with the counts, and publishes", async () => {
+    const validate = vi.spyOn(api, "validateChangeSet").mockResolvedValue({ valid: true, diagnostics: [] });
+    const publish = vi.spyOn(api, "publishChangeSet").mockResolvedValue({ publicationNumber: 4 } as never);
+    const { onExit } = show();
+    await screen.findByText(/5 changes/);
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(validate).toHaveBeenCalledWith("change-set-1");
+    expect(dialog).toHaveTextContent("your changes to 3 records and 2 relationships");
+    expect(dialog).toHaveTextContent("nothing is published");
+    expect(dialog).not.toHaveTextContent(/authored|merged graph/);
+    expect(publish).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: "Publish" })).toHaveClass("primary");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Publish" }));
+    await waitFor(() => expect(publish).toHaveBeenCalledWith("change-set-1", 1, null));
+    expect(onExit).toHaveBeenCalledWith("Published as Publication 4. The changes are live.");
+  });
+
+  it("publishes nothing when the check fails, and lists the problems with links to the records", async () => {
+    vi.spyOn(api, "validateChangeSet").mockResolvedValue({
+      valid: false,
+      diagnostics: [{ code: "MISSING_ATTRIBUTE", message: "Attribute x is required", details: { objectId: "obj-1" } }],
+    });
+    const publish = vi.spyOn(api, "publishChangeSet");
+    const onOpenRecord = vi.fn();
+    show(undefined, onOpenRecord);
+    vi.spyOn(api, "objectChanges").mockResolvedValue({
+      items: [
+        {
+          kind: "added",
+          objectId: "obj-1",
+          objectTypeKey: "domain",
+          applicationKey: "catalogue",
+          before: null,
+          after: { objectTypeKey: "domain", name: "Spring sale", parentObjectId: null, attributes: [], version: 1 },
+          changedFields: [],
+          path: [],
+        },
+      ],
+      nextCursor: null,
+      totalCount: 1,
+    } as never);
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    expect(await screen.findByText("Fix these before publishing")).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(publish).not.toHaveBeenCalled();
+    expect(screen.getByRole("listitem")).toHaveTextContent("Attribute x is required");
+    fireEvent.click(await screen.findByRole("button", { name: "Spring sale" }));
+    expect(onOpenRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ objectId: "obj-1", objectTypeKey: "domain", applicationKey: "catalogue" }),
+    );
+  });
+
+  it("renames from the menu", async () => {
+    show();
+    const rename = vi.spyOn(api, "renameChangeSet").mockResolvedValue({ ...baseChangeSet, name: "Spring", version: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
+    const dialog = await screen.findByRole("dialog", { name: "Rename change set" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Spring" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(rename).toHaveBeenCalledWith("change-set-1", "Spring", 1));
   });
 });

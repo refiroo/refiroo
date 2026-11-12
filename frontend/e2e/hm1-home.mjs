@@ -158,13 +158,20 @@ try {
   // 2. An application on the second card opens its view in that workspace.
   await card(page, SECOND.label).locator(".home-app").first().click();
   await page.waitForURL(new RegExp(`workspaceKey=${SECOND.key}`));
-  await page.locator(".data-context-band").getByText(SECOND.label, { exact: false }).first().waitFor();
+  // The band no longer repeats the workspace (0.17 SH1); the workspace selector names it.
+  await page.waitForFunction(
+    (label) =>
+      [...document.querySelectorAll(".workspace-selector input, .workspace-selector strong")].some((element) =>
+        (element.value ?? element.textContent ?? "").includes(label),
+      ),
+    SECOND.label,
+  );
   checks.push("an application on a card opens its view in that card's workspace");
   // The workspace's name opens the workspace at its start (D339).
   await page.getByRole("button", { name: /home$/ }).click();
   await card(page, SECOND.label).getByRole("link", { name: SECOND.label, exact: true }).click();
   await page.waitForURL(new RegExp(`workspaceKey=${SECOND.key}`));
-  await page.locator(".data-context-band").getByText(SECOND.label, { exact: false }).first().waitFor();
+  await page.getByRole("heading", { level: 1 }).filter({ hasText: SECOND.label }).first().waitFor();
   checks.push("a workspace's name on its card opens the workspace at its start");
 
   // 3. A record opened, the product name returns Home, Continue reopens the record.

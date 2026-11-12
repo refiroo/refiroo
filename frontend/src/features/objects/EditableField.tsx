@@ -2,8 +2,9 @@
  * One field of one record, shown and edited in place (UA4 revision; UA8, U-D18). The details panel
  * renders its rows with it and the record header its title and subtitle, so a field looks and
  * behaves the same wherever it is: the value is the control, with a pencil (or a plus where nothing
- * is set) as Settings › Appearance › Edit pencil says, and a click opens the editor; Save or Enter,
- * Escape cancels, focus returns to the value, a conflict reloads and says so.
+ * is set) as Settings › Appearance › Edit pencil says, and a click makes the value its field, which saves
+ * when it is left or on Enter (`ui/EditInPlace`, 0.17 UX2); Escape puts the old value back, focus returns to
+ * the value unless the person took it elsewhere, a conflict reloads and says so.
  *
  * What can be edited is read from the model: the built-in `name`, saved by the record update with
  * its version, and an attribute the type binds and does not mark read-only, saved by the attribute
@@ -21,11 +22,13 @@ import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDat
 import { attributeName, fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { formatValue } from "@/ui/formatValue";
-import { EditInPlaceCell, EditInPlaceValue } from "@/ui/EditInPlace";
+import { EditInPlaceCell, EditInPlaceValue, focusValue } from "@/ui/EditInPlace";
 import { FlagCell } from "@/ui/FlagCell";
 import { FloatingCellEditor } from "@/ui/FloatingCellEditor";
 import { errorMessage, isApiError } from "@/api/errors";
 import { Notice } from "@/ui/Notice";
+import { useOptionalToast } from "@/ui/Toast";
+import { UNDO_REFUSED } from "@/features/objects/undoText";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -90,7 +93,7 @@ function shownValue(model: EngineModel, object: ObjectItem, field: string) {
   if (!isAttribute) return <span className="attribute-value">{formatValue(fieldValue(object, field, model))}</span>;
   const stored = object.attributes.find((item) => item.attributeTypeKey === field);
   if (!stored) return <span className="unset-value">Not set</span>;
-  if (stored.value === null) return <span className="unset-value">Null</span>;
+  if (stored.value === null) return <span className="unset-value">Cleared</span>;
   if (stored.value === "") return <span className="unset-value">Empty text</span>;
   return <span className="attribute-value">{formatValue(stored.value)}</span>;
 }
@@ -152,16 +155,18 @@ export function EditableField({
   const editable = fieldEditing(model, object, field, readOnly);
 
   useEffect(() => {
-    if (focusOnMount) control.current?.focus();
+    if (focusOnMount) focusValue(control.current);
     // Only on mount: the parent asks once, when the value takes the editor's place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     if (wasEditing.current && !editing)
       requestAnimationFrame(() =>
-        layout === "cell"
-          ? cell.current?.closest("tr")?.querySelector<HTMLElement>("[data-row-focus]")?.focus()
-          : control.current?.focus(),
+        focusValue(
+          layout === "cell"
+            ? cell.current?.closest("tr")?.querySelector<HTMLElement>("[data-row-focus]")
+            : control.current,
+        ),
       );
     wasEditing.current = editing;
   }, [editing, layout]);
@@ -176,10 +181,10 @@ export function EditableField({
           stored={editable.stored}
           save={
             editable.isName
-              ? (value) =>
+              ? (value, version) =>
                   api.updateObject(object.objectTypeKey, object.id, {
                     name: String(value ?? ""),
-                    expectedVersion: object.version,
+                    expectedVersion: version,
                   })
               : undefined
           }
@@ -216,7 +221,12 @@ export function EditableField({
     );
 
   const name = editable.isName ? "Name" : attributeName(model, field);
-  if (floating && layout === "cell" && !editable.isName && editable.attribute.valueType === "boolean")
+  // A yes or no saves itself where it stands (0.17 UX1, PP-D40): in a record's details as in a floating cell.
+  if (
+    (layout === "row" || (floating && layout === "cell")) &&
+    !editable.isName &&
+    editable.attribute.valueType === "boolean"
+  )
     return (
       <RecordFlagCell
         object={object}
@@ -285,6 +295,7 @@ function RecordFlagCell({
   describeError?: (cause: unknown) => { message: string; action?: ReactNode } | undefined;
 }) {
   const api = useDataApi();
+  const toast = useOptionalToast();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<{ message: string; action?: ReactNode }>();
@@ -303,6 +314,21 @@ function RecordFlagCell({
         : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, next, object.version);
       setSaved(true);
       onSaved(result);
+      // Undo puts the previous value back against the version this save made; where nothing was set
+      // before, there is nothing to put back.
+      toast(`${attribute.name}: ${next ? "Yes" : "No"}`, {
+        actions: exists
+          ? [
+              {
+                label: "Undo",
+                onPress: () =>
+                  void api
+                    .updateAttribute(object.objectTypeKey, object.id, attribute.key, !next, result.version)
+                    .then(onSaved, () => toast(UNDO_REFUSED, { tone: "info" })),
+              },
+            ]
+          : [],
+      });
     } catch (cause) {
       const described = describeError?.(cause);
       setFailure({ message: described?.message ?? errorMessage(cause), action: described?.action });

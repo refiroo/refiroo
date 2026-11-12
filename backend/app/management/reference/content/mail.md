@@ -1,9 +1,10 @@
 # mail
 
-Mail carries a new person's welcome link, a password reset link, a test message and, if a person chooses it, copies of their inbox notices. It is set up once for the instance, with an SMTP server or Microsoft 365; saving replaces what was saved. A message is queued in the outbox, sent by a background worker and retried for 24 hours; its text is never answered and is erased once the message is finished. Each person chooses how their inbox is mailed.
+Mail carries a new person's welcome link, a password reset link, a test message and, if a person chooses it, copies of their inbox notices. It is set up once for the instance, with an SMTP server or Microsoft 365; saving replaces what was saved. A message is queued in the outbox, sent by a background worker and retried for 24 hours; its text is never answered and is erased once the message is finished. Each person chooses how their inbox is mailed. An Operator's e-mail template, Markdown with a logo, wraps every message; without one the engine's layout is used.
 
 1. Set up: `PUT /api/v1/mail-settings`, then `POST /api/v1/mail-settings/test`.
 2. Watch: `GET /api/v1/mail-outbox`; `POST .../stop` ends a message that is still waiting.
+3. Brand it: `PUT /api/v1/mail-template`, then `POST /api/v1/mail-template/preview`.
 
 ## DELETE /api/v1/mail-settings
 
@@ -113,6 +114,97 @@ Switches mail for the caller's inbox on or off, sets the digest's frequency and 
 - 422 UNKNOWN_TIME_ZONE: `digest.timeZone` is not a time zone
 - 422 DIGEST_NOT_SET: a kind goes in the digest and none is set
 
+## GET /api/v1/mail-template
+
+Title: Read the e-mail template
+
+Reads the template that wraps every message the engine sends: Markdown with placeholders, and the logo as a data URL. Without a saved template `saved` is false, `markdown` is the default and the engine's own layout is used.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+
+## PUT /api/v1/mail-template
+
+Title: Save the e-mail template
+
+Saves the Markdown, replacing what was saved; the first save omits `expectedVersion`, later ones send the saved `version`. The logo stays. `{{content}}`, where the message's own heading, text and button go, must appear exactly once; the other placeholders are `{{product_name}}`, `{{instance_url}}`, `{{recipient_name}}` and `{{logo}}`. Raw HTML in the Markdown is shown as text, images are not drawn and a link is kept only for http, https and mailto.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+- 409 VERSION_CONFLICT: `expectedVersion` is not the saved version
+- 422 REQUEST_VALIDATION_ERROR: `markdown` is empty
+- 422 MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER: a `{{name}}` that is not a placeholder
+- 422 MAIL_TEMPLATE_CONTENT_REQUIRED: `{{content}}` is missing or appears twice
+- 422 MAIL_TEMPLATE_TOO_LONG: over 20,000 characters
+
+## DELETE /api/v1/mail-template
+
+Title: Reset the e-mail template to the default
+
+Deletes the saved Markdown and the logo, so the engine's own layout is used again. Repeating it changes nothing.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+
+## PUT /api/v1/mail-template/logo
+
+Title: Upload the e-mail logo
+
+Uploads the image that `{{logo}}` shows, sent inline in each message; without one the refiroo mark is used. Send `multipart/form-data` with the image as `file` and, once a template is saved, its `version` as `expectedVersion`. With no template saved, the default Markdown is saved with the logo.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+- 409 VERSION_CONFLICT: `expectedVersion` is not the saved version
+- 413 MAIL_LOGO_TOO_LARGE: over 512 KB
+- 422 MAIL_LOGO_UNSUPPORTED: not a PNG, JPEG or SVG image
+- 422 MAIL_LOGO_UNSAFE: an SVG that holds script or an external object
+
+## DELETE /api/v1/mail-template/logo
+
+Title: Remove the e-mail logo
+
+Removes the uploaded logo, so `{{logo}}` shows the refiroo mark again.
+
+### Parameters
+
+- expectedVersion: The template's saved `version`.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+- 409 MAIL_TEMPLATE_NOT_SAVED: no template is saved, so there is no logo
+- 409 VERSION_CONFLICT: `expectedVersion` is not the saved version
+
+## POST /api/v1/mail-template/preview
+
+Title: Preview the e-mail template
+
+Renders a draft Markdown around a sample message with sample values, and answers the HTML (the logo inline as a data URL) and the plain text. Nothing is saved or sent. The draft is checked like a save.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+- 422 MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER: a `{{name}}` that is not a placeholder
+- 422 MAIL_TEMPLATE_CONTENT_REQUIRED: `{{content}}` is missing or appears twice
+
+## POST /api/v1/mail-template/test
+
+Title: Send a test of the e-mail template to me
+
+Sends the saved template around a sample message to the caller's own address through the saved mail settings now. A failure is answered as for `POST /api/v1/mail-settings/test`.
+
+### Errors
+
+- 403 FORBIDDEN: needs Operations at the instance
+- 403 NOT_A_PERSON: the caller is a client
+- 409 NO_EMAIL: the person has no address
+- 409 MAIL_NOT_SET_UP: no mail settings are saved
+- 422 MAIL_SEND_FAILED: the server did not take the message
+
 ## Schemas
 
 ### MailSettingsResponse
@@ -199,3 +291,33 @@ The caller's digest: how often it comes, the time zone 07:00 is read in and when
 ### MailMessagePage
 
 Messages, newest first.
+
+### MailTemplateResponse
+
+The e-mail template. Without a saved one (`saved` false) `markdown` is the default.
+
+- markdown: The template: Markdown with `{{placeholders}}`.
+- defaultMarkdown: The shipped default; `DELETE /api/v1/mail-template` restores it.
+- saved: True when a template is saved; false means the engine's own layout is used.
+- placeholders: The placeholders a template may use; `content` is required exactly once.
+- logoType: `image/png`, `image/jpeg` or `image/svg+xml`; null while the refiroo mark is used.
+- logoDataUrl: The uploaded logo as a data URL, for a thumbnail; null when none.
+- logoMaxBytes: The largest logo accepted, in bytes.
+- version: Null until saved; send it as `expectedVersion`.
+- updatedAt: When the template was last changed; null until saved.
+
+### MailTemplateUpdate
+
+- markdown: The template's Markdown.
+- expectedVersion: The saved `version`; omitted on the first save.
+
+### MailTemplatePreview
+
+- markdown: The draft Markdown to render.
+
+### MailTemplatePreviewResponse
+
+The draft rendered around a sample message.
+
+- html: The whole HTML document, the logo inline as a data URL.
+- text: The plain-text alternative.

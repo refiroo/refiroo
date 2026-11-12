@@ -571,6 +571,62 @@ Applies proposals to the draft, each as one step of its history, all or none; ev
 - 422 PROPOSAL_REQUIREMENT_MISSING: a proposal's required proposal is neither applied nor listed
 - 422 INVALID_OPERATION: a proposal's operations do not apply; `details.step` names it
 
+## GET /api/v1/model-drafts/{draft_id}/canvas
+
+Title: Read a draft's canvas
+
+Reads what the draft's board keeps: where each card sits by card key, which cards are folded and the chosen scope. They belong to the draft only: they are not part of its model, its version or its history, and no release holds them.
+
+### Parameters
+
+- draft_id: The model draft's ID.
+
+### Errors
+
+- 403 FORBIDDEN: needs Model authoring
+- 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
+- 404 HTTP_ERROR: model administration is switched off
+
+## PATCH /api/v1/model-drafts/{draft_id}/canvas
+
+Title: Arrange a draft's canvas
+
+Merges card positions and folded cards by key into the draft's canvas and replaces its scope; a part left out stays. A position places a card and `null` removes it; a folded key set `true` folds a card, `false` or `null` unfolds it; a scope of `model`, `changed` or `workbook` is chosen, `null` is the default. The draft's version does not change, so this never conflicts with an operations request and is not an undo step. At most 500 placed and 500 folded cards.
+
+### Parameters
+
+- draft_id: The model draft's ID.
+
+### Errors
+
+- 403 FORBIDDEN: needs Model authoring
+- 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
+- 404 HTTP_ERROR: model administration is switched off
+- 422 INVALID_CANVAS: the canvas would hold more than 500 placed or folded cards
+- 422 REQUEST_VALIDATION_ERROR: a position, a key, the scope or the body is malformed
+
+## POST /api/v1/model-drafts/{draft_id}/join-candidates
+
+Title: Find where a column joins
+
+Compares one column of the draft's source file with the columns of another table over every row and answers the candidates, best first, with their figures. Nothing is stored. Values compare by their trimmed text, as an import matches names. When two candidates match exactly as much the answer is a `tie` with no `best`: ask which; nothing is guessed.
+
+### Parameters
+
+- draft_id: The model draft's ID.
+
+### Errors
+
+- 403 FORBIDDEN: needs Model authoring
+- 404 MODEL_DRAFT_NOT_FOUND: no draft has this ID
+- 404 SOURCE_FILE_NOT_FOUND: the draft has no source file
+- 404 SOURCE_SHEET_NOT_FOUND: a sheet is not in the file
+- 404 HTTP_ERROR: model administration is switched off
+- 409 SOURCE_FILE_PROFILE_NOT_READY: the file is not profiled yet
+- 422 COLUMN_NOT_FOUND: a header or letter is not in the table
+- 422 INVALID_RANGE: a block's last column is before its first
+- 422 REQUEST_VALIDATION_ERROR: a column is named by both header and letter
+
 ## POST /api/v1/model-drafts/{draft_id}/inference/list
 
 Title: Read a rectangle as a list
@@ -1171,6 +1227,80 @@ A rectangle of the draft's file to read as a list, with its header row and `bloc
 - headerRow: The row holding the headers, from 1.
 - block: The columns and rows the list spans, as a source's `block`.
 - applicationKey: The application new types go into, one the draft has; by default the one the sheet's sources load into.
+
+### JoinCandidatesRequest
+
+Two tables of the draft's file to compare: `column`, the one dropped, and `against`, what it is compared with.
+
+- column: The dropped column: its sheet, its header row and block (as a source takes them) and the column by `column` (its header) or `letter`. One of the two is needed.
+- against: The table compared with. With a `column` or `letter` only that column is compared; without, every column of the table that holds a value of the dropped column.
+
+### JoinColumnRef
+
+A table of the file and, optionally, one of its columns.
+
+- sheet: The sheet, as `GET /api/v1/source-files/{source_file_id}/profile/sheets` names it.
+- headerRow: The row holding the headers; the sheet's own when left out.
+- block: The columns and rows the table spans, as a source's `block`.
+- column: The column's header text; spaces around it do not count, so the header as the columns read lists it is accepted and saved trimmed, as an import reads it; a repeated header reads `Name #2`. Not with `letter`.
+- letter: The column's sheet letter, such as `C`. Not with `column`.
+
+### JoinCandidatesResponse
+
+The columns the dropped column's values point at, compared over every row.
+
+- column: The dropped column as read.
+- candidates: The columns that hold values of the dropped column (every column of a named table), by `matchedRows` and then `matchedValues`, then column order.
+- best: The letter of the one column that matches most; `null` when two or more tie or none matches.
+- tie: Whether two or more columns match exactly as much. The client asks which.
+- tied: The letters of the tied columns; empty without a tie.
+
+### JoinColumnResponse
+
+The dropped column.
+
+- sheet: Its sheet.
+- letter: Its sheet letter.
+- header: Its header text; `null` when the header cell is empty.
+- rows: Its filled rows.
+- distinct: How many of them differ.
+
+### JoinCandidate
+
+A column of the compared table, with its figures over every row.
+
+- sheet: Its sheet.
+- letter: Its sheet letter.
+- header: Its header text; `null` when the header cell is empty.
+- rows: Its filled rows.
+- distinct: How many of them differ.
+- matchedValues: How many of the dropped column's different values the column holds.
+- matchedRows: How many of the dropped column's rows hold a value the column holds.
+- share: `matchedRows` over the dropped column's filled rows, from 0 to 1.
+- unique: Whether every filled cell of the column differs, so it reads as a list to link to.
+
+### CanvasResponse
+
+What the draft's board keeps: card positions, folded cards and the chosen scope.
+
+- positions: Each card's position. A card a client does not know is left as it is.
+- folded: The keys of the folded cards, in order.
+- scope: What the board shows: `model`, `changed` or `workbook`; `null` is the default.
+
+### CanvasPosition
+
+Where a card sits on the board, in the board's own units.
+
+- x: Horizontal position, from -1,000,000 to 1,000,000.
+- y: Vertical position, from -1,000,000 to 1,000,000.
+
+### CanvasUpdate
+
+Parts to merge into the canvas; at least one.
+
+- positions: A position for each card to place or move, by key (1 to 200 characters), or `null` to remove the card.
+- folded: For each card key (1 to 200 characters), `true` to fold the card, `false` or `null` to unfold it.
+- scope: `model`, `changed` or `workbook` to choose it, `null` for the default.
 
 ### ListProposalResponse
 

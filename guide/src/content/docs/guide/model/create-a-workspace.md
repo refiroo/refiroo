@@ -15,7 +15,7 @@ See [Managing workspaces](/docs/model/managing-workspaces/) for permissions and 
 3. Under **Model**, choose **The default workspace’s model** or **Another installed release**.
    For the latter choose **Installed release** and check the model name and version. The
    picker initially shows each model's newest usable release; reveal older versions if needed.
-4. Confirm creation. The new workspace starts empty. It copies the selected definitions,
+4. Choose **Add workspace**. The new workspace starts empty. It copies the selected definitions,
    not the default workspace's records, change sets or publications. Changing the default
    workspace later does not change this workspace's selected release.
 5. Check its **Overview**, model and applications. Use **Open workspace** to browse its data.

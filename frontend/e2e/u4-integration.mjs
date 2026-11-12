@@ -39,7 +39,7 @@ const SECOND = {
 
 const PAGES = [
   ["Consumer APIs", "/settings/consumer-apis", (page) => page.getByRole("region", { name: "RDM API · v1" })],
-  ["Jobs", "/settings/jobs", (page) => page.getByRole("region", { name: "Limits" }).getByText("Chunk")],
+  ["Jobs", "/settings/jobs", (page) => page.getByRole("tab", { name: "Limits" })],
   ["API reference", "/settings/api-reference", (page) => page.getByRole("group", { name: "API reference sources" })],
 ];
 
@@ -93,7 +93,14 @@ try {
   await page.goto(`${uiUrl}/settings/consumer-apis`);
   const lists = { "RDM API · v1": "domains", "Systems feed · v3": "source-systems" };
   const baseOf = async (title) =>
-    (await page.getByRole("region", { name: title }).locator(".consumer-api-base code").first().innerText()).trim();
+    (
+      await page
+        .getByRole("region", { name: title })
+        .locator(".setting-row", { hasText: "Base URL" })
+        .locator("code")
+        .first()
+        .innerText()
+    ).trim();
   for (const [title, list] of Object.entries(lists)) {
     await page.getByRole("region", { name: title }).waitFor();
     const base = await baseOf(title);

@@ -8,7 +8,7 @@ A change set can use an installed release while Live still uses another. Coordin
 with a model administrator. See [Change sets](/docs/use/change-sets/) and
 [Migrations](/docs/model/migrations/) for the reviewed conversion process.
 
-1. When creating a change set, choose **Model version** if a choice is offered. The starting
+1. When creating a change set, open **Options**, then choose **Model version** if your Model release access and the available releases offer a choice. The starting
    records must fit it. A refusal leaves Live unchanged; inspect the named incompatibilities.
 2. In an editable change set, use **More change set actions › Change model version** to choose
    a **Target release** where the existing content fits without a conversion. Resolve unsaved

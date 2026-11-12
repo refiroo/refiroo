@@ -12,6 +12,9 @@ export const DIALOG = { edge: 16, labelToControl: 10, betweenFields: 12 };
  * dialog. `name` says which dialog in the message.
  */
 export async function assertDialogLayout(page, name) {
+  // A choice of one or few things opens as a popover beside its trigger (0.17 PL2), which has no dialog frame to measure.
+  if (await page.evaluate(() => !document.querySelector(".dialog") && !!document.querySelector(".control-popover [role=dialog]")))
+    return;
   const problems = await page.evaluate((limits) => {
     const dialogs = [...document.querySelectorAll(".dialog")];
     const dialog = dialogs[dialogs.length - 1];

@@ -67,7 +67,10 @@ function open(settings: MailSettings) {
 }
 
 describe("Settings › Mail (0.12 M1)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    window.history.replaceState(null, "", "/");
+  });
 
   it("says mail is not set up, and the first save sends no version or password without a login", async () => {
     vi.mocked(mail.saveSettings).mockResolvedValue(saved);
@@ -75,7 +78,7 @@ describe("Settings › Mail (0.12 M1)", () => {
     expect(await screen.findByText("Mail is not set up")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send test message" })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Server"), { target: { value: "smtp.example.org" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Server" }), { target: { value: "smtp.example.org" } });
     fireEvent.change(screen.getByLabelText("From address"), { target: { value: "refiroo@example.org" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -130,7 +133,7 @@ describe("Settings › Mail (0.12 M1)", () => {
     open(empty);
     fireEvent.change(await screen.findByLabelText("Send mail through"), { target: { value: "microsoft365" } });
     expect(screen.getByText("What to set up in Microsoft Entra")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Server")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Server" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Tenant ID"), { target: { value: "t-1" } });
     fireEvent.change(screen.getByLabelText("Application (client) ID"), { target: { value: "c-1" } });
     fireEvent.change(screen.getByLabelText("Sending mailbox"), { target: { value: "refiroo@example.org" } });
@@ -347,11 +350,14 @@ describe("Settings › Mail (0.12 M1)", () => {
         <MailPage />
       </ToastProvider>,
     );
-    expect(await screen.findByText("ada@example.org")).toBeInTheDocument();
-    expect(screen.getByText("Password reset")).toBeInTheDocument();
-    expect(screen.getByText("Failed")).toBeInTheDocument();
-    expect(screen.getByText(/550 no such user/)).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Failed (1)" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: "Messages" }));
+    const table = await screen.findByRole("group", { name: "Messages" });
+    expect(within(table).getByText("ada@example.org")).toBeInTheDocument();
+    expect(within(table).getByText("Password reset")).toBeInTheDocument();
+    expect(within(table).getByText("Failed")).toBeInTheDocument();
+    expect(within(table).getByText(/550 no such user/)).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Outbox")).getByText("failed").previousSibling).toHaveTextContent("1");
+    expect(screen.getByRole("button", { name: "Failed" })).toHaveAttribute("aria-pressed", "false");
   });
 
   describe("stopping a message that is still being tried", () => {
@@ -394,6 +400,7 @@ describe("Settings › Mail (0.12 M1)", () => {
         vi.mocked(mail.messages).mockResolvedValue({ items: [stopped], nextCursor: null } as never);
         return stopped as never;
       });
+      fireEvent.click(await screen.findByRole("tab", { name: "Messages" }));
       fireEvent.click(await screen.findByRole("button", { name: "Stop sending" }));
       expect(mail.stopMessage).not.toHaveBeenCalled();
       const dialog = screen.getByRole("alertdialog");
@@ -406,6 +413,7 @@ describe("Settings › Mail (0.12 M1)", () => {
 
     it("keeps trying when the dialog is dismissed, and offers no stop for a finished message", async () => {
       openWaiting();
+      fireEvent.click(await screen.findByRole("tab", { name: "Messages" }));
       fireEvent.click(await screen.findByRole("button", { name: "Stop sending" }));
       fireEvent.click(screen.getByRole("button", { name: "Keep trying" }));
       expect(mail.stopMessage).not.toHaveBeenCalled();

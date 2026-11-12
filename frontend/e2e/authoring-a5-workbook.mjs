@@ -241,7 +241,7 @@ async function journey(label, source) {
       [await dialog().getByLabel("Text 1").inputValue(), await dialog().getByLabel("Text 2").inputValue()].sort(),
       ["-", "N/A"],
     );
-    await dialog().getByRole("button", { name: "Save the value map" }).click();
+    await dialog().getByRole("button", { name: "Save", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await centre.getByText(/N\/A → empty/).waitFor();
     checks.push(
@@ -314,7 +314,7 @@ async function journey(label, source) {
     await page.getByRole("button", { name: "Operations for Item", exact: true }).click();
     await chooseMenu("Change key…");
     await dialog().getByLabel("Key").fill("a5-article");
-    await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog().getByRole("button", { name: "Save", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     // The editor follows the selected type to its new key.
     await page.waitForURL(/key=a5-article/);
@@ -323,7 +323,7 @@ async function journey(label, source) {
     await dialog()
       .getByRole("option", { name: /^Category/ })
       .click();
-    await dialog().getByRole("button", { name: "Move to Category" }).click();
+    await dialog().getByRole("button", { name: "Move", exact: true }).click();
     await dialog().waitFor({ state: "hidden" });
     await column(HEADERS.Po).click();
     await centre.getByText(`Category · ${HEADERS.Po}`).waitFor();
@@ -379,10 +379,9 @@ async function journey(label, source) {
     await shot("review-1440");
     checks.push(`${label}: Load installs and activates the model, loads W1 into a new change set and opens its review`);
 
-    await page.getByRole("button", { name: "Validate change set", exact: true }).click();
-    await page.getByRole("button", { name: "Publish change set", exact: true }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }).click();
-    await page.getByText(/Reviewed changes are now live/).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
+    await page.getByText(/The changes are live/).waitFor({ timeout: 30_000 });
     const live = await api("/objects/a5-article?includeTotal=true&pageSize=1");
     assert.equal(live.totalCount, 200);
     checks.push(`${label}: publishing the change set makes W1's 200 items live`);
@@ -390,8 +389,8 @@ async function journey(label, source) {
     // A5c: the next version through Settings › Imports (J35).
     const profileKey = (await draftProfile()).profile.key;
     await page.goto(`${harness.uiUrl}/settings/import-profiles`);
-    // The catalogue: the profile with its last load, W1's, published (0.10 A5c).
-    const listed = page.getByRole("navigation", { name: "Import profiles" }).getByRole("button", { name: /published/ });
+    // The list: the profile with its last load, W1's, published (0.10 A5c; a full-width list since 0.17 ST1).
+    const listed = page.getByRole("region", { name: "Profiles" }).getByRole("button", { name: /published/ });
     await listed.waitFor();
     await shot("imports-1440");
     await listed.click();

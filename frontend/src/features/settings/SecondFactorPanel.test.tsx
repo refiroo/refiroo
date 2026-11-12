@@ -74,7 +74,7 @@ describe("Account's second factor (0.12 I4b)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove…" }));
     const dialog = screen.getByRole("dialog", { name: "Remove the second factor" });
     fireEvent.change(dialog.querySelector("input")!, { target: { value: "123456" } });
-    fireEvent.click(screen.getByRole("button", { name: "Remove it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove second factor" }));
     await waitFor(() => expect(api.removeMySecondFactor).toHaveBeenCalledWith("123456"));
   });
 

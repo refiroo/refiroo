@@ -29,14 +29,46 @@ export function groupByPrincipal(grants: readonly Grant[]): AccessRow[] {
   return rows;
 }
 
+/** The grants of one place: every workspace, or one workspace. */
+export interface PlaceRow {
+  /** "instance" or the workspace's key. */
+  key: string;
+  label: string;
+  instance: boolean;
+  grants: Grant[];
+}
+
+/**
+ * A principal's grants by where they apply (0.17 ST1, the user: "group the accesses"): every workspace first,
+ * then each workspace by its name; in a place, roles before consumer APIs, each by name.
+ */
+export function groupByPlace(grants: readonly Grant[], labels: ReadonlyMap<string, string>): PlaceRow[] {
+  const rows = new Map<string, PlaceRow>();
+  for (const grant of grants) {
+    const key = grant.scope.instance ? "instance" : (grant.scope.workspaceKey ?? "");
+    const label = grant.scope.instance ? "Every workspace" : (labels.get(key) ?? key);
+    const row = rows.get(key) ?? { key, label, instance: grant.scope.instance, grants: [] };
+    row.grants.push(grant);
+    rows.set(key, row);
+  }
+  const held = (grant: Grant) => `${grant.role ? 0 : 1}${grantHeld(grant).toLowerCase()}`;
+  for (const row of rows.values()) row.grants.sort((a, b) => held(a).localeCompare(held(b)));
+  return [...rows.values()].sort((a, b) =>
+    a.instance !== b.instance ? (a.instance ? -1 : 1) : a.label.localeCompare(b.label),
+  );
+}
+
 export type ChipHue = 1 | 2 | 3 | 4 | 7 | 8 | "neutral";
 
 const ADMINISTRATION = new Set(["workspace-admin", "model-admin", "integration-admin", "operator", "security-admin"]);
 
 /** The hue slot of a grant's chip, by the kind of its role. */
 export function chipHue(grant: Grant): ChipHue {
-  if (!grant.role) return 2;
-  const key = grant.role.key;
+  return grant.role ? roleKeyHue(grant.role.key) : 2;
+}
+
+/** The hue slot of a role's chip, by its key (a person's roles in a list carry the key, not a grant). */
+export function roleKeyHue(key: string): ChipHue {
   if (key === "reader") return 8;
   if (key === "contributor") return 7;
   if (key === "steward") return 1;

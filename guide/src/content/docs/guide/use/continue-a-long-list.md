@@ -18,7 +18,7 @@ Find a distant row without scrolling through every earlier result. See
 4. Where **Go to** is offered, enter a value for the current sort and submit it. This seeks the
    value's place in that ordering; it does not add a filter. Check nearby names and identifying
    fields if there is no exact match.
-5. Open a record. Use **Back to list** to return with your search, filters, sort and position.
+5. Open a record. Choose **←** and the list’s name above the title to return with your search, filters, sort and position.
    Save or share the address if you need to return later. Changes to the underlying data can
    change the records at that position.
 

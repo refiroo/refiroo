@@ -8,11 +8,11 @@ You need **Security administration** and help from the organisation’s sign-in 
 
 ## Create the provider
 
-1. Open **Settings › Security › Sign-in** and choose **New provider**. The catalogue keeps **Local accounts** separate from **Providers**.
+1. Open **Settings › People and access › Sign-in** and choose **New provider**. The catalogue keeps **Local accounts** separate from **Providers**.
 2. Enter **Name on the sign-in button**. People see **Continue with** followed by that name. Check the suggested **Key**: it forms part of the registered address and cannot change after saving. The names password, passkey and local are reserved; choose a distinct key.
 3. Enter **Issuer**, **Client ID** and **Client secret** from the sign-in administrator’s registration. The issuer must match the provider exactly. The saved secret is kept sealed and never shown again.
 4. If the provider supplies groups, enter **Groups claim**, using the field name supplied by its administrator. Empty means provider groups are not used. You can [create provider groups and grant their roles](/docs/guide/administer/manage-a-group/#use-a-provider-group) before anyone signs in.
-5. Keep **Offer it on the sign-in page now** selected if it should be enabled, then choose **Save provider**. It shows **Checking and saving…** while checking an enabled provider. If **The provider was not saved** appears, correct the stated issuer, connectivity, certificate or registration problem with the sign-in administrator. **Cancel** leaves it uncreated.
+5. Keep **Offer it on the sign-in page now** selected if it should be enabled, then choose **Add provider**. It shows **Checking and adding…** while checking an enabled provider. If **The provider was not saved** appears, correct the stated issuer, connectivity, certificate or registration problem with the sign-in administrator. **Cancel** leaves it uncreated.
 
 ![New sign-in provider with button name, registration and group fields](/docs/screens/admin-signin-provider-new.png)
 

@@ -8,6 +8,10 @@ Load a workbook when its sheets need to become records, fields and relationships
 model you already use. refiroo keeps the uploaded source with a model draft, proposes how to read
 it, and checks the rows before you apply them. Follow [Start a draft from a workbook](/docs/guide/model/start-a-draft-from-a-workbook/)
 for the screen-by-screen task.
+You can also [shape the workbook on the canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/)
+by dragging sheets and columns onto the board; **Editor | Canvas** switches between views
+of the same draft. For a separate workspace, **New workspace from a workbook** offers
+**Adjust** to open that canvas before creating anything.
 
 This route starts in **Settings**, **Model** and needs model administration. Installing and
 activating a release and loading records also need the corresponding permissions in the target
@@ -142,8 +146,7 @@ version and any refused rows. Review the three stages before starting:
 
 ![Load the workbook dialog with release details, change-set name, workspace and three stages](/docs/screens/wbload-dialog.png)
 
-*Above: the fictional operator workbook is ready to load into Guide workbook test. The draft
-changes the model, so the dialog proposes release 1.0.1 and offers Install, activate and load.*
+*Above: The fictional operator workbook is ready to load into Guide workbook test. The draft changes the model, so the dialog proposes release 1.8.3 and offers Install, activate and load.*
 
 Model activation changes the target workspace's definitions before the row load; it does not
 wait for publication of the loaded records. These stages can stop separately: an installed

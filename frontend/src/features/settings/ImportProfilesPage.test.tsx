@@ -41,11 +41,20 @@ const file = {
   profile: { state: "completed" },
 } as unknown as SourceFile;
 
-function renderPage(onNavigate = vi.fn()) {
+/** An action in the page's ⋯ menu. */
+async function chooseFromMenu(name: string) {
+  fireEvent.keyDown(await screen.findByRole("button", { name: "More actions" }), {
+    key: "ArrowDown",
+    code: "ArrowDown",
+  });
+  fireEvent.keyDown(await screen.findByRole("menuitem", { name }), { key: "Enter", code: "Enter" });
+}
+
+function renderPage(onNavigate = vi.fn(), profileKey: string | null = "shelves") {
   render(
     <ImportProfilesPage
       model={{ objectTypes: [] } as unknown as EngineModel}
-      route={{ kind: "settings", page: "import-profiles", profileKey: "shelves" }}
+      route={{ kind: "settings", page: "import-profiles", profileKey: profileKey ?? undefined }}
       defaultWorkspace="default"
       onNavigate={onNavigate}
     />,
@@ -66,7 +75,7 @@ describe("deleting an import profile and its file (0.13 ED)", () => {
   it("deletes the profile at its version after asking, and returns to the list", async () => {
     vi.mocked(api.deleteImportProfile).mockResolvedValue(undefined);
     const onNavigate = renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete the profile…" }));
+    await chooseFromMenu("Delete the profile…");
     const dialog = await screen.findByRole("alertdialog", { name: "Delete the profile Shelves workbook?" });
     expect(within(dialog).getByText(/records already loaded through it stay/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete the profile" }));
@@ -77,7 +86,7 @@ describe("deleting an import profile and its file (0.13 ED)", () => {
   it("deletes the uploaded file at its version and reads the profile's files again", async () => {
     vi.mocked(api.deleteSourceFile).mockResolvedValue(undefined);
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete the file…" }));
+    await chooseFromMenu("Delete the file…");
     const dialog = await screen.findByRole("alertdialog", { name: "Delete shelves.xlsx?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete the file" }));
     await waitFor(() => expect(api.deleteSourceFile).toHaveBeenCalledWith("f1", 2));
@@ -89,7 +98,7 @@ describe("deleting an import profile and its file (0.13 ED)", () => {
       new ApiError(409, "IMPORT_PROFILE_VERSION_CONFLICT", "Import profile 'shelves' is at version 5, not 4"),
     );
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete the profile…" }));
+    await chooseFromMenu("Delete the profile…");
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete the profile" }));
     expect(await within(dialog).findByText(/is at version 5, not 4/)).toBeTruthy();
@@ -100,6 +109,20 @@ describe("deleting an import profile and its file (0.13 ED)", () => {
     renderPage();
     expect((await screen.findAllByText("Shelves workbook")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^Delete/ })).toBeNull();
+  });
+});
+
+describe("the list and a profile's page (0.17 ST1)", () => {
+  it("opens a profile's page from its row", async () => {
+    const onNavigate = renderPage(vi.fn(), null);
+    fireEvent.click(await screen.findByRole("button", { name: /Shelves workbook/ }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "import-profiles", profileKey: "shelves" });
+  });
+
+  it("goes back to the list from the page's trail", async () => {
+    const onNavigate = renderPage();
+    fireEvent.click(await screen.findByRole("link", { name: "Import profiles" }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "import-profiles" });
   });
 });
 

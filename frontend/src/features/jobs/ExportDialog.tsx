@@ -340,7 +340,7 @@ export function ExportDialog({
           {!viewStart && !forPeople && (
             <FormField
               label="Record types"
-              help={`Read from ${context}${start.workspaceKey ? ` in workspace “${start.workspaceKey}”` : ""}, all at one instant.`}
+              help={`Read from ${context}, all at one instant.`}
               error={fieldError("types")}
             >
               {(control) => (
@@ -356,12 +356,7 @@ export function ExportDialog({
               )}
             </FormField>
           )}
-          {viewStart && (
-            <p className="admin-hint">
-              Read from {context}
-              {start.workspaceKey ? ` in workspace “${start.workspaceKey}”` : ""}, all at one instant.
-            </p>
-          )}
+          {viewStart && <p className="admin-hint">Read from {context}, all at one instant.</p>}
           {ofView && viewStart?.notCarried && <Notice tone="info">{viewStart.notCarried}</Notice>}
           {ofView && viewStart && viewStart.filters.length + viewStart.toFilters.length > 0 && (
             <p className="admin-hint">

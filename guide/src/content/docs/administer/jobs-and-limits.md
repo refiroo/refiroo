@@ -4,7 +4,7 @@ description: Read job progress, understand cancellation and find the deployment�
 reader: access-admin
 ---
 
-Open **Settings › Data operations › Jobs** to see bulk writes, imports and exports across the workspaces available to you. The list is newest first and shows the job, workspace, state, item counts, requester, creation and finish times. Select a job for its details. This page also shows the deployment limits; it does not edit them.
+Open **Settings › This instance › Jobs** to see bulk writes, imports and exports across the workspaces available to you. The list is newest first and shows the job, workspace, state, item counts, requester, creation and finish times. Select a job for its details. This page also shows the deployment limits; it does not edit them.
 
 For the person carrying out an import or export, see [Jobs](/docs/use/jobs/).
 
@@ -18,15 +18,15 @@ Jobs keep their requester’s permissions. Deactivating the requester or removin
 
 ## Progress and cancellation
 
-Use **Refresh** for current progress and **Load more jobs** for older entries. **Items** distinguishes processed, applied, rejected and unprocessed items. Completion alone does not mean every item was applied; read the result and rejected-item details.
+Use **Refresh** for current progress and **Show more** for older entries. **Items** distinguishes processed, applied, rejected and unprocessed items. Completion alone does not mean every item was applied; read the result and rejected-item details.
 
 For a queued or running job, **Cancel** asks **Cancel this job?** In the list, choose **Cancel job**; on the job detail page, choose **Stop the job**. **Keep the job** leaves it running. Cancellation is taken at the next chunk. Already committed chunks stay applied; an atomic job rolls back completely. Items not yet reached remain unprocessed. If the job finished before cancellation arrived, the page refreshes and explains its final state.
 
-![Jobs list showing states, progress counts, requesters and available cancellation](/docs/screens/jobs-list.png)
+![Jobs list showing states, progress counts and requesters of finished jobs](/docs/screens/jobs-list.png)
 
 ## Limits
 
-The **Limits** section displays the current values. Use these values when planning a large import; do not assume another deployment has the same settings.
+The **Limits** tab displays the current values. Use these values when planning a large import; do not assume another deployment has the same settings.
 
 | Limit | Meaning |
 | --- | --- |
@@ -40,7 +40,7 @@ The **Limits** section displays the current values. Use these values when planni
 
 A preview is not proof that every item in a larger file is valid. Inspect the completed job’s outcome. Download needed results before retention removes the detailed outcomes and files. The job becomes Expired and keeps its summary, including counts, result, error and report.
 
-The operator changes these limits in the deployment configuration and restarts the service. **Settings › Administration › Deployment** shows their sources and meanings to people with **Operations**. See [Deployment pages](/docs/administer/deployment-pages/). Change-feed retention is shown on **Consumer APIs**, separately from job retention.
+The operator changes these limits in the deployment configuration and restarts the service. **Settings › This instance › Deployment** shows their sources and meanings to people with **Operations**. See [Deployment pages](/docs/administer/deployment-pages/). Change-feed retention is shown on **Consumer APIs**, separately from job retention.
 
 ## When a job cannot continue
 

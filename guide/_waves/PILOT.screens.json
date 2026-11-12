@@ -23,11 +23,11 @@
       "name": "stops-filter-menu",
       "shows": "The same search with the Filter menu open, listing the fields and relationships a list can be filtered by.",
       "actions": [
-        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden" },
-        { "fill": { "css": "input[aria-label=Search]" }, "value": "Chur" },
-        { "wait": 1500 },
-        { "click": { "role": "button", "name": "Filter", "exact": true } },
-        { "waitFor": { "text": "Operated by", "exact": true } }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden"},
+        {"fill": {"css": "input[aria-label=Search]"}, "value": "Chur"},
+        {"wait": 1500},
+        {"click": {"role": "button", "name": "Filter", "exact": true}},
+        {"wait": 900}
       ],
       "expect": ["Fields", "Relationships", "Operated by", "Valid from"]
     },
@@ -66,19 +66,21 @@
     },
     {
       "name": "stop-relationships",
-      "shows": "The lower part of Chur Wiesental's page: System codes (two codes from other systems) and Name translations (none yet).",
+      "shows": "The lower part of Chur Wiesental's full page (Expand to full page): System codes (two codes from other systems) and Name translations (none yet), each with its own Add button.",
       "actions": [
-        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
-        { "click": { "text": "Chur Wiesental", "exact": true } },
-        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
-        { "wait": 1000 },
-        { "scrollTo": { "text": "System codes", "exact": true }, "offset": 150 }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"wait": 1000},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "button", "name": "Add Name translation"}},
+        {"scrollTo": {"text": "System codes", "exact": true}, "offset": 150}
       ],
       "expect": ["System codes", "Wikidata: stations", "Name translations", "No relationships yet"]
     },
     {
       "name": "stop-edit-field",
-      "shows": "Chur Wiesental with one field open for correction in place: Stop number (UIC), with Cancel and Save.",
+      "shows": "Chur Wiesental with one field open for correction in place: Stop number (UIC), saved with Enter and left with Escape (no Save or Cancel buttons).",
       "actions": [
         { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
         { "click": { "text": "Chur Wiesental", "exact": true } },
@@ -86,26 +88,30 @@
         { "wait": 1000 },
         { "click": { "role": "button", "name": "Edit Stop number (UIC): 8509006" } }
       ],
-      "expect": ["Cancel", "Save", "Stop number (UIC)"]
+      "expect": ["Stop number (UIC)"]
     },
     {
       "name": "stop-edit-record",
-      "shows": "The 'Edit object' form of Chur Wiesental (record menu, Edit record): Parent, Name, Designation, Stop number (UIC) and the other fields.",
+      "shows": "The side sheet for editing Chur Wiesental (record menu, Edit record): the Chur parent with Change, the required fields Name, Designation and Stop number (UIC), More fields opened, and Cancel and Save.",
       "actions": [
-        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
-        { "click": { "text": "Chur Wiesental", "exact": true } },
-        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
-        { "wait": 1000 },
-        { "click": { "role": "button", "name": "Record actions" } },
-        { "click": { "role": "menuitem", "name": "Edit record" } },
-        { "waitFor": { "text": "Edit object", "exact": true } }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"wait": 1000},
+        {"click": {"role": "button", "name": "Record actions"}},
+        {"click": {"role": "menuitem", "name": "Edit record"}},
+        {"waitFor": {"role": "button", "name": "Save", "exact": true}},
+        {"wait": 600}
       ],
-      "expect": ["Edit object", "Parent", "Name", "Designation", "Stop number (UIC)", "SLOID", "Abbreviation"]
+      "expect": ["Chur Wiesental", "Change", "Name", "Designation", "Stop number (UIC)", "More fields", "Save"],
+      "after": [
+        {"click": {"role": "button", "name": "Cancel"}}
+      ]
     },
     {
       "name": "save-conflict",
       "height": 1100,
-      "shows": "A save refused because someone else changed the stop first. The stop Chur Depot Sand: another session changed its Designation, then this session saved the Abbreviation. The field shows 'Current saved value', 'Your input is preserved' and the message 'The value was not saved: Object version has changed', with Cancel and Save.",
+      "shows": "A save refused because someone else changed the stop first. The stop Chur Depot Sand: another session changed its Designation, then this session saved the Abbreviation. The field shows 'Current saved value', 'Your input is preserved' and the message 'The value was not saved: Object version has changed' (the field stays open; Enter tries again, Escape leaves it).",
       "actions": [
         { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Depot+Sand" },
         { "click": { "text": "Chur Depot Sand", "exact": true } },
@@ -120,7 +126,7 @@
         { "wait": 1500, "session": "b" },
         { "click": { "role": "button", "name": "Edit Abbreviation: DEPS" } },
         { "focusedFill": "CHSX" },
-        { "click": { "role": "button", "name": "Save", "exact": true } },
+        { "press": "Enter" },
         { "waitFor": { "text": "The value was not saved", "exact": false } },
         { "wait": 300 }
       ],
@@ -134,59 +140,165 @@
     },
     {
       "name": "stop-history",
-      "shows": "The History section at the bottom of Chur Wiesental's page: who changed what and when, with the filters By, All, Values, Relationships, Moves.",
+      "shows": "The History section at the bottom of Chur Wiesental's full page (Expand to full page): who changed what and when, with the filters All, Values, Relationships, Moves.",
       "actions": [
-        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
-        { "click": { "text": "Chur Wiesental", "exact": true } },
-        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
-        { "wait": 1000 },
-        { "scrollTo": { "role": "heading", "name": "History" }, "offset": 90 }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"wait": 1000},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "heading", "name": "History"}},
+        {"wait": 800},
+        {"scrollTo": {"role": "heading", "name": "History"}, "offset": 90}
       ],
-      "expect": ["History", "Values", "Relationships", "Moves", "Guide Admin", "Record created"]
+      "expect": ["History", "Values", "Relationships", "Moves", "Guide Admin"]
     },
     {
       "name": "change-sets-list",
-      "shows": "The Change sets page of the Network application with the open change set 'December 2026 timetable change' and the button 'Start from current live data'.",
-      "actions": [{ "goto": "/apps/network/change-sets?workspaceKey=graubuenden" }, { "waitFor": { "text": "December 2026 timetable change", "exact": true } }],
-      "expect": ["Change sets", "Start from current live data", "December 2026 timetable change", "Open change set"]
+      "shows": "The Change sets page of the Network application with the open change set 'December 2026 timetable change' and the button 'New change set'.",
+      "actions": [
+        {"goto": "/apps/network/change-sets?workspaceKey=graubuenden"},
+        {"waitFor": {"text": "December 2026 timetable change", "exact": true}}
+      ],
+      "expect": ["Change sets", "New change set", "December 2026 timetable change", "Open change set"]
     },
     {
       "name": "change-set-open",
-      "shows": "The open change set: the orange Change set banner with 'Edits stay in this change set until it is published', its name, and the buttons Review changes, Validate change set, Publish change set above the Stops list.",
+      "shows": "The open change set seen as data: the orange Change set banner with its name, the count of changes, Details, Review changes, Publish and the ⋯ menu above the Stops list (opened with 'See the data with these changes').",
       "actions": [
-        { "goto": "/apps/network/change-sets?workspaceKey=graubuenden" },
-        { "click": { "role": "button", "name": "Open change set" } },
-        { "waitFor": { "role": "button", "name": "Review changes" } },
-        { "wait": 1200 }
+        {
+          "goto": "/apps/network/change-sets?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open change set"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Changes in this change set"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "See the data with these changes"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Review changes"
+          }
+        },
+        {
+          "wait": 1200
+        }
       ],
-      "expect": ["Edits stay in this change set until it is published", "December 2026 timetable change", "Review changes", "Publish change set"]
+      "expect": [
+        "Change set",
+        "December 2026 timetable change",
+        "Review changes",
+        "Publish"
+      ]
     },
     {
       "name": "change-set-review",
-      "shows": "Review changes of the change set: the list of changed records (stops with a changed Valid to), with the tabs Records and Relationships.",
+      "shows": "What a change set opens on: Changes in this change set, the list of changed records (stops with a changed Valid to), with the tabs Records and Relationships and the Publish button and ⋯ menu in the banner.",
       "actions": [
-        { "goto": "/apps/network/change-sets?workspaceKey=graubuenden" },
-        { "click": { "role": "button", "name": "Open change set" } },
-        { "click": { "role": "button", "name": "Review changes" } },
-        { "waitFor": { "role": "heading", "name": "Review changes" } },
-        { "wait": 1500 }
+        {
+          "goto": "/apps/network/change-sets?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open change set"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Changes in this change set"
+          }
+        },
+        {
+          "wait": 1500
+        }
       ],
-      "expect": ["Review changes", "Records", "Relationships", "Chur, Rossboden", "Changed: Valid to (exclusive)"]
+      "expect": [
+        "Changes in this change set",
+        "Records",
+        "Relationships",
+        "Chur, Rossboden",
+        "Changed: Valid to (exclusive)"
+      ]
     },
     {
       "name": "change-set-publish-confirm",
-      "shows": "The change set after 'Validate change set' (badge 'Change set validation passed') and the 'Publish this change set?' confirmation. Nothing is published.",
+      "shows": "The change set after Validate now (badge 'Change set validation passed') and the 'Publish this change set?' confirmation. Nothing is published.",
       "actions": [
-        { "goto": "/apps/network/change-sets?workspaceKey=graubuenden" },
-        { "click": { "role": "button", "name": "Open change set" } },
-        { "waitFor": { "role": "button", "name": "Validate change set" } },
-        { "click": { "role": "button", "name": "Validate change set" } },
-        { "waitFor": { "text": "Change set validation passed", "exact": false } },
-        { "click": { "role": "button", "name": "Publish change set" } },
-        { "waitFor": { "text": "Publish this change set?", "exact": true } }
+        {
+          "goto": "/apps/network/change-sets?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open change set"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Changes in this change set"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More change set actions"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Validate now"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Change set validation passed",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Publish",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Publish this change set?",
+            "exact": true
+          }
+        }
       ],
-      "after": [{ "click": { "role": "button", "name": "Cancel" } }],
-      "expect": ["Please confirm", "Publish this change set?", "Unrelated live changes are preserved", "Cancel"]
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Publish this change set?",
+        "Other changes made in live data",
+        "Cancel"
+      ]
     },
     {
       "name": "names-matrix",
@@ -219,17 +331,21 @@
     },
     {
       "name": "stop-add-translation",
-      "shows": "Chur Wiesental's 'Add Name translation' form (Parent language list, Translates Chur Wiesental, Name, Translated name, Active). Opened and cancelled; nothing is saved.",
+      "shows": "The side sheet 'New Name translation' opened from Chur Wiesental's full page: Parent language list, Translates Chur Wiesental, Name, Translated name, More fields (Active), Cancel and Add Name translation. Opened and cancelled; nothing is saved.",
       "actions": [
-        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
-        { "click": { "text": "Chur Wiesental", "exact": true } },
-        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
-        { "wait": 1000 },
-        { "click": { "role": "button", "name": "Add Name translation" } },
-        { "waitFor": { "text": "New Name translation", "exact": true } }
+        {"goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"},
+        {"click": {"text": "Chur Wiesental", "exact": true}},
+        {"waitFor": {"role": "heading", "name": "Chur Wiesental"}},
+        {"wait": 1000},
+        {"click": {"role": "button", "name": "Expand to full page"}},
+        {"waitFor": {"role": "button", "name": "Add Name translation"}},
+        {"click": {"role": "button", "name": "Add Name translation"}},
+        {"waitFor": {"text": "New Name translation", "exact": true}}
       ],
-      "after": [{ "click": { "role": "button", "name": "Cancel" } }],
-      "expect": ["New Name translation", "Parent", "Translates", "Translated name", "Active", "Create"]
+      "after": [
+        {"click": {"role": "button", "name": "Cancel"}}
+      ],
+      "expect": ["New Name translation", "Parent", "Translates", "Translated name", "More fields", "Add Name translation"]
     },
     {
       "name": "list-display-panel",

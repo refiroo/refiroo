@@ -1,20 +1,19 @@
 /**
- * Settings › Security › Sign-in (0.12 I3, U8): how people prove who they are. Local accounts first,
- * on or off (D365), then the OpenID Connect providers beside the selected one (U-D10's list and
- * detail). A provider's page gives the address to register with it, edits its settings in place
+ * Settings › Security › Sign-in (0.12 I3, U8; 0.17 ST1): how people prove who they are. A list with local
+ * accounts first, on or off (D365), then the OpenID Connect providers; a row opens its own page (PP-D61).
+ * A provider's page gives the address to register with it, edits its settings in place
  * (the secret is never shown, only replaced; an enabled provider is read when saved, D366), and
  * enables, disables or deletes it (delete only while nobody has signed in with it). Local sign-in
  * is turned off only once a provider has signed someone in, keeping the administrators made on the
  * server.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { LocalSignIn, RouteState, SettingsRoute, SignInProvider, SignInProviderCreate } from "@/types";
-import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
@@ -22,10 +21,16 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
+import { EntityList } from "@/ui/EntityList";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { ItemHeader, SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
+import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
+import { Switch } from "@/ui/Switch";
 import { useToast } from "@/ui/Toast";
+import { Trail } from "@/ui/Trail";
+import { settingsHead } from "@/features/settings/navigation";
+import { routePath } from "@/routing/routes";
 import { localSignInLine, providerUseLine, turnOffSentence } from "./securityText";
 
 type SignInRoute = Extract<SettingsRoute, { page: "sign-in" }>;
@@ -39,6 +44,7 @@ export function SignInPage({ route, onNavigate }: { route: SignInRoute; onNaviga
   const [localError, setLocalError] = useState("");
   const [creating, setCreating] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
+  const head = settingsHead("sign-in");
 
   function loadLocal() {
     security.localSignIn().then(
@@ -55,96 +61,105 @@ export function SignInPage({ route, onNavigate }: { route: SignInRoute; onNaviga
     feed.setItems((items) => items.map((item) => (item.key === provider.key ? provider : item)));
   }
 
-  const catalogue = (
-    <nav className="model-catalogue security-catalogue" aria-label="Sign-in">
-      <section>
-        <CatalogueEntry
-          icon="lock"
-          title="Local accounts"
-          subtitle={local ? localSignInLine(local) : localError || "Loading…"}
-          pill={
-            local && (
-              <StatusPill tone={local.enabled ? "success" : "neutral"}>{local.enabled ? "On" : "Off"}</StatusPill>
-            )
-          }
-          current={route.providerKey === LOCAL}
-          onSelect={() => onNavigate({ ...SIGN_IN, providerKey: LOCAL })}
-        />
-      </section>
-      <section>
-        <h2 className="nav-label">Providers</h2>
-        {feed.items.map((provider) => (
-          <CatalogueEntry
-            key={provider.key}
-            icon="globe"
-            title={provider.name}
-            subtitle={providerUseLine(provider)}
-            pill={
-              <StatusPill tone={provider.enabled ? "success" : "neutral"}>
-                {provider.enabled ? "Enabled" : "Disabled"}
-              </StatusPill>
-            }
-            current={route.providerKey === provider.key}
-            onSelect={() => onNavigate({ ...SIGN_IN, providerKey: provider.key })}
-          />
-        ))}
-        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading providers…</p>}
-        {!feed.loading && !feed.error && !feed.items.length && (
-          <p className="explorer-empty">No provider yet: people sign in with a password.</p>
-        )}
-        {feed.error && (
-          <div className="catalogue-error">
-            <InlineError message={feed.error} onRetry={feed.retry} />
-          </div>
-        )}
-        {feed.hasMore && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more providers
-          </button>
-        )}
-      </section>
-    </nav>
-  );
-
+  const trail = <Trail back={{ label: "Sign-in", onClick: () => onNavigate(SIGN_IN), href: routePath(SIGN_IN) }} />;
+  const listed = !route.providerKey;
   return (
-    <SettingsLayout
-      eyebrow="Security"
-      title="Sign-in"
-      description="How people prove who they are: an e-mail address and password, or the organisation's sign-in provider (OpenID Connect) with its own multi-factor sign-in. The engine starts its own session either way."
-      actions={
-        <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
-          <Icon name="plus" /> New provider
-        </button>
-      }
-    >
-      <CatalogueLayout
-        catalogue={catalogue}
-        hasSelection={!!route.providerKey}
-        backLabel="Sign-in"
-        onBack={() => onNavigate(SIGN_IN)}
-      >
-        {route.providerKey === LOCAL ? (
-          local ? (
-            <LocalDetail local={local} providers={feed.items} onChanged={setLocal} />
-          ) : localError ? (
-            <InlineError message={localError} onRetry={loadLocal} />
-          ) : (
-            <div className="panel-state">Loading local accounts…</div>
-          )
-        ) : route.providerKey ? (
-          <ProviderDetail
-            key={route.providerKey}
-            providerKey={route.providerKey}
-            onChanged={changed}
-            onDeleted={() => {
-              feed.reload();
-              onNavigate(SIGN_IN);
-            }}
-          />
+    <>
+      {route.providerKey === LOCAL ? (
+        local ? (
+          <LocalDetail local={local} providers={feed.items} trail={trail} onChanged={setLocal} />
         ) : (
-          <div className="panel-state">Choose local accounts or a provider.</div>
-        )}
-      </CatalogueLayout>
+          <SettingsLayout trail={trail} title="Local accounts">
+            {localError ? (
+              <InlineError message={localError} onRetry={loadLocal} />
+            ) : (
+              <Skeleton label="Loading local accounts" lines={3} />
+            )}
+          </SettingsLayout>
+        )
+      ) : route.providerKey ? (
+        <ProviderDetail
+          key={route.providerKey}
+          providerKey={route.providerKey}
+          trail={trail}
+          onChanged={changed}
+          onDeleted={() => {
+            feed.reload();
+            onNavigate(SIGN_IN);
+          }}
+        />
+      ) : null}
+      {listed && (
+        <SettingsLayout
+          {...head}
+          title="Sign-in"
+          description="How people prove who they are: an e-mail address and password, or the organisation's sign-in provider (OpenID Connect) with its own multi-factor sign-in. The engine starts its own session either way."
+          actions={
+            <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
+              <Icon name="plus" /> New provider
+            </button>
+          }
+        >
+          <SettingsPanel>
+            <EntityList
+              label="sign-in methods"
+              statusTrack="6rem"
+              groups={[
+                {
+                  key: "local",
+                  title: "Local accounts",
+                  count: local ? 1 : "…",
+                  loading: !local && !localError,
+                  error: localError || undefined,
+                  onRetry: loadLocal,
+                  rows: local
+                    ? [
+                        {
+                          key: LOCAL,
+                          title: "Local accounts",
+                          subtitle: localSignInLine(local),
+                          lead: <SettingsTile icon="lock" hue={head.hue} />,
+                          pill: (
+                            <StatusPill tone={local.enabled ? "success" : "neutral"}>
+                              {local.enabled ? "On" : "Off"}
+                            </StatusPill>
+                          ),
+                          onOpen: () => onNavigate({ ...SIGN_IN, providerKey: LOCAL }),
+                        },
+                      ]
+                    : [],
+                },
+                {
+                  key: "providers",
+                  title: "Providers",
+                  count: `${feed.items.length}${feed.hasMore ? "+" : ""}`,
+                  loading: feed.loading && !feed.items.length,
+                  error: feed.error && !feed.items.length ? feed.error : undefined,
+                  onRetry: feed.retry,
+                  onEnd: feed.hasMore ? feed.loadMore : undefined,
+                  loadingMore: feed.loading && feed.items.length > 0,
+                  rows: feed.items.map((provider) => ({
+                    key: provider.key,
+                    title: provider.name,
+                    subtitle: providerUseLine(provider),
+                    lead: <SettingsTile icon="globe" hue={head.hue} />,
+                    pill: (
+                      <StatusPill tone={provider.enabled ? "success" : "neutral"}>
+                        {provider.enabled ? "Enabled" : "Disabled"}
+                      </StatusPill>
+                    ),
+                    onOpen: () => onNavigate({ ...SIGN_IN, providerKey: provider.key }),
+                  })),
+                },
+              ]}
+              empty=""
+            />
+            {!feed.loading && !feed.error && !feed.items.length && (
+              <p className="settings-panel-note">No provider yet: people sign in with a password.</p>
+            )}
+          </SettingsPanel>
+        </SettingsLayout>
+      )}
       {creating && (
         <NewProviderDialog
           onClose={() => {
@@ -158,7 +173,7 @@ export function SignInPage({ route, onNavigate }: { route: SignInRoute; onNaviga
           }}
         />
       )}
-    </SettingsLayout>
+    </>
   );
 }
 
@@ -220,7 +235,7 @@ function NewProviderDialog({
   return (
     <Modal
       title="New sign-in provider"
-      eyebrow="Security"
+      eyebrow="People and access"
       busy={pending}
       dirty={!!(values.name || values.issuer || values.clientId || values.clientSecret)}
       onClose={onClose}
@@ -304,7 +319,7 @@ function NewProviderDialog({
           </FormField>
         </div>
         <FormField
-          label="Groups claim"
+          label="Groups claim (optional)"
           help="The ID token claim with the person's groups, often “groups”. Empty: groups are not used."
         >
           {(control) => (
@@ -334,7 +349,7 @@ function NewProviderDialog({
             Cancel
           </button>
           <button className="primary" disabled={pending || !ready}>
-            {pending ? "Checking and saving…" : "Save provider"}
+            {pending ? "Checking and adding…" : "Add provider"}
           </button>
         </div>
       </form>
@@ -344,10 +359,12 @@ function NewProviderDialog({
 
 function ProviderDetail({
   providerKey,
+  trail,
   onChanged,
   onDeleted,
 }: {
   providerKey: string;
+  trail: ReactNode;
   onChanged: (provider: SignInProvider) => void;
   onDeleted: () => void;
 }) {
@@ -400,69 +417,89 @@ function ProviderDetail({
     toast(text);
   }
 
-  if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
-  if (!provider) return <div className="panel-state">Loading provider…</div>;
+  const head = settingsHead("sign-in");
+  if (loadError)
+    return (
+      <SettingsLayout trail={trail} title="Sign-in provider">
+        <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />
+      </SettingsLayout>
+    );
+  if (!provider)
+    return (
+      <SettingsLayout trail={trail} title="Sign-in provider">
+        <Skeleton label="Loading provider" lines={4} />
+      </SettingsLayout>
+    );
 
   return (
-    <div className="model-editor-stack security-detail">
-      <header className="model-detail-header">
-        <div>
-          <p className="eyebrow">Sign-in provider</p>
-          <h2>{provider.name}</h2>
-          <div className="security-pills">
-            <StatusPill tone={provider.enabled ? "success" : "neutral"}>
-              {provider.enabled ? "Enabled" : "Disabled"}
-            </StatusPill>
-            <StatusPill tone="neutral" marker={false}>
-              {provider.people === 1 ? "1 person has" : `${provider.people} people have`} signed in with it
-            </StatusPill>
-            {provider.lastSignInAt && (
-              <StatusPill tone="neutral" marker={false}>
-                Last sign-in {formatServerDayTime(provider.lastSignInAt)}
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon="globe" hue={head.hue} size={48} />}
+          title={<h1>{provider.name}</h1>}
+          meta={
+            <>
+              <StatusPill tone={provider.enabled ? "success" : "neutral"}>
+                {provider.enabled ? "Enabled" : "Disabled"}
               </StatusPill>
-            )}
-          </div>
-        </div>
-      </header>
+              <StatusPill tone="neutral" marker={false}>
+                {provider.people === 1 ? "1 person has" : `${provider.people} people have`} signed in with it
+              </StatusPill>
+              {provider.lastSignInAt && (
+                <StatusPill tone="neutral" marker={false}>
+                  Last sign-in {formatServerDayTime(provider.lastSignInAt)}
+                </StatusPill>
+              )}
+            </>
+          }
+          actions={
+            <>
+              <button
+                className="secondary"
+                disabled={pending}
+                onClick={() =>
+                  void write(async () =>
+                    stored(
+                      await security.updateSignInProvider(provider.key, {
+                        expectedVersion: provider.version,
+                        enabled: !provider.enabled,
+                      }),
+                      provider.enabled
+                        ? `${provider.name} is no longer offered; the sessions it started have ended.`
+                        : `${provider.name} is offered on the sign-in page.`,
+                    ),
+                  )
+                }
+              >
+                {provider.enabled ? "Disable" : "Enable"}
+              </button>
+              {provider.people === 0 && (
+                <button ref={deleteRef} className="danger-ghost" disabled={pending} onClick={() => setDeleting(true)}>
+                  Delete
+                </button>
+              )}
+            </>
+          }
+        />
+      }
+    >
       {actionError && (
         <Notice tone="error" title="Not saved" focusOnMount>
           {actionError}
         </Notice>
       )}
-      <div className="model-actions">
-        <button
-          className="secondary"
-          disabled={pending}
-          onClick={() =>
-            void write(async () =>
-              stored(
-                await security.updateSignInProvider(provider.key, {
-                  expectedVersion: provider.version,
-                  enabled: !provider.enabled,
-                }),
-                provider.enabled
-                  ? `${provider.name} is no longer offered; the sessions it started have ended.`
-                  : `${provider.name} is offered on the sign-in page.`,
-              ),
-            )
-          }
-        >
-          {provider.enabled ? "Disable" : "Enable"}
-        </button>
-        {provider.people === 0 && (
-          <button ref={deleteRef} className="danger-ghost" disabled={pending} onClick={() => setDeleting(true)}>
-            Delete
-          </button>
-        )}
-      </div>
-      <Section
+      <SettingsGroup
         title="Address to register with the provider"
         description="Add it as the redirect address of the application you registered for the engine at the provider."
       >
-        <p className="webhook-secret">
-          <CopyValue label="Redirect address" value={provider.redirectUri} />
-        </p>
-      </Section>
+        <SettingsPanel>
+          <SettingRow under name="Redirect address">
+            <CopyValue label="Redirect address" value={provider.redirectUri} />
+          </SettingRow>
+        </SettingsPanel>
+      </SettingsGroup>
       <ProviderSignOut
         key={`sign-out-${provider.version}`}
         provider={provider}
@@ -508,7 +545,7 @@ function ProviderDetail({
           </p>
         </ConfirmDialog>
       )}
-    </div>
+    </SettingsLayout>
   );
 }
 
@@ -525,53 +562,53 @@ function ProviderSignOut({
   const [on, setOn] = useState(provider.signOutOfProvider);
   const dirty = on !== provider.signOutOfProvider;
   return (
-    <Section title="Signing out">
+    <SettingsGroup title="Signing out" description="Whether signing out of the engine reaches the provider too.">
       <form
         noValidate
-        className="security-settings-form"
         onSubmit={(event) => {
           event.preventDefault();
           void onSave({ expectedVersion: provider.version, signOutOfProvider: on });
         }}
       >
-        <label className="checkbox">
-          <input type="checkbox" checked={on} onChange={(event) => setOn(event.target.checked)} />
-          <span>
-            Sign people out of {provider.name} too
-            <small>
-              Signing out of the engine also signs the person out of {provider.name}, and so of every application of the
-              organisation that uses it in this browser: useful on shared computers. Off: they stay signed in to{" "}
-              {provider.name} and come back without typing a password.
-            </small>
-          </span>
-        </label>
-        {on && (
-          <div className="form-field">
-            <p className="admin-hint">Sign-out address to register (post-logout redirect)</p>
-            <p className="webhook-secret">
-              <CopyValue label="Sign-out address" value={provider.signedOutUri} />
-            </p>
-          </div>
-        )}
-        <Notice tone="warning" title="Only this browser">
-          Sign out everywhere, and an administrator signing a person out, end the engine's sessions only: another
-          browser cannot be sent to {provider.name}.
-        </Notice>
-        <div className="dialog-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={pending || !dirty}
-            onClick={() => setOn(provider.signOutOfProvider)}
+        <SettingsPanel
+          foot={
+            <>
+              <span className="settings-panel-state">{dirty ? "Changed, not saved" : ""}</span>
+              <button
+                type="button"
+                className="ghost"
+                disabled={pending || !dirty}
+                onClick={() => setOn(provider.signOutOfProvider)}
+              >
+                Cancel
+              </button>
+              <button className="primary" disabled={pending || !dirty}>
+                {pending ? "Saving…" : "Save"}
+              </button>
+            </>
+          }
+        >
+          <SettingRow
+            keep
+            name={`Sign people out of ${provider.name} too`}
+            help={`Signing out of the engine also signs the person out of ${provider.name}, and so of every application of the organisation that uses it in this browser: useful on shared computers. Off: they stay signed in to ${provider.name} and come back without typing a password.`}
           >
-            Cancel
-          </button>
-          <button className="primary" disabled={pending || !dirty}>
-            {pending ? "Saving…" : "Save"}
-          </button>
-        </div>
+            <Switch label={`Sign people out of ${provider.name} too`} checked={on} onChange={setOn} />
+          </SettingRow>
+          {on && (
+            <SettingRow under name="Sign-out address to register (post-logout redirect)">
+              <CopyValue label="Sign-out address" value={provider.signedOutUri} />
+            </SettingRow>
+          )}
+          <div className="settings-panel-pad">
+            <Notice tone="warning" title="Only this browser">
+              Sign out everywhere, and an administrator signing a person out, end the engine's sessions only: another
+              browser cannot be sent to {provider.name}.
+            </Notice>
+          </div>
+        </SettingsPanel>
       </form>
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -606,10 +643,9 @@ function ProviderSettings({
   }
 
   return (
-    <Section title="Settings">
+    <SettingsGroup title="Settings" description="What the engine uses to sign people in with this provider.">
       <form
         noValidate
-        className="security-settings-form"
         onSubmit={(event) => {
           event.preventDefault();
           void onSave({
@@ -622,77 +658,93 @@ function ProviderSettings({
           });
         }}
       >
-        <div className="dialog-pair">
-          <FormField label="Name on the sign-in button" help={`The button reads “Continue with ${name || "…"}”.`}>
-            {(control) => (
-              <input {...control} required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
-            )}
-          </FormField>
-          <FormField label="Key" help="In the address above; fixed once saved.">
-            {(control) => <input {...control} className="mono" value={provider.key} readOnly />}
-          </FormField>
-        </div>
-        <FormField label="Issuer">
-          {(control) => (
-            <input {...control} className="mono" required value={issuer} onChange={(e) => setIssuer(e.target.value)} />
-          )}
-        </FormField>
-        <div className="dialog-pair">
-          <FormField label="Client ID">
-            {(control) => (
-              <input
-                {...control}
-                className="mono"
-                required
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label="Client secret">
-            {(control) => (
-              <input
-                {...control}
-                type="password"
-                autoComplete="off"
-                placeholder={provider.clientSecretSet ? "Saved · type a new one to replace it" : ""}
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-              />
-            )}
-          </FormField>
-        </div>
-        <FormField label="Groups claim" help="Empty: the provider's groups are not used.">
-          {(control) => (
-            <input
-              {...control}
-              className="mono"
-              maxLength={200}
-              value={claim}
-              onChange={(e) => setClaim(e.target.value)}
-            />
-          )}
-        </FormField>
-        <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending || !dirty} onClick={reset}>
-            Cancel
-          </button>
-          <button className="primary" disabled={pending || !dirty}>
-            {pending ? "Saving…" : "Save"}
-          </button>
-        </div>
+        <SettingsPanel
+          foot={
+            <>
+              <span className="settings-panel-state">{dirty ? "Changed, not saved" : ""}</span>
+              <button type="button" className="ghost" disabled={pending || !dirty} onClick={reset}>
+                Cancel
+              </button>
+              <button className="primary" disabled={pending || !dirty}>
+                {pending ? "Saving…" : "Save"}
+              </button>
+            </>
+          }
+        >
+          <div className="settings-fields">
+            <FormField label="Name on the sign-in button" help={`The button reads “Continue with ${name || "…"}”.`}>
+              {(control) => (
+                <input {...control} required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
+              )}
+            </FormField>
+            <FormField label="Key" help="In the address above; fixed once saved.">
+              {(control) => <input {...control} className="mono" value={provider.key} readOnly />}
+            </FormField>
+            <div className="full">
+              <FormField label="Issuer">
+                {(control) => (
+                  <input
+                    {...control}
+                    className="mono"
+                    required
+                    value={issuer}
+                    onChange={(e) => setIssuer(e.target.value)}
+                  />
+                )}
+              </FormField>
+            </div>
+            <FormField label="Client ID">
+              {(control) => (
+                <input
+                  {...control}
+                  className="mono"
+                  required
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField label="Client secret">
+              {(control) => (
+                <input
+                  {...control}
+                  type="password"
+                  autoComplete="off"
+                  placeholder={provider.clientSecretSet ? "Saved · type a new one to replace it" : ""}
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                />
+              )}
+            </FormField>
+            <div className="full">
+              <FormField label="Groups claim" help="Empty: the provider's groups are not used.">
+                {(control) => (
+                  <input
+                    {...control}
+                    className="mono"
+                    maxLength={200}
+                    value={claim}
+                    onChange={(e) => setClaim(e.target.value)}
+                  />
+                )}
+              </FormField>
+            </div>
+          </div>
+        </SettingsPanel>
       </form>
-    </Section>
+    </SettingsGroup>
   );
 }
 
 function LocalDetail({
   local,
   providers,
+  trail,
   onChanged,
 }: {
   local: LocalSignIn;
   providers: readonly SignInProvider[];
+  trail: ReactNode;
   onChanged: (local: LocalSignIn) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -738,67 +790,71 @@ function LocalDetail({
     }
   }
 
+  const head = settingsHead("sign-in");
   return (
-    <div className="model-editor-stack security-detail">
-      <header className="model-detail-header">
-        <div>
-          <p className="eyebrow">Sign-in</p>
-          <h2>Local accounts</h2>
-          <div className="security-pills">
-            <StatusPill tone={local.enabled ? "success" : "neutral"}>{local.enabled ? "On" : "Off"}</StatusPill>
-          </div>
-        </div>
-      </header>
-      <p>
-        {local.enabled
-          ? "People sign in with an e-mail address and password; each may add an authenticator app on their Account page, and you can require it below. A provider brings the organisation's own multi-factor sign-in."
-          : `Only the ${local.keptPeople === 1 ? "administrator" : `${local.keptPeople} administrators`} made on the server sign in with a password, from the link on the sign-in page. Everyone else signs in with a provider.`}
-      </p>
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon="lock" hue={head.hue} size={48} />}
+          title={<h1>Local accounts</h1>}
+          meta={<StatusPill tone={local.enabled ? "success" : "neutral"}>{local.enabled ? "On" : "Off"}</StatusPill>}
+          actions={
+            local.enabled ? (
+              working.length > 0 && (
+                <button ref={offRef} className="danger-ghost" disabled={pending} onClick={() => setConfirming(true)}>
+                  Turn off…
+                </button>
+              )
+            ) : (
+              <button className="secondary" disabled={pending} onClick={() => void turn(true)}>
+                Turn on
+              </button>
+            )
+          }
+        />
+      }
+    >
       {error && !confirming && (
         <Notice tone="error" title="Not changed">
           {error}
         </Notice>
       )}
-      <div className="model-actions">
-        {local.enabled ? (
-          working.length > 0 && (
-            <button ref={offRef} className="danger-ghost" disabled={pending} onClick={() => setConfirming(true)}>
-              Turn off…
-            </button>
-          )
-        ) : (
-          <button className="secondary" disabled={pending} onClick={() => void turn(true)}>
-            Turn on
-          </button>
-        )}
-      </div>
-      <Section title="Second factor">
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={local.secondFactorRequired}
-            disabled={pending}
-            onChange={(event) => (event.target.checked ? setRequiring(true) : void require(false))}
-          />
-          <span>
-            Require a second factor with a password
-            <small>
-              A password alone no longer signs anyone in: a person with neither an authenticator app nor a passkey sets
-              an app up on the sign-in page first. People signing in with a provider are not asked; the provider's own
-              factor applies.
-            </small>
-          </span>
-        </label>
-      </Section>
-      {local.enabled && !working.length && (
-        <p className="admin-hint">
-          Local sign-in can be turned off once a provider is enabled and has signed someone in, so nobody is locked out.
-        </p>
-      )}
+      <SettingsGroup
+        title="Password sign-in"
+        description={
+          local.enabled
+            ? "People sign in with an e-mail address and password; each may add an authenticator app on their Account page, and you can require it below. A provider brings the organisation's own multi-factor sign-in."
+            : `Only the ${local.keptPeople === 1 ? "administrator" : `${local.keptPeople} administrators`} made on the server sign in with a password, from the link on the sign-in page. Everyone else signs in with a provider.`
+        }
+      >
+        <SettingsPanel
+          note={
+            local.enabled && !working.length
+              ? "Local sign-in can be turned off once a provider is enabled and has signed someone in, so nobody is locked out."
+              : undefined
+          }
+        >
+          <SettingRow
+            keep
+            name="Require a second factor with a password"
+            help="A password alone no longer signs anyone in: a person with neither an authenticator app nor a passkey sets an app up on the sign-in page first. People signing in with a provider are not asked; the provider's own factor applies."
+          >
+            <Switch
+              label="Require a second factor with a password"
+              checked={local.secondFactorRequired}
+              disabled={pending}
+              onChange={(next) => (next ? setRequiring(true) : void require(false))}
+            />
+          </SettingRow>
+        </SettingsPanel>
+      </SettingsGroup>
       {requiring && (
         <ConfirmDialog
           title="Require a second factor?"
           confirmLabel="Require it"
+          tone="plain"
           pending={pending}
           error={error}
           onCancel={() => {
@@ -830,6 +886,6 @@ function LocalDetail({
           <p>{turnOffSentence(offered, local.keptPeople)}</p>
         </ConfirmDialog>
       )}
-    </div>
+    </SettingsLayout>
   );
 }

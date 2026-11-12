@@ -166,7 +166,8 @@ async function walk(configuration, width) {
     // ---- J40: a Security administrator grants a role to a person and to a group ----
     {
       const { context, page } = await signIn(sofia.email, `${uiUrl}/settings`);
-      await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
+      // The gear lands on the Settings index, not on About.
+      await page.getByRole("heading", { level: 1 }).first().waitFor();
       const settings = page.getByRole("navigation", { name: "Settings" });
       // The settings navigation is a column at 1440px; at 390px the address is typed (the page is the same).
       if (narrow) await page.goto(`${uiUrl}/settings/people`);
@@ -179,7 +180,7 @@ async function walk(configuration, width) {
       await press(page, entry);
       await page.getByRole("heading", { level: 2, name: "Nia Okafor" }).waitFor();
       await press(page, page.getByRole("button", { name: "Grant", exact: true }));
-      let dialog = page.getByRole("dialog", { name: "Grant Nia Okafor access" });
+      let dialog = page.getByRole("dialog", { name: "Nia Okafor's access" });
       await dialog.getByRole("checkbox", { name: "Reader" }).waitFor();
       // Tab from the dialog's first field reaches the role checkboxes; Space ticks one.
       await press(page, dialog.getByRole("checkbox", { name: "Reader" }), "Space");
@@ -189,7 +190,7 @@ async function walk(configuration, width) {
       );
       await dialog.getByText(/Nia Okafor will read everything/).waitFor();
       await shot(page, "grant-person");
-      await press(page, dialog.getByRole("button", { name: "Grant", exact: true }));
+      await press(page, dialog.getByRole("button", { name: "Save", exact: true }));
       await dialog.waitFor({ state: "detached" });
       await page
         .getByRole("group", { name: "Roles" })
@@ -206,11 +207,11 @@ async function walk(configuration, width) {
       await page.getByRole("heading", { level: 2, name: `Curators ${tag}` }).waitFor();
       await page.getByRole("group", { name: "Members" }).getByText(ada.email).waitFor();
       await press(page, page.getByRole("button", { name: "Grant", exact: true }));
-      dialog = page.getByRole("dialog", { name: `Grant Curators ${tag} access` });
+      dialog = page.getByRole("dialog", { name: `Curators ${tag}'s access` });
       await press(page, dialog.getByRole("checkbox", { name: "Contributor" }), "Space");
       await dialog.getByText(/Curators .* will/).waitFor();
       await shot(page, "grant-group");
-      await press(page, dialog.getByRole("button", { name: "Grant", exact: true }));
+      await press(page, dialog.getByRole("button", { name: "Save", exact: true }));
       await dialog.waitFor({ state: "detached" });
       await page
         .getByRole("group", { name: "Roles" })

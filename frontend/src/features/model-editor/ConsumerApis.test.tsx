@@ -110,7 +110,7 @@ describe("editing the fields of a related block of the parent (0.17 CA1)", () =>
       />,
     );
     change();
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(run).toHaveBeenCalled());
     return run.mock.calls[0][0];
   }

@@ -92,7 +92,7 @@ try {
 
   const recordPath = (id) => `/apps/rdm-systems/objects/system-value/${id}?workspaceKey=default`;
   const mappings = () => page.locator(".relations-panel, section", { hasText: "Master mappings" }).first();
-  const formDialog = page.getByRole("dialog", { name: "Connect an object" });
+  const formDialog = page.getByRole("dialog", { name: /^Add / });
   const options = async () => {
     const listbox = formDialog.getByRole("listbox");
     await listbox.getByRole("option").first().waitFor({ timeout: 10000 });
@@ -106,14 +106,14 @@ try {
   await page.getByRole("heading", { level: 1, name: "K7 Value On" }).waitFor();
   await page.getByRole("button", { name: "Add relationship" }).first().click();
   await formDialog.waitFor();
-  await formDialog.getByRole("combobox", { name: "Search: Object" }).fill("K7 Master");
+  await formDialog.getByRole("combobox", { name: /^Search: / }).fill("K7 Master");
   const offered = await options();
   expect(offered.join() === approvedOnly, `the relation form offers ${offered}`);
   expect(await formDialog.getByText(hint).isVisible(), "the relation form does not say what it offers");
   await shot("k7-relation-form-wide");
   const formAxe = await axe("k7-relation-form-light");
   await formDialog.getByRole("option", { name: /K7 Master Alpha/ }).click();
-  await formDialog.getByRole("button", { name: "Create", exact: true }).click();
+  await formDialog.getByRole("button", { name: /^Add / }).click();
   await formDialog.waitFor({ state: "detached" });
   expect((await held(on.id)).join() === "K7 Master Alpha", `the active value holds ${await held(on.id)}`);
   checks.push(`relation form: offers ${offered.length} approved master values and says so; Alpha related; axe ${formAxe} violations`);
@@ -193,13 +193,13 @@ try {
   await page.getByRole("button", { name: "Add relationship" }).first().focus();
   await page.keyboard.press("Enter");
   await formDialog.waitFor();
-  await formDialog.getByRole("combobox", { name: "Search: Object" }).focus();
+  await formDialog.getByRole("combobox", { name: /^Search: / }).focus();
   await page.keyboard.type("K7 Master Bravo");
   const narrow = await options();
   expect(narrow.length === 1 && /K7 Master Bravo/.test(narrow[0]), `at 390px the form offers ${narrow}`);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  const createButton = formDialog.getByRole("button", { name: "Create", exact: true });
+  const createButton = formDialog.getByRole("button", { name: /^Add / });
   for (let step = 0; step < 12 && !(await createButton.evaluate((button) => button === document.activeElement)); step += 1)
     await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");

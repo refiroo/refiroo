@@ -91,9 +91,10 @@ async function walk(configuration) {
     await reader.page.goto(recordUrl(first, one));
     await seen(reader.page, reader.page.getByRole("heading", { level: 1, name: one.name }));
     await band(reader.page).getByText("You can read this workspace.", { exact: false }).waitFor();
+    const readerActions = await actions(reader.page);
     expect(
-      JSON.stringify(await actions(reader.page)) === JSON.stringify(["Copy link"]),
-      `${tag}: a Reader's record actions are Copy link only`,
+      JSON.stringify(readerActions) === JSON.stringify(["Copy ID", "Copy link"]),
+      `${tag}: a Reader's record actions are Copy link only (${readerActions.join(", ")})`,
     );
     expect(
       (await reader.page.getByRole("button", { name: "Propose a change" }).count()) === 0,
@@ -104,12 +105,10 @@ async function walk(configuration) {
     await reader.page.goto(`${uiUrl}/apps/${first.application.key}/views/${first.view.key}?workspaceKey=default`);
     await reader.page.getByRole("heading", { level: 1 }).first().waitFor();
     await reader.page.getByRole("table").first().waitFor();
-    expect(
-      (await reader.page
-        .getByRole("button", { name: new RegExp(`^(Add|Propose a new) ${first.type.name}`) })
-        .count()) === 0,
-      `${tag}: a Reader's collection offers no Add`,
-    );
+    const addButtons = await reader.page
+      .getByRole("button", { name: new RegExp(`^(Add|Propose a new) ${first.type.name}(?!.*shelf)`) })
+      .evaluateAll((buttons) => buttons.map((button) => `${button.getAttribute("aria-label") ?? ""}|${button.outerHTML.slice(0, 160)}`));
+    expect(addButtons.length === 0, `${tag}: a Reader's collection offers no Add (${addButtons.join(", ")})`);
     // Export is offered to a reader, so the menu may stand; it holds no Import and no Edit model.
     const menu = reader.page.getByRole("button", { name: "Workspace actions" });
     if (await menu.count()) {
@@ -129,14 +128,15 @@ async function walk(configuration) {
     expect(
       JSON.stringify(readerLinks) ===
         JSON.stringify([
-          "About",
+          "Settings",
           "Appearance",
           "Account",
           "Notification email",
           "Workspaces",
-          "Jobs",
           "Consumer APIs",
           "API reference",
+          "Jobs",
+          "About",
         ]),
       `${tag}: a Reader's settings navigation: ${readerLinks.join(", ")}`,
     );
@@ -168,11 +168,12 @@ async function walk(configuration) {
     const changeSetId = new URL(page.url()).searchParams.get("changeSetId");
     const nameField = form.getByLabel("Name", { exact: true });
     await nameField.fill(`${one.name} proposed`);
-    await form.getByRole("button", { name: "Save changes" }).click();
+    await form.getByRole("button", { name: "Save" }).click();
     await form.waitFor({ state: "detached" });
-    await band(page).getByText("until someone who holds Publish", { exact: false }).waitFor();
+    // The one-row band has no sentence on who publishes (0.17 SH1); a Contributor is offered Submit, not Publish.
+    await band(page).getByRole("button", { name: "Submit for publication" }).waitFor();
     expect(
-      (await page.getByRole("button", { name: "Publish change set" }).count()) === 0,
+      (await page.getByRole("button", { name: "Publish", exact: true }).count()) === 0,
       `${tag}: a Contributor has no Publish`,
     );
     checks.push(`${tag}: Propose a change names a change set, edits the record in it; no Publish`);
@@ -229,7 +230,14 @@ async function walk(configuration) {
     await elsewhere.page.getByRole("heading", { level: 3, name: SECOND.label }).waitFor();
     expect((await elsewhere.page.locator(".home-card").count()) === 1, `${tag}: Home shows ${SECOND.key} alone`);
     await elsewhere.page.goto(`${uiUrl}/apps/${first.application.key}/views/${first.view.key}`);
-    await band(elsewhere.page).getByText(SECOND.label, { exact: false }).first().waitFor();
+    // The band no longer repeats the workspace (0.17 SH1); the workspace selector names it.
+    await elsewhere.page.waitForFunction(
+      (label) =>
+        [...document.querySelectorAll(".workspace-selector input, .workspace-selector strong")].some((element) =>
+          (element.value ?? element.textContent ?? "").includes(label),
+        ),
+      SECOND.label,
+    );
     expect(
       elsewhere.page.url().includes(`workspaceKey=${SECOND.key}`),
       `${tag}: opens in ${SECOND.key}: ${elsewhere.page.url()}`,

@@ -290,7 +290,8 @@ try {
   await shotBoth("moves");
   // This move starts from the source workspace's page in Settings › Workspaces.
   await page.goto(`${uiUrl}/settings/workspaces/${east.key}`);
-  await press(page.getByRole("button", { name: "Copy or move data…" }));
+  await page.getByRole("button", { name: "More actions" }).click();
+  await press(page.getByRole("menuitem", { name: /^Copy or move data…/ }));
   await dialog.getByLabel("From workspace").locator(`option[value="${east.key}"]`).waitFor({ state: "attached" });
   assert.equal(await dialog.getByLabel("From workspace").inputValue(), east.key, "the workspace is the source");
   await assertAccessible(page, "New move from a workspace's page");

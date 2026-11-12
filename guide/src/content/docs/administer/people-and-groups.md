@@ -4,14 +4,14 @@ description: Manage the people who sign in, their group memberships and what hap
 reader: access-admin
 ---
 
-Use **Settings › Security › People** to manage people, and **Groups** to give several
+Use **Settings › People and access › People** to manage people, and **Groups** to give several
 people the same roles. You need **Security administration**, held by the predefined
 Security administrator role. That role manages access; it does not itself allow reading workspace data.
 
 ## People and their sign-in
 
 Use **Search people** (**Name or e-mail**) to find a person. The list also shows their roles. **Active** and **Deactivated** show
-separate lists and counts. Select someone to see their sign-in methods, roles, groups and recent activity.
+separate lists and counts. Open a person’s row to see their own page with sign-in methods, roles, groups and recent activity. The first line, **← People**, returns to the list.
 A person has one identity in refiroo and can hold different roles in different workspaces.
 
 ![People list with Active and Deactivated filters and no person selected](/docs/screens/admin-people.png)
@@ -28,7 +28,7 @@ does not join that sign-in to an existing account. Roles come from grants to the
 or to their provider groups; first sign-in does not automatically grant access to data.
 
 For an existing local account, open the newly created provider person's page and choose
-**Link to an existing person…**. Select the existing person and confirm the named link.
+**More actions › Link to an existing person…**. Select the existing person and confirm the named link.
 The provider sign-in and provider memberships move to the existing person, whose roles
 and history continue. The new person is deactivated and their sessions end. Linking is refused if that new person
 already has a password, direct roles or local group memberships; resolve those before retrying.
@@ -53,7 +53,7 @@ It does not remove an authenticator app or passkey. For device problems, follow
 
 **Keeps local sign-in** preserves a password sign-in route even when local sign-in is off
 for everyone else. Reserve it for people responsible for recovery if the provider fails.
-Changing it asks for confirmation. The last active person keeping local sign-in cannot
+Turning it on saves immediately and offers **Undo**; turning it off asks once for confirmation with **Stop keeping local sign-in**. The last active person keeping local sign-in cannot
 lose that route while local sign-in is off. See [Sign-in](/docs/administer/sign-in/).
 
 ## Sign-in managed by an administrator
@@ -72,7 +72,7 @@ page shows a message in place of those controls. Forgotten-password requests giv
 response and send no mail for this account.
 
 You can still make a password link for the account holder to choose a password, remove an
-authenticator app or passkey, and use **Sign out everywhere** on their People page. Follow
+authenticator app or passkey, and use **More actions › Sign out everywhere** on their People page. Follow
 [Help someone who lost a device](/docs/guide/administer/help-someone-who-lost-a-device/).
 Clearing the checkbox lets the person manage their own sign-in again.
 
@@ -97,13 +97,15 @@ who have signed in; it is not the provider's full membership list. Change those 
 in the provider, and grant the group's roles in refiroo. You can create a provider group
 ahead of first sign-in when a provider is configured to supply groups.
 
-**Rename…** changes a group's name and description. **Delete group** asks for confirmation,
+Open a group’s row; **← Groups** on its page returns to the list. Select its name or description where it stands, edit it, then leave the field or press
+Enter to save. Escape puts the old text back; an unchanged input saves nothing. The save notice
+offers **Undo**. A refusal keeps the input and reason open with **Cancel** and **Save again**. **Delete group** asks for confirmation,
 then removes its memberships and grants. It does not delete people or their direct roles.
 Follow [Manage a group](/docs/guide/administer/manage-a-group/).
 
 ## When someone leaves
 
-Choose **Deactivate** on the person's page and confirm. Their next request is refused and
+Choose **More actions › Deactivate** on the person's page and confirm. Their next request is refused and
 they cannot sign in. Their roles and groups remain, and history retains their name.
 Their records, change sets and publications are not deleted. Queued or running jobs lose
 the right to continue at their next permission check. Another authorised person can deal
@@ -112,7 +114,7 @@ with the remaining work.
 To restore access, find them under **Deactivated** and choose **Restore**. Review retained
 roles and groups before restoring them. People are never deleted.
 
-**Sign out everywhere** instead ends all their refiroo sessions after confirmation but
+**More actions › Sign out everywhere** instead ends all their refiroo sessions after confirmation but
 allows them to sign in again. Use deactivation when they must no longer have access.
 For a provider leaver, deactivate them in refiroo too: an existing refiroo session does not
 recheck provider membership on every request.
@@ -123,7 +125,7 @@ are reloaded with a warning. Review them and choose the action again.
 
 The person's **Recent activity** is grouped by day and can be narrowed to **Signing in**,
 **Roles and groups** or **Account**. It starts with ten entries, then reads 20 more at a time;
-**Show fewer** shortens it. **See changes** instead opens their data changes in workspaces you
+**Show fewer** shortens it. **More actions › See changes** instead opens their data changes in workspaces you
 may browse. [Who changed what](/docs/administer/audit/) explains which view answers which question.
 
 For several group members at once, use **Search and tick** or **Paste a list** and check the

@@ -64,7 +64,7 @@ export function AddMembersDialog({
   return (
     <Modal
       title={`Add members to ${group.name}`}
-      eyebrow="Security"
+      eyebrow="People and access"
       description="Roles granted to the group apply to everyone you add."
       size="wide"
       busy={pending}

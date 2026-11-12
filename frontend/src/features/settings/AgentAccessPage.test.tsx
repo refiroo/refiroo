@@ -97,7 +97,10 @@ function open(
 }
 
 describe("Settings › Security › Agent access (0.16 AG1)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    window.history.replaceState(null, "", "/");
+  });
 
   it("says agent access is off and lists nothing", async () => {
     open({ status: { ...status, enabled: false } });
@@ -129,6 +132,7 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
     expect(screen.getAllByText("No access yet", { selector: "td" })).toHaveLength(2);
     expect(await screen.findByText("3 people")).toBeInTheDocument();
     expect(screen.getByText("Blocked")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Calls" }));
     const rows = await screen.findAllByRole("row");
     const limited = rows.find((row) => within(row).queryByText("describe_access"))!;
     expect(within(limited).getByText("Its own client")).toBeInTheDocument();
@@ -149,7 +153,7 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "New agent client" }));
     const dialog = await screen.findByRole("dialog", { name: "New agent client" });
     fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Planner" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create and show its secret" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add agent client" }));
     await screen.findByText("the-secret-value");
     expect(security.createClient).toHaveBeenCalledWith({ name: "Planner", kind: "agent" });
     await waitFor(() => expect(agentAccess.clients).toHaveBeenCalledTimes(2));
@@ -173,13 +177,13 @@ describe("Settings › Security › Agent access (0.16 AG1)", () => {
     vi.mocked(agentAccess.register).mockRejectedValueOnce(
       new ApiError(422, "AGENT_APPLICATION_INVALID", "http://assistant.example.com is not an allowed return address."),
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Register an assistant" }));
-    const dialog = await screen.findByRole("dialog", { name: "Register an assistant" });
+    fireEvent.click(await screen.findByRole("button", { name: "New assistant" }));
+    const dialog = await screen.findByRole("dialog", { name: "New assistant" });
     fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Helper" } });
     fireEvent.change(within(dialog).getByLabelText("Return addresses"), {
       target: { value: "http://assistant.example.com\n\nhttps://ok.example.com/cb" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Register" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add assistant" }));
     await within(dialog).findByText("http://assistant.example.com is not an allowed return address.");
     expect(agentAccess.register).toHaveBeenCalledWith({
       name: "Helper",

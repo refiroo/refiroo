@@ -6,7 +6,7 @@
 
 import type { ReactNode } from "react";
 import type { Grant } from "@/types";
-import { chipHue } from "./accessGroups";
+import { chipHue, roleKeyHue } from "./accessGroups";
 
 export function RoleChip({
   grant,
@@ -23,5 +23,14 @@ export function RoleChip({
     <Tag className="access-chip" data-hue={chipHue(grant)} title={title}>
       {children}
     </Tag>
+  );
+}
+
+/** A role named by its key (a person's roles in a list), in the colour its kind has everywhere. */
+export function RoleKeyChip({ roleKey, title, children }: { roleKey: string; title?: string; children: ReactNode }) {
+  return (
+    <span className="access-chip" data-hue={roleKeyHue(roleKey)} title={title}>
+      {children}
+    </span>
   );
 }

@@ -22,7 +22,7 @@ The management [consumer definition read](/docs/api/?api=management#tag/model) g
 
 ## Inspect the contract in the browser
 
-**Settings › Integration › Consumer APIs** is a read-only catalogue for people with Browse. It shows the contract's name, version, base address, OpenAPI document, exposed types, lists and events. **Open the release** and **Open model** lead to the declaring model; they do not grant permission to edit it. Its **Change feed** section describes retention. Use the [consumer reading pages](/docs/integrate/consumer-apis/) for explanations and complete example exchanges, the [model administrator's page](/docs/model/consumer-apis/) for designing the declaration, and [The API reference](/docs/integrate/api-reference/) for trying operations.
+**Settings › Connections › Consumer APIs** is a read-only catalogue for people with Browse. It shows the contract's name, version, base address, OpenAPI document, exposed types, lists and events. **Open the release** and **Open model** lead to the declaring model; they do not grant permission to edit it. Its **Change feed** section describes retention. Use the [consumer reading pages](/docs/integrate/consumer-apis/) for explanations and complete example exchanges, the [model administrator's page](/docs/model/consumer-apis/) for designing the declaration, and [The API reference](/docs/integrate/api-reference/) for trying operations.
 
 ## Separate semantics from allowed placements
 

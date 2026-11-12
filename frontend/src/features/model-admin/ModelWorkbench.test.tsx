@@ -184,7 +184,7 @@ describe("ModelWorkbench", () => {
     expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", modelKey: "other" });
   });
 
-  it("shows a model under the bar with a plain heading; Back and the trail return to the list", async () => {
+  it("shows a model under the bar with a plain heading; the trail returns to the list", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
@@ -200,13 +200,14 @@ describe("ModelWorkbench", () => {
         />
       </ToastProvider>,
     );
-    expect(await screen.findByRole("heading", { name: "Test", level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Test", level: 1 })).toBeInTheDocument();
     const trail = screen.getByRole("navigation", { name: "Where you are" });
     expect(trail).toHaveTextContent("ModelsTest");
-    fireEvent.click(screen.getByRole("button", { name: "← All models" }));
-    expect(onRouteChange).toHaveBeenLastCalledWith({ kind: "settings", page: "model" });
+    // One line says where the page is; no Back button beside it (0.17 SH1).
+    expect(screen.queryByRole("button", { name: "← All models" })).not.toBeInTheDocument();
     fireEvent.click(within(trail).getByRole("button", { name: "Models" }));
-    expect(onRouteChange).toHaveBeenCalledTimes(2);
+    expect(onRouteChange).toHaveBeenLastCalledWith({ kind: "settings", page: "model" });
+    expect(onRouteChange).toHaveBeenCalledTimes(1);
     const running = screen.getByRole("list", { name: "Workspaces running Test" });
     expect(within(running).getByRole("button", { name: "Change the model of Default" })).toBeInTheDocument();
     fireEvent.click(within(running).getByRole("link", { name: "Default" }));
@@ -273,7 +274,7 @@ describe("ModelWorkbench", () => {
     expect(await screen.findByRole("list", { name: "Drafts of Test" })).toBeInTheDocument();
   });
 
-  it("opens a release under a bar whose Back returns to the tab it was opened from", async () => {
+  it("opens a release under a trail whose tab returns to the tab it was opened from", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
@@ -281,11 +282,13 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
     const onRouteChange = vi.fn();
     renderWorkbench({ kind: "settings", page: "model", releaseId: "r1", modelTab: "overview" }, onRouteChange);
-    const trail = await screen.findByRole("navigation", { name: "Where you are" });
-    expect(trail).toHaveTextContent("TestOverview1");
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Where you are" })).toHaveTextContent("TestOverview1"),
+    );
+    const trail = screen.getByRole("navigation", { name: "Where you are" });
     // The tabs are not shown while a release is open.
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
+    fireEvent.click(within(trail).getByRole("button", { name: "Overview" }));
     expect(onRouteChange).toHaveBeenCalledWith({
       kind: "settings",
       page: "model",
@@ -294,15 +297,18 @@ describe("ModelWorkbench", () => {
     });
   });
 
-  it("opens a draft under the same bar, and Back defaults to Drafts", async () => {
+  it("opens a draft under the same trail, whose tab defaults to Drafts", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
     mockWorkspaces();
     const onRouteChange = vi.fn();
     renderWorkbench({ kind: "settings", page: "model", draftId: "d1" }, onRouteChange);
-    expect(await screen.findByRole("navigation", { name: "Where you are" })).toHaveTextContent("TestDraftsCandidate");
-    fireEvent.click(screen.getByRole("button", { name: "← Back to Drafts" }));
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Where you are" })).toHaveTextContent("TestDraftsCandidate"),
+    );
+    const trail = screen.getByRole("navigation", { name: "Where you are" });
+    fireEvent.click(within(trail).getByRole("button", { name: "Drafts" }));
     expect(onRouteChange).toHaveBeenCalledWith({
       kind: "settings",
       page: "model",
@@ -419,7 +425,7 @@ describe("ModelDraftEditor", () => {
         />
       </ToastProvider>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "‹ Back to the change set “Autumn labels”" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Back to the change set “Autumn labels”" }));
     expect(onOpenChangeSetReview).toHaveBeenCalledWith({
       kind: "changeSetChanges",
       applicationKey: "test-app",

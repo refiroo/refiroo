@@ -47,12 +47,15 @@ export function RelationAttributes({
   relation,
   mode,
   legend = true,
+  autoFocus = false,
 }: {
   attributes: AttributeTypeDefinition[];
   relation?: Pick<RelationRecord, "attributes">;
   mode: "edit" | "display";
   /** Whether the group carries its name; a dialog that is only these may leave it out. */
   legend?: boolean;
+  /** Focus the first field as it appears (a single value edited in its cell). */
+  autoFocus?: boolean;
 }) {
   if (!attributes.length) return null;
   if (mode === "display")
@@ -82,6 +85,7 @@ export function RelationAttributes({
           attribute={attribute}
           prefix={FIELD_PREFIX}
           value={relation?.attributes[attribute.key]}
+          autoFocus={autoFocus && attribute === attributes[0]}
         />
       ))}
     </fieldset>
@@ -123,8 +127,8 @@ export function useRelationValues(relation: Pick<RelationRecord, "id" | "version
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  /** Saves `values`; true when saved. */
-  async function save(values: Record<string, unknown>) {
+  /** Saves `values`; gives the relationship as saved, or false when it was refused. */
+  async function save(values: Record<string, unknown>): Promise<RelationRecord | false> {
     if (!relation) return false;
     setSaving(true);
     setError("");
@@ -132,7 +136,7 @@ export function useRelationValues(relation: Pick<RelationRecord, "id" | "version
       const saved = await api.updateRelation(relation.id, { attributes: values, expectedVersion: version });
       setVersion(saved.version);
       setCurrent(undefined);
-      return true;
+      return saved;
     } catch (cause) {
       setError(errorMessage(cause));
       if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {

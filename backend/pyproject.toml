@@ -9,6 +9,7 @@ dependencies = [
   "fastapi>=0.141,<1",
   "httpx>=0.28,<1",
   "jsonschema>=4.20,<5",
+  "markdown-it-py>=4,<5",
   "mcp>=1.30,<2",
   "openpyxl>=3.1,<4",
   "pydantic>=2.10,<3",

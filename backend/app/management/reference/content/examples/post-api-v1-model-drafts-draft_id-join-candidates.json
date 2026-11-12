@@ -1,0 +1,48 @@
+{
+  "operation": "POST /api/v1/model-drafts/{draft_id}/join-candidates",
+  "name": "manufacturers",
+  "summary": "Compare the manufacturer column over every row: four different values, not a list",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "column": {
+        "sheet": "Fahrzeuge",
+        "column": "Hersteller"
+      },
+      "against": {
+        "sheet": "Fahrzeuge",
+        "column": "Hersteller"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "column": {
+        "sheet": "Fahrzeuge",
+        "letter": "C",
+        "header": "Hersteller",
+        "rows": 8,
+        "distinct": 4
+      },
+      "candidates": [
+        {
+          "sheet": "Fahrzeuge",
+          "letter": "C",
+          "header": "Hersteller",
+          "rows": 8,
+          "distinct": 4,
+          "matchedValues": 4,
+          "matchedRows": 8,
+          "share": 1.0,
+          "unique": false
+        }
+      ],
+      "best": "C",
+      "tie": false,
+      "tied": []
+    }
+  }
+}

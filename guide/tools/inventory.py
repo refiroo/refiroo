@@ -389,6 +389,7 @@ def permissions() -> list[dict]:
 # --- screens, editor operations, menus, dialogs ------------------------------------------------------
 
 SETTINGS_PAGE_SECTION = {
+    "index": "use",  # Settings opens on an index of its pages (0.17 SH1)
     "about": "run",
     "appearance": "use",
     "account": "use",
@@ -396,6 +397,7 @@ SETTINGS_PAGE_SECTION = {
     "deployment": "run",
     "operations": "run",
     "ai": "run",
+    "mail-template": "run",  # the e-mail template, an operator's page (0.17 MT1)
     "mail": "administer",
     "people": "administer",
     "groups": "administer",

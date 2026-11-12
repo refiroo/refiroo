@@ -1,0 +1,11 @@
+# CANVAS-GUIDE progress
+
+2026-11-12T14:06:44+01:00 — Finished `guide/src/content/docs/guide/model/shape-a-workbook-on-the-canvas.md`. Covers opening, mappings, connections, readings, navigation, checking, correction, finishes and phone controls. No steering file exists; documented the implemented value-map dialog and editor fallback rather than the planned value drag and missing sheet menu.
+
+2026-11-12T14:08:16+01:00 — Finished `guide/src/content/docs/guide/model/edit-a-model-on-the-canvas.md`. Covers any draft, scopes and board arrangement, adding and renaming, element menus, relationship rules, all inspector tabs, review and draft actions, including phone limitations. No steering file exists; preview controls are described only when a running model is available.
+
+2026-11-12T14:09:11+01:00 — Finished the existing-page and sidebar unit: `use/workspaces.md`, `guide/model/find-your-way-around-the-editor.md`, `guide/model/map-a-column.md`, `guide/model/read-lists-in-a-sheet.md`, `model/models.md`, `model/the-model-editor.md`, `model/workbook-onboarding.md`, and `sidebar/model.mjs` under the guide content/sidebar roots. Corrected Adjust and the hidden creation action, added short canvas links and the shared switch/Add control, and placed both guides beside the related tasks. Exact before/after text is in `_coverage/notes/CANVAS-GUIDE/page-changes.md`; no steering file exists.
+
+2026-11-12T14:10:06+01:00 — Finished final source review of the two new pages. Clarified the no-drag fallback for a plain rectangular sheet and the relationship line context-menu control; reviewed the shared drawer, view-opening state and canvas persistence notes. No steering file exists. Next: isolated build and verify.
+
+2026-11-12T14:13:04+01:00 — Finished validation and `_coverage/notes/CANVAS-GUIDE/report.md`, with exact existing-page before/after text in `page-changes.md` and 1440px screenshot requests for both new guides. Isolated build passed; verify rebuilt successfully and passed terms/brand/sidebar, then stopped on stale management-api/screen inventories. Separate links passed; coverage reported six stale or unmatched canvas-related entries and generated its uncovered report. No steering file exists; no source, tests or stored inventory JSON was edited, and no browser appearance was verified.

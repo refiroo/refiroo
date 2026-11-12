@@ -4,16 +4,21 @@ Mail decides where one-time links go, so it needs Security administration at the
 """
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, File, Form, Query, Request, Response, UploadFile
 
 from ...engine.identity.settings import IdentitySettings
 from ...engine.identity.users import load_user
-from ...engine.mail import outbox, settings, smtp, templates, transport
+from ...engine.mail import mail_template, outbox, settings, smtp, templates, transport
 from ...engine.notifications import mailing
 from ...errors import api_error
-from ...models.commands import MailSettingsUpdate, MailTest
+from ...models.commands import (
+    MailSettingsUpdate,
+    MailTemplatePreview,
+    MailTemplateUpdate,
+    MailTest,
+)
 from ..access import INSTANCE, SIGNED_IN, AuthorizedRoute, requires
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
@@ -22,6 +27,8 @@ from ..schemas.mail import (
     MailMessagePage,
     MailMessageResponse,
     MailSettingsResponse,
+    MailTemplatePreviewResponse,
+    MailTemplateResponse,
     MailTestResponse,
     NoticeMailResponse,
     NoticeMailUpdate,
@@ -79,14 +86,20 @@ def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> M
     identity = _identity(request)
     row = settings.require(session)
     connection = settings.connection(identity, row)
-    rendered = templates.test_message(
-        templates.product(session), settings.application_url(identity, row)
+    rendered = mail_template.apply(
+        session,
+        identity,
+        templates.test_message(templates.product(session), settings.application_url(identity, row)),
+        None,
     )
+    logo = mail_template.logo_of(session)
     session.rollback()
     try:
         transport.deliver(
             connection,
-            smtp.build(connection, payload.to, rendered.subject, rendered.body, rendered.html),
+            smtp.build(
+                connection, payload.to, rendered.subject, rendered.body, rendered.html, logo
+            ),
         )
     except smtp.MailError as error:
         raise api_error(
@@ -157,3 +170,126 @@ def put_my_notification_mail(
         session.commit()
         return present.notice_mail_response(mailing.state(session, user))
     return present.notice_mail_response(mailing.switch(session, user, payload.enabled, now))
+
+
+SAMPLE_NAME = "Alex Example"
+
+
+@router.get("/mail-template", response_model=MailTemplateResponse)
+@requires("mail-template.manage", at=INSTANCE)
+def get_mail_template(session: DbSession) -> MailTemplateResponse:
+    """The e-mail template: Markdown with placeholders and the logo. Without a saved template the
+    default Markdown is answered (`saved` false) and the engine's own layout is used."""
+    return present.template_response(mail_template.load(session))
+
+
+@router.put("/mail-template", response_model=MailTemplateResponse)
+@requires("mail-template.manage", at=INSTANCE)
+def put_mail_template(payload: MailTemplateUpdate, session: DbSession) -> MailTemplateResponse:
+    """Save the template's Markdown, replacing what was saved; the first save omits
+    ``expectedVersion``. The logo stays. ``{{content}}`` is required exactly once
+    (``422 MAIL_TEMPLATE_CONTENT_REQUIRED``) and only the listed placeholders are known
+    (``422 MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER``). Nothing is sent: look at it with
+    ``POST /mail-template/preview``."""
+    return present.template_response(
+        mail_template.save(session, payload.markdown, payload.expectedVersion)
+    )
+
+
+@router.delete("/mail-template", status_code=204)
+@requires("mail-template.manage", at=INSTANCE)
+def delete_mail_template(session: DbSession) -> Response:
+    """Back to the default: the saved Markdown and logo are deleted and the engine's own layout is
+    used. Repeats harmlessly."""
+    mail_template.remove(session)
+    return Response(status_code=204)
+
+
+@router.put("/mail-template/logo", response_model=MailTemplateResponse)
+@requires("mail-template.manage", at=INSTANCE)
+def put_mail_template_logo(
+    session: DbSession,
+    file: Annotated[UploadFile, File(description="A PNG, JPEG or SVG image of at most 512 KB")],
+    expectedVersion: Annotated[
+        int | None,
+        Form(ge=1, description="The template's `version`; omitted before the first save"),
+    ] = None,
+) -> MailTemplateResponse:
+    """Upload the logo that `{{logo}}` shows, sent inline in each mail. Without a saved template
+    the default Markdown is saved with it. ``413 MAIL_LOGO_TOO_LARGE``, ``422 MAIL_LOGO_UNSUPPORTED``
+    (not a PNG, JPEG or SVG), ``422 MAIL_LOGO_UNSAFE`` (an SVG with script)."""
+    data = file.file.read(mail_template.MAX_LOGO_BYTES + 1)
+    return present.template_response(
+        mail_template.set_logo(session, data, file.content_type or "", expectedVersion)
+    )
+
+
+@router.delete("/mail-template/logo", response_model=MailTemplateResponse)
+@requires("mail-template.manage", at=INSTANCE)
+def delete_mail_template_logo(
+    session: DbSession,
+    expected_version: int | None = Query(default=None, ge=1, alias="expectedVersion"),
+) -> MailTemplateResponse:
+    """Remove the uploaded logo: `{{logo}}` shows the refiroo mark again. ``409
+    MAIL_TEMPLATE_NOT_SAVED`` when no template is saved."""
+    return present.template_response(mail_template.clear_logo(session, expected_version))
+
+
+@router.post("/mail-template/preview", response_model=MailTemplatePreviewResponse)
+@requires("mail-template.manage", at=INSTANCE)
+def post_mail_template_preview(
+    payload: MailTemplatePreview, request: Request, session: DbSession
+) -> MailTemplatePreviewResponse:
+    """Render a draft Markdown around a sample message with sample values and answer the HTML (the
+    logo inline as a data URL) and the plain text. Nothing is saved or sent; the draft is checked
+    like a save."""
+    identity = _identity(request)
+    product = templates.product(session)
+    url = settings.application_url(identity, settings.load(session))
+    rendered = mail_template.render_draft(
+        session,
+        payload.markdown,
+        mail_template.Values(product, url, SAMPLE_NAME),
+        templates.template_test(product, url),
+    )
+    return MailTemplatePreviewResponse(html=rendered.html, text=rendered.body)
+
+
+@router.post("/mail-template/test", response_model=MailTestResponse)
+@requires("mail-template.manage", at=INSTANCE)
+def post_mail_template_test(
+    request: Request, principal: CurrentPrincipal, session: DbSession
+) -> MailTestResponse:
+    """Send the saved template, around a sample message, to the caller's own address through the
+    saved mail settings now. A client has no address (`403 NOT_A_PERSON`), nor may a person without
+    one (`409 NO_EMAIL`); `409 MAIL_NOT_SET_UP`; `422 MAIL_SEND_FAILED` as `POST /mail-settings/test`."""
+    if principal.kind != "user":
+        raise api_error(403, "NOT_A_PERSON", "Only a signed-in person has an address to send to")
+    user = load_user(session, principal.id)
+    if not user.email:
+        raise api_error(
+            409, "NO_EMAIL", f"{user.name} has no e-mail address; add one to the person first"
+        )
+    identity = _identity(request)
+    row = settings.require(session)
+    connection = settings.connection(identity, row)
+    product = templates.product(session)
+    rendered = mail_template.apply(
+        session,
+        identity,
+        templates.template_test(product, settings.application_url(identity, row)),
+        user.name,
+    )
+    logo = mail_template.logo_of(session)
+    address = user.email
+    session.rollback()
+    try:
+        transport.deliver(
+            connection,
+            smtp.build(connection, address, rendered.subject, rendered.body, rendered.html, logo),
+        )
+    except smtp.MailError as error:
+        raise api_error(
+            422, "MAIL_SEND_FAILED", str(error), {"kind": error.kind, "reason": str(error)}
+        ) from None
+    return MailTestResponse(sentTo=address)

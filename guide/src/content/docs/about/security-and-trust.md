@@ -90,7 +90,7 @@ the shown next steps rather than assuming every task ends in the same kind of pr
 
 Requests and assistant turns can incur charges or consume a subscription allowance, including
 failed or discarded work. Operations staff can inspect who asked, the purpose, outcome, tokens
-and reported cost on **Settings › Administration › AI**. An absent cost is not proof of free use.
+and reported cost on **Settings › This instance › AI**. An absent cost is not proof of free use.
 A saved workbook layout that fits the next file can avoid another assistant session.
 
 Call records are kept. Request and answer text is absent from the call log by default; an

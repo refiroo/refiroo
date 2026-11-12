@@ -4,6 +4,16 @@
   "base": "http://localhost:8480",
   "screens": [
     {
+      "name": "admin-setup",
+      "setup": true,
+      "shows": "Makes Rita Approver (account, password from GUIDE_APPROVER_* in reference/.env, role Data owner in Graubünden) when the instance does not have her, as a fresh reference instance does not. Does nothing when she is there.",
+      "actions": [
+        {
+          "state": "approver-account"
+        }
+      ]
+    },
+    {
       "name": "admin-people",
       "shows": "The People list with Guide Admin and Rita Approver, their roles, the Active and Deactivated counts and New person; no person chosen.",
       "actions": [
@@ -12,8 +22,9 @@
         },
         {
           "waitFor": {
-            "text": "Choose a person.",
-            "exact": false
+            "role": "button",
+            "name": "New person",
+            "exact": true
           }
         },
         {
@@ -31,7 +42,7 @@
       "shows": "Guide Admin's page: Edit, See changes, Reset password, Sign out everywhere, Deactivate; password set; the six roles held in every workspace; groups; recent activity.",
       "actions": [
         {
-          "goto": "/settings/people/d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+          "goto": "/settings/people/{person:Guide Admin}"
         },
         {
           "waitFor": {
@@ -54,7 +65,7 @@
       "shows": "Rita Approver's page: Data owner granted directly in Graubünden, not in any group, recent activity.",
       "actions": [
         {
-          "goto": "/settings/people/906cb2ad-523d-45c7-b41b-65a3d71c8010"
+          "goto": "/settings/people/{person:Rita Approver}"
         },
         {
           "waitFor": {
@@ -81,8 +92,9 @@
         },
         {
           "waitFor": {
-            "text": "Choose a person.",
-            "exact": false
+            "role": "button",
+            "name": "New person",
+            "exact": true
           }
         },
         {
@@ -118,7 +130,7 @@
       "shows": "Reset password on Rita Approver: there is no confirmation, the click makes a one-time password link at once and this dialog shows it (the link was never used). The second-factor reset button only appears for a person with a second factor set up, which nobody has on the reference instance.",
       "actions": [
         {
-          "goto": "/settings/people/906cb2ad-523d-45c7-b41b-65a3d71c8010"
+          "goto": "/settings/people/{person:Rita Approver}"
         },
         {
           "waitFor": {
@@ -158,6 +170,7 @@
       "name": "admin-groups",
       "shows": "The Groups page with no groups yet and New group.",
       "actions": [
+        {"state": "groups-empty"},
         {
           "goto": "/settings/groups"
         },
@@ -174,47 +187,23 @@
       "expect": [
         "No groups yet.",
         "New group"
-      ]
+      ],
+      "after": [{"state": "groups-restore"}]
     },
     {
       "name": "admin-group-new",
-      "shows": "The New group dialog (opened, not saved).",
+      "shows": "The New group side sheet (opened, not saved) over the Groups page.",
       "actions": [
-        {
-          "goto": "/settings/groups"
-        },
-        {
-          "waitFor": {
-            "text": "No groups yet.",
-            "exact": false
-          }
-        },
-        {
-          "wait": 800
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "New group",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "dialog"
-          }
-        },
-        {
-          "wait": 600
-        }
+        {"goto": "/settings/groups"},
+        {"waitFor": {"role": "button", "name": "New group", "exact": true}},
+        {"wait": 800},
+        {"click": {"role": "button", "name": "New group", "exact": true}},
+        {"waitFor": {"role": "dialog"}},
+        {"wait": 600}
       ],
-      "expect": [
-        "New group"
-      ],
+      "expect": ["New group"],
       "after": [
-        {
-          "press": "Escape"
-        }
+        {"press": "Escape"}
       ]
     },
     {
@@ -286,7 +275,7 @@
       "shows": "Grants of a person: Guide Admin's Roles table (Where, Role, Narrowed to, Through) and Grant.",
       "actions": [
         {
-          "goto": "/settings/people/d16ced0b-c50c-46f1-ae94-06f41b68fdca"
+          "goto": "/settings/people/{person:Guide Admin}"
         },
         {
           "waitFor": {
@@ -299,7 +288,7 @@
         },
         {
           "scrollTo": {
-            "text": "Narrowed to (writes)",
+            "text": "What this person may do",
             "exact": false
           },
           "offset": 200
@@ -310,7 +299,7 @@
       ],
       "expect": [
         "Every workspace",
-        "Directly"
+        "Data owner"
       ]
     },
     {
@@ -341,7 +330,7 @@
       "shows": "The Grant dialog of Rita Approver (opened, not saved): choose a role and where it applies.",
       "actions": [
         {
-          "goto": "/settings/people/906cb2ad-523d-45c7-b41b-65a3d71c8010"
+          "goto": "/settings/people/{person:Rita Approver}"
         },
         {
           "waitFor": {
@@ -379,14 +368,14 @@
     },
     {
       "name": "admin-signin",
-      "shows": "The Sign-in page with Local accounts on and no provider yet.",
+      "shows": "The Sign-in page with Local accounts on and the Guide identity provider listed (disabled); the instance cannot show the empty state again, because removing the provider would unlink its person.",
       "actions": [
         {
           "goto": "/settings/sign-in"
         },
         {
           "waitFor": {
-            "text": "No provider yet",
+            "text": "Local accounts",
             "exact": false
           }
         },
@@ -423,43 +412,18 @@
     },
     {
       "name": "admin-signin-provider-new",
-      "shows": "The New provider dialog for the organisation's sign-in provider (OpenID Connect) (opened, not saved).",
+      "shows": "The New provider side sheet for the organisation's sign-in provider (OpenID Connect) (opened, not saved) over the Sign-in page.",
       "actions": [
-        {
-          "goto": "/settings/sign-in"
-        },
-        {
-          "waitFor": {
-            "text": "No provider yet",
-            "exact": false
-          }
-        },
-        {
-          "wait": 800
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "New provider",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "dialog"
-          }
-        },
-        {
-          "wait": 600
-        }
+        {"goto": "/settings/sign-in"},
+        {"waitFor": {"role": "button", "name": "New provider", "exact": true}},
+        {"wait": 800},
+        {"click": {"role": "button", "name": "New provider", "exact": true}},
+        {"waitFor": {"role": "dialog"}},
+        {"wait": 600}
       ],
-      "expect": [
-        "Save provider"
-      ],
+      "expect": ["Add provider"],
       "after": [
-        {
-          "press": "Escape"
-        }
+        {"press": "Escape"}
       ]
     },
     {
@@ -486,15 +450,16 @@
     },
     {
       "name": "admin-clients",
-      "shows": "The Clients list: Active 1 (Stops checker (guide), an agent client), Deactivated 1, and New client.",
+      "shows": "The Clients list: the active clients (Stops checker (guide), an agent client, and Stops reader (guide)), the Deactivated tab and New client.",
       "actions": [
         {
           "goto": "/settings/clients"
         },
         {
           "waitFor": {
-            "text": "Choose a client.",
-            "exact": false
+            "role": "button",
+            "name": "New client",
+            "exact": true
           }
         },
         {
@@ -509,26 +474,15 @@
     },
     {
       "name": "admin-client",
-      "shows": "The client Stops reader (guide): ID, secrets, Rotate secret, Rename, Deactivate, and its Consumer API grant on Graubünden.",
+      "shows": "The client Stops reader (guide): ID, secrets, Rotate secret, its name and description editable where they stand, Deactivate, and its Consumer API grant on Graubünden.",
       "actions": [
-        {
-          "goto": "/settings/clients/06feff4d-f45b-4fa8-9b7a-3569aff407c5"
-        },
-        {
-          "waitFor": {
-            "text": "Secrets",
-            "exact": false
-          }
-        },
-        {
-          "wait": 800
-        }
+        {"goto": "/settings/clients"},
+        {"waitFor": {"text": "Stops reader (guide)", "exact": false}},
+        {"click": {"text": "Stops reader (guide)", "exact": false}},
+        {"waitFor": {"text": "Secrets", "exact": false}},
+        {"wait": 800}
       ],
-      "expect": [
-        "Stops reader (guide)",
-        "Rotate secret",
-        "Consumer API: Stops API"
-      ]
+      "expect": ["Stops reader (guide)", "Rotate secret"]
     },
     {
       "name": "admin-client-new",
@@ -539,8 +493,9 @@
         },
         {
           "waitFor": {
-            "text": "Choose a client.",
-            "exact": false
+            "role": "button",
+            "name": "New client",
+            "exact": true
           }
         },
         {
@@ -573,43 +528,20 @@
     },
     {
       "name": "admin-client-rotate",
-      "shows": "The Rotate secret dialog of Stops reader (guide) (opened, not rotated).",
+      "shows": "The rotation sheet of Stops reader (guide) (opened, not rotated).",
       "actions": [
-        {
-          "goto": "/settings/clients/06feff4d-f45b-4fa8-9b7a-3569aff407c5"
-        },
-        {
-          "waitFor": {
-            "text": "Secrets",
-            "exact": false
-          }
-        },
-        {
-          "wait": 800
-        },
-        {
-          "click": {
-            "role": "button",
-            "name": "Rotate secret…",
-            "exact": true
-          }
-        },
-        {
-          "waitFor": {
-            "role": "dialog"
-          }
-        },
-        {
-          "wait": 600
-        }
+        {"goto": "/settings/clients"},
+        {"waitFor": {"text": "Stops reader (guide)", "exact": false}},
+        {"click": {"text": "Stops reader (guide)", "exact": false}},
+        {"waitFor": {"text": "Secrets", "exact": false}},
+        {"wait": 800},
+        {"click": {"role": "button", "name": "Rotate secret…", "exact": true}},
+        {"waitFor": {"role": "dialog"}},
+        {"wait": 600}
       ],
-      "expect": [
-        "Rotate secret"
-      ],
+      "expect": ["Rotate secret"],
       "after": [
-        {
-          "press": "Escape"
-        }
+        {"press": "Escape"}
       ]
     },
     {
@@ -704,7 +636,7 @@
       "shows": "Changes filtered to Rita Approver (See changes on her page): who changed what, newest first.",
       "actions": [
         {
-          "goto": "/changes?actorId=906cb2ad-523d-45c7-b41b-65a3d71c8010"
+          "goto": "/changes?actorId={person:Rita Approver}"
         },
         {
           "waitFor": {

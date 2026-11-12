@@ -16,6 +16,7 @@ export function CellGrid({
   list,
   noteRow,
   label,
+  onHeaderRow,
 }: {
   rows: Map<number, Record<string, SourceCell>>;
   top: number;
@@ -27,6 +28,8 @@ export function CellGrid({
   /** The note row under its header, skipped by the load. */
   noteRow?: number | null;
   label: string;
+  /** The row numbers press to become the header row (0.17 PL3b, PP-D7); without it the grid is a picture. */
+  onHeaderRow?: (row: number) => void;
 }) {
   const letters = Array.from({ length: Math.max(0, last - first + 1) }, (_, index) => columnLetter(first + index));
   const from = columnNumber(list.block.firstColumn);
@@ -53,7 +56,22 @@ export function CellGrid({
             const inRows = number >= list.headerRow && number <= list.block.lastRow;
             return (
               <tr key={number}>
-                <th scope="row">{number}</th>
+                <th scope="row">
+                  {onHeaderRow ? (
+                    <button
+                      type="button"
+                      className="cell-grid-row"
+                      aria-label={`Use row ${number} as the header row`}
+                      aria-pressed={number === list.headerRow}
+                      title="Use this row as the header row"
+                      onClick={() => onHeaderRow(number)}
+                    >
+                      {number}
+                    </button>
+                  ) : (
+                    number
+                  )}
+                </th>
                 {letters.map((letter) => {
                   const column = columnNumber(letter);
                   const inside = inRows && column >= from && column <= to;

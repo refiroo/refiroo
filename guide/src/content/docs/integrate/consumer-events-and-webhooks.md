@@ -24,7 +24,7 @@ Pages support up to 100 full objects or 1,000 identities. Filtered reads can ret
 
 ## Subscribe a receiver
 
-The [consumer subscription operations](/docs/api/?api=management#tag/consumer%20subscriptions) require Integration administration in the workspace and the deployment's webhook capability. It is off by default. Subscriptions are runtime configuration, not model content. In the browser, administrators manage subscriptions under **Settings › Integration › Webhooks**. See [Clients for other systems](/docs/administer/clients/) for client access.
+The [consumer subscription operations](/docs/api/?api=management#tag/consumer%20subscriptions) require Integration administration in the workspace and the deployment's webhook capability. It is off by default. Subscriptions are runtime configuration, not model content. In the browser, administrators manage subscriptions under **Settings › Connections › Webhooks**. See [Clients for other systems](/docs/administer/clients/) for client access.
 
 Choose events, declared narrowing filters, full objects or notifications, RDM JSON or CloudEvents, and one event per request or batching. Batching holds up to 1,000 events, sending what is ready without waiting to fill it. A batch normally stops at 1 MiB; a single oversized event is sent alone. The receiver must allow that exception. CloudEvents uses structured single-event or batch form according to the subscription's request mode, including a batch containing only one event.
 

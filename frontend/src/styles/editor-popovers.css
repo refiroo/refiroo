@@ -1,0 +1,86 @@
+/* The model editor's small operations (UX1, PP-D40): one or two controls open under the control that
+   started them, as a popover over the page. The surface, shadow and scrollbar are the control
+   popover's (`.control-popover`); this file adds the form inside it. Tokens only, so every theme
+   and both schemes draw it. */
+.editor-popover {
+  width: min(360px, calc(100vw - 2 * var(--space-3)));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.editor-popover-wide {
+  width: min(420px, calc(100vw - 2 * var(--space-3)));
+}
+.editor-popover [role="dialog"] {
+  display: block;
+}
+.editor-popover-form {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+.editor-popover-title {
+  margin: 0 0 var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+.editor-popover-form .form-field {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.editor-popover-form .form-field > label,
+.editor-popover-form .form-field > legend {
+  padding: 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.editor-popover-form .field-description {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.editor-popover-form input:not([type="checkbox"]):not([type="radio"]),
+.editor-popover-form textarea,
+.editor-popover-form select {
+  display: block;
+  width: 100%;
+  min-height: var(--control-height);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: 400;
+  outline: none;
+}
+.editor-popover-form input:not([type="checkbox"]):not([type="radio"]):focus,
+.editor-popover-form textarea:focus,
+.editor-popover-form select:focus {
+  border-color: var(--action-primary);
+  box-shadow: var(--focus-ring);
+}
+.editor-popover-form .checkbox {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+}
+/* A pick-several list: the options scroll inside the popover so that Apply stays in view. */
+.editor-popover-form .operation-checkboxes {
+  max-height: min(320px, 45dvh);
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+.editor-popover-form .operation-checkbox .checkbox {
+  font-size: var(--text-md);
+}
+.editor-popover-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

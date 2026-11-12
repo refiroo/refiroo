@@ -46,6 +46,33 @@ class ObjectResponse(BaseModel):
     origin: ChangeOrigin | SkipJsonSchema[None] = optional_origin()
 
 
+class DeletionImpactRecord(BaseModel):
+    id: str
+    name: str
+    objectTypeKey: str
+    applicationKey: str
+    parentObjectId: str | None
+    reason: str
+
+
+class DeletionImpactRelationship(BaseModel):
+    id: str
+    relationTypeKey: str
+
+
+class ObjectDeletionImpact(BaseModel):
+    """What deleting a record takes with it."""
+
+    objectsToDelete: list[DeletionImpactRecord]
+    relationshipsToRemove: list[DeletionImpactRelationship]
+    objectCount: int
+    relationshipCount: int
+    ownRelationshipCount: int
+    retainedAssociationCount: int
+    requiresCascade: bool
+    deletionPreviewToken: str
+
+
 class LookupObject(ObjectResponse):
     """A cross-type lookup's item: a record naming the release its workspace's model, or its change
     set's or publication's, was read under (0.11 M4, D43)."""
@@ -322,4 +349,3 @@ class HeldRecord(BaseModel):
 
 class HeldRecordPage(CollectionPage[HeldRecord]):
     """What a set of records holds through one relationship (0.9 K6a, D165), in name order."""
-

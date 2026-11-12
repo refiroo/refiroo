@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -19,6 +19,7 @@ import { EmptyState } from "@/ui/EmptyState";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { BelowContextBand } from "@/ui/ContextBandSlot";
 import { principalName } from "@/ui/ActorName";
+import { formatServerAgo } from "@/lib/dates";
 import { Card } from "@/ui/Card";
 
 /** An API message followed by more guidance, so the two read as separate sentences. */
@@ -29,20 +30,24 @@ function asSentence(cause: unknown) {
 
 export function changeSetSource(changeSet: ChangeSet) {
   return changeSet.source === "currentLive"
-    ? "Current live data at change set creation"
+    ? "Started from live data"
     : changeSet.source === "publication"
-      ? `From publication ${changeSet.derivedFromPublicationId}`
-      : "Empty bootstrap";
+      ? `Started from publication ${changeSet.derivedFromPublicationId}`
+      : "Started empty";
 }
 
 export function ChangeSets({
   workspaceKey,
   readOnly,
   onOpen,
+  onCreated = onOpen,
 }: {
   workspaceKey: string;
   readOnly: boolean;
+  /** A change set of the list opened. */
   onOpen: (id: string) => void;
+  /** A change set just started; the same as opening one where not said. */
+  onCreated?: (id: string) => void;
 }) {
   const feed = useCursorFeed((cursor) => api.changeSets(workspaceKey, cursor), [workspaceKey]);
   const [creating, setCreating] = useState(false);
@@ -57,7 +62,7 @@ export function ChangeSets({
         actions={
           creates && (
             <button className="primary" onClick={() => setCreating(true)}>
-              <Icon name="plus" /> Start from current live data
+              <Icon name="plus" /> New change set
             </button>
           )
         }
@@ -94,7 +99,7 @@ export function ChangeSets({
             action={
               creates && (
                 <button className="secondary" onClick={() => setCreating(true)}>
-                  <Icon name="plus" /> Start from current live data
+                  <Icon name="plus" /> New change set
                 </button>
               )
             }
@@ -110,7 +115,7 @@ export function ChangeSets({
         </button>
       )}
       {creating && (
-        <CreateChangeSet workspaceKey={workspaceKey} onClose={() => setCreating(false)} onCreated={onOpen} />
+        <CreateChangeSet workspaceKey={workspaceKey} onClose={() => setCreating(false)} onCreated={onCreated} />
       )}
     </section>
   );
@@ -153,32 +158,49 @@ function CreateChangeSet({
     }
   }
   const activeRelease = releases.items.find((r) => r.workspaces.includes(workspaceKey));
+  const [optionsOpen, setOptionsOpen] = useState(false);
   return (
-    <Modal
-      title="Start from current live data"
-      busy={pending}
-      dirty={Boolean(name) || Boolean(selectedRelease)}
-      onClose={onClose}
-    >
+    <Modal title="New change set" busy={pending} dirty={Boolean(name) || Boolean(selectedRelease)} onClose={onClose}>
       <form onSubmit={create}>
-        <p>
-          Copies today's live records and relationships, including changes since the last publication. Live data stays
-          available and nothing is published.
-        </p>
+        <p>A change set holds your changes until you publish them. Live data stays as it is.</p>
         <label>
-          Change set name
+          Name
           <input autoFocus value={name} maxLength={300} onChange={(event) => setName(event.target.value)} />
         </label>
-        <ReleasePicker
-          label="Model version"
-          workspaceKey={workspaceKey}
-          releases={releases}
-          value={selectedRelease}
-          onChange={setSelectedRelease}
-          placeholder={activeRelease ? `${activeRelease.key} ${activeRelease.version} (active)` : "Active release"}
-          exclude={(release) => release.workspaces.includes(workspaceKey)}
-          onlyWhenChoice
-        />
+        <div className="plain-disclosure">
+          <button
+            type="button"
+            className="ghost plain-disclosure-toggle"
+            aria-expanded={optionsOpen}
+            aria-controls="new-change-set-options"
+            onClick={() => setOptionsOpen((open) => !open)}
+          >
+            Options
+            <Icon name="chevron-down" size={14} />
+          </button>
+          {optionsOpen && (
+            <div id="new-change-set-options" className="plain-disclosure-body">
+              <p className="form-fact">
+                <span>Starts from</span>
+                <strong>Today's live data, including changes since the last publication</strong>
+              </p>
+              <ReleasePicker
+                label="Model version"
+                workspaceKey={workspaceKey}
+                releases={releases}
+                value={selectedRelease}
+                onChange={setSelectedRelease}
+                placeholder={
+                  activeRelease
+                    ? `${activeRelease.key} ${activeRelease.version} (active)`
+                    : "The workspace's own version"
+                }
+                exclude={(release) => release.workspaces.includes(workspaceKey)}
+                onlyWhenChoice
+              />
+            </div>
+          )}
+        </div>
         {error && (
           <Notice tone="error">
             {error}
@@ -195,7 +217,7 @@ function CreateChangeSet({
             Cancel
           </button>
           <button className="primary" disabled={pending}>
-            Create change set
+            Start change set
           </button>
         </div>
       </form>
@@ -268,9 +290,28 @@ function ReleasePicker({
   );
 }
 
-export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, unknown>> }) {
+/** A record a change set changes: what a problem's link opens. */
+export interface ChangedRecord {
+  applicationKey: string;
+  objectTypeKey: string;
+  objectId: string;
+  name: string;
+}
+
+export function ChangeSetDiagnostics({
+  items,
+  records,
+  onOpenRecord,
+  className,
+}: {
+  items: Array<Record<string, unknown>>;
+  /** The change set's records by id: a problem about one of them links to it. */
+  records?: ReadonlyMap<string, ChangedRecord>;
+  onOpenRecord?: (record: ChangedRecord) => void;
+  className?: string;
+}) {
   return (
-    <ul>
+    <ul className={className}>
       {items.map((item, index) => {
         const details =
           item.details && typeof item.details === "object" ? (item.details as Record<string, unknown>) : item;
@@ -287,7 +328,22 @@ export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, un
         return (
           <li key={index}>
             {String(message)}
-            {ids.length > 0 && ` — ${ids.join(", ")}`}
+            {ids.length > 0 && " — "}
+            {ids.map((id, position) => {
+              const record = records?.get(id);
+              return (
+                <span key={id}>
+                  {position > 0 && ", "}
+                  {record && onOpenRecord ? (
+                    <button type="button" className="inline-link" onClick={() => onOpenRecord(record)}>
+                      {record.name}
+                    </button>
+                  ) : (
+                    id
+                  )}
+                </span>
+              );
+            })}
           </li>
         );
       })}
@@ -295,31 +351,41 @@ export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, un
   );
 }
 
-/** The submitter's comment, two lines of it until "Show more" is chosen (only where it overflows). */
-function ClampedComment({ text }: { text: string }) {
-  const [element, setElement] = useState<HTMLParagraphElement | null>(null);
-  const [open, setOpen] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  useLayoutEffect(() => {
-    if (!element || open) return undefined;
-    const measure = () => setOverflows(element.scrollHeight > element.clientHeight + 1);
-    measure();
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
-    observer?.observe(element);
-    return () => observer?.disconnect();
-  }, [element, open, text]);
-  return (
-    <div className="change-set-comment">
-      <p ref={setElement} className={open ? undefined : "clamped"}>
-        “{text}”
-      </p>
-      {(overflows || open) && (
-        <button type="button" className="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? "Show less" : "Show more"}
-        </button>
-      )}
-    </div>
-  );
+/**
+ * How many records and how many relationships a change set adds, changes or removes (the totals of its
+ * two change lists), read again when it changes; none until read, or where the lists cannot be read.
+ */
+function useChangeSetChangeCount(changeSetId: string | undefined, version: number | undefined) {
+  const [read, setRead] = useState<{ key: string; records: number; relationships: number }>();
+  const key = `${changeSetId}:${version}`;
+  useEffect(() => {
+    if (!changeSetId) return;
+    let active = true;
+    Promise.resolve()
+      .then(() =>
+        Promise.all([
+          api.objectChanges(changeSetId, { pageSize: 1, includeTotal: true }),
+          api.relationChanges(changeSetId, { pageSize: 1, includeTotal: true }),
+        ]),
+      )
+      .then(
+        ([records, relationships]) =>
+          active && setRead({ key, records: records.totalCount ?? 0, relationships: relationships.totalCount ?? 0 }),
+        () => undefined,
+      );
+    return () => {
+      active = false;
+    };
+  }, [changeSetId, key]);
+  return read && read.key === key ? read : undefined;
+}
+
+/** "Your changes to 3 records and 2 relationships", or "your changes" where the totals are not known. */
+function publishCounts(counts: { records: number; relationships: number } | undefined) {
+  if (!counts) return "your changes";
+  const records = `${counts.records} ${counts.records === 1 ? "record" : "records"}`;
+  const relationships = `${counts.relationships} ${counts.relationships === 1 ? "relationship" : "relationships"}`;
+  return `your changes to ${records} and ${relationships}`;
 }
 
 export function ChangeSetActions({
@@ -331,6 +397,7 @@ export function ChangeSetActions({
   canMigrate = false,
   canMove = false,
   onMigrationStarted,
+  onOpenRecord,
 }: {
   readOnly: boolean;
   /** The review screen is open, so the bar does not offer it again. */
@@ -345,6 +412,8 @@ export function ChangeSetActions({
   canMove?: boolean;
   /** A migration publishing this change set (0.11 V2, D85), or moving it (V3, D95), started: its job. */
   onMigrationStarted?: (jobId: string) => void;
+  /** Opens a record a problem names, in this change set. */
+  onOpenRecord?: (record: ChangedRecord) => void;
 }) {
   const { changeSet, activeModelReleaseId, activeModelReleaseLabel, warning, refresh, permissions } =
     useWorkspaceData();
@@ -372,6 +441,9 @@ export function ChangeSetActions({
     };
   }, [policyWorkspace]);
   const me = useMe();
+  const counts = useChangeSetChangeCount(changeSet?.id, changeSet?.version);
+  const changeCount = counts && counts.records + counts.relationships;
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitComment, setSubmitComment] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -402,6 +474,38 @@ export function ChangeSetActions({
     activePublicationId: string | null;
   }>();
   const [confirm, setConfirm] = useState<"publish" | "discard">();
+  const [renaming, setRenaming] = useState<string>();
+  const [renameError, setRenameError] = useState("");
+  // The records a failed check names, by id, so each problem can link to its record.
+  const [problemRecords, setProblemRecords] = useState<ReadonlyMap<string, ChangedRecord>>(new Map());
+  const problemChangeSetId = validation && !validation.result.valid ? changeSet?.id : undefined;
+  useEffect(() => {
+    if (!problemChangeSetId) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => api.objectChanges(problemChangeSetId, { pageSize: 100 }))
+      .then(
+        (page) =>
+          active &&
+          setProblemRecords(
+            new Map(
+              page.items.map((item) => [
+                item.objectId,
+                {
+                  applicationKey: item.applicationKey,
+                  objectTypeKey: item.objectTypeKey,
+                  objectId: item.objectId,
+                  name: item.after?.name ?? item.before?.name ?? item.objectId,
+                },
+              ]),
+            ),
+          ),
+        () => undefined,
+      );
+    return () => {
+      active = false;
+    };
+  }, [problemChangeSetId, validation?.version]);
   const [changingVersion, setChangingVersion] = useState(false);
   const releases = useCursorFeed(
     (cursor) =>
@@ -517,7 +621,7 @@ export function ChangeSetActions({
         onExit("Change set discarded. Live data is unchanged.");
       } else if (validation && validation.version === current.version) {
         const publication = await api.publishChangeSet(current.id, validation.version, validation.activePublicationId);
-        onExit(`Published as Publication ${publication.publicationNumber}. Reviewed changes are now live.`);
+        onExit(`Published as Publication ${publication.publicationNumber}. The changes are live.`);
       } else throw new Error("The change set changed. Validate it again before publishing.");
     } catch (cause) {
       setError(
@@ -574,6 +678,37 @@ export function ChangeSetActions({
       setPending(false);
     }
   }
+  /** Publish checks first: a change set that passes asks once; one that fails publishes nothing and lists why. */
+  async function publish() {
+    if (modelMismatch) {
+      setValidation(undefined);
+      setDiagnostics([]);
+      setError(
+        "This change set uses a different model version than live data. Change its model version or move it, as described above, before publishing.",
+      );
+      return;
+    }
+    const checked = await check();
+    if (checked?.result.valid) setConfirm("publish");
+  }
+  async function applyRename() {
+    const next = (renaming ?? "").trim();
+    if (!next) {
+      setRenameError("Give the change set a name.");
+      return;
+    }
+    setPending(true);
+    setRenameError("");
+    try {
+      await api.renameChangeSet(current.id, next, current.version);
+      setRenaming(undefined);
+      await reload();
+    } catch (cause) {
+      setRenameError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
   async function openVersionChange() {
     setChangingVersion(true);
     setVersionChangeError("");
@@ -617,7 +752,21 @@ export function ChangeSetActions({
       <section className="change-set-bar" aria-label="Change set publication">
         <div className="change-set-bar-main">
           <h2 title={current.name || undefined}>{current.name || "Untitled change set"}</h2>
-          {waiting && request && <StatusPill tone="warning">Waiting for approval</StatusPill>}
+          {/* The band's one row: the change count and the state; who, when, version and model are under Details. */}
+          <span className="change-set-bar-state">
+            {changeCount !== undefined && `${changeCount} ${changeCount === 1 ? "change" : "changes"} · `}
+            {waiting ? "waits for approval" : request?.state === "sentBack" ? "sent back" : "open"}
+          </span>
+          <button
+            type="button"
+            className="ghost change-set-details-toggle"
+            aria-expanded={detailsOpen}
+            aria-controls="change-set-details"
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            Details
+            <Icon name="chevron-down" size={14} />
+          </button>
         </div>
         {(works || (onReview && !reviewing)) && (
           <div className="change-set-bar-actions">
@@ -640,39 +789,21 @@ export function ChangeSetActions({
             )}
             {works && !waiting && (
               <>
-                <button
-                  className="secondary"
-                  disabled={pending}
-                  onClick={check}
-                  title="Check the full change set graph against the current publication"
-                >
-                  Validate change set
-                </button>
                 {offersSubmit && (
                   <button className="primary" disabled={pending} onClick={() => setSubmitting(true)}>
                     Submit for publication
                   </button>
                 )}
                 {directPublish && (
-                  <button
-                    className="primary"
-                    disabled={
-                      pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
-                    }
-                    title={
-                      modelMismatch
-                        ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
-                        : "Publishing is available after a successful validation."
-                    }
-                    onClick={() => setConfirm("publish")}
-                  >
-                    Publish change set
+                  <button className="primary" disabled={pending} onClick={() => void publish()}>
+                    Publish
                   </button>
                 )}
                 <ActionMenu
                   label="More change set actions"
                   tooltip="More change set actions"
                   items={[
+                    { id: "validate", label: "Validate now", disabled: pending, onAction: () => void check() },
                     {
                       id: "version",
                       label: "Change model version",
@@ -680,8 +811,17 @@ export function ChangeSetActions({
                       onAction: () => void openVersionChange(),
                     },
                     {
+                      id: "rename",
+                      label: "Rename",
+                      disabled: pending,
+                      onAction: () => {
+                        setRenameError("");
+                        setRenaming(current.name ?? "");
+                      },
+                    },
+                    {
                       id: "discard",
-                      label: "Discard change set",
+                      label: "Discard",
                       tone: "danger",
                       disabled: pending,
                       onAction: () => setConfirm("discard"),
@@ -694,17 +834,18 @@ export function ChangeSetActions({
         )}
       </section>
       <BelowContextBand>
-        <div className="change-set-details">
-          <span className="change-set-bar-meta">
-            <span>Version {current.version}</span>
-            <span>{changeSetSource(current)}</span>
-            <span>
-              Model {current.modelReleaseKey} {current.modelReleaseVersion}
+        {detailsOpen && (
+          <div id="change-set-details" className="change-set-details">
+            <span className="change-set-bar-meta">
+              {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
+              <span>{formatServerAgo(current.createdAt)}</span>
+              <span>Version {current.version}</span>
+              <span>{changeSetSource(current)}</span>
+              <span>
+                Model {current.modelReleaseKey} {current.modelReleaseVersion}
+              </span>
             </span>
-            {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
-          </span>
-          {waiting && request && (
-            <>
+            {waiting && request && (
               <span className="change-set-bar-meta">
                 <span>
                   Submitted by {request.submitter ? principalName(request.submitter) : "an unknown person"} · version{" "}
@@ -712,10 +853,9 @@ export function ChangeSetActions({
                 </span>
                 {works && <span>Withdraw the request to edit it.</span>}
               </span>
-              {request.comment && <ClampedComment text={request.comment} />}
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
         {sentBack && (
           <Notice tone="info">
             Sent back{sentBack.decider ? ` by ${principalName(sentBack.decider)}` : ""}
@@ -864,13 +1004,18 @@ export function ChangeSetActions({
             tone={validationPassed ? "info" : "warning"}
             title={
               validation.version !== current.version
-                ? "Change set changed: validate again"
+                ? "The change set changed: check it again"
                 : validation.result.valid
-                  ? "Validation notes"
-                  : "Change set needs corrections"
+                  ? "Notes from the check"
+                  : "Fix these before publishing"
             }
           >
-            <ChangeSetDiagnostics items={validation.result.diagnostics} />
+            <ChangeSetDiagnostics
+              className="change-set-problems"
+              items={validation.result.diagnostics}
+              records={problemRecords}
+              onOpenRecord={onOpenRecord}
+            />
           </Notice>
         )}
         {error && (
@@ -880,19 +1025,51 @@ export function ChangeSetActions({
           </Notice>
         )}
       </BelowContextBand>
+      {renaming !== undefined && (
+        <Modal
+          title="Rename change set"
+          size="compact"
+          busy={pending}
+          dirty={renaming !== (current.name ?? "")}
+          onClose={() => setRenaming(undefined)}
+        >
+          <form
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void applyRename();
+            }}
+          >
+            <label>
+              Name
+              <input autoFocus value={renaming} maxLength={300} onChange={(event) => setRenaming(event.target.value)} />
+            </label>
+            {renameError && <Notice tone="error">{renameError}</Notice>}
+            <div className="dialog-actions">
+              <button type="button" className="secondary" disabled={pending} onClick={() => setRenaming(undefined)}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" disabled={pending}>
+                Rename
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {confirm && (
         <ConfirmDialog
           title={confirm === "publish" ? "Publish this change set?" : "Discard this change set?"}
-          confirmLabel={confirm === "publish" ? "Publish change set" : "Discard change set"}
+          confirmLabel={confirm === "publish" ? "Publish" : "Discard change set"}
+          tone={confirm === "publish" ? "plain" : "danger"}
           pending={pending}
           onCancel={() => setConfirm(undefined)}
           onConfirm={perform}
         >
           {confirm === "publish" ? (
             <p>
-              Apply authored changes from change set v{validation?.version} over current live data and create the next
-              publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing.
-              Current publication to replace: {validation?.activePublicationId ?? "none"}.
+              This makes {publishCounts(counts)} in {current.name || "this change set"} live. Other changes made in live
+              data since you started stay as they are. If a record you changed was also changed in live data, nothing is
+              published and you are told which one.
               {onReview && !reviewing && (
                 <>
                   {" "}
@@ -906,7 +1083,7 @@ export function ChangeSetActions({
                   >
                     Review changes
                   </button>{" "}
-                  before publishing.
+                  first if you have not.
                 </>
               )}
             </p>

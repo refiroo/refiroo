@@ -73,7 +73,7 @@ function helpers(harness) {
     },
     /** Applies the plan by keyboard: Tab to the apply button, Enter, then Done with Enter. */
     async applyByKeyboard(dialog, label) {
-      const apply = dialog.getByRole("button", { name: "Apply to the change set" });
+      const apply = dialog.getByRole("button", { name: "Save", exact: true });
       for (let step = 0; step < 60 && !(await apply.evaluate((button) => button === document.activeElement)); step++)
         await page.keyboard.press("Tab");
       if (!(await apply.evaluate((button) => button === document.activeElement)))
@@ -118,7 +118,7 @@ try {
   const changeSet = await api("/workspaces/default/change-sets", { name: "C4 domains", source: "currentLive" });
   const inChangeSet = `changeSetId=${changeSet.id}`;
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&${inChangeSet}`);
-  await page.getByRole("tree", { name: "Domain hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("Domain 01").waitFor();
@@ -162,7 +162,7 @@ try {
 
   // The review lists it with both types.
   await dialog.getByRole("button", { name: "Review the change set" }).click();
-  await page.getByRole("heading", { level: 1, name: /Review/ }).waitFor();
+  await page.getByRole("heading", { level: 1, name: /Changes in this change set/ }).waitFor();
   const reviewRow = page.locator(".change-row").filter({ hasText: "Pickup point" });
   await reviewRow.waitFor();
   expect((await reviewRow.textContent()).includes("Master value → Codelist"), "review: the row does not show the type change");
@@ -170,7 +170,7 @@ try {
   await h.shot("c4-review-type-change-1440");
   checks.push("review: Review the change set lists Pickup point as Master value → Codelist with Type first among its changes");
   await page.goBack();
-  await page.getByRole("tree", { name: "Domain hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
 
@@ -295,7 +295,7 @@ try {
   const systems = await api("/workspaces/default/change-sets", { name: "C4 systems", source: "currentLive" });
   const inSystems = `changeSetId=${systems.id}`;
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default&${inSystems}`);
-  await page.getByRole("tree", { name: "System hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.item("System 00").waitFor();
@@ -347,7 +347,7 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-systems/objects/system-value/${seed.sodium.id}?workspaceKey=default`);
   await page.getByRole("heading", { level: 1, name: "Sodium" }).waitFor();
   await page.waitForURL((url) => url.pathname.includes(`/objects/system-group/${seed.sodium.id}`));
-  expect(!(await page.getByText("Object unavailable").count()), "D42: the old route showed an error");
+  expect(!(await page.getByText("Record unavailable").count()), "D42: the old route showed an error");
   checks.push("D42: opening Sodium under its old type follows to /objects/system-group/…, replacing the old route");
 } catch (error) {
   await harness?.page.screenshot({ path: `${harness.output}/failure.png`, fullPage: true }).catch(() => {});
@@ -403,7 +403,7 @@ try {
     attributes: [{ attributeTypeKey: "vol-code", value: "C4-LIFT" }],
   });
   await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?${inChangeSet}`);
-  await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
@@ -463,7 +463,7 @@ try {
   // The preview at phone width.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?${inChangeSet}`);
-  await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
   await h.lens.getByRole("textbox", { name: /^Search / }).fill(target.name);

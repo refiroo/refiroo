@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Captures the guide's screenshots from the reference instance (guide/reference). See _waves/*.screens.json.
-// Usage: node guide/tools/screens.mjs [--file PILOT.screens.json] [--only a,b] [--scheme dark] [--list]
+// Usage: node guide/tools/screens.mjs [--file PILOT.screens.json] [--only a,b] [--pictures a,b] [--keep-going] [--scheme dark] [--list]
+// --pictures a,b: every screen of --only still runs (its steps make the state the next one needs), but only a and b are saved as pictures.
+// An action {"state": "<name>"} makes or undoes a state through the API (tools/screen-states.py); after steps of that kind also run when a screen fails.
 // Reuses the Playwright installed in frontend/ (no second framework). Signs in through the engine's own
 // sign-in form as the reference administrator (GUIDE_ADMIN_EMAIL / GUIDE_ADMIN_PASSWORD in
 // guide/reference/.env). A screen with "as": "<role>" signs in with GUIDE_<ROLE>_EMAIL / GUIDE_<ROLE>_PASSWORD
@@ -11,18 +13,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const GUIDE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = path.resolve(GUIDE, '..');
 const OUT = path.join(GUIDE, 'public', 'screens');
 const { chromium } = createRequire(path.join(REPO, 'frontend', 'package.json'))('playwright');
 
+// A screen with "setup": true only runs its steps (no picture): it makes a state a later screen needs.
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(`--${k}`); return i < 0 ? null : args[i + 1] ?? true; };
 const file = path.resolve(path.join(GUIDE, '_waves'), opt('file') || 'PILOT.screens.json');
 const scheme = opt('scheme') || 'light';
 if (!['light', 'dark'].includes(scheme)) { console.error(`--scheme takes light or dark, not ${scheme}`); process.exit(1); }
+const pictures = opt('pictures') ? String(opt('pictures')).split(',') : null;
 const only = opt('only') ? String(opt('only')).split(',') : null;
+// A failed screen stops the run: a later screen may rely on the state it should have made, and its clicks would then act on
+// the wrong state (2026-11-12: a Confirm migrated a workspace after the edit before it had failed). --keep-going runs on,
+// for files whose screens do not build on each other.
+const keepGoing = args.includes('--keep-going');
 const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
 const screens = spec.screens.filter((s) => !only || only.includes(s.name));
 if (args.includes('--list')) { for (const s of spec.screens) console.log(`${s.name}\t${s.width ?? 1440}\t${s.shows}`); process.exit(0); }
@@ -59,8 +68,15 @@ async function newSession(browser, width, height, who = 'ADMIN') {
   return { context, page };
 }
 
+// "{draft:Name}" in an address is the ID of the model draft of that name (the newest one), "{release:key@version}" the ID of
+// that installed release, "{job:kind}" the newest completed job of that kind, "{cs:Name}" the ID of the newest change set whose name begins so in Graubünden ("name@workspace-key" for another workspace), "{person:Name}" the ID of the person of that name; all looked up through the API.
+function resolveDrafts(address) {
+  return address.replace(/\{(draft|release|cs|job|person):([^}]+)\}/g, (_, what, name) =>
+    execFileSync('python3', [path.join(GUIDE, 'tools', 'screen-states.py'), `${what}-id`, name], { encoding: 'utf8' }).trim());
+}
+
 async function act(page, a) {
-  if (a.goto) await page.goto(BASE + a.goto);
+  if (a.goto) await page.goto(BASE + resolveDrafts(a.goto));
   else if (a.click) await locate(page, a.click).click(a.modifiers ? { modifiers: a.modifiers } : {});
   else if (a.rightClick) await locate(page, a.rightClick).click({ button: 'right' });
   else if (a.hover) await locate(page, a.hover).hover();
@@ -78,6 +94,8 @@ async function act(page, a) {
     await locate(page, a.scrollTo).evaluate((e, off) => { e.scrollIntoView({ block: 'start' }); window.scrollBy(0, -(off ?? 0)); }, a.offset ?? 90);
   } else if (a.scrollEnd) await locate(page, a.scrollEnd).evaluate((e) => e.scrollIntoView({ block: 'end' }));
   else if (a.wait) await page.waitForTimeout(a.wait);
+  // A state the instance does not hold on its own, made or undone through the API (guide/tools/screen-states.py).
+  else if (a.state) execFileSync('python3', [path.join(GUIDE, 'tools', 'screen-states.py'), a.state, ...(a.arg ? [a.arg] : [])], { stdio: 'inherit' });
   else throw new Error(`bad action ${JSON.stringify(a)}`);
 }
 
@@ -104,11 +122,18 @@ try {
         const l = a.page.getByText(t, { exact: false }).filter({ visible: true });
         if (!(await l.count().catch(() => 0))) missing.push(t);
       }
-      await a.page.screenshot({ path: path.join(OUT, `${s.name}${scheme === 'dark' ? '-dark' : ''}.png`) });
+      if (!s.setup && (!pictures || pictures.includes(s.name))) await a.page.screenshot({ path: path.join(OUT, `${s.name}${scheme === 'dark' ? '-dark' : ''}.png`) }); // "setup": a recipe that only makes a state
       for (const step of s.after ?? []) { const who = await get(step.session ?? 'a'); await act(who.page, step); await who.page.waitForTimeout(step.settle ?? 400); }
       results.push({ name: s.name, ok: !missing.length, note: missing.length ? `not visible: ${missing.join(' | ')}` : '' });
     } catch (e) {
+      // A failed screen still undoes the states it made through the API.
+      for (const step of (s.after ?? []).filter((x) => x.state)) { try { await act(null, step); } catch { /* reported by the next run */ } }
       results.push({ name: s.name, ok: false, note: String(e.message).split('\n')[0] });
+      if (!keepGoing) {
+        const left = screens.slice(screens.indexOf(s) + 1).map((x) => x.name);
+        if (left.length) results.push({ name: `${left.length} later screen(s) not run`, ok: false, note: `${left.join(', ')} (--keep-going runs them)` });
+        break;
+      }
     }
   }
 } finally {

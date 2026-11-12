@@ -1,0 +1,30 @@
+{
+  "operation": "DELETE /api/v1/mail-template/logo",
+  "name": "removeLogo",
+  "summary": "Remove the logo; the refiroo mark is used again",
+  "request": {
+    "query": {
+      "expectedVersion": 2
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "markdown": "{{logo}}\n\nDear {{recipient_name}},\n\n{{content}}\n\n--\n[{{product_name}}]({{instance_url}})\n",
+      "defaultMarkdown": "{{logo}}\n\nHello {{recipient_name}},\n\n{{content}}\n\n---\n\nThis message was sent by [{{product_name}}]({{instance_url}}).\n",
+      "saved": true,
+      "placeholders": [
+        "content",
+        "product_name"
+      ],
+      "logoType": null,
+      "logoDataUrl": null,
+      "logoMaxBytes": 524288,
+      "version": 3,
+      "updatedAt": "2026-11-02T09:49:00Z"
+    }
+  },
+  "notes": [
+    "`placeholders`: the first 2 of 5 items are shown."
+  ]
+}

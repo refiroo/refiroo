@@ -6,7 +6,7 @@
 
 import { applicationFor } from "@/model/lookup";
 import { workspaceModel } from "@/model/workspaceModels";
-import { defaultRoute, viewRoute } from "@/routing/routes";
+import { routePath, viewRoute, workspaceRoute } from "@/routing/routes";
 import type { EngineModel, RouteState, WorkspaceApplication } from "@/types";
 
 export type Navigate = (route: RouteState) => void;
@@ -45,11 +45,9 @@ export function openApplication(
   });
 }
 
-export const workspacePathOf = (workspaceKey: string) => `/?workspaceKey=${encodeURIComponent(workspaceKey)}`;
+export const workspacePathOf = (workspaceKey: string) => routePath(workspaceRoute(workspaceKey));
 
-/** Open the workspace on its first application's default view. */
+/** Open the workspace's own page (0.17 SH1): its search, applications and what waits there. */
 export function openWorkspace(workspaceKey: string, onNavigate: Navigate) {
-  openIn(workspaceKey, workspacePathOf(workspaceKey), onNavigate, (model) =>
-    model.applications.length ? defaultRoute(model, workspaceKey) : undefined,
-  );
+  onNavigate(workspaceRoute(workspaceKey));
 }

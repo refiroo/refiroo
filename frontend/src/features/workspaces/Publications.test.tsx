@@ -90,8 +90,8 @@ describe("workspace publications", () => {
     fireEvent.click(await screen.findByRole("button", { name: "More actions for Publication 10" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Start a change set from this publication" }));
     expect(screen.getByText(/does not restore or change live data/i)).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("textbox", { name: "Change set name" }), { target: { value: "Review history" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create change set" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Review history" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start change set" }));
     await waitFor(() => expect(onChangeSetCreated).toHaveBeenCalledWith(changeSet.id));
     expect(create).toHaveBeenCalledWith("west", "Review history", current.id);
 

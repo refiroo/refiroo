@@ -17,7 +17,9 @@ contain several record types, or repeat the same type through several levels.
 The model defines which types may contain which others and which types may stand at the top
 without a parent. A type label grouping records in a tree is navigation, not another record.
 A tree view shows the roots and types chosen by the model; it need not show every record in the
-workspace. The sidebar's **Browse records** tree is another route to records.
+workspace. The sidebar’s **Browse records** tree is another route to records. Open its folded
+heading to browse; your choice is remembered in this browser. Use **Find any record** in the
+top bar to search names across the workspace.
 
 ![A tree expanded from a canton through a district and municipality to stops](/docs/screens/tree-geography-chur.png)
 
@@ -129,7 +131,7 @@ review filters can match either the old or new type.
 
 A tree view opens a record beside the list, with **Expand to full page** for its full page.
 An explorer-tree record opens without a collection behind it. A table record instead offers
-**Back to list**. **Resize navigation rail** changes the rail width; see
+**←** and the list’s name in the line above its title, followed by its parents where shown. **Resize navigation rail** changes the rail width; see
 [Appearance and devices](/docs/use/appearance-and-devices/) for keyboard resizing.
 
 The rail is named **Browse application**, or **Application navigation** in its phone drawer.

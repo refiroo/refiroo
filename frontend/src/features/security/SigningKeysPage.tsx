@@ -8,15 +8,18 @@
 import { useRef, useState } from "react";
 import { errorMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
-import { formatServerDayTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
+import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
+import { settingsHead } from "@/features/settings/navigation";
 import { signingKeyState } from "./securityText";
 
 const TONE = { current: "success", verifying: "warning", retired: "neutral" } as const;
@@ -28,6 +31,7 @@ export function SigningKeysPage() {
   const [error, setError] = useState("");
   const retireRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
+  const head = settingsHead("signing-keys");
 
   async function rotate(immediate: boolean) {
     setPending(true);
@@ -50,7 +54,7 @@ export function SigningKeysPage() {
 
   return (
     <SettingsLayout
-      eyebrow="Security"
+      {...head}
       title="Signing keys"
       description="The engine signs every access token with its current key and starts a new one every 30 days on its own. A replaced key keeps verifying the tokens it signed until they expire. Nobody has to act on a rotation: sessions and clients move to the new key by themselves."
       actions={
@@ -69,34 +73,63 @@ export function SigningKeysPage() {
           {error}
         </Notice>
       )}
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : !feed.items.length ? (
-        <p className="admin-hint">{feed.loading ? "Loading keys…" : "No key yet: one is made with the first token."}</p>
-      ) : (
-        <SettingsTable label="Signing keys" columns={["Key ID", "State", "Created", "Replaced", "Retired"]}>
-          {feed.items.map((key) => (
-            <tr key={key.kid}>
-              <th scope="row" className="mono">
-                {key.kid}
-              </th>
-              <td data-label="State">
-                <StatusPill tone={TONE[key.state]}>{signingKeyState(key)}</StatusPill>
-              </td>
-              <td data-label="Created">{formatServerDayTime(key.createdAt)}</td>
-              <td data-label="Replaced">{key.rotatedAt ? formatServerDayTime(key.rotatedAt) : "—"}</td>
-              <td data-label="Retired">
-                {key.state === "retired" && key.retiredAt ? formatServerDayTime(key.retiredAt) : "—"}
-              </td>
-            </tr>
-          ))}
-        </SettingsTable>
-      )}
-      {feed.hasMore && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more keys
-        </button>
-      )}
+      <SettingsGroup
+        stacked
+        title="Keys"
+        description="Newest first. The current key signs; a replaced key verifies until its tokens expire; a retired key is refused."
+      >
+        {feed.error ? (
+          <InlineError message={feed.error} onRetry={feed.retry} />
+        ) : !feed.items.length ? (
+          feed.loading ? (
+            <Skeleton label="Loading keys" lines={3} />
+          ) : (
+            <SettingsPanel>
+              <SettingsEmpty icon="key" hue={head.hue}>
+                No key yet: one is made with the first token.
+              </SettingsEmpty>
+            </SettingsPanel>
+          )
+        ) : (
+          <SettingsPanel>
+            <SettingsTable label="Signing keys" columns={["Key ID", "State", "Created", "Replaced", "Retired"]}>
+              {feed.items.map((key) => (
+                <tr key={key.kid}>
+                  <th scope="row" className="mono">
+                    {key.kid}
+                  </th>
+                  <td data-label="State">
+                    <StatusPill tone={TONE[key.state]}>{signingKeyState(key)}</StatusPill>
+                  </td>
+                  <td data-label="Created" className="when" title={formatServerTime(key.createdAt)}>
+                    {formatServerDayTime(key.createdAt)}
+                  </td>
+                  <td
+                    data-label="Replaced"
+                    className="when"
+                    title={key.rotatedAt ? formatServerTime(key.rotatedAt) : undefined}
+                  >
+                    {key.rotatedAt ? formatServerDayTime(key.rotatedAt) : "—"}
+                  </td>
+                  <td
+                    data-label="Retired"
+                    className="when"
+                    title={key.state === "retired" && key.retiredAt ? formatServerTime(key.retiredAt) : undefined}
+                  >
+                    {key.state === "retired" && key.retiredAt ? formatServerDayTime(key.retiredAt) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </SettingsTable>
+            <LogFoot
+              shown={feed.items.length}
+              noun="keys"
+              onMore={feed.hasMore ? feed.loadMore : undefined}
+              loading={feed.loading}
+            />
+          </SettingsPanel>
+        )}
+      </SettingsGroup>
       {confirming && (
         <ConfirmDialog
           title="Retire the current key now?"

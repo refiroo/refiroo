@@ -24,7 +24,7 @@ See [AI and your data](/docs/use/ai-and-your-data/) for details.
    answer was being prepared. A failed or unanswered batch is not a decision that no target exists.
 5. When at least one target was proposed, choose **Show proposed** to open the change set's grid with **Proposed** selected. Inspect
    each target, its displayed fields, confidence and reason. On a phone, expand **Why?**.
-   Use **Change** and **Save mapping** to replace a wrong target. Its AI mark disappears.
+   Use **Change** and **Save** to replace a wrong target. Its AI mark disappears.
    If no target was proposed, **Show proposed** is absent. Choose **Close** and investigate
    the unmapped sources manually.
 6. Review the whole change set, including any earlier work in it. Follow

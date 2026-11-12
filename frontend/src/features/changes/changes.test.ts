@@ -10,6 +10,8 @@ import {
   changeWhere,
   changesHeading,
   changesSubtitle,
+  draftStepsTitle,
+  groupDraftSteps,
   periodSince,
   readsChanges,
 } from "./changeText";
@@ -174,5 +176,40 @@ describe("the way to someone's changes", () => {
       kind: "changes",
       actorId: "p1",
     });
+  });
+});
+
+describe("grouping the steps on a model draft", () => {
+  const step = (id: string, draft: string, overrides: Partial<ChangeEntry> = {}) =>
+    entry({
+      id,
+      kind: "model",
+      action: "updated",
+      workspace: null,
+      subject: { id: draft, name: draft === "d1" ? "Spring" : "Autumn" },
+      ...overrides,
+    });
+
+  it("shows consecutive steps on one draft as one line with their count, newest first", () => {
+    const items = groupDraftSteps([step("a", "d1"), step("b", "d1"), step("c", "d1", { action: "created" })]);
+    expect(items).toHaveLength(1);
+    const [group] = items;
+    expect(group.kind).toBe("draft");
+    if (group.kind !== "draft") return;
+    expect(group.entries.map((item) => item.id)).toEqual(["a", "b", "c"]);
+    expect(draftStepsTitle(group.entries.length, group.name)).toBe("3 steps on the draft “Spring”");
+  });
+
+  it("leaves a single step, other drafts and other changes as they are, in order", () => {
+    const record = entry({ id: "r" });
+    const items = groupDraftSteps([step("a", "d1"), record, step("b", "d1"), step("c", "d2"), step("d", "d2")]);
+    expect(
+      items.map((item) => (item.kind === "entry" ? item.entry.id : item.entries.map((e) => e.id).join("+"))),
+    ).toEqual(["a", "r", "b", "c+d"]);
+  });
+
+  it("does not group releases", () => {
+    const installed = (id: string) => step(id, "d1", { action: "installed" });
+    expect(groupDraftSteps([installed("a"), installed("b")]).every((item) => item.kind === "entry")).toBe(true);
   });
 });

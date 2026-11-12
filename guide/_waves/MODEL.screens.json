@@ -1,6 +1,6 @@
 {
   "wave": "MODEL",
-  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the 'Model your data' pages. Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file MODEL.screens.json) into guide/public/screens/<name>.png; names start with model-. Dialogs are cancelled; nothing is installed, activated, published or moved. State needed (see MODEL.data-changes.md): the model draft 'Guide draft' (a draft of guide-reference-swiss 1.0.0, id f9c3765e-85b1-409c-8e06-10b48fc8677b, created through New draft; recreate it and put its id in the editor URLs to retake); the mapping 'Guide mapping' (Graubünden to Default, created through New copy or move, key guide-mapping). Run order matters for the draft: model-field-dialog and model-relation-dialog save their step in 'after' (so run them once on a fresh draft), model-field-added, model-relation-added, model-history and model-compare need those steps; model-issues-error and model-draft-json-error need the deliberate error (a column 'ghost-field' added to the view 'municipalities' of Network through the draft page's JSON, Save draft), model-issues-none needs it removed again. The 'Dry run' tab of the Issues panel only exists on a draft with a workbook, so it has no screen here.",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the 'Model your data' pages. Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file MODEL.screens.json) into guide/public/screens/<name>.png; names start with model-. Dialogs are cancelled; nothing is installed, activated, published or moved. State needed (see MODEL.data-changes.md): the model draft 'Guide draft' (a draft of guide-reference-swiss 1.0.0, id {draft:Guide draft}, created through New draft; recreate it and put its id in the editor URLs to retake); the mapping 'Guide mapping' (Graubünden to Default, created through New copy or move, key guide-mapping). Run order matters for the draft: model-field-dialog and model-relation-dialog save their step in 'after' (so run them once on a fresh draft), model-field-added, model-relation-added, model-history and model-compare need those steps; model-issues-error and model-draft-json-error need the deliberate error (a column 'ghost-field' added to the view 'municipalities' of Network through the draft page's JSON, Save draft), model-issues-none needs it removed again. The 'Dry run' tab of the Issues panel only exists on a draft with a workbook, so it has no screen here.",
   "base": "http://localhost:8480",
   "screens": [
     {
@@ -25,6 +25,54 @@
         "guide-reference-swiss",
         "rdm-starter",
         "New draft"
+      ]
+    },
+    {
+      "name": "model-guide-draft-setup",
+      "setup": true,
+      "shows": "Makes the draft the editor screens read: Settings, Model, New draft named 'Guide draft' on the active release. The steps below add to it (the field and relation dialogs apply theirs); model-guide-draft-delete removes it at the end.",
+      "actions": [
+        {
+          "goto": "/settings/model"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New draft"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Draft name",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Guide draft"
+        },
+        {
+          "wait": 400
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Create draft"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
       ]
     },
     {
@@ -91,7 +139,7 @@
         },
         {
           "waitFor": {
-            "text": "Running in 1 workspace",
+            "text": "Running in",
             "exact": false
           }
         },
@@ -101,7 +149,7 @@
       ],
       "expect": [
         "Newest release",
-        "Running in 1 workspace",
+        "Running in",
         "Change model"
       ]
     },
@@ -115,7 +163,7 @@
         {
           "click": {
             "role": "tab",
-            "name": "Releases (1)"
+            "name": "Releases"
           }
         },
         {
@@ -137,7 +185,7 @@
         {
           "click": {
             "role": "tab",
-            "name": "Drafts (2)"
+            "name": "Drafts"
           }
         },
         {
@@ -153,7 +201,7 @@
       "expect": [
         "Drafts",
         "Guide draft",
-        "from 1.0.0"
+        "from 1.8.1"
       ]
     },
     {
@@ -189,10 +237,10 @@
     },
     {
       "name": "model-release-detail",
-      "shows": "An installed release's page: immutable, which workspace runs it, counts, and the buttons Export JSON, Create draft from release and Activate in a workspace.",
+      "shows": "An installed release's page: immutable, which workspace runs it, counts, the buttons Activate in a workspace and Create draft from release, and the ⋯ menu with Export JSON.",
       "actions": [
         {
-          "goto": "/settings/model/releases/fbb5d688-60ad-4f14-ae05-a2e619ff2aa1"
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.1}"
         },
         {
           "waitFor": {
@@ -201,7 +249,13 @@
           }
         },
         {
-          "wait": 800
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "wait": 600
         }
       ],
       "expect": [
@@ -209,6 +263,11 @@
         "Export JSON",
         "Create draft from release",
         "Activate in a workspace"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
       ]
     },
     {
@@ -216,7 +275,7 @@
       "shows": "The release page's history: Compare with another release (here rdm-starter 0.10.0) lists the semantic changes, added and removed elements with their paths.",
       "actions": [
         {
-          "goto": "/settings/model/releases/fbb5d688-60ad-4f14-ae05-a2e619ff2aa1"
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.1}"
         },
         {
           "waitFor": {
@@ -260,7 +319,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/releases/fbb5d688-60ad-4f14-ae05-a2e619ff2aa1"
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.1}"
         },
         {
           "waitFor": {
@@ -308,28 +367,13 @@
     },
     {
       "name": "model-editor-overview",
-      "shows": "The model editor on a new draft ('Guide draft', a draft of guide-reference-swiss 1.0.0): header with Undo, Redo, Open as JSON and Install and activate, the model pane with applications and types, and the Issues and history bar at the foot.",
+      "shows": "The model editor on a draft of guide-reference-swiss 1.8.1: header with Undo, Redo, Open as JSON and Install and activate, the model pane with applications and types, and the Issues and history bar at the foot.",
       "actions": [
-        {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor"
-        },
-        {
-          "waitFor": {
-            "text": "Saved as you go",
-            "exact": false
-          }
-        },
-        {
-          "wait": 1200
-        }
+        {"goto": "/settings/model/drafts/{draft:Guide draft}/editor"},
+        {"waitFor": {"text": "Saved as you go", "exact": false}},
+        {"wait": 1200}
       ],
-      "expect": [
-        "Guide draft",
-        "Draft of",
-        "Undo",
-        "Install and activate",
-        "No issues"
-      ]
+      "expect": ["Draft of", "Undo", "Install and activate", "No issues"]
     },
     {
       "name": "model-editor-application",
@@ -337,7 +381,7 @@
       "height": 1300,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {
@@ -364,7 +408,7 @@
       "height": 1300,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=systems"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=systems"
         },
         {
           "waitFor": {
@@ -389,7 +433,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -414,10 +458,10 @@
     },
     {
       "name": "model-type-required-edit",
-      "shows": "Changing a setting in place: the Required cell of the Abbreviation attribute opened with its choice, Save and Cancel. Cancelled, nothing changed.",
+      "shows": "Changing a setting in place: the Required cell of the Abbreviation attribute opened as its choice (the choice applies when made; Escape leaves it). Left as it was, nothing changed.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -435,22 +479,17 @@
         },
         {
           "waitFor": {
-            "role": "button",
-            "name": "Save"
+            "css": "tr:has-text('Abbreviation') select"
           }
         }
       ],
       "expect": [
         "Abbreviation",
-        "Save",
-        "Cancel"
+        "Required"
       ],
       "after": [
         {
-          "click": {
-            "role": "button",
-            "name": "Cancel"
-          }
+          "press": "Escape"
         }
       ]
     },
@@ -460,7 +499,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -494,10 +533,10 @@
     },
     {
       "name": "model-field-dialog",
-      "shows": "The New attribute dialog on Stop, filled in: name 'Step-free access', value type Yes or no, features (searchable, filterable, sortable, unique) and Required. Apply saves it in the draft.",
+      "shows": "The New attribute dialog on Stop, filled in: name 'Step-free access', value type Yes or no, features (searchable, filterable, sortable, unique) and Required, with Cancel and Add attribute. Cancelled; nothing is saved.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -552,20 +591,20 @@
         "Value type",
         "Features",
         "Required",
-        "Apply"
+        "Add attribute"
       ],
       "after": [
         {
           "click": {
             "role": "button",
-            "name": "Apply",
+            "name": "Add attribute",
             "in": {
               "role": "dialog"
             }
           }
         },
         {
-          "wait": 2000
+          "wait": 1500
         }
       ]
     },
@@ -575,7 +614,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -601,7 +640,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -635,7 +674,7 @@
       "shows": "The Allow a relation dialog on Stop, filled in: to Operator, a new relation type 'Inspected by' with reverse name 'Inspects', cardinality Many to one. Apply saves it in the draft.",
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -706,20 +745,20 @@
       "expect": [
         "Allow a relation from Stop",
         "Cardinality",
-        "Apply"
+        "Add relation"
       ],
       "after": [
         {
           "click": {
             "role": "button",
-            "name": "Apply",
+            "name": "Add relation",
             "in": {
               "role": "dialog"
             }
           }
         },
         {
-          "wait": 2000
+          "wait": 1500
         }
       ]
     },
@@ -729,7 +768,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -762,7 +801,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {
@@ -831,7 +870,7 @@
       "height": 1500,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=layout"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
         },
         {
           "waitFor": {
@@ -855,7 +894,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=layout"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
         },
         {
           "waitFor": {
@@ -893,7 +932,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=layout"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
         },
         {
           "waitFor": {
@@ -946,7 +985,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=preview"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=preview"
         },
         {
           "waitFor": {
@@ -971,7 +1010,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=matrix"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=matrix"
         },
         {
           "waitFor": {
@@ -995,7 +1034,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=systems"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=systems"
         },
         {
           "waitFor": {
@@ -1008,7 +1047,7 @@
         },
         {
           "click": {
-            "css": "tr:has-text('Municipalities by system') button[aria-haspopup]"
+            "css": "tr:has(> td:text-is(\"Municipalities by system\")) button[aria-haspopup]"
           }
         },
         {
@@ -1049,7 +1088,7 @@
       "height": 1500,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b"
+          "goto": "/settings/model/drafts/{draft:Guide draft}"
         },
         {
           "waitFor": {
@@ -1074,7 +1113,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b"
+          "goto": "/settings/model/drafts/{draft:Guide draft}"
         },
         {
           "waitFor": {
@@ -1117,7 +1156,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
         },
         {
           "waitFor": {
@@ -1148,6 +1187,14 @@
         "History",
         "Undo",
         "Redo"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues and history"
+          }
+        }
       ]
     },
     {
@@ -1156,7 +1203,11 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+          "state": "draft-ghost",
+          "arg": "Guide draft"
+        },
+        {
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {
@@ -1179,9 +1230,17 @@
       ],
       "expect": [
         "Issues (1)",
-        "1 error",
+        "1 issue",
         "ghost-field",
         "Go to Network"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues and history"
+          }
+        }
       ]
     },
     {
@@ -1190,7 +1249,7 @@
       "height": 1500,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b"
+          "goto": "/settings/model/drafts/{draft:Guide draft}"
         },
         {
           "waitFor": {
@@ -1219,7 +1278,11 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+          "state": "draft-ghost-off",
+          "arg": "Guide draft"
+        },
+        {
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
         },
         {
           "waitFor": {
@@ -1241,8 +1304,16 @@
         }
       ],
       "expect": [
-        "No issues: the draft is valid and can be installed.",
+        "No issues",
         "Valid"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues and history"
+          }
+        }
       ]
     },
     {
@@ -1251,7 +1322,7 @@
       "height": 1100,
       "actions": [
         {
-          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor"
+          "goto": "/settings/model/drafts/{draft:Guide draft}/editor"
         },
         {
           "waitFor": {
@@ -1303,6 +1374,17 @@
       ]
     },
     {
+      "name": "model-guide-draft-delete",
+      "setup": true,
+      "shows": "Removes the draft 'Guide draft' made by model-guide-draft-setup.",
+      "actions": [
+        {
+          "state": "draft-delete",
+          "arg": "Guide draft"
+        }
+      ]
+    },
+    {
       "name": "model-workspaces-list",
       "shows": "Settings, Workspaces: each workspace with the model it runs and its release number, Graubünden (default) on its own model and Default on RDM Starter Model.",
       "actions": [
@@ -1328,7 +1410,7 @@
     },
     {
       "name": "model-workspace-model",
-      "shows": "Manage workspaces, Graubünden, Overview: the model and release the workspace runs (Public transport stops of Graubünden 1.0.0, schema 0.10), its applications, and Edit model.",
+      "shows": "Manage workspaces, Graubünden, Overview: the model and release the workspace runs (Public transport stops of Graubünden 1.8.1, schema 0.10), its applications, and Edit model.",
       "height": 1100,
       "actions": [
         {
@@ -1348,7 +1430,7 @@
         "Graubünden",
         "Edit model",
         "Model",
-        "1.0.0"
+        "1.8.1"
       ]
     },
     {
@@ -1406,8 +1488,7 @@
       ],
       "expect": [
         "Applies to",
-        "Apply to this workspace",
-        "Guide draft"
+        "Apply to this workspace"
       ]
     },
     {
@@ -1461,12 +1542,32 @@
         {
           "click": {
             "role": "button",
-            "name": "Cancel",
+            "name": "Close",
             "in": {
               "role": "dialog"
-            }
+            },
+            "exact": true
           }
         }
+      ]
+    },
+    {
+      "name": "model-moves-setup",
+      "setup": true,
+      "shows": "Makes the mapping 'Guide mapping' (Graubünden to Default, the engine's proposal, nothing edited) through New copy or move, Open the editor, once. That starts one dry run, which writes nothing. Run it once on a fresh instance, before model-moves-list.",
+      "actions": [
+        {"goto": "/settings/moves"},
+        {"waitFor": {"role": "button", "name": "New copy or move", "exact": false}},
+        {"click": {"role": "button", "name": "New copy or move", "exact": false}},
+        {"waitFor": {"role": "dialog"}},
+        {"select": {"label": "From workspace", "in": {"role": "dialog"}}, "value": "Graubünden · Public transport stops of Graubünden 1.8.1"},
+        {"wait": 600},
+        {"select": {"label": "To workspace", "in": {"role": "dialog"}}, "value": "Default · RDM Starter Model 0.10.1"},
+        {"wait": 600},
+        {"fill": {"label": "Name of the new mapping", "in": {"role": "dialog"}}, "value": "Guide mapping"},
+        {"click": {"role": "button", "name": "Open the editor", "in": {"role": "dialog"}}},
+        {"waitFor": {"text": "Dry run", "exact": false}, "timeout": 60000},
+        {"wait": 3000}
       ]
     },
     {
@@ -1524,7 +1625,19 @@
               "role": "dialog"
             }
           },
-          "value": "Graubünden · Public transport stops of Graubünden 1.0.0"
+          "value": "Graubünden · Public transport stops of Graubünden 1.8.1"
+        },
+        {
+          "select": {
+            "label": "To workspace",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Default · RDM Starter Model 0.10.0"
+        },
+        {
+          "wait": 600
         },
         {
           "wait": 600

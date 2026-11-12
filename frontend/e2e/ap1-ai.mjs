@@ -842,7 +842,7 @@ async function workbookLoad(harness, load) {
   const proposed = await taskIn(harness, taskId, ["checked"]);
   assert.equal(proposed.words, "The monthly list from the owners.");
   assert.equal(proposed.design.stage, "model");
-  await page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Load a workbook").waitFor();
+  await page.getByRole("navigation", { name: "Where you are" }).getByText("Load a workbook").waitFor();
   await page.getByText("A remarks field on the type. One new record.").waitFor();
   await page.getByText("Nothing is installed or loaded before you accept the model.").waitFor();
   await page

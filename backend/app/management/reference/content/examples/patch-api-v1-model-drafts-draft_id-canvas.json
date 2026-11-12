@@ -1,0 +1,35 @@
+{
+  "operation": "PATCH /api/v1/model-drafts/{draft_id}/canvas",
+  "name": "foldAndScope",
+  "summary": "Fold a card and show only what the draft changed",
+  "request": {
+    "path": {
+      "draft_id": "00000000-0000-4000-8000-000000000024"
+    },
+    "body": {
+      "folded": {
+        "type:vehicle": true
+      },
+      "scope": "changed"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "positions": {
+        "sheet:Fahrzeuge": {
+          "x": 40.0,
+          "y": 80.0
+        },
+        "type:vehicle": {
+          "x": 420.0,
+          "y": 80.0
+        }
+      },
+      "folded": [
+        "type:vehicle"
+      ],
+      "scope": "changed"
+    }
+  }
+}

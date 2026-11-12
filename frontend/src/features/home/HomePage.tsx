@@ -6,13 +6,14 @@
  */
 
 import { useEffect, useState } from "react";
+import { HomeSearch } from "@/features/home/HomeSearch";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { TopBar } from "@/app/TopBar";
 import { ShellFrame } from "@/app/ShellFrame";
 import { useMe } from "@/app/useMe";
 import { ChangeTitle } from "@/features/changes/ChangesPage";
-import { changeWhere } from "@/features/changes/changeText";
+import { changeWhere, draftStepsTitle, groupDraftSteps, type ChangeItem } from "@/features/changes/changeText";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { formatServerAgo } from "@/lib/dates";
 import { emptyModel } from "@/model/emptyModel";
@@ -28,6 +29,7 @@ import type {
   PublicationRequest,
   RouteState,
 } from "@/types";
+import { NewFromWorkbookAction } from "@/features/workspaces/NewFromWorkbookAction";
 import { HueTile } from "@/ui/HueTile";
 import { WorkspaceTile } from "@/ui/WorkspaceTile";
 import { Icon, type IconName } from "@/ui/Icon";
@@ -44,7 +46,7 @@ import {
   rememberContinueAddress,
   type ContinueAddress,
 } from "./continueAddress";
-import { greeting, openLabel, ownLabel, quietNote, roleLine, rolePills, summary } from "./homeText";
+import { greeting, openLabel, ownLabel, quietNote, roleLine, rolePills, roleSummary, summary } from "./homeText";
 
 export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate: Navigate }) {
   const me = useMe();
@@ -93,6 +95,7 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
                 <p className="home-eyebrow">Home</p>
                 <h1 id="home-title">{greeting(me.name, new Date().getHours())}</h1>
                 <p className="home-summary">{summary(workspaces)}</p>
+                <HomeSearch workspaces={workspaces} onNavigate={onNavigate} />
                 <p className="account-pills">
                   {rolePills(grants, workspaces).map((pill) => (
                     <span key={pill} className="account-pill">
@@ -103,12 +106,20 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
               </section>
               <Continue personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
             </div>
+            {/* What needs the person comes before the workspaces, so it is seen without scrolling (0.17 UX1). */}
+            <WaitingApprovals personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
+            <OwnChangeSets workspaces={workspaces} onNavigate={onNavigate} />
             <section className="home-section" aria-labelledby="home-workspaces">
               <div className="home-section-head">
                 <h2 id="home-workspaces">Your workspaces</h2>
                 <span className="account-muted">
                   {workspaces.length} {workspaces.length === 1 ? "workspace" : "workspaces"}
                 </span>
+                <NewFromWorkbookAction
+                  variant="primary"
+                  onNavigate={onNavigate}
+                  onOtherWays={() => onNavigate({ kind: "settings", page: "workspaces" })}
+                />
               </div>
               <ul className="home-cards">
                 {workspaces.map((workspace) => (
@@ -116,14 +127,13 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
                     key={workspace.key}
                     workspace={workspace}
                     role={roleLine(grants, workspace.key)}
+                    roleShort={roleSummary(grants, workspace.key)}
                     note={quietNote(held, workspace.key)}
                     onNavigate={onNavigate}
                   />
                 ))}
               </ul>
             </section>
-            <WaitingApprovals personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
-            <OwnChangeSets workspaces={workspaces} onNavigate={onNavigate} />
             <RecentChanges personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
           </>
         )}
@@ -214,11 +224,14 @@ function Continue({
 function WorkspaceCard({
   workspace,
   role,
+  roleShort,
   note,
   onNavigate,
 }: {
   workspace: OwnWorkspace;
   role: string;
+  /** The same on one line: the first roles and "and n more". */
+  roleShort: string;
   note: string | undefined;
   onNavigate: Navigate;
 }) {
@@ -255,13 +268,22 @@ function WorkspaceCard({
             </RouteLink>
             {workspace.isDefault && <span className="account-pill">Default</span>}
           </h3>
-          <span className="account-muted home-card-model">
-            <Icon name="model" size={14} />
-            {workspace.model.releaseName} {workspace.model.releaseVersion}
-          </span>
-          {role && <span className="account-muted">{role}</span>}
         </div>
         <FollowToggle workspace={workspace} />
+      </div>
+      <div className="home-card-meta">
+        <span className="account-muted home-card-model">
+          <Icon name="model" size={14} />
+          <span className="home-card-line">
+            {workspace.model.releaseName} {workspace.model.releaseVersion}
+          </span>
+        </span>
+        {role && (
+          <span className="account-muted home-card-line" title={role}>
+            <span aria-hidden="true">{roleShort}</span>
+            <span className="visually-hidden">{role}</span>
+          </span>
+        )}
       </div>
       {workspace.applications.length ? (
         <ul className="home-apps" aria-label={`Applications in ${workspace.label}`}>
@@ -571,26 +593,92 @@ function RecentChanges({
       </div>
       <div className="account-panel">
         <ul className="account-list">
-          {items.map((entry) => (
-            <li key={entry.id} className="account-row home-change">
-              <span className="home-change-tile" data-kind={entry.kind} aria-hidden="true">
-                <Icon name={KIND_ICONS[entry.kind]} />
-              </span>
-              <span className="account-row-text">
-                <span className="account-row-title">
-                  <ChangeTitle
-                    entry={entry}
-                    application={entry.workspace ? firstApplication.get(entry.workspace.key) : undefined}
-                    onNavigate={onNavigate}
-                  />
-                </span>
-                <span className="account-muted">{changeWhere(entry).join(" · ")}</span>
-              </span>
-              <span className="account-muted home-change-set-when">{formatServerAgo(entry.occurredAt)}</span>
-            </li>
-          ))}
+          {groupDraftSteps(items).map((item) =>
+            item.kind === "entry" ? (
+              <ChangeRow
+                key={item.entry.id}
+                entry={item.entry}
+                firstApplication={firstApplication}
+                onNavigate={onNavigate}
+              />
+            ) : (
+              <DraftStepsRow key={item.key} item={item} firstApplication={firstApplication} onNavigate={onNavigate} />
+            ),
+          )}
         </ul>
       </div>
     </section>
+  );
+}
+
+type ApplicationOf = ReadonlyMap<string, string | undefined>;
+
+function ChangeRow({
+  entry,
+  firstApplication,
+  onNavigate,
+}: {
+  entry: ChangeEntry;
+  firstApplication: ApplicationOf;
+  onNavigate: Navigate;
+}) {
+  return (
+    <li className="account-row home-change">
+      <span className="home-change-tile" data-kind={entry.kind} aria-hidden="true">
+        <Icon name={KIND_ICONS[entry.kind]} />
+      </span>
+      <span className="account-row-text">
+        <span className="account-row-title">
+          <ChangeTitle
+            entry={entry}
+            application={entry.workspace ? firstApplication.get(entry.workspace.key) : undefined}
+            onNavigate={onNavigate}
+          />
+        </span>
+        <span className="account-muted">{changeWhere(entry).join(" · ")}</span>
+      </span>
+      <span className="account-muted home-change-set-when">{formatServerAgo(entry.occurredAt)}</span>
+    </li>
+  );
+}
+
+/** The consecutive steps on one model draft as one expandable line with their count. */
+function DraftStepsRow({
+  item,
+  firstApplication,
+  onNavigate,
+}: {
+  item: Extract<ChangeItem, { kind: "draft" }>;
+  firstApplication: ApplicationOf;
+  onNavigate: Navigate;
+}) {
+  const [open, setOpen] = useState(false);
+  const newest = item.entries[0];
+  return (
+    <li className="plain-change-group">
+      <button
+        type="button"
+        className="account-row home-change plain-change-group-line"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="home-change-tile" data-kind="model" aria-hidden="true">
+          <Icon name={KIND_ICONS.model} />
+        </span>
+        <span className="account-row-text">
+          <span className="account-row-title">{draftStepsTitle(item.entries.length, item.name)}</span>
+          <span className="account-muted">{changeWhere(newest).join(" · ")}</span>
+        </span>
+        <span className="account-muted home-change-set-when">{formatServerAgo(newest.occurredAt)}</span>
+        <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <ul className="account-list plain-change-group-steps">
+          {item.entries.map((entry) => (
+            <ChangeRow key={entry.id} entry={entry} firstApplication={firstApplication} onNavigate={onNavigate} />
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }

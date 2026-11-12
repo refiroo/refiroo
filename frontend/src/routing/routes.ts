@@ -8,12 +8,14 @@ import type {
   ApplicationDefinition,
   ApplicationRoute,
   ChangeKind,
+  CanvasElement,
   EditorSelection,
   EngineModel,
   ChangeEntryKind,
   ChangePeriod,
   ChangesRoute,
   HomeRoute,
+  WorkspaceRoute,
   JobState,
   JourneyRef,
   NotificationsRoute,
@@ -168,8 +170,22 @@ export function isSettingsRoute(route: RouteState): route is SettingsRoute {
 /** An application's data in a workspace: neither a settings page, home, someone's changes nor notices. */
 export function isApplicationRoute(route: RouteState): route is ApplicationRoute {
   return (
-    route.kind !== "settings" && route.kind !== "home" && route.kind !== "changes" && route.kind !== "notifications"
+    route.kind !== "settings" &&
+    route.kind !== "home" &&
+    route.kind !== "workspace" &&
+    route.kind !== "changes" &&
+    route.kind !== "notifications"
   );
+}
+
+/** A workspace's own page (0.17 SH1). */
+export function workspaceRoute(workspaceKey: string): WorkspaceRoute {
+  return { kind: "workspace", workspaceKey };
+}
+
+/** The workspace a route is in: an application's data or the workspace's own page; none for the rest. */
+export function routeWorkspaceKey(route: RouteState): string | undefined {
+  return isApplicationRoute(route) || route.kind === "workspace" ? route.workspaceKey : undefined;
 }
 
 export const HOME: HomeRoute = { kind: "home" };
@@ -207,8 +223,9 @@ function changesPath(route: ChangesRoute) {
  * `/models` (with `releaseId` or `draftId`) and `/workspaces[/{key}]`. The router writes the
  * canonical URL back on first load, so an old link lands on its page without a second entry.
  */
-/** The settings pages with no selection of their own; About is the fallback. */
+/** The settings pages with no selection of their own; the index is the fallback. */
 const SINGLE_PAGES = [
+  "about",
   "appearance",
   "account",
   "notifications",
@@ -217,6 +234,7 @@ const SINGLE_PAGES = [
   "roles",
   "signing-keys",
   "mail",
+  "mail-template",
   "ai",
   "agent-access",
 ] as const;
@@ -276,6 +294,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       : { kind: "settings", page: "workspaces" };
   if (parts[0] !== "settings") return undefined;
   const [, page, kind, id] = parts;
+  if (!page) return { kind: "settings", page: "index" };
   if (page === "consumer-apis" || page === "api-reference") {
     const workspaceKey = query.get("workspace")?.trim();
     return workspaceKey ? { kind: "settings", page, workspaceKey } : { kind: "settings", page };
@@ -337,7 +356,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
     if (kind === "drafts" && id) return { kind: "settings", page, draftId: id, ...(from ? { modelTab: from } : {}) };
     return { kind: "settings", page };
   }
-  return { kind: "settings", page: "about" };
+  return { kind: "settings", page: "index" };
 }
 
 /** The move editor's address from its query; one naming no workspaces opens Moves (D138). */
@@ -409,11 +428,35 @@ const modelTabIn = (value: string | null | undefined) => MODEL_TABS.find((item) 
 export const WORKSPACE_TABS: readonly WorkspaceTab[] = ["overview", "access", "approval", "activity"];
 const CONSUMER_API_TABS = ["types", "fields", "operations", "filters", "schema", "example"] as const;
 
+const CANVAS_ELEMENTS: readonly CanvasElement[] = ["type", "field", "line", "application", "group", "column", "list"];
+
+/** The canvas's address: the board, and what is selected on it when the address names it whole. */
+function canvasSelection(query: URLSearchParams): EditorSelection {
+  const element = CANVAS_ELEMENTS.find((item) => item === query.get("element"));
+  const key = query.get("key")?.trim() || undefined;
+  const sheet = query.get("sheet") || undefined;
+  const application = query.get("application")?.trim() || undefined;
+  const field = query.get("field") || undefined;
+  const blockText = query.get("block");
+  const block =
+    blockText !== null && blockText !== "" && Number.isInteger(Number(blockText)) ? Number(blockText) : undefined;
+  if (element === "type" || element === "line" || element === "application")
+    return key ? { show: "canvas", element, key } : { show: "canvas" };
+  if (element === "field") return key && field ? { show: "canvas", element, key, field } : { show: "canvas" };
+  if (element === "group")
+    return key && application ? { show: "canvas", element, application, key } : { show: "canvas" };
+  if (element === "column") return key && sheet ? { show: "canvas", element, sheet, key } : { show: "canvas" };
+  if (element === "list")
+    return sheet && block !== undefined && block >= 0 ? { show: "canvas", element, sheet, block } : { show: "canvas" };
+  return { show: "canvas" };
+}
+
 function editorSelection(query: URLSearchParams): EditorSelection {
   const show = query.get("show");
   const key = query.get("key")?.trim();
   if (show === "matrix") return { show };
   const sheet = query.get("sheet");
+  if (show === "canvas") return canvasSelection(query);
   if (show === "column" && key && sheet) return { show, sheet, key };
   const block = Number(query.get("block"));
   if (show === "list" && sheet && Number.isInteger(block) && block >= 0 && query.get("block"))
@@ -439,6 +482,18 @@ function editorPath(draftId: string, editor: EditorSelection): string {
   const { show } = editor;
   if (!show) return base;
   if (show === "matrix") return `${base}?show=matrix`;
+  if (show === "canvas") {
+    const parts = ["show=canvas"];
+    const add = (name: string, value: string | number | undefined) =>
+      value !== undefined && value !== "" && parts.push(`${name}=${encodeURIComponent(String(value))}`);
+    add("element", editor.element);
+    add("sheet", editor.sheet);
+    add("block", editor.block);
+    add("application", editor.application);
+    add("key", editor.key);
+    add("field", editor.field);
+    return `${base}?${parts.join("&")}`;
+  }
   if (show === "column")
     return `${base}?show=column&sheet=${encodeURIComponent(editor.sheet)}&key=${encodeURIComponent(editor.key)}`;
   if (show === "list") return `${base}?show=list&sheet=${encodeURIComponent(editor.sheet)}&block=${editor.block}`;
@@ -507,7 +562,7 @@ function settingsPath(route: SettingsRoute) {
       withForWorkspace(`/settings/model/migrations/${encodeURIComponent(route.migrationJobId)}`, route.forWorkspace),
       route.journey,
     );
-  return `/settings/${route.page}`;
+  return route.page === "index" ? "/settings" : `/settings/${route.page}`;
 }
 
 export function defaultRoute(
@@ -540,6 +595,7 @@ export function parseRoute(
     return noticeId ? { kind: "notifications", noticeId } : NOTIFICATIONS;
   }
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
+  if (parts.length === 1 && parts[0] === "workspace") return workspaceRoute(workspaceKey);
   const changeSetId = query.get("changeSetId")?.trim() || undefined;
   const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
   if (
@@ -740,6 +796,7 @@ export function routePath(route: RouteState) {
     return route.noticeId ? `/notifications?${new URLSearchParams({ notice: route.noticeId })}` : "/notifications";
   }
   if (route.kind === "settings") return settingsPath(route);
+  if (route.kind === "workspace") return `/workspace?${new URLSearchParams({ workspaceKey: route.workspaceKey })}`;
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "changeSets") return `/apps/${app}/change-sets?${query}`;

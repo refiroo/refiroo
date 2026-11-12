@@ -25,6 +25,7 @@ import type {
   RelationChangePage,
   InitialRelationInput,
   ObjectAttributeInput,
+  ObjectDeletionImpact,
   ObjectItem,
   ObjectPage,
   ParentCandidatePage,
@@ -123,6 +124,7 @@ import type {
   ModelValidation,
   Workspace,
   WorkspaceDetail,
+  WorkspaceFromWorkbook,
   WorkspacePage,
   WorkspaceRuntimeState,
   MappingCoveragePage,
@@ -148,6 +150,11 @@ import type {
   DryRun,
   Inference,
   InferenceRequest,
+  JoinCandidates,
+  JoinCandidatesRequest,
+  Canvas,
+  CanvasPosition,
+  CanvasUpdate,
   ListProposal,
   Proposal,
   SourceCellRow,
@@ -1001,6 +1008,26 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  /** Which column of a table a column's values point at, over every row, answered and not stored (0.17 PP-D8). */
+  joinCandidates: (draftId: string, body: JoinCandidatesRequest) =>
+    request<JoinCandidates>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/join-candidates`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /** Where the cards of the draft's workbook canvas sit; not part of the draft's version (0.17 PP-D54). */
+  modelDraftCanvas: (draftId: string) => request<Canvas>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/canvas`),
+  /** Merges card positions by key; `null` removes a card. */
+  moveCanvasCards: (draftId: string, positions: Record<string, CanvasPosition | null>) =>
+    request<Canvas>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/canvas`, {
+      method: "PATCH",
+      body: JSON.stringify({ positions }),
+    }),
+  /** Merges positions and folded cards by key and replaces the scope (0.17 CE1, PP-D81); a part left out stays. */
+  arrangeCanvas: (draftId: string, update: CanvasUpdate) =>
+    request<Canvas>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/canvas`, {
+      method: "PATCH",
+      body: JSON.stringify(update),
+    }),
   /** The draft's import profile with its warnings and its source file (0.10 A5, D75). */
   modelDraftProfile: (draftId: string) =>
     request<DraftProfile>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/profile`),
@@ -1182,6 +1209,9 @@ export const api = {
   /** A new workspace, on `modelReleaseId` or on the default workspace's release (0.11 M1, D54). */
   createWorkspace: (body: { key: string; label: string; modelReleaseId?: string }) =>
     request<WorkspaceDetail>("/api/v1/workspaces", { method: "POST", body: JSON.stringify(body) }),
+  /** A workspace from the draft a workbook made: installed, created on its release, its workbook loading as a job. */
+  createWorkspaceFromWorkbook: (body: { draftId: string; expectedVersion: number; name: string; key?: string }) =>
+    request<WorkspaceFromWorkbook>("/api/v1/workspaces/from-workbook", { method: "POST", body: JSON.stringify(body) }),
   updateWorkspace: (
     workspaceKey: string,
     body: { expectedVersion: number; label?: string; status?: Workspace["status"] },
@@ -1454,6 +1484,28 @@ export const api = {
       },
     ),
   objects: (objectTypeKey: string, query: ObjectQuery) => request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
+  /**
+   * Records of every type in a workspace whose name holds `search`, grouped by type (the cross-type
+   * lookup, `GET /objects`; 0.17 SH1).
+   */
+  findRecords: (workspaceKey: string, search: string, pageSize = 30) =>
+    request<ObjectPage>(
+      `/api/v1/objects?${new URLSearchParams({ workspaceKey, search, sort: "objectType", pageSize: String(pageSize) })}`,
+    ),
+  /**
+   * Records of every type whose name holds `search`, across several workspaces at once, each read under its
+   * own workspace's model (the cross-type lookup with `workspaceKey` repeated; Home's search, 0.17 UX1).
+   */
+  findRecordsAcross: (workspaceKeys: readonly string[], search: string, pageSize = 40) => {
+    const params = new URLSearchParams({ search, sort: "name", pageSize: String(pageSize) });
+    for (const key of workspaceKeys) params.append("workspaceKey", key);
+    return request<ObjectPage>(`/api/v1/objects?${params}`);
+  },
+  /** How many records of one type a workspace holds live (a list's size on the workspace's page, 0.17 UX1). */
+  countRecords: (workspaceKey: string, objectTypeKey: string) =>
+    request<ObjectPage>(
+      `/api/v1/objects?${new URLSearchParams({ workspaceKey, objectTypeKey, pageSize: "1", includeTotal: "true" })}`,
+    ).then((page) => page.totalCount),
   object: (
     objectTypeKey: string,
     objectId: string,
@@ -1646,6 +1698,13 @@ export const api = {
       { method: "DELETE" },
     );
   },
+  /** What deleting the record would take with it, live or in a change set; deletes nothing. */
+  objectDeletionImpact: (objectTypeKey: string, objectId: string, changeSetId?: string) =>
+    request<ObjectDeletionImpact>(
+      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/deletion-impact${
+        changeSetId ? `?${new URLSearchParams({ changeSetId })}` : ""
+      }`,
+    ),
   attribute: (
     objectTypeKey: string,
     objectId: string,

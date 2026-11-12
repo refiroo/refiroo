@@ -13,7 +13,7 @@ move live records merely by saving. Read [Types, attributes and relations](/docs
 2. Enter **New type’s name** and, where needed, **Plural name**. Choose **Attributes that move
    to it**. The selected attachments belong to the new type after the split.
 3. Enter **Relation name** from the original type, **Reverse name** and **Cardinality** for the
-   connection between them. Apply and inspect both types, their relationship and layouts.
+   connection between them. Choose **Add type** and inspect both types, their relationship and layouts.
 4. If stored data uses the released type, **History** marks the step **Needs a migration**.
    Installing proposes related records holding the moved values. In the preview, open **Created**:
    a source record with no moved value gets no new record; with **Many to one**, records holding
@@ -26,7 +26,7 @@ move live records merely by saving. Read [Types, attributes and relations](/docs
 
 1. Select the type to absorb and choose **Merge into…**.
 2. Choose **Into** carefully. Its attributes, relations and layout join the chosen type.
-3. Apply and inspect the combined type and **Issues**. Use **Undo** if the result is unwanted.
+3. Choose **Save** in the popover and inspect the combined type and **Issues**. Use **Undo** if the result is unwanted.
 4. When stored data uses the released type, review its **Needs a migration** mark in **History**.
    Installing proposes that its records become the receiving type, keeping their identities
    and history. Check the proposed destination and all outcomes in the migration preview.

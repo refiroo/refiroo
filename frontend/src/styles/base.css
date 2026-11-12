@@ -98,10 +98,10 @@ button:not([class]) {
   min-height: var(--control-height);
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-button);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 550;
   line-height: 1.2;
   white-space: nowrap;
@@ -222,7 +222,7 @@ button:not([class]):disabled {
   padding: 7px 10px;
   background: var(--surface-raised);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 400;
   outline: none;
 }
@@ -257,7 +257,7 @@ input[type="radio"] {
   height: 16px;
   margin: 0;
   border: 1.5px solid var(--border-control);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
   appearance: none;
   cursor: pointer;

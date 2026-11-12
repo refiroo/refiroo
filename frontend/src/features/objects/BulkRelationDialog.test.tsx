@@ -261,7 +261,7 @@ describe("BulkRelationDialog (0.9 K3)", () => {
     expect(screen.getByText("One change for each selected domain: 2 changes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await PushedEventSource.push(waiting);
-    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.confirmJob).toHaveBeenCalledWith("j1"));
     await PushedEventSource.push({
       ...waiting,

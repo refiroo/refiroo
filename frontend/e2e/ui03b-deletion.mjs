@@ -15,9 +15,10 @@ export async function checkInspectorDeletion({ page, api, uiUrl, output, checks 
     await table.getByRole("button", { name: "UI03B record 2", exact: true }).click();
     await page.getByRole("heading", { name: "UI03B record 2", level: 1, exact: true }).waitFor();
     await recordAction(page, "Delete record");
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page.getByRole("button", { name: /^Delete [a-z]/i }).click();
     await table.getByRole("button", { name: "UI03B record 1", exact: true }).waitFor();
-    assert.equal(await page.locator(".record-detail").count(), 0);
+    // The list stays in view beside an open record (0.17 UX1), so the record closing is what is awaited.
+    await page.locator(".record-detail").waitFor({ state: "detached" });
     assert.equal(new URL(page.url()).searchParams.get("search"), "UI03B");
     assert.equal(new URL(page.url()).searchParams.get("anchor"), null);
     await page.screenshot({ path: resolve(output, `ui03b-${type}-deleted-last-row.png`), fullPage: true });

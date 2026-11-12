@@ -1,0 +1,2479 @@
+{
+ "note": "Pictures of the reference instance (guide/reference) that were still drawn in earlier looks, retaken in the current one (OLD54). Taken by guide/tools/screens.mjs --file OLD54.screens.json into guide/public/screens/<name>.png (--scheme dark for a -dark twin where one exists). Order: old54-draft-setup, old54-groups-setup, old54-platform-setup, the model editor pictures, then old54-draft-delete; the other pictures need no draft. The editor pictures read the model draft 'Guide draft' ({draft:Guide draft}, made by old54-draft-setup). Dialogs are cancelled; nothing is installed, activated or published. A state that changes the instance is undone in the screen's 'after'.",
+ "screens": [
+  {
+   "name": "old54-draft-setup",
+   "setup": true,
+   "shows": "Makes the draft the OLD54 editor pictures read: Settings, Model, New draft named 'Guide draft' on the active release.",
+   "actions": [
+    {
+     "goto": "/settings/model"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "New draft"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "fill": {
+      "label": "Draft name",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Guide draft"
+    },
+    {
+     "wait": 400
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Create draft"
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 800
+    }
+   ]
+  },
+  {
+   "name": "old54-groups-setup",
+   "setup": true,
+   "shows": "Makes a navigation group 'Translations' in Names holding the Language collection and the Municipality names relation matrix.",
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=names"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button[aria-label='Operations for Names']"
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Add a navigation group…"
+     }
+    },
+    {
+     "fill": {
+      "css": "input"
+     },
+     "value": "Translations"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add group",
+      "exact": true
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "text": "Translations",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add to group…"
+     }
+    },
+    {
+     "click": {
+      "label": "Municipality names"
+     }
+    },
+    {
+     "click": {
+      "label": "Language"
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Apply",
+      "exact": true
+     }
+    },
+    {
+     "wait": 800
+    }
+   ]
+  },
+  {
+   "name": "model-type-rename-dialog",
+   "shows": "Rename… on the type Stop: the form beneath the menu with Name and Plural name filled (Stop point, Stop points). Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Rename…"
+     }
+    },
+    {
+     "wait": 500
+    },
+    {
+     "fill": {
+      "label": "Name",
+      "exact": true
+     },
+     "value": "Stop point"
+    },
+    {
+     "fill": {
+      "label": "Plural name"
+     },
+     "value": "Stop points"
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Plural name",
+    "Save"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-type-split-dialog",
+   "shows": "Split… on Stop: the new type 'Stop position' taking Latitude and Longitude, joined by 'Has position' / 'Position of', Many to one. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Split…"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "fill": {
+      "label": "New type",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Stop position"
+    },
+    {
+     "fill": {
+      "label": "Plural name",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Stop positions"
+    },
+    {
+     "check": {
+      "label": "Latitude",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "check": {
+      "label": "Longitude",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "fill": {
+      "label": "Relation name (from Stop)",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Has position"
+    },
+    {
+     "fill": {
+      "label": "Reverse name",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Position of"
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Split Stop",
+    "Attributes that move to it",
+    "Cardinality"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-type-move-to-dialog",
+   "shows": "Move to… on Stop: Find a target with 'Operator' typed and chosen, and the Containment relation choice under it. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Move to…"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "fill": {
+      "css": "input",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Operator"
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "Find a target"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-type-remove-confirm",
+   "shows": "Remove type on Stop: the confirmation naming the views, record page and relationships that go with it. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Remove type"
+     }
+    },
+    {
+     "wait": 700
+    }
+   ],
+   "expect": [
+    "Remove"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-attribute-menu",
+   "shows": "The operations menu of the shared attribute Height (m) on Stop: Rename, Change key, Move to, Make required, Make read-only, Make unique, Value type, Turn into a list type, Move up, Move down, Detach.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button[aria-label='Operations for Height (m)']"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "menuitem",
+      "name": "Value type…"
+     }
+    },
+    {
+     "wait": 300
+    }
+   ],
+   "expect": [
+    "Turn into a list type",
+    "Make unique",
+    "Detach from Stop"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-attribute-list-type-dialog",
+   "shows": "Turn into a list type… on Stop's Abbreviation: list type name and plural, relation and reverse names filled. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button[aria-label='Operations for Abbreviation']"
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Turn into a list type…"
+     }
+    },
+    {
+     "wait": 700
+    },
+    {
+     "focusedFill": "Stop abbreviation"
+    },
+    {
+     "fill": {
+      "label": "Plural name"
+     },
+     "value": "Stop abbreviations"
+    },
+    {
+     "fill": {
+      "label": "Relation name"
+     },
+     "value": "Has abbreviation"
+    },
+    {
+     "fill": {
+      "label": "Reverse name"
+     },
+     "value": "Abbreviation of"
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Relation name",
+    "Reverse name"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-add-panel-relationship",
+   "shows": "Layout editor, record page of Stop: Add panel… with Related records and the relationship Is represented by system code chosen, the proposed Columns line, Region Main and the title. Cancelled.",
+   "height": 1300,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
+    },
+    {
+     "waitFor": {
+      "text": "Layout editor",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add panel…"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "select": {
+      "label": "Relationship",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Is represented by system code (on the page)"
+    },
+    {
+     "wait": 500
+    }
+   ],
+   "expect": [
+    "Add panel",
+    "What the panel shows",
+    "Columns:",
+    "Region",
+    "Title"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-panel-columns-where-it-sits",
+   "shows": "Layout editor: the Columns… dialog of the Name translations panel with Where it sits offering Language. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
+    },
+    {
+     "waitFor": {
+      "text": "Layout editor",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    },
+    {
+     "click": {
+      "css": "button[aria-label='Layout of panel Name translations']"
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Columns…"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "Where it sits"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-layout-panel-menu",
+   "shows": "Layout editor: the menu of the Operator panel on the record page (Move up, Move down, Move to Side, Rename, Hide, Remove from page and the panel's other actions).",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
+    },
+    {
+     "waitFor": {
+      "text": "Layout editor",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    },
+    {
+     "click": {
+      "css": "button[aria-label='Layout of panel Operator']"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "menuitem",
+      "name": "Rename…"
+     }
+    },
+    {
+     "wait": 300
+    }
+   ],
+   "expect": [
+    "Move",
+    "Rename",
+    "Hide"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-table-columns-related-fields",
+   "shows": "Layout editor, Table tab of Stop: the Columns… dialog with Fields of Has name translation unfolded and Language code ticked. Cancelled.",
+   "height": 1300,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
+    },
+    {
+     "waitFor": {
+      "text": "Layout editor",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    },
+    {
+     "click": {
+      "role": "tab",
+      "name": "Table"
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Columns…"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "click": {
+      "text": "Fields of Has name translation"
+     }
+    },
+    {
+     "wait": 400
+    },
+    {
+     "scrollTo": {
+      "label": "Language code"
+     },
+     "offset": 300
+    },
+    {
+     "check": {
+      "label": "Language code"
+     }
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Fields of Has name translation"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-layout-sort-dialog",
+   "shows": "Layout editor, Table tab of Stop: the Default sort dialog with Sorted by and Descending. Cancelled.",
+   "height": 900,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop&mode=layout"
+    },
+    {
+     "waitFor": {
+      "text": "Layout editor",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    },
+    {
+     "click": {
+      "role": "tab",
+      "name": "Table"
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Default sort"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "wait": 500
+    }
+   ],
+   "expect": [
+    "Sorted by",
+    "Descending"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-application-panel",
+   "shows": "An application in the editor (Names): its settings, object types and the types listed from other applications, its views and its navigation group.",
+   "height": 1700,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=names"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Object types",
+    "Views",
+    "Navigation groups",
+    "Translations"
+   ]
+  },
+  {
+   "name": "model-application-groups",
+   "shows": "The Navigation groups table of the application Names: the group Translations with its entries, Starts folded and state, and the collections in no group.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=names"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "scrollTo": {
+      "text": "Navigation groups",
+      "exact": true
+     },
+     "offset": 150
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Navigation groups",
+    "Translations",
+    "In no group"
+   ]
+  },
+  {
+   "name": "model-navigation-group-panel",
+   "shows": "The group Translations in Names: its entries, the Language collection and the Municipality names relation matrix, each with what it opens on, and Add to group, Rename and Start folded.",
+   "height": 800,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=group&application=names&key=translations"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "wait": 300
+    }
+   ],
+   "expect": [
+    "Entries",
+    "Municipality names",
+    "Language",
+    "Add to group"
+   ]
+  },
+  {
+   "name": "model-group-menu",
+   "shows": "The menu of the group Translations: Move up, Move down, Change key and Remove group.",
+   "height": 800,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=group&application=names&key=translations"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button[aria-label='Operations for the group Translations']"
+     }
+    },
+    {
+     "wait": 500
+    }
+   ],
+   "expect": [
+    "Move",
+    "Remove group"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-group-add-entries-dialog",
+   "shows": "Add to group… on the group Translations: the collections and relation matrices not yet in it with where each stands now (Top of the sidebar, Inside Operator), Name translation and Operator names ticked. Cancelled.",
+   "height": 900,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=group&application=names&key=translations"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add to group…"
+     }
+    },
+    {
+     "waitFor": {
+      "label": "Search collections and matrices"
+     }
+    },
+    {
+     "check": {
+      "label": "Name translation"
+     }
+    },
+    {
+     "check": {
+      "label": "Operator names"
+     }
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Add to Translations",
+    "Relation matrices"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "exact": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-matrix-pair",
+   "shows": "Relationship matrix of the draft with the pair System code to Municipality selected: Maps to, many to many, with its cardinality and the rules that can be changed.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=matrix"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "td:has-text('Maps to')"
+     }
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Relationship matrix"
+   ]
+  },
+  {
+   "name": "model-matrix-view-dialog",
+   "shows": "Add a view to Systems with Relation matrix chosen: the form (name, rows, columns, relationship) beside its structural preview. Cancelled.",
+   "height": 1300,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=systems"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "View",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "select": {
+      "label": "Kind of view",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Relation matrix: rows and columns with the related records in the cells"
+    },
+    {
+     "wait": 900
+    }
+   ],
+   "expect": [
+    "Add a view"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-more-actions",
+   "shows": "The editor's More actions menu: Add a workbook… and Delete draft….",
+   "height": 700,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "More actions"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "menuitem",
+      "name": "Delete draft…"
+     }
+    },
+    {
+     "wait": 300
+    }
+   ],
+   "expect": [
+    "Delete draft"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-consumer-tab-types",
+   "shows": "Consumer APIs, Stops API, Types and related: the types it exposes with their public names and the related blocks.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=types"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    }
+   ],
+   "expect": [
+    "Types and related"
+   ]
+  },
+  {
+   "name": "model-consumer-tab-fields",
+   "shows": "Consumer APIs, Stops API, Fields: output names, roles, ordered sources, served types and defaults.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=fields"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    }
+   ],
+   "expect": [
+    "Output name",
+    "Served type",
+    "Default"
+   ]
+  },
+  {
+   "name": "model-consumer-tab-filters",
+   "shows": "Consumer APIs, Stops API, Filters: the five filters with their verbs, the records or related blocks they read and options.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=filters"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    }
+   ],
+   "expect": [
+    "Filters",
+    "Add filter"
+   ]
+  },
+  {
+   "name": "model-consumer-tab-schema",
+   "shows": "Consumer APIs, Stops API, Schema: the generated schema document of the draft consumer API.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=schema"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "Schema"
+   ]
+  },
+  {
+   "name": "model-consumer-tab-example",
+   "shows": "Consumer APIs, Stops API, Message example: the generated example object with placeholder values.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=example"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "Message example"
+   ]
+  },
+  {
+   "name": "model-consumer-add-field",
+   "shows": "Fields, Add field: output name label, the source Name added and Role name chosen. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=fields"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add field",
+      "exact": true,
+      "nth": 0
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "focusedFill": "label"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add",
+      "exact": true,
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "select": {
+      "label": "Role",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "name"
+    },
+    {
+     "wait": 500
+    }
+   ],
+   "expect": [
+    "Output name",
+    "Sources",
+    "Role"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-consumer-add-filter",
+   "shows": "Filters, Add filter: name operatorName, verb On related with its Related block and matching options. Cancelled.",
+   "height": 1300,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops&tab=filters"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add filter",
+      "exact": true,
+      "nth": 0
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "focusedFill": "operatorName"
+    },
+    {
+     "select": {
+      "label": "Verb",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "On related"
+    },
+    {
+     "wait": 700
+    }
+   ],
+   "expect": [
+    "Verb"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-consumer-add-dialog",
+   "shows": "Add a consumer API: the New consumer API dialog with name Stops feed and the types Stop and Municipality ticked. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=consumerApi&key=stops"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add a consumer API"
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Consumer API…"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "focusedFill": "Stops feed"
+    },
+    {
+     "check": {
+      "label": "Stop",
+      "exact": true,
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "check": {
+      "label": "Municipality",
+      "exact": true,
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "wait": 500
+    }
+   ],
+   "expect": [
+    "Cancel"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "old54-platform-setup",
+   "setup": true,
+   "shows": "Adds a new, unreleased object type 'Platform' at the top level of Network (the Change key and Merge pictures need a type with no release).",
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=application&key=network"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Object type",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "fill": {
+      "css": "input",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Platform"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add type",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "wait": 1000
+    }
+   ]
+  },
+  {
+   "name": "model-type-change-key-dialog",
+   "shows": "Change key… on the new, unreleased type Platform: the key field beneath the menu with a new key typed. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=platform"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Change key…"
+     }
+    },
+    {
+     "wait": 500
+    },
+    {
+     "fill": {
+      "css": "input:focus"
+     },
+     "value": "boarding-platform"
+    },
+    {
+     "wait": 400
+    }
+   ],
+   "expect": [
+    "Change key",
+    "Key editable until released"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-type-merge-dialog",
+   "shows": "Merge into… on the unreleased type Platform: Into set to Stop. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=platform"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Merge into…"
+     }
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "Merge"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "model-attribute-attach-existing",
+   "shows": "Attach an existing attribute… on the new type Platform: the shared attributes that can be attached, one chosen. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=platform"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Attach an existing attribute…"
+     }
+    },
+    {
+     "wait": 700
+    }
+   ],
+   "expect": [
+    "Attach"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "old54-platform-attribute-setup",
+   "setup": true,
+   "shows": "Attaches the shared attribute Stop number (UIC) to the new type Platform: a later step that depends on the step that created Platform (the undo picture below). Run after model-attribute-attach-existing.",
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=platform"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Attach an existing attribute…"
+     }
+    },
+    {
+     "wait": 500
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add attribute",
+      "exact": true
+     }
+    },
+    {
+     "wait": 1000
+    }
+   ]
+  },
+  {
+   "name": "model-history-undo-dependants",
+   "shows": "History: Undo on the step that added the type Platform, with the attached-attribute step after it: the confirmation 'Undo the steps that depend on it too?' listing the dependent step. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=platform"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Issues and history"
+     }
+    },
+    {
+     "click": {
+      "role": "tab",
+      "name": "History"
+     }
+    },
+    {
+     "wait": 600
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Undo step 3"
+     }
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "depend"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Issues and history"
+     }
+    }
+   ]
+  },
+  {
+   "name": "model-json-syntax-error",
+   "shows": "The draft's own page (Open as JSON) after a stray comma at the end of the document: the red 'JSON syntax:' line under the text and Save draft and Compile and compare unavailable.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}"
+    },
+    {
+     "waitFor": {
+      "text": "Authoritative validation",
+      "exact": false
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "css": "textarea"
+     }
+    },
+    {
+     "press": "Meta+ArrowDown"
+    },
+    {
+     "press": ","
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "JSON syntax:"
+   ]
+  },
+  {
+   "name": "model-json-workbench-actions",
+   "shows": "The draft's own page after an edit that keeps the JSON valid: Save draft ready beside Compile and compare and Export JSON.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}"
+    },
+    {
+     "waitFor": {
+      "text": "Authoritative validation",
+      "exact": false
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "css": "textarea"
+     }
+    },
+    {
+     "press": "Meta+ArrowDown"
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Save draft",
+    "Compile and compare",
+    "Export JSON"
+   ]
+  },
+  {
+   "name": "model-json-newer-version",
+   "shows": "The draft's own page: a local JSON edit, then another person's change saved first, then Save draft: 'A newer draft version exists' with Copy local JSON and Reload saved version.",
+   "height": 1350,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}"
+    },
+    {
+     "waitFor": {
+      "text": "Authoritative validation",
+      "exact": false
+     }
+    },
+    {
+     "wait": 800
+    },
+    {
+     "click": {
+      "css": "textarea"
+     }
+    },
+    {
+     "press": "Meta+ArrowDown"
+    },
+    {
+     "press": "Enter"
+    },
+    {
+     "state": "draft-concurrent",
+     "arg": "Guide draft::language"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Save draft"
+     }
+    },
+    {
+     "waitFor": {
+      "text": "newer draft version exists",
+      "exact": false
+     }
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "A newer draft version exists",
+    "Copy local JSON",
+    "Reload saved version"
+   ]
+  },
+  {
+   "name": "model-conflict-editor",
+   "shows": "The editor after another person's change came first: Rename on Stop is refused with 'Another change came first', the applied steps listed and Apply mine again / Discard mine.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/settings/model/drafts/{draft:Guide draft}/editor?show=type&key=stop"
+    },
+    {
+     "waitFor": {
+      "text": "Saved as you go",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "state": "draft-concurrent",
+     "arg": "Guide draft::operator"
+    },
+    {
+     "click": {
+      "css": "button.icon-button[aria-haspopup]",
+      "nth": 2
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Rename…"
+     }
+    },
+    {
+     "wait": 500
+    },
+    {
+     "fill": {
+      "label": "Name",
+      "exact": true
+     },
+     "value": "Stop point"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Save",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Another change came first",
+      "exact": false
+     }
+    },
+    {
+     "wait": 600
+    }
+   ],
+   "expect": [
+    "Another change came first",
+    "Apply mine again",
+    "Discard mine"
+   ]
+  },
+  {
+   "name": "old54-draft-delete",
+   "setup": true,
+   "shows": "Removes the draft 'Guide draft' made by old54-draft-setup.",
+   "actions": [
+    {
+     "state": "draft-delete",
+     "arg": "Guide draft"
+    }
+   ]
+  },
+  {
+   "name": "jobs-list",
+   "shows": "Settings, Jobs, All jobs: each job with its state, items counts, requester and times.",
+   "height": 900,
+   "actions": [
+    {
+     "goto": "/settings/jobs"
+    },
+    {
+     "waitFor": {
+      "text": "All jobs",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "All jobs",
+      "exact": true
+     }
+    },
+    {
+     "wait": 1200
+    }
+   ],
+   "expect": [
+    "Jobs",
+    "Requested by"
+   ]
+  },
+  {
+   "name": "settings-notifications",
+   "shows": "Settings, Notification email on an instance without mail: 'Email is not set up for this installation' and no followed workspaces.",
+   "height": 700,
+   "actions": [
+    {
+     "goto": "/settings/notifications"
+    },
+    {
+     "waitFor": {
+      "text": "Workspaces I follow",
+      "exact": false
+     }
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Email is not set up",
+    "You do not follow a workspace"
+   ]
+  },
+  {
+   "name": "list-filter-pills",
+   "shows": "Stops in Network, Graubünden, narrowed by Valid from (after 1 December 2020) and Operated by (Rhätische Bahn): both conditions as removable pills, the footer total and the operator chips.",
+   "height": 900,
+   "actions": [
+    {
+     "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+    },
+    {
+     "waitFor": {
+      "role": "heading",
+      "name": "Stops",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Filter",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "css": ".filter-menu-label:text-is('Valid from')"
+     }
+    },
+    {
+     "click": {
+      "text": "After",
+      "exact": true
+     }
+    },
+    {
+     "fill": {
+      "css": "input[type=date]"
+     },
+     "value": "2020-12-01"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Apply",
+      "exact": true
+     }
+    },
+    {
+     "wait": 1200
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Filter",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "css": ".filter-menu-label:text-is('Operated by')"
+     }
+    },
+    {
+     "fill": {
+      "placeholder": "Search operators"
+     },
+     "value": "Rhätische"
+    },
+    {
+     "wait": 900
+    },
+    {
+     "click": {
+      "text": "Rhätische Bahn",
+      "exact": true,
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Apply",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "expect": [
+    "Valid from",
+    "Operated by"
+   ]
+  },
+  {
+   "name": "workspace-actions-menu",
+   "shows": "The Workspace actions menu of Graubünden while reading the Stops collection in Network: Import, Export and Edit model.",
+   "height": 800,
+   "actions": [
+    {
+     "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+    },
+    {
+     "waitFor": {
+      "role": "heading",
+      "name": "Stops",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Workspace actions",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "menuitem",
+      "name": "Export…",
+      "exact": true
+     }
+    },
+    {
+     "wait": 300
+    }
+   ],
+   "expect": [
+    "Import",
+    "Export",
+    "Edit model"
+   ],
+   "after": [
+    {
+     "press": "Escape"
+    }
+   ]
+  },
+  {
+   "name": "list-phone",
+   "shows": "The Stops collection of Network in Graubünden on a phone: workspace, application and Live choices, search, filters and the control to show all columns.",
+   "width": 390,
+   "height": 844,
+   "actions": [
+    {
+     "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+    },
+    {
+     "waitFor": {
+      "role": "heading",
+      "name": "Stops",
+      "exact": true
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ]
+  },
+  {
+   "name": "model-stop-page-relationship-panels",
+   "shows": "The full record page of the stop Chur in Network, Graubünden (Live): the panels of its relationships in Main (Modes, Operator, System codes, Name translations) and Stop details and Hierarchy at the side.",
+   "height": 1500,
+   "actions": [
+    {
+     "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Chur",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Expand to full page"
+     }
+    },
+    {
+     "waitFor": {
+      "role": "heading",
+      "name": "Chur",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Hierarchy",
+      "exact": true
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "expect": [
+    "Stop details",
+    "Hierarchy",
+    "Modes",
+    "Operator",
+    "System codes"
+   ]
+  },
+  {
+   "name": "record-delete-impact",
+   "shows": "Delete record on the municipality Bonaduz (Live): the confirmation 'Delete Bonaduz?' with the dependent stops and name translations named by type, the counts and Delete 14 records. Cancelled.",
+   "height": 1100,
+   "actions": [
+    {
+     "goto": "/apps/network/views/municipalities?workspaceKey=graubuenden&search=Bonaduz"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Bonaduz",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Record actions",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "menuitem",
+      "name": "Delete record",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Delete Bonaduz?",
+      "exact": false
+     }
+    },
+    {
+     "wait": 1500
+    }
+   ],
+   "expect": [
+    "Delete Bonaduz?",
+    "relationships",
+    "Cancel"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel",
+      "exact": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "old54-assistant-setup",
+   "setup": true,
+   "shows": "Registers the fictional assistant 'Guide example assistant' (return address on this computer) on Settings, Agent access, so C10 admin-agent-block has one to block. Run before admin-agent-block; admin-agent-block blocks it, old54-assistant-restore restores it.",
+   "actions": [
+    {
+     "goto": "/settings/agent-access"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "New assistant",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "fill": {
+      "css": "input",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "Guide example assistant"
+    },
+    {
+     "fill": {
+      "css": "textarea",
+      "in": {
+       "role": "dialog"
+      }
+     },
+     "value": "http://localhost:8765/callback"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Add assistant",
+      "in": {
+       "role": "dialog"
+      }
+     }
+    },
+    {
+     "waitFor": {
+      "role": "button",
+      "name": "Block Guide example assistant",
+      "exact": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "old54-assistant-restore",
+   "setup": true,
+   "shows": "Restores the assistant that admin-agent-block blocked (the state undone right after its picture).",
+   "actions": [
+    {
+     "goto": "/settings/agent-access"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Restore Guide example assistant",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "button",
+      "name": "Block Guide example assistant",
+      "exact": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "import-preview-columns",
+   "shows": "An import preview in Graubünden of the For-people workbook the engine exported, its first Height (m) cell set to text: 'Read as exported', how the file was read, the column report, the refused row and Load the file / Cancel import. Replaces the C10 pair c10-setup-import-preview and import-preview-columns on a fresh instance (they name a workspace that is not there). Cancelled, never loaded.",
+   "height": 1500,
+   "actions": [
+    {
+     "state": "import-workbook"
+    },
+    {
+     "goto": "/settings/jobs"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "New import",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "role": "dialog"
+     }
+    },
+    {
+     "select": {
+      "label": "Workspace",
+      "exact": true
+     },
+     "value": "Graubünden"
+    },
+    {
+     "upload": {
+      "css": "[role=\"dialog\"] input[type=file]"
+     },
+     "value": "guide/_waves/runs/import-invalid-height.xlsx"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Preview",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Read as exported"
+     },
+     "timeout": 300000
+    },
+    {
+     "waitFor": {
+      "text": "How the file was read"
+     },
+     "timeout": 300000
+    },
+    {
+     "waitFor": {
+      "text": "Rows in the preview"
+     },
+     "timeout": 300000
+    },
+    {
+     "wait": 1000
+    }
+   ],
+   "expect": [
+    "Read as exported",
+    "How the file was read",
+    "Column",
+    "Height (m)",
+    "refused",
+    "Load the file",
+    "Cancel import"
+   ],
+   "after": [
+    {
+     "click": {
+      "role": "button",
+      "name": "Cancel import",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Discard the import",
+      "exact": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "run-jobs",
+   "shows": "Settings, Jobs, All jobs while a real job runs and a second waits behind it (jobs-hold: a lock of at most 100 seconds on the Graubünden workspace row), beside the finished ones: Running, Queued and Completed with their Cancel actions. The lock is released right after (jobs-release).",
+   "height": 1500,
+   "actions": [
+    {
+     "state": "jobs-hold"
+    },
+    {
+     "goto": "/settings/jobs"
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "All jobs",
+      "exact": true
+     }
+    },
+    {
+     "click": {
+      "role": "button",
+      "name": "Refresh",
+      "exact": true
+     }
+    },
+    {
+     "waitFor": {
+      "text": "Running"
+     },
+     "timeout": 60000
+    },
+    {
+     "waitFor": {
+      "text": "Queued"
+     },
+     "timeout": 60000
+    },
+    {
+     "waitFor": {
+      "text": "Completed"
+     },
+     "timeout": 60000
+    },
+    {
+     "wait": 800
+    }
+   ],
+   "expect": [
+    "Jobs",
+    "Running",
+    "Queued",
+    "Completed",
+    "Workspace"
+   ],
+   "after": [
+    {
+     "state": "jobs-release"
+    }
+   ]
+  }
+ ]
+}

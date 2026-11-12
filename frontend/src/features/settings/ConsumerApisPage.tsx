@@ -13,17 +13,16 @@ import { api } from "@/api/client";
 import { routePath } from "@/routing/routes";
 import type { ConsumerApiDocument, ConsumerApiIndexEntry, SettingsRoute } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
-import { DescriptionList } from "@/ui/DescriptionList";
-import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { RouteLink } from "@/ui/RouteLink";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { allConsumerApis, baseUrl, consumerSlug, openapiUrl, operationUrl } from "./consumerAddresses";
 import { ReferenceWorkspace } from "./ReferenceWorkspace";
-import { feedRetentionItem } from "./limits";
+import { count } from "./limits";
+import { settingsHead } from "./navigation";
 import { useCapabilities, useSettingsRead, useSystem } from "./useSystem";
 
 async function loadApis(workspaceKey: string) {
@@ -49,9 +48,10 @@ export function ConsumerApisPage({
   const releaseRoute: SettingsRoute | undefined = release && { kind: "settings", page: "model", releaseId: release.id };
   const failure = error || systemError;
 
+  const head = settingsHead("consumer-apis");
   return (
     <SettingsLayout
-      eyebrow="Integration"
+      {...head}
       title="Consumer APIs"
       description="The read APIs the active model release declares for consuming systems, each at its contract version, with its routes. Each route opens its documentation in the API reference."
     >
@@ -71,34 +71,45 @@ export function ConsumerApisPage({
         <Skeleton label="Loading the consumer APIs" lines={8} />
       ) : (
         <>
-          <p className="settings-note">
-            Declared by the active model release, {release.name} {release.version}. A consumer API changes only through
-            a model release.{" "}
-            <RouteLink href={routePath(releaseRoute)} onNavigate={() => onNavigate(releaseRoute)}>
-              Open the release
-            </RouteLink>
-          </p>
+          <SettingsGroup title="Active release" description="A consumer API changes only through a model release.">
+            <SettingsPanel>
+              <SettingRow fact name="Declared by">
+                <span>
+                  {release.name} {release.version}.{" "}
+                  <RouteLink href={routePath(releaseRoute)} onNavigate={() => onNavigate(releaseRoute)}>
+                    Open the release
+                  </RouteLink>
+                </span>
+              </SettingRow>
+            </SettingsPanel>
+          </SettingsGroup>
           {apis.length === 0 ? (
-            <EmptyState
-              action={
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => onNavigate({ kind: "settings", page: "model" })}
+            <SettingsGroup title="Consumer APIs">
+              <SettingsPanel>
+                <SettingsEmpty
+                  icon="server"
+                  hue={head.hue}
+                  action={
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => onNavigate({ kind: "settings", page: "model" })}
+                    >
+                      Open model
+                    </button>
+                  }
                 >
-                  Open model
-                </button>
-              }
-            >
-              The active release declares no consumer API.
-            </EmptyState>
+                  The active release declares no consumer API.
+                </SettingsEmpty>
+              </SettingsPanel>
+            </SettingsGroup>
           ) : (
             apis.map(({ entry, document }) => (
               <ConsumerApi key={entry.consumerApi} entry={entry} document={document} workspaceKey={workspaceKey} />
             ))
           )}
           {capabilities && (
-            <Section
+            <SettingsGroup
               title="Change feed"
               description={
                 <>
@@ -107,8 +118,12 @@ export function ConsumerApisPage({
                 </>
               }
             >
-              <DescriptionList className="compact" items={[feedRetentionItem(capabilities)]} />
-            </Section>
+              <SettingsPanel>
+                <SettingRow fact name="Change feed kept">
+                  {`${count(capabilities.changeFeed.retentionDays)} days`}
+                </SettingRow>
+              </SettingsPanel>
+            </SettingsGroup>
           )}
         </>
       )}
@@ -130,29 +145,35 @@ function ConsumerApi({
   const slug = consumerSlug(entry);
   const documentUrl = openapiUrl(entry);
   return (
-    <Section title={`${entry.name} · v${entry.contractVersion}`} description={entry.description}>
-      <p className="consumer-api-base">
-        <CopyValue label="Base URL" value={base} />
-        <CopyValue label="OpenAPI document" value={documentUrl} href={documentUrl} />
-      </p>
-      <SettingsTable label={`${entry.name}: routes`} columns={["Route", "What it does"]}>
-        {Object.entries(document.paths).flatMap(([path, operations]) =>
-          Object.entries(operations).map(([method, operation]) => (
-            <tr key={`${method} ${path}`}>
-              <th scope="row">
-                <code>
-                  {method.toUpperCase()} {path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path}
-                </code>
-              </th>
-              <td data-label="What it does">
-                <a href={operationUrl(slug, method, path, workspaceKey)}>
-                  {operation.summary ?? `${method.toUpperCase()} ${path}`}
-                </a>
-              </td>
-            </tr>
-          )),
-        )}
-      </SettingsTable>
-    </Section>
+    <SettingsGroup stacked title={`${entry.name} · v${entry.contractVersion}`} description={entry.description}>
+      <SettingsPanel>
+        <SettingRow fact name="Base URL">
+          <CopyValue label="Base URL" value={base} labelled={false} />
+        </SettingRow>
+        <SettingRow fact name="OpenAPI document">
+          <CopyValue label="OpenAPI document" value={documentUrl} href={documentUrl} labelled={false} />
+        </SettingRow>
+      </SettingsPanel>
+      <SettingsPanel>
+        <SettingsTable label={`${entry.name}: routes`} columns={["Route", "What it does"]}>
+          {Object.entries(document.paths).flatMap(([path, operations]) =>
+            Object.entries(operations).map(([method, operation]) => (
+              <tr key={`${method} ${path}`}>
+                <th scope="row">
+                  <code>
+                    {method.toUpperCase()} {path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path}
+                  </code>
+                </th>
+                <td data-label="What it does">
+                  <a href={operationUrl(slug, method, path, workspaceKey)}>
+                    {operation.summary ?? `${method.toUpperCase()} ${path}`}
+                  </a>
+                </td>
+              </tr>
+            )),
+          )}
+        </SettingsTable>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }

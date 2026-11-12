@@ -9,7 +9,7 @@ Any application can use a view when its structure fits. See
 [Applications and views](/docs/model/applications-and-views/) for listings and view rules.
 
 1. In the model pane, choose **Add**, **Application…**. Enter **Name** and, if useful,
-   **Description**, then apply. In an existing application, select its row instead.
+   **Description**, then choose **Add application**. In an existing application, select its row instead.
 2. Check **Object types** and **Stands** to see what it lists and where records belong. Use
    **Object type** to create a definition, or **List an existing type…** to list a shared type
    here. Check the intended type before applying: listing it does not copy its records.
@@ -40,7 +40,7 @@ in that model, rather than features reserved for the subject of that application
 The live workspace keeps its current navigation and layouts until the release is activated.
 
 To choose the opening view, edit **Default view** under the application’s **Settings**, select
-one of its views, then **Save**. To remove a non-matrix view, choose **Remove view**. Read
+one of its views. Selecting it saves immediately. To remove a non-matrix view, choose **Remove view**. Read
 “Types only it needed stop being listed here.” before confirming: review the application’s
 listings as well as the view list afterwards. Removal changes navigation, not the stored
 records. Restore an unwanted draft change with **Undo**.

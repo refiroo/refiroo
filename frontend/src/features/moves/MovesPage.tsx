@@ -8,20 +8,20 @@
 
 import { useState } from "react";
 import { api } from "@/api/client";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
 import type { Job, ModelMappingSummary, RouteState, Workspace } from "@/types";
-import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { STATE } from "@/features/jobs/jobText";
+import { settingsHead } from "@/features/settings/navigation";
 import { useCapabilities } from "@/features/settings/useSystem";
 import { DeleteAction } from "@/features/settings/DeleteAction";
 import { useHoldsGroup } from "@/app/useMe";
@@ -57,9 +57,11 @@ export function MovesPage({ onNavigate }: { onNavigate: (route: RouteState) => v
   });
   const link = (route: RouteState) => ({ href: routePath(route), onNavigate: () => onNavigate(route) });
 
+  const head = settingsHead("moves");
+
   return (
     <SettingsLayout
-      eyebrow="Data operations"
+      {...head}
       title="Copy and move"
       description="Records of one workspace copied or moved into a workspace whose model differs, through a mapping from one model to the other. Every move is a dry run of every item first, and loads into a change set of the target for review; nothing reaches either workspace until a change set is published."
       actions={
@@ -75,88 +77,118 @@ export function MovesPage({ onNavigate }: { onNavigate: (route: RouteState) => v
           {ability.reason}
         </Notice>
       )}
-      <Section title="Mappings" description="Each mapping says what the records of one model become in another.">
-        {mappings.error ? (
-          <InlineError message={mappings.error} onRetry={mappings.retry} />
-        ) : mappings.loading && mappings.items.length === 0 ? (
-          <Skeleton label="Loading the mappings" lines={3} />
-        ) : mappings.items.length === 0 ? (
-          <EmptyState>No mapping yet. New copy or move… proposes one between the models of two workspaces.</EmptyState>
-        ) : (
-          <SettingsTable
-            label="Mappings"
-            columns={["Mapping", "From model", "To model", "Version", "Updated", ...(canDelete ? ["Actions"] : [])]}
-          >
-            {mappings.items.map((mapping) => {
-              const pair = workspacesFor(mapping, workspaces);
-              return (
-                <tr key={mapping.key}>
-                  <th scope="row" data-label="Mapping">
-                    {pair ? (
-                      <RouteLink {...link(editor(mapping.key, pair.from, pair.to))}>{mapping.name}</RouteLink>
-                    ) : (
-                      mapping.name
-                    )}
-                    <div className="muted mono">{mapping.key}</div>
-                  </th>
-                  <td data-label="From model">{mapping.sourceModelKey}</td>
-                  <td data-label="To model">{mapping.targetModelKey}</td>
-                  <td data-label="Version">{mapping.version}</td>
-                  <td data-label="Updated">{formatServerTime(mapping.updatedAt)}</td>
-                  {canDelete && (
-                    <td data-label="Actions">
-                      <DeleteAction
-                        label="Delete…"
-                        title={`Delete the mapping ${mapping.name}?`}
-                        confirmLabel="Delete the mapping"
-                        onDelete={async () => {
-                          await api.deleteModelMapping(mapping.key, mapping.version);
-                          mappings.setItems((items) => items.filter((item) => item.key !== mapping.key));
-                        }}
-                      >
-                        The mapping from {mapping.sourceModelKey} to {mapping.targetModelKey} is deleted with its
-                        history and proposals. Copies and moves already made stay as they are; a new one needs a new
-                        mapping.
-                      </DeleteAction>
+      <SettingsGroup
+        stacked
+        title="Mappings"
+        description="Each mapping says what the records of one model become in another."
+      >
+        <SettingsPanel>
+          {mappings.error ? (
+            <InlineError message={mappings.error} onRetry={mappings.retry} />
+          ) : mappings.loading && mappings.items.length === 0 ? (
+            <Skeleton label="Loading the mappings" lines={3} />
+          ) : mappings.items.length === 0 ? (
+            <SettingsEmpty icon="swap" hue={head.hue}>
+              No mapping yet. New copy or move… proposes one between the models of two workspaces.
+            </SettingsEmpty>
+          ) : (
+            <SettingsTable
+              label="Mappings"
+              columns={[
+                "Mapping",
+                "From model",
+                "To model",
+                { num: "Version" },
+                "Updated",
+                ...(canDelete ? ["Actions"] : []),
+              ]}
+            >
+              {mappings.items.map((mapping) => {
+                const pair = workspacesFor(mapping, workspaces);
+                return (
+                  <tr key={mapping.key}>
+                    <th scope="row" data-label="Mapping">
+                      {pair ? (
+                        <RouteLink {...link(editor(mapping.key, pair.from, pair.to))}>{mapping.name}</RouteLink>
+                      ) : (
+                        mapping.name
+                      )}
+                      <div className="muted mono">{mapping.key}</div>
+                    </th>
+                    <td data-label="From model">{mapping.sourceModelKey}</td>
+                    <td data-label="To model">{mapping.targetModelKey}</td>
+                    <td data-label="Version" className="num">
+                      {mapping.version}
                     </td>
-                  )}
-                </tr>
-              );
-            })}
-          </SettingsTable>
-        )}
-        {mappings.hasMore && !mappings.error && (
-          <button className="load-more" disabled={mappings.loading} onClick={mappings.loadMore}>
-            Load more mappings
-          </button>
-        )}
-      </Section>
-      <Section
+                    <td data-label="Updated" className="when" title={formatServerTime(mapping.updatedAt)}>
+                      {formatServerDayTime(mapping.updatedAt)}
+                    </td>
+                    {canDelete && (
+                      <td data-label="Actions">
+                        <DeleteAction
+                          label="Delete…"
+                          title={`Delete the mapping ${mapping.name}?`}
+                          confirmLabel="Delete the mapping"
+                          onDelete={async () => {
+                            await api.deleteModelMapping(mapping.key, mapping.version);
+                            mappings.setItems((items) => items.filter((item) => item.key !== mapping.key));
+                          }}
+                        >
+                          The mapping from {mapping.sourceModelKey} to {mapping.targetModelKey} is deleted with its
+                          history and proposals. Copies and moves already made stay as they are; a new one needs a new
+                          mapping.
+                        </DeleteAction>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </SettingsTable>
+          )}
+          {mappings.items.length > 0 && !mappings.error && (
+            <LogFoot
+              shown={mappings.items.length}
+              noun="mappings"
+              onMore={mappings.hasMore ? mappings.loadMore : undefined}
+              loading={mappings.loading}
+            />
+          )}
+        </SettingsPanel>
+      </SettingsGroup>
+      <SettingsGroup
+        stacked
         title="Recent copies and moves"
         description="Copies, moves and dry runs waiting to start, of every workspace, newest first. A dry run the editor replaced after a step is not listed."
       >
-        {moves.error ? (
-          <InlineError message={moves.error} onRetry={moves.retry} />
-        ) : moves.loading && moves.items.length === 0 ? (
-          <Skeleton label="Loading copies and moves" lines={3} />
-        ) : listed.length === 0 ? (
-          <EmptyState>Nothing copied or moved yet.</EmptyState>
-        ) : (
-          <SettingsTable
-            label="Recent copies and moves"
-            columns={["Workspaces", "Operation", "State", "Change sets", "Created"]}
-          >
-            {listed.map((job) => (
-              <MoveJobRow key={job.id} job={job} workspaces={workspaces} link={link} editor={editor} />
-            ))}
-          </SettingsTable>
-        )}
-        {moves.hasMore && !moves.error && (
-          <button className="load-more" disabled={moves.loading} onClick={moves.loadMore}>
-            Load more moves
-          </button>
-        )}
-      </Section>
+        <SettingsPanel>
+          {moves.error ? (
+            <InlineError message={moves.error} onRetry={moves.retry} />
+          ) : moves.loading && moves.items.length === 0 ? (
+            <Skeleton label="Loading copies and moves" lines={3} />
+          ) : listed.length === 0 ? (
+            <SettingsEmpty icon="swap" hue={head.hue}>
+              Nothing copied or moved yet.
+            </SettingsEmpty>
+          ) : (
+            <SettingsTable
+              label="Recent copies and moves"
+              columns={["Workspaces", "Operation", "State", "Change sets", "Created"]}
+            >
+              {listed.map((job) => (
+                <MoveJobRow key={job.id} job={job} workspaces={workspaces} link={link} editor={editor} />
+              ))}
+            </SettingsTable>
+          )}
+          {listed.length > 0 && !moves.error && (
+            <LogFoot
+              shown={listed.length}
+              noun="copies and moves"
+              onMore={moves.hasMore ? moves.loadMore : undefined}
+              loading={moves.loading}
+            />
+          )}
+        </SettingsPanel>
+      </SettingsGroup>
       {creating && (
         <NewMoveDialog
           onClose={() => setCreating(false)}
@@ -203,7 +235,9 @@ function MoveJobRow({
         </StatusPill>
       </td>
       <td data-label="Change sets">{opened ? `${opened} opened` : "None"}</td>
-      <td data-label="Created">{formatServerTime(job.createdAt)}</td>
+      <td data-label="Created" className="when" title={formatServerTime(job.createdAt)}>
+        {formatServerDayTime(job.createdAt)}
+      </td>
     </tr>
   );
 }

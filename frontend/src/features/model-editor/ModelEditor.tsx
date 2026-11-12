@@ -19,32 +19,23 @@
  * as proposed is marked Proposed in the panes, and its centre says why, with its alternatives.
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import type {
-  DraftOperation,
-  EditorMode,
-  EditorSelection,
-  EngineModel,
-  ModelDraftOperationEntry,
-  ModelDraftOutline,
-  ModelDraftStep,
-  JourneyRef,
-  RouteState,
-  Workspace,
-} from "@/types";
-import { AddWorkbookDialog } from "@/features/model-editor/AddWorkbookDialog";
-import { AdjustListDialog } from "@/features/model-editor/AdjustListDialog";
+import type { EditorMode, EditorSelection, EngineModel, JourneyRef, RouteState } from "@/types";
 import { ColumnPanel } from "@/features/model-editor/ColumnPanel";
 import { ListPanel } from "@/features/model-editor/ListPanel";
-import { columnNumber, dropOperations, listHeader, listStatus, sourceOfList } from "@/features/model-editor/lists";
-import { DryRunPanel, DryRunRowsDialog, dryRunLabel, type DryRunRows } from "@/features/model-editor/DryRunPanel";
-import { LoadDialog } from "@/features/model-editor/LoadDialog";
-import { MapColumnDialog, type MapStart } from "@/features/model-editor/MapColumnDialog";
-import { columnsOfType, dropChoice, typesFed, usesOf, type ColumnUse } from "@/features/model-editor/mapping";
+import { dropOperations, listHeader, listStatus, sourceOfList } from "@/features/model-editor/lists";
+import { columnsOfType, typesFed, usesOf } from "@/features/model-editor/mapping";
 import { DRAG_COLUMN, SourcePane } from "@/features/model-editor/SourcePane";
 import { useDraftSource } from "@/features/model-editor/useDraftSource";
+import { useEditorWorkspace } from "@/features/model-editor/useEditorWorkspace";
+import { useDraftEditing } from "@/features/model-editor/useDraftEditing";
+import { useSourceDialogs } from "@/features/model-editor/useSourceDialogs";
+import { useDraftActions, draftJsonRoute } from "@/features/model-editor/useDraftActions";
+import { DraftEditingDialogs, DraftEditingNotices } from "@/features/model-editor/DraftEditingDialogs";
+import { DraftPreview } from "@/features/model-editor/DraftPreview";
+import { DraftViewSwitch, draftViewRoute } from "@/features/model-editor/DraftViewSwitch";
 import { useInference } from "@/features/model-editor/useInference";
 import { ProposeDialog } from "@/features/model-editor/ProposeDialog";
 import { ProposedBecause } from "@/features/model-editor/ProposedBecause";
@@ -52,86 +43,48 @@ import {
   columnElements,
   elementOfSelection,
   hasWaitingProposal,
-  isReleasedElement,
+  stillProposed,
   takeWaitingProposal,
 } from "@/features/model-editor/proposing";
-import { ValueMapDialog } from "@/features/model-editor/ValueMapDialog";
-import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { readLocalPreference, useLocalNumberPreference, writeLocalPreference } from "@/lib/localPreference";
+import { useDraftHistory } from "@/features/model-editor/useDraftHistory";
+import { useLocalNumberPreference } from "@/lib/localPreference";
 import { PageHeader } from "@/ui/PageHeader";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { Facts } from "@/features/model-editor/Facts";
 import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { routePath } from "@/routing/routes";
 import { ActionMenu } from "@/ui/ActionMenu";
-import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
 import { IconButton } from "@/ui/IconButton";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { Skeleton } from "@/ui/Skeleton";
-import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { ElementPanel } from "@/features/model-editor/ElementPanel";
-import {
-  canRedo,
-  describeOperation,
-  followKeyChange,
-  historySteps,
-  removedWords,
-  undoable,
-} from "@/features/model-editor/history";
-import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
-import { ApplyDialog } from "@/features/model-editor/ApplyDialog";
-import { InstallDialog } from "@/features/model-editor/InstallDialog";
+import { canRedo, historySteps, undoable } from "@/features/model-editor/history";
 import { ProposingProgress, type ProposingPhase } from "@/features/model-editor/ProposingProgress";
-import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
-import { removePanel } from "@/features/model-editor/layout";
+import { IssuesDrawer, issueCountOf, useIssuesDrawer } from "@/features/model-editor/IssuesDrawer";
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
-import { MoveToDialog, topOf, typeIn, type MoveSubject } from "@/features/model-editor/MoveToDialog";
-import { OperationDialog, refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
-import { type FieldValues, type OperationSpec, type OperationTarget } from "@/features/model-editor/operations";
+import { topOf, typeIn } from "@/features/model-editor/MoveToDialog";
+import { refusalText } from "@/features/model-editor/OperationDialog";
 import {
   applicationOf,
   attributeTypeOf,
   consumerApiOf,
-  nameOf,
   relationTypeOf,
   typeName,
 } from "@/features/model-editor/outline";
 import { ConsumerApiPane, ConsumerApiPanel } from "@/features/model-editor/ConsumerApis";
 import { RelationshipMatrix } from "@/features/model-editor/RelationshipMatrix";
-import { OperationsMenu } from "@/features/model-editor/OperationsMenu";
-import { TypePreview } from "@/features/model-editor/TypePreview";
-
-type Send = (version: number) => Promise<ModelDraftStep>;
+import { AddMenu } from "@/features/model-editor/AddMenu";
 
 /**
  * Whether the reader left the issues and history pane open, remembered in this browser; closed until
  * they open it. Only the pane's own toggle stores it (the user, 2026-10-19: Show issues stored it
  * open, so it opened empty from then on; `v2` leaves those stored values behind).
  */
-const BOTTOM_KEY = "rdm:model-editor:issues-history-open:v2";
-
-type Dialog =
-  | { kind: "operation"; operation: OperationSpec; target: OperationTarget; preset?: FieldValues }
-  | { kind: "move"; subject: MoveSubject; target?: string }
-  | { kind: "install" }
-  | { kind: "apply" }
-  | { kind: "dependants"; steps: number[]; dependants: number[] }
-  | { kind: "map"; start: MapStart }
-  | { kind: "valueMap"; use: ColumnUse; header: string }
-  | { kind: "rows"; rows: DryRunRows }
-  | { kind: "load" }
-  | { kind: "workbook" }
-  | { kind: "propose" }
-  | { kind: "deleteDraft" }
-  | { kind: "list"; mode: "adjust" | "load"; sheet: string; block: number };
-
-/** A step refused because the draft moved on (D41): what came first, and how to send mine again. */
-type Stale = { since: ModelDraftOperationEntry[]; more: boolean; send: Send };
 
 export function ModelEditor({
   draftId,
@@ -169,7 +122,35 @@ export function ModelEditor({
 }) {
   const toast = useToast();
   const phone = useMediaQuery(PHONE_WIDTH);
-  const [outline, setOutline] = useState<ModelDraftOutline>();
+  const dryRunFollow = useRef<(jobId: string) => void>(() => undefined);
+  const [bottomTab, setBottomTab] = useState("issues");
+  // Steps, refusals, the operation dialogs and the notices are the shared hook's: the canvas edits the
+  // same draft through the same one (0.17 CE1, PP-D3).
+  const editing = useDraftEditing(draftId, {
+    selection,
+    onSelect,
+    onAnswer: (answer) => {
+      if (answer.dryRun) dryRunFollow.current(answer.dryRun.jobId);
+    },
+    onUndone: () => setBottomTab("history"),
+  });
+  const {
+    outline,
+    steps: draftSteps,
+    setNotice,
+    guarded,
+    run,
+    step,
+    undo,
+    redo,
+    operate,
+    setMenuOpen,
+    menuOpen,
+  } = editing;
+  const { loadError } = draftSteps;
+  const name = draftSteps.draft?.name ?? "";
+  // Whether the draft names a base release of its own; without one, the active release stands in (D17).
+  const ownBase = draftSteps.draft?.ownBase ?? true;
   const editorWorkspace = useEditorWorkspace(outline?.release.key ?? undefined, workspaceKey);
   const [forWorkspaceLabel, setForWorkspaceLabel] = useState<string>();
   useEffect(() => {
@@ -184,41 +165,19 @@ export function ModelEditor({
     };
   }, [forWorkspace]);
   const appliesTo = forWorkspaceLabel ?? forWorkspace;
-  const [name, setName] = useState("");
-  // Whether the draft names a base release of its own; without one, the active release stands in (D17).
-  const [ownBase, setOwnBase] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [dialog, setDialog] = useState<Dialog>();
-  const [stale, setStale] = useState<Stale>();
-  const [notice, setNotice] = useState<{
-    tone: "error" | "success" | "warning";
-    text: string;
-    applications?: string[];
-    /** The workspace the applications open in. */
-    workspaceKey?: string;
-  }>();
-  const [working, setBusy] = useState(false);
-  // Editing is paused while the engine proposes (set below, once the inference is followed).
-  const pausedRef = useRef(false);
-  const [bottomTab, setBottomTab] = useState("issues");
+  const [proposeOpen, setProposeOpen] = useState(false);
   const [elementTab, setElementTab] = useState("attributes");
   const [phoneTab, setPhoneTab] = useState(selection.show ? "element" : "model");
   // The left pane's tab (0.10 A4c, D59): it follows a selected consumer API, and stays where the reader put it.
   const [paneTab, setPaneTab] = useState(selection.show === "consumerApi" ? "apis" : "model");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const version = useRef(0);
-  // The selection a step's answer is compared with: a changed key of the selected element follows.
-  const selected = useRef(selection);
-  // The outline a step's answer is worded against (what it removed is named in it).
-  const outlineNow = useRef(outline);
-  useEffect(() => {
-    selected.current = selection;
-    outlineNow.current = outline;
-  });
   const paneWidth = useLocalNumberPreference("rdm:model-editor:pane-width:v1", 300, 220, 560);
   const sourceWidth = useLocalNumberPreference("rdm:model-editor:source-width:v1", 320, 240, 560);
   const source = useDraftSource(draftId, outline?.version);
   const { dryRunQueued, loadColumns } = source;
+  const sourceDialogs = useSourceDialogs(editing, source);
+  useEffect(() => {
+    dryRunFollow.current = dryRunQueued;
+  });
   // A list opened from the address or the phone's tab: its sheet's columns name it (0.10 A8b).
   const listSheetName = selection.show === "list" ? selection.sheet : undefined;
   const sheetsRead = source.sheets.length > 0;
@@ -226,13 +185,7 @@ export function ModelEditor({
     if (listSheetName && sheetsRead) loadColumns(listSheetName);
   }, [listSheetName, sheetsRead, loadColumns]);
 
-  const [bottomOpen, setBottomOpen] = useState(() =>
-    readLocalPreference(BOTTOM_KEY, false, (value): value is boolean => typeof value === "boolean"),
-  );
-  const toggleBottom = (open: boolean) => {
-    setBottomOpen(open);
-    writeLocalPreference(BOTTOM_KEY, open);
-  };
+  const drawer = useIssuesDrawer();
 
   /** Opens the Issues tab, leaving the layout editor (which has no pane) first. */
   const showIssues = () => {
@@ -245,7 +198,7 @@ export function ModelEditor({
     setBottomTab("issues");
     // Opened for now; only the pane's own toggle is the reader's choice.
     if (phone) setPhoneTab("issues");
-    else setBottomOpen(true);
+    else drawer.show();
   };
   const showIssuesNow = useRef(showIssues);
   useEffect(() => {
@@ -267,81 +220,8 @@ export function ModelEditor({
     });
   }, [outline, draftId, toast]);
 
-  const load = useCallback(async () => {
-    const next = await api.modelDraftOutline(draftId);
-    version.current = next.version;
-    setOutline(next);
-    return next;
-  }, [draftId]);
-
-  // The editor is keyed by its draft, so a load starts from a clean state.
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([api.modelDraftOutline(draftId), api.modelDraft(draftId)])
-      .then(([next, draft]) => {
-        if (cancelled) return;
-        version.current = next.version;
-        setOutline(next);
-        setName(draft.name);
-        setOwnBase(draft.baseReleaseId !== null);
-      })
-      .catch((cause) => {
-        if (!cancelled) setLoadError(errorMessage(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [draftId]);
-
-  const history = useCursorFeed(
-    async (cursor) => {
-      const page = await api.modelDraftOperations(draftId, { cursor });
-      // Read from the end: each page is oldest first, and its previous cursor reaches older steps.
-      return { items: [...page.items].reverse(), nextCursor: page.prevCursor };
-    },
-    [draftId, outline?.version ?? 0],
-    (previous, incoming) => {
-      const seen = new Set(previous.map((item) => item.sequence));
-      return [...previous, ...incoming.filter((item) => !seen.has(item.sequence))];
-    },
-  );
+  const history = useDraftHistory(draftId, outline?.version);
   const steps = historySteps(history.items);
-  // Steps are numbered one by one, so the newest one's number is how many the draft has, though
-  // only its latest operations are read (a proposal can hold dozens; 0.10 A8c's TODO, fixed in R).
-  const stepCount = steps.reduce((most, step) => Math.max(most, step.step), 0);
-
-  /** Sends a step at the draft's version; a stale version holds it and asks (D41). */
-  const step = useCallback(
-    async (send: Send, applyingProposals = false): Promise<StepOutcome> => {
-      if (pausedRef.current && !applyingProposals)
-        throw new Error("Editing is paused until the proposals are applied, so nothing you change is lost.");
-      setNotice(undefined);
-      try {
-        const answer = await send(version.current);
-        if (answer.dryRun) dryRunQueued(answer.dryRun.jobId);
-        // What the step could not keep anywhere is said, not dropped in silence.
-        const removed = answer.entries.flatMap((entry) => entry.removed ?? []);
-        if (removed.length && outlineNow.current)
-          setNotice({ tone: "warning", text: removedWords(removed, nameOf(outlineNow.current)) });
-        const followed = followKeyChange(selected.current, answer.entries);
-        if (followed) onSelect(followed);
-      } catch (cause) {
-        if (!isApiError(cause, "VERSION_CONFLICT")) throw cause;
-        const details = (cause.details ?? {}) as { operations?: ModelDraftOperationEntry[]; more?: boolean };
-        setStale({ since: details.operations ?? [], more: Boolean(details.more), send });
-        await load();
-        return "stale";
-      }
-      setStale(undefined);
-      await load();
-      return "applied";
-    },
-    [load, dryRunQueued, onSelect],
-  );
-  const run = useCallback(
-    (operations: DraftOperation[]) => step((at) => api.applyModelDraftOperations(draftId, at, operations)),
-    [draftId, step],
-  );
 
   // The inference completed: its open proposals become steps, one each (D89).
   const inference = useInference(draftId, outline?.version, (done) => {
@@ -353,8 +233,7 @@ export function ModelEditor({
       setNotice({ tone: "success", text: nothing });
       return;
     }
-    void (async () => {
-      setBusy(true);
+    void guarded(async () => {
       try {
         let first: string | undefined;
         const outcome = await step(async (at) => {
@@ -383,10 +262,9 @@ export function ModelEditor({
               : errorMessage(cause),
         });
       } finally {
-        setBusy(false);
         inference.settled();
       }
-    })();
+    });
   });
   // Stop before the workbook is profiled drops the request that waits for it.
   const [dropped, setDropped] = useState(false);
@@ -399,59 +277,34 @@ export function ModelEditor({
     !dropped &&
     (profileState === "queued" || profileState === "running" || profileState === "completed");
   const proposing = proposingNow || waiting;
+  const { setPaused } = editing;
   useEffect(() => {
-    pausedRef.current = proposing;
-  }, [proposing]);
-  const busy = working || proposing;
+    setPaused(proposing);
+  }, [proposing, setPaused]);
+  const busy = editing.working || proposing;
   const proposingPhase: ProposingPhase = !proposingNow
     ? "profiling"
     : inference.inference?.state === "completed"
       ? "applying"
       : "reading";
+  const draftActions = useDraftActions({
+    editing,
+    source,
+    forWorkspace,
+    workspaceKey: editorWorkspace,
+    proposing,
+    onActivated,
+    onOpenWorkspace,
+    onNavigate,
+    onOpenChangeSet,
+    onShowIssues: showIssues,
+  });
   // New from a workbook asked to propose: once the workbook is profiled, the editor does.
   useEffect(() => {
     if (!profiled || proposingNow || !hasWaitingProposal(draftId)) return;
     const request = takeWaitingProposal(draftId);
     if (request) void proposeFrom(request);
   }, [profiled, proposingNow, draftId, proposeFrom]);
-
-  async function guarded(action: () => Promise<unknown>) {
-    setBusy(true);
-    try {
-      await action();
-    } catch (cause) {
-      if (isApiError(cause, "OPERATION_HAS_DEPENDANTS")) {
-        const details = (cause.details ?? {}) as { steps?: number[]; dependants?: number[] };
-        setDialog({ kind: "dependants", steps: details.steps ?? [], dependants: details.dependants ?? [] });
-      } else if (outline) setNotice({ tone: "error", text: refusalText(cause, outline) });
-    } finally {
-      setBusy(false);
-    }
-  }
-  const undo = (steps?: number[]) =>
-    guarded(async () => {
-      await step((at) => api.undoModelDraftStep(draftId, at, steps));
-      setBottomTab("history");
-    });
-  const redo = () =>
-    guarded(async () => {
-      await step((at) => api.redoModelDraftStep(draftId, at));
-      setBottomTab("history");
-    });
-
-  function operate(operation: OperationSpec, target: OperationTarget, preset?: FieldValues) {
-    setMenuOpen(false);
-    if (!outline) return;
-    if (operation.move === "attribute" && target.on === "attribute")
-      setDialog({
-        kind: "move",
-        subject: { kind: "attribute", objectType: target.objectType, attributeType: target.attributeType },
-      });
-    else if (operation.move === "objectType" && target.on === "objectType")
-      setDialog({ kind: "move", subject: { kind: "objectType", objectType: target.objectType } });
-    else if (operation.direct) void guarded(() => run(operation.build({}, target as never, outline)));
-    else setDialog({ kind: "operation", operation, target, preset });
-  }
 
   function select(next: EditorSelection) {
     onSelect(next);
@@ -461,10 +314,10 @@ export function ModelEditor({
 
   function drop(item: PaneDrop) {
     if (item.kind === "column") {
-      mapColumn(item.sheet, item.header, item.target);
+      sourceDialogs.openMap(item.sheet, item.header, item.target);
       return;
     }
-    setDialog(
+    editing.openDialog(
       item.kind === "attribute"
         ? {
             kind: "move",
@@ -483,19 +336,6 @@ export function ModelEditor({
     );
   }
 
-  /** Map to… a column, its target chosen when it was dropped on a type (D76). */
-  function mapColumn(sheet: string, header: string, target?: string) {
-    if (!outline) return;
-    const profile = source.profile?.profile;
-    const used = usesOf(profile, sheet, header).find((use) => !use.binding.ignore);
-    setDialog({
-      kind: "map",
-      start: target
-        ? { sheet, header, ...dropChoice(profile, outline, sheet, target) }
-        : { sheet, header, rowType: used?.source.objectTypeKey },
-    });
-  }
-
   if (loadError)
     return (
       <div className="model-editor-state">
@@ -509,15 +349,11 @@ export function ModelEditor({
       </div>
     );
 
-  const names = nameOf(outline);
   const errors = outline.diagnostics.filter((item) => item.severity === "error").length;
   const warnings = outline.diagnostics.length - errors;
   const undoAvailable = steps.some(undoable);
   const redoAvailable = canRedo(steps);
   const base = outline.baseRelease;
-  const workbench: RouteState = { kind: "settings", page: "model", draftId };
-  const workbookLabel = source.profile?.sourceFile ? "Upload a newer workbook…" : "Add a workbook…";
-  const addTarget: OperationTarget = paneTab === "apis" ? { on: "consumerApis" } : { on: "draft" };
   // The selected list of a sheet laid out for reading (0.10 A8b): its block, header and source.
   const listSheet = selection.show === "list" ? source.sheets.find((item) => item.name === selection.sheet) : undefined;
   const listBlock =
@@ -552,9 +388,7 @@ export function ModelEditor({
   // What is still as the inference proposed it (D92), and the section saying why for the selection.
   // An installed element is part of a release: it reads Released, and its alternatives would be
   // migrations, so it is no longer marked Proposed.
-  const proposedElements = new Set(
-    [...inference.proposed.keys()].filter((element) => !isReleasedElement(outline, element)),
-  );
+  const proposedElements = stillProposed(inference.proposed, outline);
   // The sheets the inference read as a model description (0.10 A7).
   const describingSheets = new Set(
     inference.proposals
@@ -582,13 +416,8 @@ export function ModelEditor({
   const toClose: RouteState =
     journey?.kind === "aiTask" ? { kind: "settings", page: "ai-tasks", taskId: journey.taskId } : toModels;
   const close = () => (forWorkspace ? onOpenWorkspace?.(forWorkspace) : onNavigate(toClose));
-  const deleteItem = {
-    id: "deleteDraft",
-    label: "Delete draft…",
-    onAction: () => setDialog({ kind: "deleteDraft" }),
-  };
   const proposeAgain = profiled
-    ? [{ id: "propose", label: "Propose again…", onAction: () => setDialog({ kind: "propose" }) }]
+    ? [{ id: "propose", label: "Propose again…", disabled: proposing, onAction: () => setProposeOpen(true) }]
     : [];
   // The types the selected column feeds, and the columns feeding the selected type.
   const linkedTypes = new Set(
@@ -626,7 +455,7 @@ export function ModelEditor({
       proposed={proposedElements}
       describing={describingSheets}
       onSelect={select}
-      onMap={(sheet, header) => mapColumn(sheet, header)}
+      onMap={(sheet, header) => sourceDialogs.openMap(sheet, header)}
       onIgnoreSheet={(sheet) => void guarded(() => run([{ kind: "ignoreSheet", sheet }]))}
       outline={outline}
       onSetProfile={proposing ? undefined : (patch) => run([{ kind: "setProfile", ...patch }])}
@@ -647,7 +476,7 @@ export function ModelEditor({
         const column = droppedColumn(event);
         if (!column) return;
         event.preventDefault();
-        mapColumn(column.sheet, column.header);
+        sourceDialogs.openMap(column.sheet, column.header);
       }}
     >
       <Tabs
@@ -656,14 +485,7 @@ export function ModelEditor({
         onChange={setPaneTab}
         header={
           <div className="model-editor-pane-add">
-            <OperationsMenu
-              label={paneTab === "apis" ? "Add a consumer API" : "Add to the model"}
-              icon="plus"
-              tooltip="Add"
-              target={addTarget}
-              outline={outline}
-              onOperation={operate}
-            />
+            <AddMenu outline={outline} consumerApis={paneTab === "apis"} onOperation={operate} />
           </div>
         }
         tabs={[
@@ -711,10 +533,9 @@ export function ModelEditor({
     });
   const typePreview = (shown: EditorMode, actions: ReactNode) =>
     typeKey && (
-      <TypePreview
+      <DraftPreview
+        editing={editing}
         mode={shown}
-        draftId={draftId}
-        version={outline.version}
         objectTypeKey={typeKey}
         applicationKey={typeApplication}
         onApplication={(next) =>
@@ -722,10 +543,6 @@ export function ModelEditor({
         }
         activeModel={activeModel}
         workspaceKey={editorWorkspace}
-        send={(operations) => guarded(() => run(operations))}
-        onDialog={(operation, objectType) =>
-          setDialog({ kind: "operation", operation, target: { on: "objectType", objectType } })
-        }
         onShowIssues={showIssues}
         actions={actions}
       />
@@ -758,8 +575,14 @@ export function ModelEditor({
             outline={outline}
             busy={busy}
             proposed={proposedNote}
-            onAdjust={() => setDialog({ kind: "list", mode: "adjust", sheet: listSheet.name, block: listBlock.index })}
-            onLoad={() => setDialog({ kind: "list", mode: "load", sheet: listSheet.name, block: listBlock.index })}
+            onAdjust={() => sourceDialogs.openList("adjust", listSheet.name, listBlock.index)}
+            onLoad={() => sourceDialogs.openList("load", listSheet.name, listBlock.index)}
+            onSetMissing={(operations) => void editing.runGuarded(operations)}
+            readings={{
+              profile: draftProfile,
+              columns: source.columns(listSheet.name),
+              run: (operations) => void editing.runGuarded(operations),
+            }}
             onDrop={() => {
               if (listLoads) void guarded(() => run(dropOperations(outline, draftProfile, listLoads)));
             }}
@@ -777,9 +600,9 @@ export function ModelEditor({
           outline={outline}
           busy={busy}
           run={(operations) => void guarded(() => run(operations))}
-          onMap={() => mapColumn(selection.sheet, selection.key)}
-          onValueMap={(use) => setDialog({ kind: "valueMap", use, header: selection.key })}
-          onRows={(rows) => setDialog({ kind: "rows", rows })}
+          onMap={() => sourceDialogs.openMap(selection.sheet, selection.key)}
+          onValueMap={(use) => sourceDialogs.openValueMap(use, selection.key)}
+          onRows={sourceDialogs.openRows}
           proposed={proposedNote}
         />
       ) : mode === "preview" ? (
@@ -834,72 +657,23 @@ export function ModelEditor({
       )}
     </section>
   );
-  const issuesAndHistory = (
-    <IssuesAndHistory
+  const issueCount = issueCountOf(outline, source.profile);
+  const bottom = (
+    <IssuesDrawer
+      editing={editing}
       outline={outline}
+      history={history}
+      source={source}
+      sourceDialogs={sourceDialogs}
+      proposing={proposing}
       tab={bottomTab}
       onTab={setBottomTab}
-      history={history}
+      open={drawer.open}
+      onToggle={drawer.toggle}
       onSelect={select}
-      onUndoStep={(value) => void undo([value])}
-      profile={source.profile}
-      onUseProfileKey={proposing ? undefined : (key) => void guarded(() => run([{ kind: "setProfile", key }]))}
       onGoToProfileKey={goToProfileKey}
-      onRemovePanel={
-        proposing
-          ? undefined
-          : ({ applicationKey, detail, panel }) =>
-              void guarded(() => run(removePanel({ applicationKey, objectTypeKey: detail }, panel)))
-      }
-      dryRun={
-        hasSource
-          ? {
-              label: `Dry run · ${dryRunLabel(source.dryRun)}`,
-              content: (
-                <DryRunPanel
-                  dryRun={source.dryRun}
-                  error={source.dryRunError}
-                  onRetry={source.retry}
-                  outline={outline}
-                  onRows={(rows) => setDialog({ kind: "rows", rows })}
-                />
-              ),
-            }
-          : undefined
-      }
+      inTab={phone}
     />
-  );
-  const issueCount = outline.diagnostics.length + (draftProfile ? (source.profile?.diagnostics.length ?? 0) : 0);
-  const drawerName = hasSource ? "Issues, history and dry run" : "Issues and history";
-  // On a desktop the pane is a drawer at the bottom, closed until the reader opens it; nothing else
-  // opens or closes it (the user, 2026-10-11). On a phone it is the Issues tab.
-  const bottom = phone ? (
-    <section className="model-editor-bottom" aria-label={drawerName}>
-      {issuesAndHistory}
-    </section>
-  ) : (
-    <section className={`model-editor-bottom${bottomOpen ? " open" : ""}`} aria-label={drawerName}>
-      <button
-        type="button"
-        className="model-editor-bottom-toggle"
-        aria-expanded={bottomOpen}
-        aria-controls="model-editor-issues-history"
-        onClick={() => toggleBottom(!bottomOpen)}
-      >
-        <Icon name={bottomOpen ? "chevron-down" : "chevron-right"} size={14} />
-        <span>{drawerName}</span>
-        <StatusPill tone={errors ? "error" : issueCount ? "warning" : "success"}>
-          {issueCount ? `${issueCount} ${issueCount === 1 ? "issue" : "issues"}` : "No issues"}
-        </StatusPill>
-        <span className="muted">
-          {stepCount ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : "No steps yet"}
-        </span>
-        {hasSource && <span className="muted">Dry run: {dryRunLabel(source.dryRun)}</span>}
-      </button>
-      <div id="model-editor-issues-history" className="model-editor-bottom-body" hidden={!bottomOpen}>
-        {bottomOpen && issuesAndHistory}
-      </div>
-    </section>
   );
 
   return (
@@ -989,6 +763,11 @@ export function ModelEditor({
           }
           actions={
             <div className="model-editor-actions">
+              <DraftViewSwitch
+                draftId={draftId}
+                view="editor"
+                onChange={(view) => onNavigate(draftViewRoute(draftId, view, { forWorkspace, journey }))}
+              />
               {phone ? (
                 <>
                   <IconButton
@@ -1001,31 +780,12 @@ export function ModelEditor({
                   <ActionMenu
                     label="More: Open as JSON, Install and activate, Load, Add a workbook, Propose again, Close, Delete"
                     items={[
-                      ...(forWorkspace
-                        ? [
-                            {
-                              id: "apply",
-                              label: "Apply to this workspace…",
-                              onAction: () => setDialog({ kind: "apply" }),
-                            },
-                          ]
-                        : []),
+                      ...draftActions.items(["apply"]),
                       { id: "close", label: "Close", onAction: close },
-                      { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
-                      { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
-                      ...(hasSource
-                        ? [
-                            {
-                              id: "load",
-                              label: "Load into a change set…",
-                              onAction: () => setDialog({ kind: "load" }),
-                            },
-                          ]
-                        : []),
-                      { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
+                      ...draftActions.items(["json", "install", "load", "workbook"]),
                       ...proposeAgain,
-                      ...(proposing ? [] : [deleteItem]),
-                    ].map((item) => ({ ...item, disabled: proposing && item.id !== "json" && item.id !== "close" }))}
+                      ...draftActions.items(["delete"]),
+                    ]}
                   />
                 </>
               ) : (
@@ -1046,7 +806,11 @@ export function ModelEditor({
                   >
                     <Icon name="redo" /> Redo
                   </button>
-                  <RouteLink className="secondary" href={routePath(workbench)} onNavigate={() => onNavigate(workbench)}>
+                  <RouteLink
+                    className="secondary"
+                    href={routePath(draftJsonRoute(draftId))}
+                    onNavigate={() => draftActions.open("json")}
+                  >
                     Open as JSON
                   </RouteLink>
                   {forWorkspace ? (
@@ -1054,7 +818,7 @@ export function ModelEditor({
                       type="button"
                       className="primary"
                       disabled={proposing}
-                      onClick={() => setDialog({ kind: "apply" })}
+                      onClick={() => draftActions.open("apply")}
                     >
                       Apply to this workspace…
                     </button>
@@ -1064,7 +828,7 @@ export function ModelEditor({
                         type="button"
                         className={hasSource ? "secondary" : "primary"}
                         disabled={proposing}
-                        onClick={() => setDialog({ kind: "install" })}
+                        onClick={() => draftActions.open("install")}
                       >
                         Install and activate…
                       </button>
@@ -1073,7 +837,7 @@ export function ModelEditor({
                           type="button"
                           className="primary"
                           disabled={proposing}
-                          onClick={() => setDialog({ kind: "load" })}
+                          onClick={() => draftActions.open("load")}
                         >
                           Load into a change set…
                         </button>
@@ -1092,28 +856,11 @@ export function ModelEditor({
                   <ActionMenu
                     label="More actions"
                     items={[
-                      ...(forWorkspace
-                        ? [
-                            {
-                              id: "install",
-                              label: "Install and activate…",
-                              onAction: () => setDialog({ kind: "install" }),
-                            },
-                            ...(hasSource
-                              ? [
-                                  {
-                                    id: "load",
-                                    label: "Load into a change set…",
-                                    onAction: () => setDialog({ kind: "load" }),
-                                  },
-                                ]
-                              : []),
-                          ]
-                        : []),
-                      { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
+                      ...(forWorkspace ? draftActions.items(["install", "load"]) : []),
+                      ...draftActions.items(["workbook"]),
                       ...proposeAgain,
-                      ...(proposing ? [] : [deleteItem]),
-                    ].map((item) => ({ ...item, disabled: proposing }))}
+                      ...draftActions.items(["delete"]),
+                    ]}
                   />
                 </>
               )}
@@ -1138,63 +885,7 @@ export function ModelEditor({
           {inference.error}
         </Notice>
       )}
-      {stale && (
-        <Notice
-          tone="warning"
-          title="Another change came first"
-          focusOnMount
-          actions={
-            <>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy}
-                onClick={() => void guarded(() => step(stale.send))}
-              >
-                Apply mine again
-              </button>
-              <button type="button" className="secondary" disabled={busy} onClick={() => setStale(undefined)}>
-                Discard mine
-              </button>
-            </>
-          }
-        >
-          Your change was not applied: the draft changed since you opened it.{" "}
-          {stale.since.length > 0 && (
-            <>
-              Applied since:{" "}
-              {stale.since
-                .map((entry) => describeOperation(entry.kind, entry.parameters, names, entry.inverse))
-                .join("; ")}
-              {stale.more ? " and more" : ""}.
-            </>
-          )}{" "}
-          The model below shows the newer version.
-        </Notice>
-      )}
-      {notice && (
-        <Notice
-          tone={notice.tone}
-          actions={
-            notice.applications?.map((key) => (
-              <button
-                key={key}
-                type="button"
-                className="secondary"
-                onClick={() => onOpenApplication(key, notice.workspaceKey)}
-              >
-                Open {applicationOf(outline, key)?.name ?? key}
-              </button>
-            )) ?? (
-              <button type="button" className="secondary" onClick={() => setNotice(undefined)}>
-                Dismiss
-              </button>
-            )
-          }
-        >
-          {notice.text}
-        </Notice>
-      )}
+      <DraftEditingNotices editing={editing} busy={busy} onOpenApplication={onOpenApplication} />
       {mode === "layout" ? (
         typePreview(
           "layout",
@@ -1264,221 +955,20 @@ export function ModelEditor({
           {bottom}
         </>
       )}
-      {dialog?.kind === "operation" && (
-        <OperationDialog
-          operation={dialog.operation}
-          target={dialog.target}
-          outline={outline}
-          preset={dialog.preset}
-          run={run}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "move" && (
-        <MoveToDialog
-          subject={dialog.subject}
-          outline={outline}
-          initialTarget={dialog.target}
-          run={run}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "dependants" && (
-        <ConfirmDialog
-          title="Undo the steps that depend on it too?"
-          confirmLabel={`Undo steps ${[...dialog.steps, ...dialog.dependants].sort((a, b) => a - b).join(", ")}`}
-          pending={busy}
-          onCancel={() => setDialog(undefined)}
-          onConfirm={() => {
-            const together = [...dialog.steps, ...dialog.dependants];
-            setDialog(undefined);
-            void undo(together);
-          }}
-        >
-          <p>
-            Step {dialog.dependants.join(", ")} uses what step {dialog.steps.join(", ")} created or re-keyed, so it
-            cannot be undone alone.
-          </p>
-        </ConfirmDialog>
-      )}
-      {dialog?.kind === "map" && (
-        <MapColumnDialog
-          start={dialog.start}
-          column={source.columns(dialog.start.sheet)?.find((item) => item.header === dialog.start.header)}
-          headers={(source.columns(dialog.start.sheet) ?? []).flatMap((item) => (item.header ? [item.header] : []))}
-          profile={draftProfile}
-          outline={outline}
-          run={run}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "valueMap" && (
-        <ValueMapDialog
-          source={dialog.use.source.id}
-          header={dialog.header}
-          mapName={dialog.use.binding.valueMap}
-          column={source.columns(dialog.use.source.sheet)?.find((item) => item.header === dialog.header)}
-          profile={draftProfile}
-          outline={outline}
-          run={run}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "rows" && (
-        <DryRunRowsDialog draftId={draftId} rows={dialog.rows} onClose={() => setDialog(undefined)} />
-      )}
-      {dialog?.kind === "workbook" && (
-        <AddWorkbookDialog
-          owner={{ draftId }}
-          replaces={source.profile?.sourceFile?.name}
-          defaultWorkspace={editorWorkspace}
-          onUploaded={(file) => {
-            source.uploaded(file);
-            toast(`${file.name} is uploaded and being profiled.`);
-          }}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "deleteDraft" && !proposing && (
-        <DeleteDraftDialog
-          draftId={draftId}
-          version={outline.version}
-          onCancel={() => setDialog(undefined)}
-          onDeleted={() => {
-            setDialog(undefined);
-            toast(`Draft ${name || "Model draft"} was deleted.`);
-            onNavigate(toModels);
-          }}
-        >
-          <p>
-            This deletes the draft <strong>{name || "Model draft"}</strong>, its steps and proposals
-            {source.profile?.sourceFile ? ` and the workbook attached to it (${source.profile.sourceFile.name})` : ""}.
-            It cannot be undone. Installed releases are not affected.
-          </p>
-        </DeleteDraftDialog>
-      )}
-      {dialog?.kind === "propose" && source.profile?.sourceFile && (
+      <DraftEditingDialogs editing={editing} busy={busy} />
+      {sourceDialogs.dialogs}
+      {draftActions.dialogs}
+      {proposeOpen && source.profile?.sourceFile && (
         <ProposeDialog
           fileName={source.profile.sourceFile.name}
           initialMode={inference.inference?.mode}
           onPropose={(request) => {
-            setDialog(undefined);
+            setProposeOpen(false);
             void proposeFrom(request);
           }}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "list" && listBlock && listSheet && (
-        <AdjustListDialog
-          mode={dialog.mode}
-          draftId={draftId}
-          fileId={source.profile?.sourceFile?.id}
-          sheet={listSheet.name}
-          header={listName ?? ""}
-          block={listBlock}
-          listSource={listLoads}
-          lastColumn={Math.max(...listSheet.blocks.map((item) => columnNumber(item.lastColumn)))}
-          send={run}
-          onDone={() => {
-            setDialog(undefined);
-            toast(dialog.mode === "adjust" ? `${listName} adjusted.` : `${listName} loaded as a list.`);
-          }}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "load" && source.profile && (
-        <LoadDialog
-          draftId={draftId}
-          outline={outline}
-          profile={source.profile}
-          dryRun={source.dryRun}
-          defaultWorkspace={editorWorkspace}
-          run={run}
-          latestVersion={() => version.current}
-          onActivated={async (_release, activatedWorkspace) => {
-            await onActivated(activatedWorkspace);
-            await load();
-          }}
-          onOpenReview={(target) => {
-            setDialog(undefined);
-            onOpenChangeSet(target);
-          }}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {dialog?.kind === "apply" && forWorkspace && (
-        <ApplyDialog
-          draftId={draftId}
-          outline={outline}
-          run={run}
-          latestVersion={() => version.current}
-          workspaceKey={forWorkspace}
-          onApplied={async (release, workspace) => {
-            await onActivated(workspace.key);
-            toast(`${workspace.label} now runs ${release.name} ${release.version}.`);
-            onOpenWorkspace?.(workspace.key);
-          }}
-          onMigrationStarted={(jobId) =>
-            onNavigate({ kind: "settings", page: "model", migrationJobId: jobId, forWorkspace })
-          }
-          onClose={() => setDialog(undefined)}
-          onShowIssues={() => {
-            setDialog(undefined);
-            showIssues();
-          }}
-        />
-      )}
-      {dialog?.kind === "install" && (
-        <InstallDialog
-          draftId={draftId}
-          outline={outline}
-          run={run}
-          latestVersion={() => version.current}
-          workspaceKey={editorWorkspace}
-          onInstalledOnly={() => void load()}
-          onMigrationStarted={(jobId) => onNavigate({ kind: "settings", page: "model", migrationJobId: jobId })}
-          onActivated={async (release, workspace) => {
-            await onActivated(workspace.key);
-            await load();
-            setDialog(undefined);
-            toast(`${workspace.label} now runs ${release.name} ${release.version}.`);
-            setNotice({
-              tone: "success",
-              text: `${release.name} ${release.version} is installed and active in ${workspace.label}. This draft continues from it.`,
-              applications: outline.applications.map((item) => item.key).slice(0, 3),
-              workspaceKey: workspace.key,
-            });
-          }}
-          onClose={() => setDialog(undefined)}
-          onShowIssues={() => {
-            setDialog(undefined);
-            showIssues();
-          }}
+          onClose={() => setProposeOpen(false)}
         />
       )}
     </div>
   );
-}
-
-/**
- * The workspace the editor previews and loads into (0.11 D55): the one the user came from when it
- * runs the draft's model (`release.key`), else the first active workspace that does, in key order,
- * else the one the user came from, whose records the preview then does not read.
- */
-function useEditorWorkspace(modelKey: string | undefined, preferred: string): string {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>();
-  useEffect(() => {
-    let active = true;
-    api
-      .workspaces({ status: "active", pageSize: 100 })
-      .then((page) => active && setWorkspaces(page.items))
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
-  if (!modelKey || !workspaces) return preferred;
-  const running = workspaces.filter((item) => item.model.releaseKey === modelKey);
-  if (running.some((item) => item.key === preferred) || !running.length) return preferred;
-  return [...running].sort((a, b) => a.key.localeCompare(b.key))[0].key;
 }

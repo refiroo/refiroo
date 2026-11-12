@@ -8,15 +8,14 @@ Signing keys let the engine sign the proof of access it gives people and clients
 can recognise valid access on later requests. They are different from a client's secret
 and from the keys used to sign webhook deliveries. You do not copy a signing key to a person or integration.
 
-Open **Settings › Security › Signing keys** with **Security administration**.
+Open **Settings › People and access › Signing keys** with **Security administration**.
 The list shows **Key ID**, **State**, **Created**, **Replaced** and **Retired**.
 **No key yet: one is made with the first token.** means the instance has not needed a signing key yet. You do not need to create or delete a row to clear that state. The current key is **Signing**. A replaced key shows **Verifying until** with the end time
 while it still accepts access it signed. A retired key no longer does so.
 
-![Signing keys with a current Signing key and a replaced key still verifying](/docs/screens/admin-signing-keys.png)
+![Signing keys with one current Signing key and rotation and retirement actions](/docs/screens/admin-signing-keys.png)
 
-*Above: the reference instance has a new Signing key and a previous key verifying until
-its displayed deadline. The identifiers distinguish keys; they are not values to copy into a system.*
+*Above: The reference instance has one key, marked Signing. Start a new key and Retire the current key now are available.*
 
 ## Normal replacement
 

@@ -4,10 +4,18 @@ import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import type { EngineModel, RelationsPanelDefinition, ChangeSet } from "@/types";
+import { unfoldPanelTool } from "@/test/panelTools";
+import { ToastProvider } from "@/ui/Toast";
 import { RelationsPanel } from "@/features/objects/panels/RelationsPanel";
 
 vi.mock("@/api/client", () => ({
-  api: { relations: vi.fn(), deleteRelation: vi.fn(), objects: vi.fn(), replaceMapping: vi.fn() },
+  api: {
+    relations: vi.fn(),
+    deleteRelation: vi.fn(),
+    createRelation: vi.fn(),
+    objects: vi.fn(),
+    replaceMapping: vi.fn(),
+  },
 }));
 
 const panel: RelationsPanelDefinition = {
@@ -74,6 +82,10 @@ describe("RelationsPanel", () => {
     expect(rows.map((row) => row.getAttribute("data-row-key"))).toEqual(["first", "second"]);
     expect(screen.getByRole("separator", { name: "Resize Name column" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Relationship column" })).toBeInTheDocument();
+    // Two rows are few: search, Display and Sort fold behind one menu, each still reachable (0.17 UX1).
+    expect(screen.queryByRole("button", { name: "Display" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    await unfoldPanelTool("Display");
     expect(screen.getByRole("button", { name: "Display" })).toBeInTheDocument();
   });
 
@@ -146,6 +158,7 @@ describe("RelationsPanel", () => {
     expect(within(second).getByText("see also")).toBeInTheDocument();
     // No sorting by these columns.
     expect(screen.queryByRole("button", { name: /^Weight/ })).toBeNull();
+    await unfoldPanelTool("Display");
     fireEvent.click(screen.getByRole("button", { name: "Display" }));
     const group = screen.getByRole("group", { name: "Attributes of the relationship" });
     expect(
@@ -330,22 +343,35 @@ describe("RelationsPanel", () => {
     });
   });
 
-  it("clears a relationship-delete failure when its confirmation is cancelled", async () => {
+  it("removes a relationship at once and Undo creates it again", async () => {
     const model = {
       ...testModel,
       objectTypes: testModel.objectTypes.map((item) =>
         item.key === "codelist" ? { ...item, behavior: { parentRelationTypeKeys: [] } } : item,
       ),
     };
-    vi.mocked(api.deleteRelation).mockRejectedValueOnce(new Error("Relationship delete unavailable"));
+    vi.mocked(api.deleteRelation).mockResolvedValueOnce();
+    vi.mocked(api.createRelation).mockResolvedValueOnce({} as never);
 
-    render(<RelationsPanel model={model} object={domainObject} panel={panel} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: `Delete Contains: ${codelistObject.name}` }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete relationship" }));
-    expect(await screen.findByText("Relationship delete unavailable")).toBeInTheDocument();
+    render(
+      <ToastProvider>
+        <RelationsPanel model={model} object={domainObject} panel={panel} onOpen={vi.fn()} />
+      </ToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: `Remove Contains: ${codelistObject.name}` }));
+    expect(await screen.findByText(`Contains: ${codelistObject.name} removed`)).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(api.deleteRelation).toHaveBeenCalledWith("relation", 1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByText("Relationship delete unavailable")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(api.createRelation).toHaveBeenCalledWith({
+        relationTypeKey: "domain-contains-codelist",
+        fromObjectId: domainObject.id,
+        toObjectId: codelistObject.id,
+        attributes: {},
+      }),
+    );
   });
 
   describe("sorting (S4R3)", () => {
@@ -376,6 +402,7 @@ describe("RelationsPanel", () => {
       // The computed path is the one column the server cannot order.
       expect(within(screen.getByRole("columnheader", { name: /^Path/ })).queryByRole("button")).toBeNull();
       expect(screen.queryByRole("combobox", { name: "Sort" })).not.toBeInTheDocument();
+      await unfoldPanelTool("Sort");
       expect(screen.getByRole("button", { name: "Sort: Relationship, ascending" })).toBeInTheDocument();
     });
 
@@ -390,6 +417,7 @@ describe("RelationsPanel", () => {
       await waitFor(() => expect(lastSort()).toBe("name"));
       expect(screen.getByText("Sorted by Name, ascending")).toHaveAttribute("role", "status");
       // The same menu is present on every list with sort fields.
+      await unfoldPanelTool("Sort");
       expect(screen.getByRole("button", { name: "Sort: Name, ascending" })).toBeInTheDocument();
     });
 
@@ -403,6 +431,7 @@ describe("RelationsPanel", () => {
         />,
       );
       await screen.findByText("Timetable types");
+      await unfoldPanelTool("Sort");
       fireEvent.click(screen.getByRole("button", { name: "Sort: Code, descending" }));
       fireEvent.click(await screen.findByRole("menuitemradio", { name: "Ascending" }));
       await waitFor(() => expect(lastSort()).toBe("code"));
@@ -541,11 +570,11 @@ describe("RelationsPanel", () => {
       const name = codelistObject.name;
       const change = await screen.findByRole("button", { name: `Change Graded by: ${name}` });
       const edit = screen.getByRole("button", { name: `Edit values of Graded by: ${name}` });
-      const remove = screen.getByRole("button", { name: `Delete Graded by: ${name}` });
+      const remove = screen.getByRole("button", { name: `Remove Graded by: ${name}` });
       expect([change, edit, remove].map((button) => button.getAttribute("title"))).toEqual([
         "Change to another record",
         "Edit values",
-        "Delete relationship",
+        "Remove relationship",
       ]);
       expect([change, edit, remove].every((button) => !button.textContent?.trim())).toBe(true);
       fireEvent.click(edit);

@@ -1,0 +1,141 @@
+/* --- Settings › E-mail template: the Markdown editor with its toolbar and logo at the left, the live preview of the
+   mail at the right (one column at phone width, the preview under the editor). Tokens only, so every scheme and
+   theme reads the same; the preview "paper" follows the system colours of its own colour scheme, not the app's. --- */
+.mail-template-panel .settings-panel-pad {
+  display: grid;
+  gap: var(--space-4);
+}
+.mail-template-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mail-template-toolbar button,
+.mail-template-toolbar select {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--fs-13);
+}
+.mail-template-toolbar button:hover:not(:disabled),
+.mail-template-toolbar select:hover:not(:disabled) {
+  border-color: var(--border-control-hover);
+  background: var(--surface-hover);
+}
+.mail-template-toolbar .mail-template-bold {
+  font-weight: 700;
+}
+.mail-template-toolbar .mail-template-italic {
+  font-style: italic;
+}
+/* Stronger than Settings' field rule (`.settings-panel .form-field textarea`, ST1), which cut the template to two
+   lines (found 2026-11-12). */
+.mail-template-panel .form-field .mail-template-source,
+.mail-template-source {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 22rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  line-height: 1.55;
+  resize: vertical;
+}
+.mail-template-source:hover {
+  border-color: var(--border-control-hover);
+}
+.mail-template-logo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.mail-template-thumbnail {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 64px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.mail-template-thumbnail img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+.mail-template-thumbnail span {
+  color: var(--text-tertiary);
+  font-size: var(--fs-12);
+}
+.mail-template-logo-actions {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* The preview: a sheet of "paper" of the chosen light or dark scheme around the mail's own document. */
+.mail-template-paper {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: Canvas;
+  color: CanvasText;
+}
+.mail-template-paper[data-paper="light"] {
+  color-scheme: light;
+}
+.mail-template-paper[data-paper="dark"] {
+  color-scheme: dark;
+}
+.mail-template-frame {
+  display: block;
+  width: 100%;
+  height: 34rem;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+}
+.mail-template-text {
+  margin: 0;
+  max-height: 34rem;
+  overflow: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12-5);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 860px) {
+  .mail-template-source {
+    min-height: 16rem;
+  }
+  .mail-template-frame {
+    height: 28rem;
+  }
+}
+
+/* Nothing in the editor is wider than its column: the source, the placeholder list and the toolbar stay inside the
+   page at phone width, in every frame. */
+.mail-template-source,
+.mail-template-panel select,
+.mail-template-panel textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.mail-template-toolbar {
+  flex-wrap: wrap;
+}

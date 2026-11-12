@@ -471,6 +471,42 @@ class ProposalPage(CollectionPage[ProposalResponse]):
     """The latest inference's proposals in the order they apply."""
 
 
+class JoinColumnResponse(BaseModel):
+    """The dropped column, read over every row: its sheet, letter and header, its filled rows and
+    how many of them differ."""
+
+    sheet: str
+    letter: str
+    header: str | None
+    rows: int
+    distinct: int
+
+
+class JoinCandidate(BaseModel):
+    """A column that the dropped column's values may point at, compared over every row."""
+
+    sheet: str
+    letter: str
+    header: str | None
+    rows: int = Field(description="The candidate's filled rows")
+    distinct: int = Field(description="Its different values")
+    matchedValues: int = Field(description="The dropped column's different values the candidate holds")
+    matchedRows: int = Field(description="The dropped column's rows whose value the candidate holds")
+    share: float = Field(description="``matchedRows`` over the dropped column's rows")
+    unique: bool = Field(description="Every filled cell of the candidate differs: it reads as a list")
+
+
+class JoinCandidatesResponse(BaseModel):
+    """The columns the dropped column joins, best first (0.17 PP-D8). ``tie`` is true when two or more
+    match exactly as much: ``best`` is then ``null``, ``tied`` lists them and the client asks."""
+
+    column: JoinColumnResponse
+    candidates: list[JoinCandidate]
+    best: str | None = Field(description="The letter of the one column that matches most, when no other ties it")
+    tie: bool
+    tied: list[str]
+
+
 class ListProposalResponse(BaseModel):
     """A rectangle read as a list (0.10 A8b, D128): a ``listBlock`` proposal built against the
     draft as it is, not stored; its ``operations`` go to ``POST …/operations`` as one step."""

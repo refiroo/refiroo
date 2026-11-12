@@ -7,8 +7,8 @@ reader: steward
 Follow work after leaving its collection or import dialog. See [Jobs](/docs/use/jobs/) for
 states, access and retention.
 
-1. Open **View job** in the starting notification, or go to **Settings › Data operations › Jobs**
-   and open the job; a group of related jobs opens first, and its jobs under it. Check **Workspace**
+1. Open **View job** in the starting notification, or go to **Settings › This instance › Jobs**
+   and open the **Jobs** tab, then the job; a group of related jobs opens first, and its jobs under it. Check **Workspace**
    and **Requested by** before acting.
 2. Read **State** and progress. A preview waiting for confirmation has not written its proposed
    changes. Review the items before choosing **Load the file** for an import or **Apply** for

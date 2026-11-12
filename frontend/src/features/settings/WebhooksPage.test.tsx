@@ -108,6 +108,15 @@ function Page({ start }: { start: Extract<SettingsRoute, { page: "webhooks" }> }
   );
 }
 
+/** An action in the page's ⋯ menu. */
+async function chooseFromMenu(name: string) {
+  fireEvent.keyDown(await screen.findByRole("button", { name: "More actions" }), {
+    key: "ArrowDown",
+    code: "ArrowDown",
+  });
+  fireEvent.keyDown(await screen.findByRole("menuitem", { name }), { key: "Enter", code: "Enter" });
+}
+
 const renderPage = (subscriptionId?: string) =>
   render(
     <ToastProvider>
@@ -174,14 +183,16 @@ describe("Webhooks", () => {
       nextCursor: null,
     });
     renderPage();
-    const catalogue = await screen.findByRole("navigation", { name: "Webhook catalogue" });
-    await within(catalogue).findByRole("button", { name: /Receiver a/ });
-    // Each entry: its name, its URL below, and its state.
-    expect(
-      within(catalogue).getByRole("button", { name: /Receiver a.*receiver.example.com\/a.*Active/ }),
-    ).toBeInTheDocument();
-    expect(within(catalogue).getByRole("button", { name: /Receiver b.*Retrying/ })).toBeInTheDocument();
-    expect(within(catalogue).getByRole("button", { name: /Receiver c.*Suspended/ })).toBeInTheDocument();
+    await screen.findByRole("button", { name: /Receiver a/ });
+    // Each row: its name, its URL below, and its state.
+    expect(screen.getByRole("button", { name: /Receiver a.*receiver.example.com\/a.*Active/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Receiver b.*Retrying/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Receiver c.*Suspended/ })).toBeInTheDocument();
+    // A row opens the webhook's page, and the page's trail goes back to the list.
+    vi.mocked(api.subscription).mockResolvedValue(subscription("b"));
+    fireEvent.click(screen.getByRole("button", { name: /Receiver b/ }));
+    fireEvent.click(await screen.findByRole("link", { name: "Webhooks" }));
+    expect(await screen.findByRole("button", { name: /Receiver b.*Retrying/ })).toBeInTheDocument();
   });
 
   it("names a workspace-events subscription, which has no consumer API, without failing", async () => {
@@ -247,7 +258,7 @@ describe("Webhooks", () => {
     expect(within(dialog).getByText(/For bulk changes, batch them/)).toBeInTheDocument();
     expect(within(dialog).queryByRole("spinbutton", { name: "Up to (events)" })).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("radio", { name: "Notification only" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create webhook" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add webhook" }));
     const key = await screen.findByRole("dialog", { name: "Keep the signing key" });
     expect(api.createSubscription).toHaveBeenCalledWith({
       name: "Billing",
@@ -310,7 +321,7 @@ describe("Webhooks", () => {
     fireEvent.click(within(picker).getByRole("option", { name: /change-set\.approved/ }));
     fireEvent.click(within(picker).getByRole("button", { name: "Done" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Events" })).not.toBeInTheDocument());
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create webhook" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add webhook" }));
     await screen.findByRole("dialog", { name: "Keep the signing key" });
     expect(api.createSubscription).toHaveBeenCalledWith({
       name: "Approvals",
@@ -375,7 +386,7 @@ describe("Webhooks", () => {
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "X" } });
     const url = within(dialog).getByRole("textbox", { name: "URL" });
     fireEvent.change(url, { target: { value: "http://x.test/hook" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create webhook" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add webhook" }));
     await waitFor(() => expect(url).toHaveAttribute("aria-invalid", "true"));
     expect(url).toHaveAccessibleDescription(/must use https/);
   });
@@ -443,7 +454,7 @@ describe("Webhooks", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Reset and resume" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(api.resumeSubscription).toHaveBeenLastCalledWith("s", 4, true);
-    dialog = screen.getByRole("heading", { name: "Receiver s" }).closest(".webhook-detail") as HTMLElement;
+    dialog = screen.getByRole("heading", { name: "Receiver s" }).closest(".settings-page") as HTMLElement;
     expect(within(dialog).getByText("Active")).toBeInTheDocument();
   });
 
@@ -457,17 +468,17 @@ describe("Webhooks", () => {
       }),
     );
     renderPage("s");
-    fireEvent.click(await screen.findByRole("button", { name: "Rotate key…" }));
+    await chooseFromMenu("Rotate key…");
     const dialog = await screen.findByRole("dialog", { name: "Rotate the signing key of Receiver s" });
     expect(within(dialog).getByRole("radio", { name: "24 hours" })).toBeChecked();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Make a new key" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rotate key" }));
     await waitFor(() => expect(api.rotateSubscriptionSecret).toHaveBeenCalledWith("s", 2, 24));
     const shown = await screen.findByRole("dialog", { name: "Keep the new signing key" });
     expect(shown).toHaveTextContent("rdmwh_newkey");
     expect(shown).toHaveTextContent("lists two signatures");
     fireEvent.click(within(shown).getByRole("button", { name: "I have stored the key" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    const page = screen.getByRole("heading", { name: "Receiver s" }).closest(".webhook-detail") as HTMLElement;
+    const page = screen.getByRole("heading", { name: "Receiver s" }).closest(".settings-page") as HTMLElement;
     expect(page).toHaveTextContent("Previous key signs until");
     expect(page).not.toHaveTextContent("rdmwh_newkey");
   });
@@ -478,13 +489,13 @@ describe("Webhooks", () => {
       .mockRejectedValueOnce(new ApiError(500, "INTERNAL_ERROR", "The key could not be made"))
       .mockResolvedValueOnce(subscription("s", { version: 3, signingSecret: "rdmwh_fresh" }));
     renderPage("s");
-    fireEvent.click(await screen.findByRole("button", { name: "Rotate key…" }));
+    await chooseFromMenu("Rotate key…");
     const dialog = await screen.findByRole("dialog", { name: "Rotate the signing key of Receiver s" });
     fireEvent.click(within(dialog).getByRole("radio", { name: "Stop it now" }));
     expect(dialog).toHaveTextContent("For a key that leaked");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Make a new key" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rotate key" }));
     expect(await within(dialog).findByText("The key could not be made")).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Make a new key" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rotate key" }));
     await waitFor(() => expect(api.rotateSubscriptionSecret).toHaveBeenLastCalledWith("s", 2, 0));
     const shown = await screen.findByRole("dialog", { name: "Keep the new signing key" });
     expect(shown).toHaveTextContent("The old key stopped signing now");
@@ -498,13 +509,13 @@ describe("Webhooks", () => {
       subscription("s", { version: 3, maxEventsPerBatch: 50, format: "cloudevents" }),
     );
     renderPage("s");
-    const page = (await screen.findByRole("heading", { name: "Receiver s" })).closest(".webhook-detail") as HTMLElement;
+    const page = (await screen.findByRole("heading", { name: "Receiver s" })).closest(".settings-page") as HTMLElement;
     expect(page).toHaveTextContent("One event per request");
     expect(page).toHaveTextContent("With the object");
     expect(page).toHaveTextContent("RDM JSON");
     fireEvent.click(await screen.findByRole("button", { name: "Edit…" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit webhook" });
-    expect(within(dialog).getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("radio", { name: "Batched" }));
     const size = within(dialog).getByRole("spinbutton", { name: "Up to (events)" });
     expect(size).toHaveValue(100);
@@ -512,7 +523,7 @@ describe("Webhooks", () => {
     fireEvent.change(size, { target: { value: "50" } });
     fireEvent.click(within(dialog).getByRole("radio", { name: "CloudEvents 1.0" }));
     expect(within(dialog).getByText(/cloudevents-batch\+json/)).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.updateSubscription).toHaveBeenCalledWith("s", {
         expectedVersion: 2,
@@ -537,7 +548,7 @@ describe("Webhooks", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit…" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit webhook" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: " Invoices " } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.updateSubscription).toHaveBeenCalledWith("s", { expectedVersion: 2, name: "Invoices" }),
     );

@@ -1,0 +1,26 @@
+{
+  "operation": "GET /api/v1/mail-template",
+  "name": "default",
+  "summary": "No template is saved: the default Markdown is answered and the engine's own layout is used",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "markdown": "{{logo}}\n\nHello {{recipient_name}},\n\n{{content}}\n\n---\n\nThis message was sent by [{{product_name}}]({{instance_url}}).\n",
+      "defaultMarkdown": "{{logo}}\n\nHello {{recipient_name}},\n\n{{content}}\n\n---\n\nThis message was sent by [{{product_name}}]({{instance_url}}).\n",
+      "saved": false,
+      "placeholders": [
+        "content",
+        "product_name"
+      ],
+      "logoType": null,
+      "logoDataUrl": null,
+      "logoMaxBytes": 524288,
+      "version": null,
+      "updatedAt": null
+    }
+  },
+  "notes": [
+    "`placeholders`: the first 2 of 5 items are shown."
+  ]
+}

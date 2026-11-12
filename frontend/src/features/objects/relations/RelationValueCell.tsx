@@ -1,14 +1,14 @@
 /**
  * One attribute of one relationship as a table cell (0.13 RV): its value, and where it can be written
- * an edit that opens the field in the cell and saves when the cell is left or Enter is pressed (a
- * flag as it is toggled). A conflict stays on the row with the relationship as it is saved now. A
+ * an edit that makes the value its field, which saves when it is left or Enter is pressed (a flag as it
+ * is toggled), as every single field does (`ui/EditInPlace`'s `InlineEditForm`, 0.17 UX2). A conflict stays on the row with the relationship as it is saved now. A
  * relationships table and a relation matrix cell's dialog draw their attribute columns with it, so
  * a value is edited the same way in both.
  */
 
 import { useEffect, useRef, useState } from "react";
 import type { AttributeTypeDefinition } from "@/types";
-import { EditInPlaceCell } from "@/ui/EditInPlace";
+import { EditInPlaceCell, InlineEditForm, focusValue } from "@/ui/EditInPlace";
 import { FlagCell } from "@/ui/FlagCell";
 import { FloatingCellEditor } from "@/ui/FloatingCellEditor";
 import { formatValue } from "@/ui/formatValue";
@@ -58,11 +58,11 @@ export function RelationValueCell({
   useEffect(() => {
     // A floating editor's cell has no control to return to; the row's own does, as a record's cells do.
     if (floating && wasEditing.current && !editing)
-      requestAnimationFrame(() => row.current?.querySelector<HTMLElement>("[data-row-focus]")?.focus());
+      requestAnimationFrame(() => focusValue(row.current?.querySelector<HTMLElement>("[data-row-focus]")));
     wasEditing.current = editing;
   }, [editing, floating]);
   async function save(form: HTMLFormElement) {
-    const result = await edit.saveValue(form);
+    const result = await edit.saveValue(form, onSaved);
     if (result) {
       setEditing(false);
       setChanged(false);
@@ -115,39 +115,37 @@ export function RelationValueCell({
       <span className="relation-attribute-cell">{formatValue(relation.attributes[attribute.key])}</span>
     );
   const form = (
-    <form
+    <div
       ref={(node) => {
         row.current = node?.closest("tr") ?? row.current;
       }}
       className="relation-attribute-cell is-editing"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save(event.currentTarget);
-      }}
-      onChange={(event) => {
-        setChanged(true);
-        // A flag has no moment of leaving to wait for.
-        if (attribute.valueType === "boolean") void save(event.currentTarget);
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !edit.saving)
-          void save(event.currentTarget);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          setEditing(false);
-        }
-      }}
     >
-      <RelationAttributes attributes={[attribute]} relation={relation} mode="edit" legend={false} />
-      {edit.error && (
-        <span role="alert" className="field-error">
-          {edit.error}
-        </span>
-      )}
-      {edit.current && <RelationConflictNotice attributes={[attribute]} current={edit.current} />}
-    </form>
+      <InlineEditForm
+        label={`Edit ${attribute.name}`}
+        saving={edit.saving}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save(event.currentTarget);
+        }}
+        onClose={() => setEditing(false)}
+        onChange={() => setChanged(true)}
+        notices={
+          (edit.error || edit.current) && (
+            <>
+              {edit.error && (
+                <span role="alert" className="field-error">
+                  {edit.error}
+                </span>
+              )}
+              {edit.current && <RelationConflictNotice attributes={[attribute]} current={edit.current} />}
+            </>
+          )
+        }
+      >
+        <RelationAttributes attributes={[attribute]} relation={relation} mode="edit" legend={false} autoFocus />
+      </InlineEditForm>
+    </div>
   );
   return floating ? (
     <FloatingCellEditor value={formatValue(relation.attributes[attribute.key])}>{form}</FloatingCellEditor>

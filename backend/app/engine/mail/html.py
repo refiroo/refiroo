@@ -20,6 +20,10 @@ BRAND_DIR = Path(__file__).parent / "brand"
 IMAGES = {MASCOT_CID: "refiroo-mascot.png", WORDMARK_CID: "refiroo-wordmark.png"}
 # The product's website, linked under every footer (the HTML only; it is not a fact of the message).
 SITE = "https://refiroo.com"
+# Comments that mark the message's own content (heading, text, button) and its footer sentence in the
+# document, so an operator's template (``mail_template``) can wrap them instead of this layout.
+CONTENT_OPEN, CONTENT_CLOSE = "rdm-content", "/rdm-content"
+FOOTER_OPEN, FOOTER_CLOSE = "rdm-footer", "/rdm-footer"
 
 PAGE = "#f3f4fb"
 INK = "#24244f"
@@ -146,14 +150,15 @@ def layout(product: str, heading: str, blocks: list[Block], footer: str, prehead
         'height="18" style="display:block;border:0;height:18px;width:auto"></td>'
         f"{name}</tr></table></td></tr>"
         f'<tr><td style="padding:12px 28px 28px;font-size:15px;line-height:1.6;color:{INK}">'
-        f'<h1 style="margin:8px 0 12px;font-size:22px;line-height:1.3;color:{HEADING}">'
-        f"{e(heading)}</h1>{body}</td></tr></table>"
+        f'<!--{CONTENT_OPEN}--><h1 style="margin:8px 0 12px;font-size:22px;line-height:1.3;'
+        f'color:{HEADING}">{e(heading)}</h1>{body}<!--{CONTENT_CLOSE}--></td></tr></table>'
         '<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" '
         'style="width:100%;max-width:560px"><tr><td align="center" '
         f'style="padding:18px 20px 4px;font-size:12px;line-height:1.6;color:{FAINT}">'
         f'<img src="cid:{MASCOT_CID}" alt="" width="40" height="40" '
         'style="display:block;margin:0 auto 6px;border:0">'
-        f"{footer}{site}</td></tr></table></td></tr></table></body></html>\n"
+        f"<!--{FOOTER_OPEN}-->{footer}<!--{FOOTER_CLOSE}-->{site}"
+        "</td></tr></table></td></tr></table></body></html>\n"
     )
 
 

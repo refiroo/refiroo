@@ -61,6 +61,7 @@ describe("routes", () => {
   it.each<[string, RouteState]>([
     ["/notifications", { kind: "notifications" }],
     ["/notifications?notice=n-1", { kind: "notifications", noticeId: "n-1" }],
+    ["/settings", { kind: "settings", page: "index" }],
     ["/settings/about", { kind: "settings", page: "about" }],
     ["/settings/appearance", { kind: "settings", page: "appearance" }],
     ["/settings/notifications", { kind: "settings", page: "notifications" }],
@@ -151,6 +152,54 @@ describe("routes", () => {
       { kind: "settings", page: "model", draftId: "d1", editor: { show: "matrix" } },
     ],
     [
+      "/settings/model/drafts/d1/editor?show=canvas",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "canvas" } },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=canvas&workspace=default",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "canvas" }, forWorkspace: "default" },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=canvas&element=type&key=shelf",
+      { kind: "settings", page: "model", draftId: "d1", editor: { show: "canvas", element: "type", key: "shelf" } },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=canvas&element=field&key=shelf&field=attribute%3Acode",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "canvas", element: "field", key: "shelf", field: "attribute:code" },
+      },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=canvas&element=group&application=shop&key=lists",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "canvas", element: "group", application: "shop", key: "lists" },
+      },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=canvas&element=column&sheet=Shelves&key=Area",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "canvas", element: "column", sheet: "Shelves", key: "Area" },
+      },
+    ],
+    [
+      "/settings/model/drafts/d1/editor?show=canvas&element=list&sheet=Shelves&block=1",
+      {
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "canvas", element: "list", sheet: "Shelves", block: 1 },
+      },
+    ],
+    [
       "/settings/model/drafts/d1/editor?show=type&key=shelf&mode=preview",
       { kind: "settings", page: "model", draftId: "d1", editor: { show: "type", key: "shelf", mode: "preview" } },
     ],
@@ -198,9 +247,15 @@ describe("routes", () => {
     expect(routePath(route)).toBe(path);
   });
 
+  it("reads a workspace's own page from /workspace and writes it back (0.17 SH1)", () => {
+    const route: RouteState = { kind: "workspace", workspaceKey: "stops" };
+    expect(at("/workspace?workspaceKey=stops")).toEqual(route);
+    expect(routePath(route)).toBe("/workspace?workspaceKey=stops");
+  });
+
   it.each<[string, string]>([
-    ["/settings", "/settings/about"],
-    ["/settings/no-such-page", "/settings/about"],
+    ["/settings", "/settings"],
+    ["/settings/no-such-page", "/settings"],
     ["/models", "/settings/model"],
     ["/settings/model/models/a/overview", "/settings/model/models/a"],
     ["/settings/model/models/a/nothing", "/settings/model/models/a"],
@@ -604,5 +659,22 @@ describe("A collection moved to another application (relocatedPath)", () => {
     expect(at("/apps/person-lists/views/person-type-tree", twice)).toBeUndefined();
     expect(at("/apps/person-lists/views/nothing")).toBeUndefined();
     expect(at("/apps/reference-lists/views/person-type-tree")).toBeUndefined();
+  });
+});
+
+describe("the canvas's selection in its address (0.17 CE1)", () => {
+  it("drops a selection that does not name its element whole, keeping the canvas", () => {
+    for (const search of [
+      "?show=canvas&element=type",
+      "?show=canvas&element=field&key=shelf",
+      "?show=canvas&element=list&sheet=Shelves&block=x",
+      "?show=canvas&element=nothing&key=a",
+    ])
+      expect(parseRoute(testModel, "default", { pathname: "/settings/model/drafts/d1/editor", search })).toEqual({
+        kind: "settings",
+        page: "model",
+        draftId: "d1",
+        editor: { show: "canvas" },
+      });
   });
 });

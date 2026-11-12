@@ -11,7 +11,7 @@ Work in an editable draft with **Model authoring** access. If needed,
 ## Add the type
 
 1. Select the application that should list the type. If the draft is empty, use **Application**
-   to add one first, enter its name and apply it.
+   to add one first, enter its name and choose **Add application**.
 2. In the application's **Object types** section, choose **Object type**. In **Add an object type**,
    enter **Name** and, if needed, **Plural name**. Leaving the plural empty uses the name with an s;
    fill it explicitly when that would read incorrectly.
@@ -19,8 +19,8 @@ Work in an editable draft with **Model authoring** access. If needed,
    For children, choose the **Containment relation**. If creating one, fill both **Relation name
    (from the parent)** and **Reverse name (from the child)**. These describe the same connection
    from each end.
-4. Choose **Apply**. The type appears in the model pane and application table. A new type gets
-   a generated table view and record page. Check where it stands before adding fields. If Apply
+4. Choose **Add type**. The type appears in the model pane and application table. A new type gets
+   a generated table view and record page. Check where it stands before adding fields. If Add type
    is unavailable, complete the required names and choices; read any refusal before trying again.
 
 ![Add an object type dialog showing its parent and containment relation fields](/docs/screens/model-hierarchy-dialog.png)
@@ -45,7 +45,7 @@ when you need to change placement; moving a released type used by data may need 
    other types that share the attribute. **Sortable** is still shown, but ordinary non-structured
    fields sort from list headers regardless of that checkbox.
 4. Choose **Required** if records of this type must hold a value. Consider existing records:
-   making a field mandatory does not fill it for them. Choose **Apply** and wait for the row.
+   making a field mandatory does not fill it for them. Choose **Add attribute** and wait for the row.
 5. Check its value type, Required and Unique settings. The new row is marked **New**, its type
    may be **Changed**, and the header's draft version advances. Expand **Issues and history**
    to see the saved step. No live record has acquired a value from adding the definition alone.
@@ -65,8 +65,10 @@ with** before changing its definition: renaming a shared attribute affects every
 Required and Read-only can differ by type. Read-only prevents ordinary value editing; it does not
 supply a value automatically.
 
-Select an editable setting cell, choose the value and use **Save**, or **Cancel** to leave it
-unchanged. A refusal on a released field means you must review its existing data and the migration
+Select an editable setting cell. A choice from a list saves as soon as you select it;
+a text input saves when you leave it or press Enter. Escape puts the old value back.
+An unchanged input closes without saving. A refusal keeps your input and the reason open,
+with **Cancel** and **Save again** beneath it. A refusal on a released field means you must review its existing data and the migration
 requirement rather than forcing the edit. The visual editor refuses a released field’s
 value-type change when it affects stored values. Ask a specialist model author to prepare
 that change in [the JSON view](/docs/guide/model/edit-a-draft-as-json/), save and compare
@@ -74,7 +76,7 @@ the draft, and install the target release. Then
 [review the workspace migration](/docs/guide/model/migrate-a-workspace/) before converting
 data. A draft save alone changes no stored record values.
 
-![Required setting opened in place with Save and Cancel](/docs/screens/model-type-required-edit.png)
+![Required setting opened in place as a Yes or No choice](/docs/screens/model-type-required-edit.png)
 
 *Above: Abbreviation's Required choice is open on Stop. This capture was cancelled without changing it.*
 
@@ -91,7 +93,7 @@ by their name**. Edit **At least one of** to select fields of which one must hol
 clear the selection to remove that requirement.
 
 For business validity, attach two **Date** fields, then edit **Effective period**. Select
-**Starts on** and **Ends on**, and **Apply**. The fields must differ; the end is exclusive and
+**Starts on** and **Ends on**, then **Save**. The fields must differ; the end is exclusive and
 must be later than the start when both are filled. Empty dates leave that end open. Adding
 the rule does not repair existing dates: review compatibility before activation.
 

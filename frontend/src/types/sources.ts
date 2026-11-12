@@ -124,6 +124,76 @@ export interface ListProposal {
   alternatives: { label: string; operations: DraftOperation[] }[];
 }
 
+/** A table of the draft's file and, optionally, one of its columns, by header or sheet letter (0.17 PL3b). */
+export interface JoinColumnRef {
+  sheet: string;
+  headerRow?: number;
+  block?: { firstColumn: string; lastColumn: string; lastRow?: number };
+  column?: string;
+  letter?: string;
+}
+
+/** `POST /model-drafts/{id}/join-candidates` (PP-D8): `column` compared with `against`, over every row. */
+export interface JoinCandidatesRequest {
+  column: JoinColumnRef;
+  against: JoinColumnRef;
+}
+
+/** A column of the compared table with its figures over every row. */
+export interface JoinCandidate {
+  sheet: string;
+  letter: string;
+  header: string | null;
+  rows: number;
+  distinct: number;
+  /** The dropped column's different values the column holds. */
+  matchedValues: number;
+  /** The dropped column's rows whose value the column holds. */
+  matchedRows: number;
+  /** `matchedRows` over the dropped column's rows, 0 to 1. */
+  share: number;
+  /** Every filled cell differs: it reads as a list to link to. */
+  unique: boolean;
+}
+
+/** The answer: candidates best first. On a `tie`, `best` is null and the client asks which of `tied`. */
+export interface JoinCandidates {
+  column: { sheet: string; letter: string; header: string | null; rows: number; distinct: number };
+  candidates: JoinCandidate[];
+  best: string | null;
+  tie: boolean;
+  tied: string[];
+}
+
+/** Where a card sits on the canvas board. */
+export interface CanvasPosition {
+  x: number;
+  y: number;
+}
+
+/** What the board shows (0.17 CE1, PP-D81): every list, only what the draft changed, or the workbook's. */
+export type CanvasScope = "model" | "changed" | "workbook";
+
+/**
+ * `GET`/`PATCH /model-drafts/{id}/canvas`: card key to position, the folded cards' keys and the chosen
+ * scope (`null`: the default); not part of the draft's version or history.
+ */
+export interface Canvas {
+  positions: Record<string, CanvasPosition>;
+  /** Always sent by the server; optional here for a caller that builds one. */
+  folded?: string[];
+  scope?: CanvasScope | null;
+}
+
+/** The body of `PATCH /model-drafts/{id}/canvas`: any of the parts, at least one. */
+export interface CanvasUpdate {
+  positions?: Record<string, CanvasPosition | null>;
+  /** `true` folds a card, `false` or `null` unfolds it; merged by key. */
+  folded?: Record<string, boolean | null>;
+  /** Replaces the chosen scope; `null` is the default. */
+  scope?: CanvasScope | null;
+}
+
 export interface SourcePage<T> {
   items: T[];
   nextCursor: string | null;
@@ -185,6 +255,8 @@ export interface ProfileSource {
   /** A unique attribute, an ID column, or the record's name (`field: "name"`, 0.10 A8a, D117). */
   key?: { attributeTypeKey?: string; column?: string; field?: "name" } | null;
   record?: "existing" | null;
+  /** What a load does with the records no row names: report them (absent) or delete them in a change set (0.17 CE1, PP-D82). */
+  missing?: "report" | "delete" | null;
   /** Every row's parent: the record found for `value` (0.10 A8c, D141). */
   parent?: {
     objectTypeKey: string;
@@ -193,6 +265,25 @@ export interface ProfileSource {
     missing?: "create" | "refuse";
   } | null;
   columns: ProfileBinding[];
+  /** Rows holding only a heading are the parent of the rows beneath them (0.17 PL3b, PP-D7). */
+  headings?: HeadingRows | null;
+  /** Columns repeated by blanks: an empty cell takes the filled cell above it (PP-D7). */
+  fillDown?: string[] | null;
+  /** A wide table read as rows (PP-D6). */
+  unpivot?: Unpivot | null;
+}
+
+/** A wide table read as rows: each filled cell of `columns` is a row, its header in `nameColumn`, its cell in `valueColumn`. */
+export interface Unpivot {
+  columns: string[];
+  nameColumn: string;
+  valueColumn: string;
+}
+
+/** A row holding only `column` is a heading; its text fills the new column `into` on the rows beneath it. */
+export interface HeadingRows {
+  column: string;
+  into: string;
 }
 
 /** A binding a model step took away (D78). */

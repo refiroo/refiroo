@@ -229,8 +229,9 @@ describe("TreeView", () => {
   it("shows the view's root and node types, labels, secondary values and branch order", async () => {
     const read = serve();
     render(lens());
-    expect(screen.getByRole("heading", { level: 1, name: "Code hierarchy" })).toBeInTheDocument();
-    const tree = await screen.findByRole("tree", { name: "Code hierarchy" });
+    // Titled by the type's sidebar entry, the hierarchy being a tab under it (0.17 SH1, PP-D37).
+    expect(screen.getByRole("heading", { level: 1, name: "Domains" })).toBeInTheDocument();
+    const tree = await screen.findByRole("tree", { name: "Domains" });
     const domain = await item("Connections, CONNECTIONS");
     toggle(domain);
     // Only the tree's node types are branches: units are not shown under a domain here.
@@ -1355,7 +1356,7 @@ describe("TreeView restructuring (C4)", () => {
     key(await item(/^Zones/), "ContextMenu");
     fireEvent.click(await screen.findByRole("menuitem", { name: "Change type…" }));
     const dialog = await screen.findByRole("dialog", { name: "Change the type of Zones" });
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Apply to the change set" }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Save" }));
     fireEvent.click(await within(dialog).findByRole("button", { name: "Done" }));
     await waitFor(() => expect(reads).toHaveBeenCalledTimes(2));
     const search = screen.getByRole("textbox", { name: /^Search / });

@@ -187,8 +187,12 @@ try {
   await tabTo(dialog.getByRole("button", { name: /Create translation/ }), "Create translation");
   await page.keyboard.press("Enter");
   await dialog.getByText("English / EN core").waitFor();
+  // The place is chosen in the sheet (nothing is preselected): Tab to the radio, Space.
+  await tabTo(dialog.getByRole("radio").first(), "the place radio");
+  await page.keyboard.press("Space");
   await tabTo(dialog.getByRole("textbox", { name: "Translated name" }), "Translated name");
   await page.keyboard.type("Delivery methods");
+  await tabTo(dialog.getByRole("button", { name: "Add translation", exact: true }), "Add translation");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
   await waitForCell("Delivery Methods", "en", /One.*Delivery methods$/, "fill English");
@@ -252,7 +256,11 @@ try {
   await page.keyboard.press("Enter");
   const restored = dialog.getByRole("textbox", { name: "Translated name" });
   expect((await restored.inputValue()) === "Lieferarten", "Create from this did not prefill the published text");
-  await tabTo(dialog.getByRole("button", { name: "Create translation", exact: true }), "Create translation");
+  if ((await dialog.getByRole("radio", { checked: true }).count()) === 0) {
+    await tabTo(dialog.getByRole("radio").first(), "the place radio");
+    await page.keyboard.press("Space");
+  }
+  await tabTo(dialog.getByRole("button", { name: "Add translation", exact: true }), "Create translation");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
   await waitForCell("Delivery Methods", "de", /One.*Lieferarten$/, "restore German");
@@ -270,17 +278,15 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-translations/change-sets?workspaceKey=default`);
   await tabTo(page.getByRole("button", { name: "Open change set", exact: true }), "Open change set", 80);
   await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "See the data with these changes", exact: true }).click();
   await page.getByRole("region", { name: "Change set publication" }).waitFor();
-  await tabTo(page.getByRole("button", { name: "Validate change set", exact: true }), "Validate change set", 80);
-  await page.keyboard.press("Enter");
-  await page.getByText("Change set validation passed", { exact: true }).waitFor();
-  await tabTo(page.getByRole("button", { name: "Publish change set", exact: true }), "Publish change set", 80);
+  await tabTo(page.getByRole("button", { name: "Publish", exact: true }), "Publish", 80);
   await page.keyboard.press("Enter");
   const confirm = page.getByRole("alertdialog");
   await confirm.waitFor();
-  await tabTo(confirm.getByRole("button", { name: "Publish change set", exact: true }), "confirm publish");
+  await tabTo(confirm.getByRole("button", { name: "Publish", exact: true }), "confirm publish");
   await page.keyboard.press("Enter");
-  await page.getByText(/Reviewed changes are now live/).waitFor();
+  await page.getByText(/The changes are live/).waitFor();
   read = await matrixRead("default", translations, `${columns}&search=Delivery`);
   cells = read.items.find((item) => item.row.id === deliveryMethods.id).cells;
   expect(
@@ -408,10 +414,15 @@ try {
   const places = dialog.getByRole("radio");
   await places.first().waitFor();
   expect((await places.count()) > 1, "the generated column offers one place; the picker is not exercised");
-  await tabTo(places.first(), "first place");
+  // The sheet may open with a place chosen: Tab reaches the chosen radio of the group, or the first.
+  const placeCount = await places.count();
+  let startAt = 0;
+  for (let index = 0; index < placeCount; index++) if (await places.nth(index).isChecked()) startAt = index;
+  await tabTo(places.nth(startAt), "the place radio group");
   await page.keyboard.press("ArrowDown");
-  const chosen = await places.nth(1).getAttribute("value");
-  expect(await places.nth(1).isChecked(), "the arrow key did not choose the second place");
+  const nextAt = (startAt + 1) % placeCount;
+  const chosen = await places.nth(nextAt).getAttribute("value");
+  expect(await places.nth(nextAt).isChecked(), "the arrow key did not choose the next place");
   await tabTo(dialog.getByRole("textbox", { name: "Code" }), "Code");
   await page.keyboard.type("CELL-A5-FILL");
   const active = dialog.getByRole("checkbox", { name: "Active" });
@@ -420,7 +431,7 @@ try {
     await page.keyboard.press("Space");
   }
   await shot("generated-create");
-  await tabTo(dialog.getByRole("button", { name: "Create vol-cell", exact: true }), "Create vol-cell");
+  await tabTo(dialog.getByRole("button", { name: "Add vol-cell", exact: true }), "Create vol-cell");
   await page.keyboard.press("Enter");
   await dialog.waitFor({ state: "detached" });
   await waitForCell(target.row.name, columnLabel, /One/, "generated fill");

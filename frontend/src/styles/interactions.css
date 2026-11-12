@@ -1,0 +1,174 @@
+/* One way for the small interactions, in every theme (0.17 UX1, PP-D40). */
+
+/* --- A dialog opens in the middle of the window, in every theme and frame arrangement (PP-D69; the side sheet of
+   PP-D40 is withdrawn). The phone keeps the full-width dialog it has. A long form scrolls inside the dialog and its
+   buttons stay in sight at the dialog's foot: the main one at the right, Cancel at its left. --- */
+@media (min-width: 761px) {
+  .dialog:not(.navigation-dialog) {
+    border-radius: var(--radius-overlay);
+    animation: pop-in var(--motion) var(--ease-out);
+  }
+  /* Low specificity, so a form with a foot of its own (Map to…, Install, a restructuring plan) keeps it. */
+  :where(.dialog:not(.confirm-dialog):not(.navigation-dialog)) .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin-bottom: -20px;
+    padding-bottom: 20px;
+    background: var(--surface-raised);
+  }
+}
+.confirm-dialog {
+  border-radius: var(--radius-overlay);
+  animation: pop-in var(--motion) var(--ease-out);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog,
+  .confirm-dialog {
+    animation: none !important;
+  }
+}
+
+/* --- One value is changed where it stands: the value becomes its field. No box around it and no second label
+   (the field's name is right above it and stays the control's accessible name). Leaving the field saves it, as Enter
+   does, and Escape puts the old value back: there are no buttons (0.17 UX2, PP-D68). Only a refused save shows its
+   reason under the field, with Cancel and Save again small beside it for the pointer. --- */
+.inline-attribute-editor {
+  gap: 6px;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.inline-attribute-editor fieldset > label:not(.checkbox) {
+  gap: 0;
+  font-size: 0;
+}
+.inline-attribute-editor fieldset > label:not(.checkbox) > * {
+  font-size: var(--text-md);
+}
+.inline-attribute-editor .dialog-actions {
+  gap: 6px;
+}
+.inline-edit-saving {
+  color: var(--text-tertiary);
+  font-size: var(--fs-12);
+}
+.inline-attribute-editor .dialog-actions button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: var(--fs-12);
+}
+
+/* --- A yes or no is a switch that saves itself, in a record's details and in a table alike. --- */
+.flag-cell .checkbox input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  border: 0;
+  border-radius: var(--pill-radius);
+  background: var(--border-control);
+  cursor: pointer;
+  transition: background var(--motion);
+}
+.flag-cell .checkbox input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--motion) var(--ease-out);
+}
+.flag-cell .checkbox input:checked {
+  background: var(--action-primary);
+}
+.flag-cell .checkbox input:checked::after {
+  transform: translateX(12px);
+}
+.flag-cell .checkbox input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* --- A file is chosen or dropped in one place: the file field is a drop area, and its button looks like the
+   other buttons in every theme. --- */
+.file-field {
+  display: block;
+  width: 100%;
+  padding: var(--space-4);
+  border: 1px dashed var(--border-control);
+  border-radius: var(--radius-panel);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast);
+}
+.file-field:hover,
+.file-field-over {
+  border-color: var(--action-primary);
+  background: var(--state-selected);
+}
+.file-field:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+input[type="file"]::file-selector-button {
+  min-height: 28px;
+  margin-right: var(--space-3);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-button);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+}
+input[type="file"]::file-selector-button:hover {
+  background: var(--surface-hover);
+}
+
+/* On a phone a page's actions may wrap under one another instead of widening the page. */
+@media (max-width: 760px) {
+  .page-actions {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+}
+/* The field stands where the value stood (0.17 UX2): in a record's details and in a list's cell a one-line field is
+   as tall as the value's line and its text starts where the value's text did, so the row keeps its height and
+   nothing under it moves. A text of several lines grows the row, as its lines need. */
+.attribute-row .field-editor-row,
+td .field-editor-cell {
+  margin: -4px 0 -4px -9px;
+}
+.attribute-row .field-editor-row .inline-attribute-editor :is(input:not([type="checkbox"]):not([type="radio"]), select),
+td .field-editor-cell .inline-attribute-editor :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 28px;
+  padding: 3px 8px;
+}
+/* A form has no text line to stand on, so the row's name and its field line up by their tops while it is open. */
+.attribute-row.editing,
+.attribute-row.editing dd {
+  align-items: start;
+}
+.attribute-row dd > .field-editor-row {
+  flex: 1 1 100%;
+  min-width: 0;
+}

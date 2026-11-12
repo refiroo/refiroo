@@ -9,7 +9,6 @@ import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
-import { initials } from "@/app/useMe";
 import type { Navigate } from "@/features/home/openWorkspace";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
 import { applicationHue } from "@/model/hues";
@@ -19,12 +18,14 @@ import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { NameMark, SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
+import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { permissionsSummary, PermissionsBody, type AppInfo, type AppsByName } from "./AccountPermissions";
 import { browserName, onPhone } from "./browserName";
+import { settingsHead } from "./navigation";
 import { PasskeysPanel } from "./PasskeysPanel";
 import { SecondFactorPanel } from "./SecondFactorPanel";
 import { useSettingsRead } from "./useSystem";
@@ -39,13 +40,17 @@ const LONG_ENOUGH = 15;
 export function AccountPage({ onNavigate }: { onNavigate?: Navigate }) {
   const { data: me, error, retry } = useSettingsRead<Me>(api.me);
   return (
-    <SettingsLayout eyebrow="General" title="Account">
+    <SettingsLayout
+      {...settingsHead("account")}
+      title="Account"
+      description="Who you are signed in as, how you sign in, and what your roles let you do."
+    >
       {error ? (
         <InlineError message={error} onRetry={retry} />
       ) : !me ? (
         <Skeleton label="Loading your account" lines={4} />
       ) : (
-        <div className="account-page">
+        <>
           <Profile me={me} />
           {me.signInManaged ? (
             <ManagedSignIn />
@@ -58,7 +63,7 @@ export function AccountPage({ onNavigate }: { onNavigate?: Navigate }) {
             </>
           )}
           <Permissions onNavigate={onNavigate} />
-        </div>
+        </>
       )}
     </SettingsLayout>
   );
@@ -66,27 +71,27 @@ export function AccountPage({ onNavigate }: { onNavigate?: Navigate }) {
 
 function Profile({ me }: { me: Me }) {
   return (
-    <section className="account-panel account-profile" aria-label="You">
-      <span className="account-profile-avatar" aria-hidden="true">
-        {initials(me.name)}
-      </span>
-      <div className="account-profile-text">
-        <p className="account-profile-name">{me.name}</p>
-        <p className="account-muted">{me.email && <span>{me.email}</span>}</p>
-        <p className="account-pills">
-          {me.signedInWith && (
-            <span className="account-pill success">
-              <span className="account-dot" aria-hidden="true" />
-              {SIGNED_IN_WITH[me.signedInWith] ?? `Signed in with ${me.signInProvider?.name ?? me.signedInWith}`}
+    <SettingsGroup title="You" description="Who this browser is signed in as.">
+      <SettingsPanel>
+        <SettingRow lead={<NameMark name={me.name} size={64} />} name={me.name} help={me.email}>
+          <button type="button" className="secondary" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </SettingRow>
+        {(me.signedInWith || me.lastSignInAt) && (
+          <SettingRow fact name="Signed in">
+            <span className="account-signed-in">
+              {me.signedInWith && (
+                <StatusPill tone="success">
+                  {SIGNED_IN_WITH[me.signedInWith] ?? `Signed in with ${me.signInProvider?.name ?? me.signedInWith}`}
+                </StatusPill>
+              )}
+              {me.lastSignInAt && <StatusPill tone="neutral">Since {formatServerDayTime(me.lastSignInAt)}</StatusPill>}
             </span>
-          )}
-          {me.lastSignInAt && <span className="account-pill">Since {formatServerDayTime(me.lastSignInAt)}</span>}
-        </p>
-      </div>
-      <button type="button" className="secondary" onClick={() => void signOut()}>
-        Sign out
-      </button>
-    </section>
+          </SettingRow>
+        )}
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
@@ -94,18 +99,14 @@ function Profile({ me }: { me: Me }) {
  * keeps them (0.17 SA1). Hidden, not disabled (Z5, D323). */
 function ManagedSignIn() {
   return (
-    <Section title="Sign-in">
-      <div className="account-panel">
-        <div className="account-row">
-          <span className="account-tile current" aria-hidden="true">
-            <Icon name="lock" size={20} />
-          </span>
-          <div className="account-row-text">
-            <span className="account-muted">An administrator manages the sign-in of this account.</span>
-          </div>
-        </div>
-      </div>
-    </Section>
+    <SettingsGroup title="Sign-in" description="How you sign in to this account.">
+      <SettingsPanel>
+        <SettingRow
+          lead={<SettingsTile icon="lock" hue={settingsHead("account").hue} />}
+          name="An administrator manages the sign-in of this account."
+        />
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }
 
@@ -187,74 +188,77 @@ function PasswordPanel() {
 
   const filled = Math.min(4, Math.ceil((next.length / LONG_ENOUGH) * 4));
   return (
-    <Section title="Password">
-      <div className="account-panel">
-        <div className="account-row">
-          <span className="account-tile current" aria-hidden="true">
-            <Icon name="lock" size={20} />
-          </span>
-          <div className="account-row-text">
-            <strong>Your password</strong>
-            <span className="account-muted">Changing it signs you out of your other browsers.</span>
-          </div>
-          {!open && (
+    <SettingsGroup title="Password" description="Sign in with a password only you know.">
+      {open ? (
+        <form onSubmit={(event) => void submit(event)}>
+          <SettingsPanel
+            foot={
+              <>
+                <button type="button" className="ghost" onClick={close}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary" disabled={pending}>
+                  {pending ? "Saving…" : "Save"}
+                </button>
+              </>
+            }
+          >
+            <div className="settings-fields">
+              <FormField label="Current password" error={currentError || undefined}>
+                {(control) => (
+                  <PasswordInput
+                    control={control}
+                    name="current"
+                    value={current}
+                    onChange={setCurrent}
+                    autoComplete="current-password"
+                  />
+                )}
+              </FormField>
+              <FormField
+                label="New password"
+                help={
+                  next.length >= LONG_ENOUGH
+                    ? "Long enough. A phrase of several words is easiest to remember."
+                    : "A phrase of several words is easiest to remember and hardest to guess."
+                }
+                error={nextError || undefined}
+              >
+                {(control) => (
+                  <>
+                    <PasswordInput
+                      control={control}
+                      name="new"
+                      value={next}
+                      onChange={setNext}
+                      autoComplete="new-password"
+                    />
+                    <span className="account-meter" aria-hidden="true">
+                      {[0, 1, 2, 3].map((step) => (
+                        <span key={step} className={step < filled ? "filled" : undefined} />
+                      ))}
+                    </span>
+                  </>
+                )}
+              </FormField>
+              {failure && <Notice tone="error">{failure}</Notice>}
+            </div>
+          </SettingsPanel>
+        </form>
+      ) : (
+        <SettingsPanel>
+          <SettingRow
+            lead={<SettingsTile icon="lock" hue={settingsHead("account").hue} />}
+            name="Your password"
+            help="Changing it signs you out of your other browsers."
+          >
             <button type="button" className="secondary" onClick={() => setOpen(true)}>
               Change password
             </button>
-          )}
-        </div>
-        {open && (
-          <form className="account-row account-password" onSubmit={(event) => void submit(event)}>
-            <FormField label="Current password" error={currentError || undefined}>
-              {(control) => (
-                <PasswordInput
-                  control={control}
-                  name="current"
-                  value={current}
-                  onChange={setCurrent}
-                  autoComplete="current-password"
-                />
-              )}
-            </FormField>
-            <FormField
-              label="New password"
-              help={
-                next.length >= LONG_ENOUGH
-                  ? "Long enough. A phrase of several words is easiest to remember."
-                  : "A phrase of several words is easiest to remember and hardest to guess."
-              }
-              error={nextError || undefined}
-            >
-              {(control) => (
-                <>
-                  <PasswordInput
-                    control={control}
-                    name="new"
-                    value={next}
-                    onChange={setNext}
-                    autoComplete="new-password"
-                  />
-                  <span className="account-meter" aria-hidden="true">
-                    {[0, 1, 2, 3].map((step) => (
-                      <span key={step} className={step < filled ? "filled" : undefined} />
-                    ))}
-                  </span>
-                </>
-              )}
-            </FormField>
-            {failure && <Notice tone="error">{failure}</Notice>}
-            <div className="account-actions">
-              <button type="submit" className="primary" disabled={pending}>
-                {pending ? "Saving…" : "Save new password"}
-              </button>
-              <button type="button" className="ghost" onClick={close}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </Section>
+          </SettingRow>
+        </SettingsPanel>
+      )}
+    </SettingsGroup>
   );
 }
 
@@ -290,14 +294,17 @@ function Sessions() {
   }
 
   return (
-    <Section
+    <SettingsGroup
       title="Where you’re signed in"
-      actions={
-        sessions && (
-          <span className="account-muted">
-            {sessions.length} browser{sessions.length === 1 ? "" : "s"}
-          </span>
-        )
+      description={
+        <>
+          <p>Every browser, and every assistant, signed in as you.</p>
+          {sessions && (
+            <p>
+              {sessions.length} browser{sessions.length === 1 ? "" : "s"}
+            </p>
+          )}
+        </>
       }
     >
       {failure && <Notice tone="error">{failure}</Notice>}
@@ -306,53 +313,56 @@ function Sessions() {
       ) : !sessions ? (
         <Skeleton label="Loading where you are signed in" lines={2} />
       ) : (
-        <div className="account-panel">
-          <ul className="account-list" aria-label="Where you’re signed in">
-            {sessions.map((session) => {
-              const name = session.application ? `${session.application} (assistant)` : browserName(session.userAgent);
-              return (
-                <li key={session.id} className="account-row">
-                  <span className={session.current ? "account-tile current" : "account-tile"} aria-hidden="true">
-                    <Icon name={onPhone(session.userAgent) ? "phone" : "laptop"} size={20} />
-                  </span>
-                  <div className="account-row-text">
-                    <span className="account-row-title">
-                      <strong>{name}</strong>
-                      {session.current && (
-                        <span className="account-pill success">
-                          <span className="account-dot" aria-hidden="true" />
-                          This browser
+        <>
+          <SettingsPanel>
+            <ul className="account-list" aria-label="Where you’re signed in">
+              {sessions.map((session) => {
+                const name = session.application
+                  ? `${session.application} (assistant)`
+                  : browserName(session.userAgent);
+                return (
+                  <li key={session.id}>
+                    <SettingRow
+                      lead={
+                        <SettingsTile
+                          icon={onPhone(session.userAgent) ? "phone" : "laptop"}
+                          hue={settingsHead("account").hue}
+                        />
+                      }
+                      name={
+                        <span className="account-row-title">
+                          <strong>{name}</strong>
+                          {session.current && <StatusPill tone="success">This browser</StatusPill>}
                         </span>
-                      )}
-                    </span>
-                    <span className="account-muted">
-                      {session.current ? "Active now" : `Last active ${formatServerAgo(session.lastUsedAt)}`} · signed
-                      in {formatServerDayTime(session.createdAt)}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={pending !== undefined}
-                    aria-label={`Sign out ${name}${session.current ? ", this browser" : ""}`}
-                    onClick={() => void end(session)}
-                  >
-                    Sign out
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="account-row account-footer">
-            <span className="account-muted">
-              Lost a device, or signed in somewhere you shouldn’t have? Sign out of every browser at once, this one
-              included.
-            </span>
-            <button type="button" className="danger-ghost" onClick={() => setConfirming(true)}>
-              Sign out everywhere
-            </button>
-          </div>
-        </div>
+                      }
+                      help={`${session.current ? "Active now" : `Last active ${formatServerAgo(session.lastUsedAt)}`} · signed in ${formatServerDayTime(session.createdAt)}`}
+                    >
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={pending !== undefined}
+                        aria-label={`Sign out ${name}${session.current ? ", this browser" : ""}`}
+                        onClick={() => void end(session)}
+                      >
+                        Sign out
+                      </button>
+                    </SettingRow>
+                  </li>
+                );
+              })}
+            </ul>
+          </SettingsPanel>
+          <SettingsPanel>
+            <SettingRow
+              name="Sign out everywhere"
+              help="Lost a device, or signed in somewhere you shouldn’t have? Sign out of every browser at once, this one included."
+            >
+              <button type="button" className="danger-ghost" onClick={() => setConfirming(true)}>
+                Sign out everywhere
+              </button>
+            </SettingRow>
+          </SettingsPanel>
+        </>
       )}
       {confirming && (
         <ConfirmDialog
@@ -365,7 +375,7 @@ function Sessions() {
           Every browser where you are signed in, this one included, is signed out at its next request.
         </ConfirmDialog>
       )}
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -412,11 +422,14 @@ function Permissions({ onNavigate }: { onNavigate?: Navigate }) {
   const grants = data?.[0];
   const labels = new Map(data?.[1].items.map((workspace) => [workspace.key, workspace.label]));
   return (
-    <Section
+    <SettingsGroup
+      stacked
       title="What you can do"
-      actions={
-        grants &&
-        grants.length > 0 && <span className="account-muted">{permissionsSummary(grants, labels, data![2])}</span>
+      description={
+        <>
+          <p>Your roles, where each applies and what it covers.</p>
+          {grants && grants.length > 0 && <p>{permissionsSummary(grants, labels, data![2])}</p>}
+        </>
       }
     >
       {error ? (
@@ -426,6 +439,6 @@ function Permissions({ onNavigate }: { onNavigate?: Navigate }) {
       ) : (
         <PermissionsBody grants={grants} labels={labels} groups={data![2]} apps={data![3]} onNavigate={onNavigate} />
       )}
-    </Section>
+    </SettingsGroup>
   );
 }

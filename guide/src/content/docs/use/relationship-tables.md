@@ -29,9 +29,15 @@ window starts partway through a group.
 
 **Display** chooses columns and the reading size. **Attributes of the relationship** separates
 connection values from record fields. An editable relationship value opens its editor in the
-cell; Enter submits a single-line value, leaving the editor attempts a save, and Escape cancels.
-A Yes or no value saves when changed. A stale save shows the current saved relationship so you
-can review it before retrying. Tick existing relationships to set one attribute across them;
+cell, without **Save** or **Cancel** buttons. Leaving the field by clicking elsewhere or pressing
+Tab saves it; Enter also saves a single-line value. In text of several lines, Enter adds a new
+line and Ctrl+Enter (Cmd+Enter on a Mac) saves. Escape puts the old value back. An unchanged
+input closes without saving or showing a notice. A Yes or no value saves when changed.
+A saved input shows **‹Field› saved** with **Undo**, including for a value set for the first
+time. Emptying an optional input and leaving it removes its value; **‹Field› removed** offers
+**Undo**. A refusal keeps the input open with the reason and **Cancel** and **Save again**
+beneath it. Leaving it again retries only after its input changes. A stale save shows the
+current saved relationship so you can review it before retrying. Tick existing relationships to set one attribute across them;
 see [Change relationship values in bulk](/docs/guide/use/change-relationship-values-in-bulk/#change-ticked-relationships-in-the-rows-layout).
 
 ![Relationships in rows with both endpoint fields, carried values and a counted group heading](/docs/screens/relationships-table-rows.png)
@@ -54,8 +60,12 @@ connection for that row and column where permitted. Linking still has to meet ca
 number rules. It does not create either endpoint record.
 
 Edit a linked value where it stands. A Yes or no checkbox saves in one click. Other values open
-a small editor over the cell: Enter submits a single-line value, Escape cancels, and leaving
-the editor attempts a save. The row refreshes after saving. If another person saved first,
+their input over the cell: leaving it saves, as does Enter for a single-line value. In text
+of several lines, Enter adds a new line and Ctrl+Enter (Cmd+Enter on a Mac) saves. Escape puts
+the old value back; leaving an unchanged input saves nothing. A saved input offers **Undo**
+in **‹Field› saved**, or **‹Field› removed** when emptied. The row refreshes after saving.
+If a save is refused, the input and reason stay with **Cancel** and **Save again** beneath;
+leaving it again retries only after its input changes. If another person saved first,
 review **Current saved relationship** before retrying; your stale value is not silently applied.
 
 ![Relationships grid with two header rows, linked counts and two stops selected](/docs/screens/relationships-grid-two-headers.png)

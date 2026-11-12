@@ -139,6 +139,33 @@ def test_message(product: str, application_url: str) -> Rendered:
     )
 
 
+def template_test(product: str, application_url: str) -> Rendered:
+    """What the operator's e-mail template wraps in a preview or a test: a short sample message."""
+    html = mailhtml.layout(
+        product,
+        "This is how your mail looks",
+        [
+            mailhtml.paragraph(
+                f"This is a sample message from {mailhtml.e(product)}. Every message it sends "
+                "(invitations, password resets, notices and digests) appears in this place."
+            ),
+            mailhtml.button(application_url, "Open the application"),
+        ],
+        f"Sent by {mailhtml.e(product)} to try the e-mail template.",
+        "A sample of the e-mail template.",
+    )
+    return Rendered(
+        TEST,
+        f"{product}: e-mail template test",
+        "This is how your mail looks\n\n"
+        f"This is a sample message from {product}. Every message it sends (invitations, password "
+        "resets, notices and digests) appears in this place.\n\n"
+        f"Open the application: {application_url}\n\n"
+        f"Sent by {product} to try the e-mail template.\n",
+        html,
+    )
+
+
 # What one inbox notice says, by its kind: the kind of event and nothing of what it is about (D432).
 _NOTICE_SENTENCES = {kind: f"{label}." for kind, label in kinds.LABELS.items()}
 _NOTICE_OTHER = "Something is waiting in your inbox."

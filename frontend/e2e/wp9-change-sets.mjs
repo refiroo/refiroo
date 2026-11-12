@@ -3,7 +3,7 @@ import { recordAction } from "./record-actions.mjs";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { chooseObject } from "./helpers/lists.mjs";
+import { chooseObject, openMoreFields } from "./helpers/lists.mjs";
 import { bootHarness, watchPageErrors } from "./helpers/harness.mjs";
 
 const failures = [];
@@ -77,40 +77,41 @@ try {
   }
   async function startChangeSet(name) {
     await page.getByRole("navigation", { name: "Workspace data context" }).getByRole("button", { name: "Change sets", exact: true }).click();
-    await page.locator(".page-header").getByRole("button", { name: "Start from current live data", exact: true }).click();
-    await dialog().getByLabel("Change set name").fill(name);
-    await dialog().getByRole("button", { name: "Create change set", exact: true }).click();
+    await page.locator(".page-header").getByRole("button", { name: "New change set", exact: true }).click();
+    await dialog().getByLabel("Name", { exact: true }).fill(name);
+    await dialog().getByRole("button", { name: "Start change set", exact: true }).click();
     await shown(page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name, exact: true }));
-    assert.match(await page.locator("main").innerText(), /Current live data at change set creation/);
+    // Who, when and where it started are under the bar's Details (0.17 SH1).
+    await page.getByRole("button", { name: "Details", exact: true }).click();
+    assert.match(await page.locator("#change-set-details").innerText(), /Started from live data/);
     return new URL(page.url()).searchParams.get("changeSetId");
   }
   async function edit(object, changeSetId, fields) {
     await open(object, changeSetId);
     await recordAction(page, "Edit record");
     for (const [key, val] of Object.entries(fields)) {
+      await openMoreFields(dialog());
       const control = dialog().getByLabel(key, { exact: true });
       if (typeof val === "boolean") await control.setChecked(val); else await control.fill(val);
     }
     const response = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes(`/objects/${object.objectTypeKey}/`));
-    await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
+    await dialog().getByRole("button", { name: "Save", exact: true }).click();
     const result = await response;
     assert.equal(result.status(), 200, await result.text());
     await dialog().waitFor({ state: "hidden" });
     return get(object, changeSetId);
   }
   async function validate() {
-    await page.getByRole("button", { name: "Validate change set", exact: true }).click();
-    await shown(page.getByText("Change set validation passed", { exact: true }));
-    await page.getByRole("button", { name: "Publish change set", exact: true }).waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Publish", exact: true }).waitFor({ state: "visible" });
   }
   async function publish(status = 200) {
-    await page.getByRole("button", { name: "Publish change set", exact: true }).click();
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
     assert.equal(await confirm().getByRole("button", { name: "Cancel", exact: true }).evaluate((node) => node === document.activeElement), true);
     const response = page.waitForResponse((response) => response.url().endsWith("/publication") && response.request().method() === "POST");
-    await confirm().getByRole("button", { name: "Publish change set", exact: true }).click();
+    await confirm().getByRole("button", { name: "Publish", exact: true }).click();
     const result = await response;
     assert.equal(result.status(), status, await result.text());
-    if (status === 200) await shown(page.getByText(/Reviewed changes are now live/));
+    if (status === 200) await shown(page.getByText(/The changes are live/));
     else await shown(page.getByText(/The change set is preserved/));
     return result.json();
   }
@@ -125,9 +126,10 @@ try {
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
   await chooseObject(dialog(), group.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Czech methods");
+  await openMoreFields(dialog());
   await dialog().getByLabel("Translated name", { exact: true }).fill("Způsoby");
   const translationResponse = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith("/api/v1/objects"));
-  await dialog().getByRole("button", { name: "Create", exact: true }).click();
+  await dialog().getByRole("button", { name: /^Add / }).click();
   const translatedResponse = await translationResponse;
   assert.equal(translatedResponse.status(), 201, await translatedResponse.text());
   const translation = await translatedResponse.json();
@@ -139,7 +141,7 @@ try {
   const translatedName = panel(page, "Translation details").locator(".attribute-grid > div").filter({ has: page.locator("dt", { hasText: /^Translated name$/ }) });
   await translatedName.getByRole("button", { name: /^Edit / }).click();
   await page.getByRole("form").getByLabel("Translated name", { exact: true }).fill("Doručení");
-  await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
+  await page.keyboard.press("Enter");
   await page.getByRole("form").waitFor({ state: "hidden" });
   assert.equal(value(await get(translation, first), "translated-name"), "Doručení");
   await api(`/objects/domain/${other.id}`, { expectedVersion: other.version, name: "Payment live correction" }, "PATCH");
@@ -151,8 +153,9 @@ try {
   await open(domain, first);
   await panel(page, "System representations").getByRole("button", { name: "Add relationship" }).click();
   await chooseObject(dialog(), systemValue.id);
+  await openMoreFields(dialog());
   await dialog().getByLabel("Count", { exact: true }).fill("0");
-  await dialog().getByRole("button", { name: "Create", exact: true }).click();
+  await dialog().getByRole("button", { name: /^Add / }).click();
   await dialog().waitFor({ state: "hidden" });
   const changeSetRelations = await api(`/relations?objectId=${domain.id}&changeSetId=${first}`);
   assert(changeSetRelations.items.some((item) => item.relation.toObjectId === systemValue.id));
@@ -189,10 +192,10 @@ try {
   const latestChangeSet = await api(`/change-sets/${second}`);
   const latestObject = await get(domain, second);
   await api(`/objects/domain/${domain.id}`, { changeSetId: second, expectedChangeSetVersion: latestChangeSet.version, expectedVersion: latestObject.version, name: "Other change set editor" }, "PATCH");
-  await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
+  await dialog().getByRole("button", { name: "Save", exact: true }).click();
   await shown(dialog().getByText(/your edits are preserved/));
   assert.equal(await dialog().getByLabel("Name", { exact: true }).inputValue(), "My preserved input");
-  await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
+  await dialog().getByRole("button", { name: "Save", exact: true }).click();
   await dialog().waitFor({ state: "hidden" });
   assert.equal((await get(domain, second)).name, "My preserved input");
   await edit(system, second, { Name: "Must not publish" });
@@ -208,11 +211,11 @@ try {
   assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 1);
   checks.push("SC-05 post-publication additions and edits copied; record/aggregate conflict retains form input with explicit retry; SC-06 touched-record activation conflict names identity, preserves change set and publishes no other changes");
   await openChangeSetMenu();
-  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard", exact: true }).click();
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   await api(`/change-sets/${second}`);
   await openChangeSetMenu();
-  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard", exact: true }).click();
   await confirm().getByRole("button", { name: "Discard change set", exact: true }).click();
   const discarded = page.getByText("Change set discarded. Live data is unchanged.", { exact: true });
   await shown(discarded);
@@ -245,18 +248,16 @@ try {
   const fourth = await startChangeSet("Change set deletion review");
   await open(domain, fourth);
   await recordAction(page, "Delete record");
-  await confirm().getByRole("button", { name: "Delete", exact: true }).click();
-  await shown(confirm().getByRole("button", { name: "Confirm deletion", exact: true }));
+  // One confirmation (0.17 UX1): the dialog reads what the delete takes and shows it with one button.
+  await shown(confirm().getByRole("button", { name: /^Delete \d+ records$/ }));
   const beforeDelete = await api(`/change-sets/${fourth}`);
   const child = await get(codelist, fourth);
   await api(`/objects/codelist/${child.id}`, { changeSetId: fourth, expectedChangeSetVersion: beforeDelete.version, expectedVersion: child.version, name: "Changed child" }, "PATCH");
-  await confirm().getByRole("button", { name: "Confirm deletion", exact: true }).click();
-  await shown(confirm().getByRole("button", { name: "Retry", exact: true }));
+  await confirm().getByRole("button", { name: /^Delete \d+ records$/ }).click();
+  await shown(confirm().getByText(/The record changed after this was shown/));
   await get(domain, fourth); await get(codelist, fourth);
-  await confirm().getByRole("button", { name: "Retry", exact: true }).click();
-  await confirm().getByRole("button", { name: "Delete", exact: true }).click();
   await shown(confirm().getByText("Changed child", { exact: false }));
-  await confirm().getByRole("button", { name: "Confirm deletion", exact: true }).click();
+  await confirm().getByRole("button", { name: /^Delete \d+ records$/ }).click();
   await confirm().waitFor({ state: "hidden" });
   assert.equal((await fetch(`${apiUrl}/api/v1/objects/domain/${domain.id}?changeSetId=${fourth}`)).status, 404);
   assert.equal((await fetch(`${apiUrl}/api/v1/objects/codelist/${codelist.id}?changeSetId=${fourth}`)).status, 404);
@@ -265,13 +266,12 @@ try {
   // Independent system hierarchy can be deleted using the same change set control.
   await open(system, fourth);
   await recordAction(page, "Delete record");
-  await confirm().getByRole("button", { name: "Delete", exact: true }).click();
-  await confirm().getByRole("button", { name: "Confirm deletion", exact: true }).click();
+  await confirm().getByRole("button", { name: /^Delete \d+ records$/ }).click();
   await confirm().waitFor({ state: "hidden" });
   await get(system); await get(systemValue);
   await page.setViewportSize({ width: 390, height: 844 });
   await openChangeSetMenu();
-  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard", exact: true }).click();
   await page.keyboard.press("Escape");
   await confirm().waitFor({ state: "hidden" });
   // Discard is an item of the bar's menu (UA5), so focus returns to the menu's button.

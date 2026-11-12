@@ -78,7 +78,7 @@ export function ProfileLoadDialog({
   return (
     <Modal
       title={`Load ${file.name} into a change set`}
-      eyebrow="Load the next version"
+      eyebrow="Workspaces and models"
       description={summary}
       busy={working}
       onClose={onClose}

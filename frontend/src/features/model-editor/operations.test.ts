@@ -7,6 +7,7 @@ import {
   needsMigration,
   OPERATIONS,
   operationById,
+  operationTargetKinds,
   operationsFor,
   visibleFields,
   type FieldValues,
@@ -970,5 +971,21 @@ describe("the consumer API descriptors (0.10 A4c, D51)", () => {
     ]);
     const last = { ...TARGETS.consumerItem, index: 3 } as OperationTarget;
     expect(operationsFor(last, outline).map((op) => op.id)).not.toContain("consumer-item-down");
+  });
+});
+
+describe("the table of operations as another page reads it (0.17 CE1)", () => {
+  it("lists every operation once with the kind of target it acts on", () => {
+    const listed = operationTargetKinds();
+    expect(listed).toHaveLength(OPERATIONS.length);
+    expect(new Set(listed.map((item) => item.id)).size).toBe(OPERATIONS.length);
+    expect(listed.find((item) => item.id === "relation-remove")?.on).toBe("relation");
+  });
+
+  it("offers a target the operations of its kind that are available, and nothing of another kind", () => {
+    const outline = outlineFixture();
+    const offered = operationsFor({ on: "objectType", objectType: outline.objectTypes[0]!.key }, outline);
+    expect(offered.length).toBeGreaterThan(0);
+    expect(offered.every((item) => item.on === "objectType")).toBe(true);
   });
 });

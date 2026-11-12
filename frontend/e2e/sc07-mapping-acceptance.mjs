@@ -80,7 +80,7 @@ try {
 
   const grid = page.getByRole("region", { name: /mapping grid$/ });
   const dialogFor = (name) => page.getByRole("dialog", { name: new RegExp(`Change mapping — ${name}`) });
-  const save = (dialog) => dialog.getByRole("button", { name: "Save mapping", exact: true });
+  const save = (dialog) => dialog.getByRole("button", { name: "Save", exact: true });
   // Candidate search is debounced; choosing before the final results arrive would lose the choice
   // when the list re-renders, so wait for the response to this exact search first.
   // The lens search reloads coverage; act on rows only once the filtered page has arrived.
@@ -242,8 +242,8 @@ try {
     "starter mapping writes changed the independent alignment binding",
   );
   await page.goto(`${uiUrl}/apps/rdm-master/views/qa-alignment?workspaceKey=default`);
-  await page.getByRole("heading", { name: "Master alignment", level: 1 }).waitFor();
   const lenses = page.getByRole("navigation", { name: "Collection lenses" });
+  await lenses.getByRole("button", { name: "Master alignment", exact: true }).waitFor();
   expect(
     JSON.stringify(await lenses.getByRole("button").allTextContents()) ===
       JSON.stringify(["Master values", "Master ← System mapping", "Master alignment"]),
@@ -332,11 +332,9 @@ try {
 
   const publication = page.getByRole("region", { name: "Change set publication" });
   async function validateAndActivate() {
-    await publication.getByRole("button", { name: "Validate change set", exact: true }).click();
-    await page.getByText("Change set validation passed", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "Publish change set", exact: true }).click();
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
     const response = page.waitForResponse((r) => r.url().endsWith("/publication") && r.request().method() === "POST");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
     return response;
   }
   let activation = await validateAndActivate();
@@ -364,7 +362,7 @@ try {
   await api(`/relations/${liveEdge.id}?expectedVersion=${liveEdge.version}`, undefined, "DELETE");
   activation = await validateAndActivate();
   expect(activation.status() === 200, `restored-set activation returned ${activation.status()}`);
-  await page.getByText(/Reviewed changes are now live/).waitFor();
+  await page.getByText(/The changes are live/).waitFor();
   expect(
     targetNames(await starterRow("PICKUP")).join() === "Parcel locker",
     "activation did not publish the change set mapping",

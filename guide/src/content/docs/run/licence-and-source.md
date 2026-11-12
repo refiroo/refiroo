@@ -21,7 +21,7 @@ setting. Apply it in the installation environment and recreate the engine:
 docker compose up -d engine
 ```
 
-Check the source link in **Settings › General › About** and the account menu. It must lead
+Check the source link in **Settings › This instance › About** and the account menu. It must lead
 to the source of that running build. The authenticated system-information operation
 `GET /api/v1/system` also reports it as `engine.sourceCode`, alongside engine version and licence;
 see the [API reference](/docs/api).

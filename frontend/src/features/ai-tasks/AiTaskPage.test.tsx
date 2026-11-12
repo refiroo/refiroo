@@ -513,7 +513,7 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
   it("names the workspace in the trail", async () => {
     vi.mocked(ai.task).mockResolvedValue(task());
     open();
-    const trail = await screen.findByRole("navigation", { name: "Breadcrumb" });
+    const trail = await screen.findByRole("navigation", { name: "Where you are" });
     await waitFor(() => expect(within(trail).getByRole("link", { name: "West" })).toBeInTheDocument());
     expect(within(trail).getByText("Load a workbook")).toBeInTheDocument();
   });

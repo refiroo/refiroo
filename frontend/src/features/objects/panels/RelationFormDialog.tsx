@@ -139,17 +139,18 @@ export function RelationFormDialog({
 
   if (!choice) return null;
   const failure = error || edit.error;
+  const typeName = (key: string) => model.objectTypes.find((item) => item.key === key)?.name ?? key;
+  const otherName = typeName(choice.otherObjectTypeKey);
+  const adding = !existing && !replacing && !setting;
+  // Opened from a relationship panel there is one relationship to add: it is said as a sentence, and the
+  // choice stays only where the panel offers more than one (0.17 PL2).
+  const known = choices.length === 1;
+  const article = /^[aeiou]/i.test(otherName) ? "an" : "a";
   return (
     <Modal
-      title={existing || replacing ? choice.label : setting ? `Set ${choice.label.toLowerCase()}` : "Connect an object"}
+      title={existing || replacing ? choice.label : setting ? `Set ${choice.label.toLowerCase()}` : `Add ${otherName}`}
       eyebrow={
-        existing
-          ? "Edit relationship"
-          : replacing
-            ? "Change relationship"
-            : setting
-              ? "Set relationship"
-              : "Create relationship"
+        existing ? "Edit relationship" : replacing ? "Change relationship" : setting ? "Set relationship" : object.name
       }
       busy={busy}
       dirty={dirty}
@@ -163,9 +164,17 @@ export function RelationFormDialog({
         )}
         {choosing && (
           <>
-            {!replacing && (
+            {adding && known && (
+              <>
+                <p className="relation-sentence">
+                  Add {article} {otherName} to <strong>{object.name}</strong>
+                </p>
+                <p className="admin-hint">Relationship: {choice.label}</p>
+              </>
+            )}
+            {!replacing && !(adding && known) && (
               <label>
-                Relationship
+                {adding ? "What to add" : "Relationship"}
                 <select
                   value={choiceIndex}
                   onChange={(event) => {
@@ -178,16 +187,16 @@ export function RelationFormDialog({
                       key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
                       value={index}
                     >
-                      {item.label} ({item.direction})
+                      {adding ? `${typeName(item.otherObjectTypeKey)} (${item.label})` : item.label}
                     </option>
                   ))}
                 </select>
               </label>
             )}
             <fieldset className="lookup-field">
-              <legend>Object</legend>
+              <legend>{otherName}</legend>
               <ObjectLookup
-                label="Object"
+                label={otherName}
                 objectTypeKey={choice.otherObjectTypeKey}
                 workspaceKey={object.workspaceKey}
                 excludeId={replacing?.object.id ?? object.id}
@@ -222,7 +231,7 @@ export function RelationFormDialog({
             Cancel
           </button>
           <button className="primary" disabled={busy || (!existing && !candidate)}>
-            {busy ? "Saving…" : existing ? "Save" : replacing ? "Change" : setting ? "Set" : "Create"}
+            {busy ? "Saving…" : existing ? "Save" : replacing ? "Change" : setting ? "Set" : `Add ${otherName}`}
           </button>
         </div>
       </form>

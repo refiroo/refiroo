@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import type { AttributeTypeDefinition, AttributesPanelDefinition, EngineModel, ObjectItem } from "@/types";
+import type { AttributesPanelDefinition, EngineModel, ObjectItem } from "@/types";
 import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
-import { RemoveValueDialog } from "@/features/objects/RemoveValueDialog";
+import { useRemovals } from "@/features/objects/useRemovals";
 import { IconButton } from "@/ui/IconButton";
 import { EditableField, fieldEditing } from "@/features/objects/EditableField";
 import { readEditHint } from "@/lib/editHint";
@@ -25,12 +25,11 @@ export function AttributesPanel({
   onChanged?: () => void;
   readOnly?: boolean;
 }) {
-  const { changeSet, warning } = useWorkspaceData();
-  const [removedField, setRemovedField] = useState("");
+  const { warning } = useWorkspaceData();
+  const { removeValue } = useRemovals();
   const objectType = objectTypeFor(model, object.objectTypeKey);
   const bindingMap = new Map((objectType?.attributes ?? []).map((binding) => [binding.attributeTypeKey, binding]));
   const [editingField, setEditingField] = useState<string>();
-  const [removing, setRemoving] = useState<AttributeTypeDefinition>();
 
   return (
     <>
@@ -52,15 +51,14 @@ export function AttributesPanel({
                   layout="row"
                   readOnly={readOnly}
                   editing={editingField === field}
-                  disabled={!!editingField || !!removing}
                   onEdit={() => {
-                    setRemovedField("");
                     setEditingField(field);
                   }}
-                  onClose={() => setEditingField(undefined)}
+                  onClose={() => setEditingField((open) => (open === field ? undefined : open))}
                   onSaved={(saved) => {
+                    // The save of a field left for another comes after that one opened: only this one closes.
                     onObjectChanged(saved);
-                    setEditingField(undefined);
+                    setEditingField((open) => (open === field ? undefined : open));
                   }}
                   onConflict={onReload}
                 />
@@ -72,34 +70,21 @@ export function AttributesPanel({
                       tone="danger"
                       quiet
                       className="attribute-remove"
-                      disabled={!!editingField || !!removing || !!warning}
-                      onClick={() => setRemoving(editable.attribute)}
+                      disabled={!!warning}
+                      onClick={() =>
+                        void removeValue(object, editable.attribute, async () => {
+                          onChanged();
+                          await onReload();
+                        })
+                      }
                     />
                   </div>
-                )}
-                {removedField === field && (
-                  <p role="status" className="inline-save-status">
-                    {warning || (changeSet ? `Saved to change set “${changeSet.name}”` : "Saved to Live")}
-                  </p>
                 )}
               </dd>
             </div>
           );
         })}
       </dl>
-      {removing && (
-        <RemoveValueDialog
-          object={object}
-          attribute={removing}
-          reload={onReload}
-          onChanged={onChanged}
-          onCancel={() => setRemoving(undefined)}
-          onRemoved={() => {
-            setRemoving(undefined);
-            setRemovedField(removing.key);
-          }}
-        />
-      )}
     </>
   );
 }

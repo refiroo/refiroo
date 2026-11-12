@@ -429,11 +429,10 @@ try {
     await table.getByRole("button", { name: label, exact: true }).click();
     const editor = table.locator("form.inline-attribute-editor");
     await editor.getByRole("spinbutton").fill("4321");
-    await editor.getByRole("button", { name: "Save" }).click();
-    await page
-      .getByText(/^Rank of “.+” saved to Live$/)
-      .last()
-      .waitFor();
+    // Enter saves the one value (0.17 UX2); the toast no longer names the record or the place.
+    await page.keyboard.press("Enter");
+    await editor.waitFor({ state: "detached" });
+    await page.getByText("Rank saved", { exact: true }).last().waitFor();
     await settle(page);
     const kept = await placeOf(table, held.index);
     assert.ok(
@@ -556,7 +555,7 @@ try {
   // Relation panel: the group cited 150 times, searched and scrolled, in each context.
   for (const [context, suffix] of contexts) {
     await page.goto(`${base}/objects/vol-group/${dataset.cited_group_id}?workspaceKey=vol-workspace${suffix}`);
-    const panel = page.getByRole("region", { name: "Relationships", exact: true });
+    const panel = page.getByRole("region", { name: /^vol-item-cites-group/ });
     await panel.locator("[data-row-focus]").first().waitFor();
     let state = await windowState(panel);
     assert.equal(state.rowCount, String(dataset.shape.citations + 1), `${context}: relation total`);
@@ -567,29 +566,46 @@ try {
       Number((await windowState(panel)).rowCount) - 2,
     );
     const target = (await panel.locator("[data-row-focus]").last().textContent()).trim();
-    await page.getByRole("textbox", { name: "Search relationships" }).fill(target);
+    await page.getByRole("textbox", { name: /^Search vol-item-cites-group/ }).fill(target);
     await panel.getByText("End · 1 relationship", { exact: true }).waitFor();
     state = await windowState(panel);
     assert.equal(state.rows, 1, `${context}: relation search narrows to one`);
     // Schema 0.6 declares no relation sort: it lists by name, and every data column still sorts.
-    await page.getByRole("textbox", { name: "Search relationships" }).fill("");
+    await page.getByRole("textbox", { name: /^Search vol-item-cites-group/ }).fill("");
     await panel
       .getByText(`End · ${dataset.shape.citations.toLocaleString("en-US")} relationships`)
       .waitFor({ state: "attached" })
       .catch(() => undefined);
     await panel.locator("[data-row-focus]").first().waitFor();
-    await panel.locator("th[aria-sort='ascending']").filter({ hasText: "Name" }).waitFor();
+    // The panel's default order is now drawn on the column of the related record (named for its type), not on "Name".
+    await panel.locator("th[aria-sort='ascending']").first().waitFor();
+    // Wide tables fold their right-hand columns behind "Columns · n of m": show them all.
+    const foldedToggle = panel.getByRole("button", { name: /^Columns · / });
+    if ((await foldedToggle.count()) && (await foldedToggle.getAttribute("aria-expanded")) === "false")
+      await foldedToggle.click();
     const headers = await panel.locator("thead th").allTextContents();
     const sortable = await panel.locator("thead th button").count();
     // Actions is the only header without a sort (ancestor columns sort when one type is listed).
     assert.equal(sortable, headers.length - 1, `${context}: sortable headers ${sortable} of ${headers.join(", ")}`);
-    const byRelationship = page.waitForResponse(
-      (item) => new URL(item.url()).searchParams.get("sort") === "relationship",
-    );
-    await panel.getByRole("button", { name: "Relationship", exact: true }).focus();
+    // A header sorts the panel by keyboard. The Relationship column is there only where the panel's
+    // configuration shows it (`showRelationshipColumn`); this panel lists one relationship and has none, so the
+    // check uses Code, a column of the related record.
+    const hasRelationship = (await panel.getByRole("button", { name: "Relationship", exact: true }).count()) > 0;
+    const sortHeader = hasRelationship ? "Relationship" : "Code";
+    const before = new URL(page.url()).searchParams.get("sort");
+    const sorted = page.waitForResponse((item) => {
+      const sort = new URL(item.url()).searchParams.get("sort");
+      return (
+        item.url().includes("/relations") &&
+        sort !== null &&
+        sort !== before &&
+        (!hasRelationship || sort === "relationship")
+      );
+    });
+    await panel.getByRole("button", { name: sortHeader, exact: true }).focus();
     await page.keyboard.press("Enter");
-    await byRelationship;
-    await page.getByRole("button", { name: "Sort: Relationship, ascending" }).waitFor();
+    await sorted;
+    await page.getByRole("button", { name: `Sort: ${sortHeader}, ascending` }).waitFor();
     assert.equal(await page.getByRole("combobox", { name: "Sort" }).count(), 0, `${context}: no sort select`);
   }
   checks.push(
@@ -712,7 +728,9 @@ try {
     "starter: the codelist lens scrolls to its end with at most three screens drawn, jumps by page number and returns to the start by Ctrl+Home",
   );
 
-  // Mapping lens: 71 system values in one system, 10 per page.
+  // Mapping lens: 71 system values in one system, 10 per page. Its reads are recorded from the first one:
+  // the grid reads the rest of a short list in the background right after it opens, before the walk starts.
+  const coverageReads = pageSizes(page, /\/mapping-coverage$/);
   await page.goto(
     `${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default&pageSize=10&parentObjectId=${system.id}&parentObjectTypeKey=system`,
   );
@@ -721,7 +739,6 @@ try {
   state = await windowState(grid);
   assert.equal(state.rowCount, "72");
   // D164 (9): the mapping grid walks by wheel without a row jumping, reading its page of 10.
-  const coverageReads = pageSizes(page, /\/mapping-coverage$/);
   const gridWalk = await walk(page, grid, 50, 1, "mapping grid", 200);
   coverageReads.stop();
   const coverageSizes = [...new Set(coverageReads.sizes.filter((size) => size !== null))];
@@ -773,8 +790,8 @@ try {
     .catch(() => undefined);
 
   await page.getByRole("button", { name: "Add relationship" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Connect an object" });
-  const combobox = dialog.getByRole("combobox", { name: "Search: Object" });
+  const dialog = page.getByRole("dialog", { name: /^Add / });
+  const combobox = dialog.getByRole("combobox", { name: /^Search: / });
   await dialog.getByRole("listbox").getByRole("option").first().waitFor();
   await combobox.focus();
   for (let step = 0; step < 25; step++) {
@@ -946,12 +963,7 @@ try {
   await phone.screenshot({ path: resolve(harness.output, "s5-starter-mapping-390.png") });
   await phone.goto(`${uiUrl}/apps/rdm-master/objects/domain/${domain.id}?workspaceKey=default`);
   await phone.getByRole("button", { name: "Add relationship" }).first().click();
-  await phone
-    .getByRole("dialog", { name: "Connect an object" })
-    .getByRole("listbox")
-    .getByRole("option")
-    .first()
-    .waitFor();
+  await phone.getByRole("dialog", { name: /^Add / }).getByRole("listbox").getByRole("option").first().waitFor();
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   await phone.screenshot({ path: resolve(harness.output, "s5-starter-picker-390.png") });
   await phone.keyboard.press("Escape");
@@ -984,6 +996,14 @@ try {
   }
   const values390 = phone.getByRole("region", { name: /^Master values of/ });
   await values390.locator("[data-row-focus]").first().waitFor();
+  // A small panel folds its search, display and sort behind one menu (0.17 UX1); Sort brings the sort menu out.
+  const tools = phone
+    .locator("section.panel", { has: values390 })
+    .getByRole("button", { name: "Search, display and sort", exact: true });
+  if (await tools.count()) {
+    await tools.first().click();
+    await phone.getByRole("menuitem", { name: "Sort", exact: true }).click();
+  }
   const panelMenu = phone.getByRole("button", { name: "Sort: Name, ascending" });
   assert.ok(
     await panelMenu.isVisible(),

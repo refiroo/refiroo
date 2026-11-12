@@ -10,8 +10,10 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { formatServerTime } from "@/lib/dates";
+import { formatDuration } from "@/lib/duration";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import type { Hue } from "@/model/hues";
 import { routePath } from "@/routing/routes";
 import type {
   ConsumerApiDefinition,
@@ -26,12 +28,12 @@ import type {
 } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
-import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
 import { JsonView } from "@/ui/JsonView";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
+import { FilterChip, LogFoot, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
@@ -53,8 +55,7 @@ const short = (id: string) => (id.length > 13 ? `${id.slice(0, 8)}…` : id);
 
 const answer = (status: number | null) => (status === null ? "No answer" : String(status));
 
-const duration = (ms: number | null) =>
-  ms === null ? "Still sending" : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+const duration = (ms: number | null) => (ms === null ? "Still sending" : formatDuration(ms));
 
 /**
  * Where an event's record opens: its type found by the public name the consumer API gives it, in
@@ -114,6 +115,7 @@ export function WebhookDeliveries({
   definition,
   subscription,
   retentionDays,
+  hue,
   onNavigate,
 }: {
   route: WebhooksRoute & { subscriptionId: string };
@@ -122,6 +124,8 @@ export function WebhookDeliveries({
   definition?: ConsumerApiDefinition;
   subscription: Subscription;
   retentionDays?: number;
+  /** The colour of the page's Settings group, for the empty state. */
+  hue?: Hue;
   onNavigate: (route: RouteState) => void;
 }) {
   const { subscriptionId } = route;
@@ -139,79 +143,94 @@ export function WebhookDeliveries({
   const kept = retentionDays ? ` Deliveries are kept for ${count(retentionDays)} days.` : "";
 
   return (
-    <div className="webhook-deliveries">
-      <div className="webhook-deliveries-bar">
-        <label className="toolbar-field">
-          Status
-          <select value={status} onChange={(event) => setStatus(event.target.value as DeliveryStatus | "")}>
-            <option value="">All</option>
-            {Object.entries(DELIVERY_STATUS).map(([value, state]) => (
-              <option key={value} value={value}>
-                {state.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="secondary" disabled={feed.loading} onClick={feed.reload}>
-          Refresh
-        </button>
-      </div>
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : feed.loading && feed.items.length === 0 ? (
-        <Skeleton label="Loading deliveries" lines={5} />
-      ) : feed.items.length === 0 ? (
-        <EmptyState>
-          {status ? "No delivery has this status." : "Nothing delivered yet: events appear here once they are sent."}
-          {kept}
-        </EmptyState>
-      ) : (
-        <>
-          <SettingsTable
-            label="Deliveries"
-            columns={["Event ID", "Event", "Object ID", "Status", "Attempts", "Response", "Sent"]}
-          >
-            {feed.items.map((row) => (
-              <tr key={`${row.deliveryId}:${row.eventId}`}>
-                <th scope="row">
-                  <RouteLink
-                    href={routePath(opened(row))}
-                    onNavigate={() => onNavigate(opened(row))}
-                    title={row.eventId}
-                  >
-                    <code>{short(row.eventId)}</code>
-                  </RouteLink>
-                </th>
-                <td data-label="Event">
-                  <code>{row.event}</code>
-                  <span className="webhook-change"> {row.change}</span>
-                  {row.resendOf && <span className="webhook-change"> · resent</span>}
-                </td>
-                <td data-label="Object ID">
-                  <ObjectLink
-                    id={row.objectId}
-                    to={recordRoute(model, definition, subscription, row)}
-                    onNavigate={onNavigate}
-                    short
-                  />
-                </td>
-                <td data-label="Status">
-                  <DeliveryState status={row.status} />
-                </td>
-                <td data-label="Attempts">{count(row.attempts)}</td>
-                <td data-label="Response">{row.attempts ? answer(row.responseStatus) : "—"}</td>
-                <td data-label="Sent">{row.sentAt ? formatServerTime(row.sentAt) : "Not yet"}</td>
-              </tr>
-            ))}
-          </SettingsTable>
-          {feed.hasMore && (
-            <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-              Load more deliveries
+    <div className="webhook-panel">
+      <SettingsGroup
+        stacked
+        title="Deliveries"
+        description={`Each event sent to the receiver, newest first. Events sent in one request share its status, attempts and answer.${kept}`}
+        tools={
+          <>
+            <span className="filter-chips" role="group" aria-label="Status">
+              <FilterChip selected={status === ""} onSelect={() => setStatus("")}>
+                All
+              </FilterChip>
+              {Object.entries(DELIVERY_STATUS).map(([value, state]) => (
+                <FilterChip key={value} selected={status === value} onSelect={() => setStatus(value as DeliveryStatus)}>
+                  {state.label}
+                </FilterChip>
+              ))}
+            </span>
+            <button type="button" className="secondary" disabled={feed.loading} onClick={feed.reload}>
+              Refresh
             </button>
-          )}
-          <p className="admin-hint">Events sent in one request share its status, attempts and answer.{kept}</p>
-        </>
-      )}
+          </>
+        }
+      >
+        {feed.error ? (
+          <InlineError message={feed.error} onRetry={feed.retry} />
+        ) : feed.loading && feed.items.length === 0 ? (
+          <Skeleton label="Loading deliveries" lines={5} />
+        ) : feed.items.length === 0 ? (
+          <SettingsPanel>
+            <SettingsEmpty icon="activity" hue={hue}>
+              {status
+                ? "No delivery has this status."
+                : "Nothing delivered yet: events appear here once they are sent."}
+              {kept}
+            </SettingsEmpty>
+          </SettingsPanel>
+        ) : (
+          <SettingsPanel>
+            <SettingsTable
+              label="Deliveries"
+              columns={["Event ID", "Event", "Object ID", "Status", { num: "Attempts" }, "Response", "Sent"]}
+            >
+              {feed.items.map((row) => (
+                <tr key={`${row.deliveryId}:${row.eventId}`}>
+                  <th scope="row">
+                    <RouteLink
+                      href={routePath(opened(row))}
+                      onNavigate={() => onNavigate(opened(row))}
+                      title={row.eventId}
+                    >
+                      <code>{short(row.eventId)}</code>
+                    </RouteLink>
+                  </th>
+                  <td data-label="Event">
+                    <code>{row.event}</code>
+                    <span className="webhook-change"> {row.change}</span>
+                    {row.resendOf && <span className="webhook-change"> · resent</span>}
+                  </td>
+                  <td data-label="Object ID">
+                    <ObjectLink
+                      id={row.objectId}
+                      to={recordRoute(model, definition, subscription, row)}
+                      onNavigate={onNavigate}
+                      short
+                    />
+                  </td>
+                  <td data-label="Status">
+                    <DeliveryState status={row.status} />
+                  </td>
+                  <td className="num" data-label="Attempts">
+                    {count(row.attempts)}
+                  </td>
+                  <td data-label="Response">{row.attempts ? answer(row.responseStatus) : "—"}</td>
+                  <td className="when" data-label="Sent" title={row.sentAt ? formatServerTime(row.sentAt) : undefined}>
+                    {row.sentAt ? formatServerDayTime(row.sentAt) : "Not yet"}
+                  </td>
+                </tr>
+              ))}
+            </SettingsTable>
+            <LogFoot
+              shown={feed.items.length}
+              noun="deliveries"
+              onMore={feed.hasMore ? feed.loadMore : undefined}
+              loading={feed.loading}
+            />
+          </SettingsPanel>
+        )}
+      </SettingsGroup>
       {route.deliveryId && (
         <DeliveryDialog
           key={`${route.deliveryId}:${route.eventId ?? ""}`}
@@ -326,8 +345,26 @@ function DeliveryDialog({
           { term: "Status", value: <DeliveryState status={detail.status} /> },
           { term: "Attempts", value: count(detail.attempts.length) },
           { term: "Response", value: last ? answer(last.responseStatus) : "—" },
-          { term: "Sent", value: last ? formatServerTime(last.startedAt) : "Not yet" },
-          ...(detail.nextAttemptAt ? [{ term: "Next attempt", value: formatServerTime(detail.nextAttemptAt) }] : []),
+          {
+            term: "Sent",
+            value: last ? (
+              <span title={formatServerTime(last.startedAt)}>{formatServerDayTime(last.startedAt)}</span>
+            ) : (
+              "Not yet"
+            ),
+          },
+          ...(detail.nextAttemptAt
+            ? [
+                {
+                  term: "Next attempt",
+                  value: (
+                    <span title={formatServerTime(detail.nextAttemptAt)}>
+                      {formatServerDayTime(detail.nextAttemptAt)}
+                    </span>
+                  ),
+                },
+              ]
+            : []),
           { term: "Delivery ID", value: <code>{detail.deliveryId}</code> },
           ...(detail.resendOf ? [{ term: "Resend of", value: <code>{detail.resendOf}</code> }] : []),
           {
@@ -338,7 +375,7 @@ function DeliveryDialog({
       : [];
 
   return (
-    <Modal title={event ? event.event : "Delivery"} eyebrow="Delivered event" size="wide" onClose={onClose}>
+    <Modal title={event ? event.event : "Delivery"} eyebrow="Connections" size="wide" onClose={onClose}>
       <div className="delivery-detail">
         {error ? (
           <InlineError message={error} onRetry={() => setToken((value) => value + 1)} />
@@ -408,7 +445,9 @@ function DeliveryDialog({
                           Attempt {item.number}
                         </button>
                       </th>
-                      <td data-label="Started">{formatServerTime(item.startedAt)}</td>
+                      <td data-label="Started" className="when" title={formatServerTime(item.startedAt)}>
+                        {formatServerDayTime(item.startedAt)}
+                      </td>
                       <td data-label="Duration">{duration(item.durationMs)}</td>
                       <td data-label="Answer">{item.error ? item.error.message : answer(item.responseStatus)}</td>
                     </tr>
@@ -447,6 +486,7 @@ function DeliveryDialog({
         <ConfirmDialog
           title="Resend a delivered event?"
           confirmLabel="Resend event"
+          tone="plain"
           dismissLabel="Don't resend"
           pending={resending}
           error={resendError}

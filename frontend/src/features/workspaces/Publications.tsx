@@ -247,7 +247,7 @@ function CreateChangeSetFromPublication({
           uses. It does not restore or change live data. Only changes you deliberately author can be published later.
         </p>
         <label>
-          Change set name
+          Name
           <input autoFocus value={name} maxLength={300} onChange={(event) => setName(event.target.value)} />
         </label>
         {error && <Notice tone="error">{error}</Notice>}
@@ -256,7 +256,7 @@ function CreateChangeSetFromPublication({
             Cancel
           </button>
           <button className="primary" disabled={pending}>
-            Create change set
+            Start change set
           </button>
         </div>
       </form>

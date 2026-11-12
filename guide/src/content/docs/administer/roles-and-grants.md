@@ -11,7 +11,7 @@ for example, a Security administrator manages people but needs Browse to read th
 
 ## The predefined roles
 
-Open **Security › Roles** to compare roles by action group. The predefined roles cannot
+Open **People and access › Roles** to compare roles by action group. The predefined roles cannot
 be edited. The following table lists their action groups; the descriptions below explain them.
 
 | Role | Action groups |
@@ -101,9 +101,9 @@ See [Clients](/docs/administer/clients/).
 ## Custom roles
 
 Choose **New role**, enter **Name**, and choose **Start from**: **Nothing** for an empty role
-or an existing role to copy its action groups. **Create role** returns to the matrix with
+or an existing role to copy its action groups. **Add role** returns to the matrix with
 the new role available for editing. Tick its action groups, adjust its name or optional
-description and choose **Save role**. Creating a copy does not change the source role.
+description and choose **Save**. Creating a copy does not change the source role.
 
 ![New role dialog with Name and Start from](/docs/screens/admin-role-new.png)
 

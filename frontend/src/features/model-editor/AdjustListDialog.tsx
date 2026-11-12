@@ -253,7 +253,7 @@ export function AdjustListDialog({
             Cancel
           </button>
           <button type="submit" className="primary" disabled={pending || Boolean(wrong) || (mode === "load" && empty)}>
-            {pending ? (mode === "adjust" ? "Applying…" : "Loading…") : mode === "adjust" ? "Apply" : "Load as a list"}
+            {pending ? (mode === "adjust" ? "Applying…" : "Loading…") : mode === "adjust" ? "Save" : "Load as a list"}
           </button>
         </div>
       </form>

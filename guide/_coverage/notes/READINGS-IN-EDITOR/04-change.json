@@ -1,0 +1,5 @@
+{
+  "page": "guide/src/content/docs/guide/model/read-lists-in-a-sheet.md",
+  "before": "the board and choose how to read columns and heading rows.",
+  "after": "the board and choose how to read columns and heading rows. In the model editor, a loaded\nlist's **Readings** row also offers **Read these columns as rows\u2026**: select at least two\ncolumns, name the two added columns and choose **Read as rows**. When it is on,\n**Stop reading these columns as rows** reverses it. A column's **Readings** row also offers\n**Fill blanks from the cell above** and **Rows holding only this column are headings\u2026**;\nsee [Map a workbook column](/docs/guide/model/map-a-column/)."
+}

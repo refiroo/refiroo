@@ -1,0 +1,5 @@
+{
+  "page": "guide/src/content/docs/use/importing-and-exporting.md",
+  "before": "A model administrator sets these readings on the\n[canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/#correct-how-the-sheet-is-read).\nThe model editor shares the saved profile, but has no dedicated controls for these three\nreadings; switch to **Canvas** to set them.",
+  "after": "A model administrator sets these readings on the\n[canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/#correct-how-the-sheet-is-read)\nor in the model editor. In the editor, a column's **Readings** row offers\n**Fill blanks from the cell above**, **Rows holding only this column are headings\u2026** and\n**Read these columns as rows\u2026**, with a **Stop\u2026** entry for each reading that is on.\nA loaded list's **Readings** row also offers **Read these columns as rows\u2026**.\nThe **Source** pane marks columns that have a reading."
+}

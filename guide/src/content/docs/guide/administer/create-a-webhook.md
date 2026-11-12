@@ -13,7 +13,7 @@ instead of **New webhook**. Ask the operator to enable delivery before starting 
 
 ## Choose what is sent
 
-1. Open **Settings › Integration › Webhooks** and choose **New webhook**. If webhooks are off, ask the operator to enable them. Workspace events need no consumer API declaration.
+1. Open **Settings › Connections › Webhooks** and choose **New webhook**. If webhooks are off, ask the operator to enable them. Workspace events need no consumer API declaration.
 2. In **Webhook**, enter a readable **Name** and the receiver’s **URL**. Use its final HTTPS address; redirects are not followed. Private and localhost receivers need the operator to allow private destinations on this instance. Plain HTTP is accepted only for a localhost receiver when the operator has allowed private destinations. Link-local destinations are always refused. If the address is refused, ask the operator to review it before trying again.
 3. In **Source › Events from**, choose **Consumer API** for declared record changes, or **Workspace events** for change-set steps. If no consumer API declares events, only **Workspace events** is offered. For a consumer source, select **Consumer API** too.
 4. Select **Workspace**. The list offers active workspaces where you hold Integration administration. Check the source and workspace carefully: they cannot be changed after creation.
@@ -26,7 +26,7 @@ instead of **New webhook**. Ask the operator to enable delivery before starting 
 
 1. Under **Delivery › Requests**, keep **One event per request**, or choose **Batched** and set **Up to (events)** within the displayed limit. A batch sends available events without waiting to fill up.
 2. For a consumer source, choose **Content**: **With the object** for the current record, or **Notification only** when the receiver reads details itself. Workspace events describe a change-set step instead. For either source, agree **Format** with the receiving system’s owner: **RDM JSON** or **CloudEvents 1.0**.
-3. Choose **Create webhook**. A refusal appears beside the relevant field or as **The webhook was not created**. Correct the stated problem and try again. **Cancel** leaves without creating it.
+3. Choose **Add webhook**. A refusal appears beside the relevant field or as **The webhook was not created**. Correct the stated problem and try again. **Cancel** leaves without creating it.
 
 ## Store the key and check delivery
 

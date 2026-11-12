@@ -45,7 +45,7 @@ describe("RelationGridChangeDialog (R13-F23)", () => {
     expect(screen.queryByText("That is not a valid value.")).toBeNull();
     await waitFor(() => expect(relationGridChange).toHaveBeenCalledWith(expect.objectContaining({ value: null })));
     await waitFor(() =>
-      expect((screen.getByRole("button", { name: "Apply" }) as HTMLButtonElement).disabled).toBe(false),
+      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false),
     );
   });
 

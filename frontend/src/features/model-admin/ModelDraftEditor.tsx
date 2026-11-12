@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelCompilation, ModelDraft, ModelValidation } from "@/types";
+import { settingsHead } from "@/features/settings/navigation";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { SettingsLayout } from "@/ui/SettingsLayout";
+import { ItemHeader, SettingsTile } from "@/ui/SettingsParts";
 import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
 import { Notice } from "@/ui/Notice";
 import {
@@ -28,6 +31,8 @@ function parseDocument(text: string): Record<string, unknown> {
 }
 
 export function ModelDraftEditor({
+  trail,
+  modelName,
   draft,
   canInstall,
   onSaved,
@@ -36,6 +41,10 @@ export function ModelDraftEditor({
   onOpenEditor,
   onDeleted,
 }: {
+  /** The bar over the page: Models › the model › the tab › this draft. */
+  trail?: ReactNode;
+  /** The model the draft was started from; none for a draft of a new model. */
+  modelName?: string;
   draft: ModelDraft;
   canInstall: boolean;
   onSaved: (draft: ModelDraft) => void;
@@ -211,149 +220,165 @@ export function ModelDraftEditor({
         }
       })()
     : undefined;
+  const head = settingsHead("model");
   return (
-    <div className="model-editor-stack">
-      <header className="model-detail-header">
-        <div>
-          {/* The page title names the draft (ModelWorkbench); this line says what it is. */}
-          <p className="muted">Editable draft · version {draft.version}</p>
-        </div>
-        <div className="model-detail-actions">
-          <button className="primary" onClick={onOpenEditor}>
-            Open in editor
-          </button>
-          <button className="danger-outline" onClick={() => setConfirm("delete")}>
-            Delete draft
-          </button>
-        </div>
-      </header>
-      <label className="model-name-field">
-        Draft name
-        <input
-          maxLength={300}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setCompilation(undefined);
-          }}
-        />
-      </label>
-      <label className="model-json-field">
-        JSON model
-        <textarea
-          ref={editorRef}
-          spellCheck={false}
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setValidation(undefined);
-            setCompilation(undefined);
-          }}
-        />
-      </label>
-      {syntaxError && <Notice tone="error">JSON syntax: {syntaxError}</Notice>}
-      {!syntaxError && validation && (
-        <section className="model-result">
-          <h3>Authoritative validation</h3>
-          <ModelDiagnostics diagnostics={validation.diagnostics} onPath={goToPath} />
-        </section>
-      )}
-      {parsed && <ModelSummary model={parsed} />}
-      {error && (
-        <Notice
-          tone="error"
-          actions={
-            freeVersion && (
-              <UseFreeVersion
-                version={freeVersion.free}
-                disabled={pending !== ""}
-                onUse={() => void applyFreeVersion(freeVersion.free)}
-              />
-            )
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon="model" hue={head.hue} size={48} />}
+          title={<h1>{modelName ?? draft.name}</h1>}
+          meta={
+            <>
+              <span>Editable draft · version {draft.version}</span>
+              {modelName && <span>{draft.name}</span>}
+            </>
           }
-        >
-          {error}
-        </Notice>
-      )}
-      {conflict && (
-        <div className="conflict-actions">
-          <strong>A newer draft version exists. Your local JSON is preserved.</strong>
-          <button className="secondary" disabled={pending !== ""} onClick={() => void reload()}>
-            {pending === "reload" ? "Reloading…" : "Reload saved version"}
+          actions={
+            <>
+              <button className="primary" onClick={onOpenEditor}>
+                Open in editor
+              </button>
+              <button className="danger-ghost" onClick={() => setConfirm("delete")}>
+                Delete draft
+              </button>
+            </>
+          }
+        />
+      }
+    >
+      <div className="model-editor-stack">
+        <label className="model-name-field">
+          Draft name
+          <input
+            maxLength={300}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setCompilation(undefined);
+            }}
+          />
+        </label>
+        <label className="model-json-field">
+          JSON model
+          <textarea
+            ref={editorRef}
+            spellCheck={false}
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value);
+              setValidation(undefined);
+              setCompilation(undefined);
+            }}
+          />
+        </label>
+        {syntaxError && <Notice tone="error">JSON syntax: {syntaxError}</Notice>}
+        {!syntaxError && validation && (
+          <section className="model-result">
+            <h3>Authoritative validation</h3>
+            <ModelDiagnostics diagnostics={validation.diagnostics} onPath={goToPath} />
+          </section>
+        )}
+        {parsed && <ModelSummary model={parsed} />}
+        {error && (
+          <Notice
+            tone="error"
+            actions={
+              freeVersion && (
+                <UseFreeVersion
+                  version={freeVersion.free}
+                  disabled={pending !== ""}
+                  onUse={() => void applyFreeVersion(freeVersion.free)}
+                />
+              )
+            }
+          >
+            {error}
+          </Notice>
+        )}
+        {conflict && (
+          <div className="conflict-actions">
+            <strong>A newer draft version exists. Your local JSON is preserved.</strong>
+            <button className="secondary" disabled={pending !== ""} onClick={() => void reload()}>
+              {pending === "reload" ? "Reloading…" : "Reload saved version"}
+            </button>
+            <button className="secondary" disabled={pending !== ""} onClick={copyLocal}>
+              Copy local JSON
+            </button>
+          </div>
+        )}
+        <div className="model-actions">
+          <button
+            className="primary"
+            disabled={pending !== "" || !!syntaxError || !changed() || !name.trim()}
+            onClick={save}
+          >
+            {pending === "save" ? "Saving…" : "Save draft"}
           </button>
-          <button className="secondary" disabled={pending !== ""} onClick={copyLocal}>
-            Copy local JSON
+          <button className="secondary" disabled={pending !== "" || changed()} onClick={compile}>
+            {pending === "compile" ? "Compiling…" : "Compile and compare"}
+          </button>
+          <button className="secondary" onClick={() => downloadJson(`${draft.name}.json`, text)}>
+            Export JSON
           </button>
         </div>
-      )}
-      <div className="model-actions">
-        <button
-          className="primary"
-          disabled={pending !== "" || !!syntaxError || !changed() || !name.trim()}
-          onClick={save}
-        >
-          {pending === "save" ? "Saving…" : "Save draft"}
-        </button>
-        <button className="secondary" disabled={pending !== "" || changed()} onClick={compile}>
-          {pending === "compile" ? "Compiling…" : "Compile and compare"}
-        </button>
-        <button className="secondary" onClick={() => downloadJson(`${draft.name}.json`, text)}>
-          Export JSON
-        </button>
-      </div>
-      {compilation && (
-        <section className="model-result">
-          <div className="model-result-heading">
-            <div>
-              <p className="eyebrow">Canonical model</p>
-              <h3>{compilation.valid ? "Ready for review" : "Invalid"}</h3>
+        {compilation && (
+          <section className="model-result">
+            <div className="model-result-heading">
+              <div>
+                <p className="eyebrow">Canonical model</p>
+                <h3>{compilation.valid ? "Ready for review" : "Invalid"}</h3>
+              </div>
+              {compilation.modelHash && <code className="model-hash">{compilation.modelHash}</code>}
             </div>
-            {compilation.modelHash && <code className="model-hash">{compilation.modelHash}</code>}
-          </div>
-          <ModelDiagnostics diagnostics={compilation.diagnostics} onPath={goToPath} />
-          {compilation.valid && (
-            <ModelDiff changes={compilation.changes ?? []} compatibility={compilation.compatibility} />
-          )}
-          {canInstall && compilation.valid && compilation.modelHash && (
-            <button className="primary install-action" onClick={() => setConfirm("install")}>
-              Install immutable release…
-            </button>
-          )}
-        </section>
-      )}
-      {confirm === "install" && (
-        <ConfirmDialog
-          title="Install this model release?"
-          confirmLabel="Install release"
-          pending={pending === "install"}
-          error={error}
-          onCancel={() => setConfirm(undefined)}
-          onConfirm={install}
-        >
-          <p>
-            Installation creates an immutable inactive release. It does not activate the model or change runtime
-            behavior.
-          </p>
-          {compilation?.compatibility.classification === "migration_required" && (
-            <Notice tone="warning">
-              The release may be installed, but activation is blocked until its compatibility diagnostics are resolved.
-            </Notice>
-          )}
-        </ConfirmDialog>
-      )}
-      {confirm === "delete" && (
-        <DeleteDraftDialog
-          draftId={draft.id}
-          version={draft.version}
-          onCancel={() => setConfirm(undefined)}
-          onDeleted={() => {
-            setConfirm(undefined);
-            onDeleted();
-          }}
-        >
-          <p>This removes only the editable draft. Installed releases are not changed.</p>
-        </DeleteDraftDialog>
-      )}
-    </div>
+            <ModelDiagnostics diagnostics={compilation.diagnostics} onPath={goToPath} />
+            {compilation.valid && (
+              <ModelDiff changes={compilation.changes ?? []} compatibility={compilation.compatibility} />
+            )}
+            {canInstall && compilation.valid && compilation.modelHash && (
+              <button className="primary install-action" onClick={() => setConfirm("install")}>
+                Install immutable release…
+              </button>
+            )}
+          </section>
+        )}
+        {confirm === "install" && (
+          <ConfirmDialog
+            title="Install this model release?"
+            confirmLabel="Install release"
+            tone="plain"
+            pending={pending === "install"}
+            error={error}
+            onCancel={() => setConfirm(undefined)}
+            onConfirm={install}
+          >
+            <p>
+              Installation creates an immutable inactive release. It does not activate the model or change runtime
+              behavior.
+            </p>
+            {compilation?.compatibility.classification === "migration_required" && (
+              <Notice tone="warning">
+                The release may be installed, but activation is blocked until its compatibility diagnostics are
+                resolved.
+              </Notice>
+            )}
+          </ConfirmDialog>
+        )}
+        {confirm === "delete" && (
+          <DeleteDraftDialog
+            draftId={draft.id}
+            version={draft.version}
+            onCancel={() => setConfirm(undefined)}
+            onDeleted={() => {
+              setConfirm(undefined);
+              onDeleted();
+            }}
+          >
+            <p>This removes only the editable draft. Installed releases are not changed.</p>
+          </DeleteDraftDialog>
+        )}
+      </div>
+    </SettingsLayout>
   );
 }

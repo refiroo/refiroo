@@ -1,0 +1,346 @@
+{
+  "wave": "CANVAS",
+  "base": "http://localhost:8480",
+  "note": "Real screens of the reference instance for the two canvas guides (Shape a workbook on the canvas, Edit a model on the canvas), 1440 px wide, taken by guide/tools/screens.mjs --file CANVAS.screens.json into guide/public/screens/canvas-*.png. Run the whole file in order: canvas-workbook-setup makes the draft 'Busbetrieb Nord canvas' as a person does (Settings, Workspaces, New workspace from a workbook with guide/samples/Haltestellen_Busbetrieb_Nord.xlsx, then Adjust), canvas-model-setup makes 'Guide canvas draft' (Settings, Model, New draft) and puts one deliberate issue in it (the state draft-ghost); both are deleted by the last two setup recipes. A screen with \"setup\": true only makes or removes a state and writes no picture.",
+  "screens": [
+    {
+      "name": "canvas-workbook-setup",
+      "setup": true,
+      "shows": "Makes the workbook draft: New workspace from a workbook (the Haltestellen sample workbook, named Busbetrieb Nord canvas), Read the workbook, Adjust. Nothing is created in a workspace.",
+      "actions": [
+        { "goto": "/settings/workspaces" },
+        { "click": { "role": "button", "name": "New workspace from a workbook", "exact": true } },
+        { "waitFor": { "role": "dialog" } },
+        { "upload": { "css": "input[type=file]" }, "value": "guide/samples/Haltestellen_Busbetrieb_Nord.xlsx" },
+        { "wait": 600 },
+        { "fill": { "label": "Name", "in": { "role": "dialog" } }, "value": "Busbetrieb Nord canvas" },
+        { "click": { "role": "button", "name": "Read the workbook" } },
+        { "waitFor": { "text": "What refiroo found", "exact": false }, "timeout": 120000 },
+        { "wait": 800 },
+        { "click": { "role": "button", "name": "Adjust", "exact": true } },
+        { "waitFor": { "text": "Workbook check", "exact": false }, "timeout": 60000 },
+        { "wait": 1500 }
+      ]
+    },
+    {
+      "name": "canvas-workbook-open",
+      "height": 1000,
+      "shows": "The canvas after Adjust, with a proposed workbook draft: the Editor | Canvas switch, Workbook sheets and columns on the left, the object-type cards on the board, the Inspector at the right, the Proposed marks and the Workbook check strip.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas" },
+        { "waitFor": { "text": "Workbook check", "exact": false } },
+        { "wait": 1500 }
+      ],
+      "expect": ["Editor", "Canvas", "Workbook check", "Proposed", "Inspector", "Haltestellen"]
+    },
+    {
+      "name": "canvas-workbook-connect",
+      "height": 1000,
+      "shows": "Two object types connected: Connect on the Haltestellen card dropped on the Namen card, the new line between them, the notice that the link is made and Undo. The connection is taken back afterwards.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas" },
+        { "waitFor": { "text": "Workbook check", "exact": false } },
+        { "wait": 1200 },
+        { "drag": { "css": "button[aria-label^='Connect Haltestellen']" }, "to": { "css": "[aria-label='Namen']" } },
+        { "waitFor": { "text": "related to Namen", "exact": false } },
+        { "wait": 800 }
+      ],
+      "expect": ["related to Namen", "Undo"],
+      "after": [{ "click": { "role": "button", "name": "Undo", "exact": true } }, { "wait": 1200 }]
+    },
+    {
+      "name": "canvas-workbook-readings",
+      "height": 1000,
+      "shows": "A workbook column's ⋯ menu on the canvas: Add to…, Use as a filter of…, Fill blanks from the cell above, Rows holding only this column are headings…, Make an object type of its values, Leave out.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas" },
+        { "waitFor": { "text": "Workbook check", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "button", "name": "Actions for Perron A", "exact": true } },
+        { "waitFor": { "role": "menuitem", "name": "Fill blanks from the cell above" } },
+        { "wait": 500 }
+      ],
+      "expect": ["Fill blanks from the cell above", "Leave out"],
+      "after": [{ "press": "Escape" }]
+    },
+    {
+      "name": "canvas-workbook-columns-as-rows",
+      "height": 1000,
+      "shows": "Three columns (Perron A, B and C) chosen on the workbook side and the question 'Read 3 columns as rows' (into which object type; the two new column names come next).",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas"
+        },
+        {
+          "waitFor": {
+            "text": "Workbook check",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "css": "ul[aria-label^='Columns of'] li:has-text('Perron A') button",
+            "nth": 0
+          }
+        },
+        {
+          "click": {
+            "css": "ul[aria-label^='Columns of'] li:has-text('Perron C') button",
+            "nth": 0
+          },
+          "modifiers": [
+            "Shift"
+          ]
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Read these columns as rows…"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Read 3 columns as rows",
+            "exact": false
+          }
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "expect": [
+        "3 columns chosen",
+        "Read 3 columns as rows"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "canvas-workbook-navigation",
+      "height": 1000,
+      "shows": "The Navigation tab of the Inspector beside the board.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas" },
+        { "waitFor": { "text": "Workbook check", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "tab", "name": "Navigation", "exact": true } },
+        { "wait": 900 }
+      ],
+      "expect": ["Navigation"]
+    },
+    {
+      "name": "canvas-workbook-refused",
+      "height": 1000,
+      "shows": "The rows refused for an object type: the refusal count and reason, the unmatched values and the ways on.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas"
+        },
+        {
+          "waitFor": {
+            "text": "Workbook check",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "scrollTo": {
+            "css": "[aria-label='Namen']"
+          },
+          "offset": 200
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "css": "[aria-label='Namen'] button:has-text('refused')"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "refused"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "canvas-workbook-create-dialog",
+      "height": 1000,
+      "shows": "The Create workspace dialog after a completed check, with the draft canvas behind it. Cancelled.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Busbetrieb Nord canvas}/editor?show=canvas" },
+        { "waitFor": { "text": "Workbook check", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "button", "name": "Create workspace…", "exact": true } },
+        { "waitFor": { "role": "dialog" } },
+        { "wait": 800 }
+      ],
+      "expect": ["Create workspace", "Cancel"],
+      "after": [{ "click": { "role": "button", "name": "Cancel", "exact": true, "in": { "role": "dialog" } } }]
+    },
+    {
+      "name": "canvas-workbook-teardown",
+      "setup": true,
+      "shows": "Removes the draft 'Busbetrieb Nord canvas' (no workspace was created from it).",
+      "actions": [{ "state": "draft-delete", "arg": "Busbetrieb Nord canvas" }]
+    },
+    {
+      "name": "canvas-model-setup",
+      "setup": true,
+      "shows": "Makes the model draft: Settings, Model, New draft named 'Guide canvas draft' on the active release, with one deliberate issue in it (a column ghost-field in the Municipalities view of Network) so the draft has a change and a useful issue.",
+      "actions": [
+        { "goto": "/settings/model" },
+        { "click": { "role": "button", "name": "New draft" } },
+        { "waitFor": { "role": "dialog" } },
+        { "fill": { "label": "Draft name", "in": { "role": "dialog" } }, "value": "Guide canvas draft" },
+        { "wait": 400 },
+        { "click": { "role": "button", "name": "Create draft" } },
+        { "waitFor": { "text": "Saved as you go", "exact": false } },
+        { "wait": 800 },
+        { "state": "draft-ghost", "arg": "Guide canvas draft" }
+      ]
+    },
+    {
+      "name": "canvas-model-whole",
+      "height": 1000,
+      "shows": "The whole model on the canvas: application frames, object-type cards with their marks (Released, Changed in the draft), the Showing choice, zoom and Fit.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1800 }
+      ],
+      "expect": ["Whole model", "Changed in this draft", "Network application", "Fit"]
+    },
+    {
+      "name": "canvas-model-add-menu",
+      "height": 1000,
+      "shows": "The + menu of the header on a draft without a workbook: Application…, Object type…, Attribute type…, Relation type… and Navigation group….",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "css": "button[aria-label='Add to the model']" } },
+        { "waitFor": { "role": "menuitem" } },
+        { "wait": 500 }
+      ],
+      "after": [{ "press": "Escape" }]
+    },
+    {
+      "name": "canvas-model-attribute",
+      "height": 1000,
+      "shows": "An attribute selected on a card with the Inspector open: its name, value type, Required, Unique and the ⋯ menu of its operations.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "text": "FSO number", "exact": true, "nth": 0 } },
+        { "wait": 1000 }
+      ]
+    },
+    {
+      "name": "canvas-model-relation-rule",
+      "height": 1000,
+      "shows": "A relationship line's rule popover: How many, Required, Attributes of the relationship, Which records may be chosen and All operations.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "css": "button[aria-label^='Rule of:']", "nth": 0 } },
+        { "waitFor": { "css": "[aria-label^='Rule of ']" } },
+        { "wait": 600 }
+      ],
+      "after": [{ "press": "Escape" }]
+    },
+    {
+      "name": "canvas-model-navigation",
+      "height": 1000,
+      "shows": "The Navigation tab of the Inspector: the applications' groups and entries and their menus.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "tab", "name": "Navigation", "exact": true } },
+        { "wait": 900 }
+      ]
+    },
+    {
+      "name": "canvas-model-views",
+      "height": 1000,
+      "shows": "The Views tab of the Inspector for an object type: the views and their Edit layout and preview controls.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "text": "Canton", "exact": true, "nth": 0 } },
+        { "click": { "role": "tab", "name": "Views", "exact": true } },
+        { "wait": 900 }
+      ]
+    },
+    {
+      "name": "canvas-model-consumer",
+      "height": 1000,
+      "shows": "The Consumer APIs tab of the Inspector with the contract of the model selected.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "tab", "name": "Consumer APIs", "exact": true } },
+        { "wait": 900 }
+      ]
+    },
+    {
+      "name": "canvas-model-issues",
+      "height": 1000,
+      "shows": "The Issues drawer open with the deliberate issue (a view lists a field that does not exist) and its link to the view.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "button", "name": "Issues and history" } },
+        { "wait": 1000 }
+      ],
+      "expect": ["ghost-field"],
+      "after": [{ "click": { "role": "button", "name": "Issues and history" } }]
+    },
+    {
+      "name": "canvas-model-history",
+      "height": 1000,
+      "shows": "The History tab of the drawer: the saved steps and the Undo action.",
+      "actions": [
+        { "goto": "/settings/model/drafts/{draft:Guide canvas draft}/editor?show=canvas" },
+        { "waitFor": { "text": "Whole model", "exact": false } },
+        { "wait": 1200 },
+        { "click": { "role": "button", "name": "Issues and history" } },
+        { "click": { "role": "tab", "name": "History" } },
+        { "wait": 900 }
+      ],
+      "after": [{ "click": { "role": "button", "name": "Issues and history" } }]
+    },
+    {
+      "name": "canvas-model-teardown",
+      "setup": true,
+      "shows": "Removes the draft 'Guide canvas draft'.",
+      "actions": [{ "state": "draft-delete", "arg": "Guide canvas draft" }]
+    }
+  ]
+}

@@ -6,6 +6,8 @@ reader: model-admin
 
 Open a draft with an attached workbook and **Model authoring**. See
 [Workbook onboarding](/docs/model/workbook-onboarding/) for the source and profile.
+You can also [map columns on the canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/#make-object-types-and-map-columns)
+by dragging them onto object types or attributes.
 
 1. Select the sheet, then a column in **Source**. Read its status, **Feeds**, **Read as**,
    **Matched by** and **Statistics**. Filled and distinct values help assess a mapping; they
@@ -38,7 +40,13 @@ Open a draft with an attached workbook and **Model authoring**. See
 ![Workbook column statistics and the model it feeds](/docs/screens/use-wb-source-namen.png)
 
 The mapping form shows the selected source column and its destination. A value map changes
-how the file is read before matching or conversion.
+how the file is read before matching or conversion. For a sheet that loads records, the
+column panel's **Readings** row also offers **Fill blanks from the cell above**,
+**Rows holding only this column are headings…** and **Read these columns as rows…**.
+For columns read as rows, select at least two columns, name the two added columns and choose
+**Read as rows**. For headings, name the added column, choose the parent object type and
+choose **Read headings**. A reading that is on has its corresponding **Stop…** entry.
+The **Source** pane marks columns that have a reading; check the refreshed dry run after changing one.
 
 ![UIC-Nr column mapped to an existing integer attribute, with row type, column meaning and key choice](/docs/screens/model-workbook-map-column.png)
 

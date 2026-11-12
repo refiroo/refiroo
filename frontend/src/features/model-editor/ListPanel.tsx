@@ -6,16 +6,20 @@
  */
 
 import type { ReactNode } from "react";
-import type { ModelDraftOutline, ProfileSource, SourceBlock } from "@/types";
+import type { DraftOperation, ModelDraftOutline, ProfileSource, SourceBlock, SourceColumn } from "@/types";
+import type { DraftProfileDocument } from "@/types/sources";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ListReadings } from "@/features/model-editor/ReadingEntries";
+import { MissingRecords } from "@/features/model-editor/MissingRecords";
 import { CellGrid } from "@/features/model-editor/CellGrid";
 import { useCells } from "@/features/model-editor/useCells";
 import { typeName } from "@/features/model-editor/outline";
 import {
+  listColumns,
   columnLetter,
   columnNumber,
   LIST_STATUS_LABELS,
@@ -47,6 +51,8 @@ export function ListPanel({
   onDrop,
   onLoad,
   onShowType,
+  onSetMissing,
+  readings,
 }: {
   sheet: string;
   block: SourceBlock;
@@ -62,6 +68,14 @@ export function ListPanel({
   onDrop: () => void;
   onLoad: () => void;
   onShowType: (key: string) => void;
+  /** Sends what a load does with the records no row names (PP-D82); without it the choice is not shown. */
+  onSetMissing?: (operations: DraftOperation[]) => void;
+  /** With it, the list's columns can be read as rows (CE1): the profile, the sheet's columns and the step. */
+  readings?: {
+    profile: DraftProfileDocument | null | undefined;
+    columns: SourceColumn[] | undefined;
+    run: (operations: DraftOperation[]) => void;
+  };
 }) {
   const rectangle = rectangleOf(block, listSource);
   const top = Math.max(1, Math.min(rectangle.headerRow, block.headerRow ?? rectangle.headerRow) - 1);
@@ -150,6 +164,31 @@ export function ListPanel({
             )}
           </dd>
         </div>
+        {loaded && readings && (
+          <div>
+            <dt>Readings</dt>
+            <dd className="column-readings">
+              <ListReadings
+                owner={listSource}
+                headers={listColumns(block, readings.columns).flatMap((item) => (item.header ? [item.header] : []))}
+                profile={readings.profile}
+                outline={outline}
+                columns={readings.columns}
+                sheet={sheet}
+                busy={busy}
+                run={readings.run}
+              />
+            </dd>
+          </div>
+        )}
+        {loaded && onSetMissing && (
+          <div>
+            <dt>Records no row names</dt>
+            <dd>
+              <MissingRecords source={listSource} outline={outline} busy={busy} run={onSetMissing} />
+            </dd>
+          </div>
+        )}
       </dl>
 
       <section className="list-panel-cells" aria-labelledby="list-cells-title">

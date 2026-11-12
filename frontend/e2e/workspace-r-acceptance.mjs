@@ -127,7 +127,7 @@ async function createRecord(addButton, name, what) {
     page.waitForResponse(
       (response) => response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
     ),
-    keys.press(dialog.getByRole("button", { name: "Create", exact: true }), "Create"),
+    keys.press(dialog.getByRole("button", { name: /^Add / }), "Create"),
   ]);
   assert.equal(created.status(), 201, await created.text());
   await dialog.waitFor({ state: "hidden" });
@@ -139,20 +139,18 @@ async function editValue(attribute, value) {
   await keys.press(valueButton(attribute), `Edit ${attribute.name}`);
   const form = page.getByRole("form", { name: `Edit ${attribute.name}` });
   await keys.fill(form.getByRole("textbox"), value, `the ${attribute.name} field`);
-  await keys.press(form.getByRole("button", { name: "Save", exact: true }), "Save");
+  await page.keyboard.press("Enter");
   await form.waitFor({ state: "detached" });
 }
 
 /** On a change set's page: validated, then published. */
 async function validateAndPublish() {
-  await keys.press(page.getByRole("button", { name: "Validate change set", exact: true }), "Validate change set");
-  await page.getByText("Change set validation passed", { exact: true }).waitFor({ timeout: 60_000 });
-  await keys.press(page.getByRole("button", { name: "Publish change set", exact: true }), "Publish change set");
+  await keys.press(page.getByRole("button", { name: "Publish", exact: true }), "Publish");
   await keys.press(
-    page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }),
-    "Publish change set (confirm)",
+    page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }),
+    "Publish (confirm)",
   );
-  await page.getByText(/Reviewed changes are now live/).waitFor({ timeout: 60_000 });
+  await page.getByText(/The changes are live/).waitFor({ timeout: 60_000 });
 }
 
 /** A workspace's model card in Settings › Model, its activation dialog opened for `label` and the
@@ -201,7 +199,8 @@ async function j36(variant, label) {
   await page.goto(
     `${uiUrl}/apps/${encodeURIComponent(side.application.key)}/views/${encodeURIComponent(side.view.key)}?workspaceKey=${key}`,
   );
-  await page.getByRole("heading", { level: 1, name: side.view.name }).waitFor();
+  // The page title is the type's plural name; the view's own name is not drawn.
+  await page.locator(".page-header").getByRole("heading", { level: 1 }).waitFor();
   const record = await createRecord(
     page.locator(".page-header").getByRole("button", { name: `Add ${side.root.name}`, exact: true }),
     `${label} root`,
@@ -225,12 +224,12 @@ async function j36(variant, label) {
   const band = page.getByRole("navigation", { name: "Workspace data context" });
   await keys.press(band.getByRole("link", { name: "Change sets" }).or(band.getByRole("button", { name: "Change sets" })).first(), "Change sets");
   await keys.press(
-    page.locator(".page-header").getByRole("button", { name: "Start from current live data", exact: true }),
-    "Start from current live data",
+    page.locator(".page-header").getByRole("button", { name: "New change set", exact: true }),
+    "New change set",
   );
-  const start = page.getByRole("dialog", { name: "Start from current live data" });
-  await keys.fill(start.getByLabel("Change set name"), `${label} edits`, "Change set name");
-  await keys.press(start.getByRole("button", { name: "Create change set" }), "Create change set");
+  const start = page.getByRole("dialog", { name: "New change set" });
+  await keys.fill(start.getByLabel("Name", { exact: true }), `${label} edits`, "Name");
+  await keys.press(start.getByRole("button", { name: "Start change set" }), "Start change set");
   await page.getByRole("heading", { name: `${label} edits`, exact: true }).waitFor();
   const changeSetId = new URL(page.url()).searchParams.get("changeSetId");
   await page.goto(
@@ -321,7 +320,8 @@ async function j38(variant) {
 
   // A new mapping proposed from the source's page.
   await page.goto(`${uiUrl}/settings/workspaces/${source.key}`);
-  await keys.press(page.getByRole("button", { name: "Copy or move data…" }), "Copy or move data…");
+  await page.getByRole("button", { name: "More actions" }).click();
+  await keys.press(page.getByRole("menuitem", { name: /^Copy or move data…/ }), "Copy or move data…");
   const opening = page.getByRole("dialog", { name: "New copy or move" });
   const to = opening.getByLabel("To workspace");
   await to.locator(`option[value="${target.key}"]`).waitFor({ state: "attached" });

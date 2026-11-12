@@ -117,6 +117,31 @@ beforeEach(() => {
   vi.mocked(api.workspace).mockImplementation(async (key) => byKey.get(key)!);
 });
 
+/** Opens the ⋯ menu of the opened workspace and returns its items (none where the menu is not offered). */
+async function openMenu() {
+  const trigger = await screen.findByRole("button", { name: "More actions" });
+  fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+  return screen.findAllByRole("menuitem");
+}
+
+/** Chooses an action from the opened workspace's ⋯ menu. */
+async function chooseAction(name: string) {
+  await openMenu();
+  fireEvent.keyDown(await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) }), {
+    key: "Enter",
+    code: "Enter",
+  });
+}
+
+/** The names of the ⋯ menu's items, the menu closed again; empty where the page offers no menu. */
+async function menuNames() {
+  if (!screen.queryByRole("button", { name: "More actions" })) return [];
+  const items = await openMenu();
+  const names = items.map((item) => item.textContent ?? "");
+  fireEvent.keyDown(items[0], { key: "Escape", code: "Escape" });
+  return names;
+}
+
 describe("WorkspaceAdmin", () => {
   it("opens on the list, not on a workspace, with the default named in the description", async () => {
     renderAdmin();
@@ -176,16 +201,16 @@ describe("WorkspaceAdmin", () => {
     expect(props.onRouteChange).toHaveBeenCalledWith({ ...LIST, workspaceKey: "retail" });
   });
 
-  it("shows a workspace under the bar with a plain heading, and Back or the trail return to the list", async () => {
+  it("shows a workspace under the bar with a plain heading, and the trail returns to the list", async () => {
     const { props } = renderAdmin("retail");
-    expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Retail" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Switch workspace/ })).not.toBeInTheDocument();
     const trail = screen.getByRole("navigation", { name: "Where you are" });
-    expect(trail).toHaveTextContent("WorkspacesRetail");
-    fireEvent.click(screen.getByRole("button", { name: "← All workspaces" }));
-    expect(props.onRouteChange).toHaveBeenLastCalledWith(LIST);
+    expect(trail).toHaveTextContent("Workspaces");
+    expect(screen.queryByRole("button", { name: "← All workspaces" })).not.toBeInTheDocument();
     fireEvent.click(within(trail).getByRole("button", { name: "Workspaces" }));
-    expect(props.onRouteChange).toHaveBeenCalledTimes(2);
+    expect(props.onRouteChange).toHaveBeenLastCalledWith(LIST);
+    expect(props.onRouteChange).toHaveBeenCalledTimes(1);
   });
 
   it("shows the lists last read at once on the next visit and refreshes them in place", async () => {
@@ -239,10 +264,10 @@ describe("WorkspaceAdmin", () => {
   it("keeps the catalogue read only and names the setting when administration is disabled", async () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilities(false));
     renderAdmin("retail");
-    expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Retail" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /New workspace/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Rename…" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Set as default" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Edit Name:/ })).not.toBeInTheDocument();
+    expect(await menuNames()).toEqual([]);
     expect(screen.getByRole("button", { name: "Open workspace" })).toBeEnabled();
   });
 
@@ -254,7 +279,7 @@ describe("WorkspaceAdmin", () => {
     const dialog = await screen.findByRole("dialog", { name: "New workspace" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Central Europe" } });
     expect(within(dialog).getByRole("textbox", { name: /^Key/ })).toHaveValue("central-europe");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create workspace" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add workspace" }));
 
     await waitFor(() => expect(props.onRouteChange).toHaveBeenCalledWith({ ...LIST, workspaceKey: "central-europe" }));
     expect(api.createWorkspace).toHaveBeenCalledWith({ key: "central-europe", label: "Central Europe" });
@@ -269,7 +294,7 @@ describe("WorkspaceAdmin", () => {
     fireEvent.click(await screen.findByRole("button", { name: /New workspace/ }));
     const dialog = await screen.findByRole("dialog", { name: "New workspace" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Retail" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create workspace" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add workspace" }));
     expect(await within(dialog).findByText("Workspace 'retail' already exists")).toBeInTheDocument();
     expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("Retail");
   });
@@ -277,12 +302,12 @@ describe("WorkspaceAdmin", () => {
   it("renames with the version it read", async () => {
     vi.mocked(api.updateWorkspace).mockResolvedValue({ ...retail, label: "Retail Europe", version: 4 });
     renderAdmin("retail");
-    fireEvent.click(await screen.findByRole("button", { name: "Rename…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Rename workspace" });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Retail Europe" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save name" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Edit Name:/ }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Retail Europe" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Name" }), { key: "Enter" });
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Retail Europe" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Retail Europe" })).toBeInTheDocument();
     expect(api.updateWorkspace).toHaveBeenCalledWith("retail", { expectedVersion: 3, label: "Retail Europe" });
     expect(screen.getByText("Workspace renamed.")).toBeInTheDocument();
   });
@@ -292,16 +317,15 @@ describe("WorkspaceAdmin", () => {
       .mockRejectedValueOnce(new ApiError(409, "VERSION_CONFLICT", "Workspace version has changed"))
       .mockResolvedValueOnce({ ...retail, label: "Mine", version: 5 });
     renderAdmin("retail");
-    fireEvent.click(await screen.findByRole("button", { name: "Rename…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Rename workspace" });
+    fireEvent.click(await screen.findByRole("button", { name: /Edit Name:/ }));
     vi.mocked(api.workspace).mockResolvedValue({ ...retail, label: "Theirs", version: 4 });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Mine" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save name" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Mine" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Name" }), { key: "Enter" });
 
-    expect(await within(dialog).findByText(/It is now named “Theirs”/)).toBeInTheDocument();
-    expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("Mine");
+    expect(await screen.findByText(/It is now named “Theirs”/)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("Mine");
     expect(api.updateWorkspace).toHaveBeenCalledTimes(1);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save name" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save again" }));
     await waitFor(() =>
       expect(api.updateWorkspace).toHaveBeenLastCalledWith("retail", { expectedVersion: 4, label: "Mine" }),
     );
@@ -314,14 +338,15 @@ describe("WorkspaceAdmin", () => {
       updatedAt: time,
     });
     const { props } = renderAdmin("retail");
-    fireEvent.click(await screen.findByRole("button", { name: "Set as default" }));
+    await chooseAction("Set as default");
 
     expect(await screen.findByText("Retail is now the default workspace.")).toBeInTheDocument();
     expect(api.setDefaultWorkspace).toHaveBeenCalledWith("retail", 4);
     expect(props.onDefaultChanged).toHaveBeenCalledWith("retail");
-    expect(screen.queryByRole("button", { name: "Set as default" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retire…" })).toBeDisabled();
-    expect(screen.getByText("Default · Retail")).toBeInTheDocument();
+    expect(await menuNames()).toEqual([expect.stringMatching(/^Retire…/)]);
+    await openMenu();
+    expect(screen.getByRole("menuitem", { name: /^Retire…/ })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Default")).toBeInTheDocument();
   });
 
   it("names the new default after a concurrent default switch instead of retrying", async () => {
@@ -329,13 +354,13 @@ describe("WorkspaceAdmin", () => {
       new ApiError(409, "VERSION_CONFLICT", "Workspace runtime-state version has changed"),
     );
     renderAdmin("retail");
-    await screen.findByRole("button", { name: "Set as default" });
+    await screen.findByRole("button", { name: "More actions" });
     vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
       defaultWorkspaceKey: "archive",
       version: 6,
       updatedAt: time,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Set as default" }));
+    await chooseAction("Set as default");
 
     expect(await screen.findByText(/default workspace changed to “archive”/)).toBeInTheDocument();
     expect(api.setDefaultWorkspace).toHaveBeenCalledTimes(1);
@@ -344,15 +369,14 @@ describe("WorkspaceAdmin", () => {
   it("retires after confirmation and offers reactivation", async () => {
     vi.mocked(api.updateWorkspace).mockResolvedValue({ ...retail, status: "retired", version: 4 });
     renderAdmin("retail");
-    fireEvent.click(await screen.findByRole("button", { name: "Retire…" }));
+    await chooseAction("Retire…");
     const confirm = await screen.findByRole("alertdialog", { name: "Retire Retail?" });
     expect(within(confirm).getByText(/can be reactivated later/)).toBeInTheDocument();
     fireEvent.click(within(confirm).getByRole("button", { name: "Retire workspace" }));
 
     expect(await screen.findByText(/Workspace retired/)).toBeInTheDocument();
     expect(api.updateWorkspace).toHaveBeenCalledWith("retail", { expectedVersion: 3, status: "retired" });
-    expect(screen.getByRole("button", { name: "Reactivate" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Set as default" })).not.toBeInTheDocument();
+    expect(await menuNames()).toEqual(["Reactivate"]);
   });
 
   it("reports a refused retirement inside the confirmation", async () => {
@@ -360,7 +384,7 @@ describe("WorkspaceAdmin", () => {
       new ApiError(409, "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED", "The default workspace cannot be retired"),
     );
     renderAdmin("retail");
-    fireEvent.click(await screen.findByRole("button", { name: "Retire…" }));
+    await chooseAction("Retire…");
     const confirm = await screen.findByRole("alertdialog", { name: "Retire Retail?" });
     fireEvent.click(within(confirm).getByRole("button", { name: "Retire workspace" }));
     expect(await within(confirm).findByText("The default workspace cannot be retired")).toBeInTheDocument();
@@ -371,7 +395,7 @@ describe("WorkspaceAdmin", () => {
     vi.mocked(api.updateWorkspace).mockResolvedValue({ ...archive, status: "active", version: 3 });
     renderAdmin("archive");
     expect(await screen.findByText("Retired · read only")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Reactivate" }));
+    await chooseAction("Reactivate");
     expect(await screen.findByText("Workspace reactivated.")).toBeInTheDocument();
     expect(api.updateWorkspace).toHaveBeenCalledWith("archive", { expectedVersion: 2, status: "active" });
   });
@@ -380,8 +404,8 @@ describe("WorkspaceAdmin", () => {
     const typo: WorkspaceDetail = { ...retail, key: "retial", label: "Retial", version: 1, deletable: true };
     byKey.set("retial", typo);
     vi.mocked(api.deleteWorkspace).mockResolvedValue(undefined);
-    const { props } = renderAdmin("retial", { onWorkspaceDeleted: vi.fn() });
-    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    const { props, rerender } = renderAdmin("retial", { onWorkspaceDeleted: vi.fn() });
+    await chooseAction("Delete…");
     const confirm = await screen.findByRole("alertdialog", { name: "Delete Retial?" });
     expect(within(confirm).getByText("retial")).toBeInTheDocument();
     expect(within(confirm).getByRole("button", { name: "Cancel" })).toHaveFocus();
@@ -394,10 +418,15 @@ describe("WorkspaceAdmin", () => {
 
     // Creating the corrected key is confirmed beside the deletion; both are toasts, not page notices.
     vi.mocked(api.createWorkspace).mockResolvedValue({ ...typo, key: "retail-eu", label: "Retail EU" });
-    fireEvent.click(screen.getByRole("button", { name: /New workspace/ }));
+    rerender(
+      <ToastProvider>
+        <WorkspaceAdmin {...props} route={LIST} />
+      </ToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /New workspace/ }));
     const dialog = await screen.findByRole("dialog", { name: "New workspace" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Retail EU" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create workspace" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add workspace" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "New workspace" })).not.toBeInTheDocument());
     expect(await screen.findByText("Workspace Retail EU was created.")).toBeInTheDocument();
   });
@@ -411,7 +440,7 @@ describe("WorkspaceAdmin", () => {
     byKey.set("subscribed", { ...retail, key: "subscribed", label: "Subscribed", deleteBlockedBy: "subscribed" });
     renderAdmin(key);
     expect(await screen.findByText(reason)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+    expect(await menuNames()).not.toContain("Delete…");
   });
 
   it("names the webhooks that keep a workspace from being deleted, each linked to its page", async () => {
@@ -437,8 +466,8 @@ describe("WorkspaceAdmin", () => {
     vi.mocked(api.capabilities).mockResolvedValue(capabilities(false));
     byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: true, deleteBlockedBy: null });
     renderAdmin("retial");
-    expect(await screen.findByRole("heading", { level: 2, name: "Retial" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Retial" })).toBeInTheDocument();
+    expect(await menuNames()).not.toContain("Delete…");
   });
 
   it("shows a refused deletion and the reason the workspace now has", async () => {
@@ -450,7 +479,7 @@ describe("WorkspaceAdmin", () => {
       }),
     );
     const { props } = renderAdmin("retial");
-    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    await chooseAction("Delete…");
     byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: false, deleteBlockedBy: "notEmpty" });
     const confirm = await screen.findByRole("alertdialog", { name: "Delete Retial?" });
     fireEvent.click(within(confirm).getByRole("button", { name: "Delete workspace" }));
@@ -458,7 +487,7 @@ describe("WorkspaceAdmin", () => {
     expect(await screen.findByText("Workspace 'retial' still has objects or change sets")).toBeInTheDocument();
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByText(/Only an empty workspace can be deleted/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+    expect(await menuNames()).not.toContain("Delete…");
     expect(props.onRouteChange).not.toHaveBeenCalled();
   });
 
@@ -468,7 +497,7 @@ describe("WorkspaceAdmin", () => {
       new ApiError(409, "VERSION_CONFLICT", "Workspace version has changed"),
     );
     renderAdmin("retial");
-    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    await chooseAction("Delete…");
     byKey.set("retial", {
       ...retail,
       key: "retial",
@@ -500,7 +529,7 @@ describe("WorkspaceAdmin", () => {
     expect(await screen.findByText("Workspace 'gone' not found")).toBeInTheDocument();
     vi.mocked(api.workspace).mockResolvedValue({ ...retail, key: "gone", label: "Gone after all" });
     fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Gone after all" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Gone after all" })).toBeInTheDocument();
   });
 });
 
@@ -637,7 +666,7 @@ describe("WorkspaceAdmin approval policy (0.12 A3)", () => {
     const groups = EVERY_GROUP.filter((key) => key !== "security-admin" && key !== "workspace-admin");
     vi.mocked(api.myPermissions).mockImplementation(async (key) => permissionsFixture(key, groups));
     renderAdmin("retail", { route: { ...LIST, workspaceKey: "retail", workspaceTab: "approval" } });
-    expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Retail" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Approval" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /need approval/ })).not.toBeInTheDocument();
     // The route named a tab the person may not use: Overview opens.
@@ -673,7 +702,7 @@ describe("WorkspaceAdmin tabs, applications and activity", () => {
     vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(all));
     vi.mocked(security.access).mockResolvedValue({ items: [], nextCursor: null } as never);
     const first = renderAdmin("retail");
-    await screen.findByRole("heading", { level: 2, name: "Retail" });
+    await screen.findByRole("heading", { level: 1, name: "Retail" });
     await waitFor(() =>
       expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
         "Overview",
@@ -687,7 +716,7 @@ describe("WorkspaceAdmin tabs, applications and activity", () => {
     vi.mocked(api.myPermissions).mockImplementation(async (key) => permissionsFixture(key, ["browse"]));
     vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(["browse"]));
     renderAdmin("retail");
-    await screen.findByRole("heading", { level: 2, name: "Retail" });
+    await screen.findByRole("heading", { level: 1, name: "Retail" });
     await screen.findByRole("button", { name: "Open workspace" });
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Activity"]);
   });
@@ -703,7 +732,7 @@ describe("WorkspaceAdmin tabs, applications and activity", () => {
     const card = await screen.findByRole("link", { name: /Test App/ });
     expect(api.model).toHaveBeenCalledWith({ workspaceKey: "retail" });
     expect(card).toHaveTextContent(/declared views?/);
-    expect(screen.getByRole("heading", { level: 3, name: /^Applications · \d+$/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Applications" })).toBeInTheDocument();
     fireEvent.click(card);
     expect(props.onNavigate).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "list", applicationKey: "test-app", workspaceKey: "retail" }),
@@ -713,7 +742,7 @@ describe("WorkspaceAdmin tabs, applications and activity", () => {
   it("hides the applications from someone who may not browse the workspace", async () => {
     vi.mocked(api.myPermissions).mockImplementation(async (key) => permissionsFixture(key, ["workspace-admin"]));
     renderAdmin("retail");
-    await screen.findByRole("heading", { level: 2, name: "Retail" });
+    await screen.findByRole("heading", { level: 1, name: "Retail" });
     await screen.findByText(/Change sets and publications belong to this workspace/);
     expect(screen.queryByRole("heading", { name: /^Applications/ })).not.toBeInTheDocument();
   });
@@ -801,7 +830,7 @@ describe("WorkspaceAdmin keeps what it has read", () => {
 
   it("does not reload the page or read a tab again when the tab changes", async () => {
     render(<Stateful start={{ ...LIST, workspaceKey: "retail" }} />);
-    await screen.findByRole("heading", { level: 2, name: "Retail" });
+    await screen.findByRole("heading", { level: 1, name: "Retail" });
     await screen.findByRole("region", { name: "Applications" });
     await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(3));
     const reads = () => ({
@@ -811,7 +840,7 @@ describe("WorkspaceAdmin keeps what it has read", () => {
       policy: vi.mocked(api.approvalPolicy).mock.calls.length,
     });
     const first = reads();
-    const heading = screen.getByRole("heading", { level: 2, name: "Retail" });
+    const heading = screen.getByRole("heading", { level: 1, name: "Retail" });
 
     fireEvent.click(screen.getByRole("tab", { name: "Activity" }));
     await screen.findByRole("region", { name: "Activity" });
@@ -824,7 +853,7 @@ describe("WorkspaceAdmin keeps what it has read", () => {
 
     // The page stayed mounted (the same heading element) and nothing was read twice: Activity's
     // model read and the approval policy are the first reads of those tabs, none came back for Overview.
-    expect(screen.getByRole("heading", { level: 2, name: "Retail" })).toBe(heading);
+    expect(screen.getByRole("heading", { level: 1, name: "Retail" })).toBe(heading);
     const after = reads();
     expect(after.capabilities).toBe(first.capabilities);
     expect(after.workspace).toBe(first.workspace);
@@ -838,14 +867,14 @@ describe("WorkspaceAdmin keeps what it has read", () => {
 
   it("shows the last known workspace at once when the page is opened again", async () => {
     const first = render(<Stateful start={{ ...LIST, workspaceKey: "retail" }} />);
-    await screen.findByRole("heading", { level: 2, name: "Retail" });
+    await screen.findByRole("heading", { level: 1, name: "Retail" });
     first.unmount();
     const never = new Promise<never>(() => undefined);
     vi.mocked(api.capabilities).mockReturnValue(never);
     vi.mocked(api.workspaceRuntimeState).mockReturnValue(never);
     vi.mocked(api.workspace).mockReturnValue(never);
     render(<Stateful start={{ ...LIST, workspaceKey: "retail" }} />);
-    expect(screen.getByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Retail" })).toBeInTheDocument();
     expect(screen.queryByText("Loading workspace…")).not.toBeInTheDocument();
   });
 
@@ -854,9 +883,9 @@ describe("WorkspaceAdmin keeps what it has read", () => {
     vi.mocked(api.capabilities).mockReturnValue(new Promise((resolve) => (release = resolve)));
     render(<Stateful start={{ ...LIST, workspaceKey: "retail" }} />);
     await waitFor(() => expect(api.workspace).toHaveBeenCalledWith("retail"));
-    expect(screen.queryByRole("heading", { level: 2, name: "Retail" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "Retail" })).not.toBeInTheDocument();
     await act(async () => release(capabilities(true)));
-    expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Retail" })).toBeInTheDocument();
     // One read serves the early start and the page that then mounts.
     expect(vi.mocked(api.workspace).mock.calls.filter(([key]) => key === "retail")).toHaveLength(1);
   });
@@ -895,7 +924,7 @@ describe("WorkspaceAdmin keeps what it has read", () => {
 
     it("shows no banner on a workspace that is served", async () => {
       renderAdmin("retail");
-      expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: "Retail" })).toBeInTheDocument();
       expect(screen.queryByText("Retail cannot be opened")).not.toBeInTheDocument();
     });
   });

@@ -26,12 +26,12 @@ import type {
 } from "@/types";
 import { isResting, useJobStream } from "@/features/jobs/useJobStream";
 import { routePath } from "@/routing/routes";
-import { Breadcrumbs } from "@/ui/Breadcrumbs";
-import { TrailBar, TrailLink } from "@/ui/TrailBar";
+import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { OutcomeCards } from "@/ui/OutcomeCards";
 import { RouteLink } from "@/ui/RouteLink";
+import { settingsHead } from "@/features/settings/navigation";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useSubjectSeen } from "@/features/inbox/useInbox";
@@ -424,15 +424,15 @@ export function MigrationPage({
     <SettingsLayout
       trail={
         onBackToChangeSet ? (
-          <TrailBar
+          <Trail
             back={{
-              label: `‹ Back to the change set${changeSet ? ` ${changeSetName}` : ""}`,
+              label: `Back to the change set${changeSet ? ` ${changeSetName}` : ""}`,
               onClick: onBackToChangeSet,
             }}
-            trail={[<TrailLink onClick={onBack}>Model</TrailLink>, moving ? "Move" : "Migration"]}
+            items={crumbs(<TrailLink onClick={onBack}>Model</TrailLink>, moving ? "Move" : "Migration")}
           />
         ) : (
-          <Breadcrumbs
+          <Trail
             items={[
               {
                 key: "model",
@@ -447,6 +447,7 @@ export function MigrationPage({
           />
         )
       }
+      {...settingsHead("model")}
       eyebrow={moving ? "Change set" : "Workspace model"}
       title={title}
       description={done ? undefined : description}

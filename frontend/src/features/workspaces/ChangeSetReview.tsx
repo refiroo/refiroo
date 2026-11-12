@@ -188,10 +188,10 @@ export function ChangeSetReview({
     <section className="context-page change-review">
       <PageHeader
         focusTitle
-        title="Review changes"
+        title="Changes in this change set"
         actions={
           <button type="button" className="secondary" onClick={onBack}>
-            Back to change set
+            See the data with these changes
           </button>
         }
       />
@@ -310,7 +310,7 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
           expectedChangeSetVersion: request!.version,
           expectedActivePublicationId: seen.id,
         })) as { publicationNumber: number };
-        onDecided?.(`Published as Publication ${publication.publicationNumber}. Reviewed changes are now live.`);
+        onDecided?.(`Published as Publication ${publication.publicationNumber}. The changes are live.`);
       } else {
         await api.decideChangeSet(current.id, {
           outcome,

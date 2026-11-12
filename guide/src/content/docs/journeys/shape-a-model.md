@@ -168,7 +168,7 @@ follow-up question. It appears in activation and Apply, rather than installation
 
 ![An account beside the model checks, with numbered citations and facts](/docs/screens/model-account-facts.png)
 
-*Above: the Apply dialog for a change to the Graubünden reference model. The account cites the facts below it.*
+*Above: The activation review compares RDM Starter Model with Graubünden’s current model. The account cites the facts below it; activation needs a migration.*
 
 If the provider fails, read the facts alone or choose **Try again**. Fix an invalid or newer draft
 before asking again. Asking does not apply or activate anything, and an explanation cannot remove

@@ -27,6 +27,7 @@ import { ActionMenu } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
+import { ReadingMarks } from "@/features/model-editor/ReadingEntries";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
@@ -342,7 +343,7 @@ function SheetColumns({
                 }}
                 onKeyDown={(event) => onKeyDown(event, index, header)}
               >
-                <ColumnRowBody column={column} status={status} />
+                <ColumnRowBody column={column} status={status} profile={profile} />
               </li>
             );
           })}
@@ -376,7 +377,15 @@ function columnDisplayStatus(
 }
 
 /** A column's row in the pane: its status dot, header and letter, statistics and status word. */
-function ColumnRowBody({ column, status }: { column: SourceColumn; status: ColumnStatus }) {
+function ColumnRowBody({
+  column,
+  status,
+  profile,
+}: {
+  column: SourceColumn;
+  status: ColumnStatus;
+  profile: DraftProfile | undefined;
+}) {
   return (
     <>
       <span className={`source-dot status-${status}`} aria-hidden="true" />
@@ -385,6 +394,7 @@ function ColumnRowBody({ column, status }: { column: SourceColumn; status: Colum
           {column.header} <span className="source-column-letter">{column.letter}</span>
         </span>
         <span className="source-column-stats">{statisticsWords(column)}</span>
+        <ReadingMarks profile={profile?.profile} sheet={column.sheet} header={column.header ?? ""} />
       </span>
       <span className={`source-column-status status-${status}`}>{STATUS_LABELS[status]}</span>
     </>
@@ -596,7 +606,7 @@ function SheetLists({
                     }}
                     onKeyDown={(event) => onKeyDown(event, item)}
                   >
-                    <ColumnRowBody column={item.column} status={item.status} />
+                    <ColumnRowBody column={item.column} status={item.status} profile={profile} />
                   </div>
                 ),
               )}

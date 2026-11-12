@@ -41,6 +41,9 @@ export function selectionFor(element: OutlineElement): EditorSelection {
   return {};
 }
 
+/** An issue's link: where the editor goes, and the element the server tied the issue to (a page may go nearer). */
+export type IssueTarget = (selection: EditorSelection, element?: OutlineElement) => void;
+
 export function IssuesAndHistory({
   outline,
   tab,
@@ -58,7 +61,7 @@ export function IssuesAndHistory({
   tab: string;
   onTab: (tab: string) => void;
   history: CursorFeed<ModelDraftOperationEntry>;
-  onSelect: (selection: EditorSelection) => void;
+  onSelect: IssueTarget;
   onUndoStep: (step: number) => void;
   /** The draft's profile, whose warnings join the issues. */
   profile?: DraftProfile;
@@ -196,7 +199,7 @@ function Issue({
 }: {
   issue: OutlineDiagnostic;
   outline: ModelDraftOutline;
-  onSelect: (selection: EditorSelection) => void;
+  onSelect: IssueTarget;
   onRemovePanel?: (page: { applicationKey: string; detail: string; panel: string }) => void;
 }) {
   const target = issue.element ? selectionFor(issue.element) : {};
@@ -208,7 +211,7 @@ function Issue({
       </StatusPill>
       <span className="editor-issue-text">{issue.message}</span>
       {issue.element && target.show ? (
-        <button type="button" className="link-button" onClick={() => onSelect(target)}>
+        <button type="button" className="link-button" onClick={() => onSelect(target, issue.element ?? undefined)}>
           Go to {elementLabel(outline, issue.element)}
         </button>
       ) : (

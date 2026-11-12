@@ -11,11 +11,11 @@
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import type { Hue } from "@/model/hues";
 import type { NoticeDelivery, NoticeMail } from "@/types";
 import { Choice } from "@/ui/Choice";
-import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
+import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Switch } from "@/ui/Switch";
 
 const DELIVERIES = [
@@ -56,7 +56,16 @@ export function digestTime(at: string, timeZone: string): string {
   }
 }
 
-export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChange: (next: NoticeMail) => void }) {
+export function NoticeMailPanel({
+  state,
+  onChange,
+  hue,
+}: {
+  state: NoticeMail;
+  onChange: (next: NoticeMail) => void;
+  /** The page's colour, for the row's tile. */
+  hue?: Hue;
+}) {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState("");
 
@@ -81,34 +90,36 @@ export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChan
   const every = state.digest?.every ?? "daily";
 
   return (
-    <Section title="Email">
-      <div className="account-panel">
-        {failure && <Notice tone="error">{failure}</Notice>}
-        <div className="account-row">
-          <span className="account-tile" aria-hidden="true">
-            <Icon name="bell" size={20} />
-          </span>
-          <div className="account-row-text">
-            <strong>Email me when something arrives in my inbox</strong>
-            <span className="account-muted">
-              Sent to {state.email ?? "your address"}. A mail says what kind of notice it is and links here; it never
-              names a record or a change set.
-            </span>
-          </div>
+    <SettingsGroup
+      title="Email"
+      description={
+        <p>
+          Sent to {state.email ?? "your address"}. A mail says what kind of notice it is and links here; it never names
+          a record or a change set.
+        </p>
+      }
+    >
+      {failure && <Notice tone="error">{failure}</Notice>}
+      <SettingsPanel>
+        <SettingRow
+          keep
+          lead={<SettingsTile icon="bell" hue={hue} />}
+          name="Email me when something arrives in my inbox"
+          help="Off: nothing is mailed, whatever is chosen below. Your inbox keeps every notice either way."
+        >
           <Switch
             label="Email me when something arrives in my inbox"
             checked={state.enabled}
             disabled={pending}
             onChange={(enabled) => void save({ enabled })}
           />
-        </div>
-        <fieldset className="account-kinds" disabled={!state.enabled}>
+        </SettingRow>
+      </SettingsPanel>
+      <SettingsPanel>
+        <fieldset className="settings-fieldset" disabled={!state.enabled}>
           <legend>How each kind reaches me</legend>
           {state.kinds.map((item) => (
-            <div className="account-row account-kind-row" key={item.kind}>
-              <div className="account-row-text">
-                <span>{item.label}</span>
-              </div>
+            <SettingRow key={item.kind} name={<span className="setting-row-plain">{item.label}</span>}>
               <div role="radiogroup" aria-label={item.label}>
                 <Choice
                   name={`delivery-${item.kind}`}
@@ -117,22 +128,17 @@ export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChan
                   onChange={(delivery) => !pending && choose(item.kind, delivery)}
                 />
               </div>
-            </div>
+            </SettingRow>
           ))}
         </fieldset>
-        <fieldset className="account-kinds account-digest" disabled={!state.enabled}>
+      </SettingsPanel>
+      <SettingsPanel>
+        <fieldset className="settings-fieldset" disabled={!state.enabled}>
           <legend>The digest</legend>
-          <div className="account-row">
-            <div className="account-row-text">
-              <div role="radiogroup" aria-label="How often the digest comes">
-                <Choice
-                  name="digest-every"
-                  value={every}
-                  options={FREQUENCIES}
-                  onChange={(next) => !pending && void save({ digest: { every: next, timeZone: browserTimeZone() } })}
-                />
-              </div>
-              <span className="account-muted">
+          <SettingRow
+            name={<span className="setting-row-plain">One mail with everything set to Digest</span>}
+            help={
+              <>
                 {state.digest
                   ? `In your time zone, ${state.digest.timeZone}.${
                       state.digest.nextAt
@@ -141,14 +147,20 @@ export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChan
                     }`
                   : "Choose Digest for a kind to start one."}{" "}
                 No mail when there is nothing new; a notice you read before then is left out.
-              </span>
+              </>
+            }
+          >
+            <div role="radiogroup" aria-label="How often the digest comes">
+              <Choice
+                name="digest-every"
+                value={every}
+                options={FREQUENCIES}
+                onChange={(next) => !pending && void save({ digest: { every: next, timeZone: browserTimeZone() } })}
+              />
             </div>
-          </div>
+          </SettingRow>
         </fieldset>
-        <p className="account-muted account-kinds-note">
-          Only the mail changes: your inbox keeps every notice. These choices apply only while the switch above is on.
-        </p>
-      </div>
-    </Section>
+      </SettingsPanel>
+    </SettingsGroup>
   );
 }

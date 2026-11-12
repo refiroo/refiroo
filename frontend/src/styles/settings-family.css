@@ -1,0 +1,657 @@
+/* Settings as one family (0.17 ST1, PP-D60 to PP-D67): the parts every Settings page is drawn from
+   (`ui/SettingsLayout`, `ui/SettingsParts`). Tokens only, so every theme and both modes draw them. A hue comes
+   from the tokens' `[data-hue]` (the type palette), as the application tiles and the role chips use it. */
+
+/* 1. The page: one header, one left edge. */
+.settings-page > .page-header {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: var(--space-3) var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom-color: var(--border-subtle);
+}
+.settings-page > .page-header .page-title {
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.settings-page > .page-header .page-icon {
+  margin-top: var(--space-1);
+}
+.settings-page > .page-header h1 {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+}
+.settings-page > .page-header .page-title-text > p:not(.eyebrow),
+.settings-page > .page-header .page-description {
+  max-width: 68ch;
+  margin-top: var(--space-2);
+  font-size: var(--fs-15);
+  color: var(--text-secondary);
+}
+.settings-page > .page-header .page-actions {
+  padding-top: var(--space-5);
+  flex-wrap: nowrap;
+}
+.settings-page > .tab-list,
+.settings-page > .react-aria-Tabs > .tab-list {
+  margin-top: calc(-1 * var(--space-3));
+}
+
+/* Tiles and marks: a glyph or initials on the hue's soft fill. */
+.settings-tile,
+.name-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--hue-fill, var(--surface-fill));
+  color: var(--hue-ink, var(--text-secondary));
+}
+.settings-tile {
+  border-radius: var(--radius-control);
+}
+.settings-tile-32 {
+  width: 32px;
+  height: 32px;
+}
+.settings-tile-36 {
+  width: 36px;
+  height: 36px;
+}
+.settings-tile-44 {
+  width: 44px;
+  height: 44px;
+}
+.settings-tile-48 {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-panel);
+}
+.name-mark {
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: var(--fs-12);
+}
+.name-mark-36 {
+  width: 36px;
+  height: 36px;
+}
+.name-mark-64 {
+  width: 64px;
+  height: 64px;
+  font-size: var(--fs-20);
+  background: var(--surface-raised);
+  border: 2px solid var(--hue-marker, var(--border-strong));
+}
+
+/* 2. A group: what it is about on the left, its panels on the right. */
+.settings-group {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 800px);
+  column-gap: var(--space-9);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-faint);
+  min-width: 0;
+}
+.settings-page > .page-header + .settings-group,
+.settings-page > .item-header + .settings-group,
+.react-aria-TabPanel > .settings-group:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.react-aria-TabPanel > .settings-group + .settings-group {
+  margin-top: var(--space-6);
+}
+.settings-group-about h2 {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: 650;
+  line-height: 1.3;
+}
+.settings-group-description {
+  margin-top: var(--space-2);
+  max-width: 40ch;
+  font-size: var(--fs-13-5);
+  color: var(--text-secondary);
+}
+.settings-group-description p {
+  margin: 0;
+}
+.settings-group-description p + p {
+  margin-top: var(--space-2);
+}
+.settings-group-action {
+  margin-top: var(--space-4);
+}
+.settings-group-body {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+}
+.settings-group-stacked {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--space-4);
+}
+.settings-group-stacked > .settings-group-about {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-6);
+}
+.settings-group-stacked .settings-group-text {
+  flex: 1 1 320px;
+}
+.settings-group-stacked .settings-group-description {
+  max-width: 68ch;
+}
+.settings-group-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 3. A panel of rows. */
+.settings-panel {
+  min-width: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-6);
+  min-height: 56px;
+  padding: var(--space-3) 18px;
+  border-top: 1px solid var(--border-faint);
+}
+.setting-row:first-child {
+  border-top: 0;
+}
+.setting-row.has-lead {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: var(--space-4);
+}
+.setting-row-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.setting-row-help {
+  margin-top: 2px;
+  max-width: 60ch;
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+.setting-row-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  text-align: right;
+}
+.setting-row-fact {
+  grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+  min-height: 44px;
+  padding-block: 10px;
+}
+.setting-row-fact .setting-row-name {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.setting-row-fact .setting-row-value {
+  justify-content: flex-start;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.setting-row-under {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--space-3);
+}
+.setting-row-under.has-lead {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.setting-row-under.has-lead .setting-row-value {
+  grid-column: 2;
+}
+.setting-row-under .setting-row-value {
+  justify-content: flex-start;
+  text-align: left;
+}
+.settings-panel-note {
+  margin: 0;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-sunken);
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+.settings-panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) 18px;
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-sunken);
+}
+.settings-panel-foot > .settings-panel-state {
+  margin-right: auto;
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+/* Rows that are switched off together: a fieldset inside a panel, its legend as the panel's small heading. */
+.settings-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-fieldset > legend {
+  float: left;
+  width: 100%;
+  padding: var(--space-3) 18px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border-faint);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.settings-fieldset > legend + * {
+  clear: both;
+  border-top: 0;
+}
+.settings-fieldset:disabled .setting-row {
+  opacity: 0.55;
+}
+.setting-row-plain {
+  font-weight: 500;
+}
+/* Fields saved together: two columns of fields in a panel, one Save in its foot. */
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: 18px;
+}
+.settings-fields > .full,
+.settings-fields > .notice,
+.settings-fields > .inline-error {
+  grid-column: 1 / -1;
+}
+.settings-fields .form-field + .form-field {
+  margin-top: 0;
+}
+/* A field in a panel is drawn as every form's field (the dialog's rule in base.css, for a form on the page). */
+.settings-panel .form-field input:not([type="checkbox"]):not([type="radio"]),
+.settings-panel .form-field select,
+.settings-panel .form-field textarea {
+  width: 100%;
+  min-height: var(--control-height);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  padding: 7px 10px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--fs-14);
+  font-weight: 400;
+  outline: none;
+}
+.settings-panel .form-field input:not([type="checkbox"]):not([type="radio"]):focus,
+.settings-panel .form-field select:focus,
+.settings-panel .form-field textarea:focus {
+  border-color: var(--action-primary);
+  box-shadow: var(--focus-ring);
+}
+.settings-panel-pad {
+  padding: var(--space-4) 18px;
+}
+.settings-empty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 18px;
+  color: var(--text-secondary);
+}
+.settings-empty > p {
+  margin: 0;
+  max-width: 60ch;
+}
+.settings-empty > p:first-child {
+  grid-column: 1 / 3;
+}
+
+/* A table inside a panel: its head on the sunken band, its cells on the panel's inset. */
+.settings-panel > .settings-table,
+.settings-panel > .table-wrap {
+  border: 0;
+  border-radius: 0;
+}
+.settings-panel .settings-table thead th {
+  padding: 10px 18px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border-faint);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.settings-panel .settings-table tbody th,
+.settings-panel .settings-table td {
+  padding-inline: 18px;
+}
+.settings-panel .settings-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+.settings-table .num,
+.settings-table thead th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.settings-table .when {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.settings-table td .why {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+
+/* 4. An opened item: its mark, name, facts and actions on a band in its colour. */
+.item-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--hue-marker, var(--border-subtle)) 35%, var(--border-subtle));
+  border-radius: var(--radius-panel);
+  background: var(--hue-band, var(--surface-raised));
+}
+.item-header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  font-size: var(--fs-26);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.item-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) 10px;
+  margin-top: var(--space-2);
+  font-size: var(--fs-13-5);
+  color: var(--text-secondary);
+}
+.item-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* 5. A list's tools, the chips that narrow it, a kind's marker. */
+.settings-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px var(--space-3);
+}
+.settings-tools .search-box,
+.settings-tools > .search-field {
+  width: 320px;
+  max-width: 100%;
+}
+.settings-tools-count {
+  margin-left: auto;
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+.filter-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-13-5);
+  cursor: pointer;
+}
+.filter-chip:hover {
+  background: var(--surface-hover);
+}
+.filter-chip[aria-pressed="true"] {
+  background: var(--state-selected);
+  border-color: var(--state-selected-line);
+  color: var(--state-selected-text);
+  font-weight: 600;
+}
+.kind {
+  display: inline-flex;
+  align-items: baseline;
+}
+.kind-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  background: var(--hue-marker, var(--text-tertiary));
+}
+
+/* 6. A log: its totals above, "n of m" with Show more below. */
+.log-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+}
+.log-total {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px;
+  border-left: 1px solid var(--border-faint);
+}
+.log-total:first-child {
+  border-left: 0;
+}
+.log-total dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: var(--fs-20);
+  font-variant-numeric: tabular-nums;
+}
+.log-total dt {
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+.log-total dt::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--hue-marker, var(--border-strong));
+}
+.log-total.bad dd {
+  color: var(--status-error-text);
+}
+.log-total.bad dt::before {
+  background: var(--status-error-marker);
+}
+.log-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2) 18px;
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-sunken);
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+
+/* 7. The index: a panel per group in its colour, every page with one line saying what it is for. */
+.settings-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  align-items: start;
+  gap: var(--space-5);
+}
+.settings-index-group > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: var(--space-4) 18px;
+  background: var(--hue-band);
+  border-bottom: 1px solid var(--border-faint);
+}
+.settings-index-group > header .settings-tile {
+  background: var(--surface-raised);
+}
+.settings-index-group > header h2 {
+  margin: 0;
+  font-size: var(--fs-16);
+  font-weight: 650;
+}
+.settings-index-group > header p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-13-5);
+  color: var(--text-secondary);
+}
+.settings-index-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.settings-index-group li + li {
+  border-top: 1px solid var(--border-faint);
+}
+.settings-index-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: 10px 18px;
+  color: inherit;
+  text-decoration: none;
+}
+.settings-index-link:hover {
+  background: var(--hue-band);
+}
+.settings-index-link strong {
+  display: block;
+  font-weight: 600;
+}
+.settings-index-link small {
+  display: block;
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}
+.settings-index-link > .icon:last-child,
+.settings-index-link > svg:last-child {
+  color: var(--text-tertiary);
+}
+.settings-index-link:hover > svg:last-child {
+  color: var(--hue-ink);
+}
+
+/* Narrow: a group's two columns become one; a row's control goes under its text; the header's action wraps. */
+@media (max-width: 900px) {
+  .settings-group {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-4);
+  }
+  .settings-group-description {
+    max-width: 68ch;
+  }
+}
+@media (max-width: 760px) {
+  .settings-page > .page-header {
+    flex-wrap: wrap;
+  }
+  .settings-page > .page-header .page-actions {
+    padding-top: 0;
+    flex-wrap: wrap;
+  }
+  .settings-tile-48 {
+    width: 40px;
+    height: 40px;
+  }
+  .item-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--space-4);
+    padding: var(--space-4);
+  }
+  .item-header-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .setting-row:not(.setting-row-fact):not(.setting-row-keep) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 10px;
+  }
+  .setting-row.has-lead:not(.setting-row-keep) {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .setting-row.has-lead:not(.setting-row-keep) .setting-row-value {
+    grid-column: 2;
+  }
+  .setting-row:not(.setting-row-keep) .setting-row-value {
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .setting-row-keep.has-lead {
+    column-gap: var(--space-3);
+  }
+  .settings-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-empty {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .settings-empty-action {
+    grid-column: 1 / -1;
+  }
+  .settings-index {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-tools .search-box,
+  .settings-tools > .search-field {
+    width: 100%;
+  }
+  .settings-table .num {
+    text-align: left;
+  }
+}

@@ -41,7 +41,7 @@ def _ensure_profile(context: Context) -> None:
     if "sources" in profile.data:
         return
     label = (context.file_name or "import").rsplit(".", 1)[0]
-    profile.set([], "key", key_from_label(label, ()))
+    profile.set([], "key", key_from_label(label, context.profile_keys))
     profile.set([], "name", label)
     profile.set([], "sources", [])
     profile.set([], "valueMaps", {})
@@ -75,8 +75,24 @@ def _repeated(headers: tuple[str, ...]) -> set[str]:
     return names
 
 
+def added_columns(source: dict[str, Any]) -> list[str]:
+    """The columns the source's readings add to its table (0.17 PL3b), which a binding may name."""
+    unpivot = source.get("unpivot") if isinstance(source.get("unpivot"), dict) else {}
+    headings = source.get("headings") if isinstance(source.get("headings"), dict) else {}
+    named = [headings.get("into"), unpivot.get("nameColumn"), unpivot.get("valueColumn")]
+    return [name for name in named if isinstance(name, str)]
+
+
 def _column(context: Context, source: dict[str, Any], column: Any, field: str = "column") -> str:
+    """The column a step names, as the import's reader names it: a header is matched by its text
+    with surrounding whitespace not significant (``readers.header_cell``), so the header a client
+    reads from the profile, with or without the space its cell ends in, finds the column and the
+    binding saves the trimmed name."""
     sheet = _sheet(context, source.get("sheet"), field)
+    if isinstance(column, str):
+        column = column.strip()
+    if isinstance(column, str) and column in added_columns(source):
+        return column
     own_row = source.get("headerRow")
     # A source moved to another header row maps the headers of that row (0.10 A8b, D126).
     if (
@@ -238,7 +254,7 @@ def _source_key(context: Context, raw: Any, source: dict[str, Any]) -> dict[str,
         if raw["field"] != "name":
             raise Refusal("key/field", "invalidValue", "A source key's field is 'name'")
     elif "column" in raw:
-        _column(context, source, raw["column"], "key/column")
+        raw = {**raw, "column": _column(context, source, raw["column"], "key/column")}
     elif not profile_side.facts(context.data).bound(source.get("objectTypeKey"), raw["attributeTypeKey"]):
         raise Refusal("key/attributeTypeKey", "unknownElement", f"'{source.get('objectTypeKey')}' does not bind '{raw['attributeTypeKey']}'")
     return dict(raw)
@@ -301,7 +317,7 @@ def _whole_key(context: Context, key: dict[str, Any], source: dict[str, Any], fo
     its attributes the type's."""
     for name in ("column", "versionColumn", "nameColumn"):
         if key.get(name) is not None:
-            _column(context, source, key[name], f"{field}/{name}")
+            key[name] = _column(context, source, key[name], f"{field}/{name}")
     attributes = [key["attributeTypeKey"]] if key.get("attributeTypeKey") else []
     for attribute in [*attributes, *(key.get("attributeTypeKeys") or [])]:
         if not found.bound(source["objectTypeKey"], attribute):
@@ -341,8 +357,9 @@ def _replace_sources(context: Context, given: list[Any]) -> tuple[set[str], set[
         for index, binding in enumerate(source["columns"]):
             where = f"{field}/columns/{index}"
             if "columns" in binding:
-                for name in binding["columns"]:
-                    _column(context, source, name, f"{where}/columns")
+                binding["columns"] = [_column(context, source, name, f"{where}/columns") for name in binding["columns"]]
+            elif "letter" not in binding:
+                binding["column"] = _ref(context, source, binding, where)
             else:
                 _ref(context, source, binding, where)
             if not profile_side.binding_resolves(found, source, binding):
@@ -684,6 +701,140 @@ def ignore_column(context: Context, raw: dict[str, Any]) -> Applied:
     return _done(context, raw, "ignoreColumn", _named(source))
 
 
+# --- readings: how a source's table is read (0.17 PL3b, PP-D6 and PP-D7) ---
+
+
+def _file_column(context: Context, source: dict[str, Any], name: Any, field: str) -> str:
+    """A column of the file itself: a column a reading adds is not one."""
+    if isinstance(name, str) and name in added_columns(source):
+        raise Refusal(field, "invalidValue", f"'{name}' is a column a reading adds, not one of the file")
+    return _column(context, source, name, field)
+
+
+def _file_columns(context: Context, source: dict[str, Any], names: Any, field: str, least: int) -> list[str]:
+    if not isinstance(names, list) or len(names) < least or any(not isinstance(n, str) for n in names):
+        raise Refusal(field, "invalidValue", f"'{field}' lists at least {least} header text(s)")
+    if len(set(names)) != len(names):
+        raise Refusal(field, "invalidValue", f"'{field}' lists each column once")
+    return [_file_column(context, source, name, field) for name in names]
+
+
+def _new_column(context: Context, source: dict[str, Any], name: Any, field: str, taken: set[str]) -> str:
+    """The name of a column a reading adds: text no column of the table, and no other added column,
+    already has."""
+    if not isinstance(name, str) or not name.strip():
+        raise Refusal(field, "invalidValue", f"'{field}' is the new column's name")
+    sheet = _sheet(context, source.get("sheet"), field)
+    headers = set(sheet.headers) | _repeated(sheet.headers)
+    own_row = source.get("headerRow")
+    if sheet.row is not None and isinstance(own_row, int):
+        headers |= set(sheet.row(own_row).values())
+    if name in headers or name in taken:
+        raise Refusal(field, "keyTaken", f"The table already has a column '{name}'")
+    return name
+
+
+def _drop_added(context: Context, source: dict[str, Any], gone: set[str], because: str) -> None:
+    """The bindings and the key that named columns a reading no longer adds, kept as unmapped."""
+    if not gone:
+        return
+    for binding in list(_source(context, source["id"]).get("columns") or []):
+        names = [binding["column"]] if "column" in binding else []
+        if gone & set(names):
+            profile_side.unmap(context.profile, source, binding, because)
+    key = _source(context, source["id"]).get("key")
+    if isinstance(key, dict) and key.get("column") in gone:
+        profile_side.unmap_key(context.profile, source, because)
+
+
+def _set_reading(
+    context: Context, source: dict[str, Any], member: str, value: Any, because: str
+) -> None:
+    before = set(added_columns(source))
+    context.profile.set(profile_side.source_path(source), member, value)
+    after = set(added_columns(_source(context, source["id"])))
+    _drop_added(context, source, before - after, because)
+
+
+@kind("setUnpivot", params=("source", "columns", "nameColumn", "valueColumn"))
+def set_unpivot(context: Context, raw: dict[str, Any]) -> Applied:
+    """Read a wide table as rows: each filled cell of the listed columns becomes a row, its column's header in the new `nameColumn` and the cell in the new `valueColumn`, which bindings then name like any column."""
+    params = Params(raw)
+    source = _source(context, raw.get("source"))
+    columns = _file_columns(context, source, params.required("columns", list), "columns", 2)
+    params.text("nameColumn"), params.text("valueColumn")
+    taken = {name for name in added_columns(source) if name not in _own_unpivot(source)}
+    name = _new_column(context, source, raw.get("nameColumn"), "nameColumn", taken)
+    value = _new_column(context, source, raw.get("valueColumn"), "valueColumn", taken | {name})
+    if name == value:
+        raise Refusal("valueColumn", "invalidValue", "The two new columns need different names")
+    if set(columns) & set(source.get("fillDown") or []):
+        raise Refusal("columns", "invalidValue", "A column is filled down or unpivoted, not both")
+    _set_reading(context, source, "unpivot", {"columns": columns, "nameColumn": name, "valueColumn": value}, "setUnpivot")
+    return _done(context, raw, "setUnpivot", _named(source))
+
+
+def _own_unpivot(source: dict[str, Any]) -> set[str]:
+    unpivot = source.get("unpivot") if isinstance(source.get("unpivot"), dict) else {}
+    return {unpivot[m] for m in ("nameColumn", "valueColumn") if m in unpivot}
+
+
+@kind("clearUnpivot", params=("source",))
+def clear_unpivot(context: Context, raw: dict[str, Any]) -> Applied:
+    """Stop reading a source's table as unpivoted; the bindings of its two added columns are unmapped."""
+    source = _source(context, raw.get("source"))
+    if not isinstance(source.get("unpivot"), dict):
+        raise Refusal("source", "unknownElement", f"Source '{source['id']}' does not unpivot")
+    _set_reading(context, source, "unpivot", None, "clearUnpivot")
+    return _done(context, raw, "clearUnpivot", _named(source))
+
+
+@kind("setFillDown", params=("source", "columns"))
+def set_fill_down(context: Context, raw: dict[str, Any]) -> Applied:
+    """Read the listed columns as repeated by blanks: an empty cell takes the nearest filled cell above it in its column."""
+    params = Params(raw)
+    source = _source(context, raw.get("source"))
+    columns = _file_columns(context, source, params.required("columns", list), "columns", 1)
+    wide = set((source.get("unpivot") or {}).get("columns") or [])
+    if wide & set(columns):
+        raise Refusal("columns", "invalidValue", "A column is filled down or unpivoted, not both")
+    context.profile.set(profile_side.source_path(source), "fillDown", columns)
+    return _done(context, raw, "setFillDown", _named(source))
+
+
+@kind("clearFillDown", params=("source",))
+def clear_fill_down(context: Context, raw: dict[str, Any]) -> Applied:
+    """Stop filling down a source's columns."""
+    source = _source(context, raw.get("source"))
+    if not source.get("fillDown"):
+        raise Refusal("source", "unknownElement", f"Source '{source['id']}' fills no column down")
+    context.profile.set(profile_side.source_path(source), "fillDown", None)
+    return _done(context, raw, "clearFillDown", _named(source))
+
+
+@kind("setHeadingRows", params=("source", "column", "into"))
+def set_heading_rows(context: Context, raw: dict[str, Any]) -> Applied:
+    """Read a row whose only filled cell is in `column` as a heading, not a record: its text fills the new column `into` on every row beneath it, until the next heading. Bind `into` as a parent."""
+    params = Params(raw)
+    source = _source(context, raw.get("source"))
+    column = _file_column(context, source, params.text("column"), "column")
+    params.text("into")
+    taken = {name for name in added_columns(source) if name != (source.get("headings") or {}).get("into")}
+    into = _new_column(context, source, raw.get("into"), "into", taken)
+    _set_reading(context, source, "headings", {"column": column, "into": into}, "setHeadingRows")
+    return _done(context, raw, "setHeadingRows", _named(source))
+
+
+@kind("clearHeadingRows", params=("source",))
+def clear_heading_rows(context: Context, raw: dict[str, Any]) -> Applied:
+    """Stop reading heading rows in a source's table; the binding of the column they filled is unmapped."""
+    source = _source(context, raw.get("source"))
+    if not isinstance(source.get("headings"), dict):
+        raise Refusal("source", "unknownElement", f"Source '{source['id']}' reads no heading rows")
+    _set_reading(context, source, "headings", None, "clearHeadingRows")
+    return _done(context, raw, "clearHeadingRows", _named(source))
+
+
 @kind("addValuesToList", params=("source", "column", "letter", "create"))
 def add_values_to_list(context: Context, raw: dict[str, Any]) -> Applied:
     """Make a column create the records it names that do not exist: a lookup or parent column, a relation-flag column (the records its flags stand for) or a related record's column (the parent it names)."""
@@ -730,6 +881,7 @@ def unmap_column(context: Context, raw: dict[str, Any]) -> Applied:
         column = _ref(context, source, raw)
     else:
         column = raw.get("column")
+        column = column.strip() if isinstance(column, str) else column
         if not isinstance(column, str) or not column:
             raise Refusal("column", "invalidValue", "'column' is a column's header, or name it by 'letter'")
     _unbind(context, source, column)

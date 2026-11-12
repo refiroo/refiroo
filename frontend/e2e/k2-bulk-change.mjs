@@ -100,7 +100,7 @@ try {
     return text(dialog.getByRole("region", { name: "The preview", exact: true }));
   };
   const applied = async () => {
-    await dialog.getByRole("button", { name: "Apply" }).click();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await dialog.getByRole("region", { name: "The result", exact: true }).waitFor({ timeout: 20000 });
     return text(dialog.getByRole("region", { name: "The result", exact: true }));
   };
@@ -273,13 +273,13 @@ try {
   await page.keyboard.type("Typed at 390px");
   await dialog.getByRole("button", { name: "Preview" }).focus();
   await page.keyboard.press("Enter");
-  await dialog.getByRole("button", { name: "Apply" }).waitFor({ timeout: 20000 });
+  await dialog.getByRole("button", { name: "Save", exact: true }).waitFor({ timeout: 20000 });
   const ready = await status.innerText();
   expect(ready.startsWith("Preview ready"), `keyboard: the status says "${ready}"`);
   const scroll = await overflow();
   expect(scroll <= 0, `keyboard 390px: the page scrolls horizontally by ${scroll}px`);
   await shot("k2-preview-narrow");
-  await dialog.getByRole("button", { name: "Apply" }).focus();
+  await dialog.getByRole("button", { name: "Save", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.getByRole("button", { name: "Done" }).waitFor({ timeout: 20000 });
   const done = await status.innerText();

@@ -49,7 +49,7 @@ export function ObjectTable({
   selectedId,
   selection,
   renderActions,
-  label = "Objects",
+  label = "Records",
   emptyMessage = "Nothing to show yet.",
   emptyIcon,
   emptyAction,
@@ -246,6 +246,7 @@ export function ObjectTable({
       emptyIcon={emptyIcon}
       emptyAction={emptyAction}
       oneLine
+      foldColumns
       fill={fill}
     />
   );

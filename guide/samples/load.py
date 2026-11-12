@@ -516,7 +516,13 @@ def load_set(
     if client_name:
         print("6. consumer client")
         env = read_env(env_file) if env_file else {}
-        if "GUIDE_CONSUMER_CLIENT_ID" in env:
+        known = [
+            c["id"]
+            for c in api.call("GET", "/api/v1/clients?q=" + urllib.parse.quote(client_name))["items"]
+            if c["name"] == client_name
+        ]
+        # The env file outlives the instance (`reference.sh down` then `up`): its client counts only if the instance has it.
+        if env.get("GUIDE_CONSUMER_CLIENT_ID") in known:
             print("  client already made (credentials in the env file)")
         else:
             found = [
@@ -545,6 +551,13 @@ def load_set(
                         "scope": {"workspaceKey": WORKSPACE},
                     },
                 )
+            # A client of an earlier instance leaves stale lines: they are replaced, not followed by a second pair.
+            kept = [
+                line
+                for line in Path(env_file).read_text().splitlines(keepends=True)
+                if not line.startswith(("GUIDE_CONSUMER_CLIENT_ID=", "GUIDE_CONSUMER_CLIENT_SECRET="))
+            ]
+            Path(env_file).write_text("".join(kept))
             with open(env_file, "a") as f:
                 f.write(
                     f"GUIDE_CONSUMER_CLIENT_ID={client['id']}\n"

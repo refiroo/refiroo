@@ -180,11 +180,18 @@ try {
   checks.push(`master values, live: Is represented by system value lists K5 Value 001 and 002 on Bravo; axe ${await axe("k5-masters-light")} violations`);
 
   // 11. K5a: a field of the related records.
+  // The wide table folds the columns that do not fit behind "Columns · n of m"; the run asks for them.
+  await page.getByRole("button", { name: /^Columns · \d+ of \d+$/ }).click();
   const codeHeader = await page.getByRole("columnheader", { name: /System code/ }).innerText();
   expect(codeHeader.includes("Is represented by system value · System code"), `field column: the header is "${codeHeader}"`);
   const codeCell = row("K5 Master Bravo").locator("td").filter({ has: page.locator(".related-records") }).filter({ hasText: "K5-System" });
   const codes = await codeCell.locator(".record-chip-name").allInnerTexts();
-  expect(codes.join("|") === "K5-System|K5-System", `field column: Bravo shows ${codes}`);
+  // The column's width may fold the second value behind "+1 more": two values, whole or counted.
+  const codeText = await text(codeCell);
+  expect(
+    codes.join("|") === "K5-System|K5-System" || (codes.join("|") === "K5-System" && /\+1 more/.test(codeText)),
+    `field column: Bravo shows ${codes} (${codeText})`,
+  );
   const codeSort = await page.getByRole("columnheader", { name: /System code/ }).getByRole("button").count();
   expect(codeSort === 0, "field column: a sort is offered");
   checks.push("master values: Is represented by system value · System code shows K5-System for Bravo's two values, without a sort");
@@ -202,7 +209,7 @@ try {
   await foxtrot.getByRole("checkbox").check();
   await dialog.getByRole("button", { name: "Preview", exact: true }).click();
   await dialog.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 20000 });
-  await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await dialog.getByRole("region", { name: "The result", exact: true }).waitFor({ timeout: 20000 });
   await dialog.getByRole("button", { name: "Done" }).click();
   await dialog.waitFor({ state: "detached" });

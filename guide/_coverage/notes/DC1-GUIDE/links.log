@@ -1,0 +1,6 @@
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 76039 local links and sources in 257 built pages
+ok: links (257 page(s))

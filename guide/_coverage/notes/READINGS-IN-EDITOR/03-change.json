@@ -1,0 +1,5 @@
+{
+  "page": "guide/src/content/docs/guide/model/map-a-column.md",
+  "before": "how the file is read before matching or conversion.",
+  "after": "how the file is read before matching or conversion. For a sheet that loads records, the\ncolumn panel's **Readings** row also offers **Fill blanks from the cell above**,\n**Rows holding only this column are headings\u2026** and **Read these columns as rows\u2026**.\nFor columns read as rows, select at least two columns, name the two added columns and choose\n**Read as rows**. For headings, name the added column, choose the parent object type and\nchoose **Read headings**. A reading that is on has its corresponding **Stop\u2026** entry.\nThe **Source** pane marks columns that have a reading; check the refreshed dry run after changing one."
+}

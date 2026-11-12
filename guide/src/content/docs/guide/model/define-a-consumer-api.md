@@ -16,7 +16,7 @@ examples below use the reference Stops API. They explain the result of your choi
 
 1. Select **Consumer APIs** in the model pane, then the add button's **Consumer API…**.
    Enter **Name**, review **Key** and choose **Types to expose**. A blank key is made from
-   the name. Create the API. The initial definition includes identifiers, names, attached
+   the name. Choose **Add consumer API**. The initial definition includes identifiers, names, attached
    attributes, Get by ID and a list per type. Inspect these starting choices before sharing
    the contract: exposing a type does not mean every attached field belongs in a public API.
 2. On **Types and related**, inspect each type's public name. Use **Expose a type…** to add
@@ -65,12 +65,12 @@ example, a catalogue item can return its category's approval flag and external c
 avoids a second read, but a parent's related block repeats for every child in a list.
 
 1. On **Fields**, choose **Parent, path and hierarchy…**, select **Serve the parent
-   (objectType, id, code, name)** and apply the choice. The **Parent** section appears below
+   (objectType, id, code, name)** and choose **Save**. The **Parent** section appears below
    the object's fields. If it is already served, open that section directly.
 2. Review the parent's **Output name**. Select **Fields**, or choose **Parent fields…**,
    to open **Fields of the parent**. Each row pairs a public name with the source it reads.
    Choose built-in values or attributes from **Attributes of the parent types** and review
-   the proposed camelCase name. Edit that name if consumers need another one, then apply.
+   the proposed camelCase name. Edit that name if consumers need another one, then choose **Save**.
    The Parent table shows name=source where they differ. These sources belong to types that
    directly contain exposed records, rather than to the child. A missing or unbound value
    answers null unless a default supplies a value; with no parent, the whole output is null.
@@ -80,7 +80,7 @@ avoids a second read, but a parent's related block repeats for every child in a 
 3. Under **Parent's related records**, choose **Add related**, or open the consumer API's
    ⋯ menu and choose **Add related to the parent…** to open the same dialog. Give the block an **Output
    name**, choose **Via**, and select **Fields**, including their public output names.
-   The offered relationships start from the possible parent types. Apply and inspect the
+   The offered relationships start from the possible parent types. Choose **Add related block** and inspect the
    new row. Its block sits inside the parent's answer; do not add a parent prefix to its
    output name here.
 4. In **Served**, choose **Always** to return that block in ordinary answers, or **On request**
@@ -126,7 +126,9 @@ when reviewing the contract with integrators.
    **Served type** after changing sources; incompatible types or conflicting roles appear
    in **Issues** and need correction.
 4. Select an editable **Default** cell to provide a fallback only when all sources have
-   no value. Save the value or cancel. Use the served type: a text fallback cannot stand
+   no value. Leave the input or press Enter to save; Escape puts the old value back.
+   An unchanged input saves nothing. If refused, review the reason beneath it and use
+   **Save again** to retry or **Cancel** to abandon the edit. Use the served type: a text fallback cannot stand
    in for a number. A default changes the consumer answer, not the stored record.
 
 ![Public field dialog with output name, sources and role](/docs/screens/model-consumer-add-field.png)
@@ -152,7 +154,7 @@ Above: adding a public field to a consumer API in the reference model.
 4. Use **Add a match through a related block…** when related data should help identify an
    exposed record. Review **Also match through**, **First of** and **Prefers**. A match
    through a system code can identify its owning record; a shared code can identify several.
-   Use that row’s **Preferred types…**, select **Prefer records of these types**, and Apply
+   Use that row’s **Preferred types…**, select **Prefer records of these types**, and choose **Apply** in the popover
    to prefer exposed owner types; select none to remove the preference. Review ties with the
    consuming team rather than relying on the first result.
 5. On **Filters**, choose **Add filter…**, **Name** and **Verb**. **By type** selects types;

@@ -547,12 +547,26 @@
  },
  {
   "kind": "permission",
+  "key": "action:workspaces.create-from-workbook",
+  "labels": [
+   "Creating a workspace from a workbook",
+   "workspaces.create-from-workbook"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:282",
+  "section": "administer",
+  "summary": "Create a workspace from a workbook's draft: install it, create the workspace, load the workbook",
+  "groups": [
+   "workspace-admin"
+  ]
+ },
+ {
+  "kind": "permission",
   "key": "action:feed.read",
   "labels": [
    "Reading the change feed",
    "feed.read"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:282",
+  "source": "backend/app/engine/authorization/catalogue.py:288",
   "section": "administer",
   "summary": "Read a workspace's change feed",
   "groups": [
@@ -566,7 +580,7 @@
    "Managing consumer subscriptions",
    "subscriptions.manage"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:288",
+  "source": "backend/app/engine/authorization/catalogue.py:294",
   "section": "administer",
   "summary": "Manage consumer API subscriptions",
   "groups": [
@@ -580,7 +594,7 @@
    "Reading the service's operations",
    "operations.read"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:294",
+  "source": "backend/app/engine/authorization/catalogue.py:300",
   "section": "administer",
   "summary": "Read the running service's state and settings",
   "groups": [
@@ -594,9 +608,23 @@
    "Testing the AI provider",
    "ai.test"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:300",
+  "source": "backend/app/engine/authorization/catalogue.py:306",
   "section": "administer",
   "summary": "Send the AI provider a test request",
+  "groups": [
+   "operations"
+  ]
+ },
+ {
+  "kind": "permission",
+  "key": "action:mail-template.manage",
+  "labels": [
+   "Editing the e-mail template",
+   "mail-template.manage"
+  ],
+  "source": "backend/app/engine/authorization/catalogue.py:312",
+  "section": "administer",
+  "summary": "Edit the e-mail template, its logo and send a test of it",
   "groups": [
    "operations"
   ]
@@ -608,7 +636,7 @@
    "Security administration",
    "security.manage"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:306",
+  "source": "backend/app/engine/authorization/catalogue.py:318",
   "section": "administer",
   "summary": "Manage people, groups, roles, grants and keys",
   "groups": [
@@ -622,7 +650,7 @@
    "Reading agent access",
    "agent-access.read"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:312",
+  "source": "backend/app/engine/authorization/catalogue.py:324",
   "section": "administer",
   "summary": "Read agent access: its settings, assistants, agent clients and calls",
   "groups": [
@@ -636,7 +664,7 @@
    "Changing agent access",
    "agent-access.write"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:318",
+  "source": "backend/app/engine/authorization/catalogue.py:330",
   "section": "administer",
   "summary": "Register, block and restore the assistants people sign in with",
   "groups": [
@@ -650,7 +678,7 @@
    "Using this job",
    "jobs.use"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:324",
+  "source": "backend/app/engine/authorization/catalogue.py:336",
   "section": "administer",
   "summary": "Read, follow, cancel and confirm a job, by the group that starts its kind (D285)",
   "groups": [
@@ -668,7 +696,7 @@
   "labels": [
    "reader"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:342",
+  "source": "backend/app/engine/authorization/catalogue.py:354",
   "section": "administer",
   "summary": "Groups: browse"
  },
@@ -678,7 +706,7 @@
   "labels": [
    "contributor"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:343",
+  "source": "backend/app/engine/authorization/catalogue.py:355",
   "section": "administer",
   "summary": "Groups: browse, change-sets"
  },
@@ -688,7 +716,7 @@
   "labels": [
    "steward"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:344",
+  "source": "backend/app/engine/authorization/catalogue.py:356",
   "section": "administer",
   "summary": "Groups: browse, edit-live, change-sets, publish, bulk, ai-proposals"
  },
@@ -698,7 +726,7 @@
   "labels": [
    "owner"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:345",
+  "source": "backend/app/engine/authorization/catalogue.py:357",
   "section": "administer",
   "summary": "Groups: browse, edit-live, change-sets, publish, approve, bulk, feed, copy-move, ai-proposals"
  },
@@ -709,7 +737,7 @@
    "model admin",
    "model-admin"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:356",
+  "source": "backend/app/engine/authorization/catalogue.py:368",
   "section": "administer",
   "summary": "Groups: model-authoring, model-install, model-release, ai-proposals"
  },
@@ -720,7 +748,7 @@
    "workspace admin",
    "workspace-admin"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:357",
+  "source": "backend/app/engine/authorization/catalogue.py:369",
   "section": "administer",
   "summary": "Groups: workspace-admin, ai-proposals"
  },
@@ -731,7 +759,7 @@
    "integration admin",
    "integration-admin"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:358",
+  "source": "backend/app/engine/authorization/catalogue.py:370",
   "section": "administer",
   "summary": "Groups: integration-admin, feed, ai-proposals"
  },
@@ -741,7 +769,7 @@
   "labels": [
    "operator"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:359",
+  "source": "backend/app/engine/authorization/catalogue.py:371",
   "section": "administer",
   "summary": "Groups: operations"
  },
@@ -752,7 +780,7 @@
    "security admin",
    "security-admin"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:360",
+  "source": "backend/app/engine/authorization/catalogue.py:372",
   "section": "administer",
   "summary": "Groups: security-admin"
  },
@@ -762,7 +790,7 @@
   "labels": [
    "agent"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:363",
+  "source": "backend/app/engine/authorization/catalogue.py:375",
   "section": "administer",
   "summary": "Groups: browse, change-sets"
  },
@@ -772,7 +800,7 @@
   "labels": [
    "ceiling"
   ],
-  "source": "backend/app/engine/authorization/catalogue.py:366",
+  "source": "backend/app/engine/authorization/catalogue.py:378",
   "section": "administer",
   "summary": "The most an assistant token holds: browse, change-sets",
   "context": [

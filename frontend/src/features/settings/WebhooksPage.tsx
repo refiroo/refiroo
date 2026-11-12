@@ -1,7 +1,7 @@
 /**
  * Settings › Integration › Webhooks (Track U U5): webhook subscriptions to a consumer API's events,
- * newest first, beside the selected one (U-D10's list and detail). The detail says whether delivery
- * is going, why a subscription is suspended and what fixes it, and edits, suspends, resumes and
+ * newest first as a full-width list (0.17 ST1, PP-D61); a row opens the subscription as a page of its own.
+ * The page says whether delivery is going, why a subscription is suspended and what fixes it, and edits, suspends, resumes and
  * deletes it; a new subscription's signing key is shown once. Every write carries the version it
  * was based on; a conflict reloads and says so. With subscriptions off (`CONSUMER_SUBSCRIPTIONS_ENABLED`)
  * every route answers 404, so the page reads nothing else and says how to turn them on.
@@ -22,11 +22,11 @@ import type {
   Subscription,
   SubscriptionFinding,
 } from "@/types";
-import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
+import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
-import { EmptyState } from "@/ui/EmptyState";
+import { EntityList } from "@/ui/EntityList";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
@@ -34,12 +34,15 @@ import { Notice } from "@/ui/Notice";
 import { RotateOverlapDialog } from "@/ui/RotateOverlapDialog";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { ItemHeader, SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
+import { Trail } from "@/ui/Trail";
 import { count } from "./limits";
+import { settingsHead } from "./navigation";
 import { useCapabilities } from "./useSystem";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { WebhookDeliveries } from "./WebhookDeliveries";
@@ -59,6 +62,8 @@ import {
 
 type WebhooksRoute = Extract<SettingsRoute, { page: "webhooks" }>;
 
+const when = (value: string) => <span title={formatServerTime(value)}>{formatServerDayTime(value)}</span>;
+
 const WEBHOOKS: WebhooksRoute = { kind: "settings", page: "webhooks" };
 
 export function WebhooksPage({
@@ -73,60 +78,56 @@ export function WebhooksPage({
   const { capabilities, error: capabilitiesError, retry: retryCapabilities } = useCapabilities();
   const consumer = useConsumerDefinitions(model);
   const subscriptions = capabilities?.consumerSubscriptions;
-  const [creating, setCreating] = useState(false);
-  const newButtonRef = useRef<HTMLButtonElement>(null);
   // A workspace's own events can always be subscribed to, so New webhook needs no consumer API with events.
   const consumerEvents = subscribable(consumer.definitions ?? []).length > 0;
   const error = capabilitiesError || consumer.error;
   const retry = capabilitiesError ? retryCapabilities : consumer.retry;
 
+  // Where webhooks are on, the list or a subscription's page draws its own header.
+  if (!error && subscriptions?.manageSubscriptions && consumer.definitions)
+    return (
+      <Subscriptions
+        route={route}
+        model={model}
+        definitions={consumer.definitions}
+        retentionDays={subscriptions.logRetentionDays}
+        batchLimit={subscriptions.delivery.maxEventsPerBatch}
+        consumerEvents={consumerEvents}
+        onNavigate={onNavigate}
+      />
+    );
+
+  const head = settingsHead("webhooks");
   return (
     <SettingsLayout
-      eyebrow="Integration"
+      {...head}
       title="Webhooks"
       description="Subscriptions that send a consumer API's events to a receiver's URL as they happen, signed with a key shown once when the subscription is created."
-      actions={
-        subscriptions?.manageSubscriptions && (
-          <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
-            <Icon name="plus" /> New webhook
-          </button>
-        )
-      }
     >
       {error ? (
         <InlineError message={error} onRetry={retry} />
       ) : !subscriptions || !consumer.definitions ? (
         <Skeleton label="Loading webhooks" lines={6} />
-      ) : !subscriptions.manageSubscriptions ? (
-        <EmptyState
-          action={
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => onNavigate({ kind: "settings", page: "deployment" })}
-            >
-              Open Deployment
-            </button>
-          }
-        >
-          Webhooks are off in this deployment. The operator turns them on with <code>{subscriptions.setting}=true</code>
-          , which also needs <code>SECRETS_ENCRYPTION_KEY</code>, and restarts the engine.
-        </EmptyState>
       ) : (
-        <Subscriptions
-          route={route}
-          model={model}
-          definitions={consumer.definitions}
-          retentionDays={subscriptions.logRetentionDays}
-          batchLimit={subscriptions.delivery.maxEventsPerBatch}
-          consumerEvents={consumerEvents}
-          creating={creating}
-          onCreateClosed={() => {
-            setCreating(false);
-            newButtonRef.current?.focus();
-          }}
-          onNavigate={onNavigate}
-        />
+        <SettingsPanel>
+          <SettingsEmpty
+            icon="webhook"
+            hue={head.hue}
+            action={
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => onNavigate({ kind: "settings", page: "deployment" })}
+              >
+                Open Deployment
+              </button>
+            }
+          >
+            Webhooks are off in this deployment. The operator turns them on with{" "}
+            <code>{subscriptions.setting}=true</code>, which also needs <code>SECRETS_ENCRYPTION_KEY</code>, and
+            restarts the engine.
+          </SettingsEmpty>
+        </SettingsPanel>
       )}
     </SettingsLayout>
   );
@@ -139,8 +140,6 @@ function Subscriptions({
   retentionDays,
   batchLimit,
   consumerEvents,
-  creating,
-  onCreateClosed,
   onNavigate,
 }: {
   route: WebhooksRoute;
@@ -150,105 +149,51 @@ function Subscriptions({
   /** The most events a subscription may batch (capabilities). */
   batchLimit: number;
   consumerEvents: boolean;
-  creating: boolean;
-  onCreateClosed: () => void;
   onNavigate: (route: RouteState) => void;
 }) {
-  const feed = useCursorFeed((cursor) => api.subscriptions({ cursor }), []);
   const toast = useToast();
+  const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<Subscription>();
+  const newButtonRef = useRef<HTMLButtonElement>(null);
   const select = (id: string) => onNavigate({ ...WEBHOOKS, subscriptionId: id });
-
-  const catalogue = (
-    <nav className="model-catalogue" aria-label="Webhook catalogue">
-      <section>
-        <h2 className="nav-label">
-          Subscriptions <span>{feed.items.length}</span>
-        </h2>
-        {feed.items.map((subscription) => {
-          const state = subscriptionState(subscription);
-          return (
-            <CatalogueEntry
-              key={subscription.id}
-              icon="webhook"
-              title={subscription.name}
-              subtitle={<Breakable text={urlName(subscription.url)} />}
-              current={route.subscriptionId === subscription.id}
-              onSelect={() => select(subscription.id)}
-              pill={<StatusPill tone={state.tone}>{state.label}</StatusPill>}
-            />
-          );
-        })}
-        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading subscriptions…</p>}
-        {feed.error && (
-          <div className="catalogue-error">
-            <InlineError message={feed.error} onRetry={feed.retry} />
-          </div>
-        )}
-        {feed.hasMore && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more subscriptions
-          </button>
-        )}
-      </section>
-    </nav>
-  );
-
-  const empty = !feed.loading && !feed.error && feed.items.length === 0;
 
   return (
     <>
-      {!consumerEvents && (
-        <Notice>
-          The active model release declares no consumer API with events, so only a workspace's own events can be
-          subscribed to. A consumer API's events are declared in the model.
-        </Notice>
-      )}
-      {empty && !route.subscriptionId ? (
-        <EmptyState>
-          No webhooks yet. A webhook sends a consumer API's events to a receiver; create one with New webhook, or with{" "}
-          <code>POST /api/v1/consumer-subscriptions</code>.
-        </EmptyState>
+      {route.subscriptionId ? (
+        <SubscriptionDetail
+          key={route.subscriptionId}
+          route={{ ...route, subscriptionId: route.subscriptionId }}
+          model={model}
+          definitions={definitions}
+          retentionDays={retentionDays}
+          batchLimit={batchLimit}
+          onNavigate={onNavigate}
+          onDeleted={(subscription) => {
+            toast(`The webhook ${subscription.name} was deleted.`);
+            onNavigate(WEBHOOKS);
+          }}
+        />
       ) : (
-        <CatalogueLayout
-          catalogue={catalogue}
-          hasSelection={!!route.subscriptionId}
-          backLabel="All webhooks"
-          onBack={() => onNavigate(WEBHOOKS)}
-        >
-          {route.subscriptionId ? (
-            <SubscriptionDetail
-              key={route.subscriptionId}
-              route={{ ...route, subscriptionId: route.subscriptionId }}
-              model={model}
-              definitions={definitions}
-              retentionDays={retentionDays}
-              batchLimit={batchLimit}
-              onNavigate={onNavigate}
-              onChanged={(subscription) =>
-                feed.setItems((items) => items.map((item) => (item.id === subscription.id ? subscription : item)))
-              }
-              onDeleted={(subscription) => {
-                toast(`The webhook ${subscription.name} was deleted.`);
-                feed.reload();
-                onNavigate(WEBHOOKS);
-              }}
-            />
-          ) : (
-            <div className="panel-state">Choose a subscription.</div>
-          )}
-        </CatalogueLayout>
+        <SubscriptionList
+          definitions={definitions}
+          consumerEvents={consumerEvents}
+          newButtonRef={newButtonRef}
+          onNew={() => setCreating(true)}
+          onOpen={select}
+        />
       )}
       {creating && (
         <WebhookDialog
           model={model}
           definitions={definitions}
           batchLimit={batchLimit}
-          onClose={onCreateClosed}
+          onClose={() => {
+            setCreating(false);
+            newButtonRef.current?.focus();
+          }}
           onSaved={(subscription) => {
-            onCreateClosed();
+            setCreating(false);
             setCreated(subscription);
-            feed.reload();
             select(subscription.id);
           }}
         />
@@ -257,6 +202,86 @@ function Subscriptions({
         <SigningKeyDialog url={created.url} secret={created.signingSecret} onClose={() => setCreated(undefined)} />
       )}
     </>
+  );
+}
+
+/** The list a webhook is chosen from, newest first, each with its receiver, source, workspace and state. */
+function SubscriptionList({
+  definitions,
+  consumerEvents,
+  newButtonRef,
+  onNew,
+  onOpen,
+}: {
+  definitions: ConsumerApiDefinition[];
+  consumerEvents: boolean;
+  newButtonRef: React.RefObject<HTMLButtonElement | null>;
+  onNew: () => void;
+  onOpen: (id: string) => void;
+}) {
+  const feed = useCursorFeed((cursor) => api.subscriptions({ cursor }), []);
+  const head = settingsHead("webhooks");
+  const empty = !feed.loading && !feed.error && feed.items.length === 0;
+  return (
+    <SettingsLayout
+      {...head}
+      title="Webhooks"
+      description="Subscriptions that send a consumer API's events to a receiver's URL as they happen, signed with a key shown once when the subscription is created."
+      actions={
+        <button ref={newButtonRef} className="primary" onClick={onNew}>
+          <Icon name="plus" /> New webhook
+        </button>
+      }
+    >
+      {!consumerEvents && (
+        <Notice>
+          The active model release declares no consumer API with events, so only a workspace's own events can be
+          subscribed to. A consumer API's events are declared in the model.
+        </Notice>
+      )}
+      <SettingsPanel>
+        {empty ? (
+          <SettingsEmpty icon="webhook" hue={head.hue}>
+            No webhooks yet. A webhook sends a consumer API's events to a receiver; create one with New webhook, or with{" "}
+            <code>POST /api/v1/consumer-subscriptions</code>.
+          </SettingsEmpty>
+        ) : (
+          <EntityList
+            label="webhooks"
+            statusTrack="8rem"
+            groups={[
+              {
+                key: "subscriptions",
+                title: "Subscriptions",
+                count: `${feed.items.length}${feed.hasMore ? "+" : ""}`,
+                loading: feed.loading && !feed.items.length,
+                error: feed.error && !feed.items.length ? feed.error : undefined,
+                onRetry: feed.retry,
+                onEnd: feed.hasMore ? feed.loadMore : undefined,
+                loadingMore: feed.loading && feed.items.length > 0,
+                rows: feed.items.map((subscription) => {
+                  const state = subscriptionState(subscription);
+                  const definition = definitions.find((item) => item.key === subscription.consumerApi);
+                  return {
+                    key: subscription.id,
+                    title: subscription.name,
+                    subtitle: urlName(subscription.url),
+                    lead: <SettingsTile icon="webhook" hue={head.hue} />,
+                    facts: [
+                      { label: "Source", value: sourceName(subscription, definition), width: 26 },
+                      { label: "Workspace", value: subscription.workspaceKey },
+                    ],
+                    pill: <StatusPill tone={state.tone}>{state.label}</StatusPill>,
+                    onOpen: () => onOpen(subscription.id),
+                  };
+                }),
+              },
+            ]}
+            empty=""
+          />
+        )}
+      </SettingsPanel>
+    </SettingsLayout>
   );
 }
 
@@ -340,7 +365,6 @@ function SubscriptionDetail({
   retentionDays,
   batchLimit,
   onNavigate,
-  onChanged,
   onDeleted,
 }: {
   route: WebhooksRoute & { subscriptionId: string };
@@ -349,7 +373,6 @@ function SubscriptionDetail({
   retentionDays?: number;
   batchLimit?: number;
   onNavigate: (route: RouteState) => void;
-  onChanged: (subscription: Subscription) => void;
   onDeleted: (subscription: Subscription) => void;
 }) {
   const { subscriptionId } = route;
@@ -368,7 +391,6 @@ function SubscriptionDetail({
   // A webhook's owner links to their Security page for whoever may open it (D353).
   const securityAdmin = useHeldAnywhere()?.some((group) => group.key === "security-admin");
   const editRef = useRef<HTMLButtonElement>(null);
-  const rotateRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -388,13 +410,11 @@ function SubscriptionDetail({
   async function reload() {
     const current = await api.subscription(subscriptionId);
     setSubscription(current);
-    onChanged(current);
     return current;
   }
 
   function stored(updated: Subscription, text: string) {
     setSubscription(updated);
-    onChanged(updated);
     toast(text);
   }
 
@@ -422,8 +442,20 @@ function SubscriptionDetail({
     }
   }
 
-  if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
-  if (!subscription) return <div className="panel-state">Loading subscription…</div>;
+  const head = settingsHead("webhooks");
+  const trail = <Trail back={{ label: "Webhooks", onClick: () => onNavigate(WEBHOOKS), href: routePath(WEBHOOKS) }} />;
+  if (loadError)
+    return (
+      <SettingsLayout trail={trail} title="Webhook">
+        <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />
+      </SettingsLayout>
+    );
+  if (!subscription)
+    return (
+      <SettingsLayout trail={trail} title="Webhook">
+        <Skeleton label="Loading subscription" lines={6} />
+      </SettingsLayout>
+    );
   const state = subscriptionState(subscription);
   const definition = definitions.find((item) => item.key === subscription.consumerApi);
   const consumerApisRoute: SettingsRoute = { kind: "settings", page: "consumer-apis" };
@@ -432,21 +464,19 @@ function SubscriptionDetail({
   const deliveryItems: DescriptionItem[] = [
     {
       term: "Last delivered",
-      value: subscription.delivery.lastDeliveredAt
-        ? formatServerTime(subscription.delivery.lastDeliveredAt)
-        : "Not yet",
+      value: subscription.delivery.lastDeliveredAt ? when(subscription.delivery.lastDeliveredAt) : "Not yet",
     },
     { term: "Acknowledged through", value: `Feed position ${count(subscription.acknowledgedThrough)}` },
   ];
   if (pendingDelivery)
     deliveryItems.push(
-      { term: "Failing since", value: formatServerTime(pendingDelivery.failingSince) },
+      { term: "Failing since", value: when(pendingDelivery.failingSince) },
       { term: "Attempts", value: count(pendingDelivery.attempts) },
       { term: "Last error", value: deliveryErrorText(pendingDelivery.lastError) },
-      { term: "Last attempt", value: formatServerTime(pendingDelivery.lastAttemptAt) },
+      { term: "Last attempt", value: when(pendingDelivery.lastAttemptAt) },
       {
         term: "Next attempt",
-        value: pendingDelivery.nextAttemptAt ? formatServerTime(pendingDelivery.nextAttemptAt) : "None scheduled",
+        value: pendingDelivery.nextAttemptAt ? when(pendingDelivery.nextAttemptAt) : "None scheduled",
       },
       { term: "Delivery ID", value: <code>{pendingDelivery.deliveryId}</code> },
     );
@@ -497,42 +527,49 @@ function SubscriptionDetail({
     { term: "Requests", value: requestsLabel(subscription.maxEventsPerBatch) },
     { term: "Content", value: CONTENT[subscription.payload] },
     { term: "Format", value: FORMAT[subscription.format] },
-    { term: "Signing key created", value: formatServerTime(subscription.signingKeyCreatedAt) },
+    { term: "Signing key created", value: when(subscription.signingKeyCreatedAt) },
     ...(subscription.previousSigningKeyExpiresAt
       ? [
           {
             term: "Previous key signs until",
-            value: formatServerTime(subscription.previousSigningKeyExpiresAt),
+            value: when(subscription.previousSigningKeyExpiresAt),
           },
         ]
       : []),
-    { term: "Created", value: formatServerTime(subscription.createdAt) },
+    { term: "Created", value: when(subscription.createdAt) },
     {
       term: "Created by",
       value: <WebhookOwner owner={subscription.owner} linked={!!securityAdmin} onNavigate={onNavigate} />,
     },
-    { term: "Last changed", value: formatServerTime(subscription.updatedAt) },
+    { term: "Last changed", value: when(subscription.updatedAt) },
     { term: "ID", value: <CopyValue label="Subscription ID" value={subscription.id} labelled={false} /> },
   ];
 
-  const header = (
-    <div className="webhook-head">
-      <header className="model-detail-header">
-        <div>
-          <h2>{subscription.name}</h2>
-          <p>
-            <Breakable text={urlName(subscription.url)} /> · {sourceName(subscription, definition)} ·{" "}
-            {subscription.workspaceKey}
-          </p>
-        </div>
-        <StatusPill tone={state.tone}>{state.label}</StatusPill>
-      </header>
-      {subscription.suspension && <SuspensionNotice suspension={subscription.suspension} />}
-    </div>
-  );
+  // Two actions show; the rest are in the ⋯ menu, what cannot be undone last (PP-D63).
+  const menu: ActionMenuItem[] = [
+    {
+      id: "rotate",
+      label: "Rotate key…",
+      disabled: pending,
+      onAction: () => {
+        setActionError("");
+        setRotating(true);
+      },
+    },
+    {
+      id: "delete",
+      label: "Delete…",
+      tone: "danger",
+      disabled: pending,
+      onAction: () => {
+        setActionError("");
+        setDeleting(true);
+      },
+    },
+  ];
 
   const configuration = (
-    <div className="model-editor-stack webhook-panel">
+    <div className="webhook-panel">
       {conflict && (
         <Notice tone="warning" title="Not saved" focusOnMount>
           {conflict}
@@ -543,85 +580,96 @@ function SubscriptionDetail({
           {actionError}
         </Notice>
       )}
-      <div className="model-actions">
-        <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing(true)}>
-          Edit…
-        </button>
-        {subscription.status === "active" ? (
-          <button
-            className="secondary"
-            disabled={pending}
-            onClick={() =>
-              void write(async () =>
-                stored(
-                  await api.suspendSubscription(subscription.id, subscription.version),
-                  "Webhook suspended. Nothing is sent until it is resumed.",
-                ),
-              )
-            }
-          >
-            Suspend
-          </button>
-        ) : (
-          <button
-            className="secondary"
-            disabled={pending}
-            onClick={() => {
-              setActionError("");
-              setResuming(true);
-            }}
-          >
-            Resume…
-          </button>
-        )}
-        <button
-          ref={rotateRef}
-          className="secondary"
-          disabled={pending}
-          onClick={() => {
-            setActionError("");
-            setRotating(true);
-          }}
-        >
-          Rotate key…
-        </button>
-        <button
-          className="danger-ghost"
-          disabled={pending}
-          onClick={() => {
-            setActionError("");
-            setDeleting(true);
-          }}
-        >
-          Delete…
-        </button>
-      </div>
-      <section className="webhook-section" aria-labelledby="webhook-delivery">
-        <h3 id="webhook-delivery">Delivery</h3>
-        {pendingDelivery && (
-          <p className="admin-hint">
-            A batch is failing and is retried with backoff until the receiver acknowledges it, or for 24 hours from its
-            first failure; then the subscription is suspended.
-          </p>
-        )}
-        <DescriptionList className="compact" items={deliveryItems} />
-      </section>
-      <section className="webhook-section" aria-labelledby="webhook-subscription">
-        <h3 id="webhook-subscription">Subscription</h3>
-        <DescriptionList className="compact" items={items} />
-      </section>
+      <SettingsGroup
+        title="Delivery"
+        description={
+          pendingDelivery
+            ? "A batch is failing and is retried with backoff until the receiver acknowledges it, or for 24 hours from its first failure; then the subscription is suspended."
+            : "Whether the receiver is getting its events."
+        }
+      >
+        <SettingsPanel>
+          {deliveryItems.map((item, at) => (
+            <SettingRow fact key={at} name={item.term}>
+              {item.value}
+            </SettingRow>
+          ))}
+        </SettingsPanel>
+      </SettingsGroup>
+      <SettingsGroup title="Subscription" description="What is sent, to which receiver, and who made it.">
+        <SettingsPanel>
+          {items.map((item, at) => (
+            <SettingRow fact key={at} name={item.term}>
+              {item.value}
+            </SettingRow>
+          ))}
+        </SettingsPanel>
+      </SettingsGroup>
     </div>
   );
 
   return (
-    <div className="webhook-detail">
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon="webhook" hue={head.hue} size={48} />}
+          title={<h1>{subscription.name}</h1>}
+          meta={
+            <>
+              <span>
+                <Breakable text={urlName(subscription.url)} /> · {sourceName(subscription, definition)} ·{" "}
+                {subscription.workspaceKey}
+              </span>
+              <StatusPill tone={state.tone}>{state.label}</StatusPill>
+            </>
+          }
+          actions={
+            <>
+              <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing(true)}>
+                Edit…
+              </button>
+              {subscription.status === "active" ? (
+                <button
+                  className="secondary"
+                  disabled={pending}
+                  onClick={() =>
+                    void write(async () =>
+                      stored(
+                        await api.suspendSubscription(subscription.id, subscription.version),
+                        "Webhook suspended. Nothing is sent until it is resumed.",
+                      ),
+                    )
+                  }
+                >
+                  Suspend
+                </button>
+              ) : (
+                <button
+                  className="secondary"
+                  disabled={pending}
+                  onClick={() => {
+                    setActionError("");
+                    setResuming(true);
+                  }}
+                >
+                  Resume…
+                </button>
+              )}
+              <ActionMenu label="More actions" items={menu} />
+            </>
+          }
+        />
+      }
+    >
+      {subscription.suspension && <SuspensionNotice suspension={subscription.suspension} />}
       <Tabs
         label={`Webhook ${subscription.name}`}
         selected={route.tab ?? "configuration"}
         onChange={(id) =>
           onNavigate({ ...WEBHOOKS, subscriptionId, ...(id === "deliveries" ? { tab: "deliveries" as const } : {}) })
         }
-        header={header}
         tabs={[
           { id: "configuration", label: "Configuration", content: configuration },
           {
@@ -634,6 +682,7 @@ function SubscriptionDetail({
                 definition={definition}
                 subscription={subscription}
                 retentionDays={retentionDays}
+                hue={head.hue}
                 onNavigate={onNavigate}
               />
             ),
@@ -687,18 +736,17 @@ function SubscriptionDetail({
       {rotating && (
         <RotateOverlapDialog
           title={`Rotate the signing key of ${subscription.name}`}
-          eyebrow="Webhook"
+          eyebrow="Connections"
           lead="A new key is made and shown once. Until the receiver switches to it, every delivery is also signed with the current key, so none is missed, for:"
           stopNowHint="For a key that leaked: deliveries are signed with the new key alone, and the receiver refuses them until it has it."
-          submitLabel="Make a new key"
-          pendingLabel="Making…"
+          submitLabel="Rotate key"
+          pendingLabel="Rotating…"
           errorTitle="No new key was made"
           pending={pending}
           error={actionError}
           onClose={() => {
             setRotating(false);
             setActionError("");
-            rotateRef.current?.focus();
           }}
           onRotate={(overlapHours) =>
             void write(async () => {
@@ -721,7 +769,6 @@ function SubscriptionDetail({
           rotation={{ endsAt: rotated.endsAt }}
           onClose={() => {
             setRotated(undefined);
-            rotateRef.current?.focus();
           }}
         />
       )}
@@ -750,7 +797,7 @@ function SubscriptionDetail({
           </p>
         </ConfirmDialog>
       )}
-    </div>
+    </SettingsLayout>
   );
 }
 
@@ -759,7 +806,7 @@ const asText = (value: unknown) => (value === undefined || value === null ? "" :
 /** Why the subscription is suspended, its details as the reason gives them, and the fix. */
 function SuspensionNotice({ suspension }: { suspension: NonNullable<Subscription["suspension"]> }) {
   const details = suspension.details ?? {};
-  const facts: DescriptionItem[] = [{ term: "Since", value: formatServerTime(suspension.suspendedAt) }];
+  const facts: DescriptionItem[] = [{ term: "Since", value: when(suspension.suspendedAt) }];
   const findings = (details.errors as SubscriptionFinding[] | undefined) ?? [];
   switch (suspension.reason) {
     case "CONTRACT_VERSION_CHANGED":
@@ -771,7 +818,7 @@ function SuspensionNotice({ suspension }: { suspension: NonNullable<Subscription
     case "DELIVERY_FAILED":
       facts.push(
         { term: "Attempts", value: asText(details.attempts) },
-        { term: "Failing since", value: details.failingSince ? formatServerTime(String(details.failingSince)) : "" },
+        { term: "Failing since", value: details.failingSince ? when(String(details.failingSince)) : "" },
       );
       if (details.lastError)
         facts.push({ term: "Last error", value: deliveryErrorText(details.lastError as DeliveryError) });
@@ -871,7 +918,7 @@ function ResumeDialog({
   }
 
   return (
-    <Modal title="Resume this webhook?" eyebrow="Webhook" size="compact" busy={pending} onClose={onCancel}>
+    <Modal title="Resume this webhook?" eyebrow="Connections" size="compact" busy={pending} onClose={onCancel}>
       <form
         onSubmit={(event) => {
           event.preventDefault();

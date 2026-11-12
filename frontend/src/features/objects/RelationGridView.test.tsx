@@ -241,7 +241,8 @@ describe("relationships grid (0.13 RG)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Weight of Connections · Sizes" }));
     const field = within(bodyRows()[0]).getByLabelText("Weight");
     fireEvent.change(field, { target: { value: "7" } });
-    await act(async () => fireEvent.blur(field));
+    await act(async () => field.blur());
+    await waitFor(() => expect(api.updateRelation).toHaveBeenCalledTimes(2));
     expect(api.updateRelation).toHaveBeenLastCalledWith("r1", {
       attributes: { weight: 7, flagged: false },
       expectedVersion: 5,
@@ -287,7 +288,7 @@ describe("relationships grid (0.13 RG)", () => {
       ),
     );
     expect(await within(dialog).findByText("Would change")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Apply" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeEnabled();
     fireEvent.click(within(dialog).getByRole("checkbox", { name: /Also link them/ }));
     await waitFor(() =>
       expect(api.relationGridChange).toHaveBeenLastCalledWith(expect.objectContaining({ linkMissing: true })),
@@ -300,7 +301,7 @@ describe("relationships grid (0.13 RG)", () => {
       linked: 1,
       refused: [],
     });
-    await act(async () => fireEvent.click(await within(dialog).findByRole("button", { name: "Apply" })));
+    await act(async () => fireEvent.click(await within(dialog).findByRole("button", { name: "Save" })));
     expect(api.relationGridChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ dryRun: false, fromObjectIds: ["from-Connections"], value: 5, linkMissing: true }),
     );
@@ -360,7 +361,7 @@ describe("relationships grid (0.13 RG)", () => {
     expect(await within(dialog).findByText("Connections → Sizes: Weight must be at least 1")).toBeInTheDocument();
     expect(within(dialog).getAllByText(/Weight must be at least 1/)).toHaveLength(1);
     expect(within(dialog).getByText("1 would be refused, so nothing can be changed yet")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("offers no edit, link or tick where the data cannot be written", async () => {

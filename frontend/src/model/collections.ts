@@ -97,6 +97,16 @@ export function entryLabel(model: EngineModel, entry: NavigationEntry): string {
     : entry.view.name;
 }
 
+/**
+ * What a collection's page is titled (0.17 SH1, PP-D37): the name of its sidebar entry, so a type's
+ * lens (its tree, its table, its mapping) is a tab under the type's name and not a page title of
+ * its own. A relation matrix placed in a group is an entry of its own and keeps its own name.
+ */
+export function pageTitle(model: EngineModel, application: ApplicationDefinition, view: ViewDefinition): string {
+  if (view.type === "relationMatrix" && placedMatrixKeys(application).has(view.key)) return view.name;
+  return objectTypeFor(model, viewSourceObjectTypeKey(view))?.pluralName ?? view.name;
+}
+
 /** The sidebar's entries as one list, in the order it shows them: those in no group, then each group's. */
 export function navigationEntries(sections: ReturnType<typeof navigationSections>): NavigationEntry[] {
   return [

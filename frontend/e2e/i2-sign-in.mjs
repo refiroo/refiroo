@@ -155,10 +155,10 @@ async function walk(configuration) {
     await shot(page, "account-password-open");
     await page.getByLabel("Current password", { exact: true }).fill("not the current one at all");
     await page.getByLabel("New password", { exact: true }).fill(NEW_PASSWORD);
-    await page.getByRole("button", { name: "Save new password" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByText("The current password is not right").waitFor();
     await page.getByLabel("Current password", { exact: true }).fill(person.password);
-    await page.getByRole("button", { name: "Save new password" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByText(/Your password is changed/).waitFor();
     checks.push(`${tag}: the password changes; a wrong current password is refused at its field`);
 

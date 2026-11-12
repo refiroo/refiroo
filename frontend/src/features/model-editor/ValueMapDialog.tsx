@@ -19,6 +19,7 @@ export function ValueMapDialog({
   header,
   mapName,
   column,
+  suggested,
   profile,
   outline,
   run,
@@ -29,6 +30,8 @@ export function ValueMapDialog({
   /** The map the column reads through, if any. */
   mapName: string | null | undefined;
   column: SourceColumn | undefined;
+  /** Wrong values a refusal named (0.17 PL3b): the map starts from them, "Becomes" empty, with their rows. */
+  suggested?: { text: string; rows?: number }[];
   profile: DraftProfileDocument | null | undefined;
   outline: ModelDraftOutline;
   run: RunStep;
@@ -40,12 +43,18 @@ export function ValueMapDialog({
     const existing = mapName ? maps[mapName] : undefined;
     if (existing)
       return Object.entries(existing).map(([text, value]) => ({ text, value: value === null ? "" : String(value) }));
-    const found = column?.placeholders.map((item) => ({ text: item.value, value: "" })) ?? [];
+    const found =
+      suggested?.map((item) => ({ text: item.text, value: "" })) ??
+      column?.placeholders.map((item) => ({ text: item.value, value: "" })) ??
+      [];
     return found.length ? found : [{ text: "", value: "" }];
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const counts = new Map(column?.placeholders.map((item) => [item.value, item.count]));
+  const counts = new Map([
+    ...(column?.placeholders.map((item): [string, number] => [item.value, item.count]) ?? []),
+    ...(suggested ?? []).flatMap((item): [string, number][] => (item.rows ? [[item.text, item.rows]] : [])),
+  ]);
 
   async function send(remove: boolean) {
     setPending(true);
@@ -151,7 +160,7 @@ export function ValueMapDialog({
             Cancel
           </button>
           <button type="submit" className="primary" disabled={pending}>
-            {pending ? "Saving…" : "Save the value map"}
+            {pending ? "Saving…" : "Save"}
           </button>
         </div>
       </form>

@@ -28,6 +28,7 @@ from ...common.sealing import SealError, unseal
 from ...models.database import MailOutbox
 from ..identity.settings import IdentitySettings
 from ..notifications import mailing
+from . import mail_template
 from . import settings as mail_settings
 from .outbox import GIVE_UP_AFTER, RETAIN_FINISHED, body_context, retry_delay, unpack
 from .smtp import SERVER_WIDE, MailError, build
@@ -224,7 +225,9 @@ class MailSender:
                 "The message cannot be read: SECRETS_ENCRYPTION_KEY has changed since it was queued",
                 permanent=True,
             )
-        built = build(connection, message.to_address, message.subject, body, html)
+        with self.session_factory() as template_session:
+            logo = mail_template.logo_of(template_session)
+        built = build(connection, message.to_address, message.subject, body, html, logo)
         try:
             deliver(connection, built, timeout=self.timeout_seconds)
         except MailError as error:

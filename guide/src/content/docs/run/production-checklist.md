@@ -21,7 +21,7 @@ and setup steps are in the linked pages; record your outcomes and recovery conta
 3. **Protect secrets.** Store the database password, sealing key and stable cursor key outside
    version control and images. Keep the same keys across processes. Associate each backup with
    its sealing key: [Secrets and keys](/docs/run/secrets-and-keys/).
-4. **Confirm effective settings.** Read **Settings › Administration › Deployment**. Verify capability
+4. **Confirm effective settings.** Read **Settings › This instance › Deployment**. Verify capability
    switches, limits, retention and migration revision. Recreate containers after environment
    changes; restarting alone does not apply them.
 5. **Check access.** Test the first administrator, provider sign-in if used, appropriate grants,

@@ -126,7 +126,7 @@ async function createRecord(target, who, addButton, name, what) {
       (response) =>
         response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
     ),
-    who.press(dialog.getByRole("button", { name: "Create", exact: true }), "Create"),
+    who.press(dialog.getByRole("button", { name: /^Add / }), "Create"),
   ]);
   assert.equal(created.status(), 201, await created.text());
   await dialog.waitFor({ state: "hidden" });
@@ -137,7 +137,7 @@ async function createRecord(target, who, addButton, name, what) {
 const valueButton = (target, attribute) =>
   target.getByRole("button", { name: new RegExp(`^(Add|Edit) ${escape(attribute.name)}:`) }).first();
 
-/** A value edited on the record page through its Edit button and inline form. */
+/** A value edited on the record page through its Edit button and the field it opens. */
 async function editValue(target, who, attribute, value) {
   await who.press(valueButton(target, attribute), `Edit ${attribute.name}`);
   const form = target.getByRole("form", { name: `Edit ${attribute.name}` });
@@ -146,7 +146,8 @@ async function editValue(target, who, attribute, value) {
 }
 
 async function saveValue(target, who, form) {
-  await who.press(form.getByRole("button", { name: "Save", exact: true }), "Save");
+  // Enter in the one-line input saves it (0.17 UX2); there is no Save button.
+  await form.getByRole("textbox").press("Enter");
 }
 
 const valueOf = (record, attribute) => record.attributes.find((item) => item.attributeTypeKey === attribute.key)?.value;
@@ -212,7 +213,7 @@ try {
       rail.getByRole("button", { name: new RegExp(`^${side.root.pluralName}`) }).first(),
       side.root.pluralName,
     );
-    await page.getByRole("heading", { level: 1, name: side.view.name }).waitFor();
+    await page.getByRole("heading", { level: 1, name: side.root.pluralName }).waitFor();
     side.record = await createRecord(
       page,
       who,
@@ -246,12 +247,12 @@ try {
     const band = page.getByRole("navigation", { name: "Workspace data context" });
     await who.press(band.getByRole("button", { name: "Change sets" }), "Change sets");
     await who.press(
-      page.locator(".page-header").getByRole("button", { name: "Start from current live data", exact: true }),
-      "Start from current live data",
+      page.locator(".page-header").getByRole("button", { name: "New change set", exact: true }),
+      "New change set",
     );
-    const start = page.getByRole("dialog", { name: "Start from current live data" });
-    await who.fill(start.getByLabel("Change set name"), `${side.label} edits`, "Change set name");
-    await who.press(start.getByRole("button", { name: "Create change set" }), "Create change set");
+    const start = page.getByRole("dialog", { name: "New change set" });
+    await who.fill(start.getByLabel("Name", { exact: true }), `${side.label} edits`, "Name");
+    await who.press(start.getByRole("button", { name: "Start change set" }), "Start change set");
     await page.getByRole("heading", { name: `${side.label} edits`, exact: true }).waitFor();
     const changeSetId = new URL(page.url()).searchParams.get("changeSetId");
     await page.goto(
@@ -261,14 +262,12 @@ try {
     const staged = await editValue(page, who, side.code, `${side.key}-published`);
     await saveValue(page, who, staged);
     await staged.waitFor({ state: "detached" });
-    await who.press(page.getByRole("button", { name: "Validate change set", exact: true }), "Validate change set");
-    await page.getByText("Change set validation passed", { exact: true }).waitFor();
-    await who.press(page.getByRole("button", { name: "Publish change set", exact: true }), "Publish change set");
+    await who.press(page.getByRole("button", { name: "Publish", exact: true }), "Publish");
     await who.press(
-      page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }),
-      "confirm Publish change set",
+      page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }),
+      "confirm Publish",
     );
-    await page.getByText(/Reviewed changes are now live/).waitFor();
+    await page.getByText(/The changes are live/).waitFor();
     assert.equal(
       valueOf(await api(`/objects/${side.root.key}/${side.record.id}?workspaceKey=${side.key}`), side.code),
       `${side.key}-published`,
@@ -286,7 +285,7 @@ try {
     );
   }
   await page.goto(`${uiUrl}/?workspaceKey=site-a`);
-  const selector = page.getByRole("combobox", { name: "Workspace" });
+  const selector = page.getByRole("combobox", { name: "Workspace", exact: true });
   const apps = page.getByRole("navigation", { name: "Applications" });
   for (const [label, application] of [
     ["Site B", B.application],
@@ -400,7 +399,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/?workspaceKey=${defaultKey}`);
   await page.getByRole("button", { name: new RegExp(`Workspace: ${defaultLabel}`) }).click();
-  await page.getByRole("combobox", { name: "Workspace" }).click();
+  await page.getByRole("combobox", { name: "Workspace", exact: true }).click();
   await page.getByRole("option", { name: /Site B/ }).click();
   await page.waitForURL(/workspaceKey=site-b/);
   await page.getByRole("button", { name: /Workspace: Site B/ }).waitFor();
@@ -408,7 +407,7 @@ try {
   await page.goto(
     `${uiUrl}/apps/${encodeURIComponent(B.application.key)}/views/${encodeURIComponent(B.view.key)}?workspaceKey=site-b`,
   );
-  await page.getByRole("heading", { level: 1, name: B.view.name }).waitFor();
+  await page.getByRole("heading", { level: 1, name: B.root.pluralName }).waitFor();
   await createRecord(
     page,
     person(page, "click"),

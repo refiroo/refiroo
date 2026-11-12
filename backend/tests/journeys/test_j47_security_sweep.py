@@ -69,6 +69,17 @@ SWEEP_EXCEPTIONS = {
     # Operations: the call sends the AI provider a test request (0.16 AP1); with none set it is
     # refused with 409, which J48.4 walks.
     ("post", "/api/v1/ai/test"): "sends the AI provider a test request; nothing makes it invalid",
+    # Operations: the e-mail template's reset, its logo's removal and the test to the caller's own
+    # address (J46.12): each answers 2xx or a refusal by code, and nothing makes it invalid.
+    ("delete", "/api/v1/mail-template"): "resets the e-mail template; nothing makes it invalid",
+    (
+        "delete",
+        "/api/v1/mail-template/logo",
+    ): "removes the e-mail logo; answered 409 when no template is saved",
+    (
+        "post",
+        "/api/v1/mail-template/test",
+    ): "mails the caller a sample; a client is refused by code",
 }
 
 # Streams that never end, so a call the caller is allowed cannot be probed and read back by the
@@ -783,8 +794,9 @@ def test_the_consumer_routes_follow_their_grants(world):
     assert calls > 300 and allowed_calls > 20, (calls, allowed_calls)
 
     # A workspace that does not exist is its own `404` for a token that holds a grant, before the
-    # grant is looked at; a client holding nothing asking for a key no model declares is `403`, not
-    # `404` (nothing is revealed about which APIs exist).
+    # grant is looked at; a key the workspace's model does not declare is `404 CONSUMER_API_NOT_FOUND`
+    # whatever the grants (CONSUMER_API: `details.workspaces` lists, from the client's own grants,
+    # where it may read that key; empty for a client holding nothing).
     granted = token("granted-x", "consumer")
     nowhere = anonymous.get(
         f"{CONSUMER}/{x}/v1/publications", params={"workspace": "nowhere"}, headers=granted
@@ -793,8 +805,9 @@ def test_the_consumer_routes_follow_their_grants(world):
     nobody = anonymous.get(
         f"{CONSUMER}/no-such-api/v1/publications", headers=token("nobody", "consumer")
     )
-    assert nobody.status_code == 403
-    assert nobody.json()["error"]["details"] == {"consumerApi": "no-such-api", "workspaceKey": W1}
+    assert nobody.status_code == 404
+    assert nobody.json()["error"]["code"] == "CONSUMER_API_NOT_FOUND"
+    assert nobody.json()["error"]["details"] == {"workspaces": []}
 
 
 # --- J47.8: a person holding a role is a client holding it ----------------------------------------------

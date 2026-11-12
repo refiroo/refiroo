@@ -609,6 +609,12 @@ else:
         source = api("POST", "/source-files", files=workbook(), data={"request": json.dumps({
             "owner": {"draftId": config["draft"]}, "workspaceKey": config["workspace"]})})
         until("/source-files/" + source["id"], lambda f: f["profile"]["state"] == "completed")
+        # The design carries the profile it was checked by: stored on the draft, then sent (0.17 PL3b).
+        stored = api("GET", "/model-drafts/" + config["draft"])
+        api("POST", "/model-drafts/" + config["draft"] + "/operations", json={
+            "expectedVersion": stored["version"],
+            "operations": [{"kind": "setProfile", "sources": config["profile"]["sources"],
+                            "valueMaps": config["profile"].get("valueMaps") or {}}]})
         api("POST", "/model-drafts/" + config["draft"] + "/dry-run", json={
             "sourceFileId": source["id"], "workspaceKey": config["workspace"],
             "profile": config["profile"]})

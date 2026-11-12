@@ -65,6 +65,7 @@ from .cells import attribute_value, cell_text, flag_set, is_empty
 from .places import Place, PlaceReads, resolve_place
 from .profiles import check_profile, invalid_profile, source_order
 from .readers import Area, Table, TabularFile, jsonl_lines, open_tabular
+from .readings import apply_readings, clashes, reading_columns, virtual_columns
 
 # Rows written to the database per round of COPY statements.
 CHUNK_ROWS = 5_000
@@ -268,7 +269,15 @@ def _source_columns(
         )
         return None
     columns = found.columns()
+    for path, name in clashes(source, found):
+        mismatch.add(
+            f"{at}{path}",
+            "COLUMN_CLASH",
+            f"The table already has a column '{name}'; a reading of the source adds one of that name",
+        )
     source = _lettered(source, found, columns, at, mismatch)
+    for offset, name in enumerate(virtual_columns(source)):
+        columns.setdefault(name, len(found.header) + offset)
     for path, name in named_columns(source, at):
         if name not in columns:
             mismatch.add(path, "COLUMN_NOT_FOUND", f"The header has no column '{name}'")
@@ -1021,6 +1030,7 @@ class _ProfileBinding:
                 found = book.table(
                     plan.source.sheet if file_format == "xlsx" else None, _area(plan.source)
                 )
+                found = apply_readings(found, plan.source)
                 for number, cells in found.rows:
                     self.counter.tick()
                     self._row(plan, number, cells)
@@ -3384,7 +3394,17 @@ def _area(source: Source) -> Area:
 
 
 def named_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
-    """Every column the source names, with its pointer."""
+    """Every column of the file the source names, with its pointer: those its bindings name and
+    those its readings name, but not the columns a reading adds (0.17 PL3b)."""
+    added = set(virtual_columns(source))
+    for path, name in _binding_columns(source, at):
+        if name not in added:
+            yield path, name
+    for path, name in reading_columns(source):
+        yield f"{at}{path}", name
+
+
+def _binding_columns(source: Source, at: str) -> Iterator[tuple[str, str]]:
     if source.key is not None:
         for name in ("column", "versionColumn", "nameColumn"):
             if getattr(source.key, name) is not None:

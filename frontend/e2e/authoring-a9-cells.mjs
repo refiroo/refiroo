@@ -207,14 +207,14 @@ async function journey(label, source) {
     await accessible(page, `a9-${label}-editor`);
     await shot(page, "value-editor");
     await editor.getByRole("textbox").fill("After");
-    await editor.getByRole("button", { name: "Save" }).click();
-    await toast(`${editedName} of “A9 Row One” saved to Live`);
+    await page.getByRole("heading", { level: 1 }).first().click();
+    await toast(`${editedName} saved`);
     await row(page, "A9 Row One").getByText("After", { exact: true }).waitFor();
     assert.equal(await valueOf(one), "After");
     await row(page, "A9 Row One").getByText("After", { exact: true }).click();
     await page.waitForURL(new RegExp(one.id));
     checks.push(
-      `${label}: only the hovered cell shows its icons; a value edited in its cell, saved to Live and said so; a click on the value opens the record`,
+      `${label}: only the hovered cell shows its icons; a value edited in its cell, saved by leaving it and said so; a click on the value opens the record`,
     );
 
     // 2. In a change set.
@@ -223,17 +223,16 @@ async function journey(label, source) {
     // Row Three, which nothing changes live, so the change set publishes in 7.
     await clickIcon(page, "A9 Row Three", `Edit ${editedName} of A9 Row Three`);
     await editor.getByRole("textbox").fill("Staged");
-    await editor.getByRole("button", { name: "Save" }).click();
-    await toast(`${editedName} of “A9 Row Three” saved to change set “A9 staged”`);
+    await page.keyboard.press("Tab");
+    await toast(`${editedName} saved`);
     await row(page, "A9 Row Three").getByText("Staged", { exact: true }).waitFor();
     assert.equal(await valueOf(three), undefined, "live keeps its value");
-    checks.push(`${label}: in a change set the save goes there and says so; live keeps its value`);
+    checks.push(`${label}: in a change set the save goes there; live keeps its value`);
 
     // 3. A value removed; no Remove on the name; no icons on a read-only binding.
     await open(page);
     await clickIcon(page, "A9 Row One", `Remove ${editedName} of A9 Row One`);
-    await page.getByRole("alertdialog").getByRole("button", { name: "Remove value" }).click();
-    await toast(`${editedName} of “A9 Row One” saved to Live`);
+    await toast(`${editedName} removed`);
     await row(page, "A9 Row One").getByText("After", { exact: true }).waitFor({ state: "detached" });
     assert.equal(await valueOf(one), undefined);
     assert.equal(await button(page, "A9 Row One", "Edit Name of A9 Row One").count(), 1);
@@ -245,6 +244,52 @@ async function journey(label, source) {
     );
     checks.push(`${label}: a value removed after its confirmation; the name has no Remove; a read-only value no icons`);
 
+    // 3b. Keyboard and pointer in a cell: Enter saves, Escape keeps the old value, emptied is removed with Undo, a required name
+    // emptied is refused under the field. Focus returns to the row's link. The value type here is text.
+    const rowFocus = () =>
+      page.evaluate(() => {
+        const active = document.activeElement;
+        return { tag: active?.tagName, name: active?.getAttribute("aria-label") ?? active?.textContent, cls: active?.className, row: active?.closest("tr")?.textContent ?? "" };
+      });
+    await clickIcon(page, "A9 Row Two", `Edit ${editedName} of A9 Row Two`);
+    await editor.getByRole("textbox").fill("Typed");
+    // A text of several lines saves with Control+Enter, since Enter is a new line there.
+    const longText = model.attributeTypes.find((item) => item.key === chosen.edited).valueType === "longText";
+    await page.keyboard.press(longText ? "Control+Enter" : "Enter");
+    await row(page, "A9 Row Two").getByText("Typed", { exact: true }).waitFor();
+    assert.equal(await valueOf(two), "Typed", "Enter (Control+Enter in a long text) saves");
+    await page.waitForTimeout(100);
+    const afterEnter = await rowFocus();
+    assert.ok(/cell-link/.test(afterEnter.cls ?? "") && /A9 Row Two/.test(afterEnter.row), `after Enter focus is on ${JSON.stringify(afterEnter)}`);
+    await clickIcon(page, "A9 Row Two", `Edit ${editedName} of A9 Row Two`);
+    await editor.getByRole("textbox").fill("Dropped");
+    await page.keyboard.press("Escape");
+    await row(page, "A9 Row Two").getByText("Typed", { exact: true }).waitFor();
+    assert.equal(await valueOf(two), "Typed", "Escape keeps the old value");
+    await page.waitForTimeout(100);
+    const afterEscape = await rowFocus();
+    assert.ok(/cell-link/.test(afterEscape.cls ?? "") && /A9 Row Two/.test(afterEscape.row), `after Escape focus is on ${JSON.stringify(afterEscape)}`);
+    await clickIcon(page, "A9 Row Two", `Edit ${editedName} of A9 Row Two`);
+    await editor.getByRole("textbox").fill("");
+    await page.keyboard.press("Tab");
+    await toast(`${editedName} removed`);
+    // The earlier toast stands, and the editor hides the value: the record tells when the removal is done.
+    for (let attempt = 0; attempt < 50 && (await valueOf(two)) !== undefined; attempt++) await page.waitForTimeout(100);
+    assert.equal(await valueOf(two), undefined, "an optional value emptied is removed");
+    await page.getByRole("button", { name: "Undo", exact: true }).last().click();
+    await row(page, "A9 Row Two").getByText("Typed", { exact: true }).waitFor();
+    assert.equal(await valueOf(two), "Typed", "Undo puts the value back");
+    await clickIcon(page, "A9 Row Two", "Edit Name of A9 Row Two");
+    await page.getByRole("form", { name: "Edit Name" }).getByRole("textbox").fill("");
+    await page.keyboard.press("Tab");
+    await page.getByRole("form", { name: "Edit Name" }).getByText("Name needs a value.").waitFor();
+    await page.getByRole("form", { name: "Edit Name" }).getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("form", { name: "Edit Name" }).waitFor({ state: "detached" });
+    assert.equal((await api(objectPath(two))).name, "A9 Row Two", "a refused empty name leaves the name");
+    checks.push(
+      `${label}: in a cell (${longText ? "long text, Control+Enter" : "text, Enter"}) the key saves, Escape keeps the old value, an emptied optional value is removed and Undo puts it back, an emptied name is refused under the field and Cancel closes it; focus returns to the row's link`,
+    );
+
     // 4. A conflict: renamed through the API after the list was read.
     await clickIcon(page, "A9 Row Two", "Edit Name of A9 Row Two");
     const nameEditor = page.getByRole("form", { name: "Edit Name" });
@@ -252,8 +297,10 @@ async function journey(label, source) {
     const current = await api(objectPath(two));
     await api(`/objects/${chosen.row.type.key}/${two.id}`, { name: "A9 Row Two API", expectedVersion: current.version }, "PATCH");
     await nameEditor.getByRole("textbox").fill("A9 Row Two UI");
-    await nameEditor.getByRole("button", { name: "Save" }).click();
+    await page.keyboard.press("Enter");
     await nameEditor.getByText("The value was not saved").waitFor();
+    await nameEditor.getByText(/Current saved value/).waitFor();
+    await nameEditor.getByRole("button", { name: "Save again" }).waitFor();
     assert.equal((await api(objectPath(two))).name, "A9 Row Two API", "nothing is overwritten");
     await page.keyboard.press("Escape");
     checks.push(`${label}: a stale save refused and said so; the newer name kept`);
@@ -270,8 +317,7 @@ async function journey(label, source) {
     await toast("Kept by of “A9 Row One” saved to Live");
     await (await cell(page, "A9 Row One", "Edit Kept by of A9 Row One")).getByText("A9 Approved South").waitFor();
     await clickIcon(page, "A9 Row One", "Remove Kept by of A9 Row One");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Delete relationship" }).click();
-    await toast("Kept by of “A9 Row One” saved to Live");
+    await toast("Kept by removed");
     await (await cell(page, "A9 Row One", "Edit Kept by of A9 Row One"))
       .getByText("A9 Approved South")
       .waitFor({ state: "detached" });
@@ -294,7 +340,7 @@ async function journey(label, source) {
     await shot(page, "many-dialog");
     await many.getByRole("checkbox", { name: /A9 Approved North/ }).uncheck();
     await many.getByRole("checkbox", { name: /A9 Other West/ }).check();
-    await many.getByRole("button", { name: "Save" }).click();
+    await many.getByRole("button", { name: "Apply" }).click();
     await toast("Works with of “A9 Row One” saved to Live");
     await (await cell(page, "A9 Row One", "Edit Works with of A9 Row One")).getByText("A9 Other West").waitFor();
     const related = await api(

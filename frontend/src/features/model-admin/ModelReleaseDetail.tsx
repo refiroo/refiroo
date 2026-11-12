@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { formatServerTime } from "@/lib/dates";
+import { useEffect, useState, type ReactNode } from "react";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { actorText } from "@/ui/ActorName";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -8,7 +8,12 @@ import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { CompatibilityPill, ModelDiff } from "@/features/model-admin/ModelDiff";
 import { downloadJson } from "@/lib/download";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
+import { settingsHead } from "@/features/settings/navigation";
+import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { SettingsLayout } from "@/ui/SettingsLayout";
+import { ItemHeader, SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
+import { Skeleton } from "@/ui/Skeleton";
 import { Notice } from "@/ui/Notice";
 import { StatusPill } from "@/ui/StatusPill";
 
@@ -73,6 +78,8 @@ const refusedReleaseId = (cause: unknown) => refusalDetail(cause, "releaseId");
 const unsupportedSchemaVersion = (cause: unknown) => refusalDetail(cause, "schemaVersion");
 
 export function ModelReleaseDetail({
+  trail,
+  notice,
   releaseId,
   workspaces,
   canManageDrafts,
@@ -83,11 +90,12 @@ export function ModelReleaseDetail({
   onActivate,
   onStatusChanged,
   onDeleted,
-  pageTitle,
 }: {
+  /** The bar over the page: Models › the model › the tab › this release. */
+  trail?: ReactNode;
+  /** What the person should know before the page's groups (read-only model administration). */
+  notice?: ReactNode;
   releaseId: string;
-  /** The page's own title; the release's name is not repeated under it. */
-  pageTitle?: string;
   /** The active workspaces with the release each runs (0.11 M5). */
   workspaces: Workspace[];
   canManageDrafts: boolean;
@@ -232,13 +240,21 @@ export function ModelReleaseDetail({
     setBaseline(id === defaultBase?.releaseId ? defaultBase : { releaseId: id, source: "choice" });
   }
 
+  const head = settingsHead("model");
   if (error && !release)
     return (
-      <div className="inline-state error-notice" role="alert">
-        {error}
-      </div>
+      <SettingsLayout {...head} trail={trail} title="Release">
+        <div className="inline-state error-notice" role="alert">
+          {error}
+        </div>
+      </SettingsLayout>
     );
-  if (!release) return <div className="panel-state">Loading release…</div>;
+  if (!release)
+    return (
+      <SettingsLayout {...head} trail={trail} title="Release">
+        <Skeleton label="Loading release" lines={4} />
+      </SettingsLayout>
+    );
   const byId = new Map(releases?.map((item) => [item.id, item]));
   // The workspaces' assignments are authoritative; a release's `workspaces` is only as fresh as its load.
   const runBy = workspaces.filter((item) => item.model.releaseId === release.id);
@@ -248,83 +264,110 @@ export function ModelReleaseDetail({
   const current = baseline && comparison?.againstReleaseId === baseline.releaseId ? comparison : undefined;
   const baselineRelease = baseline && byId.get(baseline.releaseId);
   const candidates = [...(releases ?? [])].reverse().filter((item) => item.id !== release.id);
+  // Two actions show; the rest are in the ⋯ menu, what cannot be undone last (PP-D63).
+  const exportJson = release.model
+    ? () => downloadJson(`${release.key}-${release.version}.json`, JSON.stringify(release.model, null, 2))
+    : undefined;
+  const offered: { id: string; label: string; primary?: boolean; onAction: () => void }[] = [
+    ...(canActivate && !unsupportedSchema && release.status === "active" && runBy.length < workspaces.length
+      ? [{ id: "activate", label: "Activate in a workspace…", primary: true, onAction: () => onActivate(release.id) }]
+      : []),
+    ...(canManageDrafts
+      ? [{ id: "draft", label: "Create draft from release", onAction: () => onCreateDraft(release) }]
+      : []),
+    ...(exportJson ? [{ id: "export", label: "Export JSON", onAction: exportJson }] : []),
+  ];
+  const shown = offered.slice(0, 2);
+  const menu: ActionMenuItem[] = [
+    ...offered.slice(2),
+    ...(canInstall && release.status === "active" && !isDefault
+      ? [
+          {
+            id: "retire",
+            label: "Retire…",
+            disabled: lifecyclePending,
+            onAction: () => setConfirming("retire"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(canInstall && release.status === "retired"
+      ? [
+          {
+            id: "restore",
+            label: "Bring back",
+            disabled: lifecyclePending,
+            onAction: () => void changeLifecycle("restore"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(canInstall && release.deletable
+      ? [
+          {
+            id: "delete",
+            label: "Delete…",
+            tone: "danger",
+            disabled: lifecyclePending,
+            onAction: () => setConfirming("delete"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+  ];
   return (
-    <div className="model-editor-stack">
-      <header className="model-detail-header">
-        <div>
-          {release.name === pageTitle ? (
-            <p className="muted">Immutable release</p>
-          ) : (
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon="model" hue={head.hue} size={48} />}
+          title={<h1>{release.name}</h1>}
+          meta={
             <>
-              <p className="eyebrow">Immutable release</p>
-              <h2>{release.name}</h2>
+              <span>
+                {release.key} · version {release.version} · schema {release.schemaVersion}
+              </span>
+              <span>Immutable release</span>
+              {release.status === "retired" && <StatusPill tone="warning">Retired</StatusPill>}
+              {runBy.length ? (
+                <StatusPill tone="success">Run by {runBy.map((item) => item.label).join(", ")}</StatusPill>
+              ) : (
+                <StatusPill tone="neutral">Run by no workspace</StatusPill>
+              )}
             </>
-          )}
-          <p>
-            {release.key} · version {release.version} · schema {release.schemaVersion}
-          </p>
-        </div>
-        <span className="model-row-marks">
-          {release.status === "retired" && <StatusPill tone="warning">Retired</StatusPill>}
-          {runBy.length ? (
-            <StatusPill tone="success">Run by {runBy.map((item) => item.label).join(", ")}</StatusPill>
-          ) : (
-            <StatusPill tone="neutral">Run by no workspace</StatusPill>
-          )}
-        </span>
-      </header>
+          }
+          actions={
+            <>
+              {shown.map((action) => (
+                <button key={action.id} className={action.primary ? "primary" : "secondary"} onClick={action.onAction}>
+                  {action.label}
+                </button>
+              ))}
+              {menu.length > 0 && <ActionMenu label="More actions" items={menu} />}
+            </>
+          }
+        />
+      }
+    >
+      {notice}
       {release.status === "retired" && (
         <Notice tone="info" title="Retired">
           This release is no longer offered for new workspaces, change sets or activations
           {runBy.length ? "; the workspaces that run it keep working" : ""}.
         </Notice>
       )}
-      <dl className="release-metadata">
-        <div>
-          <dt>Installed</dt>
-          <dd>{formatServerTime(release.installedAt)}</dd>
-        </div>
-      </dl>
-      {release.model && <ModelSummary model={release.model} />}
       {error && <Notice tone="error">{error}</Notice>}
       {lifecycleError && !confirming && <Notice tone="error">{lifecycleError}</Notice>}
-      <div className="model-actions">
+      <SettingsGroup title="About this release">
+        <SettingsPanel>
+          <SettingRow fact name="Installed">
+            <span title={formatServerTime(release.installedAt)}>{formatServerDayTime(release.installedAt)}</span>
+          </SettingRow>
+        </SettingsPanel>
         {release.model && (
-          <button
-            className="secondary"
-            onClick={() =>
-              downloadJson(`${release.key}-${release.version}.json`, JSON.stringify(release.model, null, 2))
-            }
-          >
-            Export JSON
-          </button>
+          <SettingsPanel label="What it holds">
+            <ModelSummary model={release.model} />
+          </SettingsPanel>
         )}
-        {canManageDrafts && (
-          <button className="secondary" onClick={() => onCreateDraft(release)}>
-            Create draft from release
-          </button>
-        )}
-        {canActivate && !unsupportedSchema && release.status === "active" && runBy.length < workspaces.length && (
-          <button className="primary" onClick={() => onActivate(release.id)}>
-            Activate in a workspace…
-          </button>
-        )}
-        {canInstall && release.status === "active" && !isDefault && (
-          <button className="secondary" disabled={lifecyclePending} onClick={() => setConfirming("retire")}>
-            Retire…
-          </button>
-        )}
-        {canInstall && release.status === "retired" && (
-          <button className="secondary" disabled={lifecyclePending} onClick={() => void changeLifecycle("restore")}>
-            Bring back
-          </button>
-        )}
-        {canInstall && release.deletable && (
-          <button className="danger" disabled={lifecyclePending} onClick={() => setConfirming("delete")}>
-            Delete…
-          </button>
-        )}
-      </div>
+      </SettingsGroup>
       {confirming === "retire" && (
         <ConfirmDialog
           title={`Retire ${release.name} ${release.version}?`}
@@ -411,124 +454,125 @@ export function ModelReleaseDetail({
           comparison or activation. The release metadata and raw JSON remain available for inspection and export.
         </Notice>
       ) : (
-        <section className="model-result" aria-labelledby="release-history-heading">
-          <div className="model-result-heading">
-            <div>
-              <p className="eyebrow">Release history</p>
-              <h3 id="release-history-heading">Changes in this release</h3>
+        <SettingsGroup
+          stacked
+          title="Changes in this release"
+          description="Release history: an earlier release against this one."
+        >
+          <SettingsPanel>
+            <div className="release-comparison-body settings-panel-pad">
+              {historyError ? (
+                <Notice tone="error">Release history could not be loaded: {historyError}</Notice>
+              ) : !releases ? (
+                <p className="panel-state">Loading release history…</p>
+              ) : (
+                <>
+                  {candidates.length > 0 && (
+                    <label className="release-baseline-field">
+                      Compare with
+                      <select
+                        className="field-input"
+                        value={baseline?.releaseId ?? ""}
+                        onChange={(event) => chooseBaseline(event.target.value)}
+                      >
+                        {!baseline && (
+                          <option value="" disabled>
+                            No earlier release
+                          </option>
+                        )}
+                        {candidates.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {releaseLabel(item)}
+                            {workspaces.some((workspace) => workspace.model.releaseId === item.id) ? " (run)" : ""}
+                            {item.id === defaultBase?.releaseId ? " (default)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {baseline && baselineRelease ? (
+                    <p className="release-comparison-direction">
+                      <span>
+                        Before: <strong>{releaseLabel(baselineRelease)}</strong>
+                      </span>
+                      <span aria-hidden="true">→</span>
+                      <span>
+                        After: <strong>{releaseLabel(release)}</strong> (this release)
+                      </span>
+                      <small>{baselineExplanation(baseline)}</small>
+                    </p>
+                  ) : (
+                    <p className="panel-state">
+                      No earlier release to compare with: no activation of this release records a predecessor and it is
+                      the first installed release of {release.key}.
+                      {candidates.length > 0 && " Choose a release in Compare with to compare anyway."}
+                    </p>
+                  )}
+                </>
+              )}
+              {baseline && !current && <p className="panel-state">Comparing releases…</p>}
+              {current?.state === "error" && <Notice tone="error">{current.message}</Notice>}
+              {current?.state === "unsupported" && baselineRelease && (
+                <Notice tone="info" title="Comparison unavailable">
+                  {releaseLabel(baselineRelease)} uses schema {current.schemaVersion ?? baselineRelease.schemaVersion},
+                  which this deployment cannot interpret for semantic comparison. Choose another release in Compare
+                  with. Its metadata and raw JSON remain available from the release list.
+                </Notice>
+              )}
             </div>
-          </div>
-          <div className="release-comparison-body">
-            {historyError ? (
-              <Notice tone="error">Release history could not be loaded: {historyError}</Notice>
-            ) : !releases ? (
-              <p className="panel-state">Loading release history…</p>
-            ) : (
-              <>
-                {candidates.length > 0 && (
-                  <label className="release-baseline-field">
-                    Compare with
-                    <select
-                      className="field-input"
-                      value={baseline?.releaseId ?? ""}
-                      onChange={(event) => chooseBaseline(event.target.value)}
-                    >
-                      {!baseline && (
-                        <option value="" disabled>
-                          No earlier release
-                        </option>
-                      )}
-                      {candidates.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {releaseLabel(item)}
-                          {workspaces.some((workspace) => workspace.model.releaseId === item.id) ? " (run)" : ""}
-                          {item.id === defaultBase?.releaseId ? " (default)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {baseline && baselineRelease ? (
-                  <p className="release-comparison-direction">
-                    <span>
-                      Before: <strong>{releaseLabel(baselineRelease)}</strong>
-                    </span>
-                    <span aria-hidden="true">→</span>
-                    <span>
-                      After: <strong>{releaseLabel(release)}</strong> (this release)
-                    </span>
-                    <small>{baselineExplanation(baseline)}</small>
-                  </p>
-                ) : (
-                  <p className="panel-state">
-                    No earlier release to compare with: no activation of this release records a predecessor and it is
-                    the first installed release of {release.key}.
-                    {candidates.length > 0 && " Choose a release in Compare with to compare anyway."}
-                  </p>
-                )}
-              </>
-            )}
-            {baseline && !current && <p className="panel-state">Comparing releases…</p>}
-            {current?.state === "error" && <Notice tone="error">{current.message}</Notice>}
-            {current?.state === "unsupported" && baselineRelease && (
-              <Notice tone="info" title="Comparison unavailable">
-                {releaseLabel(baselineRelease)} uses schema {current.schemaVersion ?? baselineRelease.schemaVersion},
-                which this deployment cannot interpret for semantic comparison. Choose another release in Compare with.
-                Its metadata and raw JSON remain available from the release list.
-              </Notice>
-            )}
-          </div>
+          </SettingsPanel>
           {current?.state === "ready" && baselineRelease && (
             <ModelDiff
               changes={current.diff.changes}
               emptyMessage={`No semantic changes: ${releaseLabel(baselineRelease)} and this release define the same model.`}
             />
           )}
-        </section>
+        </SettingsGroup>
       )}
       {!unsupportedSchema && (
-        <section className="model-result" aria-labelledby="activation-check-heading">
-          <div className="model-result-heading">
-            <div>
-              <p className="eyebrow">Activation check</p>
-              <h3 id="activation-check-heading">Workspaces running {release.key}</h3>
+        <SettingsGroup
+          title={`Workspaces running ${release.key}`}
+          description="Activation check: each workspace running a release of this model, its own data against this release."
+        >
+          <SettingsPanel>
+            <div className="settings-panel-pad">
+              {check?.state === "error" ? (
+                <Notice tone="error">Activation readiness could not be checked: {check.message}</Notice>
+              ) : !readiness ? (
+                <Skeleton label="Checking each workspace's stored data" lines={2} />
+              ) : readiness.length ? (
+                <>
+                  <p className="release-check-note">
+                    Each workspace running a release of {release.key}, its own data against this release. Activating
+                    changes one workspace; a workspace on another model is checked when you choose it to activate into.
+                  </p>
+                  <ul className="release-workspace-checks">
+                    {readiness.map((item) => (
+                      <li key={item.workspaceKey}>
+                        <strong>{label(item.workspaceKey)}</strong>{" "}
+                        {item.releaseId === release.id ? (
+                          <StatusPill tone="success">Runs this release</StatusPill>
+                        ) : (
+                          <CompatibilityPill classification={item.classification} />
+                        )}
+                        {item.releaseId !== release.id && item.diagnostics.length > 0 && (
+                          <ModelDiagnostics diagnostics={item.diagnostics} />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="release-check-note">
+                  No workspace runs {release.key}. Activating this release into a workspace checks that workspace's data
+                  first.
+                </p>
+              )}
             </div>
-          </div>
-          {check?.state === "error" ? (
-            <Notice tone="error">Activation readiness could not be checked: {check.message}</Notice>
-          ) : !readiness ? (
-            <p className="panel-state">Checking each workspace's stored data…</p>
-          ) : readiness.length ? (
-            <>
-              <p className="release-check-note">
-                Each workspace running a release of {release.key}, its own data against this release. Activating changes
-                one workspace; a workspace on another model is checked when you choose it to activate into.
-              </p>
-              <ul className="release-workspace-checks">
-                {readiness.map((item) => (
-                  <li key={item.workspaceKey}>
-                    <strong>{label(item.workspaceKey)}</strong>{" "}
-                    {item.releaseId === release.id ? (
-                      <StatusPill tone="success">Runs this release</StatusPill>
-                    ) : (
-                      <CompatibilityPill classification={item.classification} />
-                    )}
-                    {item.releaseId !== release.id && item.diagnostics.length > 0 && (
-                      <ModelDiagnostics diagnostics={item.diagnostics} />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="release-check-note">
-              No workspace runs {release.key}. Activating this release into a workspace checks that workspace's data
-              first.
-            </p>
-          )}
-        </section>
+          </SettingsPanel>
+        </SettingsGroup>
       )}
-    </div>
+    </SettingsLayout>
   );
 }
 

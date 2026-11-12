@@ -1,0 +1,378 @@
+/* A workspace's own page (0.17 UX1): the person's shelf of lists, the search, what needs them, the applications
+   with their lists, and what changed. Full width, so it follows the window as the list pages do. */
+.ws-page {
+  display: grid;
+  gap: var(--space-6);
+  width: 100%;
+}
+.ws-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.ws-head-text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+.ws-head-text h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.ws-head-text p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+}
+.ws-eyebrow {
+  margin: 0 0 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ws-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ws-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.ws-facts strong {
+  margin-right: 6px;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.ws-search {
+  padding: var(--space-4) var(--space-5);
+}
+.ws-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.ws-main,
+.ws-side {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.ws-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+.ws-title small {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.ws-title .ws-title-action {
+  margin-left: auto;
+}
+
+/* The shelf: the lists a person brought here, as tiles they can drag into their order. */
+.ws-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-pin {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-3);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-surface);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+  transition:
+    transform var(--motion) var(--ease-out),
+    box-shadow var(--motion),
+    border-color var(--motion);
+}
+.ws-pin:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.ws-pin[data-dragging] {
+  opacity: 0.45;
+}
+.ws-pin[data-over] {
+  border-color: var(--action-primary);
+  box-shadow: var(--focus-ring);
+}
+.ws-pin-link {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+/* The whole tile opens the list; the menu button stays above the stretched link. */
+.ws-pin-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.ws-pin-name {
+  overflow: hidden;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-pin-where {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-pin-menu {
+  position: relative;
+  z-index: 1;
+}
+.ws-shelf-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--card-radius);
+  color: var(--text-secondary);
+  text-align: center;
+}
+.ws-shelf-empty img {
+  width: 56px;
+  height: 56px;
+}
+.ws-shelf-empty strong {
+  color: var(--text-primary);
+}
+.ws-pick {
+  display: grid;
+  gap: var(--space-2);
+  width: min(360px, 86vw);
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+.ws-pick-group {
+  margin: var(--space-2) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ws-pick label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.ws-pick label:hover {
+  background: var(--surface-hover);
+}
+
+/* Applications, each with its lists. */
+.ws-apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-app {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  padding: var(--space-4) var(--space-5);
+}
+.ws-app-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  text-decoration: none;
+}
+.ws-app-head:hover {
+  color: var(--link);
+}
+.ws-app p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.ws-lists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--pill-radius);
+  background: var(--surface-fill);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: background var(--motion-fast);
+}
+.ws-list:hover {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.ws-list[data-pinned]::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--action-primary);
+}
+
+/* What needs the person, and what changed. */
+.ws-card {
+  padding: var(--space-4) var(--space-5);
+}
+.ws-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+.ws-row + .ws-row {
+  border-top: 1px solid var(--border-faint);
+}
+.ws-row-text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 1px;
+  min-width: 0;
+}
+.ws-row-text small {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.ws-day {
+  margin: var(--space-3) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ws-times {
+  flex: none;
+  padding: 0 var(--space-2);
+  border-radius: var(--pill-radius);
+  background: var(--surface-fill);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 1100px) {
+  .ws-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-pin {
+    transition: none;
+  }
+}
+
+/* Lists the search found by name, above the records (0.17 UX1). */
+.workspace-search-lists {
+  display: grid;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-faint);
+}
+.workspace-search-list {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+}
+.workspace-search-list:hover,
+.workspace-search-list:focus-visible {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.workspace-search-list small {
+  color: var(--text-tertiary);
+}
+
+/* The list header's shelf button: quiet until the list is on the shelf. */
+.shelf-toggle {
+  padding: 0 var(--space-2);
+  color: var(--text-tertiary);
+}
+.shelf-toggle[aria-pressed="true"] {
+  border-color: var(--state-selected-line);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+
+/* The shelf while a list is held over it: it shows that it takes the drop. */
+.ws-shelf-section {
+  border-radius: var(--card-radius);
+  transition: box-shadow var(--motion-fast);
+}
+.ws-shelf-section[data-taking] {
+  box-shadow: 0 0 0 2px var(--action-primary);
+}
+.ws-list[draggable="true"] {
+  cursor: grab;
+}

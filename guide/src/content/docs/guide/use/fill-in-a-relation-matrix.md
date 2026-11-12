@@ -106,7 +106,7 @@ and Romansh. The state filter tests the chosen or shown languages, not hidden la
    because it is the only one. Use **Search places…** to choose another offered group.
 4. Fill the type's content fields. Set any checkbox or field that determines whether it counts
    according to the legend. Fill **Attributes of the relationship**, if shown: these describe
-   the new connection rather than the record itself. Choose the form's **Create** action. On success, the dialog closes
+   the new connection rather than the record itself. Choose the form's **Add** action followed by the cell type's name. On success, the dialog closes
    and the cell refreshes; check its state and displayed content.
 5. Use **Back** to abandon the creation form and return to the cell, then **Close** to leave
    without creating anything. If creation is refused, correct the named problem before retrying.
@@ -176,9 +176,15 @@ Publishing makes the new record and its connection available to connected system
    names and displayed record fields. Read the record's columns first, then the tinted
    **Attributes of the relationship** columns. Choose **Open** for its full page and history.
 3. Edit the intended value in place. A Yes or no checkbox saves with one click. For another
-   field, open its small editor and enter the value; Enter saves an ordinary single-line field,
-   and Escape cancels. Clicking outside an unchanged record-field editor closes it. Leaving
-   a relationship-value editor also attempts to save. Check the refreshed value and any error.
+   field, open its input and enter the value. Click elsewhere or press Tab to save; Enter also
+   saves a single-line field. In text of several lines, Enter adds a new line and Ctrl+Enter
+   (Cmd+Enter on a Mac) saves. Escape puts the old value back; an unchanged input closes
+   without saving or showing a notice. A saved input shows **‹Field› saved** with **Undo**,
+   including for a relationship's value or a value set for the first time. To remove an
+   optional value, empty its input and leave it; **‹Field› removed** offers **Undo**.
+   A refused input stays open with the reason and **Cancel** and **Save again** beneath it.
+   Correct the input before leaving it to retry, or choose **Save again** after reviewing
+   the reason. Check the refreshed value and any error.
 4. Check the condition for counting before switching an availability checkbox off: the cell
    can become Inactive without removing the record. Successful inline saves leave the table
    open. If a row disappears from a state-filtered matrix, select **Any state** to find it again.
@@ -191,10 +197,10 @@ Publishing makes the new record and its connection available to connected system
 the Graubünden workspace. One code, Q65399, has Confirmed ticked and the Note editor open
 with “Merged municipality, old code kept”. These values belong to its connection to the municipality.*
 
-![An existing cell record open for editing with a content field and Active checkbox](/docs/screens/matrix-cell-editor.png)
+![An existing cell record in a centred dialog with Translated name and an Active switch](/docs/screens/matrix-cell-editor.png)
 
 *Above: Chur · rm opens the Romansh name Cuira with Active selected. Open Chur (rm) leads to the
-full name record. Cancel leaves its fields unchanged.*
+full name record. Each field saves on its own; **Close** returns to the matrix.*
 
 In a one-per-column counting rule, a change set can temporarily hold two counting records
 for one cell. It shows **Conflict** with the count. Open it and inspect both records. Correct

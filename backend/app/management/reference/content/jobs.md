@@ -221,7 +221,7 @@ Starts a new preview of a waiting import's file and profile with other matching 
 
 ### Errors
 
-- 403 FORBIDDEN: needs Bulk and import in the job's workspace
+- 403 FORBIDDEN: needs the group that starts this kind of job in its workspace
 - 404 JOB_NOT_FOUND: no job has this ID
 - 404 WORKSPACE_NOT_FOUND: the job's workspace is gone
 - 404 CHANGE_SET_NOT_FOUND: the job's change set is gone

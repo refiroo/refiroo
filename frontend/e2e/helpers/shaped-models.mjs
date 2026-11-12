@@ -76,7 +76,8 @@ async function withRecords(api, model, { application, view, type, attributes, se
     view,
     type,
     records: items,
-    heading: view.name,
+    // A page is titled by its sidebar entry, the type's plural (0.17 UX1).
+    heading: type.pluralName ?? view.name,
     path: `/apps/${application.key}/views/${view.key}?workspaceKey=default`,
   };
 }

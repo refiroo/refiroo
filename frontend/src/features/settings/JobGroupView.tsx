@@ -9,22 +9,29 @@ import { api } from "@/api/client";
 import { OriginName } from "@/features/jobs/OriginName";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { JobGroup, JobGroupRow, JobState, RouteState } from "@/types";
-import { Card } from "@/ui/Card";
-import { EmptyState } from "@/ui/EmptyState";
 import { InlineError } from "@/ui/InlineError";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import {
+  FilterChip,
+  ItemHeader,
+  LogFoot,
+  SettingsEmpty,
+  SettingsGroup,
+  SettingsPanel,
+  SettingsTile,
+} from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
-import { TrailBar, TrailLink } from "@/ui/TrailBar";
+import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { routePath } from "@/routing/routes";
 import { ORIGIN, STATE, cancellable } from "@/features/jobs/jobText";
 import { useWorkspaceLabels } from "@/features/security/GrantsSection";
 import { JOB_COLUMNS, JobRow } from "./JobRow";
 import { JOBS, groupRoute, jobRoute } from "./jobRoutes";
+import { settingsHead } from "./navigation";
 import { useJobCancel } from "./useJobCancel";
 
 type Origin = NonNullable<Extract<RouteState, { page: "jobs" }>["group"]>;
@@ -108,11 +115,9 @@ export function JobGroupView({
   const name = group?.origin.name;
   const kindLabel = ORIGIN[origin.kind].label;
   const toList = () => onNavigate(JOBS);
+  const head = settingsHead("jobs");
   const bar = (
-    <TrailBar
-      back={{ label: "‹ Jobs", onClick: toList }}
-      trail={[<TrailLink onClick={toList}>Jobs</TrailLink>, name ? `${kindLabel}: ${name}` : kindLabel]}
-    />
+    <Trail items={crumbs(<TrailLink onClick={toList}>Jobs</TrailLink>, name ? `${kindLabel}: ${name}` : kindLabel)} />
   );
   const open = (jobId: string) => {
     const next = jobRoute(jobId, { group: origin, state });
@@ -127,22 +132,24 @@ export function JobGroupView({
 
   if (summaryError)
     return (
-      <SettingsLayout trail={bar} eyebrow="Data operations" title="Jobs">
+      <SettingsLayout trail={bar} {...head} title="Jobs">
         <InlineError message={summaryError} onRetry={() => setToken((value) => value + 1)} />
       </SettingsLayout>
     );
   if (group === undefined)
     return (
-      <SettingsLayout trail={bar} eyebrow="Data operations" title="Jobs">
+      <SettingsLayout trail={bar} {...head} title="Jobs">
         <Skeleton label="Loading the jobs" lines={5} />
       </SettingsLayout>
     );
   if (group === null || !loaded)
     return (
-      <SettingsLayout trail={bar} eyebrow="Data operations" title="Jobs">
-        <EmptyState>
-          This group has no jobs you can see. Its task or draft may have been removed, or its jobs have expired.
-        </EmptyState>
+      <SettingsLayout trail={bar} {...head} title="Jobs">
+        <SettingsPanel>
+          <SettingsEmpty icon="activity" hue={head.hue}>
+            This group has no jobs you can see. Its task or draft may have been removed, or its jobs have expired.
+          </SettingsEmpty>
+        </SettingsPanel>
       </SettingsLayout>
     );
 
@@ -157,64 +164,91 @@ export function JobGroupView({
   const workspace = labels.get(loaded.job.workspaceKey) ?? loaded.job.workspaceKey;
 
   return (
-    <SettingsLayout trail={bar} eyebrow={`${kindLabel} · ${workspace}`} title={<OriginName name={group.origin.name} />}>
-      <Card as="section" aria-label="Summary of the group" className="job-group-summary">
-        <div className="job-group-summary-head">
-          <p>
-            {group.jobs} {group.jobs === 1 ? "job" : "jobs"}, the latest at {formatServerTime(group.latestAt)}.
-          </p>
-          {canOpen && (
-            <button type="button" className="primary" onClick={openOwner}>
-              {ORIGIN[origin.kind].open}
-            </button>
-          )}
-        </div>
-        <div className="segmented" role="group" aria-label="Show jobs in state">
-          {chips.map((chip) => (
-            <button
-              key={chip.key ?? "all"}
-              type="button"
-              aria-pressed={chip.key === state}
-              onClick={() => onNavigate(groupRoute(origin, chip.key))}
-            >
-              {chip.label} <strong>{chip.count}</strong>
-            </button>
-          ))}
-        </div>
-      </Card>
-      <Section
+    <SettingsLayout
+      trail={bar}
+      header={
+        <ItemHeader
+          hue={head.hue}
+          lead={<SettingsTile icon={head.icon} hue={head.hue} size={48} />}
+          title={
+            <h1>
+              <OriginName name={group.origin.name} />
+            </h1>
+          }
+          meta={
+            <>
+              <span>{kindLabel}</span>
+              <span>{workspace}</span>
+              <span title={formatServerTime(group.latestAt)}>
+                {group.jobs} {group.jobs === 1 ? "job" : "jobs"}, the latest {formatServerDayTime(group.latestAt)}
+              </span>
+            </>
+          }
+          actions={
+            canOpen && (
+              <button type="button" className="primary" onClick={openOwner}>
+                {ORIGIN[origin.kind].open}
+              </button>
+            )
+          }
+        />
+      }
+    >
+      <SettingsGroup
+        stacked
         title="Jobs"
-        actions={
-          <button type="button" className="secondary" disabled={feed.loading} onClick={() => setToken((v) => v + 1)}>
-            Refresh
-          </button>
+        tools={
+          <>
+            <span className="filter-chips" role="group" aria-label="Show jobs in state">
+              {chips.map((chip) => (
+                <FilterChip
+                  key={chip.key ?? "all"}
+                  selected={chip.key === state}
+                  onSelect={() => onNavigate(groupRoute(origin, chip.key))}
+                >
+                  {chip.label} <strong>{chip.count}</strong>
+                </FilterChip>
+              ))}
+            </span>
+            <button type="button" className="secondary" disabled={feed.loading} onClick={() => setToken((v) => v + 1)}>
+              Refresh
+            </button>
+          </>
         }
       >
         {cancel.ui}
-        {feed.error ? (
-          <InlineError message={feed.error} onRetry={feed.retry} />
-        ) : feed.loading && feed.items.length === 0 ? (
-          <Skeleton label="Loading jobs" lines={5} />
-        ) : feed.items.length === 0 ? (
-          <EmptyState>No jobs in this state.</EmptyState>
-        ) : (
-          <SettingsTable label="Jobs in this group" columns={JOB_COLUMNS}>
-            {feed.items.map((job) => (
-              <JobRow
-                key={job.id}
-                job={job}
-                link={open(job.id)}
-                onCancel={canCancel && cancellable(job) ? () => cancel.ask(job) : undefined}
+        <SettingsPanel>
+          {feed.error ? (
+            <InlineError message={feed.error} onRetry={feed.retry} />
+          ) : feed.loading && feed.items.length === 0 ? (
+            <Skeleton label="Loading jobs" lines={5} />
+          ) : feed.items.length === 0 ? (
+            <SettingsEmpty icon="activity" hue={head.hue}>
+              No jobs in this state.
+            </SettingsEmpty>
+          ) : (
+            <>
+              <SettingsTable label="Jobs in this group" columns={JOB_COLUMNS}>
+                {feed.items.map((job) => (
+                  <JobRow
+                    key={job.id}
+                    job={job}
+                    link={open(job.id)}
+                    onCancel={canCancel && cancellable(job) ? () => cancel.ask(job) : undefined}
+                  />
+                ))}
+              </SettingsTable>
+              <LogFoot
+                shown={feed.items.length}
+                total={!feed.hasMore ? undefined : (chips.find((chip) => chip.key === state)?.count ?? undefined)}
+                noun="jobs"
+                onMore={feed.hasMore ? feed.loadMore : undefined}
+                loading={feed.loading}
               />
-            ))}
-          </SettingsTable>
-        )}
-        {feed.hasMore && !feed.error && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more jobs
-          </button>
-        )}
-      </Section>
+            </>
+          )}
+        </SettingsPanel>
+      </SettingsGroup>
     </SettingsLayout>
   );
 }

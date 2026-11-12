@@ -1544,6 +1544,11 @@ screens. The user chose B, "Open", over A, "Framed" (a dark frame with raised pa
 - _Note 2026-10-06 (U-D8):_ the user kept a `Card` component in U2, since the UI is not final.
   Whether content sits on the page or in cards is judged in the product after U2 and U6, not ruled
   out in advance.
+- _Note 2026-11-12 (0.17 SH1, PP-D33):_ on desktop the data-context band no longer names the workspace and
+  the application, which the sidebar and the top bar already say. It keeps the context pill, its one sentence
+  and the Live · Change sets · Publications switch; a change set's band is one row (pill, name, change count and
+  state, with who, when, version and model under Details). The phone band keeps both names, since there it is the
+  only place that shows them. The band's colours, its sticky place and `--band-height` are as before.
 
 ## ADR-040 — The "Atlas" visual direction: today's calm shell, a colour for every kind of record
 
@@ -1592,6 +1597,13 @@ look E: the current app's structure with the "Atlas" colour system.
   right.
 - The design before UA is kept at the git tag `ui-before-atlas`, so it can be compared or restored;
   how is in [UA's revert point](SETTINGS_AND_UI_PLAN.md#ua-the-atlas-redesign).
+- _Note 2026-11-12 (0.17 SH1, PP-D35):_ the sidebar keeps Browse records and its tree, folded by default; its
+  open state is remembered per browser, and its own search box is gone, since the top bar's search finds a record
+  across the workspace.
+- _Note 2026-11-12 (0.17 UX1, PP-D38 and PP-D39):_ the frame is one component with named parts, and a theme
+  places them: the top bar and sidebar decided here stay the arrangement of Current, Hearth and Website purple;
+  Studio and Instrument arrange the same parts with a side column. The data context keeps its colours and
+  meaning (ADR-039) and is shown once in each arrangement: the band, or in Instrument a status line.
 
 ## ADR-041 — Model drafts change through recorded operations
 

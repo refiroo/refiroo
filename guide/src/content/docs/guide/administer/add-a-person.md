@@ -11,7 +11,7 @@ provider, first sign-in creates their person instead; see
 
 ## Create the account
 
-1. Open **Settings › Security › People**. Check the Active list or search by name
+1. Open **Settings › People and access › People**. Check the Active list or search by name
    or e-mail to avoid creating another account for the same person. Check **Deactivated**
    too; **Restore** reactivates an existing person with their retained roles and groups.
 2. Choose **New person**. Enter **Name**, the display name used in lists and history, up to 200 characters.

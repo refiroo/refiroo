@@ -284,6 +284,15 @@ describe("ModelReleaseDetail after activation and failures", () => {
   });
 });
 
+/** Chooses an action from the release's ⋯ menu. */
+async function chooseAction(name: string) {
+  fireEvent.keyDown(await screen.findByRole("button", { name: "More actions" }), {
+    key: "ArrowDown",
+    code: "ArrowDown",
+  });
+  fireEvent.keyDown(await screen.findByRole("menuitem", { name }), { key: "Enter", code: "Enter" });
+}
+
 describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
   function lifecycle(selected: ModelReleaseSummary, { isDefault = false, canInstall = true } = {}) {
     vi.mocked(api.modelRelease).mockResolvedValue({ ...selected, model: {} });
@@ -312,10 +321,15 @@ describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
   it("retires a release after confirmation, then offers to bring it back and no activation", async () => {
     const { onStatusChanged } = lifecycle(r06);
     vi.mocked(api.setModelReleaseStatus).mockResolvedValue({ ...r06, status: "retired", statusVersion: 2 });
-    fireEvent.click(await screen.findByRole("button", { name: "Retire…" }));
+    await chooseAction("Retire…");
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Retire" }));
 
-    expect(await screen.findByRole("button", { name: "Bring back" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    fireEvent.keyDown(await screen.findByRole("button", { name: "More actions" }), {
+      key: "ArrowDown",
+      code: "ArrowDown",
+    });
+    expect(await screen.findByRole("menuitem", { name: "Bring back" })).toBeInTheDocument();
     expect(api.setModelReleaseStatus).toHaveBeenCalledWith(expect.objectContaining({ id: "r06" }), "retired");
     expect(onStatusChanged).toHaveBeenCalledWith(expect.objectContaining({ status: "retired" }));
     expect(screen.queryByRole("button", { name: "Activate in a workspace…" })).not.toBeInTheDocument();
@@ -327,7 +341,7 @@ describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
     vi.mocked(api.deleteModelRelease).mockRejectedValueOnce(
       new ApiError(409, "MODEL_RELEASE_IN_USE", "Model release 'r06' cannot be deleted"),
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    await chooseAction("Delete…");
     const dialog = screen.getByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete release" }));
     expect(await within(dialog).findByText(/cannot be deleted/)).toBeInTheDocument();
@@ -341,7 +355,7 @@ describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
   it("hides Retire for the default workspace's release and every action without the right to install", async () => {
     lifecycle(r07, { isDefault: true });
     await screen.findByRole("button", { name: "Export JSON" });
-    expect(screen.queryByRole("button", { name: "Retire…" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+    // Nothing to put in the menu: it is not offered at all.
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
 });

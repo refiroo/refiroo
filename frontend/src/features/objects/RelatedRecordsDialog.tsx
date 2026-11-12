@@ -175,7 +175,7 @@ export function RelatedRecordsDialog({
             Cancel
           </button>
           <button className="primary" disabled={saving || !changes}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Applying…" : "Apply"}
           </button>
         </div>
       </form>

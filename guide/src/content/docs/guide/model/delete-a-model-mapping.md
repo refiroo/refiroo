@@ -8,7 +8,7 @@ Delete a saved mapping when you no longer need its conversion choices. You need 
 access. This removes its saved editing history and proposals too. Read
 [Model mappings](/docs/model/model-mappings/) before deleting one still used by other people.
 
-1. Open **Settings**, **Data operations**, **Copy and move**. Find the mapping under **Mappings**;
+1. Open **Settings**, **Workspaces and models**, **Copy and move**. Find the mapping under **Mappings**;
    check **From model**, **To model**, **Version** and **Updated**.
 2. Choose its **Delete…**. The confirmation asks **Delete the mapping …?** and names both models.
 3. Read the warning: copies and moves already made remain; new work needs a new mapping.

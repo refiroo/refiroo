@@ -4,13 +4,13 @@ description: Choose local or provider sign-in, require a second factor and under
 reader: access-admin
 ---
 
-Open **Settings › Security › Sign-in** to choose how people prove who they are.
+Open **Settings › People and access › Sign-in** to choose how people prove who they are.
 You need **Security administration**. Sign-in establishes identity; [roles and grants](/docs/administer/roles-and-grants/)
 decide what that identity may do afterwards.
 
-![Sign-in catalogue with Local accounts on and no providers](/docs/screens/admin-signin.png)
+![Sign-in catalogue with Local accounts on and a disabled provider](/docs/screens/admin-signin.png)
 
-*Above: local accounts are on and no organisation provider is configured in the reference instance.*
+*Above: Local accounts is on. Guide identity provider is listed but Disabled in the reference instance.*
 
 ## Local accounts
 
@@ -47,7 +47,7 @@ To add a provider in the browser:
    The secret is saved securely and is never shown again. Changing an unused issuer requires the secret again; a secret is not silently carried to a different provider endpoint.
 3. Set **Groups claim** only if the provider supplies group memberships. Empty means its
    groups are not used. Ask the sign-in administrator for the correct field name.
-4. Leave **Offer it on the sign-in page now** selected to enable it, then choose **Save provider**.
+4. Leave **Offer it on the sign-in page now** selected to enable it, then choose **Add provider**.
    An enabled provider is checked when saved. If discovery, connection or certificate checks
    fail, read the reason and correct the provider details with the operator.
 5. Open the saved provider's page and copy its **Redirect address** under
@@ -180,7 +180,7 @@ Expired or invalid proof of access is refused before an operation runs. The brow
 
 With no mail server, the screen instead says **Forgotten your password? Ask a security administrator for a reset link.** With mail, the person requests a one-time link, enters **New password** and **Type it again**, then chooses **Set password**. **Your password is set. You were signed out everywhere.** leads back to **Sign in**. The request gives the same answer for known, unknown, provider-only and deactivated accounts; mail is sent only for a qualifying local account. An account whose sign-in is managed by an administrator receives no recovery mail; ask an administrator to make a password link instead. An app or recovery code is still required afterwards when configured. See [Mail](/docs/administer/mail/#password-links).
 
-For the administrator’s tasks, follow [Add a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/), [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) and [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/). On the provider catalogue, **No provider yet: people sign in with a password.** describes an empty list, not a connection failure. Saved provider details include separate Enable, Disable and Delete actions; disabling or deleting one ends the sessions it started.
+For the administrator’s tasks, follow [Add a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/), [Link a provider sign-in](/docs/guide/administer/link-a-provider-person/) and [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/). Open a provider’s row for its own page; **← Sign-in** on the first line returns to the list. On the provider catalogue, **No provider yet: people sign in with a password.** describes an empty list, not a connection failure. Saved provider details include separate Enable, Disable and Delete actions; disabling or deleting one ends the sessions it started.
 
 ## Change provider credentials and recover access
 
@@ -193,7 +193,7 @@ separate from a new provider sign-in, so an already open page does not prove the
 credential works.
 
 Turning local sign-in off or changing the second-factor requirement changes subsequent
-sign-ins; it does not sign out existing sessions. Use **Sign out everywhere** on a person's
+sign-ins; it does not sign out existing sessions. Use **More actions › Sign out everywhere** on a person's
 page when their existing sessions must end. Turning the requirement off leaves registered
 apps, recovery codes and passkeys in place.
 

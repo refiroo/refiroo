@@ -47,10 +47,10 @@ can select afterwards.
 
 ![Stop record page with separate panels for its relationships](/docs/screens/model-stop-page-relationship-panels.png)
 
-Above: a Stop page in the guide's Graubünden model. **Details** and **Hierarchy** are at the
-side. **Main** has **Served by mode**, **Operated by**, **Is represented by system code** and
-**Has name translation**. System codes have a **System** column and translations a **Language**
-column. These are relationships and parent types declared by this model.
+Above: the stop Chur in the guide's Graubünden model. **Stop details** and **Hierarchy** are at
+the side. **Main** has a panel for each relationship this model declares: **Modes**, **Operator**,
+**System codes** and **Name translations**. The translations panel starts with a **Language**
+column.
 
 ## Declared pages and later changes
 
@@ -110,9 +110,10 @@ related-record panel sort choices. A declared initial order can be descending.
 
 List panels can read 1–100 rows per page. A reading size limits a page of results, not the
 whole collection. The record header normally shows the name and type; a declared title or
-subtitle field can supply other context. Breadcrumbs can include the application, type and
-ancestors. In **Record page**, choose **Header and breadcrumbs…** to set the title, optional
-line under it, type label and each breadcrumb part. This page-specific header does not change
+subtitle field can supply other context. The line above the title holds the list link, when
+opened from a list, and the ancestors the model shows; it has no application entry. In **Record
+page**, choose **Header and breadcrumbs…** to set the title, optional line under it, type label
+and whether ancestors appear. Either type-name choice places the type in the header. This page-specific header does not change
 the type’s shared Display attribute.
 
 ## Table columns, filters and sort

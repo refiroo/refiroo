@@ -10,6 +10,8 @@ import type { DraftOperation, DryRun, ModelDraftOutline, SourceColumn } from "@/
 import type { DraftSource } from "@/features/model-editor/useDraftSource";
 import { StatusPill } from "@/ui/StatusPill";
 import { ProposedPill } from "@/features/model-editor/ProposedBecause";
+import { ColumnReadings, ReadingMarks } from "@/features/model-editor/ReadingEntries";
+import { sourceOfColumn } from "@/features/model-editor/readings";
 import { typeName, attributeTypeOf } from "@/features/model-editor/outline";
 import {
   columnState,
@@ -91,6 +93,9 @@ export function ColumnPanel({
       )
     : false;
   const at = first ? { source: first.source.id, column: header } : undefined;
+  const document = source.profile?.profile;
+  const readingOwner = sourceOfColumn(document, sheet, header);
+  const sheetColumns = source.columns(sheet);
 
   return (
     <div className="column-panel">
@@ -204,6 +209,25 @@ export function ColumnPanel({
                 />
                 Create the {typeName(outline, relation?.objectTypeKey ?? "")} records a cell names that do not exist
               </label>
+            </dd>
+          </div>
+        )}
+        {readingOwner && (
+          <div>
+            <dt>Readings</dt>
+            <dd className="column-readings">
+              <ReadingMarks profile={document} sheet={sheet} header={header} />
+              <ColumnReadings
+                owner={readingOwner}
+                header={header}
+                headers={(sheetColumns ?? []).flatMap((item) => (item.header ? [item.header] : []))}
+                profile={document}
+                outline={outline}
+                columns={sheetColumns}
+                sheet={sheet}
+                busy={busy}
+                run={run}
+              />
             </dd>
           </div>
         )}

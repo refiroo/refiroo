@@ -4,7 +4,7 @@ description: Control external assistants, their clients and sessions, and the ch
 reader: access-admin
 ---
 
-Use **Settings › Security › Agent access** to manage assistants that connect to refiroo through the **Model Context Protocol (MCP)**. You need **Security administration** across the instance. The page shows how to connect, agent clients for systems, assistants people sign in with and the calls they made.
+Use **Settings › Connections › Agent access** to manage assistants that connect to refiroo through the **Model Context Protocol (MCP)**. You need **Security administration** across the instance. The page shows how to connect, agent clients for systems, assistants people sign in with and the calls they made.
 
 An external assistant acts as its person or client, within their grants and a further limit: it can read and prepare changes, but never write live data, approve or publish. Giving its person a more powerful role does not remove that limit.
 
@@ -14,7 +14,7 @@ This is separate from the built-in Claude Code assistant used to load workbooks 
 
 ## Connection and sign-in
 
-The operator enables agent access and restarts the server. **Agent access is off** means assistants cannot connect; this page cannot switch it on. When enabled, **How to connect** shows **Address**, a copy control and **Limit**, the number of calls each person or client can make per minute.
+The operator enables agent access and restarts the server. **Agent access is off** means assistants cannot connect; this page cannot switch it on. When enabled, the **Access** tab’s **How to connect** shows **Address**, a copy control and **Limit**, the number of calls each person or client can make per minute.
 
 An external assistant connects at the address shown. Give the exact copied address to the assistant. Developers who need the protocol path, authentication and tool details can read [Assistants and agents](/docs/integrate/assistants-and-agents/).
 
@@ -54,13 +54,13 @@ History identifies work **Prepared by an assistant**, with the name the assistan
 
 **Assistants people sign in with** shows **Assistant**, **Returns to**, **Signed in now** and **Last used**. An assistant appears after someone connects it, or after an administrator registers it. Registration allows sign-in; it does not grant workspace access.
 
-The operator can allow assistants to register themselves. Self-registration permits return addresses on the same computer or approved HTTPS hosts. Otherwise an administrator must use **Register an assistant**, providing a name and exact return addresses. A registration accepts at most ten return addresses, each at most 2,000 characters, without fragments. The default permits self-registration with no external hosts approved. Self-registered assistants unused for 30 days are removed when they have no open session. Administrator registrations and blocked registrations remain; at most 1,000 unused self-registrations may stand.
+The operator can allow assistants to register themselves. Self-registration permits return addresses on the same computer or approved HTTPS hosts. Otherwise an administrator must choose **New assistant**, then **Add assistant**, providing a name and exact return addresses. A registration accepts at most ten return addresses, each at most 2,000 characters, without fragments. The default permits self-registration with no external hosts approved. Self-registered assistants unused for 30 days are removed when they have no open session. Administrator registrations and blocked registrations remain; at most 1,000 unused self-registrations may stand.
 
-**Block** prevents new sign-ins and ends existing sessions on their next call. **Restore** permits new sign-ins but does not revive sessions that ended. For a system's assistant, open its agent client and use **Deactivate** instead. A person can end only their own assistant session through their account. If a permission was revoked, the next call is checked against the remaining grants.
+**Block** prevents new sign-ins and ends existing sessions on their next call. **Restore** permits new sign-ins but does not revive sessions that ended. For a system's assistant, open its agent client and use **More actions › Deactivate** instead. A person can end only their own assistant session through their account. If a permission was revoked, the next call is checked against the remaining grants.
 
 ## Calls, data and costs
 
-**Calls** shows **When**, **Who**, **Through**, **Tool**, **Arguments** and **Outcome**, newest first. **Arguments** contains names only, never the supplied values. Outcomes are **Answered**, **Refused**, **Limit reached** and **Failed**. **Load more** reads older calls. The client list also shows **Last used** and **Calls, 30 days**.
+The **Calls** tab shows **When**, **Who**, **Through**, **Tool**, **Arguments** and **Outcome**, newest first. **Arguments** contains names only, never the supplied values. Outcomes are **Answered**, **Refused**, **Limit reached** and **Failed**. **Show more** reads older calls. The client list also shows **Last used** and **Calls, 30 days**.
 
 ![Calls by Stops checker (guide), with answered and refused outcomes and argument names only](/docs/screens/admin-agent-calls.png)
 

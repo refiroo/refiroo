@@ -24,6 +24,7 @@ The lists are paged by ``GET /import-profiles/{key}/check/findings``; the previe
 """
 
 import copy
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -400,11 +401,12 @@ def _follow(
             found.pop("key")
         elif key.get("versionColumn") in missing:
             key.pop("versionColumn")
+    gone = _follow_readings(found, name, missing)
     columns = []
     for binding in found.get("columns", []):
         if "column" in binding:
             binding["column"] = name(binding["column"])
-            if binding["column"] in missing:
+            if binding["column"] in missing or binding["column"] in gone:
                 continue
         if "columns" in binding:
             binding["columns"] = [name(item) for item in binding["columns"] if name(item) not in missing]
@@ -454,6 +456,33 @@ def _follow(
         return Source.model_validate(found).model_dump(mode="json", exclude_none=True)
     except ValidationError:
         return None
+
+
+def _follow_readings(
+    found: dict[str, Any], name: Callable[[str], str], missing: set[str]
+) -> set[str]:
+    """The source's readings (0.17 PP-D6, PP-D7) with renamed columns under their new header; a
+    reading whose column is missing is left out, and the columns it added with it: returned, so
+    the bindings that named them can go too."""
+    gone: set[str] = set()
+    headings = found.get("headings")
+    if headings is not None:
+        headings["column"] = name(headings["column"])
+        if headings["column"] in missing:
+            gone.add(found.pop("headings")["into"])
+    if found.get("fillDown") is not None:
+        kept = [name(item) for item in found["fillDown"] if name(item) not in missing]
+        if kept:
+            found["fillDown"] = kept
+        else:
+            found.pop("fillDown")
+    unpivot = found.get("unpivot")
+    if unpivot is not None:
+        unpivot["columns"] = [name(item) for item in unpivot["columns"] if name(item) not in missing]
+        if len(unpivot["columns"]) < 2:
+            gone |= {unpivot["nameColumn"], unpivot["valueColumn"]}
+            found.pop("unpivot")
+    return gone
 
 
 def previous_file(session: Session, profile_key: str, source: SourceFile) -> SourceFile | None:

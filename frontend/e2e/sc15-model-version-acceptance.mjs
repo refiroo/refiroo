@@ -93,10 +93,13 @@ try {
     `${uiUrl}/apps/rdm-systems/views/system-values?workspaceKey=default${changeSetId ? `&changeSetId=${changeSetId}` : ""}`;
   async function startChangeSet(name, releaseId) {
     await page.goto(changeSetsUrl);
-    await page.locator(".page-header").getByRole("button", { name: "Start from current live data", exact: true }).click();
-    const create = page.getByRole("dialog", { name: "Start from current live data" });
-    await create.getByLabel("Change set name").fill(name);
-    if (releaseId) await create.getByRole("combobox", { name: "Model version" }).selectOption(releaseId);
+    await page.locator(".page-header").getByRole("button", { name: "New change set", exact: true }).click();
+    const create = page.getByRole("dialog", { name: "New change set" });
+    await create.getByLabel("Name", { exact: true }).fill(name);
+    if (releaseId) {
+      await create.getByRole("button", { name: "Options" }).click();
+      await create.getByRole("combobox", { name: "Model version" }).selectOption(releaseId);
+    }
     return create;
   }
   async function openChangeSetMenu() {
@@ -108,14 +111,14 @@ try {
 
   // ---- 1. draft1 on the active release, draft2 on the installed candidate ----
   let create = await startChangeSet("Retail current");
-  await create.getByRole("button", { name: "Create change set" }).click();
+  await create.getByRole("button", { name: "Start change set" }).click();
   await publication.getByRole("heading", { name: "Retail current", exact: true }).waitFor();
   const changeSet1 = new URL(page.url()).searchParams.get("changeSetId");
 
   create = await startChangeSet("Retail next", next.id);
   await shot("sc15-create-on-candidate-wide");
   await axe("sc15-create-on-candidate");
-  await create.getByRole("button", { name: "Create change set" }).click();
+  await create.getByRole("button", { name: "Start change set" }).click();
   await publication.getByRole("heading", { name: "Retail next", exact: true }).waitFor();
   const changeSet2 = new URL(page.url()).searchParams.get("changeSetId");
   await page.getByText("This change set uses a different model version").waitFor();
@@ -129,10 +132,10 @@ try {
   // ---- 2. Incompatible creation is refused with diagnostics, keeps the input and leaves no change set ----
   let before = await untouched();
   create = await startChangeSet("Retail incompatible", incompatible.id);
-  await create.getByRole("button", { name: "Create change set" }).click();
+  await create.getByRole("button", { name: "Start change set" }).click();
   await create.getByText(/Change set content does not fit the selected model/).waitFor();
   expect((await create.getByRole("listitem").count()) > 0, "refused creation does not name the records that do not fit");
-  expect((await create.getByLabel("Change set name").inputValue()) === "Retail incompatible", "refused creation lost the change set name");
+  expect((await create.getByLabel("Name", { exact: true }).inputValue()) === "Retail incompatible", "refused creation lost the change set name");
   await shot("sc15-incompatible-create-wide");
   await axe("sc15-incompatible-create");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -149,7 +152,7 @@ try {
 
   // ---- 3. Each context shows its own release's view, field and rule ----
   await page.goto(valuesUrl(changeSet2));
-  await page.getByRole("heading", { name: "Prioritised values", level: 1 }).waitFor();
+  await page.getByText("Prioritised values", { exact: true }).first().waitFor();
   expect((await columnHeaders()).some((text) => text.includes("Priority")), "draft2 table lacks the candidate's Priority column");
   await shot("sc15-change-set2-candidate-view-wide");
   for (const [label, changeSetId] of [["live", undefined], ["changeSet1", changeSet1]]) {
@@ -167,16 +170,16 @@ try {
   const onRequest = (request) => { if (request.method() === "PATCH") patched = true; };
   page.on("request", onRequest);
   await priorityField.fill("9");
-  await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
+  await dialog().getByRole("button", { name: "Save", exact: true }).click();
   // The form is generated from draft2's pinned model, so the 1–5 rule stops the save in the browser.
   expect(await priorityField.evaluate((input) => input.validity.rangeOverflow), "the form does not apply the candidate's maximum");
-  await dialog().getByRole("button", { name: "Save changes", exact: true }).waitFor();
+  await dialog().getByRole("button", { name: "Save", exact: true }).waitFor();
   page.off("request", onRequest);
   expect(!patched, "an out-of-range Priority was sent");
   expect((await priorityField.inputValue()) === "9", "the refused Priority input was not preserved");
   await shot("sc15-candidate-rule-wide");
   await priorityField.fill("3");
-  await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
+  await dialog().getByRole("button", { name: "Save", exact: true }).click();
   await dialog().waitFor({ state: "detached" });
   expect(priority(await api(valuePath(changeSet2))) === 3, "draft2 did not keep Priority as the integer 3");
   expect(priority(await api(valuePath())) === undefined, "a draft2 value reached live");
@@ -187,7 +190,7 @@ try {
   await recordAction(page, "Edit record");
   expect((await dialog().getByLabel("Priority", { exact: true }).count()) === 0, "draft1 offers the candidate's field");
   await dialog().getByLabel("Name", { exact: true }).fill("Value Alpha prepared");
-  await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
+  await dialog().getByRole("button", { name: "Save", exact: true }).click();
   await dialog().waitFor({ state: "detached" });
 
   // ---- 4. Refusals: unavailable and incompatible releases change nothing anywhere ----
@@ -223,9 +226,11 @@ try {
 
   // ---- 5. Before the candidate is active, draft2 cannot publish ----
   await page.goto(valuesUrl(changeSet2));
-  const activate = page.getByRole("button", { name: "Publish change set" });
+  const activate = page.getByRole("button", { name: "Publish", exact: true });
   await activate.waitFor();
-  expect(await activate.isDisabled(), "draft2 can activate before its release is active");
+  await activate.click();
+  await page.getByText(/uses a different model version than live data/).first().waitFor();
+  expect((await page.getByRole("alertdialog").count()) === 0, "draft2 can activate before its release is active");
 
   // ---- 6. The administrator activates the candidate: live follows it, draft1 no longer matches ----
   const runtime = await api("/workspaces/default/model");
@@ -234,18 +239,16 @@ try {
     expectedVersion: runtime.version, expectedReleaseId: runtime.releaseId,
   });
   await page.goto(valuesUrl());
-  await page.getByRole("heading", { name: "Prioritised values", level: 1 }).waitFor();
+  await page.getByText("Prioritised values", { exact: true }).first().waitFor();
   expect((await columnHeaders()).some((text) => text.includes("Priority")), "live does not follow the activated release");
   expect(priority(await api(valuePath())) === undefined, "activating the model changed live data");
   checks.push("activating the candidate makes live follow it without changing live data");
 
   // ---- 7. draft2 activates through the ordinary path ----
   await page.goto(valuesUrl(changeSet2));
-  await publication.getByRole("button", { name: "Validate change set", exact: true }).click();
-  await page.getByText("Change set validation passed", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Publish change set", exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }).click();
-  await page.getByText(/Reviewed changes are now live/).waitFor();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
+  await page.getByText(/The changes are live/).waitFor();
   expect(priority(await api(valuePath())) === 3, "draft2's Priority was not published");
   expect((await api(valuePath())).name === "Value Alpha", "draft1's unpublished rename reached live");
   checks.push("draft2 publishes through the ordinary validate/activate path once its release is active");
@@ -254,7 +257,8 @@ try {
   await page.goto(valuesUrl(changeSet1));
   const mismatch = page.getByText("This change set uses a different model version");
   await mismatch.waitFor();
-  expect(await page.getByRole("button", { name: "Publish change set" }).isDisabled(), "draft1 can activate on a non-active release");
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  expect((await page.getByRole("alertdialog").count()) === 0, "draft1 can activate on a non-active release");
   expect(
     (await attempt(`/change-sets/${changeSet1}/publication`, { expectedChangeSetVersion: (await api(`/change-sets/${changeSet1}`)).version }))
       .body?.error?.code === "CHANGE_SET_MODEL_RELEASE_CONFLICT",
@@ -268,7 +272,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   before = await untouched();
   await openChangeSetMenu();
-  await page.getByRole("menuitem", { name: "Discard change set", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Discard", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Discard change set", exact: true }).click();
   await page.getByText("Change set discarded. Live data is unchanged.", { exact: true }).waitFor();
   expect((await fetch(`${apiUrl}/api/v1/change-sets/${changeSet1}`)).status === 404, "draft1 still exists");

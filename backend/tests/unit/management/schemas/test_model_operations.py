@@ -91,6 +91,9 @@ BOTH = pytest.mark.parametrize("registry", [DRAFT, MAPPING], ids=lambda registry
 FIRST_CHECK = {
     "addSource": ("unknownElement", "sheet"),
     "addValuesToList": ("invalidValue", "source"),
+    "clearFillDown": ("invalidValue", "source"),
+    "clearHeadingRows": ("invalidValue", "source"),
+    "clearUnpivot": ("invalidValue", "source"),
     "ignoreColumn": ("invalidValue", "source"),
     "ignoreSheet": ("unknownElement", "sheet"),
     "insertConsumerApiPart": ("invalidValue", "consumerApi"),
@@ -107,6 +110,9 @@ FIRST_CHECK = {
     "setColumnReading": ("invalidValue", "source"),
     "setConsumerApiPart": ("invalidValue", "consumerApi"),
     "setConsumerApiSunset": ("invalidValue", "consumerApi"),
+    "setFillDown": ("invalidValue", "source"),
+    "setHeadingRows": ("invalidValue", "source"),
+    "setUnpivot": ("invalidValue", "source"),
     "setKey": ("invalidValue", "element"),
     "setLabel": ("invalidValue", "element"),
     "setMissing": ("invalidValue", "source"),
@@ -120,7 +126,7 @@ IDENTIFIER = re.compile(r"\b[DI]\d{1,3}\b|\b0\.\d{1,2} [A-Z]{1,3}\d*\b|\bADR-\d+
 
 
 def test_the_registries_count_what_the_document_describes():
-    assert (len(DRAFT.public), len(MAPPING.public)) == (66, 12)
+    assert (len(DRAFT.public), len(MAPPING.public)) == (72, 12)
 
 
 @BOTH

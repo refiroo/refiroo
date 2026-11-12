@@ -50,6 +50,14 @@ export function isReleasedElement(outline: ModelDraftOutline | undefined, elemen
   return mark === "released";
 }
 
+/**
+ * The elements still as the inference proposed them (D92), for the editor's panes and the canvas's
+ * cards: an installed element is part of a release, so it reads Released and is no longer Proposed.
+ */
+export function stillProposed(proposed: ReadonlyMap<string, unknown>, outline: ModelDraftOutline): Set<string> {
+  return new Set([...proposed.keys()].filter((element) => !isReleasedElement(outline, element)));
+}
+
 /** A column's elements: its binding in each source of its sheet (`column:<source>/<header>`). */
 export function columnElements(
   profile: DraftProfileDocument | null | undefined,

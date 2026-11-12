@@ -104,8 +104,9 @@ function editor(page, harness, who) {
       }
       throw new Error(`${what} took no step`);
     },
-    async apply() {
-      await who.press(dialog().getByRole("button", { name: "Apply", exact: true }), "Apply");
+    /** The dialog's primary button: Save, Add ‹thing› or Move (PP-D40). */
+    async apply(words = "Save") {
+      await who.press(dialog().getByRole("button", { name: words, exact: true }), words);
       await dialog().waitFor({ state: "hidden" });
     },
     async add(item) {
@@ -135,7 +136,7 @@ function editor(page, harness, who) {
           (response) =>
             response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
         ),
-        who.press(page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }), "Create"),
+        who.press(page.getByRole("dialog").getByRole("button", { name: /^Add / }), "Add"),
       ]);
       assert.equal(created.status(), 201, await created.text());
       await page.getByRole("dialog").waitFor({ state: "hidden" });
@@ -171,7 +172,7 @@ async function fromEmpty(label, model, mode) {
     await ed.oneStep(async () => {
       await ed.add("Application");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Depot T1", "the application's name");
-      await ed.apply();
+      await ed.apply("Add application");
     }, "an application");
     for (const [name, stands] of [
       ["Room T1", "At the top level"],
@@ -185,7 +186,7 @@ async function fromEmpty(label, model, mode) {
           await who.fill(ed.dialog().getByLabel("Relation name (from the parent)"), "Holds rack", "the relation name");
           await who.fill(ed.dialog().getByLabel("Reverse name (from the child)"), "In room", "the reverse name");
         }
-        await ed.apply();
+        await ed.apply("Add type");
       }, `the type ${name}`);
     assert.equal(
       await ed.pane
@@ -203,7 +204,7 @@ async function fromEmpty(label, model, mode) {
       await ed.oneStep(async () => {
         await who.press(page.getByRole("button", { name: "New attribute" }), "New attribute");
         await who.fill(ed.dialog().getByLabel("Name", { exact: true }), attribute, "the attribute's name");
-        await ed.apply();
+        await ed.apply("Add attribute");
       }, `the attribute ${attribute}`);
       await page
         .getByRole("cell", { name: new RegExp(attribute) })
@@ -226,7 +227,7 @@ async function fromEmpty(label, model, mode) {
       await who.press(pair.getByRole("button", { name: "Allow a relation…" }), "Allow a relation…");
       await who.fill(ed.dialog().getByLabel(/^Name \(from/), "Serves", "the relation's name");
       await who.fill(ed.dialog().getByLabel("Reverse name"), "Served by", "the reverse name");
-      await ed.apply();
+      await ed.apply("Add relation");
     }, "a relation from the matrix");
     await pair.getByText("Serves").waitFor();
     checks.push(`${tag}: a relation allowed between the new types from the matrix`);
@@ -235,7 +236,7 @@ async function fromEmpty(label, model, mode) {
     await ed.oneStep(async () => {
       await ed.add("Navigation group");
       await who.fill(ed.dialog().getByLabel("Label"), "Storage T1", "the group's label");
-      await ed.apply();
+      await ed.apply("Add group");
     }, "a navigation group");
     await who.treeRow(ed.pane, "Room T1");
     await ed.oneStep(async () => {
@@ -245,7 +246,7 @@ async function fromEmpty(label, model, mode) {
         "Room T1's operations",
       );
       await who.choose(ed.dialog().getByLabel("Group"), "Storage T1", "Group");
-      await ed.apply();
+      await ed.apply("Move");
     }, "the collection moved into the group");
     await ed.pane.getByRole("treeitem", { name: /^Storage T1/ }).waitFor();
     checks.push(`${tag}: a navigation group added and the top type's collection placed in it`);
@@ -318,7 +319,7 @@ async function fromEmpty(label, model, mode) {
       await who.fill(ed.dialog().getByLabel("Key"), "depot-feed-t1", "the consumer API's key");
       await who.toggle(ed.dialog().getByRole("checkbox", { name: "Room T1", exact: true }), "Room T1");
       await who.toggle(ed.dialog().getByRole("checkbox", { name: "Rack T1", exact: true }), "Rack T1");
-      await ed.apply();
+      await ed.apply("Add consumer API");
     }, "a consumer API");
     await who.treeRow(consumerTree, "Depot feed T1");
     const centre = page.getByRole("region", { name: "Selected consumer API" });
@@ -468,7 +469,7 @@ async function extending(label, model, mode) {
       await who.choose(ed.dialog().getByLabel("Stands"), `Under ${top.name}`, "Stands");
       await who.fill(ed.dialog().getByLabel("Relation name (from the parent)"), "Holds crate", "the relation name");
       await who.fill(ed.dialog().getByLabel("Reverse name (from the child)"), "Crate of", "the reverse name");
-      await ed.apply();
+      await ed.apply("Add type");
     }, "a type under a released type");
     await who.treeRow(ed.pane, top.name);
     await page
@@ -478,7 +479,7 @@ async function extending(label, model, mode) {
     await ed.oneStep(async () => {
       await who.press(page.getByRole("button", { name: "New attribute" }), "New attribute");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Grade T1", "the attribute's name");
-      await ed.apply();
+      await ed.apply("Add attribute");
     }, "an attribute on a released type");
     assert.match(
       await ed.pane
@@ -512,7 +513,7 @@ async function extending(label, model, mode) {
     await ed.oneStep(async () => {
       await who.press(page.getByRole("button", { name: "New attribute" }), "New attribute");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Scratch T1", "the attribute's name");
-      await ed.apply();
+      await ed.apply("Add attribute");
     }, "a scratch attribute");
     const undo = page.getByRole("button", { name: "Undo", exact: true });
     const redo = page.getByRole("button", { name: "Redo", exact: true });
@@ -547,7 +548,7 @@ async function extending(label, model, mode) {
       await who.press(pair.getByRole("button", { name: "Allow a relation…" }), "Allow a relation…");
       await who.fill(ed.dialog().getByLabel(/^Name \(from/), "Ships T1", "the relation's name");
       await who.fill(ed.dialog().getByLabel("Reverse name"), "Shipped by T1", "the reverse name");
-      await ed.apply();
+      await ed.apply("Add relation");
     }, "a relation from the matrix");
     await pair.getByText("Ships T1").waitFor();
     assert.equal(await redo.isDisabled(), true, "a new step leaves nothing to redo");
@@ -578,7 +579,7 @@ async function extending(label, model, mode) {
       await who.choose(picker, grade.trim(), "Add to Sources");
       await who.press(sources.getByRole("button", { name: "Add" }), "Add");
       await sources.getByRole("listitem").filter({ hasText: "Grade T1" }).waitFor();
-      await ed.apply();
+      await ed.apply("Add field");
     }, "a field from the new attribute");
     await centre.getByRole("row", { name: /gradeT1/ }).waitFor();
     assert.equal(
@@ -667,7 +668,7 @@ async function extending(label, model, mode) {
       `${tag}: a record of the new type created from an existing record's page, under it and listed in its children; the existing values kept`,
     );
 
-    // The consumer tier: the new version serves the renamed field, the old one is gone.
+    // The consumer tier: the new version serves the renamed field, the old one stays as it was.
     const served = await fetch(
       `${harness.apiUrl}/api/consumer/${definition.key}/v${version + 1}/objects/${existing.id}`,
     );
@@ -678,9 +679,12 @@ async function extending(label, model, mode) {
       `v${version + 1} serves ${renamedField}: ${Object.keys(message)}`,
     );
     const old = await fetch(`${harness.apiUrl}/api/consumer/${definition.key}/v${version}/objects/${existing.id}`);
-    assert.equal(old.status, 404);
+    // The version before stays served beside the new one, as it was (0.13 DF3, `earlierVersions`).
+    assert.equal(old.status, 200, await old.clone().text());
+    const earlier = await old.json();
+    assert.ok(field in earlier && !(renamedField in earlier), `v${version} keeps ${field}: ${Object.keys(earlier)}`);
     checks.push(
-      `${tag}: the consumer tier serves v${version + 1} with the renamed field and answers 404 at v${version}`,
+      `${tag}: the consumer tier serves v${version + 1} with the renamed field and keeps v${version} as it was`,
     );
     await noErrors(tag);
     checks.push(`${tag}: no console error and no Error: text`);
@@ -721,7 +725,7 @@ async function phoneWalk(label, harness, application) {
       await who.choose(ed.dialog().getByLabel("Application"), application.name, "Application");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Tray T1", "the type's name");
       await fits("the add dialog");
-      await ed.apply();
+      await ed.apply("Add type");
     }, "a type at 390px");
     await page
       .getByRole("tree", { name: "Model" })
@@ -732,7 +736,7 @@ async function phoneWalk(label, harness, application) {
     await ed.oneStep(async () => {
       await who.press(page.getByRole("button", { name: "New attribute" }), "New attribute");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Tray code", "the attribute's name");
-      await ed.apply();
+      await ed.apply("Add attribute");
     }, "an attribute at 390px");
     await page
       .getByRole("cell", { name: /Tray code/ })

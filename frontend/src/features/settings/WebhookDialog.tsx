@@ -265,7 +265,7 @@ export function WebhookDialog({
   return (
     <Modal
       title={editing ? "Edit webhook" : "New webhook"}
-      eyebrow="Webhooks"
+      eyebrow="Connections"
       size="wide"
       busy={pending}
       dirty={dirty}
@@ -585,7 +585,7 @@ export function WebhookDialog({
               pending || !next.events.length || !next.url || !next.name || (editing ? !dirty : !draft.workspaceKey)
             }
           >
-            {pending ? "Saving…" : editing ? "Save changes" : "Create webhook"}
+            {pending ? "Saving…" : editing ? "Save" : "Add webhook"}
           </button>
         </div>
       </form>

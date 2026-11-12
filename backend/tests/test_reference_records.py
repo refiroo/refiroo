@@ -437,6 +437,16 @@ def test_an_integrator_adds_corrects_moves_and_removes_a_stop(records):
     )
     details = preview["error"]["details"]
     assert details["objectCount"] == 1 and details["relationshipCount"] == 2
+    impact = s.call(
+        "GET",
+        "/api/v1/objects/{object_type_key}/{object_id}/deletion-impact",
+        path=where,
+        status=200,
+        record="deletionImpact",
+        summary="Read what deleting a stop with relationships would take, deleting nothing",
+    )
+    assert impact["deletionPreviewToken"] == details["deletionPreviewToken"]
+    assert impact["relationshipCount"] == 2 and impact["requiresCascade"] is True
     s.call(
         "DELETE",
         ONE,

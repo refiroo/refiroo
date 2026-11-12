@@ -58,6 +58,7 @@ export function createChangeSetClient(
     objects: (type, query) => api.objects(type, { ...query, changeSetId: initial.id }),
     object: (type, id, workspace) => api.object(type, id, workspace, initial.id),
     attribute: (type, id, key) => api.attribute(type, id, key, initial.id),
+    objectDeletionImpact: (type, id) => api.objectDeletionImpact(type, id, initial.id),
     relations: (id, options) => api.relations(id, { ...options, changeSetId: initial.id }),
     heldRecords: (query) => api.heldRecords({ ...query, changeSetId: initial.id }),
     relation: (id, workspace) => api.relation(id, workspace, initial.id),

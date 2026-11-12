@@ -63,10 +63,12 @@ allowed pairs; generic detail panels). This design removes the reason for the fi
 6. **Data arrives through the 0.9 import job, in a change set by default.** An onboarding load is
    reviewed on the existing change set review screen before it is published. A recurring load may
    target live data, as any 0.9 import may.
-7. **Structured, not canvas-first, not pixels.** The editor shows structure as lists, trees and the
-   relationship matrix. Drag and drop is a fast path; every drag has a menu and keyboard equivalent.
-   Layout editing selects, orders and shows generic components; it never positions pixels
-   ([UI_MODEL.md](UI_MODEL.md)).
+7. **Two structured views of one draft, not pixels.** The editor shows structure as lists, trees and the
+   relationship matrix; the canvas shows the same draft as a board of lists. Both change it only by
+   operations, so there is one history, one undo and one install. A card's place, its fold and the board's
+   scope belong to the draft's canvas and never enter the model, its version or a release. Drag and drop is
+   a fast path; every drag has a menu and keyboard equivalent. Layout editing selects, orders and shows
+   generic components; record and view layouts are never positioned by pixels ([UI_MODEL.md](UI_MODEL.md)).
 8. **Stable keys.** Keys are free to change until an element is part of an installed release. After
    that, only its labels change freely; renaming its key is a migration.
 9. **Not a general ETL tool.** Transformations are limited to the reference-data shapes below. A
@@ -460,6 +462,20 @@ value overlap between columns and sheets; the patterns are rules over those stat
 inference never applies an operation that the administrator did not accept, and every accepted
 operation passes the same validation.
 
+## The workbook canvas
+
+The canvas (`/settings/model/drafts/{id}/editor?show=canvas`) is a second view of the same draft: sheets, lists as cards
+on a free board and the navigation. A card is placed by its top bar (the place belongs to the draft's canvas, never the
+model) and connected by its Connect handle, which is its own gesture. Each drop is one operations request and one undo step:
+a sheet makes a list; a column onto a list, field or Filters row maps it (a Filters drop also makes the attribute filterable);
+Connect onto a list makes a parent and child, onto a field or with Alt a relationship, and in the same request binds the
+column of the starting list's sheet that names the other list's records, found over every row (a tie is asked); several
+chosen columns dropped on a list or field are read as rows (`setUnpivot`), the two new columns bound at once. A column's menu
+fills blanks from above and reads heading rows; a press on a row number of the sheet preview sets the header row. Every
+gesture has a menu or keyboard path (Enter on Connect, arrow keys move a card 16px, Shift with the arrows chooses columns),
+and on a phone the menus do what the drags do. A card's refused count shows the reasons; wrong values are corrected with a
+value map. Create workspace…, Apply and Load into an existing workspace… finish from the canvas.
+
 ## Lists as object types
 
 A list of values (units, sizes, colours, statuses) becomes an object type of its own, created by
@@ -648,7 +664,7 @@ The recommendation is the planning default.
 
 ## Not in scope
 
-- Canvas-first model authoring and pixel layouts ([TODO.md](TODO.md)).
+- Pixel layouts: a record or view layout is never positioned by pixels ([TODO.md](TODO.md)).
 - General ETL: formulas, joins other than key lookup, scripting, scheduled pulls from external sources.
 - Live links to online spreadsheets.
 - Migration-class operations in 0.10 (enabled in 0.13, MG).

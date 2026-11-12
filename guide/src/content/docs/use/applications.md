@@ -5,6 +5,9 @@ reader: steward
 ---
 
 Open an application to reach the records and views you need in the current workspace.
+Choose a workspace’s name or tile on Home to open its page: it offers record search, applications,
+your shelf, waiting change sets and recent activity grouped by day. **Edit model** and the workspace’s **⋯**
+menu offer the actions and Settings pages your access allows.
 Follow [Open an application](/docs/guide/use/open-an-application/) for the steps.
 
 An **application** groups record types and views. Its name, collections and starting view come
@@ -14,11 +17,11 @@ declares the structure that view needs.
 
 ## Collections and views
 
-Choose an application in the top bar, then a collection in the sidebar. A collection can have
-several views, shown as tabs. Changing tabs changes how you inspect the records; it does not
+Choose an application in the top bar, then a collection in the sidebar. In Studio the applications share the side column with the lists; Instrument puts application tiles in the narrow strip beside the lists. See [Appearance and devices](/docs/use/appearance-and-devices/) for the frame arrangements. A collection can have
+several views, shown as tabs under the list’s title. Changing tabs changes how you inspect the records; it does not
 copy them. The model can choose which view opens when you select a collection in the
 sidebar or on a group page. That choice may differ from the application's starting view;
-use the tabs to switch to another view when needed. **Browse records** offers another route to individual records through their hierarchy.
+use the tabs to switch to another view when needed. **Browse records** offers another route to individual records through their hierarchy. Open it to browse; it starts folded and remembers your choice in this browser.
 
 ![An application with collections, record browsing and a table of records](/docs/screens/app-network.png)
 
@@ -48,7 +51,9 @@ may connect records across applications where the model allows it. The same reco
 in a table, a hierarchy, a mapping grid and a relation matrix without becoming separate records.
 
 The banner identifies **Live**, a **Change set**, or a publication. Live edits apply immediately;
-a change set holds proposed changes; a publication is read-only. Check that context before editing.
+a change set holds proposed changes; a publication is read-only. On a computer the band shows
+only this data context, its explanation or change-set summary and the **Live · Change sets ·
+Publications** switch. On a phone it also shows the workspace and application. Check the context before editing.
 Your roles determine which actions are offered. A declared view does not grant permission to
 change its records. See [Record permissions](/docs/use/records/#who-may-read-and-change-records).
 
@@ -68,11 +73,6 @@ directly, from either the sidebar or the group page. The row collection stays in
 and still offers the matrix among its view tabs. A matrix without its own group entry is
 available through that collection. Groups have one level and show no record counts.
 
-![Application sidebar with a relation matrix listed alongside a collection in a group](/docs/screens/app-navigation-matrix-entry.png)
-
-*Above: the Graubünden example model places Municipalities by system in a navigation group.
-The matrix opens directly; its row collection is still available.*
-
 A record page combines panels for fields, children, relationships, tables, hierarchy and history.
 The model chooses their arrangement. If it declares no detail layout, refiroo provides a default.
 The collection views above are the supported kinds; dedicated form and dashboard views are
@@ -84,7 +84,9 @@ controls, see [Lists, search and filters](/docs/use/lists-and-filters/).
 
 On a wide screen, each application has a coloured tile in the top bar. The open application
 is underlined; hovering over its tab shows the model's description. The product mark returns
-to **Home**, and the gear opens **Settings**. On a phone, choose the application from the band
+to **Home**, and the gear opens **Settings**. Applications that do not fit are under **More**.
+Settings opens an index grouped by task. Inside Settings, **← Back to** followed by the workspace’s
+name returns to its page. On a phone, choose the application from the band
 beneath the top bar instead. See [Appearance and devices](/docs/use/appearance-and-devices/).
 
 If a group says **No collection or relation matrix in this group matches “…”**, clear **Find a collection or matrix**
@@ -94,22 +96,6 @@ to that matrix. Both keep the current data context.
 
 ### Find a list in the sidebar
 
-When an application has more than ten sidebar entries, **Find a list** appears under
-**Collections**. Collections and relation matrices with their own sidebar entry count together,
-including entries in folded groups. With ten entries or fewer, this search is not shown.
+Use the workspace search above the page to find a list by name, including lists in folded groups. Press ⌘K on a Mac or Ctrl+K elsewhere to focus it. Matching lists appear under **Lists**; select one to open its view. **Go to** offers matching places such as Home, Change sets and Settings. The sidebar no longer has a separate list search.
 
-Type part of a list's name. The search ignores upper and lower case and matches your words
-as one phrase within a name, in the order you type them. Reversing the words does not match
-the same phrase. Matching letters appear in bold. It searches entries in every group and
-those in no group, rather than the names of groups or records. The count beside **Collections**
-shows the total, such as **25 lists**, then the matching count, such as **3 of 25**, while you
-search. Screen readers announce count changes without interrupting you.
-
-Groups with matches open and show only those entries; groups without matches disappear.
-Their fold buttons are unavailable during the search. Choose a result, or press **Enter** in
-the box to open the first match. The hint **Enter opens the first match · Esc clears** reminds
-you of these keys. If **No list matches** appears, shorten or clear the text. Press **Esc** in
-the box to clear it and restore each group's previous fold choice.
-
-**Find a record**, under **Browse records**, searches records instead. The group page's
-**Find a collection or matrix** searches only that group's entries.
+The same search finds record names across the workspace. Results are grouped by record type and show each record's place. Use the arrow keys to choose a record and Enter to open it. Workspace search opens records in **Live**; use a collection's own search to stay in a change set or publication. **Browse records** has no search box of its own. The group page's **Find a collection or matrix** searches only that group's entries.

@@ -19,7 +19,7 @@ docker compose logs --tail=100 engine
 ```
 
 Use your public host. Probes reveal only `ok` or `unhealthy`; authenticated operators get the detail
-on **Settings › Administration › Operations**. A ready installation can still have an unavailable
+on **Settings › This instance › Operations**. A ready installation can still have an unavailable
 workspace. Inspect that page's workspace rows, not just the probe.
 
 ## A process refuses startup or stays unready

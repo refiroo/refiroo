@@ -10,10 +10,10 @@ See [Clients for other systems](/docs/administer/clients/) for the access and se
 
 ## Create and save the credentials
 
-1. Open **Settings › Security › Clients**. Search by **Name** to check whether the system
+1. Open **Settings › Connections › Clients**. Search by **Name** to check whether the system
    already has a client. Check **Deactivated** as well before creating a duplicate.
 2. Choose **New client**. Enter **Name**, a name people can recognise in access lists and
-   history. Choose **Create and show its secret**. **Cancel** creates nothing.
+   history. Choose **Add client**. **Cancel** creates nothing.
 3. In **Copy the client's secret**, copy **Client secret** and **Client ID** into the
    integration's agreed secure store. The full secret is shown once; after closing, only
    its last four characters identify it. Choose **I have copied it** after saving both.
@@ -31,7 +31,7 @@ See [Clients for other systems](/docs/administer/clients/) for the access and se
    the agreed work and choose where they apply. Narrow writes if appropriate, as described
    in [Grant a role](/docs/guide/administer/grant-a-role/).
 3. For reading declared consumer APIs, choose **Consumer APIs** under **What**. Tick the
-   grid cell for each API and workspace it needs, then choose **Grant**. Row and column
+   grid cell for each API and workspace it needs, then choose **Add grant**, or **Add N grants** when several are selected. Row and column
    headings tick the whole line; a ticked grey cell is already granted. A management role
    does not substitute for these consumer grants.
 4. Check **Access** on the client page. Confirm the workspace, grant and any write restriction
@@ -39,8 +39,7 @@ See [Clients for other systems](/docs/administer/clients/) for the access and se
 
 ![Client detail showing its ID, secret summary and Consumer API grant](/docs/screens/admin-client.png)
 
-*Above: Stops reader (guide) can read the Stops API in Graubünden. The failed webhooks
-section below is a load error, not an empty-list confirmation.*
+*Above: Stops reader (guide) can read Stops API in Graubünden. Webhooks it created says it created no webhook you administer.*
 
 ## Prove the handover
 

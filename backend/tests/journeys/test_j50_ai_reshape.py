@@ -628,6 +628,25 @@ def test_a_merge_from_words_moves_every_record_by_one_migration(
     assert all(t == k.cites for t, _, _ in moved)
 
 
+@pytest.mark.journey("J50.46")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_merge_whose_release_the_instance_already_holds_lands_on_that_release(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given the same model change already installed for another workspace, when the session installs
+    its draft on accepting and the engine returns that existing release, then the task lands on it
+    instead of failing as having installed nothing (found 2026-11-12)."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch)
+    earlier = world.install(merge.final, name="Earlier")
+    task = _accept(world, _proposed(world, merge.workspace))
+    assert task["state"] == "loaded", task["notes"]
+    assert task["result"]["migration"]["releaseId"] == earlier["id"]
+
+
 @pytest.mark.journey("J50.66")
 @pytest.mark.structures(*STRUCTURES)
 def test_a_model_only_request_ends_in_a_migration_with_no_type_mappings(

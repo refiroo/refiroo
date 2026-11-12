@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { testModel } from "@/test/fixtures";
+import { ToastProvider } from "@/ui/Toast";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import type {
   CollectionQueryState,
@@ -104,16 +105,18 @@ function renderTable(
 ) {
   const onQueryChange = vi.fn();
   const utils = render(
-    <CollectionView
-      model={model}
-      application={application}
-      view={view(options.config)}
-      workspaceKey="west"
-      readOnly={options.readOnly}
-      query={{ ...baseQuery, ...options.query }}
-      onQueryChange={onQueryChange}
-      onOpen={vi.fn()}
-    />,
+    <ToastProvider>
+      <CollectionView
+        model={model}
+        application={application}
+        view={view(options.config)}
+        workspaceKey="west"
+        readOnly={options.readOnly}
+        query={{ ...baseQuery, ...options.query }}
+        onQueryChange={onQueryChange}
+        onOpen={vi.fn()}
+      />
+    </ToastProvider>,
   );
   return { ...utils, onQueryChange };
 }
@@ -127,7 +130,8 @@ beforeEach(() => {
 describe("relationships table (0.13 RV)", () => {
   it("lists a binding's relationships with the attributes as columns and each group headed with its count", async () => {
     renderTable();
-    expect(await screen.findByRole("heading", { level: 1, name: "Citations" })).toBeInTheDocument();
+    // Titled by its sidebar entry, the type's name; the view is a tab under it (0.17 SH1, PP-D37).
+    expect(await screen.findByRole("heading", { level: 1, name: "Domains" })).toBeInTheDocument();
     await waitFor(() => expect(bodyRows()).toHaveLength(3));
     expect(api.relationTable).toHaveBeenCalledWith(
       expect.objectContaining({ applicationKey: "test-app", viewKey: "citations", sort: "from:name", filters: [] }),
@@ -173,12 +177,17 @@ describe("relationships table (0.13 RV)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Weight of Connections · Sizes" }));
     const field = within(bodyRows()[0]).getByLabelText("Weight");
     fireEvent.change(field, { target: { value: "7" } });
-    await act(async () => fireEvent.blur(field));
+    await act(async () => field.blur());
+    await waitFor(() => expect(api.updateRelation).toHaveBeenCalled());
     expect(api.updateRelation).toHaveBeenCalledWith("r1", {
       attributes: { weight: 7, flagged: true },
       expectedVersion: 4,
     });
     await waitFor(() => expect(vi.mocked(api.relationTable).mock.calls.length).toBeGreaterThan(1));
+    // The editor's own toast is the only one, with Undo.
+    expect(await screen.findByText("Weight saved")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    expect(screen.queryByText(/saved to Live/)).not.toBeInTheDocument();
   });
 
   it("keeps a conflict on the row with the relationship as it is saved now", async () => {
@@ -194,7 +203,7 @@ describe("relationships table (0.13 RV)", () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(3));
     fireEvent.click(screen.getByRole("button", { name: "Edit Weight of Connections · Sizes" }));
     fireEvent.change(within(bodyRows()[0]).getByLabelText("Weight"), { target: { value: "7" } });
-    await act(async () => fireEvent.blur(within(bodyRows()[0]).getByLabelText("Weight")));
+    await act(async () => within(bodyRows()[0]).getByLabelText("Weight").blur());
     expect(await screen.findByText("Current saved relationship (v6)")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Relation version has changed");
   });

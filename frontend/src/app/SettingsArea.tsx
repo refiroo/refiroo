@@ -4,7 +4,9 @@
  * application's tab to its last collection or its default view, and the product mark home.
  */
 
+import { WorkbookCanvas } from "@/features/workbook-canvas/WorkbookCanvas";
 import { AboutPage } from "@/features/settings/AboutPage";
+import { SettingsIndex } from "@/features/settings/SettingsIndex";
 import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
 import { AccountPage } from "@/features/settings/AccountPage";
 import { NotificationsPage } from "@/features/settings/NotificationsPage";
@@ -27,6 +29,7 @@ import { AiTaskPage } from "@/features/ai-tasks/AiTaskPage";
 import { AgentAccessPage } from "@/features/settings/AgentAccessPage";
 import { AiPage } from "@/features/settings/AiPage";
 import { MailPage } from "@/features/settings/MailPage";
+import { MailTemplatePage } from "@/features/settings/MailTemplatePage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { workspaceModel } from "@/model/workspaceModels";
@@ -34,6 +37,7 @@ import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
 import { changeReviewFor, HOME, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
+import { useState } from "react";
 import { AiTaskJourneyBar } from "@/features/ai-tasks/AiTaskJourneyBar";
 import { SettingsShell } from "./SettingsShell";
 import type { Router } from "./useRouter";
@@ -41,6 +45,10 @@ import type { Router } from "./useRouter";
 export function SettingsArea({ router, model, route }: { router: Router; model: EngineModel; route: SettingsRoute }) {
   const { navigate, lastApplicationRoute, lastCollection, defaultWorkspaceKey } = router;
   const workspaceKey = lastApplicationRoute()?.workspaceKey ?? defaultWorkspaceKey;
+  // A workspace deleted here is not one to go back to.
+  const [deletedKey, setDeletedKey] = useState<string>();
+  const comeFrom = router.modelWorkspaceKey ?? workspaceKey;
+  const backWorkspaceKey = comeFrom === deletedKey ? defaultWorkspaceKey : comeFrom;
   const selectApplication = (selected: ApplicationDefinition) => {
     const last = lastApplicationRoute();
     navigate(
@@ -77,12 +85,38 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       model={model}
       // A load of a workbook is a data operation: the rail keeps Jobs current.
       page={route.page === "ai-tasks" ? "jobs" : route.page}
+      workspaceKey={backWorkspaceKey}
       fullWidth={Boolean(editing || moving)}
       onHome={() => navigate(HOME)}
       onSelectApplication={selectApplication}
       onNavigate={(next) => navigate(next)}
     >
-      {editing?.page === "model" && editing.draftId ? (
+      {editing?.page === "model" && editing.draftId && editing.editor?.show === "canvas" ? (
+        <WorkbookCanvas
+          key={editing.draftId}
+          draftId={editing.draftId}
+          forWorkspace={editing.forWorkspace}
+          workspaceKey={editing.forWorkspace ?? workspaceKey}
+          journey={editing.journey}
+          selection={editing.editor}
+          onSelect={(selection) => navigate({ ...editing, editor: selection })}
+          activeModel={model}
+          onNavigate={(next) => navigate(next)}
+          onActivated={router.reloadModel}
+          onOpenWorkspace={router.openWorkspace}
+          onOpenChangeSet={({ applicationKey, workspaceKey: changeSetWorkspace, changeSetId }) =>
+            navigate({
+              kind: "changeSetChanges",
+              applicationKey,
+              workspaceKey: changeSetWorkspace,
+              changeSetId,
+              tab: "records",
+              changeKinds: [],
+              ...(editing.journey ? { journey: editing.journey } : {}),
+            })
+          }
+        />
+      ) : editing?.page === "model" && editing.draftId ? (
         <ModelEditor
           key={editing.draftId}
           draftId={editing.draftId}
@@ -125,6 +159,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         />
       ) : route.page === "moves" ? (
         <MovesPage onNavigate={(next) => navigate(next)} />
+      ) : route.page === "index" ? (
+        <SettingsIndex onNavigate={(next) => navigate(next)} />
       ) : route.page === "about" ? (
         <AboutPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "appearance" ? (
@@ -179,6 +215,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <AiPage />
       ) : route.page === "mail" ? (
         <MailPage />
+      ) : route.page === "mail-template" ? (
+        <MailTemplatePage />
       ) : route.page === "api-reference" ? (
         <ApiReferencePage route={route} onNavigate={(next, replace) => navigate(next, replace)} />
       ) : route.page === "workspaces" ? (
@@ -189,6 +227,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onDefaultChanged={router.defaultWorkspaceChanged}
           onWorkspaceDeleted={(workspaceKey) => {
             // Back to applications never returns to a deleted workspace.
+            setDeletedKey(workspaceKey);
             if (lastApplicationRoute()?.workspaceKey === workspaceKey) router.rememberWorkspace(defaultWorkspaceKey);
           }}
           onOpenWorkspace={(workspaceKey) => {

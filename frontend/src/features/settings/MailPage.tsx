@@ -8,7 +8,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import { mail } from "@/api/mailClient";
-import { formatServerDayTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
+import { useAddressTab } from "@/lib/hooks/useAddressTab";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type {
   MailCredential,
@@ -20,15 +21,15 @@ import type {
   MailStatus,
 } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import { EmptyState } from "@/ui/EmptyState";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { FilterChip, LogFoot, LogTotals, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
+import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import {
   failureTitle,
@@ -41,6 +42,7 @@ import {
   signInOf,
   type SignIn,
 } from "./mailText";
+import { settingsHead } from "./navigation";
 
 export function MailPage() {
   const [settings, setSettings] = useState<MailSettings>();
@@ -58,17 +60,18 @@ export function MailPage() {
     );
   }
   useEffect(load, [refresh]);
+  const [tab, setTab] = useAddressTab(["server", "messages"]);
 
   return (
     <SettingsLayout
-      eyebrow="Integration"
+      {...settingsHead("mail")}
       title="Mail"
       description="The mail server, or Microsoft 365, the application sends through: the links of a new person and of a password reset. Messages wait in an outbox and are sent in the background, so a slow mail server never holds anyone up. A message that cannot be sent for 24 hours fails, and says why."
     >
       {error ? (
         <InlineError message={error} onRetry={load} />
       ) : !settings ? (
-        <p className="admin-hint">Loading mail settings…</p>
+        <Skeleton label="Loading mail settings" lines={4} />
       ) : (
         <>
           {!settings.configured && (
@@ -77,9 +80,35 @@ export function MailPage() {
               once for an administrator to pass on.
             </Notice>
           )}
-          <ServerSection key={settings.version ?? 0} settings={settings} onSaved={setSettings} onChanged={load} />
-          <TestSection configured={settings.configured} />
-          <MessagesSection settings={settings} refresh={refresh} onRefresh={() => setRefresh((n) => n + 1)} />
+          <Tabs
+            label="Mail"
+            selected={tab}
+            onChange={setTab}
+            tabs={[
+              {
+                id: "server",
+                label: "Server",
+                content: (
+                  <>
+                    <ServerSection
+                      key={settings.version ?? 0}
+                      settings={settings}
+                      onSaved={setSettings}
+                      onChanged={load}
+                    />
+                    <TestSection configured={settings.configured} />
+                  </>
+                ),
+              },
+              {
+                id: "messages",
+                label: "Messages",
+                content: (
+                  <MessagesSection settings={settings} refresh={refresh} onRefresh={() => setRefresh((n) => n + 1)} />
+                ),
+              },
+            ]}
+          />
         </>
       )}
     </SettingsLayout>
@@ -258,208 +287,220 @@ function ServerSection({
     }
   }
 
-  return (
-    <Section title="Mail server">
-      <form noValidate className="security-settings-form" onSubmit={(event) => void save(event)}>
-        <FormField
-          label="Send mail through"
-          help={
-            microsoft
-              ? "Microsoft 365 sends through Microsoft Graph as one mailbox. Saving it replaces the SMTP settings."
-              : "An SMTP server. Choosing Microsoft 365 replaces these settings when saved."
-          }
+  const foot = (
+    <>
+      {settings.configured && (
+        <button
+          ref={removeRef}
+          type="button"
+          className="danger-ghost"
+          disabled={pending}
+          onClick={() => setRemoving(true)}
         >
-          {(control) => (
-            <select {...control} value={method} onChange={(e) => setMethod(e.target.value as MailMethod)}>
-              <option value="smtp">SMTP server</option>
-              <option value="microsoft365">Microsoft 365</option>
-            </select>
-          )}
-        </FormField>
-        {microsoft ? (
-          <MicrosoftFields
-            settings={settings}
-            signIn={signIn}
-            onSignIn={setSignIn}
-            tenant={tenant}
-            onTenant={setTenant}
-            client={client}
-            onClient={setClient}
-            identityClient={identityClient}
-            onIdentityClient={setIdentityClient}
-            secret={secret}
-            onSecret={setSecret}
-            certificate={certificate}
-            onCertificate={setCertificate}
-            keepsCredential={keepsCredential}
-          />
-        ) : (
-          <>
-            <div className="dialog-pair">
-              <FormField label="Server" help="The SMTP host name.">
-                {(control) => (
-                  <input
-                    {...control}
-                    className="mono"
-                    required
-                    maxLength={255}
-                    autoComplete="off"
-                    value={host}
-                    onChange={(e) => setHost(e.target.value)}
-                  />
-                )}
-              </FormField>
-              <FormField label="Port">
-                {(control) => (
-                  <input
-                    {...control}
-                    className="mono"
-                    required
-                    inputMode="numeric"
-                    value={port}
-                    onChange={(e) => setPort(e.target.value.replace(/\D/g, ""))}
-                  />
-                )}
-              </FormField>
-            </div>
+          Remove settings…
+        </button>
+      )}
+      <span className="settings-panel-state">{dirty && settings.configured ? "Changed, not saved" : ""}</span>
+      <button type="button" className="ghost" disabled={pending || !dirty || !settings.configured} onClick={reset}>
+        Cancel
+      </button>
+      <button
+        className="primary"
+        disabled={pending || !dirty || insecureLogin || needsPassword || needsCredential || !complete || !from.trim()}
+      >
+        {pending ? "Saving…" : "Save"}
+      </button>
+    </>
+  );
+
+  return (
+    <SettingsGroup
+      title="Mail server"
+      description="How the application sends mail. The password, client secret and certificate are kept sealed and never shown again."
+    >
+      <form noValidate onSubmit={(event) => void save(event)}>
+        <SettingsPanel foot={foot}>
+          <div className="settings-fields">
             <FormField
-              label="Connection"
-              help="STARTTLS and TLS both encrypt the connection. A login is only sent over one of them."
+              className="full"
+              label="Send mail through"
+              help={
+                microsoft
+                  ? "Microsoft 365 sends through Microsoft Graph as one mailbox. Saving it replaces the SMTP settings."
+                  : "An SMTP server. Choosing Microsoft 365 replaces these settings when saved."
+              }
             >
               {(control) => (
-                <select {...control} value={security} onChange={(e) => chooseSecurity(e.target.value as MailSecurity)}>
-                  {MAIL_SECURITY.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
+                <select {...control} value={method} onChange={(e) => setMethod(e.target.value as MailMethod)}>
+                  <option value="smtp">SMTP server</option>
+                  <option value="microsoft365">Microsoft 365</option>
                 </select>
               )}
             </FormField>
-            <div className="dialog-pair">
-              <FormField
-                label="User name"
-                help="Empty: the server needs no login."
-                error={
-                  insecureLogin
-                    ? "A login is not sent over an unencrypted connection. Choose STARTTLS or TLS."
-                    : undefined
-                }
-              >
-                {(control) => (
-                  <input
-                    {...control}
-                    maxLength={255}
-                    autoComplete="off"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                )}
-              </FormField>
-              <FormField label="Password" help="Kept sealed; it is never shown again.">
-                {(control) => (
-                  <input
-                    {...control}
-                    type="password"
-                    autoComplete="new-password"
-                    disabled={!login}
-                    placeholder={settings.passwordSet && login ? "Saved · type a new one to replace it" : ""}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                )}
-              </FormField>
-            </div>
-          </>
-        )}
-        <FormField
-          label={microsoft ? "Sending mailbox" : "From address"}
-          help={
-            microsoft
-              ? "The mailbox mail is sent as and comes from. Bounces and replies arrive in this mailbox; the application does not read them."
-              : "The address mail comes from."
-          }
-        >
-          {(control) => (
-            <input
-              {...control}
-              required
-              inputMode="email"
-              maxLength={320}
-              autoComplete="off"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          )}
-        </FormField>
-        {microsoft && (
-          <MicrosoftNotes
-            signIn={signIn}
-            authority={authority}
-            onAuthority={setAuthority}
-            graph={graph}
-            onGraph={setGraph}
-            initiallyOpen={
-              (!!saved.authority && saved.authority !== DEFAULT_AUTHORITY) ||
-              (!!saved.graph && saved.graph !== DEFAULT_GRAPH)
-            }
-          />
-        )}
-        <FormField
-          label="Application address"
-          help={
-            <>
-              Links in mail point here. Empty: <span className="mono">{settings.applicationUrl}</span>, the first
-              address the application is allowed to be reached at.
-            </>
-          }
-        >
-          {(control) => (
-            <input
-              {...control}
-              className="mono"
-              maxLength={2000}
-              autoComplete="off"
-              placeholder={settings.applicationUrl}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-          )}
-        </FormField>
-        {error && (
-          <Notice tone="error" title="The settings were not saved">
-            {error}
-          </Notice>
-        )}
-        <div className="dialog-actions">
-          {settings.configured && (
-            <button
-              ref={removeRef}
-              type="button"
-              className="danger-ghost"
-              disabled={pending}
-              onClick={() => setRemoving(true)}
+            {microsoft ? (
+              <MicrosoftFields
+                settings={settings}
+                signIn={signIn}
+                onSignIn={setSignIn}
+                tenant={tenant}
+                onTenant={setTenant}
+                client={client}
+                onClient={setClient}
+                identityClient={identityClient}
+                onIdentityClient={setIdentityClient}
+                secret={secret}
+                onSecret={setSecret}
+                certificate={certificate}
+                onCertificate={setCertificate}
+                keepsCredential={keepsCredential}
+              />
+            ) : (
+              <>
+                <>
+                  <FormField label="Server" help="The SMTP host name.">
+                    {(control) => (
+                      <input
+                        {...control}
+                        className="mono"
+                        required
+                        maxLength={255}
+                        autoComplete="off"
+                        value={host}
+                        onChange={(e) => setHost(e.target.value)}
+                      />
+                    )}
+                  </FormField>
+                  <FormField label="Port">
+                    {(control) => (
+                      <input
+                        {...control}
+                        className="mono"
+                        required
+                        inputMode="numeric"
+                        value={port}
+                        onChange={(e) => setPort(e.target.value.replace(/\D/g, ""))}
+                      />
+                    )}
+                  </FormField>
+                </>
+                <FormField
+                  className="full"
+                  label="Connection"
+                  help="STARTTLS and TLS both encrypt the connection. A login is only sent over one of them."
+                >
+                  {(control) => (
+                    <select
+                      {...control}
+                      value={security}
+                      onChange={(e) => chooseSecurity(e.target.value as MailSecurity)}
+                    >
+                      {MAIL_SECURITY.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </FormField>
+                <>
+                  <FormField
+                    label="User name"
+                    help="Empty: the server needs no login."
+                    error={
+                      insecureLogin
+                        ? "A login is not sent over an unencrypted connection. Choose STARTTLS or TLS."
+                        : undefined
+                    }
+                  >
+                    {(control) => (
+                      <input
+                        {...control}
+                        maxLength={255}
+                        autoComplete="off"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                      />
+                    )}
+                  </FormField>
+                  <FormField label="Password" help="Kept sealed; it is never shown again.">
+                    {(control) => (
+                      <input
+                        {...control}
+                        type="password"
+                        autoComplete="new-password"
+                        disabled={!login}
+                        placeholder={settings.passwordSet && login ? "Saved · type a new one to replace it" : ""}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    )}
+                  </FormField>
+                </>
+              </>
+            )}
+            <FormField
+              className="full"
+              label={microsoft ? "Sending mailbox" : "From address"}
+              help={
+                microsoft
+                  ? "The mailbox mail is sent as and comes from. Bounces and replies arrive in this mailbox; the application does not read them."
+                  : "The address mail comes from."
+              }
             >
-              Remove settings…
-            </button>
-          )}
-          <button
-            type="button"
-            className="secondary"
-            disabled={pending || !dirty || !settings.configured}
-            onClick={reset}
-          >
-            Cancel
-          </button>
-          <button
-            className="primary"
-            disabled={
-              pending || !dirty || insecureLogin || needsPassword || needsCredential || !complete || !from.trim()
-            }
-          >
-            {pending ? "Saving…" : "Save"}
-          </button>
-        </div>
+              {(control) => (
+                <input
+                  {...control}
+                  required
+                  inputMode="email"
+                  maxLength={320}
+                  autoComplete="off"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                />
+              )}
+            </FormField>
+            {microsoft && (
+              <MicrosoftNotes
+                signIn={signIn}
+                authority={authority}
+                onAuthority={setAuthority}
+                graph={graph}
+                onGraph={setGraph}
+                initiallyOpen={
+                  (!!saved.authority && saved.authority !== DEFAULT_AUTHORITY) ||
+                  (!!saved.graph && saved.graph !== DEFAULT_GRAPH)
+                }
+              />
+            )}
+            <FormField
+              className="full"
+              label="Application address"
+              help={
+                <>
+                  Links in mail point here. Empty: <span className="mono">{settings.applicationUrl}</span>, the first
+                  address the application is allowed to be reached at.
+                </>
+              }
+            >
+              {(control) => (
+                <input
+                  {...control}
+                  className="mono"
+                  maxLength={2000}
+                  autoComplete="off"
+                  placeholder={settings.applicationUrl}
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              )}
+            </FormField>
+            {error && (
+              <Notice tone="error" title="The settings were not saved">
+                {error}
+              </Notice>
+            )}
+          </div>
+        </SettingsPanel>
       </form>
       {removing && (
         <ConfirmDialog
@@ -480,7 +521,7 @@ function ServerSection({
           </p>
         </ConfirmDialog>
       )}
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -508,14 +549,14 @@ function MicrosoftFields(props: {
   const savedSecret = props.keepsCredential && settings.clientSecretSet;
   const savedCertificate = props.keepsCredential && !!settings.certificateThumbprint;
   const azureNote = (
-    <p className="admin-hint">
+    <p className="admin-hint full">
       A managed identity works only when refiroo runs in Azure (App Service, Container Apps or a virtual machine). No
       secret is stored.
     </p>
   );
   return (
     <>
-      <FormField label="Sign in with" help={SIGN_IN[signIn].description}>
+      <FormField className="full" label="Sign in with" help={SIGN_IN[signIn].description}>
         {(control) => (
           <select {...control} value={signIn} onChange={(e) => props.onSignIn(e.target.value as SignIn)}>
             {SIGN_IN_ORDER.map((entry) => (
@@ -529,6 +570,7 @@ function MicrosoftFields(props: {
       {signIn === "direct" && (
         <>
           <FormField
+            className="full"
             label="Identity client ID"
             help="The user-assigned identity's client ID. Empty: the identity of the host itself (system-assigned)."
           >
@@ -547,7 +589,7 @@ function MicrosoftFields(props: {
         </>
       )}
       {signIn !== "direct" && (
-        <div className="dialog-pair">
+        <>
           <FormField
             label="Tenant ID"
             help={
@@ -584,11 +626,12 @@ function MicrosoftFields(props: {
               />
             )}
           </FormField>
-        </div>
+        </>
       )}
       {signIn === "federated" && (
         <>
           <FormField
+            className="full"
             label="Identity client ID"
             help="The user-assigned identity's client ID. Required: only a user-assigned identity can be a federated credential."
           >
@@ -608,7 +651,11 @@ function MicrosoftFields(props: {
         </>
       )}
       {signIn === "secret" && (
-        <FormField label="Client secret" help="The secret's value. Kept sealed; it is never shown again.">
+        <FormField
+          className="full"
+          label="Client secret"
+          help="The secret's value. Kept sealed; it is never shown again."
+        >
           {(control) => (
             <input
               {...control}
@@ -623,6 +670,7 @@ function MicrosoftFields(props: {
       )}
       {signIn === "certificate" && (
         <FormField
+          className="full"
           label="Certificate"
           help={
             savedCertificate && settings.certificateExpiresAt ? (
@@ -666,13 +714,13 @@ function MicrosoftNotes(props: {
   const [cloudsOpen, setCloudsOpen] = useState(props.initiallyOpen);
   return (
     <>
-      <details className="settings-fold">
+      <details className="settings-fold full">
         <summary>What to set up in Microsoft Entra</summary>
         <div className="settings-fold-body">
           <EntraChecklist signIn={props.signIn} />
         </div>
       </details>
-      <details className="settings-fold" open={cloudsOpen} onToggle={(e) => setCloudsOpen(e.currentTarget.open)}>
+      <details className="settings-fold full" open={cloudsOpen} onToggle={(e) => setCloudsOpen(e.currentTarget.open)}>
         <summary>Other Microsoft clouds (token and Graph addresses)</summary>
         <div className="settings-fold-body">
           <div className="dialog-pair">
@@ -774,29 +822,34 @@ function TestSection({ configured }: { configured: boolean }) {
   }
 
   return (
-    <Section
+    <SettingsGroup
       title="Test message"
       description="Sent at once through the saved settings. It shows the address links will point to."
     >
-      <form noValidate className="security-settings-form" onSubmit={(event) => void send(event)}>
-        <FormField label="Send to">
-          {(control) => (
-            <input
-              {...control}
-              required
-              inputMode="email"
-              autoComplete="email"
-              disabled={!configured}
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            />
-          )}
-        </FormField>
-        <div className="dialog-actions">
-          <button className="secondary" disabled={pending || !configured || !to.trim()}>
-            {pending ? "Sending…" : "Send test message"}
-          </button>
-        </div>
+      <form noValidate onSubmit={(event) => void send(event)}>
+        <SettingsPanel
+          foot={
+            <button className="secondary" disabled={pending || !configured || !to.trim()}>
+              {pending ? "Sending…" : "Send test message"}
+            </button>
+          }
+        >
+          <div className="settings-fields">
+            <FormField className="full" label="Send to">
+              {(control) => (
+                <input
+                  {...control}
+                  required
+                  inputMode="email"
+                  autoComplete="email"
+                  disabled={!configured}
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              )}
+            </FormField>
+          </div>
+        </SettingsPanel>
       </form>
       {result &&
         (result.ok ? (
@@ -808,7 +861,7 @@ function TestSection({ configured }: { configured: boolean }) {
             {result.message}
           </Notice>
         ))}
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -850,94 +903,123 @@ function MessagesSection({
     }
   }
 
+  const states: { value: MailStatus | ""; label: string }[] = [
+    { value: "", label: "All" },
+    { value: "pending", label: "Waiting" },
+    { value: "sent", label: "Sent" },
+    { value: "failed", label: "Failed" },
+  ];
+  const total = status ? counts[status] : counts.pending + counts.sent + counts.failed;
+
   return (
-    <Section
-      title="Messages"
-      description="What the application asked to send. A message's text is never shown here; it holds a one-time link and is erased once sent."
-    >
-      <div className="settings-filter-bar">
-        <label className="toolbar-field">
-          State
-          <select value={status} onChange={(event) => setStatus(event.target.value as MailStatus | "")}>
-            <option value="">All</option>
-            <option value="pending">Waiting ({counts.pending})</option>
-            <option value="sent">Sent ({counts.sent})</option>
-            <option value="failed">Failed ({counts.failed})</option>
-          </select>
-        </label>
-        <button type="button" className="secondary" disabled={feed.loading} onClick={onRefresh}>
-          Refresh
-        </button>
-      </div>
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : feed.loading && !feed.items.length ? (
-        <Skeleton label="Loading messages" lines={5} />
-      ) : !feed.items.length ? (
-        <EmptyState>
-          {status
-            ? "No message is in this state."
-            : "No messages yet. A new person's link and a password reset appear here when they are sent."}
-        </EmptyState>
-      ) : (
-        <SettingsTable
-          label="Messages"
-          columns={["To", "Message", "State", "Tries", "Last problem", "Queued", "Actions"]}
-        >
-          {feed.items.map((message) => {
-            const state = MESSAGE_STATE[message.status];
-            return (
-              <tr key={message.id}>
-                <th scope="row">{message.to}</th>
-                <td data-label="Message">{messageKind(message)}</td>
-                <td data-label="State">
-                  <StatusPill tone={state.tone}>{state.label}</StatusPill>
-                  {message.status === "pending" && message.nextAttemptAt && (
-                    <div className="admin-hint">Next try {formatServerDayTime(message.nextAttemptAt)}</div>
-                  )}
-                  {message.status !== "pending" && message.finishedAt && (
-                    <div className="admin-hint">{formatServerDayTime(message.finishedAt)}</div>
-                  )}
-                </td>
-                <td data-label="Tries">{message.attempts}</td>
-                <td data-label="Last problem">{message.lastError ?? "—"}</td>
-                <td data-label="Queued">{formatServerDayTime(message.createdAt)}</td>
-                <td data-label="Actions">
-                  {message.status === "pending" && (
-                    <button type="button" className="secondary" onClick={() => setStopping(message)}>
-                      Stop sending
-                    </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </SettingsTable>
-      )}
-      {feed.hasMore && !feed.error && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more messages
-        </button>
-      )}
-      {stopping && (
-        <ConfirmDialog
-          title="Stop sending this message?"
-          confirmLabel="Stop sending"
-          dismissLabel="Keep trying"
-          pending={stopPending}
-          error={stopError}
-          onCancel={() => {
-            setStopping(undefined);
-            setStopError("");
-          }}
-          onConfirm={() => void stop()}
-        >
-          <p>
-            The message to {stopping.to} will not be sent, now or on a later try. It is marked failed, and its text is
-            erased. The link in it keeps working until it expires; make a new link to send another.
-          </p>
-        </ConfirmDialog>
-      )}
-    </Section>
+    <>
+      <LogTotals
+        label="Outbox"
+        totals={[
+          { key: "pending", value: counts.pending.toLocaleString(), name: "waiting", hue: 3 },
+          { key: "sent", value: counts.sent.toLocaleString(), name: "sent", hue: 5 },
+          { key: "failed", value: counts.failed.toLocaleString(), name: "failed", bad: true },
+        ]}
+      />
+      <SettingsGroup
+        stacked
+        title="Messages"
+        description="What the application asked to send. A message's text is never shown here; it holds a one-time link and is erased once sent."
+        tools={
+          <>
+            <span className="filter-chips" role="group" aria-label="State">
+              {states.map((item) => (
+                <FilterChip key={item.value} selected={status === item.value} onSelect={() => setStatus(item.value)}>
+                  {item.label}
+                </FilterChip>
+              ))}
+            </span>
+            <button type="button" className="secondary" disabled={feed.loading} onClick={onRefresh}>
+              Refresh
+            </button>
+          </>
+        }
+      >
+        <SettingsPanel>
+          {feed.error ? (
+            <InlineError message={feed.error} onRetry={feed.retry} />
+          ) : feed.loading && !feed.items.length ? (
+            <Skeleton label="Loading messages" lines={5} />
+          ) : !feed.items.length ? (
+            <SettingsEmpty icon="mail" hue={settingsHead("mail").hue}>
+              {status
+                ? "No message is in this state."
+                : "No messages yet. A new person's link and a password reset appear here when they are sent."}
+            </SettingsEmpty>
+          ) : (
+            <>
+              <SettingsTable
+                label="Messages"
+                columns={["Queued", "To", "Message", "State", { num: "Tries" }, "Last problem", { hidden: "Actions" }]}
+              >
+                {feed.items.map((message) => {
+                  const state = MESSAGE_STATE[message.status];
+                  return (
+                    <tr key={message.id}>
+                      <th scope="row" className="when" title={formatServerTime(message.createdAt)}>
+                        {formatServerDayTime(message.createdAt)}
+                      </th>
+                      <td data-label="To">{message.to}</td>
+                      <td data-label="Message">{messageKind(message)}</td>
+                      <td data-label="State">
+                        <StatusPill tone={state.tone}>{state.label}</StatusPill>
+                        {message.status === "pending" && message.nextAttemptAt && (
+                          <span className="why">Next try {formatServerDayTime(message.nextAttemptAt)}</span>
+                        )}
+                        {message.status !== "pending" && message.finishedAt && (
+                          <span className="why">{formatServerDayTime(message.finishedAt)}</span>
+                        )}
+                      </td>
+                      <td data-label="Tries" className="num">
+                        {message.attempts.toLocaleString()}
+                      </td>
+                      <td data-label="Last problem">{message.lastError ?? "—"}</td>
+                      <td data-label="Actions">
+                        {message.status === "pending" && (
+                          <button type="button" className="secondary" onClick={() => setStopping(message)}>
+                            Stop sending
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </SettingsTable>
+              <LogFoot
+                shown={feed.items.length}
+                total={feed.hasMore ? total : feed.items.length}
+                noun="messages"
+                onMore={feed.hasMore && !feed.error ? feed.loadMore : undefined}
+                loading={feed.loading}
+              />
+            </>
+          )}
+        </SettingsPanel>
+        {stopping && (
+          <ConfirmDialog
+            title="Stop sending this message?"
+            confirmLabel="Stop sending"
+            dismissLabel="Keep trying"
+            pending={stopPending}
+            error={stopError}
+            onCancel={() => {
+              setStopping(undefined);
+              setStopError("");
+            }}
+            onConfirm={() => void stop()}
+          >
+            <p>
+              The message to {stopping.to} will not be sent, now or on a later try. It is marked failed, and its text is
+              erased. The link in it keeps working until it expires; make a new link to send another.
+            </p>
+          </ConfirmDialog>
+        )}
+      </SettingsGroup>
+    </>
   );
 }

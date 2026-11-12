@@ -18,6 +18,7 @@ import { HueTile } from "@/ui/HueTile";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
+import { moveAttributeOperations } from "@/features/model-editor/operations";
 import { chosenTarget, shownTargets, TargetList } from "@/features/model-editor/TargetList";
 import { attributeTypeOf, draftTypeHue, isReleased, objectTypeOf, typeName } from "@/features/model-editor/outline";
 
@@ -140,9 +141,7 @@ export function MoveToDialog({
     setError("");
     try {
       if (subject.kind === "attribute") {
-        await run([
-          { kind: "moveAttribute", attributeType: subject.attributeType, from: subject.objectType, to: current.value },
-        ]);
+        await run(moveAttributeOperations(subject.attributeType, subject.objectType, current.value));
       } else if (place) {
         const self = objectTypeOf(outline, subject.objectType);
         const parent = place.parent
@@ -275,11 +274,7 @@ export function MoveToDialog({
             Cancel
           </button>
           <button type="submit" className="primary" disabled={pending || !current}>
-            {pending
-              ? "Moving…"
-              : current
-                ? `Move to ${place && !place.parent ? (outline.applications.length > 1 ? current.name.replace("Top level", "the top level") : "the top level") : current.name}`
-                : "Move"}
+            {pending ? "Moving…" : "Move"}
           </button>
         </div>
       </form>

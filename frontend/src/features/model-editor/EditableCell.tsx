@@ -1,13 +1,13 @@
 /**
  * A cell of an editor table edited in place, as a record's fields are (`ui/EditInPlace`; the user's
- * request after A4a): the value with its pencil, a click or Enter opens a one-field form in the cell,
- * and saving is one step. Cardinality, required, value type, a group's label: whatever the column
+ * request after A4a): the value with its pencil, a click or Enter makes it its field in the cell, which
+ * saves when it is left, on Enter, or as a choice is made (0.17 UX2), and saving is one step. Cardinality, required, value type, a group's label: whatever the column
  * says (`CellEdit`). A refusal stays in the form with the server's reason (D39).
  */
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { DraftOperation, ModelDraftOutline } from "@/types";
-import { EditInPlaceValue, InlineEditForm } from "@/ui/EditInPlace";
+import { EditInPlaceValue, InlineEditForm, focusValue } from "@/ui/EditInPlace";
 import { Notice } from "@/ui/Notice";
 import { refusalText, type RunStep } from "@/features/model-editor/OperationDialog";
 
@@ -48,15 +48,19 @@ export function EditableCell({
   const wasEditing = useRef(false);
 
   useEffect(() => {
-    if (wasEditing.current && !editing) requestAnimationFrame(() => control.current?.focus());
+    if (wasEditing.current && !editing) requestAnimationFrame(() => focusValue(control.current));
     wasEditing.current = editing;
   }, [editing]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const next = String(new FormData(event.currentTarget).get("value") ?? "").trim();
-    if (next === edit.value || (!edit.options && !next && !edit.optional)) {
+    if (next === edit.value) {
       setEditing(false);
+      return;
+    }
+    if (!edit.options && !next && !edit.optional) {
+      setError(`${edit.label} needs a value.`);
       return;
     }
     setSaving(true);
@@ -95,7 +99,7 @@ export function EditableCell({
         }}
         notices={
           error && (
-            <Notice tone="error" title="Not saved" focusOnMount>
+            <Notice tone="error" title="Not saved">
               {error}
             </Notice>
           )

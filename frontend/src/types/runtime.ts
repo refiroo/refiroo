@@ -4,6 +4,7 @@
  */
 
 import type { ChangeOrigin } from "@/types/ai";
+import type { Job } from "@/types/integration";
 import type { ValueType } from "@/types/model";
 import type { WorkspaceModel } from "@/types/modelAdmin";
 import type { Actor, Principal } from "@/types/security";
@@ -90,6 +91,15 @@ export interface WorkspaceDetail extends Workspace {
   deleteBlockedBy?: "default" | "published" | "notEmpty" | "subscribed" | null;
 }
 
+/** `POST /workspaces/from-workbook`: the workspace, the release its draft was installed as, and the load. */
+export interface WorkspaceFromWorkbook {
+  workspace: WorkspaceDetail;
+  releaseId: string;
+  releaseKey: string;
+  releaseVersion: string;
+  job: Job;
+}
+
 export interface WorkspacePage {
   items: Workspace[];
   nextCursor: string | null;
@@ -107,11 +117,15 @@ export interface ObjectAttributeInput {
 }
 
 export interface ObjectDeletionImpact {
-  objectsToDelete: Array<{ id: string; name: string; objectTypeKey: string }>;
+  objectsToDelete: Array<{ id: string; name: string; objectTypeKey: string; reason: string }>;
   relationshipsToRemove: Array<{ id: string; relationTypeKey: string }>;
   objectCount: number;
   relationshipCount: number;
+  /** Of `relationshipCount`, the relationships of the record itself. */
+  ownRelationshipCount: number;
   retainedAssociationCount: number;
+  /** Whether the delete needs `cascade` and the token; the token confirms the delete either way. */
+  requiresCascade: boolean;
   deletionPreviewToken: string;
 }
 

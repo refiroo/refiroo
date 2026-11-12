@@ -85,7 +85,7 @@ try {
   await page.goto(`${uiUrl}/?workspaceKey=${defaultKey}`);
   const topBarApps = page.getByRole("navigation", { name: "Applications" });
   await topBarApps.getByRole("button", { name: starterApp.name }).waitFor();
-  const selector = page.getByRole("combobox", { name: "Workspace" });
+  const selector = page.getByRole("combobox", { name: "Workspace", exact: true });
   await page.getByText(`${starter.release.name} ${starter.release.version}`).first().waitFor();
   // Keyboard alone: the switcher's list, the other workspace, Enter (case 8).
   await selector.focus();
@@ -177,7 +177,7 @@ try {
 
   // 6. A workspace created on another installed release.
   await page.goto(`${uiUrl}/settings/workspaces`);
-  await page.getByRole("button", { name: /New workspace/ }).click();
+  await page.getByRole("button", { name: "New workspace", exact: true }).click();
   const create = page.getByRole("dialog", { name: "New workspace" });
   await create.getByLabel("Name").fill("Reading room");
   await create.getByRole("radio", { name: "Another installed release" }).check();
@@ -188,7 +188,7 @@ try {
   await assertDialogLayout(page, "the new workspace dialog");
   await assertAccessible(page, "the new workspace dialog");
   await shotBoth("new-workspace");
-  await create.getByRole("button", { name: "Create workspace" }).click();
+  await create.getByRole("button", { name: "Add workspace" }).click();
   await create.waitFor({ state: "detached" });
   assert.equal((await api("/workspaces/reading-room/model")).releaseId, b1.id);
   await page.goto(`${uiUrl}/?workspaceKey=reading-room`);
@@ -219,7 +219,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/?workspaceKey=branch-b`);
   await page.getByRole("button", { name: /Workspace: Branch B/ }).click();
-  await page.getByRole("combobox", { name: "Workspace" }).waitFor();
+  await page.getByRole("combobox", { name: "Workspace", exact: true }).waitFor();
   await noPageOverflow(page, "the phone shell");
   await shotBoth("phone-switcher");
   await page.keyboard.press("Escape");

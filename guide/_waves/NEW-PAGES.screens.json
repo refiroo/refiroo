@@ -2,86 +2,102 @@
  "base": "http://localhost:8480",
  "screens": [
   {
-   "name": "release-page",
-   "shows": "A release of the model: Export JSON, Create draft from release, Activate in a workspace, Retire; the pills for who runs it; technical details.",
-   "actions": [
-    {
-     "goto": "/settings/model/releases/7b9d9306-0e4a-4422-80ac-f7bed01bb9f2"
+      "name": "release-page",
+      "shows": "A release of the model that no workspace runs: Activate in a workspace and Create draft from release, the ⋯ menu (Export JSON, Retire), the counts; technical details.",
+      "actions": [
+        {
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.2}"
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 2000
-    }
-   ],
-   "expect": []
-  },
   {
-   "name": "release-retire-dialog",
-   "shows": "Retire on a release: the confirmation and what retiring does. Cancelled.",
-   "actions": [
-    {
-     "goto": "/settings/model/releases/7b9d9306-0e4a-4422-80ac-f7bed01bb9f2"
+      "name": "release-retire-dialog",
+      "shows": "Retire on a release that no workspace runs: the confirmation and what retiring does. Cancelled.",
+      "actions": [
+        {
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.2}"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Retire…"
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 1800
-    },
-    {
-     "click": {
-      "role": "button",
-      "name": "Retire…",
-      "exact": false
-     }
-    },
-    {
-     "wait": 900
-    }
-   ],
-   "expect": []
-  },
   {
-   "name": "release-activate-dialog",
-   "shows": "Activate in a workspace on a release: the workspace and the compatibility result for its data. Cancelled.",
-   "actions": [
-    {
-     "goto": "/settings/model/releases/7b9d9306-0e4a-4422-80ac-f7bed01bb9f2"
+      "name": "release-activate-dialog",
+      "shows": "Activate in a workspace on a release: the workspace and the compatibility result for its data. Cancelled.",
+      "actions": [
+        {
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.2}"
+        },
+        {
+          "wait": 1800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…"
+          }
+        },
+        {
+          "wait": 2500
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 1800
-    },
-    {
-     "click": {
-      "role": "button",
-      "name": "Activate in a workspace…",
-      "exact": false
-     }
-    },
-    {
-     "wait": 2500
-    }
-   ],
-   "expect": []
-  },
   {
-   "name": "release-technical-details",
-   "shows": "The Technical details and Activation check parts of a release page.",
-   "actions": [
-    {
-     "goto": "/settings/model/releases/7b9d9306-0e4a-4422-80ac-f7bed01bb9f2"
+      "name": "release-technical-details",
+      "shows": "The Technical details and Activation check parts of a release page.",
+      "actions": [
+        {
+          "goto": "/settings/model/releases/{release:guide-reference-swiss@1.8.2}"
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "scrollTo": {
+            "text": "Technical details",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 2000
-    },
-    {
-     "scrollTo": {
-      "text": "Technical details",
-      "exact": false
-     }
-    },
-    {
-     "wait": 1500
-    }
-   ],
-   "expect": []
-  },
   {
    "name": "workspaces-new-dialog",
    "shows": "New workspace: its name and key and the release it starts on. Cancelled.",
@@ -96,7 +112,7 @@
      "click": {
       "role": "button",
       "name": "New workspace",
-      "exact": false
+      "exact": true
      }
     },
     {
@@ -106,74 +122,84 @@
    "expect": []
   },
   {
-   "name": "workspace-rename-dialog",
-   "shows": "Rename on a workspace.",
-   "actions": [
-    {
-     "goto": "/settings/workspaces/graubuenden"
+      "name": "workspace-rename-dialog",
+      "shows": "The name of a workspace changed where it stands: Edit Name opened on the workspace's page, with Enter to save and Escape to leave.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit Name:",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 1500
-    },
-    {
-     "click": {
-      "role": "button",
-      "name": "Rename…",
-      "exact": false
-     }
-    },
-    {
-     "wait": 800
-    }
-   ],
-   "expect": []
-  },
   {
-   "name": "workspace-retire-dialog",
-   "shows": "Retire on a workspace: the confirmation. Cancelled.",
-   "actions": [
-    {
-     "goto": "/settings/workspaces/guide-workbook-test"
+      "name": "workspace-retire-dialog",
+      "shows": "Retire on a workspace: the confirmation. Cancelled.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/c10-import-pictures"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Retire…"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 1500
-    },
-    {
-     "click": {
-      "role": "button",
-      "name": "Retire…",
-      "exact": false
-     }
-    },
-    {
-     "wait": 800
-    }
-   ],
-   "expect": []
-  },
   {
-   "name": "workspace-copy-move-start",
-   "shows": "Copy or move data on a workspace: New copy or move opened with the workspace as the source.",
-   "actions": [
-    {
-     "goto": "/settings/workspaces/graubuenden"
+      "name": "workspace-copy-move-start",
+      "shows": "Copy or move data on a workspace: New copy or move opened with the workspace as the source.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Copy or move data…"
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": []
     },
-    {
-     "wait": 1500
-    },
-    {
-     "click": {
-      "role": "button",
-      "name": "Copy or move data…",
-      "exact": false
-     }
-    },
-    {
-     "wait": 1000
-    }
-   ],
-   "expect": []
-  },
   {
    "name": "moves-start-dialog",
    "shows": "Start the copy on a mapping with a ready dry run: the name of the change set that receives the records. Cancelled.",

@@ -9,7 +9,7 @@ It exports the model, not workspace records. See [Releases](/docs/model/releases
 
 1. Open **Settings › Model**, the model's **Releases**, then the intended version. Check its
    name, version and **Immutable release** state rather than opening a similarly named draft.
-2. Choose **Export JSON** and keep the downloaded document. The installed release is unchanged.
+2. Choose **Export JSON** in the header, or under **More actions** if it is not shown there, and keep the downloaded document. The installed release is unchanged.
    Export is also available for historical definitions the current editor cannot interpret.
 3. If you need to identify it precisely, open **Technical details**. Use **Copy** beside
    **Release ID** and **Content hash**. The hash identifies the content; the displayed version

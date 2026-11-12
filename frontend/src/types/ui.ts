@@ -102,6 +102,7 @@ export type RouteState =
       publicationId?: string;
     }
   | HomeRoute
+  | WorkspaceRoute
   | ChangesRoute
   | NotificationsRoute
   | SettingsRoute;
@@ -109,6 +110,15 @@ export type RouteState =
 /** The home page after sign-in (0.12 HM1, D331): the bare address, outside any workspace. */
 export interface HomeRoute {
   kind: "home";
+}
+
+/**
+ * A workspace's own page (0.17 SH1): its search, applications, waiting change sets and latest
+ * changes. It is in a workspace but in no application: `/workspace?workspaceKey=…`.
+ */
+export interface WorkspaceRoute {
+  kind: "workspace";
+  workspaceKey: string;
 }
 
 /** The person's notices of the last 90 days (0.12 NT1, D463): `/notifications`, outside any workspace. */
@@ -142,7 +152,16 @@ export interface ChangesRoute {
 export type SettingsRoute =
   | {
       kind: "settings";
-      page: "about" | "appearance" | "account" | "notifications" | "deployment" | "operations";
+      page:
+        | "index"
+        | "about"
+        | "appearance"
+        | "account"
+        | "notifications"
+        | "deployment"
+        | "operations"
+        /** This instance › E-mail template: Markdown and a logo around every mail the engine sends. */
+        | "mail-template";
     }
   /** The consumer APIs and their reference: the workspace whose APIs they show (none is the default). */
   | { kind: "settings"; page: "consumer-apis"; workspaceKey?: string }
@@ -224,6 +243,13 @@ export type JourneyRef =
 export type EditorSelection =
   | { show?: undefined }
   | { show: "matrix" }
+  /**
+   * The canvas: the same draft drawn as lists on a board (0.17 PL3b), with its selection in the address
+   * (CE1): a list (`key`), a field (`key` = its list, `field`), a line (`key` = its id), an application
+   * (`key`), a navigation group (`application`, `key`), a workbook column (`sheet`, `key`) or a list of a
+   * sheet (`sheet`, `block`).
+   */
+  | CanvasSelection
   | { show: "type"; key: string; mode?: EditorMode; application?: string }
   | { show: "application" | "relationType" | "attributeType"; key: string }
   | { show: "consumerApi"; key: string; tab?: ConsumerApiTab }
@@ -261,6 +287,19 @@ export interface MoveAddress {
   row?: string;
 }
 
+/** What the canvas has selected, and the part of the draft it is (0.17 CE1). */
+export type CanvasElement = "type" | "field" | "line" | "application" | "group" | "column" | "list";
+
+export interface CanvasSelection {
+  show: "canvas";
+  element?: CanvasElement;
+  key?: string;
+  field?: string;
+  application?: string;
+  sheet?: string;
+  block?: number;
+}
+
 /** How a type is shown in the model editor: its definition (the default), its preview, its layout. */
 export type EditorMode = "preview" | "layout";
 
@@ -270,4 +309,7 @@ export type ConsumerApiTab = "types" | "fields" | "operations" | "filters" | "sc
 export type SettingsPage = SettingsRoute["page"];
 
 /** Every route that is neither a settings page nor home: an application's data, in a workspace. */
-export type ApplicationRoute = Exclude<RouteState, SettingsRoute | HomeRoute | ChangesRoute | NotificationsRoute>;
+export type ApplicationRoute = Exclude<
+  RouteState,
+  SettingsRoute | HomeRoute | WorkspaceRoute | ChangesRoute | NotificationsRoute
+>;

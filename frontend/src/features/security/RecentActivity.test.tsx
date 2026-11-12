@@ -33,7 +33,8 @@ describe("a person's recent activity (0.12 RA1)", () => {
     expect(security.securityEvents).toHaveBeenLastCalledWith("person", "older", 20, []);
     fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
     expect(screen.getByText("Showing 10 entries")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "Roles and groups" }));
+    fireEvent.click(screen.getByRole("button", { name: "Roles and groups" }));
+    expect(screen.getByRole("button", { name: "Roles and groups" })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() =>
       expect(security.securityEvents).toHaveBeenLastCalledWith("person", undefined, 10, ["grant", "group", "role"]),
     );

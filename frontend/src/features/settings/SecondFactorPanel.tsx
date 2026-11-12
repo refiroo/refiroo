@@ -13,13 +13,14 @@ import { formatServerDayTime } from "@/lib/dates";
 import type { MySecondFactor, SecondFactorEnrolment } from "@/types";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
-import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
+import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
+import { StatusPill } from "@/ui/StatusPill";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
+import { settingsHead } from "./navigation";
 import { useSettingsRead } from "./useSystem";
 
 type Mode =
@@ -48,15 +49,16 @@ export function SecondFactorPanel() {
     }
   }
 
+  const hue = settingsHead("account").hue;
   return (
-    <Section
+    <SettingsGroup
       title="Authenticator app"
-      actions={
-        data?.enabled && mode.kind === "idle" ? (
-          <span className="account-pill success">
-            <span className="account-dot" aria-hidden="true" />
-            On · authenticator app
-          </span>
+      description="A second step after your password: a six-digit code from an app on your phone."
+      action={
+        data && !data.enabled && mode.kind === "idle" ? (
+          <button type="button" className="secondary" disabled={pending} onClick={() => void start()}>
+            {pending ? "Starting…" : "Set up an authenticator app"}
+          </button>
         ) : undefined
       }
     >
@@ -65,7 +67,7 @@ export function SecondFactorPanel() {
       ) : !data ? (
         <Skeleton label="Loading your second factor" lines={2} />
       ) : (
-        <div className="account-panel">
+        <>
           {failure && <Notice tone="error">{failure}</Notice>}
           {mode.kind === "setting-up" ? (
             <SettingUp
@@ -82,53 +84,47 @@ export function SecondFactorPanel() {
               }}
             />
           ) : data.enabled ? (
-            <div className="account-row">
-              <span className="account-tile current" aria-hidden="true">
-                <Icon name="lock" size={20} />
-              </span>
-              <div className="account-row-text">
-                <strong>Authenticator app</strong>
-                <span className="account-muted">
-                  Set up {data.confirmedAt ? formatServerDayTime(data.confirmedAt) : ""} · {data.recoveryCodesLeft} of
-                  10 recovery codes left{data.passkeys > 0 ? "; they work for passkeys too" : ""}.{" "}
-                  {data.required && data.passkeys === 0
-                    ? "This instance requires a second factor with a password, so a security administrator removes it, or you add a passkey first."
-                    : "Both actions ask for a code from the app."}
-                </span>
-              </div>
-              <button type="button" className="secondary" onClick={() => setAsking("codes")}>
-                New recovery codes…
-              </button>
-              {(!data.required || data.passkeys > 0) && (
-                <button type="button" className="danger-ghost" onClick={() => setAsking("remove")}>
-                  Remove…
+            <SettingsPanel>
+              <SettingRow
+                lead={<SettingsTile icon="lock" hue={hue} />}
+                name="Authenticator app"
+                help={
+                  <>
+                    Set up {data.confirmedAt ? formatServerDayTime(data.confirmedAt) : ""} · {data.recoveryCodesLeft} of
+                    10 recovery codes left{data.passkeys > 0 ? "; they work for passkeys too" : ""}.{" "}
+                    {data.required && data.passkeys === 0
+                      ? "This instance requires a second factor with a password, so a security administrator removes it, or you add a passkey first."
+                      : "Both actions ask for a code from the app."}
+                  </>
+                }
+              >
+                <StatusPill tone="success">On · authenticator app</StatusPill>
+                <button type="button" className="secondary" onClick={() => setAsking("codes")}>
+                  New recovery codes…
                 </button>
-              )}
-            </div>
+                {(!data.required || data.passkeys > 0) && (
+                  <button type="button" className="danger-ghost" onClick={() => setAsking("remove")}>
+                    Remove…
+                  </button>
+                )}
+              </SettingRow>
+            </SettingsPanel>
           ) : (
-            <div className="account-row">
-              <span className="account-tile" aria-hidden="true">
-                <Icon name="lock" size={20} />
-              </span>
-              <div className="account-row-text">
-                <strong>Not set up</strong>
-                <span className="account-muted">
-                  With a second factor, your password alone does not sign you in: you also type a code from an
-                  authenticator app on your phone (Microsoft Authenticator, Google Authenticator, 1Password and others).
-                </span>
-              </div>
-              <button type="button" className="primary" disabled={pending} onClick={() => void start()}>
-                {pending ? "Starting…" : "Set up an authenticator app"}
-              </button>
-            </div>
+            <SettingsPanel>
+              <SettingRow
+                lead={<SettingsTile icon="lock" hue={hue} />}
+                name="Not set up"
+                help="With a second factor, your password alone does not sign you in: you also type a code from an authenticator app on your phone (Microsoft Authenticator, Google Authenticator, 1Password and others)."
+              />
+            </SettingsPanel>
           )}
-        </div>
+        </>
       )}
       {asking === "codes" && (
         <CodeDialog
           title="New recovery codes"
           help="The old recovery codes stop working."
-          confirmLabel="Make new codes"
+          confirmLabel="Rotate recovery codes"
           onClose={() => setAsking(undefined)}
           onSubmit={async (code) => {
             const made = await api.newRecoveryCodes(code);
@@ -141,7 +137,7 @@ export function SecondFactorPanel() {
         <CodeDialog
           title="Remove the second factor"
           help="Your password alone signs you in again, and your recovery codes stop working."
-          confirmLabel="Remove it"
+          confirmLabel="Remove second factor"
           danger
           onClose={() => setAsking(undefined)}
           onSubmit={async (code) => {
@@ -152,7 +148,7 @@ export function SecondFactorPanel() {
           }}
         />
       )}
-    </Section>
+    </SettingsGroup>
   );
 }
 
@@ -182,48 +178,53 @@ function SettingUp({
   }
 
   return (
-    <form className="account-row account-second-factor" onSubmit={(event) => void confirm(event)}>
-      <div className="account-row-text">
-        <p>1. Scan the code with the app. 2. Type the six digits it shows.</p>
-        <div className="second-factor-setup">
-          <img
-            className="second-factor-qr"
-            alt="QR code for the authenticator app"
-            width={160}
-            height={160}
-            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(enrolment.qrSvg)}`}
-          />
-          <div className="second-factor-fields security-settings-form">
-            <p className="account-muted">Cannot scan? Type this key:</p>
-            <p className="webhook-secret">
-              <CopyValue label="Key" value={groupedKey(enrolment.secret)} />
-            </p>
-            <FormField label="Code from the app" error={problem || undefined}>
-              {(control) => (
-                <input
-                  {...control}
-                  className="mono"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="000 000"
-                  required
-                  autoFocus
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
-                />
-              )}
-            </FormField>
-            <div className="account-actions">
-              <button className="primary" disabled={pending || !code.trim()}>
-                {pending ? "Confirming…" : "Confirm"}
-              </button>
-              <button type="button" className="ghost" disabled={pending} onClick={onCancel}>
-                Cancel
-              </button>
+    <form onSubmit={(event) => void confirm(event)}>
+      <SettingsPanel
+        foot={
+          <>
+            <button type="button" className="ghost" disabled={pending} onClick={onCancel}>
+              Cancel
+            </button>
+            <button className="primary" disabled={pending || !code.trim()}>
+              {pending ? "Confirming…" : "Confirm"}
+            </button>
+          </>
+        }
+      >
+        <div className="settings-panel-pad account-second-factor">
+          <p>1. Scan the code with the app. 2. Type the six digits it shows.</p>
+          <div className="second-factor-setup">
+            <img
+              className="second-factor-qr"
+              alt="QR code for the authenticator app"
+              width={160}
+              height={160}
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(enrolment.qrSvg)}`}
+            />
+            <div className="second-factor-fields security-settings-form">
+              <p className="account-muted">Cannot scan? Type this key:</p>
+              <p className="webhook-secret">
+                <CopyValue label="Key" value={groupedKey(enrolment.secret)} />
+              </p>
+              <FormField label="Code from the app" error={problem || undefined}>
+                {(control) => (
+                  <input
+                    {...control}
+                    className="mono"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000 000"
+                    required
+                    autoFocus
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                  />
+                )}
+              </FormField>
             </div>
           </div>
         </div>
-      </div>
+      </SettingsPanel>
     </form>
   );
 }
@@ -249,8 +250,22 @@ function RecoveryCodes({ codes, onKept }: { codes: string[]; onKept: () => void 
   }
 
   return (
-    <div className="account-row account-second-factor">
-      <div className="account-row-text">
+    <SettingsPanel
+      foot={
+        <>
+          <button type="button" className="secondary" onClick={() => void copy()}>
+            Copy all
+          </button>
+          <button type="button" className="secondary" onClick={download}>
+            Download as text
+          </button>
+          <button type="button" className="primary" onClick={onKept}>
+            I have kept them
+          </button>
+        </>
+      }
+    >
+      <div className="settings-panel-pad account-second-factor">
         <p>
           Your second factor is on. Keep these recovery codes: each signs you in once if you lose your phone. They are
           shown only now.
@@ -262,19 +277,8 @@ function RecoveryCodes({ codes, onKept }: { codes: string[]; onKept: () => void 
             </li>
           ))}
         </ul>
-        <div className="account-actions">
-          <button type="button" className="secondary" onClick={() => void copy()}>
-            Copy all
-          </button>
-          <button type="button" className="secondary" onClick={download}>
-            Download as text
-          </button>
-          <button type="button" className="primary" onClick={onKept}>
-            I have kept them
-          </button>
-        </div>
       </div>
-    </div>
+    </SettingsPanel>
   );
 }
 
@@ -311,7 +315,7 @@ function CodeDialog({
   }
 
   return (
-    <Modal title={title} eyebrow="Second factor" size="compact" busy={pending} onClose={onClose}>
+    <Modal title={title} eyebrow="You" size="compact" busy={pending} onClose={onClose}>
       <form noValidate onSubmit={(event) => void submit(event)}>
         <p>{help}</p>
         <FormField label="Code from the app, or a recovery code" error={problem || undefined}>

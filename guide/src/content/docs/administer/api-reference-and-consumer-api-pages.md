@@ -4,7 +4,7 @@ description: Find the documentation and handover details for integrations withou
 reader: access-admin
 ---
 
-Use **Settings › Integration › API reference** to find the interactive reference for refiroo’s interfaces. Use **Consumer APIs** to inspect the read interfaces declared by the active model. These pages are read-only: neither changes a definition nor grants access.
+Use **Settings › Connections › API reference** to find the interactive reference for refiroo’s interfaces. Use **Consumer APIs** to inspect the read interfaces declared by the active model. These pages are read-only: neither changes a definition nor grants access.
 
 ## API reference
 

@@ -11,22 +11,22 @@ permission. See [Inbox and approvals](/docs/use/inbox-and-approvals/) for the po
 ## Submit your work
 
 1. [Prepare the change set](/docs/guide/use/prepare-and-publish-a-change-set/), then check its
-   workspace, name and version in the banner. Review the proposed records and relationships.
+   workspace in the sidebar and name in the band. Open **Details** for its version.
+   Review the proposed records and relationships.
 2. Choose **Submit for publication** where offered. The dialog explains that refiroo validates
    the change set and that it cannot be edited while it waits. Add a comment if the approver
    needs context, then choose **Submit**. **Cancel** leaves it unsubmitted.
 3. If validation fails, fix the reported problems and submit again. Success says
    **Submitted for publication. It waits for approval.** The approvers receive a notice.
-4. Check that the banner now says **Waiting for approval** and shows the submitted version,
-   your name and your comment. To change your proposal while it waits, choose **Withdraw request** first. The proposed work
+4. Check that the band now says **waits for approval**. Open **Details** for the submitted
+   version and your name; read your comment in the review’s **Decision** panel. To change your proposal while it waits, choose **Withdraw request** first. The proposed work
    stays in the change set and becomes editable. After correction, submit a new request.
 
-![Submitted change set showing Waiting for approval, version, comment and Withdraw request](/docs/screens/appr-submitted.png)
+![Submitted change set awaiting approval with review and withdrawal controls](/docs/screens/appr-submitted.png)
 
-*Above: Guide Admin's Guide approval example waits in Graubünden. Its submitted version is 2;
-the proposed height correction is still separate from Live.*
+*Above: Guide approval example waits for approval in Graubünden. The banner offers Review and decide and Withdraw request; its one proposed change is still separate from Live.*
 
-If **Publish change set** is offered instead, your permissions and the policy allow direct
+If **Publish** is offered instead, your permissions and the policy allow direct
 publication. Use the [publish steps](/docs/guide/use/prepare-and-publish-a-change-set/#publish).
 Do not change workspace policy merely to make a button appear; ask an administrator if the
 available actions do not match your responsibility.
@@ -44,8 +44,7 @@ available actions do not match your responsibility.
 
 ![Approver's Home with Waiting for your approval and a Review button](/docs/screens/appr-home-waiting.png)
 
-*Above: fictional approver Rita Approver has Data owner access in Graubünden. Guide Admin's
-request appears below her workspace card.*
+*Above: Fictional approver Rita Approver has Data owner access in Graubünden. Guide Admin’s request appears under Waiting for your approval, above her workspace card.*
 
 ![Review changes with a Decision panel above the proposed record change](/docs/screens/appr-decision-panel.png)
 
@@ -86,8 +85,9 @@ If the request was withdrawn or already decided, reload to see its new state.
 
 1. Open the returned change set from your notice or the change-set list. The notice says
    **Sent back** and names the request; its detail includes the reason and approver.
-2. Read the reason in the change-set banner. The request is no longer waiting and the change
-   set is editable again. Inspect and correct the affected records and relationships.
+2. Read the reason in the notice below the change-set band. The request is no longer waiting
+   and the change set is editable again. From **Changes in this change set**, choose **See the
+   data with these changes** to inspect and correct the affected records and relationships.
 3. Review the whole result, then choose **Submit for publication** again. In **Comment (optional)**,
    explain what you corrected or add the context the approver requested. Choose **Submit**.
    The change set is validated again and waits for a new decision. **Cancel** leaves it editable.

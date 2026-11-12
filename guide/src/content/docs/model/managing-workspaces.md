@@ -18,10 +18,10 @@ workspace list. It shows the model and release of each workspace and marks the d
 
 *Above: Graubünden and Default run different models. This capture only views the list.*
 
-Open a workspace row to inspect **Overview**, **Access**, **Approval** and **Activity**.
+Open a workspace row to inspect **Overview**, **Access**, **Approval** and **Activity**. **← Workspaces** on the first line returns to the list.
 **Open workspace** returns to its data; **Activity** shows [history across records](/docs/use/history/).
 The other actions require administrative permissions: **New workspace**, **Edit model**,
-**Copy or move data…**, **Rename…** and **Retire…** change the workspace or its configuration.
+**More actions › Copy or move data…** and **More actions › Retire…** change the workspace or its configuration.
 Opening the page does not perform them.
 
 ![A workspace detail with its actions and Overview, Access, Approval and Activity tabs](/docs/screens/use-workspaces-detail.png)
@@ -38,20 +38,23 @@ an administrator must make another workspace the default first.
    workspaces appear first, then retired ones.
 2. Choose **New workspace**. Complete its name and key. The key forms its address; choose it
    carefully. Use the default workspace's model, or choose another usable installed release.
-3. Confirm creation and check the new workspace's **Overview**, model and applications. It has
+3. Choose **Add workspace** and check the new workspace's **Overview**, model and applications. It has
    its own data; creation copies no records from the default workspace. Read any refusal before
    retrying. Cancel leaves the list unchanged.
-4. To change its displayed name later, choose **Rename…**, enter the new name and save.
+4. To change its displayed name later, select the name where it stands, enter the new name,
+   then leave the field or press Enter to save. Escape puts the old name back; an unchanged
+   input saves nothing. The save notice offers **Undo**. If refused, the input stays open
+   with the reason and **Cancel** and **Save again** beneath it.
    Renaming does not change its key or create a new dataset.
 
 ## Retire, reactivate, make default or delete
 
-- **Retire…** asks for confirmation. It removes the workspace from the active selector and
+- **More actions › Retire…** asks for confirmation. It removes the workspace from the active selector and
   refuses writes, keeping data, change sets, publications and history readable. Open it from
-  this list later. **Reactivate** makes it available for work again.
-- **Set as default** chooses the default destination. It neither copies data nor changes the
+  this list later. **More actions › Reactivate** makes it available for work again.
+- **More actions › Set as default** chooses the default destination. It neither copies data nor changes the
   models of other workspaces. Check the Default mark after the action.
-- **Delete…** is only for an empty, never-published workspace with no change sets or webhook
+- **More actions › Delete…** is only for an empty, never-published workspace with no change sets or webhook
   subscriptions. A workspace ever published can only be retired, even after its data is removed.
   The screen explains what prevents deletion. Confirm only after checking the name and key.
 
@@ -73,7 +76,7 @@ use **Apply to this workspace…** after editing. The confirmation lists model c
 compatibility, open change sets left behind and other workspaces left unchanged. If records must
 move, review the separate preview before confirming. Follow
 [Install and activate a release](/docs/guide/model/install-and-activate-a-release/).
-**Copy or move data…** starts [a copy or move](/docs/guide/model/move-records-to-another-model/).
+**More actions › Copy or move data…** starts [a copy or move](/docs/guide/model/move-records-to-another-model/).
 
 Workspace administration can also be switched off by the deployment. The page then stays read
 only and names the setting; ask the operator to enable it if administration is needed.
@@ -89,7 +92,7 @@ To choose an installed release, use [Change a workspace's model](/docs/guide/mod
 **Cannot be opened** on a workspace whose model language is unsupported needs the offered
 model-language repair or operator help; see [Model language versions](/docs/model/model-language-versions/). A missing application
 bookmark can instead mean **Not in this model**: open a collection declared by this workspace.
-**Rename…** changes the displayed name, with the permanent key retained. A stale save asks you
+Editing the displayed name keeps the permanent key. A stale save asks you
 to review newer state; it does not silently overwrite another administrator's edit.
 
 ## Permanent keys and changes made at the same time

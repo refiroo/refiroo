@@ -16,7 +16,7 @@ as needed. Turns can incur costs and the task and session files are retained. Re
    workspace's **⋯** menu and choose **Import…**. When the assistant is offered, **Load a
    workbook** opens first. To use a known manual import instead, choose **Import without the
    assistant…** and follow [Import a file](/docs/guide/use/import-a-file/).
-2. In **Workbook**, choose one XLSX or CSV file. To follow the illustrated example,
+2. In **Workbook**, choose one XLSX or CSV file, or drop it onto the field. To follow the illustrated example,
    <a download="Haltestellen_Busbetrieb_Nord.xlsx" href="/docs/downloads/Haltestellen_Busbetrieb_Nord.xlsx">download the example workbook</a>,
    a fictional operator’s stop list from the guide’s reference data.
    Check **Into** names the intended workspace.

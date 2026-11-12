@@ -3,11 +3,14 @@ import { outlineFixture } from "@/test/draftOutline";
 import type { DraftProfileDocument, ProfileSource, SourceBlock } from "@/types";
 import {
   adjustOperations,
+  canSetMissing,
   columnLetter,
   columnNumber,
   dropOperations,
   listStatus,
+  missingOf,
   rectangleOf,
+  setMissingOperation,
   sourceOfList,
 } from "@/features/model-editor/lists";
 
@@ -123,5 +126,26 @@ describe("lists of a sheet laid out for reading (0.10 A8b)", () => {
       ],
     };
     expect(dropOperations(related, profile(loaded), loaded)).toEqual([{ kind: "removeSource", source: "s" }]);
+  });
+});
+
+describe("what a load does with the records no row names (0.17 CE1, PP-D82)", () => {
+  const keyed = source("items", 1, "A", "B", 5);
+
+  it("reads report when the source says nothing, and delete when it says so", () => {
+    expect(missingOf(keyed)).toBe("report");
+    expect(missingOf({ ...keyed, missing: "report" })).toBe("report");
+    expect(missingOf({ ...keyed, missing: "delete" })).toBe("delete");
+  });
+
+  it("builds one setMissing for the source", () => {
+    expect(setMissingOperation(keyed, "delete")).toEqual({ kind: "setMissing", source: "items", missing: "delete" });
+    expect(setMissingOperation(keyed, "report")).toEqual({ kind: "setMissing", source: "items", missing: "report" });
+  });
+
+  it("is offered only where a key finds the missing records: a keyed source that loads its own", () => {
+    expect(canSetMissing(keyed)).toBe(true);
+    expect(canSetMissing({ ...keyed, key: null })).toBe(false);
+    expect(canSetMissing({ ...keyed, record: "existing" })).toBe(false);
   });
 });

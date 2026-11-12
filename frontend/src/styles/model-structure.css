@@ -179,7 +179,7 @@
 .structure-detail h4 {
   margin: 0 0 12px;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 600;
 }
 .structure-block-count {
@@ -202,7 +202,7 @@
   border-bottom: 1px solid var(--border-strong);
   background: var(--surface-fill);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -210,7 +210,7 @@
 }
 .structure-block .settings-table tbody th,
 .structure-block .settings-table td {
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 400;
 }
 .structure-key {

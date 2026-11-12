@@ -1,0 +1,17 @@
+/* The record area's own rules (0.17 UX1, PP-D40): tokens only, every theme, phone width. */
+
+/* A related panel's folded tools: the revealed controls sit in the toolbar's own flow. */
+.panel-tools,
+.panel-tools > div {
+  display: contents;
+}
+
+/* A card without padding (the record beside its list) has no room for the 6px the row's controls reach past
+   their cell: they stay inside it, so the card neither clips the remove button nor scrolls sideways. */
+.card-flush .attribute-row dd > .row-actions {
+  margin-inline-end: 0;
+}
+.card-flush .attribute-row dd > .attribute-edit {
+  max-width: calc(100% + 6px);
+  margin-inline-end: 0;
+}

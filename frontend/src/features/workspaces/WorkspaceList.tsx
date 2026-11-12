@@ -4,7 +4,10 @@ import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { UnavailableBadge, unavailability } from "@/features/workspaces/UnavailableWorkspace";
 import type { Workspace } from "@/types";
+import { settingsHead } from "@/features/settings/navigation";
 import { EntityList, type EntityGroup } from "@/ui/EntityList";
+import { SearchField } from "@/ui/SearchField";
+import { SettingsPanel, SettingsTile, SettingsTools } from "@/ui/SettingsParts";
 import { StatusPill } from "@/ui/StatusPill";
 
 const PAGE_SIZE = 100;
@@ -55,6 +58,7 @@ export function WorkspaceList({ defaultKey, onOpen }: { defaultKey?: string; onO
     return [active.items[at], ...active.items.slice(0, at), ...active.items.slice(at + 1)];
   }, [active.items, defaultKey]);
 
+  const hue = settingsHead("workspaces").hue;
   const group = (key: string, title: string, feed: CursorFeed<Workspace>, items: Workspace[]): EntityGroup => ({
     key,
     title,
@@ -73,7 +77,7 @@ export function WorkspaceList({ defaultKey, onOpen }: { defaultKey?: string; onO
         { label: "Model", value: workspace.model.releaseName },
         { label: "Release", value: workspace.model.releaseVersion, mono: true },
       ],
-      icon: "workspace" as const,
+      lead: <SettingsTile icon="workspace" hue={hue} />,
       pill: (
         <>
           {workspace.key === defaultKey ? (
@@ -88,13 +92,31 @@ export function WorkspaceList({ defaultKey, onOpen }: { defaultKey?: string; onO
     })),
   });
 
+  const shown = activeItems.length + retired.items.length;
+  const more = active.hasMore || retired.hasMore;
+  const settled = !(active.loading && !activeItems.length) && !(retired.loading && !retired.items.length);
+
   return (
-    <EntityList
-      label="workspaces"
-      search={text}
-      onSearch={setText}
-      groups={[group("active", "Active", active, activeItems), group("retired", "Retired", retired, retired.items)]}
-      empty={search ? `No workspace matches “${search}”` : "There are no workspaces."}
-    />
+    <>
+      <SettingsTools
+        count={settled ? `${shown}${more ? "+" : ""} ${shown === 1 ? "workspace" : "workspaces"}` : undefined}
+      >
+        <SearchField
+          type="search"
+          label="Search workspaces"
+          placeholder="Name or key"
+          value={text}
+          onChange={setText}
+          clearOnEscape
+        />
+      </SettingsTools>
+      <SettingsPanel>
+        <EntityList
+          label="workspaces"
+          groups={[group("active", "Active", active, activeItems), group("retired", "Retired", retired, retired.items)]}
+          empty={search ? `No workspace matches “${search}”` : "There are no workspaces."}
+        />
+      </SettingsPanel>
+    </>
   );
 }

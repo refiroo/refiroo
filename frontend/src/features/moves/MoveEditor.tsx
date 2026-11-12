@@ -30,7 +30,7 @@ import type {
 } from "@/types";
 import { canRedo, historySteps, undoable } from "@/features/model-editor/history";
 import { useCapabilities } from "@/features/settings/useSystem";
-import { Breadcrumbs } from "@/ui/Breadcrumbs";
+import { Trail } from "@/ui/Trail";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { ProposalNote } from "@/ui/ProposalNote";
@@ -341,7 +341,7 @@ export function MoveEditor({
 
   const header = (
     <header className="move-head">
-      <Breadcrumbs
+      <Trail
         items={[
           {
             key: "moves",

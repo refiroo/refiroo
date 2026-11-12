@@ -18,6 +18,8 @@ from typing import Protocol
 from . import html as mailhtml
 
 TIMEOUT_SECONDS = 15.0
+# The Content-ID of the template's uploaded logo (``mail_template.LOGO_CID``).
+LOGO_CID = "mail-template-logo"
 
 TLS = "tls"
 STARTTLS = "starttls"
@@ -74,11 +76,17 @@ class MailError(Exception):
 
 
 def build(
-    connection: Sender, to_address: str, subject: str, body: str, html: str | None = None
+    connection: Sender,
+    to_address: str,
+    subject: str,
+    body: str,
+    html: str | None = None,
+    logo: tuple[bytes, str] | None = None,
 ) -> EmailMessage:
     """A message from the configured address: the plain text and, when there is HTML, the HTML
     after it with the brand images as inline ``cid:`` parts (multipart/alternative, the HTML part
-    multipart/related). Clients that show text only get the text."""
+    multipart/related). Clients that show text only get the text. ``logo`` (bytes, media type) is
+    the operator's template logo, attached inline when the HTML refers to it."""
     message = EmailMessage()
     message["From"] = connection.from_address
     message["To"] = to_address
@@ -95,6 +103,12 @@ def build(
             data = (mailhtml.BRAND_DIR / filename).read_bytes()
             part.add_related(
                 data, "image", "png", cid=f"<{cid}>", filename=filename, disposition="inline"
+            )
+        if logo is not None and f"cid:{LOGO_CID}" in html:
+            data, media_type = logo
+            maintype, _, subtype = media_type.partition("/")
+            part.add_related(
+                data, maintype, subtype, cid=f"<{LOGO_CID}>", filename="logo", disposition="inline"
             )
     return message
 

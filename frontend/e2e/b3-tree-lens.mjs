@@ -156,7 +156,7 @@ try {
 
   // ---- 1. System hierarchy, live, 1440px ----
   await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default`);
-  await page.getByRole("tree", { name: "System hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens").getByRole("treeitem", { name: /^System 00/ }).waitFor();
@@ -212,7 +212,7 @@ try {
   const changeSet = await api("/workspaces/default/change-sets", { name: "B3 staged", source: "currentLive" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
-  await page.getByRole("tree", { name: "Domain hierarchy" }).waitFor();
+  await page.locator(".tree-lens").getByRole("tree").first().waitFor();
   // UA9 (U-D21): the lens starts folded; open its groups as a user would.
   await openFoldedGroups(page, page.locator(".tree-lens"));
   await page.locator(".tree-lens").getByRole("treeitem", { name: /^Domain 00/ }).waitFor();
@@ -313,7 +313,7 @@ try {
     const listen = (request) => request.url().includes("/api/v1/objects/") && reads.push(request.url());
     page.on("request", listen);
     await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?workspaceKey=vol-workspace${suffix}`);
-    await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    await page.locator(".tree-lens").getByRole("tree").first().waitFor();
     // UA9 (U-D21): the lens starts folded; open its groups as a user would.
     await openFoldedGroups(page, page.locator(".tree-lens"));
     await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
@@ -405,7 +405,7 @@ try {
     const edges = async () =>
       (await api(`/relations?objectId=${nested.id}&direction=incoming&relationTypeKey=vol-group-has-child&workspaceKey=vol-workspace${suffix}`)).items;
     await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?workspaceKey=vol-workspace${suffix}`);
-    await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    await page.locator(".tree-lens").getByRole("tree").first().waitFor();
     // UA9 (U-D21): the lens starts folded; open its groups as a user would.
     await openFoldedGroups(page, page.locator(".tree-lens"));
     await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
@@ -462,7 +462,7 @@ try {
         await page.keyboard.press("Tab");
       await page.keyboard.press("Space");
       expect(await top.isChecked(), "B5b live: the keyboard did not choose Top level");
-      const confirm = dialog.getByRole("button", { name: "Move to the top level" });
+      const confirm = dialog.getByRole("button", { name: /^Move( to .+)?$/ });
       for (let step = 0; step < 6 && !(await confirm.evaluate((button) => button === document.activeElement)); step++)
         await page.keyboard.press("Tab");
       await h.axe("b3-move-top-level-dialog");

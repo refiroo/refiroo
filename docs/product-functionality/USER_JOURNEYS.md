@@ -46,7 +46,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
-| Model authoring | J33 design a model in the editor, J34 onboard a workbook, J35 load the next version of a workbook |
+| Model authoring | J33 design a model in the editor, J34 onboard a workbook, J35 load the next version of a workbook, J58 shape a workbook on the canvas |
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
@@ -239,6 +239,9 @@ is immediate; a change set's does not touch live data until publishing. Publicat
 - **J04.5 Something changed after the preview** (a value, a parent, a new descendant or
   relationship): the confirmation is refused and nothing is deleted.
 - **J04.6 A dependant whose required relationship would be removed alone** is refused.
+- **J04.7 Reading the impact first**: what deleting a record would take with it (records,
+  relationships, a token that confirms it), live or in a change set, for a record with or without
+  dependants; nothing is deleted, and a caller who may not delete it is refused as the delete is.
 
 **Refusals:** `409 DELETION_PREVIEW_REQUIRED`, `409 DELETION_PREVIEW_CHANGED`,
 `409 OBJECT_HAS_DEPENDANTS`, `409 VERSION_CONFLICT`, `422 REQUIRED_RELATION`.
@@ -1182,6 +1185,15 @@ lookup (J36.7) has no screen; migrating a workspace's data is J37.
   installed the version the base's next one would be, the outline's `suggestedReleaseVersion` proposes a
   free one; installing at a taken version anyway is `409 RELEASE_IDENTITY_CONFLICT` with `freeVersion`,
   and the dialog's **Use <version>** sets it and goes on. Apply is never left without a step forward.
+- **J36.13 A new workspace from a workbook, in one step** (0.17 PL4, PP-D1): an administrator who holds
+  Workspace administration, Install a model (or Model release) and Bulk and import at the instance hands
+  over the draft a workbook made and a name; `POST /workspaces/from-workbook` installs the draft as a
+  release (a taken release version is raised to a free one, a profile key another model holds is replaced
+  by a free one: neither refuses), creates the workspace on it and queues the workbook as an import into
+  the workspace's live data (`independent`: a refused row is reported, the rest load). It answers `202`
+  with the workspace, the release and the job. A draft that does not compile is `422 INVALID_MODEL` with
+  its diagnostics; a profile that does not hold `422 INVALID_IMPORT_PROFILE` with its problems; a draft
+  without a workbook `422 DRAFT_HAS_NO_WORKBOOK`; a caller lacking a group `403 FORBIDDEN` naming it.
 
 **Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
 `409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
@@ -2578,6 +2590,18 @@ password by I6 and inbox notices by M2 (2026-10-27).
   sentence that says what to change in Microsoft Entra; Graph out of reach or throttled waits, at least
   as long as Graph asked; a mailbox that does not exist waits and is tried again (`sender`), as with SMTP. A message Graph
   accepted shows as sent; bounces go to the sending mailbox and are not read.
+- **J46.12 The e-mail template** (Settings › E-mail template): an Operator edits one template for the
+  instance: Markdown with placeholders (`{{content}}` exactly once, `{{product_name}}`,
+  `{{instance_url}}`, `{{recipient_name}}`, `{{logo}}`) and a logo (PNG, JPEG or SVG without script, at
+  most 512 KB; the refiroo mark until one is uploaded). Every mail the engine sends (invitations, password
+  resets, notices, digests, the mail test) is that template around the message's own heading, text and
+  button, with a plain-text alternative, and the logo sent inline. Until a template is saved the engine's
+  own layout is used; Reset to default deletes the saved one. An unknown placeholder, a template without
+  `{{content}}` (or with it twice), an unsupported or oversized logo and an SVG with script are refused by
+  code. A preview renders a draft with sample values without saving; "Send a test to me" mails the saved
+  template to the caller's own address. The raw HTML in the Markdown is shown as text, images in it are
+  not drawn and links other than http, https and mailto are not links. Only the Operator role (Operations
+  at the instance) may use it.
 
 **Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `422 UNKNOWN_NOTICE_KIND`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_CREDENTIAL_REQUIRED`, `422 MAIL_CERTIFICATE_INVALID`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
@@ -3112,6 +3136,38 @@ workspace card on Home), API (`GET`/`PUT /me/notification-mail`, `GET /me/follow
 
 **Refusals:** `422 UNKNOWN_TIME_ZONE`, `422 UNKNOWN_NOTICE_KIND`, `422 DIGEST_NOT_SET`, `403 NOT_A_PERSON`, `404 NOT_FOUND`
 (a workspace one cannot browse; a notice that is not the caller's).
+
+### J58 — Shape a workbook into a model on the canvas
+
+**Actor:** a model author with a workbook on a draft. **Channel:** UI (the workbook canvas, 0.17 PL3b), API (`POST
+/model-drafts/{id}/operations` with the reading kinds, `POST /model-drafts/{id}/join-candidates`, `GET`/`PATCH
+/model-drafts/{id}/canvas`). **Status:** the engine and API delivered by 0.17 PL3b (2026-11-12); the canvas UI is its
+other half.
+
+The canvas is a view of the draft, and each drop is one operations request, so one undo step. Nothing here is the canvas's
+own: an integrator shapes a workbook with the same requests.
+
+- **J58.1 A flat sheet becomes a hierarchy**: a sheet dropped on empty space makes a list; a parent and its child (the
+  containment and the parent column) are one request; a column dropped on a list's filter box adds its attribute and the
+  filter in one request; a column mapped to nothing dropped on empty space becomes a list linked back, in one request; the
+  whole-set join route finds the column a relationship joins, then the relationship is one request; a group is one
+  request. The dry run counts every row and the load creates the groups as the products' parents, the relationships and the
+  list.
+- **J58.2 A wide sheet becomes rows**: `setUnpivot` reads a sheet's language columns as one row per filled cell, bound by
+  the two columns it adds; the dry run counts them; the profile saved with the model loads the next file the same way; a
+  name the table already has, a column listed twice and a column the file lacks are refused by code, and the step undoes.
+- **J58.3 Grouped rows**: `setHeadingRows` reads a row holding only a heading as the parent of the rows beneath it and
+  `setFillDown` fills a column repeated by blanks; both repeat from the saved profile.
+- **J58.4 A join asked, not guessed**: the join route compares over every row (a match beyond the first thousand
+  distinct values counts); two columns that match exactly as much are a `tie` with no `best`, and naming one column
+  answers it.
+- **J58.5 Positions**: card positions are read and merged by key, are not part of the draft's version, history or undo,
+  and survive an undo of the model steps.
+- **J58.6 Without the groups**: a caller without Model authoring is refused by code on every route and operation above.
+
+**Refusals:** `403 FORBIDDEN`, `422 INVALID_OPERATION` with the step (`unknownElement`, `invalidValue`, `keyTaken`),
+`404 SOURCE_FILE_NOT_FOUND`, `409 SOURCE_FILE_PROFILE_NOT_READY`, `404 SOURCE_SHEET_NOT_FOUND`, `422 COLUMN_NOT_FOUND`,
+`422 INVALID_CANVAS`, `422 IMPORT_FILE_MISMATCH` (`COLUMN_CLASH`).
 
 ## Guardrails kept from 0.7
 

@@ -13,7 +13,9 @@ import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
 import { HueTile } from "@/ui/HueTile";
 import { objectTypeHue } from "@/model/hues";
+import { pageTitle } from "@/model/collections";
 import { PageHeader } from "@/ui/PageHeader";
+import { ShelfToggle } from "@/features/workspaces/ShelfToggle";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { SortMenu, useTableSort } from "@/ui/TableSort";
@@ -242,7 +244,7 @@ export function ObjectCollectionView({
     columns: { shown: display.columns, hidden: columns.filter((column) => !display.columns.includes(column)) },
     size: { rows: loading ? undefined : knownTotal, columns: display.columns.length },
   });
-  if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
+  if (!objectType) return <div className="empty-state">This configured view does not select a record type.</div>;
   const hue = objectTypeHue(model, objectType.key);
   const narrowed = query.search !== "" || query.filters.length > 0;
   // Records are added where the person may write this type (Z5, D329), or proposed (D324).
@@ -272,9 +274,19 @@ export function ObjectCollectionView({
       <PageHeader
         focusTitle
         icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
-        title={view.name}
+        title={pageTitle(model, application, view)}
         description={objectType.description ?? application.description}
-        actions={add}
+        actions={
+          <>
+            <ShelfToggle
+              workspaceKey={workspaceKey}
+              applicationKey={application.key}
+              viewKey={view.key}
+              name={pageTitle(model, application, view)}
+            />
+            {add}
+          </>
+        }
       />
       <ScopeBanner
         model={model}
@@ -369,7 +381,8 @@ export function ObjectCollectionView({
             pageSize={query.pageSize}
             seekLabel={query.sort ? attributeName(model, query.sort.replace(/^-/, "")).toLowerCase() : undefined}
             onAnchorChange={onAnchorChange}
-            onOpen={onOpen}
+            // A row opens beside its list first (0.17 UX1, PP-D41); the record's own Expand goes to the full page.
+            onOpen={(item) => onOpen(item, undefined, { beside: true })}
             selectedId={selectedId}
             selection={
               bulkSelection && {
@@ -447,6 +460,7 @@ export function ObjectCollectionView({
           workspaceKey={workspaceKey}
           objectType={objectType}
           parentObjectId={query.parentObjectId}
+          collectionName={pageTitle(model, application, view)}
           onClose={() => setCreating(false)}
           onSaved={(item) => {
             setCreating(false);

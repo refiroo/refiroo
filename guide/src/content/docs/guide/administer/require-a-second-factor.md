@@ -28,7 +28,7 @@ before relying on the policy to require a second step for everyone.
 
 ## Turn the requirement on
 
-1. Open **Settings › Security › Sign-in** and select **Local accounts**.
+1. Open **Settings › People and access › Sign-in** and select **Local accounts**.
    Under **Second factor**, find **Require a second factor with a password**.
 2. Tick it. The **Require a second factor?** confirmation explains that people without a
    factor must set up an app on the sign-in page before a session starts. The administrator-managed
@@ -58,5 +58,5 @@ with an authenticator app continues to use it until that factor is removed.
 People cannot remove their own required factor while the requirement is on.
 
 Changing this policy does not end existing sessions. To require a particular person to
-sign in again, open their People page and use **Sign out everywhere**, then check their
+sign in again, open their People page and use **More actions › Sign out everywhere**, then check their
 next password sign-in. Do not treat an already open session as a test of the new policy.

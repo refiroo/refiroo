@@ -6,8 +6,9 @@ import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
 import { holdsOne, holdsOneHere, isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
 import type { RelationChoice } from "@/model/lookup";
-import { DeleteRelationDialog } from "@/features/objects/DeleteRelationDialog";
+import { useRemovals } from "@/features/objects/useRemovals";
 import { RelationFormDialog } from "./RelationFormDialog";
+import { PanelTools, panelFolds } from "./PanelTools";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { FieldValue } from "@/ui/FieldValue";
 import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
@@ -110,7 +111,7 @@ export function RelationsPanel({
   const [editing, setEditing] = useState<RelationItem>();
   const [changing, setChanging] = useState<RelationItem>();
   const [setting, setSetting] = useState(false);
-  const [removing, setRemoving] = useState<RelationItem>();
+  const { removeRelationship } = useRemovals();
   const choices = useMemo(
     () =>
       relationChoices(model, object.objectTypeKey, panel).filter(
@@ -242,8 +243,7 @@ export function RelationsPanel({
     reload();
     setHeldToken((token) => token + 1);
   }
-  // Loading failures belong to the panel; delete failures stay in their confirmation dialog so
-  // cancelling that action cannot leave the collection in a persistent feed-error state.
+  // Loading failures belong to the panel; a failed removal is told in a toast.
   const error = feedError;
   const linkColumn = display.identity;
   const columns: DataColumn<RelationItem>[] = [
@@ -332,11 +332,11 @@ export function RelationsPanel({
         ) : !fixed ? (
           <IconButton
             icon="trash"
-            label={`Delete ${kind}`}
-            tooltip="Delete relationship"
+            label={`Remove ${kind}`}
+            tooltip="Remove relationship"
             tone="danger"
             quiet
-            onClick={() => setRemoving(item)}
+            onClick={() => void removeRelationship(item, kind, changed)}
           />
         ) : null}
       </div>
@@ -393,24 +393,32 @@ export function RelationsPanel({
         )}
       </h2>
       <div className="embedded-toolbar relation-toolbar">
-        <SearchField
-          className="compact"
-          label={`Search ${panel.title.toLowerCase()}`}
-          value={searchInput}
-          onChange={setSearchInput}
-          placeholder="Search related records"
+        <PanelTools
+          folded={panelFolds(list, searchInput.trim() !== "")}
+          sortable={sorting.fields.length > 0}
+          search={
+            <SearchField
+              className="compact"
+              label={`Search ${panel.title.toLowerCase()}`}
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder="Search related records"
+            />
+          }
+          display={
+            <TableDisplay
+              model={model}
+              columns={panel.config.columns}
+              extraColumns={{ legend: RELATION_ATTRIBUTES_LABEL, columns: attributeColumns }}
+              columnLabel={(column) => attributeName(model, relationAttributeOfColumn(column) ?? column)}
+              display={display}
+              pageSize={pageSize}
+              defaultPageSize={PAGE_SIZE}
+              onPageSize={setPageSize}
+            />
+          }
+          sort={<SortMenu sorting={sorting} />}
         />
-        <TableDisplay
-          model={model}
-          columns={panel.config.columns}
-          extraColumns={{ legend: RELATION_ATTRIBUTES_LABEL, columns: attributeColumns }}
-          columnLabel={(column) => attributeName(model, relationAttributeOfColumn(column) ?? column)}
-          display={display}
-          pageSize={pageSize}
-          defaultPageSize={PAGE_SIZE}
-          onPageSize={setPageSize}
-        />
-        <SortMenu sorting={sorting} />
         {!readOnly &&
           dependentCreates
             .filter((creation) => writes.permits(creation.applicationKey, creation.objectTypeKey))
@@ -449,6 +457,7 @@ export function RelationsPanel({
           sorting={sorting}
           columnWidths={display.widths}
           onColumnWidths={display.setWidths}
+          foldColumns
           label={panel.title}
           noun={["relationship", "relationships"]}
           pageSize={pageSize}
@@ -518,17 +527,6 @@ export function RelationsPanel({
           onClose={() => setEditing(undefined)}
           onSaved={() => {
             setEditing(undefined);
-            changed();
-          }}
-        />
-      )}
-      {removing && (
-        <DeleteRelationDialog
-          relation={removing}
-          workspaceKey={object.workspaceKey}
-          onCancel={() => setRemoving(undefined)}
-          onDeleted={() => {
-            setRemoving(undefined);
             changed();
           }}
         />

@@ -88,13 +88,14 @@ async function partA(c) {
 
   // 2. From the made person's page, by keyboard: link to the existing person.
   await page.goto(`${uiUrl}/settings/people/${made.id}`);
-  await page.getByRole("heading", { level: 2, name: pat.name }).waitFor();
+  await page.getByRole("heading", { level: 1, name: pat.name }).waitFor();
   await page.getByRole("heading", { level: 2, name: "Sign-in", exact: true }).waitFor();
   await page.getByRole("button", { name: "Unlink…" }).waitFor();
   await shot(page, "person-made");
   await axe(page, `${tag}-person-made`);
-  await page.getByRole("button", { name: "Link to an existing person…" }).focus();
-  await page.keyboard.press("Enter");
+  // Link to an existing person is in the page's ⋯ menu.
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Link to an existing person…" }).click();
   const dialog = page.getByRole("dialog", { name: "Link this sign-in to an existing person" });
   await dialog.getByRole("combobox", { name: "Person" }).fill(`Ann ${tag}`);
   await page.getByRole("option", { name: new RegExp(`Ann ${tag}`) }).click();
@@ -103,7 +104,7 @@ async function partA(c) {
   await axe(page, `${tag}-link-dialog`);
   await dialog.getByRole("button", { name: `Link to Ann ${tag}` }).click();
   await dialog.waitFor({ state: "detached" });
-  await page.getByRole("heading", { level: 2, name: `Ann ${tag}` }).waitFor();
+  await page.getByRole("heading", { level: 1, name: `Ann ${tag}` }).waitFor();
   await page.getByRole("button", { name: "Unlink…" }).waitFor();
   await shot(page, "person-linked");
   await axe(page, `${tag}-person-linked`);
@@ -143,7 +144,7 @@ async function partA(c) {
   // 5. Signing out of the provider too: saved on the provider's page, then used.
   await page.goto(`${uiUrl}/settings/sign-in/harness-id`);
   await page.getByRole("heading", { level: 2, name: "Signing out" }).waitFor();
-  const tick = page.getByRole("checkbox", { name: /Sign people out of Harness ID too/ });
+  const tick = page.getByRole("switch", { name: /Sign people out of Harness ID too/ });
   await tick.focus();
   await page.keyboard.press("Space");
   await page.getByText(`${c.engineUrl}/oauth/providers/harness-id/signed-out`).waitFor();
@@ -185,7 +186,7 @@ async function partA(c) {
   await keeps.focus();
   await page.keyboard.press("Enter");
   const stop = page.getByRole("alertdialog", { name: /stops keeping local sign-in\?/ });
-  await stop.getByRole("button", { name: "Stop keeping it" }).click();
+  await stop.getByRole("button", { name: "Stop keeping local sign-in" }).click();
   await stop.getByText(/this is the last person who keeps it/).waitFor();
   await shot(page, "last-kept");
   await axe(page, `${tag}-last-kept`);
@@ -199,7 +200,7 @@ async function partA(c) {
   const night = await dark.newPage();
   night.setDefaultTimeout(15000);
   await night.goto(`${uiUrl}/settings/people/${ann.id}`);
-  await night.getByRole("heading", { level: 2, name: pat.name }).waitFor();
+  await night.getByRole("heading", { level: 1, name: pat.name }).waitFor();
   await shot(night, "person-dark");
   await axe(night, `${tag}-person-dark`);
   await dark.close();
@@ -211,7 +212,7 @@ async function partA(c) {
     ["/settings/sign-in/harness-id", "Harness ID", "provider-narrow"],
   ]) {
     await phone.goto(`${uiUrl}${path}`);
-    await phone.getByRole("heading", { level: 2, name: heading }).waitFor();
+    await phone.getByRole("heading", { level: 1, name: heading }).waitFor();
     expect((await overflow(phone)) <= 0, `${tag}: ${name} scrolls sideways at 390px`);
     await shot(phone, name);
   }
@@ -329,8 +330,8 @@ async function partB(c) {
   // 4. The requirement, turned on by an administrator; a person without an app sets one up on the
   // sign-in page and meets the recovery codes before the session starts.
   await page.goto(`${uiUrl}/settings/sign-in/local`);
-  await page.getByRole("heading", { level: 2, name: "Local accounts" }).waitFor();
-  await page.getByRole("checkbox", { name: /Require a second factor with a password/ }).focus();
+  await page.getByRole("heading", { level: 1, name: "Local accounts" }).waitFor();
+  await page.getByRole("switch", { name: /Require a second factor with a password/ }).focus();
   await page.keyboard.press("Space");
   const ask = page.getByRole("alertdialog", { name: "Require a second factor?" });
   await shot(page, "require-confirmation");
@@ -372,7 +373,7 @@ async function partB(c) {
 
   // 5. An administrator removes Noa's second factor from her page.
   await page.goto(`${uiUrl}/settings/people/${noa.id}`);
-  await page.getByRole("heading", { level: 2, name: `Noa ${tag}` }).waitFor();
+  await page.getByRole("heading", { level: 1, name: `Noa ${tag}` }).waitFor();
   await page.getByText("Second factor: authenticator app").waitFor();
   await shot(page, "person-factor");
   await axe(page, `${tag}-person-factor`);
@@ -458,7 +459,7 @@ async function partC(c) {
   await axe(account, `${tag}-passkey-add-page`);
   await account.getByRole("button", { name: "Create passkey" }).click();
   await account.waitForURL(`${uiUrl}/settings/account`);
-  await account.getByRole("list", { name: "Your passkeys" }).getByText("Test laptop").waitFor();
+  await account.getByRole("list", { name: "Your passkeys" }).locator("strong", { hasText: "Test laptop" }).waitFor();
   await account.getByText(/not used yet/).waitFor();
   await shot(account, "passkeys-one");
   await axe(account, `${tag}-passkeys-one`);
@@ -497,14 +498,14 @@ async function partC(c) {
   checks.push(`${tag}: after the password, the passkey is the second step`);
 
   // 4. Rename on Account, then an administrator removes it from the person's page.
-  await account.getByRole("button", { name: "Rename Test laptop" }).click();
-  const rename = account.getByRole("dialog", { name: "Rename Test laptop" });
-  await rename.getByLabel("Name").fill("Work laptop");
-  await rename.getByRole("button", { name: "Save" }).click();
-  await account.getByRole("list", { name: "Your passkeys" }).getByText("Work laptop").waitFor();
+  await account.getByRole("button", { name: /Edit Name of Test laptop/ }).click();
+  const rename = account.getByRole("form", { name: "Edit Name of Test laptop" });
+  await rename.getByLabel("Name of Test laptop").fill("Work laptop");
+  await rename.getByLabel("Name of Test laptop").press("Enter");
+  await account.getByRole("list", { name: "Your passkeys" }).locator("strong", { hasText: "Work laptop" }).waitFor();
   await context.close();
   await page.goto(`${uiUrl}/settings/people/${pia.id}`);
-  await page.getByRole("heading", { level: 2, name: `Pia ${tag}` }).waitFor();
+  await page.getByRole("heading", { level: 1, name: `Pia ${tag}` }).waitFor();
   await page.getByText("Passkey: Work laptop").waitFor();
   await shot(page, "person-passkey");
   await axe(page, `${tag}-person-passkey`);

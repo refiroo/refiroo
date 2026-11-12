@@ -66,6 +66,10 @@ and is not repeated here.
 **Order (recommended).** PL0, PL1, PL2, then WM1 as planned, PL3, PL3b, PL4, PL5, PL6. PL1 and PL2 are the
 cheapest fixes on the most frequent paths; PL3 adds WM1's action to its page and gives PL4 its place; PL3b is where PL4's Adjust leads.
 
+**SH1 (added 2026-11-12)** delivers the frame parts of these packages first: PL3 except its Import a workbook…
+action and Home's administrator primary, PL1's band, PL2's record header and PL5's Settings index and Back to the
+workspace ([0.17 plan, SH1](BASE_0_17_IMPLEMENTATION_PLAN.md#sh1-one-frame-one-location-line)).
+
 **Decided by the user 2026-11-03 (PP-D1):** a workbook's new workspace loads straight into live data. A
 workbook loaded into an existing workspace keeps going into a change set.
 
@@ -157,6 +161,15 @@ refused rows are reported and the rest load; other workspaces unchanged; a calle
 refused by code. Browser: the real sample workbook end to end, including an invalid draft's dialogs;
 keyboard; 390px; no 5xx.
 
+**State (delivered 2026-11-12, PP-D44 to PP-D47).** The route is `POST /api/v1/workspaces/from-workbook`. The side sheet
+"New workspace from a workbook" is on Home (the administrator's action by the workspaces heading), in Settings ›
+Workspaces and on a workspace's page. Step 1 takes the file and a name; the sheet then reads the workbook, proposes its
+lists and dry runs every row, and "What refiroo found" shows each list with its rows, what loads and what does not and
+why. Create workspace lands on the new workspace's page with the load's progress and what did not load. Adjust opens
+today's model editor on the draft, because the workbook canvas (PL3b) is not built; **Load into an existing
+workspace…** stays where it is, since PL3b is where it was to move. More ways to start leads to Settings ›
+Workspaces' New workspace. Not tried in a browser; its browser runner is not written.
+
 ## PL5: Plain words and identifiers
 
 **Scope.** One list of replacements kept in this section when the package starts (for example "declared
@@ -165,6 +178,16 @@ applied in the UI copy; application keys out of picker paths; workspace keys in 
 Settings opens on a short index of its pages by task; inside Settings the top bar offers Back to the
 workspace instead of its tabs. **Tests:** copy assertions updated where they change; changed surfaces'
 screenshots inspected; visual baselines updated only for those surfaces.
+
+**The list (kept here as the package asks; applied 2026-11-12).** "Current object" → "Current record"; "No
+matching objects" → "No matching records"; "Select object" → "Select record"; "Objects" (a table's default
+label) → "Records"; "Null" → "Cleared"; "Set null" → "No value"; "Root object" → "Top level"; "This object
+belongs to…", "Loading object…", "Object unavailable" → "record"; "references an object type that does not exist
+in the active model" → "shows a record type that does not exist in the current model"; "Create in context" → the
+collection's name; "Connect an object", "Create relationship", "(outgoing)" → "Add ‹type›" and a sentence;
+"authored changes", "merged graph", "Current live data at change set creation", "Empty bootstrap" → plain
+sentences (PL1); a picker's `application key / path` → the path. A draft's "Version 99" was not found on the
+common pages.
 
 ## PL6: Collection import and export, and Your changes
 

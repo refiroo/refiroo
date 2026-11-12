@@ -17,7 +17,7 @@ Take a file of the data you need. Read
 3. To take a wider selection, choose **The type**, **The application** or **The whole workspace**.
    These choices select whole types rather than the current view's narrowed rows. Check
    **Record types** and **Where** where offered. You can also start an export from
-   **Settings › Data operations › Jobs**.
+   **Settings › This instance › Jobs**.
 4. Choose **Kind of file**. **For editing in a spreadsheet** makes an Excel (XLSX) workbook
    shaped for the chosen view or types. **Technical** is offered for a table view, a type,
    an application or the workspace; it offers **Excel (XLSX)**, **CSV** or **JSON Lines**

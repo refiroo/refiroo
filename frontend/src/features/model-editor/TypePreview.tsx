@@ -13,6 +13,7 @@
 
 import { useWorkspaceModel } from "@/model/workspaceModels";
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { createPreviewClient, emptyRecord, PREVIEW_EMPTY_ID } from "@/api/previewClient";
@@ -100,6 +101,8 @@ export function TypePreview({
   onDialog,
   onShowIssues,
   actions,
+  compact = false,
+  bandIn,
 }: {
   /** The preview, read only, or the layout editor, where the page and table are laid out in place. */
   mode: EditorMode;
@@ -119,6 +122,10 @@ export function TypePreview({
   onShowIssues: () => void;
   /** The band's actions: where to go next, and in the layout editor undo and redo. */
   actions: ReactNode;
+  /** One line: the type, the mode, the record, the actions; no application or workspace choice (the canvas). */
+  compact?: boolean;
+  /** Where the page wants the band drawn, in place of its own bar; inside the preview without it. */
+  bandIn?: HTMLElement | null;
 }) {
   const editing = mode === "layout";
   const [read, setRead] = useState<ModelDraftModel>();
@@ -222,9 +229,12 @@ export function TypePreview({
     : otherModel
       ? "The draft's layout over an empty record: this workspace runs another model, so none of its records is read."
       : "The draft's layout over records read live. Its controls are shown and disabled: the preview writes nothing.";
+  const band = (choices?: ReactNode) => (
+    <ModeBand mode={mode} name={typeName} note={note} choices={choices} actions={actions} compact={compact} />
+  );
   const frame = (children: ReactNode, choices?: ReactNode) => (
     <section className={`type-preview type-preview-${mode}`} aria-label={editing ? "Layout editor" : "Preview"}>
-      <ModeBand mode={mode} name={typeName} note={note} choices={choices} actions={actions} />
+      {bandIn ? createPortal(band(choices), bandIn) : band(choices)}
       <div className="type-preview-body">{children}</div>
     </section>
   );
@@ -262,7 +272,7 @@ export function TypePreview({
   const holding = applicationsHolding(model.applications, objectTypeKey);
   const choices = (
     <div role="group" className="band-context band-compact editor-mode-choices" aria-label="What the page shows">
-      {holding.length > 1 && (
+      {!compact && holding.length > 1 && (
         <>
           <ControlPopover
             label={`Application: ${application.name}`}
@@ -300,31 +310,35 @@ export function TypePreview({
           </span>
         </>
       )}
-      <ControlPopover
-        label={`Workspace: ${workspaceLabel}`}
-        trigger={
-          <>
-            <span className="band-choice-text">{workspaceLabel}</span>
-            {chevron}
-          </>
-        }
-        triggerClassName="band-choice"
-        placement="bottom start"
-        className="band-popover"
-      >
-        {(close) => (
-          <WorkspaceSelector
-            workspaceKey={workspaceKey}
-            onChange={(key) => {
-              close();
-              setWorkspaceKey(key);
-            }}
-          />
-        )}
-      </ControlPopover>
-      <span aria-hidden="true" className="band-separator">
-        /
-      </span>
+      {!compact && (
+        <>
+          <ControlPopover
+            label={`Workspace: ${workspaceLabel}`}
+            trigger={
+              <>
+                <span className="band-choice-text">{workspaceLabel}</span>
+                {chevron}
+              </>
+            }
+            triggerClassName="band-choice"
+            placement="bottom start"
+            className="band-popover"
+          >
+            {(close) => (
+              <WorkspaceSelector
+                workspaceKey={workspaceKey}
+                onChange={(key) => {
+                  close();
+                  setWorkspaceKey(key);
+                }}
+              />
+            )}
+          </ControlPopover>
+          <span aria-hidden="true" className="band-separator">
+            /
+          </span>
+        </>
+      )}
       {live ? (
         <ControlPopover
           label={`Record: ${recordLabel}`}
@@ -493,6 +507,7 @@ function ModeBand({
   note,
   choices,
   actions,
+  compact,
 }: {
   mode: EditorMode;
   name: string;
@@ -500,14 +515,22 @@ function ModeBand({
   /** What the page shows (the workspace and the record), once the draft is read. */
   choices?: ReactNode;
   actions: ReactNode;
+  /** Everything on one line (the canvas). */
+  compact?: boolean;
 }) {
   const layout = mode === "layout";
   return (
-    <div className={`data-context-band editor-mode-band band-${layout ? "change-set" : "publication"}`}>
+    <div
+      className={`data-context-band editor-mode-band band-${layout ? "change-set" : "publication"}${compact ? " editor-mode-band-line" : ""}`}
+    >
       <div className="band-context">
         <div role="group" className="shell-context" aria-label="What this shows">
           {/* The layout editor is the page, so its title is the page's heading; the preview sits under the editor's. */}
-          {layout ? <h1 className="editor-mode-title">{name}</h1> : <h2 className="editor-mode-title">{name}</h2>}
+          {layout && !compact ? (
+            <h1 className="editor-mode-title">{name}</h1>
+          ) : (
+            <h2 className="editor-mode-title">{name}</h2>
+          )}
           <StatusPill tone={layout ? "changeSet" : "publication"}>{layout ? "Layout editor" : "Preview"}</StatusPill>
         </div>
         {choices}

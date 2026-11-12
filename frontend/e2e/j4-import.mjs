@@ -179,7 +179,11 @@ try {
     await dialog.waitFor();
     await dialog.getByLabel("File", { exact: true }).setInputFiles(file);
     await dialog.getByLabel("Profile", { exact: true }).selectOption(collection.profile);
-    if (atomic) await dialog.locator("label", { hasText: "Load nothing unless every row loads" }).click();
+    // The policy sits under the dialog's Options (0.17 PL5).
+    if (atomic) {
+      await dialog.getByText("Options", { exact: true }).click();
+      await dialog.locator("label", { hasText: "Load nothing unless every row loads" }).click();
+    }
     const scroll = await overflow();
     expect(scroll <= 0, `${name}: the dialog scrolls the page horizontally by ${scroll}px`);
     if (name) await shot(`j4-dialog-${name}`);
@@ -281,7 +285,7 @@ try {
   await page.getByRole("button", { name: "Cancel import" }).click();
   await page
     .getByRole("alertdialog", { name: "Cancel this import?" })
-    .getByRole("button", { name: "Cancel import" })
+    .getByRole("button", { name: "Discard the import" })
     .click();
   await page.getByText("Cancelled", { exact: true }).waitFor();
   const leftover = await api("/objects/master-value?workspaceKey=default&search=J4C&pageSize=5");
@@ -370,7 +374,10 @@ try {
     await crossDialog.getByLabel("Load into", { exact: true }).and(page.locator(":enabled")).waitFor();
     await crossDialog.getByLabel("Workspace", { exact: true }).selectOption("j4-other");
     await crossDialog.getByLabel("File", { exact: true }).setInputFiles(exportPath);
-    if (choice) await crossDialog.locator("label", { hasText: choice }).click();
+    if (choice) {
+      await crossDialog.getByText("Options", { exact: true }).click();
+      await crossDialog.locator("label", { hasText: choice }).click();
+    }
     await crossDialog.getByRole("button", { name: "Preview" }).click();
     await page.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 30000 });
   }

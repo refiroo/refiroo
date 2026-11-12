@@ -63,6 +63,39 @@ and [Export records](/docs/guide/use/export-records/) for the browser sequence.
 
 Use the [import and import-profile operations](/docs/api/?api=management#tag/imports) for supplier CSV and workbooks. A profile maps sheets and columns to model types, names, typed attributes, parents, relationships and related owned records. It can use value maps for placeholders, split relationship lists, flags and selected reference values. The binding handles generic model structures, including records owned through relationships. Bind a parent once, as a fixed value or a column (`PARENT_BOUND_TWICE` otherwise). Creating missing named parents or related records needs name matching (`CREATE_NEEDS_NAME_MATCH` otherwise).
 
+A source can change how its sheet is read before columns are bound. The same readings apply
+to imports, draft dry runs and profile checks, and remain in a saved profile for the next file.
+They apply in this order:
+
+1. `headings` reads a row whose only filled cell is in its chosen column as a heading,
+   rather than a record. Its text fills an added column on following rows until the next
+   heading; rows before the first heading have no heading value. Bind the added column as
+   the parent when headings name parents.
+2. `fillDown` fills blanks in selected columns from the nearest filled cell above in each
+   column. A blank before any filled cell stays empty.
+3. `unpivot` reads a wide sheet as rows. Each filled cell in the selected columns produces
+   a row with the column header and cell value in two added columns. Empty cells produce
+   no row; if all selected cells are empty, the original row produces none. The resulting
+   rows keep their original sheet row number.
+
+Bindings name the added columns like other headers. New names must not clash with the table
+or each other, and a column cannot be both filled down and unpivoted. Column headers are
+matched without surrounding spaces. See the [import profile reference](/docs/api/?api=management#tag/imports)
+for the member shapes and validation rules, and
+[draft operations](/docs/integrate/model-and-release-operations/#edit-a-workbooks-reading) for changing them.
+
+On the next-version check, accepted renames carry the readings to the new headers. Missing
+columns are removed from `fillDown` and `unpivot`; fill-down ends if no columns remain, and
+unpivot ends if fewer than two remain. A missing heading column removes its heading reading.
+Bindings of added columns that disappear are removed from the effective reading too. Inspect
+the check before loading rather than assuming the earlier layout still fits.
+
+A source's `missing` choice concerns keyed records of its object type that no row names:
+`report` (the default) keeps and reports them; `delete` stages their removal in a change set.
+Deletion needs a keyed source loading its own records, and cannot run against live data.
+Set the choice through the draft's `setMissing` operation; this differs from creating a
+missing parent or related record during name matching.
+
 Profiles are versioned instance resources associated with a model. Saving and using a profile checks its references against the chosen workspace's model. Check it again after changing releases. A profile belonging to another model is refused as `IMPORT_PROFILE_MODEL_MISMATCH`; do not repurpose its key silently.
 
 Choose a repeatable key: public ID, an attribute key, an allowed stored-unique or compound key, or a name key. A name key with a parent identifies children under that parent. Ambiguous existing names are `AMBIGUOUS_NAME_KEY`; ambiguous compound or stored keys need correction rather than a guessed match. A compound key must have every component bound and filled, and must identify at most one existing record. `KEY_NOT_BOUND`, `MISSING_RECORD_KEY` and `KEY_AMBIGUOUS` require fixing the profile, filling the key or disambiguating existing combinations; a configured skip rule can omit rows without keys. Without a key, each row creates a record again on the next load.

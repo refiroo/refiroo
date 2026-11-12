@@ -4,7 +4,7 @@ description: Check which AI features are on, what they send, who may use them an
 reader: access-admin
 ---
 
-Use **Settings › Administration › AI** to check the AI features available in your instance and review their use. You need **Operations** across the instance to open this page and send a test request. The predefined **Operator** role holds it.
+Use **Settings › This instance › AI** to check the AI features available in your instance and review their use. You need **Operations** across the instance to open this page and send a test request. The predefined **Operator** role holds it.
 
 The page displays settings. Ask your operator to change them and restart the server; there is no Save button. For that task, see [Set up AI](/docs/run/set-up-ai/). To check a connection, follow [Check the AI provider](/docs/guide/administer/check-the-ai-provider/).
 
@@ -12,7 +12,7 @@ The page displays settings. Ask your operator to change them and restart the ser
 
 ## Two separate features
 
-Under **What is switched on**, **Assistant** shows whether the built-in Claude Code assistant is on. It reads a workbook or instructions, proposes changes and prepares a change set after the person accepts. It needs no AI provider configured on this page.
+On the **Settings** tab, under **What is switched on**, **Assistant** shows whether the built-in Claude Code assistant is on. It reads a workbook or instructions, proposes changes and prepares a change set after the person accepts. It needs no AI provider configured on this page.
 
 **Provider** shows whether an AI provider is configured for mapping targets, questions in words and explanations of changes. Supported connections include the Claude API and OpenAI-compatible services, including a model run inside your organisation. The provider may be hosted outside your organisation or run inside it. Each feature says what it sends before the request.
 
@@ -70,7 +70,7 @@ The session's isolation is configured by the operator. In the shipped container 
 
 With a provider configured, **Model** and **Endpoint** identify where requests go. **Key** says **Set** or **Not set**; the key itself is never shown. **Confidence floor** is the minimum confidence for a proposed mapping target, not a promise of correctness. **Timeout** limits a provider call. **Content kept** says whether request and answer content is kept in the call list and for how long.
 
-**Calls** lists provider requests and each built-in assistant turn, newest first. Its columns show **When**, **What for**, **Asked by**, **Model**, **Outcome**, **Tokens in / out**, **Cost** and **Duration**. **Answered** means a response arrived, not that its suggestion is correct. **Failed** includes the reason. Use **Load more calls** to read older entries.
+The **Calls** tab lists provider requests and each built-in assistant turn, newest first. Its columns show **When**, **What for**, **Asked by**, **Model**, **Outcome**, **Tokens in / out**, **Cost** and **Duration**. **Answered** means a response arrived, not that its suggestion is correct. **Failed** includes the reason. Use **Show more** to read older entries.
 
 ![Answered AI provider calls with token counts, duration and unreported costs](/docs/screens/admin-ai-calls.png)
 

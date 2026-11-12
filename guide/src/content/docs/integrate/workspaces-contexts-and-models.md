@@ -30,6 +30,14 @@ Workspace catalogue changes have their own safeguards: `WORKSPACE_ALREADY_EXISTS
 
 ## Keep assignments explicit
 
+`POST /api/v1/workspaces/from-workbook` takes a workbook-backed model draft, its expected version and a workspace name (optionally a key), installs the draft and queues an independent import into the new workspace's live data; it answers `202` with the workspace, release identifiers and import job. A clash with another model's release version or import profile key is resolved with a free value rather than refused; errors, including a stale draft version, are listed in the [workspace operation's API reference](/docs/api/?api=management#tag/workspaces).
+
+This route needs **Workspace administration**, **Install a model** (or **Model release**)
+and **Bulk and import**, all at the instance. Installing the release, creating the workspace
+and queuing its import form one transaction; the records load afterwards in the job.
+Follow that [import job](/docs/integrate/jobs/) and inspect refused rows: `202` means the
+load was queued, not that every record loaded.
+
 A new workspace can name an installed usable release; otherwise it starts on the default workspace’s release. After creation its assignment is its own. Changing the default workspace does not switch any existing workspace’s model. Model discovery identifies the selected workspace with `RDM-Workspace`, and its release with `X-Model-Release-Id` and the model ETag.
 
 One unavailable workspace does not justify reading another workspace as a fallback. Across-workspace record lookup fails as a whole if any selected workspace cannot load its release. Its cursor binds the selected workspace set, and each result carries `workspaceKey` and `modelReleaseId`. Feeds, relationship collections and exports remain within one workspace.

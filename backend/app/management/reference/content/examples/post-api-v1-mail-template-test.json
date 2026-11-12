@@ -1,0 +1,12 @@
+{
+  "operation": "POST /api/v1/mail-template/test",
+  "name": "test",
+  "summary": "The saved template around a sample message goes to the caller's own address",
+  "request": {},
+  "response": {
+    "status": 200,
+    "body": {
+      "sentTo": "admin@example.org"
+    }
+  }
+}

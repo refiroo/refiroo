@@ -504,7 +504,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     expect(await screen.findByRole("radio", { name: /Candidate X/ })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Candidate Y/ })).toBeInTheDocument();
     expect(screen.getByText("Not mapped")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save mapping" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Remove mapping" })).not.toBeInTheDocument();
   });
 
@@ -519,7 +519,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
 
     fireEvent.click(await screen.findByRole("radio", { name: /Candidate X/ }));
 
-    fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 
     await waitFor(() =>
       expect(api.replaceMapping).toHaveBeenCalledWith(
@@ -546,7 +546,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Change mapping for Connections/ }));
 
     await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
-    expect(screen.getByRole("button", { name: "Save mapping" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove mapping" }));
 
@@ -594,15 +594,15 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
 
     fireEvent.click(await screen.findByRole("radio", { name: /Candidate X/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 
     await waitFor(() => expect(screen.getByText(/Mapping conflict/)).toBeInTheDocument());
     expect(screen.getByText(/changed by another operation/)).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: /Save mapping/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Save$/ })).toBeDisabled();
     expect(screen.getByText(/Current mapping:/)).toHaveTextContent("Timetable types");
     fireEvent.click(screen.getByRole("button", { name: /Continue with my selection/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 
     await waitFor(() =>
       expect(api.replaceMapping).toHaveBeenLastCalledWith(
@@ -718,7 +718,7 @@ describe("MappingGridView contextual target creation", () => {
         .map((option) => option.textContent),
     ).toEqual(["Test App", "Lens App"]);
     expect(screen.getByText(/none of its parent types belong to\s+Lens App/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add Codelist" })).toBeDisabled();
 
     fireEvent.change(owner, { target: { value: "test-app" } });
     expect(screen.queryByText(/No parent available/)).not.toBeInTheDocument();
@@ -737,7 +737,7 @@ describe("MappingGridView contextual target creation", () => {
     expect(within(dialog).getByText("Test App")).toBeInTheDocument();
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Created" } });
     fireEvent.change(within(dialog).getByRole("textbox", { name: /Code/ }), { target: { value: "NEW" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add Domain" }));
 
     await waitFor(() =>
       expect(api.createObject).toHaveBeenCalledWith("domain", expect.objectContaining({ applicationKey: "test-app" })),

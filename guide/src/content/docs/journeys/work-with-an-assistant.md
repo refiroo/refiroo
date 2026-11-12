@@ -23,7 +23,7 @@ information may be sent, and restarts the service. [Running AI](/docs/run/ai/) e
 settings and failure recovery. A configuration that cannot work refuses startup and names the
 setting to correct.
 
-With **Operations**, open **Settings › Administration › AI** to inspect which help is on and
+With **Operations**, open **Settings › This instance › AI**, then its **Settings** tab, to inspect which help is on and
 what may be sent. [Check the AI provider](/docs/guide/administer/check-the-ai-provider/) leads
 through **Send a test request**, which contains no reference data, then the call records and
 30-day totals. A refused key, unreachable service or unreadable answer is recorded as a failure.
@@ -42,7 +42,7 @@ all up to 100, otherwise each source's 20 closest by name.
 Use **Show proposed** and the **Proposed** filter to review the mappings, confidence and reasons.
 A low-confidence or missing answer leaves its source unmapped; a source changed meanwhile is
 left alone and counted. **Stop** keeps proposals already saved. Correct a target with **Change**
-and **Save mapping**; the replaced mapping loses its AI mark. Validate and publish through the
+and **Save**; the replaced mapping loses its AI mark. Validate and publish through the
 workspace's normal approval process. Live stays unchanged until publication, and published
 history records the AI origin and publisher. See [Mapping grids](/docs/use/mapping-grids/#targets-proposed-by-ai).
 
@@ -102,7 +102,7 @@ removed, final activation. These different reviews are explained in
 An integrator connects an MCP-capable assistant once the operator enables agent access. Follow
 [Connect an assistant](/docs/guide/integrate/connect-an-assistant/). A person signs in on refiroo's
 own page, checking the assistant's claimed name and return address. An unattended system uses
-an agent client created under **Settings › Security › Agent access**.
+an agent client created under **Settings › Connections › Agent access**.
 
 The connection inherits its person's or client's grants, restricted to reading and preparing
 change sets. It never gains approval or publication rights. End a personal session from

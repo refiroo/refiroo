@@ -398,7 +398,7 @@ describe("MigrationPage (0.11 V1)", () => {
       } as never);
       const waiting = render_(moving({ conversion: 2 }));
       const onBackToChangeSet = waiting.onBackToChangeSet;
-      fireEvent.click(await screen.findByRole("button", { name: "‹ Back to the change set “Autumn labels”" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Back to the change set “Autumn labels”" }));
       expect(onBackToChangeSet).toHaveBeenCalledTimes(1);
       cleanup();
       const done = render_(moving({ conversion: 2 }, { state: "completed", confirmedAt: "now" }));
@@ -416,7 +416,7 @@ describe("MigrationPage (0.11 V1)", () => {
         onBackToChangeSet,
         openApplication: { applicationKey: "shop", onOpen },
       });
-      fireEvent.click(await screen.findByRole("button", { name: "‹ Back to the change set “Autumn labels”" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Back to the change set “Autumn labels”" }));
       expect(onBackToChangeSet).toHaveBeenCalledTimes(1);
       cleanup();
       show(publishing({ conversion: 1 }, { state: "completed", confirmedAt: "now" }), vi.fn(), {

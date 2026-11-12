@@ -197,7 +197,6 @@ describe("JobPage of an import (0.9 J4)", () => {
     expect(trail).toHaveTextContent("JobsAssistant task: Leads workbookImport of codes.csv");
     fireEvent.click(within(trail).getByRole("button", { name: "Assistant task: Leads workbook" }));
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(onOpen).toHaveBeenCalledTimes(2);
   });
 
   it("shows a waiting preview: its counts, result, coverage, the binding report and its refused rows", async () => {

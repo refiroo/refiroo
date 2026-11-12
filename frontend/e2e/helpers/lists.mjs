@@ -23,3 +23,9 @@ export async function scrollUntil(page, region, target, { step = 400, limit = 60
   }
   await target.first().waitFor();
 }
+
+/** Opens a record dialog's More fields (0.17 PL2) when they are closed, so its optional fields can be filled. */
+export async function openMoreFields(scope) {
+  const more = scope.getByRole("button", { name: /^More fields/ });
+  if ((await more.count()) && (await more.getAttribute("aria-expanded")) === "false") await more.click();
+}

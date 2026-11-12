@@ -7,6 +7,7 @@ from ...common.pagination import PageRequest, paginate_statement
 from ...engine.change_sets.records import (
     delete_change_set_object,
     put_change_set_object,
+    read_change_set_object_deletion_impact,
     update_change_set_object,
 )
 from ...engine.model.registry import (
@@ -44,7 +45,7 @@ from ...engine.reads.snapshot_reads import (
 )
 from ...engine.records.audit import object_history
 from ...engine.records.context import load_active_projection, load_object
-from ...engine.records.deletion import delete_object_record
+from ...engine.records.deletion import delete_object_record, read_object_deletion_impact
 from ...engine.records.objects import create_object_record, update_object_record
 from ...engine.records.rules import get_object_type
 from ...engine.workspaces.catalogue import resolve_workspace
@@ -63,6 +64,7 @@ from ..access import (
     RECORD_READ,
     RECORD_READ_NO_PUBLICATION,
     RECORD_WRITE,
+    RECORD_WRITE_QUERY,
     AuthorizedRoute,
     requires,
 )
@@ -81,6 +83,7 @@ from ..schemas.queries import QueryObject, TypedObjectPage
 from ..schemas.records import (
     AuditEventPage,
     LookupObject,
+    ObjectDeletionImpact,
     ObjectPage,
     ObjectResponse,
     ParentCandidatePage,
@@ -184,9 +187,7 @@ def change_set_object_updated(session, object_type_key: str, object_id: str, pay
 
 @router.post("/objects", response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
 @requires("records.write", at=RECORD_CREATE)
-def create_object(
-    payload: ObjectCreate, session: DbSession
-) -> ObjectResponse:
+def create_object(payload: ObjectCreate, session: DbSession) -> ObjectResponse:
     refuse_repeated_attributes(payload.attributes)
     if payload.changeSetId:
         row = change_set_object_created(session, payload)
@@ -258,6 +259,27 @@ def delete_object(
             model_identity=snapshot.model_hash,
         )
     return Response(status_code=204)
+
+
+@router.get(
+    "/objects/{object_type_key}/{object_id}/deletion-impact", response_model=ObjectDeletionImpact
+)
+@requires("records.write", at=RECORD_WRITE_QUERY)
+def read_object_deletion_impact_route(
+    object_type_key: str,
+    object_id: str,
+    session: DbSession,
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+) -> dict[str, Any]:
+    """What deleting the record would take with it, live or in a change set; deletes nothing."""
+    if change_set_id:
+        return read_change_set_object_deletion_impact(
+            session, change_set_id, object_type_key, object_id
+        )
+    snapshot = resolve_record_snapshot(session, object_id)
+    return read_object_deletion_impact(
+        session, snapshot.model, object_type_key, object_id, model_identity=snapshot.model_hash
+    )
 
 
 _AS_OF = Query(
@@ -441,7 +463,12 @@ def list_objects(
         model, object_type_key, related_filters, workspace_key=workspace_key, context=None
     )
     candidates = list_candidate_filter(
-        model, object_type_key, candidate_for, anchor_type_key, workspace_key=workspace_key, context=None
+        model,
+        object_type_key,
+        candidate_for,
+        anchor_type_key,
+        workspace_key=workspace_key,
+        context=None,
     )
     query = build_object_query(
         model,
@@ -480,7 +507,11 @@ def _bound(
 ) -> dict[str, Any]:
     """What a cursor binds: the list's filters and, when any, its relationship filters (0.9 K6) and
     its candidateFor with the anchor's type (0.9 K7)."""
-    bound = {**filters, "relationFilters": [list(item) for item in relations]} if relations else dict(filters)
+    bound = (
+        {**filters, "relationFilters": [list(item) for item in relations]}
+        if relations
+        else dict(filters)
+    )
     if candidates:
         bound["candidateFor"] = list(candidates)
     return bound

@@ -23,7 +23,7 @@ and data leaving the instance.
 
 1. Open the intended workspace and its **⋯** menu beside the workspace selector. Choose
    **Import**. With the assistant enabled, **Load a workbook** opens first.
-2. Choose an XLSX or CSV **Workbook**. Check **Into** names the intended workspace.
+2. Choose an XLSX or CSV **Workbook**, or drop it onto the field. Check **Into** names the intended workspace.
 3. In **Tell the assistant about this file (optional)**, explain whether this updates existing
    records or adds something new. Say which column identifies a record and how new types
    should relate to the existing ones, if you know. A stable key matters more than a row number.
@@ -65,9 +65,7 @@ language column is accounted for.*
 
 ![Workbook proposal with type counts and an expanded table of model changes](/docs/screens/model-assistant-workbook-proposal.png)
 
-*Above: the reference workbook proposal adds types and relationships, adds Step-free access
-and Remark to Stop, and makes FSO number and System key optional. The expanded table shows
-these changes.*
+*Above: The reference workbook proposal adds Line, Platform, Tariff network and Tariff zone types and their relationships. It adds Barrier-free and Remark to Stop and makes Municipality’s FSO number optional; the expanded table shows these changes.*
 
 The assistant reads the workbook, the model and workspace records, then turns the file into
 proposed records and relationships. It changes the draft where needed and asks the engine to

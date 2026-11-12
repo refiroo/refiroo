@@ -41,8 +41,7 @@ in the destination workspace. Loading does not publish the records.
 
 ![Load dialog showing release details and the chosen change-set workspace](/docs/screens/wbload-dialog.png)
 
-*Above: the fictional operator workbook is about to install release 1.0.1, open a change set in
-Guide workbook test and load the rows. This is the destination chosen for this example.*
+*Above: The fictional operator workbook is ready to install release 1.8.3, open a change set in Guide workbook test and load the rows. This is the destination chosen for this example.*
 
 ![Load in progress with completed installation and change-set stages](/docs/screens/wbload-running.png)
 

@@ -19,6 +19,7 @@ import { DataTable, type CellAttributes, type DataColumn } from "@/ui/DataTable"
 import { readHideEmptyColumns, useTableDisplay, writeHideEmptyColumns } from "@/ui/TableDisplay";
 import { Switch } from "@/ui/Switch";
 import { Icon } from "@/ui/Icon";
+import { pageTitle } from "@/model/collections";
 import { PageHeader } from "@/ui/PageHeader";
 import { HueTile } from "@/ui/HueTile";
 import { RecordChip } from "@/ui/RecordChip";
@@ -272,7 +273,7 @@ export function RelationMatrixView({
     return (
       <div className="empty-state">
         <h2>{view.name}</h2>
-        <p>This matrix references an object type that does not exist in the active model.</p>
+        <p>This matrix shows a record type that does not exist in the current model.</p>
       </div>
     );
   }
@@ -419,7 +420,7 @@ export function RelationMatrixView({
       <PageHeader
         focusTitle
         icon={<HueTile hue={objectTypeHue(model, rowType.key)} icon={rowType.icon} size={40} />}
-        title={view.name}
+        title={pageTitle(model, application, view)}
         descriptionClassName="mapping-direction"
         description={
           <>

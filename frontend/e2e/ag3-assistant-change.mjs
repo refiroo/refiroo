@@ -96,18 +96,16 @@ try {
   // 2. Validate and publish in the browser, at 1440px.
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${recordUrl}&changeSetId=${changeSetId}`);
-  await page.getByRole("button", { name: "Validate change set", exact: true }).click();
-  await page.getByText("Change set validation passed", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Publish change set", exact: true }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   const published = page.waitForResponse(
     (response) => response.url().endsWith("/publication") && response.request().method() === "POST",
   );
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: "Publish change set", exact: true })
+    .getByRole("button", { name: "Publish", exact: true })
     .click();
   assert.equal((await published).status(), 200);
-  await page.getByText(/Reviewed changes are now live/).waitFor();
+  await page.getByText(/The changes are live/).waitFor();
   checks.push("the change set was validated and published in the browser");
 
   // 3. The record's history, live.

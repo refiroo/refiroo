@@ -1,5 +1,5 @@
 import type { Job } from "@/types";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { principalName } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { StatusPill } from "@/ui/StatusPill";
@@ -50,8 +50,12 @@ export function JobRow({
         {count(unprocessed)} unprocessed
       </td>
       <td data-label="Requested by">{job.requestedBy ? principalName(job.requestedBy) : ""}</td>
-      <td data-label="Created">{formatServerTime(job.createdAt)}</td>
-      <td data-label="Finished">{job.finishedAt ? formatServerTime(job.finishedAt) : ""}</td>
+      <td data-label="Created" className="when" title={formatServerTime(job.createdAt)}>
+        {formatServerDayTime(job.createdAt)}
+      </td>
+      <td data-label="Finished" className="when" title={job.finishedAt ? formatServerTime(job.finishedAt) : undefined}>
+        {job.finishedAt ? formatServerDayTime(job.finishedAt) : ""}
+      </td>
       <td data-label="Actions">
         {onCancel && (
           <button type="button" className="secondary" onClick={onCancel}>

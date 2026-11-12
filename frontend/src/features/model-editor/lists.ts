@@ -149,3 +149,25 @@ export function adjustOperations(source: ProfileSource, rectangle: SourceRectang
   if (rename) operations.push({ kind: "setLabel", element: { objectType: source.objectTypeKey }, name: rename });
   return operations;
 }
+
+/** What a load does with the records of a source's type that no row names (PP-D82). */
+export type MissingChoice = "report" | "delete";
+
+/** The choice a source holds: report is the default. */
+export function missingOf(source: ProfileSource): MissingChoice {
+  return source.missing === "delete" ? "delete" : "report";
+}
+
+/**
+ * Whether the choice means anything for the source: a load finds the records no row names by the source's
+ * key, so a source without one, or one that loads no records of its own, has none (the engine refuses
+ * `delete` there; the interface offers neither choice).
+ */
+export function canSetMissing(source: ProfileSource): boolean {
+  return Boolean(source.key) && source.record !== "existing";
+}
+
+/** `setMissing` for a source: what a load does with the records no row names (PP-D82). */
+export function setMissingOperation(source: ProfileSource, missing: MissingChoice): DraftOperation {
+  return { kind: "setMissing", source: source.id, missing };
+}

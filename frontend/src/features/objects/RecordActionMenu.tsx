@@ -44,6 +44,14 @@ export function RecordActionMenu({
       setMessage("Could not copy the link. Open the record and copy its address from the browser.");
     }
   }
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(object.id);
+      setMessage("Record ID copied.");
+    } catch {
+      setMessage("Could not copy the ID. Open Details on the record and select it.");
+    }
+  }
   return (
     <div className="record-action-menu">
       <ActionMenu
@@ -52,6 +60,7 @@ export function RecordActionMenu({
         onOpenChange={onOpenChange}
         items={[
           ...(writable ? [{ id: "edit", label: "Edit record", onAction: onEdit }] : []),
+          { id: "copy-id", label: "Copy ID", onAction: () => void copyId() },
           { id: "copy", label: "Copy link", onAction: () => void copyLink() },
           ...(writable ? [{ id: "delete", label: "Delete record", tone: "danger" as const, onAction: onDelete }] : []),
         ]}

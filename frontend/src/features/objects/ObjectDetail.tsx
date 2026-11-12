@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { useLocalNumberPreference } from "@/lib/localPreference";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
@@ -29,7 +29,7 @@ import { RecordChip } from "@/ui/RecordChip";
 import { PageHeader } from "@/ui/PageHeader";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
-import { Breadcrumbs } from "@/ui/Breadcrumbs";
+import { Trail } from "@/ui/Trail";
 import { Card } from "@/ui/Card";
 import { focusInNavigationRail } from "@/ui/navigationRail";
 
@@ -47,6 +47,7 @@ export function ObjectDetail({
   workspaceKey,
   onOpen,
   onBack,
+  backLabel = "the list",
   showBackToList = true,
   inspector = false,
   onExpand,
@@ -68,6 +69,8 @@ export function ObjectDetail({
   /** Opens the changes of a person or client named in the record's history (0.12 Z6, D345). */
   onOpenChanges?: (route: RouteState) => void;
   onBack: () => void;
+  /** The name of the list the record is opened from, said in the line above its title (0.17 SH1). */
+  backLabel?: string;
   showBackToList?: boolean;
   inspector?: boolean;
   onExpand?: () => void;
@@ -100,6 +103,8 @@ export function ObjectDetail({
   const [deleting, setDeleting] = useState(initialAction === "delete");
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
   // The header field open for editing in place (UA8), and the one whose value takes focus back.
   const [headerField, setHeaderField] = useState<string>();
   const [headerReturn, setHeaderReturn] = useState<string>();
@@ -126,9 +131,9 @@ export function ObjectDetail({
    */
   async function loadObject() {
     const loaded = await api.object(objectTypeKey, objectId, workspaceKey);
-    if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
+    if (loaded.applicationKey !== application.key) throw new Error("This record belongs to another application.");
     if (loaded.workspaceKey !== workspaceKey)
-      throw new Error(`This object does not belong to workspace “${workspaceKey}”.`);
+      throw new Error(`This record does not belong to workspace “${workspaceKey}”.`);
     setObject(loaded);
     setError("");
   }
@@ -161,9 +166,9 @@ export function ObjectDetail({
           otherApplication.current(loaded.applicationKey);
           return;
         }
-        if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
+        if (loaded.applicationKey !== application.key) throw new Error("This record belongs to another application.");
         if (loaded.workspaceKey !== workspaceKey)
-          throw new Error(`This object does not belong to workspace “${workspaceKey}”.`);
+          throw new Error(`This record does not belong to workspace “${workspaceKey}”.`);
         setObject(loaded);
         setError("");
       })
@@ -225,11 +230,11 @@ export function ObjectDetail({
     else titleRef.current?.focus();
   }, [loading, objectId, inspector, initialAction, followed]);
 
-  if (loading) return <div className="page-loading">Loading object…</div>;
+  if (loading) return <div className="page-loading">Loading record…</div>;
   if (error || !object || !objectType || !detail)
     return (
       <div className="empty-state error-state">
-        <h1>Object unavailable</h1>
+        <h1>Record unavailable</h1>
         <p>{error}</p>
         <div className="empty-actions">
           <button
@@ -274,8 +279,9 @@ export function ObjectDetail({
 
   /** The header's title or subtitle, edited in place as a details-panel field is (UA8, U-D16). */
   function headerValue(field: string, layout: FieldLayout) {
+    // Only this field closes: the save of a field left for the other comes after that one opened.
     const close = () => {
-      setHeaderField(undefined);
+      setHeaderField((open) => (open === field ? undefined : open));
       setHeaderReturn(field);
     };
     return (
@@ -286,7 +292,6 @@ export function ObjectDetail({
         layout={layout}
         readOnly={recordReadOnly}
         editing={headerField === field}
-        disabled={headerField !== undefined && headerField !== field}
         focusOnMount={headerReturn === field}
         onEdit={() => {
           setHeaderReturn(undefined);
@@ -294,7 +299,8 @@ export function ObjectDetail({
         }}
         onClose={close}
         onSaved={(saved) => {
-          setObject(saved);
+          // A save that ends after another record was opened here is not this record's.
+          setObject((shown) => (shown && shown.id !== saved.id ? shown : saved));
           onChanged();
           setHistoryRefresh((value) => value + 1);
           close();
@@ -325,7 +331,7 @@ export function ObjectDetail({
             setHistoryRefresh((value) => value + 1);
           }}
           onObjectChanged={(saved) => {
-            setObject(saved);
+            setObject((shown) => (shown && shown.id !== saved.id ? shown : saved));
             onChanged();
             setHistoryRefresh((value) => value + 1);
           }}
@@ -338,37 +344,26 @@ export function ObjectDetail({
 
   return (
     <article className={`record-detail${inspector ? " record-inspector" : ""}`} aria-label="Record details">
-      {showBackToList && (
-        <div className="record-topline">
-          <button className="ghost back-link" onClick={onBack}>
-            <Icon name="arrow-left" size={15} />
-            Back to list
-          </button>
-        </div>
-      )}
+      {/* One line says where the record is: the list it was opened from, then the records above it. */}
+      <Trail
+        back={showBackToList ? { label: backLabel, onClick: onBack } : undefined}
+        items={
+          detail.breadcrumbs.showAncestors
+            ? object.path.slice(0, -1).map((part) => ({
+                key: part.id,
+                content: (
+                  <RecordChip
+                    hue={objectTypeHue(model, part.objectTypeKey)}
+                    onOpen={() => onOpen(part.objectTypeKey, part.id)}
+                  >
+                    {part.name}
+                  </RecordChip>
+                ),
+              }))
+            : []
+        }
+      />
       <div className="record-header" data-hue={hue}>
-        <Breadcrumbs
-          items={[
-            detail.breadcrumbs.showApplication && {
-              key: "application",
-              content: <button onClick={onBack}>{application.name}</button>,
-            },
-            ...(detail.breadcrumbs.showAncestors
-              ? object.path.slice(0, -1).map((part) => ({
-                  key: part.id,
-                  content: (
-                    <RecordChip
-                      hue={objectTypeHue(model, part.objectTypeKey)}
-                      onOpen={() => onOpen(part.objectTypeKey, part.id)}
-                    >
-                      {part.name}
-                    </RecordChip>
-                  ),
-                }))
-              : []),
-            detail.breadcrumbs.showObjectType && { key: "type", content: objectType.name, current: true },
-          ]}
-        />
         <PageHeader
           variant="detail"
           onContextMenu={(event) => {
@@ -376,7 +371,8 @@ export function ObjectDetail({
             setMenuOpen(true);
           }}
           icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
-          eyebrow={detail.header.showObjectType ? objectType.name : undefined}
+          // The type is said once: either flag asks for it (the breadcrumb's own entry is gone).
+          eyebrow={detail.header.showObjectType || detail.breadcrumbs.showObjectType ? objectType.name : undefined}
           title={headerField === titleField ? undefined : headerValue(titleField, "title")}
           titleLabel={String(title ?? object.name)}
           titleEditor={headerField === titleField ? headerValue(titleField, "title") : undefined}
@@ -384,9 +380,16 @@ export function ObjectDetail({
           description={subtitleShown ? headerValue(subtitleField!, "subtitle") : undefined}
           actions={
             <>
-              <span className="version" title="Record version, used to detect concurrent changes">
-                v{object.version}
-              </span>
+              <button
+                type="button"
+                className="secondary record-details-toggle"
+                aria-expanded={detailsOpen}
+                aria-controls={detailsId}
+                onClick={() => setDetailsOpen((open) => !open)}
+              >
+                Details
+                <Icon name="chevron-down" size={14} />
+              </button>
               {onExpand && (
                 <button className="secondary expand-record" onClick={onExpand}>
                   Expand to full page
@@ -409,10 +412,15 @@ export function ObjectDetail({
             </>
           }
         />
-        {/* The record's own ID, as the API returns it (`id`), to copy into another system. */}
-        <p className="record-meta">
-          <CopyValue label="ID" value={object.id} />
-        </p>
+        {/* The record's own ID, as the API returns it (`id`), and its version, under Details (PP-D34). */}
+        {detailsOpen && (
+          <p id={detailsId} className="record-meta">
+            <CopyValue label="ID" value={object.id} />
+            <span className="version" title="Record version, used to detect concurrent changes">
+              Version {object.version}
+            </span>
+          </p>
+        )}
         {object.origin && <AiOriginMark origin={object.origin} variant="history" />}
       </div>
       <div

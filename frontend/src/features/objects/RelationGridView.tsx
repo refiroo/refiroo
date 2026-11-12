@@ -32,6 +32,7 @@ import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
+import { pageTitle } from "@/model/collections";
 import { PageHeader } from "@/ui/PageHeader";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
@@ -322,7 +323,7 @@ export function RelationGridView({
     return (
       <div className="empty-state">
         <h2>{view.name}</h2>
-        <p>This relationships grid references an object type that does not exist in the active model.</p>
+        <p>This relationships grid shows a record type that does not exist in the current model.</p>
       </div>
     );
   }
@@ -351,7 +352,7 @@ export function RelationGridView({
       <PageHeader
         focusTitle
         icon={<HueTile hue={objectTypeHue(model, fromType.key)} icon={fromType.icon} size={40} />}
-        title={view.name}
+        title={pageTitle(model, application, view)}
         descriptionClassName="mapping-direction"
         description={
           <>

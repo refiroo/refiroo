@@ -39,7 +39,7 @@ async function moveTo(target: string) {
       onClose={() => undefined}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: /^Move to/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Move" }));
   await waitFor(() => expect(run).toHaveBeenCalled());
   return run.mock.calls[0][0];
 }

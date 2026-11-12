@@ -12,15 +12,14 @@ assistant…** to reach the manual import form used below. That manual path does
 file to an AI assistant.
 
 1. Open the intended workspace and collection. Choose **Workspace actions › Import**. To
-   choose another destination, open **Settings › Data operations › Jobs › New import** and
+   choose another destination, open **Settings › This instance › Jobs › New import** and
    choose the workspace and **Load into** context.
-2. Choose **File**. The chooser accepts Excel workbooks, CSV and supported technical export
-   files. Choose the stored **Profile** for an ordinary workbook or CSV, or **None** for a
-   file exported by refiroo. Read any profile problems before continuing. For an exported CSV,
+2. Choose **File**, or drop the file onto that field. The chooser accepts Excel workbooks, CSV and supported technical export
+   files. After choosing the file, check **Profile**: refiroo selects it when exactly one valid profile fits. You may choose **None** or another fitting profile. A JSON Lines file takes none; CSV offers profiles with CSV settings or one source; a workbook offers any valid profile for this workspace's model. Invalid profiles and other models' profiles are omitted. Use **None** for a file exported by refiroo. Read any profile problems before continuing. For an exported CSV,
    keep the protective single quotes added to formula-like text. With **None**, import removes
    exactly one such quote from names and text fields; an unchanged export changes nothing.
    XLSX is unaffected. See [CSV text rules](/docs/use/importing-and-exporting/#text-in-csv-files).
-3. Under **Rows that cannot load**, choose **Load the rows that can load** or **Load nothing
+3. Open **Options**. Under **Rows that cannot load**, choose **Load the rows that can load** or **Load nothing
    unless every row loads**. Under **Records the file finds**, decide whether to update or
    refuse them. For an export, **Only if unchanged since the export** protects newer work;
    **Update them anyway** deliberately relaxes that protection.

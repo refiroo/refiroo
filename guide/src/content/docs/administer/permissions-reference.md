@@ -5,7 +5,7 @@ reader: access-admin
 ---
 
 Use this reference when choosing a role or checking why someone cannot complete a task.
-Open **Settings › Security › Roles** with **Security administration** to compare the
+Open **Settings › People and access › Roles** with **Security administration** to compare the
 matrix or create a custom role. Roles select whole action groups, not individual actions.
 [Roles and grants](/docs/administer/roles-and-grants/) explains where grants apply and
 how direct and group access combine. Follow [Create a custom role](/docs/guide/administer/create-a-custom-role/)
@@ -29,7 +29,7 @@ a second-person approval rule, a submitted change set or a write restriction.
 | Model authoring | Authoring models; Reading model releases; Using this job. | Model administrator | The whole instance only |
 | Install a model | Installing a model release. | Model administrator | The whole instance only |
 | Model release | Reading model releases; Installing a model release; Changing the workspace's model; Using this job. | Model administrator | Selected workspaces or the whole instance |
-| Workspace administration | Changing the approval policy; Administering workspaces. | Workspace administrator | The whole instance only |
+| Workspace administration | Changing the approval policy; Administering workspaces; Creating a workspace from a workbook. | Workspace administrator | The whole instance only |
 | Integration administration | Managing consumer subscriptions. | Integration administrator | Selected workspaces or the whole instance |
 | Feed | Reading the change feed. | Data owner; Integration administrator | Selected workspaces or the whole instance |
 | Operations | Reading the service's operations; Testing the AI provider. | Operator | The whole instance only |
@@ -43,6 +43,9 @@ checks that the caller submitted it or can approve it. **Deciding on a change se
 **Changing the approval policy** belongs to **Workspace administration**, not
 **Security administration**.
 
+**Creating a workspace from a workbook** also needs either **Install a model** or
+**Model release**, together with **Bulk and import**, all granted for the whole instance.
+
 **Reading model releases** is shared by **Model authoring** and **Model release**.
 **Installing a model release** is shared by **Install a model** and **Model release**.
 Installation alone does not change a workspace. **Changing the workspace's model**
@@ -54,7 +57,8 @@ its settings, assistants, agent clients and calls. **Changing agent access** reg
 blocks and restores the assistants people sign in with. Neither gives workspace data
 access by itself.
 
-**Operations** includes **Reading the service's operations** and **Testing the AI provider**.
+**Operations**, held by the predefined **Operator** role, also includes **Editing the e-mail template**: changing the template and its logo, and sending a test message.
+It includes **Reading the service's operations** and **Testing the AI provider**.
 The test sends a real request and can incur a provider charge. **Integration administration**
 manages consumer subscriptions and their deliveries; reading data through a consumer API
 still requires an explicit client grant. See [Clients](/docs/administer/clients/).

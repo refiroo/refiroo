@@ -196,9 +196,11 @@ means the token did not belong to this sign-in, `exchange` means code exchange f
 and callback), `browser` means the flow started in another browser, and `deactivated` identifies a
 disabled person. Give the reason to the responsible administrator without copying tokens or secrets.
 
+For the layout of outgoing messages, an operator uses [E-mail template](/docs/administer/mail/#e-mail-template). It is separate from the delivery connection: changing the template does not set up SMTP or Microsoft 365.
+
 ## Prepare SMTP delivery
 
-Arrange an SMTP server and a sender address. A security administrator saves these on **Settings › Integration › Mail**:
+Arrange an SMTP server and a sender address. A security administrator saves these on the **Server** tab of **Settings › This instance › Mail**:
 
 1. Choose **SMTP server** under **Send mail through**. In **Mail server**, enter **Server** and **Port**, then choose **Connection** (STARTTLS or TLS
    for an authenticated server).
@@ -207,7 +209,7 @@ Arrange an SMTP server and a sender address. A security administrator saves thes
    use the refusal table below before trying again.
 3. Under **Test message**, enter **Send to** and choose **Send test message**. **Sent** means the
    SMTP server accepted it; confirm arrival in the recipient's mailbox as well.
-4. Inspect **Messages** for later delivery attempts and **Last problem**. **Stop sending** ends
+4. Open the **Messages** tab for later delivery attempts and **Last problem**. **Stop sending** ends
    retries for a waiting message, but its one-time link remains valid until expiry.
 The SMTP password is a secret, sealed in the database and never shown. Changing host or port needs
 the password again in the same save (`MAIL_PASSWORD_REQUIRED`).
@@ -261,7 +263,7 @@ Prepare the application in Microsoft Entra before saving it in refiroo:
 5. Confirm that the sending address belongs to a licensed user or a shared mailbox in this tenant.
    Arrange access for someone to monitor that mailbox for bounces and replies.
 
-On **Settings › Integration › Mail**, choose **Microsoft 365** under **Send mail through**.
+On the **Server** tab of **Settings › This instance › Mail**, choose **Microsoft 365** under **Send mail through**.
 Enter **Tenant ID** and **Application (client) ID**, choose **Client secret** or **Certificate**
 under **Sign in with**, and enter the prepared value or PEM text. Set **Sending mailbox** to the
 mailbox above and **Application address** to the public address recipients use to open refiroo.
@@ -303,7 +305,7 @@ a user-assigned identity attached to the host.
    The group must hold the sending mailbox. RBAC for Applications is another way to restrict it.
    Without a restriction, the role allows sending as any mailbox in the tenant. Allow time for
    a changed policy to apply before testing.
-4. On **Settings › Integration › Mail**, choose **Microsoft 365**, then **Managed identity – this
+4. On the **Server** tab of **Settings › This instance › Mail**, choose **Microsoft 365**, then **Managed identity – this
    tenant** under **Sign in with**. Leave **Identity client ID** empty for the system-assigned
    identity, or enter the user-assigned identity’s client ID. Do not supply a tenant or application
    ID; this choice neither asks for nor accepts them. Enter **Sending mailbox** and **Application
@@ -352,7 +354,7 @@ A multitenant app registration in the hosting tenant trusts that identity.
    application access policy, using `-AppId <the app's client ID>`, or RBAC for Applications.
    For an application access policy, use a mail-enabled security group holding that mailbox.
    Allow time for the restriction to apply.
-5. On **Settings › Integration › Mail**, choose **Microsoft 365**, then **Managed identity – hosted
+5. On the **Server** tab of **Settings › This instance › Mail**, choose **Microsoft 365**, then **Managed identity – hosted
    in another tenant** under **Sign in with**. Enter the customer’s **Tenant ID**, the multitenant
    app’s **Application (client) ID** and the user-assigned **Identity client ID**. All three are
    required. Enter **Sending mailbox** and **Application address**, then save and test below.
@@ -468,7 +470,7 @@ error name may be included to help diagnose the refusal.
 
 ## Inbox mail and digests
 
-The same sender delivers inbox notices and digests. People choose them in **Settings › General › Notification email**;
+The same sender delivers inbox notices and digests. People choose them in **Settings › You › Notification email**;
 clients receive no mail. These choices do not need AI or another server setting. Immediate notices
 are mailed only after a person opts in and while the notice is less than 24 hours old, preventing
 an old backlog after a long outage. The inbox retains notices even when their mail is off.

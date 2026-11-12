@@ -4,7 +4,7 @@ description: Read process and workspace health, collect metrics, and trace a rep
 reader: operator
 ---
 
-Start with **Settings › Administration › Operations**, available with Operations access. It shows
+Start with **Settings › This instance › Operations**, available with Operations access. It shows
 workspaces served or unavailable, live and silent processes, jobs, and webhook subscription states.
 Below the totals are workspace failures, process threads and pool use, the latest backup rehearsal,
 and probe addresses. It refreshes every 15 seconds while visible; **Refresh** reads again immediately.
@@ -305,13 +305,13 @@ capture running. All three logging/reporting settings above are non-secret and n
 
 ## Watch AI and agent calls
 
-**Settings › Administration › AI** needs Operations access and lists each provider call and
+**Settings › This instance › AI** needs Operations access and lists each provider call and
 assistant turn with its purpose, requester, outcome, tokens, reported cost and duration. Totals
 cover 30 days. This is usage evidence, not a billing statement. **Send a test request** checks only
 the provider and sends no reference data; test a real assistant task separately. Read the failure
 sentence before retrying; a provider failure leaves ordinary work available.
 
-For external assistants, a security administrator uses **Settings › Security › Agent access**.
+For external assistants, a security administrator uses **Settings › Connections › Agent access**.
 Its separate call list shows answered, refused, limited and failed calls, including argument names
 but never values. Use its request identifier when tracing a failure. See [AI and agent settings](/docs/run/ai/)
 for send policy, cost, retention and revocation. Logging provider content is optional and can retain

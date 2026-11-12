@@ -287,7 +287,7 @@ applications load. A missing workspace can be an access or model-readiness probl
 Operations and grants before changing the bootstrap file. This checks a real session as well as
 the unauthenticated health probe.
 
-Add other people through **Settings › Security › People**:
+Add other people through **Settings › People and access › People**:
 
 1. Select **New person**. Fill **Name** and **E-mail**, the address they sign in with.
 2. Select **Create and make a password link**. The **Pass on the password link** dialog shows a

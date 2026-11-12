@@ -46,9 +46,13 @@ try {
   checks.push("one browser opens a direct-parent collection with visible URL-backed context");
 
   const lenses = page.getByRole("navigation", { name: "Collection lenses" });
-  assert.deepEqual(await lenses.getByRole("button").allTextContents(), ["System values", "System → Master mapping"]);
+  assert.deepEqual(await lenses.getByRole("button").allTextContents(), [
+    "System values",
+    "System → Master mapping",
+    "System value mappings",
+  ]);
   await lenses.getByRole("button", { name: "System → Master mapping", exact: true }).click();
-  await page.getByRole("heading", { name: "System → Master mapping", level: 1 }).waitFor();
+  await page.getByRole("heading", { name: "System values", level: 1 }).waitFor(); // a lens is a tab under the type's name (0.17 UX1)
   assert.equal(new URL(page.url()).searchParams.get("parentObjectId"), harness.records.system[0].id);
 
   const state = page.getByRole("group", { name: "Mapping status" });
@@ -60,7 +64,7 @@ try {
 
   await page.getByRole("button", { name: "Change mapping for Value Alpha" }).click();
   await page.getByRole("radio", { name: /^Master Alpha/ }).check();
-  await page.getByRole("button", { name: "Save mapping", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   await state.getByRole("button", { name: "Mapped", exact: true }).click();
   await grid.getByText("Mapped", { exact: true }).waitFor();
@@ -69,7 +73,7 @@ try {
   await page.goto(
     `${uiUrl}/apps/rdm-master/views/master-to-system-mapping?workspaceKey=default&parentObjectId=${encodeURIComponent(codelists.items[0].id)}&parentObjectTypeKey=codelist`,
   );
-  await page.getByRole("heading", { name: "Master ← System mapping", level: 1 }).waitFor();
+  await page.getByRole("heading", { name: "Master values", level: 1 }).waitFor();
   await page.getByText("Within Codelist: Codelist Alpha", { exact: true }).waitFor();
   await grid.getByText("Mapped", { exact: true }).waitFor();
   const mappingAccessibility = await runAxe(

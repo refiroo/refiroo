@@ -30,17 +30,15 @@ permissions.
 2. Search for the intended target and inspect its identifying fields. Select its radio button.
    If nothing matches, shorten the search and check the model's candidate rules. Do not select
    a similar name merely to fill the row.
-3. Choose **Save mapping**. This sets the row to the selected target, replacing any previous
+3. Choose **Save**. This sets the row to the selected target, replacing any previous
    targets, including all targets of an ambiguous row. Check the refreshed target and state.
    If the row no longer matches the active state filter, switch to **All** and find it again.
 4. Choose **Cancel** if no correction is needed. Where **Save and next** is offered, it saves
    this choice and opens the next row; check that new source before choosing again.
 
-![A mapping dialog for an unmapped row with target radio choices and a creation action](/docs/screens/mapping-grid-map-dialog.png)
+![Change mapping dialog for a mapped code with its current stop and candidate choices](/docs/screens/mapping-grid-map-dialog.png)
 
-*Above: T-9999, the fictional special day pass, is deliberately unmapped. The dialog shows
-Not mapped and offers stop candidates and Create new stop. It was cancelled; the screenshot
-does not suggest that this pass needs a stop mapping.*
+*Above: The fictional code T-0412 is currently mapped to Chur Wiesental. Change mapping offers a stop search, Create new stop and Remove mapping; no replacement has been selected.*
 
 To retain several valid targets, use the record's [relationship controls](/docs/guide/use/relate-records/).
 Saving one selection in this dialog resolves the row to one target.
@@ -50,14 +48,14 @@ Saving one selection in this dialog resolves the row to one target.
 1. Search carefully first. If a new record is needed, choose **Create new** followed by its
    type name. The target creation form opens.
 2. Check its application and parent where offered, then fill **Name** and the required fields.
-   Choose **Create**, or **Cancel** to return without creating a target.
-3. After creation, review the selected target in the mapping dialog and choose **Save mapping**.
+   Choose **Add** followed by the target type's name, or **Cancel** to return without creating a target.
+3. After creation, review the selected target in the mapping dialog and choose **Save**.
    Creating a record does not itself finish the mapping. If you cancel now, the new record remains.
 
 ## Remove a mapping
 
 1. Choose **Change** on the row and review **Currently**.
-2. Choose **Remove mapping** where offered. This clears the row's mapping and keeps the source
+2. Choose **Remove mapping** inside the form where offered. This clears the row's mapping and keeps the source
    and target records. Check **Unmapped**, using **All** if your previous filter hides the row.
 3. If the dialog says the mapping is required, choose an allowed replacement instead of clearing
    it. **Cancel** keeps the current mapping.

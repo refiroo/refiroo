@@ -8,15 +8,15 @@
 
 import { API_URL } from "@/api/client";
 import type { CapabilitiesResponse, SystemSetting } from "@/types";
-import { DescriptionList, type DescriptionItem } from "@/ui/DescriptionList";
+import type { DescriptionItem } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
-import { SettingsTable } from "@/ui/SettingsTable";
+import { SettingRow, SettingsGroup, SettingsPanel, SettingsTile } from "@/ui/SettingsParts";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { bytes, count, feedRetentionItem, jobLimitItems } from "./limits";
+import { settingsHead } from "./navigation";
 import { useCapabilities, useSystemConfiguration } from "./useSystem";
 
 const GROUPS: { group: SystemSetting["group"]; title: string; scope?: string }[] = [
@@ -46,18 +46,30 @@ export function DeploymentPage() {
   const { configuration, error, retry } = useSystemConfiguration();
   const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const failure = error || capabilityError;
+  const head = settingsHead("deployment");
   const signingKey = configuration?.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
 
   return (
     <SettingsLayout
-      eyebrow="Administration"
+      {...settingsHead("deployment")}
       title="Deployment"
       description="How this deployment is configured. The values come from the engine's environment and change only when it restarts; they cannot be edited here."
     >
-      <p className="settings-note">
-        This browser application calls the API at <code>{API_URL}</code>: the address it is opened at, which forwards
-        the engine&apos;s paths, unless <code>VITE_API_URL</code> names an engine elsewhere when the frontend is built.
-      </p>
+      <SettingsGroup
+        title="This browser application"
+        description={
+          <p>
+            It calls the API at the address it is opened at, which forwards the engine&apos;s paths, unless{" "}
+            <code>VITE_API_URL</code> names an engine elsewhere when the frontend is built.
+          </p>
+        }
+      >
+        <SettingsPanel>
+          <SettingRow fact name="API address">
+            <code>{API_URL}</code>
+          </SettingRow>
+        </SettingsPanel>
+      </SettingsGroup>
       {failure ? (
         <InlineError
           message={failure}
@@ -70,31 +82,33 @@ export function DeploymentPage() {
         <Skeleton label="Loading the deployment's settings" lines={8} />
       ) : (
         <>
-          <Section
+          <SettingsGroup
             title="Capability groups"
             description="A group's routes are registered only when it is on. These are deployment limits, not permissions."
           >
-            <ul className="capability-groups">
-              {capabilityGroups(capabilities).map((group) => (
-                <li key={group.name}>
-                  <div className="capability-group-header">
-                    <strong>{group.name}</strong>
-                    <StatusPill tone={group.enabled ? "success" : "neutral"}>{group.enabled ? "On" : "Off"}</StatusPill>
-                    <code>{group.setting}</code>
-                  </div>
-                  <p className="section-description">{group.scope}</p>
-                  {group.limits && <DescriptionList className="compact" items={group.limits} />}
-                </li>
-              ))}
-            </ul>
-          </Section>
-          <Section title="Database">
-            <DescriptionList
-              items={[{ term: "Migration revision", value: <code>{configuration.database.revision ?? "None"}</code> }]}
-            />
-          </Section>
+            {capabilityGroups(capabilities).map((group) => (
+              <SettingsPanel key={group.name} label={group.name}>
+                <SettingRow name={group.name} help={group.scope} lead={<SettingsTile icon="settings" hue={head.hue} />}>
+                  <StatusPill tone={group.enabled ? "success" : "neutral"}>{group.enabled ? "On" : "Off"}</StatusPill>
+                  <code>{group.setting}</code>
+                </SettingRow>
+                {group.limits?.map((item, index) => (
+                  <SettingRow fact key={typeof item.term === "string" ? item.term : index} name={item.term}>
+                    {item.value}
+                  </SettingRow>
+                ))}
+              </SettingsPanel>
+            ))}
+          </SettingsGroup>
+          <SettingsGroup title="Database" description="The schema revision the database is at.">
+            <SettingsPanel>
+              <SettingRow fact name="Migration revision">
+                <code>{configuration.database.revision ?? "None"}</code>
+              </SettingRow>
+            </SettingsPanel>
+          </SettingsGroup>
           {GROUPS.map(({ group, title, scope }) => (
-            <Section key={group} title={title} description={scope}>
+            <SettingsGroup key={group} title={title} description={scope}>
               {group === "runtime" && signingKey?.source === "default" && (
                 <Notice tone="warning" title="Cursors do not survive a restart">
                   <code>RDM_CURSOR_SIGNING_KEY</code> is not set, so each engine process signs cursors with its own key.
@@ -105,7 +119,7 @@ export function DeploymentPage() {
                 label={`${title} settings`}
                 settings={configuration.settings.filter((setting) => setting.group === group)}
               />
-            </Section>
+            </SettingsGroup>
           ))}
         </>
       )}
@@ -113,28 +127,33 @@ export function DeploymentPage() {
   );
 }
 
+/**
+ * One setting a row: its name in the monospace face with what it controls under it, its value at the right, the
+ * default only where the value differs from it, and where the value came from. A secret shows only whether it is set.
+ */
 function SettingValues({ label, settings }: { label: string; settings: SystemSetting[] }) {
   return (
-    <SettingsTable label={label} columns={["Setting", "Value", "Default", "Source", "What it controls"]}>
+    <SettingsPanel label={label}>
       {settings.map((setting) => {
         const secret = SECRETS.has(setting.name);
+        const value = secret ? (setting.source === "environment" ? "Set" : "Not set") : shown(setting.value);
+        const differs = !secret && shown(setting.default) !== shown(setting.value);
         return (
-          <tr key={setting.name}>
-            <th scope="row">
-              <code>{setting.name}</code>
-            </th>
-            <td data-label="Value">
-              {secret ? (setting.source === "environment" ? "Set" : "Not set") : shown(setting.value)}
-            </td>
-            <td data-label="Default">{secret ? "None" : shown(setting.default)}</td>
-            <td data-label="Source" className="settings-source">
-              {setting.source === "environment" ? "Environment" : "Default"}
-            </td>
-            <td data-label="What it controls">{setting.description}</td>
-          </tr>
+          <SettingRow
+            key={setting.name}
+            className="deployment-setting"
+            name={<code>{setting.name}</code>}
+            help={setting.description}
+          >
+            <span className="deployment-value">
+              <span className="deployment-current">{value}</span>
+              {differs && <span className="deployment-default">Default {shown(setting.default)}</span>}
+            </span>
+            <StatusPill tone="neutral">{setting.source === "environment" ? "Environment" : "Default"}</StatusPill>
+          </SettingRow>
         );
       })}
-    </SettingsTable>
+    </SettingsPanel>
   );
 }
 

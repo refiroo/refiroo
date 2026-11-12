@@ -24,7 +24,7 @@ export function PickDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   return (
-    <Modal title={title} eyebrow="Security" size="compact" busy={pending} onClose={onClose}>
+    <Modal title={title} eyebrow="People and access" size="compact" busy={pending} onClose={onClose}>
       <form
         className="grant-form"
         onSubmit={(event) => {

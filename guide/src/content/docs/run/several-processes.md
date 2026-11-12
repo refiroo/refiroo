@@ -54,7 +54,7 @@ Each process runs its own workers. Database notifications wake idle workers, and
 them from applying the same work. A worker renews its lease while running; another takes over only
 when renewal stops and `JOB_LEASE_SECONDS` expires, by default 120 seconds.
 
-Open **Settings › Administration › Operations** with Operations access. It lists live and silent
+Open **Settings › This instance › Operations** with Operations access. It lists live and silent
 processes, their readiness, threads, connections and workspace failures. Reports arrive every
 `PROCESS_HEARTBEAT_SECONDS` (default 15); three missed intervals mark a process silent.
 A clean stop removes the row; a dead process's row ages out after a day.

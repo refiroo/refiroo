@@ -113,6 +113,8 @@ function stubStorage() {
 beforeEach(() => {
   vi.clearAllMocks();
   stubStorage();
+  // A page with tabs keeps the chosen tab in the address.
+  window.history.replaceState(null, "", "/");
   vi.mocked(api.system).mockResolvedValue(system);
   vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture());
   // The Jobs page names each workspace by its label.
@@ -201,11 +203,12 @@ describe("Jobs", () => {
     expect(within(jobs).getByRole("row", { name: /j2/ })).toHaveTextContent(
       /default\s*Completed\s*Partly applied\s*3 of 3 processed: 2 applied, 1 rejected, 0 unprocessed/,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Load more jobs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
     expect(await within(jobs).findByRole("row", { name: /j1/ })).toHaveTextContent(/Failed\s*It failed/);
     expect(api.jobs).toHaveBeenLastCalledWith("next");
-    expect(screen.queryByRole("button", { name: "Load more jobs" })).not.toBeInTheDocument();
-    const limits = screen.getByRole("region", { name: "Limits" });
+    expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Limits" }));
+    const limits = await screen.findByRole("region", { name: "Limits" });
     expect(limits).toHaveTextContent(/Background batch\s*1,000,000 items, 50 MB/);
     // The change feed's retention is on Consumer APIs, whose consumers follow it (0.10 A5c).
     expect(limits).not.toHaveTextContent(/Change feed/);
@@ -255,8 +258,11 @@ describe("Jobs", () => {
       nextCursor: null,
     });
     renderJobs();
-    await screen.findByRole("region", { name: "Limits" });
+    // The limits have been read once the Limits tab shows them.
+    fireEvent.click(await screen.findByRole("tab", { name: "Limits" }));
     await screen.findByText(/Background batch/);
+    fireEvent.click(screen.getByRole("tab", { name: "Jobs" }));
+    await screen.findByRole("row", { name: /j1/ });
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   });
 
@@ -433,7 +439,7 @@ describe("A group of jobs opened (0.13 JG)", () => {
       "href",
       "/settings/jobs/j9?group=aiTask%3At-1&state=failed",
     );
-    fireEvent.click(screen.getByRole("button", { name: "‹ Jobs" }));
+    fireEvent.click(within(trail).getByRole("button", { name: "Jobs" }));
     expect(onNavigate).toHaveBeenLastCalledWith({ kind: "settings", page: "jobs" });
   });
 

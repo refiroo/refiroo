@@ -6,7 +6,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
-import { chooseObject } from "./helpers/lists.mjs";
+import { chooseObject, openMoreFields } from "./helpers/lists.mjs";
 
 const KNOWN_ACCESSIBILITY_EXCEPTIONS = [
   {
@@ -120,11 +120,14 @@ try {
   checks.push("mapping lens: failed coverage read keeps the shell, states the failure and Retry loads the grid");
 
   // Empty filtered state is distinguished from an empty collection.
-  await page.getByRole("group", { name: "Mapping status" }).getByRole("button", { name: "Ambiguous" }).click();
-  await grid.getByText("No results match these filters").waitFor();
-  await page.getByRole("group", { name: "Mapping status" }).getByRole("button", { name: "All" }).click();
+  // The mapping relationship here is many-to-many, so the lens offers no "Ambiguous" facet (several
+  // targets are Mapped); the filtered-empty state is reached with the search instead.
+  const mappingSearch = page.getByRole("searchbox").or(page.getByPlaceholder(/^Search /)).first();
+  await mappingSearch.fill("zzz-no-such-value");
+  await grid.getByText("No results match this search").waitFor();
+  await mappingSearch.fill("");
   await grid.getByText("Value Beta", { exact: true }).first().waitFor();
-  checks.push("mapping lens: empty filter result is explained and clearing the facet restores rows");
+  checks.push("mapping lens: empty filter result is explained and clearing the search restores rows");
 
   // Keyboard path to the mapping dialog; candidate search is focused on open.
   await page.getByRole("button", { name: "Change mapping for Value Alpha" }).focus();
@@ -209,7 +212,7 @@ try {
   expect((await coverageFor("Value Alpha"))?.state === "unmapped", "contextual creation changed the mapping");
   checks.push("contextual creation offers the applications containing the target; cancel keeps the unsaved choice");
 
-  await mappingDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
+  await mappingDialog.getByRole("button", { name: "Save", exact: true }).click();
   await mappingDialog.waitFor({ state: "detached" });
   await grid.getByText("Master Beta", { exact: true }).first().waitFor();
   const saved = await coverageFor("Value Alpha");
@@ -229,7 +232,7 @@ try {
     targetObjectId: gamma.id,
     expectedMappingVersion: saved.mappingVersion,
   }, "PUT");
-  await mappingDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
+  await mappingDialog.getByRole("button", { name: "Save", exact: true }).click();
   const conflict = mappingDialog.getByText("Mapping conflict");
   await conflict.waitFor();
   await mappingDialog.getByText(/Current mapping:\s*Master Gamma/).waitFor();
@@ -237,7 +240,7 @@ try {
     await mappingDialog.getByRole("radio", { name: /^Master Alpha/ }).isChecked(),
     "conflict discarded the attempted choice",
   );
-  const saveButton = mappingDialog.getByRole("button", { name: "Save mapping", exact: true });
+  const saveButton = mappingDialog.getByRole("button", { name: "Save", exact: true });
   expect(await saveButton.isDisabled(), "save is enabled before the conflict is reviewed");
   await shot("mapping-conflict-wide");
   await axe("wp13c-mapping-conflict");
@@ -268,16 +271,18 @@ try {
   await createDialog.getByRole("combobox", { name: "Parent type" }).selectOption("codelist");
   await chooseObject(createDialog, codelist.id);
   await createDialog.getByLabel("Name", { exact: true }).fill("Master Delta");
+  await openMoreFields(createDialog);
   await createDialog.getByLabel("Master ID").fill("MASTER-DELTA");
+  await openMoreFields(createDialog);
   await createDialog.getByLabel("Value code").fill("MD");
   await createDialog.getByLabel("Value name").fill("Master Delta");
-  await createDialog.getByRole("button", { name: "Create", exact: true }).click();
+  await createDialog.getByRole("button", { name: /^Add / }).click();
   await createDialog.waitFor({ state: "detached" });
   expect(
     await betaDialog.getByRole("radio", { name: /^Master Delta/ }).isChecked(),
     "the created target is not selected in the mapping dialog",
   );
-  await betaDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
+  await betaDialog.getByRole("button", { name: "Save", exact: true }).click();
   await betaDialog.waitFor({ state: "detached" });
   await grid.getByText("Master Delta", { exact: true }).first().waitFor();
   const delta = (await coverageFor("Value Beta"))?.targets[0]?.object;
@@ -321,7 +326,7 @@ try {
   await page.goto(
     `${uiUrl}/apps/rdm-master/views/master-to-system-mapping?workspaceKey=default&changeSetId=${changeSet.id}`,
   );
-  await page.getByRole("heading", { name: "Master ← System mapping", level: 1 }).waitFor();
+  await page.getByRole("heading", { name: "Master values", level: 1 }).waitFor();
   await page.getByRole("region", { name: "Change set publication" }).waitFor();
   await grid.getByText("Master Gamma", { exact: true }).first().waitFor();
   await page.getByRole("button", { name: "Change mapping for Master Gamma" }).click();
@@ -338,16 +343,17 @@ try {
   await inverseCreate.getByRole("combobox", { name: "Parent type" }).selectOption("system");
   await chooseObject(inverseCreate, records.system[0].id);
   await inverseCreate.getByLabel("Name", { exact: true }).fill("Value Change set");
+  await openMoreFields(inverseCreate);
   await inverseCreate.getByLabel("Value code").fill("VD");
   await inverseCreate.getByLabel("Value name").fill("Value Change set");
   await shot("mapping-change-set-create-target-wide");
-  await inverseCreate.getByRole("button", { name: "Create", exact: true }).click();
+  await inverseCreate.getByRole("button", { name: /^Add / }).click();
   await inverseCreate.waitFor({ state: "detached" });
   expect(
     await inverseDialog.getByRole("radio", { name: /^Value Change set/ }).isChecked(),
     "the created change set target is not selected",
   );
-  await inverseDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
+  await inverseDialog.getByRole("button", { name: "Save", exact: true }).click();
   await inverseDialog.waitFor({ state: "detached" });
   await grid.getByText("Value Change set", { exact: true }).first().waitFor();
   const liveChangeSetValue = await api(
@@ -382,14 +388,15 @@ try {
   await page.getByRole("heading", { name: "WP-13C mapping change set" }).waitFor();
   checks.push("change sets list: failed read keeps the page header and Retry loads the change sets");
 
-  await page.locator(".page-header").getByRole("button", { name: "Start from current live data" }).click();
-  const create = page.getByRole("dialog", { name: "Start from current live data" });
-  await create.getByLabel("Change set name").fill("WP-13C pinned change set");
+  await page.locator(".page-header").getByRole("button", { name: "New change set" }).click();
+  const create = page.getByRole("dialog", { name: "New change set" });
+  await create.getByLabel("Name", { exact: true }).fill("WP-13C pinned change set");
+  await create.getByRole("button", { name: "Options" }).click();
   const versionSelect = create.getByRole("combobox", { name: "Model version" });
   await versionSelect.selectOption(other.id);
   await shot("change-set-create-version-wide");
   await axe("wp13c-change-set-create-version");
-  await create.getByRole("button", { name: "Create change set" }).click();
+  await create.getByRole("button", { name: "Start change set" }).click();
   await create.waitFor({ state: "detached" });
   const mismatch = page.getByText("This change set uses a different model version");
   await mismatch.waitFor();
@@ -400,12 +407,16 @@ try {
     `mismatch notice does not name the active release: ${mismatchText}`,
   );
   expect(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(mismatchText), `mismatch notice shows a release id: ${mismatchText}`);
-  const activate = page.getByRole("button", { name: "Publish change set" });
-  expect(await activate.isDisabled(), "activation is enabled for a change set on a non-active release");
-  expect(
-    ((await activate.getAttribute("title")) ?? "").includes("differs from the active release"),
-    "disabled activation does not explain the version mismatch",
-  );
+  const activate = page.getByRole("button", { name: "Publish", exact: true });
+  // Publish is never a disabled button explained by a tooltip (0.17 PL1): it says why in words.
+  expect(!(await activate.isDisabled()), "Publish is disabled for a change set on a non-active release");
+  expect(((await activate.getAttribute("title")) ?? "") === "", "Publish explains the version mismatch in a tooltip");
+  await activate.click();
+  await page.getByText(/uses a different model version than live data/).first().waitFor();
+  expect((await page.getByRole("alertdialog").count()) === 0, "publishing opened a confirmation on a non-active release");
+  // The change set's model stands under Details in the band (0.17 PL1).
+  const details = page.getByRole("button", { name: "Details", exact: true }).first();
+  if ((await details.getAttribute("aria-expanded")) !== "true") await details.click();
   await page.getByText(`Model ${other.key} ${other.version}`).first().waitFor();
   await shot("change-set-version-mismatch-wide");
   await axe("wp13c-change-set-version-mismatch");

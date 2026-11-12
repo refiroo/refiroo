@@ -78,6 +78,8 @@ try {
     },
     backendEnv: {
       CONSUMER_SUBSCRIPTIONS_ENABLED: "true",
+      // The receiver listens on this machine, which an instance refuses unless it allows private addresses.
+      WEBHOOK_PRIVATE_ADDRESSES_ALLOWED: "true",
     },
   });
   const { page, uiUrl, api, output, browser } = harness;
@@ -122,7 +124,7 @@ try {
       await dialog.getByRole("spinbutton", { name: "Up to (events)" }).fill("50");
       await dialog.getByText("CloudEvents 1.0", { exact: true }).click();
       await dialog.getByText(/cloudevents-batch\+json/).waitFor();
-      await dialog.getByRole("button", { name: "Create webhook" }).scrollIntoViewIfNeeded();
+      await dialog.getByRole("button", { name: "Add webhook" }).scrollIntoViewIfNeeded();
       await shot(`u5-new-webhook-bottom-${suffix}`);
     } else {
       expect(
@@ -137,7 +139,7 @@ try {
       );
     }
     await shot(`u5-new-webhook-${suffix}`);
-    await dialog.getByRole("button", { name: "Create webhook" }).click();
+    await dialog.getByRole("button", { name: "Add webhook" }).click();
     const keyDialog = page.getByRole("dialog", { name: "Keep the signing key" });
     await keyDialog.waitFor();
     const secret = (await keyDialog.locator(".copy-value code").innerText()).trim();
@@ -156,14 +158,14 @@ try {
         !("signingSecret" in stored),
       `${apiName}: stored ${JSON.stringify(stored).slice(0, 300)}`,
     );
-    const facts = await page.locator(".webhook-detail").innerText();
+    const facts = await page.locator(".settings-page").innerText();
     expect(
       width === 1440
         ? facts.includes("Batched, up to 50 events") && facts.includes("CloudEvents 1.0")
         : facts.includes("One event per request") && facts.includes("RDM JSON"),
       `${apiName}: the detail does not show the delivery choices`,
     );
-    await page.getByRole("heading", { level: 2, name: `${apiName} receiver` }).waitFor();
+    await page.getByRole("heading", { level: 1, name: `${apiName} receiver` }).waitFor();
     await page.getByRole("tab", { name: "Configuration", selected: true }).waitFor();
     const scroll = await overflow();
     expect(scroll <= 0, `${suffix}: the detail scrolls horizontally by ${scroll}px`);
@@ -197,7 +199,7 @@ try {
     "the refused batch never showed as pending",
   );
   await page.goto(`${uiUrl}/settings/webhooks/${areas.id}`);
-  const detail = page.locator(".webhook-detail");
+  const detail = page.locator(".settings-page");
   await detail.getByText("Retrying", { exact: true }).waitFor();
   await detail.getByText("The receiver answered 503 Service Unavailable: receiver busy").waitFor();
   await shot("u5-retrying-wide");
@@ -346,13 +348,16 @@ try {
       ],
     });
   const rotateByKeyboard = async (choice) => {
-    await page.getByRole("button", { name: "Rotate key…" }).focus();
+    // Rotate key… is in the page's ⋯ menu: its trigger by keyboard, and the menu's first item.
+    await page.getByRole("button", { name: "More actions" }).focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("menuitem", { name: "Rotate key…" }).waitFor();
     await page.keyboard.press("Enter");
     const rotate = page.getByRole("dialog", { name: /^Rotate the signing key of / });
     await rotate.waitFor();
     if (choice) await rotate.getByText(choice, { exact: true }).click();
     await shot(`u5-rotate-dialog-${choice ? "stop" : "default"}-wide`);
-    await rotate.getByRole("button", { name: "Make a new key" }).focus();
+    await rotate.getByRole("button", { name: "Rotate key" }).focus();
     await page.keyboard.press("Enter");
     const kept = page.getByRole("dialog", { name: "Keep the new signing key" });
     await kept.waitFor();
@@ -404,16 +409,18 @@ try {
   // phone, the second without a horizontal scroll, and Escape closes the first.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/settings/webhooks/${created.rdm.id}`);
-  await page.getByRole("heading", { level: 2 }).first().waitFor();
-  await page.getByRole("button", { name: "Rotate key…" }).click();
+  await page.getByRole("heading", { level: 1 }).first().waitFor();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Rotate key…" }).click();
   const phoneRotate = page.getByRole("dialog", { name: /^Rotate the signing key of / });
   await phoneRotate.waitFor();
   expect((await overflow()) <= 0, "the rotation dialog scrolls horizontally at 390px");
   await shot("u5-rotate-dialog-narrow");
   await page.keyboard.press("Escape");
   await phoneRotate.waitFor({ state: "detached" });
-  await page.getByRole("button", { name: "Rotate key…" }).click();
-  await phoneRotate.getByRole("button", { name: "Make a new key" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Rotate key…" }).click();
+  await phoneRotate.getByRole("button", { name: "Rotate key" }).click();
   const phoneKey = page.getByRole("dialog", { name: "Keep the new signing key" });
   await phoneKey.waitFor();
   expect((await overflow()) <= 0, "the new key's dialog scrolls horizontally at 390px");
@@ -507,7 +514,7 @@ try {
   const link = page.getByRole("link", { name: "Hooked receiver" });
   await link.click();
   await page.waitForURL(`**/settings/webhooks/${hooked.id}`);
-  await page.getByRole("heading", { level: 2, name: "Hooked receiver" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Hooked receiver" }).waitFor();
   checks.push("a workspace refused deletion for its webhook names it; the link opens the webhook's page");
 
   // 5. Axe on the list, the detail and the new-webhook dialog, light and dark.
@@ -520,7 +527,12 @@ try {
       ["dialog", "/settings/webhooks", "New webhook"],
     ]) {
       await page.goto(`${uiUrl}${address}`);
-      await page.getByRole("navigation", { name: "Webhook catalogue" }).getByRole("button").first().waitFor();
+      await page.getByRole("heading", { level: 1 }).first().waitFor();
+      if (name === "list")
+        await page
+          .getByRole("button", { name: /Receiver|receiver/ })
+          .first()
+          .waitFor();
       if (open) {
         await page.getByRole("button", { name: open }).click();
         await page.getByRole("dialog", { name: open }).waitFor();
@@ -544,11 +556,11 @@ try {
   const darkDialog = page.getByRole("dialog", { name: "New webhook" });
   await darkDialog.getByText("Batched", { exact: true }).click();
   await darkDialog.getByRole("spinbutton", { name: "Up to (events)" }).waitFor();
-  await darkDialog.getByRole("button", { name: "Create webhook" }).scrollIntoViewIfNeeded();
+  await darkDialog.getByRole("button", { name: "Add webhook" }).scrollIntoViewIfNeeded();
   await shot("u5-new-webhook-bottom-narrow-dark");
   await page.keyboard.press("Escape");
   await page.goto(`${uiUrl}/settings/webhooks/${created.rdm.id}`);
-  await page.locator(".webhook-detail").getByText("CloudEvents 1.0").waitFor();
+  await page.locator(".settings-page").getByText("CloudEvents 1.0").waitFor();
   await shot("u5-detail-narrow-dark");
   await page.setViewportSize({ width: 1440, height: 900 });
   checks.push("390px dark: the dialog's delivery choices with a batch size, and a CloudEvents webhook's detail");
@@ -556,7 +568,8 @@ try {
   // 6. Delete from the page; the API no longer has it.
   await page.evaluate(() => localStorage.setItem("rdm:theme:v1", JSON.stringify("light")));
   await page.goto(`${uiUrl}/settings/webhooks/${created.rdm.id}`);
-  await page.locator(".webhook-detail").getByRole("button", { name: "Delete…" }).click();
+  await page.locator(".settings-page").getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete…" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Delete this webhook?" });
   await confirm.getByRole("button", { name: "Delete webhook" }).click();
   await page.waitForURL("**/settings/webhooks");

@@ -19,6 +19,7 @@ from ...common.sealing import seal
 from ...errors import api_error
 from ...models.database import MailOutbox
 from ..identity.settings import IdentitySettings
+from . import mail_template
 from . import settings as mail_settings
 from .templates import Rendered
 
@@ -70,10 +71,13 @@ def enqueue(
     message: Rendered,
     *,
     now: datetime | None = None,
+    recipient_name: str | None = None,
 ) -> MailOutbox:
-    """Queue ``message`` for ``to_address`` in the caller's transaction (the caller commits).
-    ``409 MAIL_NOT_SET_UP`` without saved settings."""
+    """Queue ``message`` for ``to_address`` in the caller's transaction (the caller commits), inside
+    the operator's e-mail template when one is saved (``recipient_name`` fills its
+    ``{{recipient_name}}``). ``409 MAIL_NOT_SET_UP`` without saved settings."""
     mail_settings.require(session)
+    message = mail_template.apply(session, identity, message, recipient_name)
     at = now or datetime.now(UTC)
     public_id = str(uuid4())
     row = MailOutbox(

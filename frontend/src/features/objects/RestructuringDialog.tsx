@@ -301,7 +301,6 @@ export function RestructuringDialog({
             {summaryText(applied.summary)}. Nothing reaches live data until the change set is published.
           </Notice>
           <div className="dialog-actions">
-            <span className="dialog-actions-spacer" />
             {onReview && (
               <button type="button" className="secondary" onClick={onReview}>
                 Review the change set
@@ -546,18 +545,17 @@ export function RestructuringDialog({
         <p className="visually-hidden" role="status">
           {applying ? "Applying…" : ""}
         </p>
+        {applying && (
+          <p className="muted tree-move-progress" aria-hidden="true">
+            Applying to every record in the plan; a large one can take a few seconds.
+          </p>
+        )}
         <div className="dialog-actions">
-          {applying && (
-            <span className="muted tree-move-progress" aria-hidden="true">
-              Applying to every record in the plan; a large one can take a few seconds.
-            </span>
-          )}
-          <span className="dialog-actions-spacer" />
           <button type="button" className="secondary" disabled={applying} onClick={onClose}>
             Cancel
           </button>
           <button className="primary" disabled={applying || !ready}>
-            {applying ? "Applying…" : "Apply to the change set"}
+            {applying ? "Saving…" : "Save"}
           </button>
         </div>
       </form>

@@ -62,7 +62,7 @@ the selection replaces them with one; it does not add another target alongside t
 
 Where offered, **Create new** followed by the target type opens a record creation form.
 Creating a target and saving its mapping are distinct steps: review the selected target and
-finish **Save mapping**. Cancelling the mapping does not undo a target already created.
+finish **Save**. Cancelling the mapping does not undo a target already created.
 
 **Remove mapping**, where available, clears the connection rather than deleting either record.
 A required connection cannot be cleared. Changes are saved together or refused, so an unsuccessful
@@ -106,7 +106,7 @@ not hide existing mappings. **Show all … targets for …** expands a row's rem
 Creating a missing target asks for its application. Parent choices belong to that application;
 if no required parent can stand there, creation is refused. Create or select a suitable parent
 rather than choosing one from another application. Creating the target selects it in the mapping
-form but does not save the mapping: finish **Save mapping** separately.
+form but does not save the mapping: finish **Save** separately.
 
 A replacement keeps the values of connections it retains when no new relationship values are
 supplied. Explicit replacement values replace the whole collection of fields, and clearing
@@ -150,7 +150,7 @@ are left unmapped.
 
 ![Proposed mappings in a change set, with suggested target stops and their confidence and reasons](/docs/screens/use-mapping-proposed.png)
 
-Correct a wrong target through **Change** and **Save mapping**, or remove the mapping if allowed.
+Correct a wrong target through **Change** and **Save**, or remove the mapping if allowed.
 Changing the target removes its AI mark because the replacement is your choice. Publishing
 uses the usual approval and conflict checks. The published relationship's history keeps the
 proposal's origin and model, and separately names the person who published it.

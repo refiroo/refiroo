@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from ....common.time import as_utc
 from ....errors import ApiError, api_error
-from ....models.database import ModelDraft, ModelDraftOperation
+from ....models.database import ImportProfile, ModelDraft, ModelDraftOperation
 from ...authorization.writes import requester_of
 from ...identity.principals import Ref, columns, names, ref
 from ...records.proposed import origin_with_names, step_marks
@@ -396,7 +396,16 @@ class _Drafts:
         def in_use(element: str) -> bool:
             return element in released and any(counted(element).values())
 
-        context = Context(document, released.__contains__, profile, sheets, file_name, in_use, base.model_json if base else None)
+        context = Context(
+            document,
+            released.__contains__,
+            profile,
+            sheets,
+            file_name,
+            in_use,
+            base.model_json if base else None,
+            session.scalars(select(ImportProfile.key)),
+        )
         applied: list[Applied] = []
         for index, operation in enumerate(operations):
             if not isinstance(operation, dict):

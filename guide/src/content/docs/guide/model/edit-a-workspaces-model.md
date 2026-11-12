@@ -23,7 +23,7 @@ does not offer this action. See [Managing workspaces](/docs/model/managing-works
 6. Confirm only after checking the named workspace. On success inspect its model and applications.
    On **Not applied**, read the reason, reload the current state and check again before retrying.
 
-![Workspace overview with Edit model](/docs/screens/model-workspace-edit-model.png)
+![Workspace model draft with Applies to Graubünden and Apply to this workspace](/docs/screens/model-workspace-edit-model.png)
 
 ![Apply dialog listing the workspace, changes and compatibility](/docs/screens/model-workspace-apply-dialog.png)
 

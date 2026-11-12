@@ -48,7 +48,34 @@ const purpleDarkSystem = block(
   ':root[data-scheme="purple"]:not([data-theme="light"])',
   css.indexOf('@media (prefers-color-scheme: dark) {\n  :root[data-scheme="purple"]'),
 );
+// Hearth, Studio and Instrument (0.17 UX1): each `data-scheme` in light, and in dark by the explicit choice or the
+// system preference.
+const UX_THEMES = ["hearth", "studio", "instrument"] as const;
+const uxBlocks = Object.fromEntries(
+  UX_THEMES.map((name) => [
+    name,
+    {
+      light: block(`:root[data-scheme="${name}"]`),
+      darkExplicit: block(`:root[data-scheme="${name}"][data-theme="dark"]`),
+      darkSystem: block(
+        `:root[data-scheme="${name}"]:not([data-theme="light"])`,
+        css.indexOf(`@media (prefers-color-scheme: dark) {\n  :root[data-scheme="${name}"]`),
+      ),
+    },
+  ]),
+);
 const themes = {
+  ...Object.fromEntries(
+    UX_THEMES.flatMap((name) => [
+      [`${name} light`, new Map([...light, ...uxBlocks[name].light])],
+      [`${name} dark`, new Map([...light, ...uxBlocks[name].light, ...uxBlocks[name].darkExplicit])],
+      [`${name}, palette A light`, new Map([...light, ...uxBlocks[name].light, ...paletteA])],
+      [
+        `${name}, palette A dark`,
+        new Map([...light, ...uxBlocks[name].light, ...uxBlocks[name].darkExplicit, ...paletteA, ...paletteADark]),
+      ],
+    ]),
+  ),
   light,
   dark: new Map([...light, ...darkExplicit]),
   // Each purple theme over the Normal light base, as the cascade has it; type palette A applies inside both.
@@ -224,6 +251,23 @@ describe("design tokens", () => {
     for (const block of [purpleLight, purpleDarkExplicit])
       for (const [name, value] of block) expect(value, `--${name}`).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
+
+  for (const name of UX_THEMES) {
+    it(`defines ${name}'s dark roles identically for the explicit choice and the system preference`, () => {
+      expect([...uxBlocks[name].darkSystem.entries()]).toEqual([...uxBlocks[name].darkExplicit.entries()]);
+    });
+
+    it(`sets in ${name}, light and dark, every role the Normal dark blocks set`, () => {
+      const roles = [...darkExplicit.keys()].sort();
+      expect([...uxBlocks[name].light.keys()].filter((role) => roles.includes(role)).sort()).toEqual(roles);
+      expect([...uxBlocks[name].darkExplicit.keys()].sort()).toEqual(roles);
+    });
+
+    it(`keeps ${name}'s own colours in primitives named after it`, () => {
+      for (const [role, value] of [...uxBlocks[name].light, ...uxBlocks[name].darkExplicit])
+        if (!role.startsWith(`${name}-`)) expect(value, `--${role}`).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    });
+  }
 
   it("redefines only semantic roles in dark mode", () => {
     const primitives = [...darkExplicit.keys()].filter((name) =>

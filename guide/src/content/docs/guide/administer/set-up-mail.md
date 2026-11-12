@@ -6,9 +6,11 @@ reader: access-admin
 
 Use this task to deliver account links and notices through your organisation’s mail server. You need **Security administration** for the whole instance and the server details from your mail administrator. [Mail](/docs/administer/mail/) explains delivery states and retry limits.
 
+For the layout and logo around every message, an operator uses [E-mail template](/docs/administer/mail/#e-mail-template). Saving mail delivery settings does not change that template.
+
 ## Save the server
 
-1. Open **Settings › Integration › Mail**. If nothing is saved, **Mail is not set up** explains that password links must be passed on by an administrator.
+1. Open **Settings › This instance › Mail** and the **Server** tab. If nothing is saved, **Mail is not set up** explains that password links must be passed on by an administrator.
 2. Under **Mail server**, enter **Server** and **Port**. Choose **Connection**: STARTTLS usually uses 587; TLS usually uses 465. Choose **None: not encrypted (a relay on a trusted network)** only for an approved relay without login.
 3. Enter **User name** and **Password** if the server requires a login. Save is unavailable for a login over an unencrypted connection. A saved password is never displayed; enter it again when changing server or port.
 4. Enter **From address**, approved by the mail administrator. Enter **Application address** if links should use a different address from the displayed default. Recipients must be able to reach it.
@@ -31,7 +33,7 @@ If **The settings were not saved** appears, read the reason and correct the name
 3. Correct a server problem in **Mail server**. Waiting messages retry automatically; a failed password message needs a new link. Do not expect a stopped or failed message to restart.
 4. To stop a waiting message, choose its **Stop sending**, check the recipient and confirm **Stop sending**. **Keep trying** leaves it queued. Its text is erased, but its existing link remains valid until used, replaced or expired.
 
-Removing the mail settings stops sending; waiting messages remain until their delivery window ends. Use **Remove settings…**, read the warning and confirm **Remove them** only when that is intended. People choose their own notice mail and digests under **Settings › General › Notification email**; configuring a server does not opt them in.
+Removing the mail settings stops sending; waiting messages remain until their delivery window ends. Use **Remove settings…**, read the warning and confirm **Remove them** only when that is intended. People choose their own notice mail and digests under **Settings › You › Notification email**; configuring a server does not opt them in.
 
 ## Replace credentials or move the site
 

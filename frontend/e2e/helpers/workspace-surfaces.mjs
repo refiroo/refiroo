@@ -159,7 +159,7 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
         "workspace-switcher",
         async () => {
           await page.goto(`${uiUrl}${starterView}?workspaceKey=${defaultKey}`);
-          await page.getByRole("combobox", { name: "Workspace" }).click();
+          await page.getByRole("combobox", { name: "Workspace", exact: true }).click();
           await page
             .getByRole("option", { name: /Branch B/ })
             .getByText("Other model")
@@ -229,7 +229,7 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
         "new-workspace-dialog",
         async () => {
           await page.goto(`${uiUrl}/settings/workspaces`);
-          await page.getByRole("button", { name: /New workspace/ }).click();
+          await page.getByRole("button", { name: "New workspace", exact: true }).click();
           await dialog().getByRole("radio", { name: "Another installed release" }).check();
           await dialog()
             .getByRole("button", { name: /Installed release/ })

@@ -340,9 +340,9 @@ A code or password sent as proof is wrong, or the one-time code was already used
 
 ### COLUMN_NOT_FOUND
 
-<span class="rdm-status rdm-4xx">Not a response status</span>
+<span class="rdm-status rdm-4xx">Status 422</span>
 
-A problem in an import's file, listed in `details.problems` of `IMPORT_FILE_MISMATCH`, or an item's refusal for an export's table layout. A column the profile names, by header or by letter, is not in the file's header row, or a sheet of an export's tables has records but no `applicationKey` column. `path` points at the profile part that names it. Restore the column in the file or correct the profile.
+A column is not in the table that was named. As the response of `POST /api/v1/model-drafts/{draftId}/join-candidates`, a header or sheet letter is not in the header row or block of the sheet it was sent with; `details.path` is `/column` or `/against`. It is also a problem in an import's file, listed in `details.problems` of `IMPORT_FILE_MISMATCH`, or an item's refusal for an export's table layout: a column the profile names, by header or by letter, is not in the file's header row, or a sheet of an export's tables has records but no `applicationKey` column; `path` points at the profile part that names it. Restore the column in the file or correct what names it.
 
 ### COLUMN_UNMAPPED
 
@@ -531,6 +531,12 @@ The subscription has no logged delivery with the ID in `GET /api/v1/consumer-sub
 <span class="rdm-status rdm-4xx">Status 422</span>
 
 `PUT /api/v1/me/notification-mail` put notice kinds into the digest, but the person has no digest frequency set. `details.kinds` lists the kinds. Nothing changed. Send `digest` (`every` and `timeZone`) in the same request or an earlier one, then choose `digest` for the kinds.
+
+### DRAFT_HAS_NO_WORKBOOK
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+`POST /api/v1/workspaces/from-workbook` named a model draft that has no workbook, so there is nothing to load into the new workspace. Nothing was created. Add the workbook to the draft (`POST /api/v1/source-files` with the draft as its owner), wait until it is read, then send the request again.
 
 ### DRY_RUN_NOT_FOUND
 
@@ -916,6 +922,12 @@ A value does not have the type the attribute declares, for example text where a 
 
 The request does not name exactly one place to write. A batch or an import names either `workspaceKey` for live data or `changeSetId` for a change set, not both and not neither, and `expectedChangeSetVersion` only goes with `changeSetId`. `details.pointer` locates the field. Fix the request; a change set without `expectedChangeSetVersion` is refused as `CHANGE_SET_REQUIRED`.
 
+### INVALID_CANVAS
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+A change to a model draft's canvas would leave it with more than 500 cards. `PATCH /api/v1/model-drafts/{draftId}/canvas` refuses it and changes nothing; `details` holds `cards` and `limit`. Remove the positions of cards that no longer exist (send them as `null`) in the same request, or send fewer.
+
 ### INVALID_CELL
 
 <span class="rdm-status rdm-4xx">Not a response status</span>
@@ -1264,6 +1276,24 @@ An assistant lookup tool was called with `operation` `lists` and no `list`. It a
 
 `PUT /api/v1/mail-settings` has a `username` while `security` is `none`, which would send the login in clear text. Choose TLS or STARTTLS, or remove the user name.
 
+### MAIL_LOGO_TOO_LARGE
+
+<span class="rdm-status rdm-4xx">Status 413</span>
+
+`PUT /api/v1/mail-template/logo` received an image over 512 KB (`details.limit` is the limit in bytes). Send a smaller image; a logo of a few kilobytes is enough for a message.
+
+### MAIL_LOGO_UNSAFE
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+`PUT /api/v1/mail-template/logo` received an SVG that holds script, an event handler or an external object, which a mail client could run. Remove them or send a PNG or JPEG.
+
+### MAIL_LOGO_UNSUPPORTED
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+`PUT /api/v1/mail-template/logo` received a file that is not a PNG, JPEG or SVG image; the type is read from the content, not from the file name. `details.accepted` lists the media types.
+
 ### MAIL_NOT_SET_UP
 
 <span class="rdm-status rdm-4xx">Status 409</span>
@@ -1281,6 +1311,30 @@ The request needs mail and none is configured. It is raised by `POST /api/v1/mai
 <span class="rdm-status rdm-4xx">Status 422</span>
 
 `POST /api/v1/mail-settings/test` could not send the test message. `details.kind` is `connection`, `tls`, `login`, `recipient`, `sender` or `rejected`, and `details.reason` repeats the message. It usually means a wrong host, port, security mode or credentials, or a server that refuses the sender or recipient. Correct the settings with `PUT /api/v1/mail-settings` and test again.
+
+### MAIL_TEMPLATE_CONTENT_REQUIRED
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+The e-mail template of `PUT /api/v1/mail-template` or `POST /api/v1/mail-template/preview` does not hold `{{content}}` exactly once (`details.count` says how often it does). `{{content}}` is where each message's own text goes, so put it in once.
+
+### MAIL_TEMPLATE_NOT_SAVED
+
+<span class="rdm-status rdm-4xx">Status 409</span>
+
+`DELETE /api/v1/mail-template/logo` was called while no e-mail template is saved, so there is no logo to remove. Nothing to do.
+
+### MAIL_TEMPLATE_TOO_LONG
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+The e-mail template's Markdown is longer than 20,000 characters (`details.limit`). Shorten it.
+
+### MAIL_TEMPLATE_UNKNOWN_PLACEHOLDER
+
+<span class="rdm-status rdm-4xx">Status 422</span>
+
+The e-mail template holds a `{{name}}` that is not a placeholder (`details.placeholder`; `details.known` lists the ones that are). Correct the name or remove it.
 
 ### MAPPING_BINDING_NOT_FOUND
 
@@ -1700,7 +1754,7 @@ The record breaks a rule of its object type: at least one of a set of attributes
 
 <span class="rdm-status rdm-4xx">Status 409</span>
 
-The record cannot be deleted because other records or relationships depend on it, and the delete did not ask for a cascade. `DELETE /api/v1/objects/{object_type_key}/{object_id}` lists in `details` what would be deleted or removed (`objectsToDelete`, `relationshipsToRemove`, counts and a `deletionPreviewToken`); a batch delete item carries an `impact`; removing a level in a restructuring lists `objectIds` that still hold records. Review the impact and repeat with `cascade=true` and the preview token, or remove the dependants first.
+The record cannot be deleted because other records or relationships depend on it, and the delete did not ask for a cascade. `DELETE /api/v1/objects/{object_type_key}/{object_id}` lists in `details` what would be deleted or removed (`GET …/deletion-impact` reads the same without deleting) (`objectsToDelete`, `relationshipsToRemove`, counts and a `deletionPreviewToken`); a batch delete item carries an `impact`; removing a level in a restructuring lists `objectIds` that still hold records. Review the impact and repeat with `cascade=true` and the preview token, or remove the dependants first.
 
 ### OBJECT_ID_REQUIRED
 

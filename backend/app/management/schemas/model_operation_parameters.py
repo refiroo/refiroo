@@ -802,6 +802,29 @@ PARAMETERS: dict[str, dict[str, Param]] = {
         "version": opt(TEXT, "The release's version."),
         "schemaVersion": opt(one_of("0.10"), "The model schema version it is written in."),
     },
+    "setUnpivot": {
+        "source": _SOURCE,
+        "columns": req(
+            array(TEXT),
+            "Header texts of the wide columns, at least two, each once.",
+        ),
+        "nameColumn": req(
+            TEXT, "Name of the new column that holds the header of the column each row came from."
+        ),
+        "valueColumn": req(TEXT, "Name of the new column that holds the cell."),
+    },
+    "clearUnpivot": {"source": _SOURCE},
+    "setFillDown": {
+        "source": _SOURCE,
+        "columns": req(array(TEXT), "Header texts of the columns repeated by blanks, each once."),
+    },
+    "clearFillDown": {"source": _SOURCE},
+    "setHeadingRows": {
+        "source": _SOURCE,
+        "column": req(TEXT, "Header text of the column that holds the heading."),
+        "into": req(TEXT, "Name of the new column that holds the heading on the rows beneath it."),
+    },
+    "clearHeadingRows": {"source": _SOURCE},
     "setSource": {
         "source": _SOURCE,
         "sheet": opt(TEXT, "Name of the sheet in the draft's profiled source file."),

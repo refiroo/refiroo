@@ -13,6 +13,7 @@ export type * from "@/types/sources";
 export type * from "@/types/moves";
 export type * from "@/types/operations";
 export type * from "@/types/mail";
+export type * from "@/types/mailTemplate";
 export type * from "@/types/ai";
 export type * from "@/types/aiTasks";
 export type * from "@/types/agentAccess";

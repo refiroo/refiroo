@@ -9,11 +9,11 @@ See [People and groups](/docs/administer/people-and-groups/) for how local and p
 
 ## Create a local group
 
-1. Open **Settings › Security › Groups**. Use **Search groups** (**Group name**) first to see whether the
-   intended group already exists. Choose a result to manage it, or **New group** to create one.
+1. Open **Settings › People and access › Groups**. Use **Search groups** (**Group name**) first to see whether the
+   intended group already exists. Open a result’s row to manage it on its own page, or choose **New group** to create one. **← Groups** returns to the list.
 2. Enter **Name** and **Description (optional)**. The description can explain who belongs
    and why. If a **Members** choice is offered, choose **Added here** for membership managed in refiroo.
-3. Choose **Create group**. The group opens with its roles and members. **Cancel** closes
+3. Choose **Add group**. The group opens with its roles and members. **Cancel** closes
    without creating it. If saving fails, read **Not saved**, correct the problem and retry.
 
 ![Empty Groups list with search and New group](/docs/screens/admin-groups.png)
@@ -46,8 +46,11 @@ See [People and groups](/docs/administer/people-and-groups/) for how local and p
 
 ## Change or remove membership
 
-1. Find the group by name and select it. Choose **Rename…** to change its name or description,
-   then **Save**. This does not change who belongs or the group's grants.
+1. Find the group by name and open its row. Select its name or description where it stands,
+   edit it, then leave the field or press Enter to save. Escape puts the old text back;
+   an unchanged input saves nothing. The save notice offers **Undo**. If refused, read the
+   reason under the input, then correct it and choose **Save again**, or **Cancel** to abandon
+   the edit. This does not change who belongs or the group's grants.
 2. To remove a local member, use their row’s **Remove**. For several, tick their rows, or use **Select every member shown**, and
    choose **Remove … from the group**. **Clear** clears the selection without removing anyone. Check the resulting list. Their direct roles and
    roles from other groups remain.

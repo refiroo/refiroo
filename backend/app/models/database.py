@@ -144,6 +144,9 @@ class ModelDraft(Base):
     )
     # The draft's import profile (0.10 A5, D75), changed only by operations; ``None`` for none.
     profile_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # Where each card of the workbook canvas sits (0.17 PL3b, PP-D54): card key to ``{x, y}``. Not
+    # part of the model, the version, the history or a release.
+    canvas_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
@@ -2481,6 +2484,33 @@ class MailSettings(Base):
     ms_identity_client_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     from_address: Mapped[str] = mapped_column(String(320), nullable=False)
     application_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class MailTemplate(Base):
+    """The e-mail template an operator edits: one row, absent until saved (the engine's own layout
+    applies).
+
+    ``body`` is Markdown with ``{{placeholders}}``; ``logo`` is an uploaded PNG, JPEG or SVG of at
+    most 512 KB (``logo_type`` its media type), sent inline in each mail. Both are in the clear: a
+    template holds no secret and no person's data.
+    """
+
+    __tablename__ = "mail_template"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_mail_template_one_row"),
+        CheckConstraint(
+            "(logo IS NULL) = (logo_type IS NULL)", name="ck_mail_template_logo_with_type"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    logo_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)

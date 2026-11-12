@@ -316,7 +316,7 @@ async function moveChangeSet(variant, key, label) {
   if (variant === "a") await shotBoth("v3-done");
   await page.getByRole("button", { name: "Open the change set" }).click();
   await page.waitForURL(new RegExp(`/change-sets/${changeSet.id}/`));
-  await page.getByRole("button", { name: "Publish change set" }).waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Publish", exact: true }).waitFor({ timeout: 30_000 });
   assert.equal(await page.getByText("This change set uses a different model version").count(), 0);
 }
 

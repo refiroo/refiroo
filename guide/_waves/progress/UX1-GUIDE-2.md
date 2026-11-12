@@ -1,0 +1,6 @@
+
+- 2026-11-12T04:46:18+01:00 — Finished `guide/src/content/docs/administer/permissions-reference.md`. Added the exact permission label Editing the e-mail template and explained template, logo and test-message access through Operations and Operator, verified against the authorization catalogue. No uncertainty; no steering file was present.
+
+- 2026-11-12T04:46:28+01:00 — Finished `guide/src/content/docs/administer/people-and-groups.md`. Corrected the Keeps local sign-in switch description: enabling saves immediately with Undo; disabling asks once with Stop keeping local sign-in, verified against PeoplePage.tsx. The coverage checker searches all pages regardless of the inventory section, so this belongs with the existing person sign-in description. No uncertainty; no steering file was present.
+
+- 2026-11-12T04:46:41+01:00 — Validation complete. `GUIDE_OUT=_build/UX1-GUIDE-2 npm run build` passed (257 pages); it warned that `/404` conflicts with the higher-priority `/404` route. `npm run check:coverage` passed: 1093 entries, 1082 covered, 11 excluded, 0 uncovered; last line `ok: coverage (257 page(s))`. No new screenshots needed, no unresolved content uncertainty or application defect found.

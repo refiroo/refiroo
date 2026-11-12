@@ -523,7 +523,13 @@ def send_mail(world: World, now: datetime | None = None) -> int:
     return world.api.client.app.state.mail_sender.run_until_idle(now)
 
 
-def queue_mail(world: World, to: str, message: Any, now: datetime | None = None) -> str:
+def queue_mail(
+    world: World,
+    to: str,
+    message: Any,
+    now: datetime | None = None,
+    recipient_name: str | None = None,
+) -> str:
     """Queue ``message`` (a rendered template) the way the engine's own code does, since no route
     queues mail in M1: the first producers are a new person's link (SP3) and a reset (I6). The
     message's public ID."""
@@ -531,7 +537,14 @@ def queue_mail(world: World, to: str, message: Any, now: datetime | None = None)
 
     app = world.api.client.app
     with app.state.session_factory() as session:
-        row = outbox.enqueue(session, app.state.identity_settings, to, message, now=now)
+        row = outbox.enqueue(
+            session,
+            app.state.identity_settings,
+            to,
+            message,
+            now=now,
+            recipient_name=recipient_name,
+        )
         session.commit()
         return row.public_id
 

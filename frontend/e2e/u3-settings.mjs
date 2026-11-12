@@ -51,10 +51,6 @@ try {
       await page.getByRole("button", { name: record, exact: true }).waitFor();
       const from = page.url();
       const tabs = page.getByRole("navigation", { name: "Applications" }).getByRole("button");
-      const appTabs = await tabs.allInnerTexts();
-      const current = await page
-        .locator('nav[aria-label="Applications"] [aria-current="page"]')
-        .evaluate((tab) => tab.textContent.trim());
       const appBar = await page.getByRole("banner").boundingBox();
       // The current page is marked by the tabs' ink underline (an icon has no text weight to compare).
       const mark = (element) => {
@@ -65,13 +61,13 @@ try {
       const settingsIcon = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
       const iconBefore = await settingsIcon.boundingBox();
       await settingsIcon.click();
-      await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
-      expect(path() === "/settings/about", `${suffix}: gear opened ${page.url()}`);
-      expect(
-        JSON.stringify(await tabs.allInnerTexts()) === JSON.stringify(appTabs),
-        `${suffix}: settings top bar tabs differ from the application's`,
-      );
-      expect((await page.locator('nav[aria-label="Applications"] [aria-current]').count()) === 0, "a tab is current");
+      await page.getByRole("heading", { level: 1, name: "Settings", exact: true }).waitFor();
+      expect(path() === "/settings", `${suffix}: gear opened ${page.url()}`);
+      // In Settings the bar shows "Back to <workspace>" in place of the application tabs (0.17 SH1).
+      expect((await tabs.count()) === 0, `${suffix}: application tabs shown in Settings`);
+      const back = page.getByRole("navigation", { name: "Back to the workspace" }).getByRole("link");
+      if (width === 1440)
+        expect(/^Back to /.test((await back.innerText()).trim()), `${suffix}: no way back to the workspace`);
       expect(
         (await page.getByRole("banner").getByRole("link", { name: "Settings" }).getAttribute("aria-current")) ===
           "page",
@@ -90,44 +86,23 @@ try {
         settingsCurrent === appCurrent,
         `${suffix}: Settings is marked ${settingsCurrent}, a current tab ${appCurrent}`,
       );
-      if (width === 1440) {
-        // The tabs keep 36px from the product mark (UA4 revision).
-        const before = await page.locator(".global-header > .product-mark").last().boundingBox();
-        const tab = await tabs.first().boundingBox();
-        const gap = Math.round(tab.x - (before.x + before.width));
-        expect(gap === 36, `settings: the tabs start ${gap}px after the item before them, not 36px`);
-      }
       expect(
         settingsBar.height === appBar.height,
         `${suffix}: top bar height ${settingsBar.height} vs ${appBar.height}`,
       );
-      expect((await page.getByRole("link", { name: "Back to applications" }).count()) === 0, "a second bar's Back");
       expect((await page.getByLabel("Current context").count()) === 0, "data-context band shown");
       expect((await page.getByRole("combobox", { name: "Workspace", exact: true }).count()) === 0, "switcher shown");
-      // Settings has no way back of its own: the application tabs and the product mark leave it
-      // (2026-10-15, one top bar on every page).
-      expect(
-        (await page
-          .getByRole("banner")
-          .getByRole("link", { name: /^Back to / })
-          .count()) === 0,
-        "a way back shown",
-      );
       if (width === 390) {
         // On a phone the top bar has no tabs (0.10 N1): the product mark leaves Settings.
         await page.getByRole("banner").locator(".product-mark").first().click();
         await page.waitForURL((url) => !url.pathname.startsWith("/settings"));
       } else {
-        await tabs.filter({ hasText: current }).click();
-        await page.getByRole("button", { name: record, exact: true }).waitFor();
-        expect(
-          new URL(page.url()).pathname === new URL(from).pathname,
-          `${suffix}: the application's tab returned to ${page.url()}, not ${from}`,
-        );
+        await back.click();
+        await page.waitForURL((url) => !url.pathname.startsWith("/settings"));
       }
     }
     checks.push(
-      `${suffix}: the gear opens Settings in the same top bar (same tabs and height, tabs 36px after the product name at 1440px, none current, Settings a current tab marked as the application's is) from two applications; each application's tab returns to its view with its query`,
+      `${suffix}: the gear opens Settings in the same top bar (the bar's height, the Settings icon's place and mark as in an application; Back to the workspace in place of the tabs) from two applications; Back leaves Settings`,
     );
 
     // 2. Every page, through the rail (wide) or the navigation drawer (narrow).
@@ -154,13 +129,16 @@ try {
       await shot(`u3-${label.toLowerCase()}-${suffix}`);
     }
     await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
-    await page.getByRole("button", { name: "Export JSON" }).waitFor();
-    // A release opens in Settings › Model beside its catalogue, on a phone with the way back to it
+    await page.getByText("Immutable release").waitFor();
+    // A release opens in Settings › Model beside its catalogue (the catalogue stays in view)
     // (0.11 M6, the layout left after the rework).
-    await page.getByRole("button", { name: /^← Back to/ }).waitFor();
+    await page.getByText("Releases", { exact: true }).first().waitFor();
     await page.goto(`${uiUrl}/settings/workspaces/default`);
     await page.getByRole("button", { name: "Open workspace" }).waitFor();
-    await page.getByRole("button", { name: "← All workspaces" }).waitFor();
+    await page
+      .locator('nav[aria-label="Where you are"]')
+      .getByRole("button", { name: "Workspaces", exact: true })
+      .waitFor();
     checks.push(
       `${suffix}: every settings page, a release's page and a workspace's page open at their own URLs without horizontal scroll`,
     );
@@ -183,11 +161,13 @@ try {
     .getByText(configuration.database.revision, { exact: true })
     .waitFor();
   const runtime = page.getByRole("region", { name: "Runtime" });
-  await runtime.getByRole("row", { name: /RDM_CURSOR_SIGNING_KEY/ }).waitFor();
+  // A setting is a row of the settings family (0.17 ST1), a div, not a table row.
+  const settingRow = (name) => runtime.locator(".setting-row").filter({ has: page.locator("code", { hasText: name }) });
+  await settingRow("RDM_CURSOR_SIGNING_KEY").waitFor();
   const cursorKey = configuration.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
-  const keyRow = await runtime.getByRole("row", { name: /RDM_CURSOR_SIGNING_KEY/ }).innerText();
+  const keyRow = await settingRow("RDM_CURSOR_SIGNING_KEY").innerText();
   expect(keyRow.includes(cursorKey.source === "environment" ? "Set" : "Not set"), `cursor key row: ${keyRow}`);
-  const databaseRow = await runtime.getByRole("row", { name: /DATABASE_URL/ }).innerText();
+  const databaseRow = await settingRow("DATABASE_URL").innerText();
   expect(!/:[^/@]+@/.test(databaseRow), `database URL shows a password: ${databaseRow}`);
   expect(
     (await page.getByRole("region", { name: "Capability groups" }).innerText()).includes(
@@ -205,7 +185,7 @@ try {
     [`/models?releaseId=${activeRelease}`, `/settings/model/releases/${activeRelease}`, undefined],
     ["/workspaces", "/settings/workspaces", "Workspaces"],
     ["/workspaces/default", "/settings/workspaces/default", undefined],
-    ["/settings", "/settings/about", "About"],
+    ["/settings", "/settings", "Settings"],
   ]) {
     await page.goto(`${uiUrl}${old}`);
     await page.waitForURL(`**${address}`);
@@ -246,40 +226,42 @@ try {
   await page.goto(`${uiUrl}/settings/deployment`);
   await page.getByRole("region", { name: "Capability groups" }).waitFor();
   await page.evaluate(() => document.activeElement?.blur());
-  const tabNames = await page.getByRole("navigation", { name: "Applications" }).getByRole("button").allInnerTexts();
   const productName = ((await page.locator(".product-mark").getAttribute("aria-label")) ?? "").replace(/ home$/, "");
   const expected = [
     "other:Skip to main content",
     `topbar:${productName} home`,
-    ...tabNames.map((name) => `topbar:${name.trim()}`),
+    // Settings shows the way back to the workspace in place of the application tabs (0.17 SH1).
+    "topbar:Back to Default",
     "topbar:Help (opens the documentation in a new tab)",
     "topbar:Inbox",
     "topbar:Settings",
     "topbar:Account",
-    "navigation:About",
+    // The menu follows the index by task (0.17), the harness person holding Security administration (0.12 SP1, D303).
+    "navigation:Settings",
     "navigation:Appearance",
     "navigation:Account",
     "navigation:Notification email",
     "navigation:Workspaces",
     "navigation:Model",
-    "navigation:Deployment",
-    "navigation:Operations",
-    "navigation:AI",
     "navigation:Import profiles",
     "navigation:Copy and move",
-    "navigation:Jobs",
-    // The harness person holds Security administration, so Security is listed (0.12 SP1, D303).
     "navigation:People",
     "navigation:Groups",
     "navigation:Roles",
-    "navigation:Clients",
-    "navigation:Agent access",
     "navigation:Sign-in",
     "navigation:Signing keys",
+    "navigation:Clients",
+    "navigation:Agent access",
     "navigation:Consumer APIs",
     "navigation:Webhooks",
-    "navigation:Mail",
     "navigation:API reference",
+    "navigation:Jobs",
+    "navigation:Operations",
+    "navigation:Deployment",
+    "navigation:Mail",
+    "navigation:E-mail template",
+    "navigation:AI",
+    "navigation:About",
     "navigation:Resize settings navigation",
   ];
   const order = [];

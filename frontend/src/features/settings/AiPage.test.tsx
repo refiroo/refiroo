@@ -76,8 +76,15 @@ function open(status: AiStatus, items: AiCall[] = []) {
   render(<AiPage />);
 }
 
+async function openCalls() {
+  fireEvent.click(await screen.findByRole("tab", { name: "Calls" }));
+}
+
 describe("Settings › AI (0.16 AP1)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    window.history.replaceState(null, "", "/");
+  });
 
   it("with neither switch set, says nothing is sent and names both settings", async () => {
     open(off);
@@ -93,25 +100,26 @@ describe("Settings › AI (0.16 AP1)", () => {
     open({ ...off, assistant: true, sendLevel: "values" }, [
       call({ id: "s", purpose: "assistantSession", costUsd: 0.86, taskId: "t1" }),
     ]);
-    const assistant = (await screen.findByText("Assistant")).closest("div")!;
+    const assistant = (await screen.findByText("Assistant")).closest(".setting-row") as HTMLElement;
     expect(within(assistant).getByText(/On/)).toBeTruthy();
     expect(within(assistant).getByText("AI_AGENT_COMMAND")).toBeTruthy();
     expect(within(assistant).getByText(/Reads workbooks and words, up to a change set/)).toBeTruthy();
-    const provider = screen.getByText("Provider").closest("div")!;
+    const provider = screen.getByText("Provider").closest(".setting-row") as HTMLElement;
     expect(within(provider).getByText(/Not set/)).toBeTruthy();
     expect(within(provider).getByText(/Mapping targets, search and summaries are not offered/)).toBeTruthy();
     expect(screen.queryByText("Neither the assistant nor an AI provider is set up")).toBeNull();
     expect(screen.queryByRole("button", { name: "Send a test request" })).toBeNull();
+    await openCalls();
     const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByText("Assistant session"))!;
     expect(within(row).getByText("$0.86")).toBeTruthy();
   });
 
   it("with only the provider set, shows the assistant not set and the provider's settings", async () => {
     open(on);
-    const assistant = (await screen.findByText("Assistant")).closest("div")!;
+    const assistant = (await screen.findByText("Assistant")).closest(".setting-row") as HTMLElement;
     expect(within(assistant).getByText(/Not set/)).toBeTruthy();
     expect(within(assistant).getByText(/is not offered/)).toBeTruthy();
-    expect(screen.getByText("claude-test", { selector: "dd" })).toBeTruthy();
+    expect(screen.getByText("claude-test")).toBeTruthy();
   });
 
   it("shows the settings, the features and the calls, with the content on demand", async () => {
@@ -127,34 +135,41 @@ describe("Settings › AI (0.16 AP1)", () => {
       }),
     ]);
     await screen.findByText("Also up to 5 values per column");
-    expect(screen.getByText("claude-test", { selector: "dd" })).toBeTruthy();
-    expect(screen.getByText("Set", { selector: "dd" })).toBeTruthy();
+    expect(screen.getByText("claude-test")).toBeTruthy();
+    expect(screen.getByText("Set")).toBeTruthy();
     expect(screen.getByText("60%")).toBeTruthy();
     expect(screen.getByText("For 7 days")).toBeTruthy();
     expect(screen.getByText("Available")).toBeTruthy();
+    await openCalls();
     const rows = await screen.findAllByRole("row");
     const failed = rows.find((row) => within(row).queryByText("Targets for unmapped values"))!;
     expect(within(failed).getByText("Failed")).toBeTruthy();
     expect(within(failed).getByText("The provider could not be reached.")).toBeTruthy();
     expect(within(failed).getByText("Show what was sent and answered")).toBeTruthy();
-    expect(screen.getByText(/1,200 tokens in, 300 out/)).toBeTruthy();
+    const totals = within(screen.getByLabelText("Totals of the last 30 days"));
+    expect(totals.getByText("tokens in").previousSibling).toHaveTextContent("1,200");
+    expect(totals.getByText("tokens out").previousSibling).toHaveTextContent("300");
+    expect(totals.getByText("failed").previousSibling).toHaveTextContent("1");
   });
 
   it("lists an assistant session's turn with its cost, and the cost in the totals (0.16 AP9)", async () => {
     open(on, [
       call({ id: "s", purpose: "assistantSession", costUsd: 0.86, taskId: "t1", tokensIn: 230, tokensOut: 40 }),
     ]);
+    await openCalls();
     const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByText("Assistant session"))!;
     expect(within(row).getByText("$0.86")).toBeTruthy();
-    expect(screen.getByText(/1,200 tokens in, 300 out; \$1.26/)).toBeTruthy();
+    expect(within(screen.getByLabelText("Totals of the last 30 days")).getByText("$1.26")).toBeTruthy();
   });
 
-  it("sends a test request and says it was answered, then reads the list again", async () => {
+  it("sends a test request and says it was answered, then reads the totals again, and the list when Calls is opened", async () => {
     open(on);
     vi.mocked(ai.test).mockResolvedValue(call({ durationMs: 321 }));
     fireEvent.click(await screen.findByRole("button", { name: "Send a test request" }));
-    await screen.findByText("Answered in 321 ms by claude-test.");
-    await waitFor(() => expect(ai.calls).toHaveBeenCalledTimes(2));
+    await screen.findByText("Answered in 0.3 s by claude-test.");
+    await waitFor(() => expect(ai.status).toHaveBeenCalledTimes(2));
+    await openCalls();
+    await waitFor(() => expect(ai.calls).toHaveBeenCalledTimes(1));
   });
 
   it("says what failed when the test request fails", async () => {

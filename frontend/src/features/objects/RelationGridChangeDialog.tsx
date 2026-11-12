@@ -318,15 +318,15 @@ export function RelationGridChangeDialog({
             )}
           </Notice>
         )}
-        <div className="dialog-actions bulk-actions">
-          <span className="bulk-summary" aria-live="polite">
-            {result ? `Applying changes ${count(writes)} ${writes === 1 ? "relationship" : "relationships"}` : ""}
-          </span>
-          <button type="button" className="ghost" disabled={applying} onClick={onClose}>
+        <p className="bulk-summary" aria-live="polite">
+          {result ? `Saving changes ${count(writes)} ${writes === 1 ? "relationship" : "relationships"}` : ""}
+        </p>
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={applying} onClick={onClose}>
             Cancel
           </button>
           <button className="primary" disabled={blocked}>
-            {applying ? "Applying…" : "Apply"}
+            {applying ? "Saving…" : "Save"}
           </button>
         </div>
       </form>

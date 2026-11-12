@@ -19,8 +19,8 @@ the choice is saved in this browser. **Sign out** ends your current sign-in.
 
 ## Your identity and sign-in
 
-The account card shows your name, e-mail address, how you signed in and when.
-These details help you check that you are using the intended account. **Sign out** on the card
+The **You** panel shows your name, e-mail address, how you signed in and when.
+These details help you check that you are using the intended account. **Sign out** in that panel
 ends the current browser's sign-in.
 
 ![Account with identity, password, passkeys and authenticator setup](/docs/screens/use-account.png)
@@ -149,10 +149,12 @@ authenticator app to bypass that provider. Manage those sign-in protections with
 organisation. If proof for adding or removing a passkey is refused, correct the password or
 use a current authenticator or unused recovery code; a slowed sign-in needs time before retrying.
 
-**Rename …** opens the passkey's **Name** field. Choose **Save** after changing it. **Remove …**
+Select the passkey's name where it stands to edit it. Leave the field or press Enter to save;
+Escape puts the old name back. An unchanged input saves nothing. The save notice offers **Undo**.
+If refused, the input stays open with the reason and **Cancel** and **Save again** beneath it. **Remove …**
 opens a separate confirmation with **Remove passkey**; it does not remove the device's other
 passkeys. **New recovery codes…** asks for **Code from the app, or a recovery code**, then
-**Make new codes**. Save the replacements: the old recovery codes stop working. Removing the
+**Rotate recovery codes**. Save the replacements: the old recovery codes stop working. Removing the
 authenticator app uses **Remove the second factor** and **Remove it**; your recovery codes then
 stop working too.
 

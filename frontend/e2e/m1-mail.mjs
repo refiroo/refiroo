@@ -127,7 +127,7 @@ async function microsoftForm(harness, tag) {
         `${look}-${entry}: shows ${JSON.stringify(shown)}, expected ${JSON.stringify(fields)}`,
       );
       expect(
-        (await page.getByLabel("Server", { exact: true }).count()) === 0,
+        (await page.getByRole("textbox", { name: "Server", exact: true }).count()) === 0,
         `${look}-${entry}: SMTP fields are hidden`,
       );
       await check(entry);
@@ -156,7 +156,21 @@ async function microsoftForm(harness, tag) {
 function demoCertificatePem() {
   const out = execFileSync(
     "openssl",
-    ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", "/dev/stdout", "-out", "/dev/stdout", "-subj", "/CN=refiroo-demo", "-days", "365"],
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-keyout",
+      "/dev/stdout",
+      "-out",
+      "/dev/stdout",
+      "-subj",
+      "/CN=refiroo-demo",
+      "-days",
+      "365",
+    ],
     { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
   );
   return out;
@@ -182,7 +196,11 @@ async function microsoftSaved(harness, tag) {
       [390, 844, "dark"],
     ]) {
       const look = `${tag}-m365-saved-${credential}-${width}-${scheme}`;
-      const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, hasTouch: width < 600 });
+      const context = await browser.newContext({
+        viewport: { width, height },
+        colorScheme: scheme,
+        hasTouch: width < 600,
+      });
       const page = await context.newPage();
       page.setDefaultTimeout(15000);
       page.on("pageerror", (error) => failures.push(`${look}: ${error.message}`));
@@ -205,8 +223,14 @@ async function microsoftSaved(harness, tag) {
         (await page.getByLabel("Sign in with", { exact: true }).inputValue()) === credential,
         `${look}: the menu opens on ${credential}`,
       );
-      expect((await page.getByLabel("Tenant ID", { exact: true }).inputValue()) === demo.tenantId, `${look}: tenant ID shown`);
-      expect((await page.getByLabel("Server", { exact: true }).count()) === 0, `${look}: SMTP fields are hidden`);
+      expect(
+        (await page.getByLabel("Tenant ID", { exact: true }).inputValue()) === demo.tenantId,
+        `${look}: tenant ID shown`,
+      );
+      expect(
+        (await page.getByRole("textbox", { name: "Server", exact: true }).count()) === 0,
+        `${look}: SMTP fields are hidden`,
+      );
       const field = page.getByLabel(credential === "secret" ? "Client secret" : "Certificate", { exact: true });
       expect((await field.inputValue()) === "", `${look}: the credential is not shown`);
       expect(
@@ -226,7 +250,10 @@ async function microsoftSaved(harness, tag) {
       await check("opened");
       // Switching the entry and back keeps the saved credential.
       await page.getByLabel("Sign in with", { exact: true }).selectOption("direct");
-      expect((await page.getByLabel("Identity client ID", { exact: true }).count()) === 1, `${look}: switched to the managed identity`);
+      expect(
+        (await page.getByLabel("Identity client ID", { exact: true }).count()) === 1,
+        `${look}: switched to the managed identity`,
+      );
       await check("switched");
       await page.getByLabel("Sign in with", { exact: true }).selectOption(credential);
       expect(
@@ -234,7 +261,9 @@ async function microsoftSaved(harness, tag) {
         `${look}: back on ${credential} the credential is still kept`,
       );
       await check("switched-back");
-      checks.push(`${look}: opens on the saved entry, the credential kept and not shown, switch and back; axe; screenshots`);
+      checks.push(
+        `${look}: opens on the saved entry, the credential kept and not shown, switch and back; axe; screenshots`,
+      );
       await context.close();
     }
   }
@@ -270,7 +299,10 @@ async function walk(configuration) {
     await page.getByRole("heading", { level: 1, name: "Mail" }).waitFor();
     await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Mail", exact: true }).waitFor();
     await page.getByText("Mail is not set up", { exact: true }).waitFor();
+    // The outbox is on the Messages tab (0.17 ST1, PP-D62).
+    await page.getByRole("tab", { name: "Messages" }).click();
     await page.getByText(/No messages yet/).waitFor();
+    await page.getByRole("tab", { name: "Server" }).click();
     expect(
       await page.getByRole("button", { name: "Send test message" }).isDisabled(),
       `${tag}: no test before a server is saved`,
@@ -286,7 +318,7 @@ async function walk(configuration) {
     );
 
     // 2. A server saved by keyboard; a login without encryption is refused before anything is sent.
-    await page.getByLabel("Server", { exact: true }).focus();
+    await page.getByRole("textbox", { name: "Server", exact: true }).focus();
     await page.keyboard.type("127.0.0.1");
     await page.getByLabel("Connection", { exact: true }).selectOption("none");
     expect(
@@ -356,6 +388,7 @@ async function walk(configuration) {
 
     // 4. The outbox: what the engine queued, narrowed to the failed message and its reason.
     writeOutbox(databaseUrl);
+    await page.getByRole("tab", { name: "Messages" }).click();
     await page.getByRole("button", { name: "Refresh" }).focus();
     await page.keyboard.press("Enter");
     await page.getByRole("row", { name: /grace@example\.org/ }).waitFor();
@@ -392,7 +425,7 @@ async function walk(configuration) {
       `${tag}: nothing was sent to it`,
     );
     checks.push(`${tag}: a waiting message was stopped after a confirmation; it shows failed with the reason`);
-    await page.getByRole("combobox", { name: /^State/ }).selectOption("failed");
+    await page.getByRole("button", { name: "Failed", exact: true }).click();
     await page.getByRole("row", { name: /grace@example\.org/ }).waitFor({ state: "detached" });
     await page.getByRole("row", { name: /gone@example\.org/ }).waitFor();
     const rows = await page.getByRole("row").allInnerTexts();
@@ -413,6 +446,7 @@ async function walk(configuration) {
     phone.setDefaultTimeout(15000);
     await phone.goto(`${uiUrl}/settings/mail`);
     await phone.getByRole("button", { name: "Remove settings…" }).waitFor();
+    await phone.getByRole("tab", { name: "Messages" }).click();
     await phone.getByRole("row", { name: /gone@example\.org/ }).waitFor();
     expect((await overflow(phone)) <= 0, `${tag}: Mail scrolls sideways at 390px`);
     await shot(phone, "narrow");
@@ -421,6 +455,7 @@ async function walk(configuration) {
     checks.push(`${tag}: dark; 390px without horizontal page scroll`);
 
     // 6. The settings removed through their confirmation.
+    await page.getByRole("tab", { name: "Server" }).click();
     await page.getByRole("button", { name: "Remove settings…" }).focus();
     await page.keyboard.press("Enter");
     const confirm = page.getByRole("alertdialog", { name: "Remove the mail settings?" });

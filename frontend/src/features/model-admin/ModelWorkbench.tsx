@@ -28,16 +28,19 @@ import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/
 import { MigrationPage } from "@/features/model-admin/MigrationPage";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
-import { MODEL_TAB_LABELS, ModelDetail, ModelNameHeader, runningWorkspaces } from "@/features/model-admin/ModelPage";
+import { MODEL_TAB_LABELS, ModelDetail, ModelNamePage, runningWorkspaces } from "@/features/model-admin/ModelPage";
+import { settingsHead } from "@/features/settings/navigation";
 import { releasesByModel, type ModelLine } from "@/features/model-admin/modelLines";
 import { EntityList, type EntityGroup, type EntityRow } from "@/ui/EntityList";
 import { Icon } from "@/ui/Icon";
 import { StatusPill } from "@/ui/StatusPill";
 import { changeReviewFor } from "@/routing/routes";
-import { TrailBar, TrailLink } from "@/ui/TrailBar";
-import { Card } from "@/ui/Card";
+import { Trail, TrailLink, crumbs } from "@/ui/Trail";
 import { EmptyState } from "@/ui/EmptyState";
+import { SearchField } from "@/ui/SearchField";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SettingsPanel, SettingsTile, SettingsTools } from "@/ui/SettingsParts";
+import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
 import { Notice } from "@/ui/Notice";
 
@@ -208,6 +211,7 @@ export function ModelWorkbench({
     });
   }
 
+  const head = settingsHead("model");
   const selectedDraft = route.draftId ? drafts.find((item) => item.id === route.draftId) : undefined;
   const models = releasesByModel(releases);
   const modelOfRelease = new Map(releases.map((release) => [release.id, release.key]));
@@ -265,7 +269,7 @@ export function ModelWorkbench({
         newestDraft(drafts.filter((draft) => modelOfDraft(draft) === model.key)),
         model.releases[0].schemaVersion,
       ),
-      icon: "model",
+      lead: <SettingsTile icon="model" hue={head.hue} />,
       pill: isDefault ? (
         <StatusPill tone="success">Runs the default workspace</StatusPill>
       ) : running ? (
@@ -283,7 +287,7 @@ export function ModelWorkbench({
     title: draft.name,
     subtitle: "Not installed yet",
     facts: listFacts("—", "—", String(draft.version), draftSchema(draft)),
-    icon: "list",
+    lead: <SettingsTile icon="list" hue={head.hue} />,
     pill: <StatusPill tone="draft">Draft</StatusPill>,
     onOpen: () => onRouteChange({ ...MODEL, draftId: draft.id }),
   });
@@ -324,24 +328,21 @@ export function ModelWorkbench({
   // The one bar over an opened release or draft: "Models › Test › Releases › 0.9.12".
   const trailBar = (last: string) =>
     shownModel ? (
-      <TrailBar
-        back={{
-          label: `← Back to ${MODEL_TAB_LABELS[originTab]}`,
-          onClick: () => onRouteChange({ ...MODEL, modelKey: shownModel.key, modelTab: originTab }),
-        }}
-        trail={[
+      <Trail
+        items={crumbs(
           <TrailLink onClick={toList}>Models</TrailLink>,
           <TrailLink onClick={() => onRouteChange({ ...MODEL, modelKey: shownModel.key })}>
             {shownModel.name}
           </TrailLink>,
-          MODEL_TAB_LABELS[originTab],
+          <TrailLink onClick={() => onRouteChange({ ...MODEL, modelKey: shownModel.key, modelTab: originTab })}>
+            {MODEL_TAB_LABELS[originTab]}
+          </TrailLink>,
           last,
-        ]}
+        )}
       />
     ) : (
-      <TrailBar
-        back={{ label: "← Back to Models", onClick: toList }}
-        trail={[<TrailLink onClick={toList}>Models</TrailLink>, "Drafts without an installed model", last]}
+      <Trail
+        items={crumbs(<TrailLink onClick={toList}>Models</TrailLink>, "Drafts without an installed model", last)}
       />
     );
   if (route.migrationJobId) {
@@ -384,152 +385,8 @@ export function ModelWorkbench({
       />
     );
   }
-  return (
-    <SettingsLayout
-      eyebrow="Administration"
-      title="Model"
-      description="Each workspace runs a model of its own. Changing one workspace's model leaves the others as they are. Releases are installed once for the instance and never change."
-      actions={
-        canManageDrafts && (
-          <>
-            <button
-              className="secondary"
-              onClick={() => setCreating({ name: "", releaseId: createReleaseId, workbook: true })}
-            >
-              <Icon name="table" /> New from a workbook
-            </button>
-            <button
-              ref={newDraftButtonRef}
-              className="primary"
-              onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
-            >
-              <Icon name="plus" /> New draft
-            </button>
-          </>
-        )
-      }
-    >
-      {error && (
-        <div className="inline-state error-notice" role="alert">
-          <span>{error}</span>
-          <button className="secondary" onClick={load}>
-            Retry
-          </button>
-        </div>
-      )}
-      {!capabilities && !error && <div className="panel-state">Loading model catalogue…</div>}
-      {capabilities && !canManageDrafts && (
-        <Notice>
-          Model mutations are disabled. Installed releases remain available for read-only inspection and export.
-        </Notice>
-      )}
-      {capabilities && (
-        <Card as="section" flush className="model-detail">
-          {selectedDraft ? (
-            <>
-              {trailBar(selectedDraft.name)}
-              <ModelNameHeader label={headerLabel} />
-              <ModelDraftEditor
-                draft={selectedDraft}
-                canInstall={canInstall}
-                onSaved={updateDraft}
-                onReload={() => reloadDraft(selectedDraft.id)}
-                onInstalled={installed}
-                onOpenEditor={() => onRouteChange({ ...MODEL, draftId: selectedDraft.id, editor: {} })}
-                onDeleted={() => {
-                  setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
-                  toast(`Draft ${selectedDraft.name} was deleted.`);
-                  onRouteChange(shownModel ? { ...MODEL, modelKey: shownModel.key, modelTab: originTab } : MODEL);
-                }}
-              />
-            </>
-          ) : route.draftId ? (
-            <>
-              <ModelNameHeader label={headerLabel} />
-              <div className="panel-state">Loading the draft…</div>
-            </>
-          ) : route.releaseId ? (
-            <>
-              {trailBar(releases.find((item) => item.id === route.releaseId)?.version ?? route.releaseId)}
-              <ModelNameHeader label={headerLabel} />
-              <ModelReleaseDetail
-                key={route.releaseId}
-                releaseId={route.releaseId}
-                pageTitle={headerLabel}
-                workspaces={workspaces}
-                canManageDrafts={canManageDrafts}
-                canActivate={canActivate}
-                canInstall={canInstall}
-                isDefault={workspaces.some(
-                  (item) => item.key === defaultWorkspaceKey && item.model.releaseId === route.releaseId,
-                )}
-                onCreateDraft={startFromRelease}
-                onActivate={(releaseId) => setActivating({ releaseId })}
-                onStatusChanged={(release) => {
-                  void load();
-                  toast(
-                    release.status === "retired"
-                      ? `${release.name} ${release.version} is retired. It is no longer offered where a model is chosen.`
-                      : `${release.name} ${release.version} is offered again.`,
-                  );
-                }}
-                onDeleted={(release) => {
-                  void load().then(() => {
-                    toast(`${release.name} ${release.version} was deleted.`);
-                    const left = releases.some((item) => item.key === release.key && item.id !== release.id);
-                    onRouteChange(left ? { ...MODEL, modelKey: release.key, modelTab: "releases" } : MODEL);
-                  });
-                }}
-              />
-            </>
-          ) : listing ? (
-            <EntityList
-              label="models"
-              groups={listGroups}
-              search={search}
-              onSearch={setSearch}
-              empty={search.trim() ? `No model matches “${search.trim()}”` : "No model is installed yet."}
-            />
-          ) : shownModel ? (
-            <>
-              <TrailBar
-                back={{ label: "← All models", onClick: toList }}
-                trail={[<TrailLink onClick={toList}>Models</TrailLink>, shownModel.name]}
-              />
-              <ModelDetail
-                key={shownModel.key}
-                model={shownModel}
-                drafts={drafts.filter((draft) => modelOfDraft(draft) === shownModel.key)}
-                workspaces={workspaces}
-                defaultWorkspaceKey={defaultWorkspaceKey}
-                canManageDrafts={canManageDrafts}
-                canActivate={canActivate}
-                activatesIn={releasesIn}
-                tab={route.modelTab}
-                onTab={(modelTab) => onRouteChange({ ...MODEL, modelKey: shownModel.key, modelTab })}
-                onActivate={(workspaceKey) => setActivating({ workspaceKey })}
-                onNewDraft={(release) => setCreating({ name: `${release.name} draft`, releaseId: release.id })}
-                onOpenRelease={(releaseId, modelTab) => onRouteChange({ ...MODEL, releaseId, modelTab })}
-                onOpenDraft={(draftId, modelTab) => onRouteChange({ ...MODEL, draftId, modelTab })}
-                onOpenWorkspace={(workspaceKey) => onOpenWorkspace?.(workspaceKey)}
-              />
-            </>
-          ) : (
-            <>
-              <TrailBar
-                back={{ label: "← All models", onClick: toList }}
-                trail={[<TrailLink onClick={toList}>Models</TrailLink>]}
-              />
-              <ModelNameHeader label={headerLabel} />
-              {route.modelKey ? (
-                <EmptyState>No installed release has the model key {route.modelKey}.</EmptyState>
-              ) : (
-                <div className="panel-state">No model is installed yet.</div>
-              )}
-            </>
-          )}
-        </Card>
-      )}
+  const dialogs = (
+    <>
       {activating && (
         <ActivateDialog
           workspaces={activatable}
@@ -557,6 +414,172 @@ export function ModelWorkbench({
           }}
         />
       )}
+    </>
+  );
+  const failure = error && (
+    <div className="inline-state error-notice" role="alert">
+      <span>{error}</span>
+      <button className="secondary" onClick={load}>
+        Retry
+      </button>
+    </div>
+  );
+
+  const readOnly = capabilities && !canManageDrafts && (
+    <Notice>
+      Model mutations are disabled. Installed releases remain available for read-only inspection and export.
+    </Notice>
+  );
+
+  // An opened model, release or draft is a page of its own, under its bar (PP-D61).
+  if (!listing) {
+    const pageTrail = shownModel ? (
+      <Trail items={crumbs(<TrailLink onClick={toList}>Models</TrailLink>, shownModel.name)} />
+    ) : (
+      <Trail items={crumbs(<TrailLink onClick={toList}>Models</TrailLink>)} />
+    );
+    return (
+      <>
+        {!capabilities ? (
+          <ModelNamePage trail={pageTrail} label={headerLabel}>
+            {failure}
+            {!error && <Skeleton label="Loading the model" lines={4} />}
+          </ModelNamePage>
+        ) : selectedDraft ? (
+          <ModelDraftEditor
+            trail={trailBar(selectedDraft.name)}
+            modelName={shownModel?.name}
+            draft={selectedDraft}
+            canInstall={canInstall}
+            onSaved={updateDraft}
+            onReload={() => reloadDraft(selectedDraft.id)}
+            onInstalled={installed}
+            onOpenEditor={() => onRouteChange({ ...MODEL, draftId: selectedDraft.id, editor: {} })}
+            onDeleted={() => {
+              setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
+              toast(`Draft ${selectedDraft.name} was deleted.`);
+              onRouteChange(shownModel ? { ...MODEL, modelKey: shownModel.key, modelTab: originTab } : MODEL);
+            }}
+          />
+        ) : route.draftId ? (
+          <ModelNamePage trail={trailBar(headerLabel)} label={headerLabel}>
+            {failure}
+            {!error && <Skeleton label="Loading the draft" lines={4} />}
+          </ModelNamePage>
+        ) : route.releaseId ? (
+          <ModelReleaseDetail
+            key={route.releaseId}
+            trail={trailBar(releases.find((item) => item.id === route.releaseId)?.version ?? route.releaseId)}
+            notice={readOnly}
+            releaseId={route.releaseId}
+            workspaces={workspaces}
+            canManageDrafts={canManageDrafts}
+            canActivate={canActivate}
+            canInstall={canInstall}
+            isDefault={workspaces.some(
+              (item) => item.key === defaultWorkspaceKey && item.model.releaseId === route.releaseId,
+            )}
+            onCreateDraft={startFromRelease}
+            onActivate={(releaseId) => setActivating({ releaseId })}
+            onStatusChanged={(release) => {
+              void load();
+              toast(
+                release.status === "retired"
+                  ? `${release.name} ${release.version} is retired. It is no longer offered where a model is chosen.`
+                  : `${release.name} ${release.version} is offered again.`,
+              );
+            }}
+            onDeleted={(release) => {
+              void load().then(() => {
+                toast(`${release.name} ${release.version} was deleted.`);
+                const left = releases.some((item) => item.key === release.key && item.id !== release.id);
+                onRouteChange(left ? { ...MODEL, modelKey: release.key, modelTab: "releases" } : MODEL);
+              });
+            }}
+          />
+        ) : shownModel ? (
+          <ModelDetail
+            key={shownModel.key}
+            trail={pageTrail}
+            notice={readOnly}
+            model={shownModel}
+            drafts={drafts.filter((draft) => modelOfDraft(draft) === shownModel.key)}
+            workspaces={workspaces}
+            defaultWorkspaceKey={defaultWorkspaceKey}
+            canManageDrafts={canManageDrafts}
+            canActivate={canActivate}
+            activatesIn={releasesIn}
+            tab={route.modelTab}
+            onTab={(modelTab) => onRouteChange({ ...MODEL, modelKey: shownModel.key, modelTab })}
+            onActivate={(workspaceKey) => setActivating({ workspaceKey })}
+            onNewDraft={(release) => setCreating({ name: `${release.name} draft`, releaseId: release.id })}
+            onOpenRelease={(releaseId, modelTab) => onRouteChange({ ...MODEL, releaseId, modelTab })}
+            onOpenDraft={(draftId, modelTab) => onRouteChange({ ...MODEL, draftId, modelTab })}
+            onOpenWorkspace={(workspaceKey) => onOpenWorkspace?.(workspaceKey)}
+          />
+        ) : (
+          <ModelNamePage trail={pageTrail} label={headerLabel}>
+            <EmptyState>No installed release has the model key {route.modelKey}.</EmptyState>
+          </ModelNamePage>
+        )}
+        {dialogs}
+      </>
+    );
+  }
+  return (
+    <SettingsLayout
+      {...head}
+      title="Model"
+      description="Each workspace runs a model of its own. Changing one workspace's model leaves the others as they are. Releases are installed once for the instance and never change."
+      actions={
+        canManageDrafts && (
+          <>
+            <button
+              className="secondary"
+              onClick={() => setCreating({ name: "", releaseId: createReleaseId, workbook: true })}
+            >
+              <Icon name="table" /> New from a workbook
+            </button>
+            <button
+              ref={newDraftButtonRef}
+              className="primary"
+              onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
+            >
+              <Icon name="plus" /> New draft
+            </button>
+          </>
+        )
+      }
+    >
+      {failure}
+      {!capabilities && !error && <Skeleton label="Loading the model catalogue" lines={3} />}
+      {readOnly}
+      {capabilities && (
+        <>
+          <SettingsTools
+            count={`${listGroups.reduce((total, group) => total + group.rows.length, 0)} ${
+              listGroups.reduce((total, group) => total + group.rows.length, 0) === 1 ? "model" : "models"
+            }`}
+          >
+            <SearchField
+              type="search"
+              label="Search models"
+              placeholder="Name or key"
+              value={search}
+              onChange={setSearch}
+              clearOnEscape
+            />
+          </SettingsTools>
+          <SettingsPanel>
+            <EntityList
+              label="models"
+              groups={listGroups}
+              empty={search.trim() ? `No model matches “${search.trim()}”` : "No model is installed yet."}
+            />
+          </SettingsPanel>
+        </>
+      )}
+      {dialogs}
     </SettingsLayout>
   );
 }

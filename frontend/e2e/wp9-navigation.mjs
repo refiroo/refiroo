@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { goToPage } from "./helpers/lists.mjs";
-import { openFoldedGroups } from "./helpers/tree.mjs";
+import { openBrowseRecords, openFoldedGroups } from "./helpers/tree.mjs";
 import { checkRecordReturn } from "./ui03a-navigation.mjs";
 import { checkInspectorDeletion } from "./ui03b-deletion.mjs";
 import { checkHierarchySelection } from "./ui03b-hierarchy.mjs";
@@ -24,6 +24,15 @@ async function shown(locator) {
 }
 function panel(page, title) {
   return page.locator("section.panel").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+}
+// A related panel of five rows or fewer folds Search, Display and Sort behind one menu (0.17 UX1): bring the
+// named tool into the toolbar when it is folded, and do nothing when the panel shows it already.
+async function unfoldPanelTool(page, panelLocator, tool) {
+  if (await panelLocator.getByRole("button", { name: tool, exact: true }).count()) return;
+  const menu = panelLocator.getByRole("button", { name: "Search, display and sort", exact: true });
+  if (!(await menu.count())) return;
+  await menu.click();
+  await page.getByRole("menuitem", { name: tool, exact: true }).click();
 }
 async function failRead(page, match, message) {
   const seen = [];
@@ -149,7 +158,7 @@ try {
       return page.getByLabel(`Filter by ${label}`);
     };
     const editFilter = async (label) => {
-      await filterBar.getByRole("button", { name: new RegExp(`^${label}.*Change this filter$`) }).click();
+      await filterBar.getByRole("button", { name: new RegExp(`^${label}.*Change this filter$`) }).last().click();
       return page.getByLabel(`Filter by ${label}`);
     };
     const condition = (editor, word) => editor.locator("label", { hasText: new RegExp(`^${word}$`) }).click();
@@ -190,7 +199,7 @@ try {
     await shown(page.getByRole("button", { name: "Record 00", exact: true }));
     assert.equal(new URL(page.url()).searchParams.get("anchor"), null);
     assert.equal(new URL(page.url()).searchParams.get("filter.qa-count.eq"), "0");
-    await filterBar.getByRole("button", { name: "Remove the Count filter", exact: true }).click();
+    await filterBar.getByRole("button", { name: "Remove the Count filter", exact: true }).last().click();
     assert.equal(new URL(page.url()).searchParams.get("filter.qa-date.gte"), "2026-01-01");
     const collection = page.getByRole("region", { name: `${type === "domain" ? "Domains" : "Systems"} table` });
     await collection.getByRole("button", { name: "Name, sorted ascending", exact: true }).click();
@@ -268,6 +277,7 @@ try {
     });
     // The sidebar tree lists its root group (S6), which starts folded (UA9, U-D21) and is opened as
     // a user would; nothing asks for more and the route stays put.
+    await openBrowseRecords(explorer);
     await openFoldedGroups(page, explorer.getByRole("tree"), 1);
     await shown(explorer.getByRole("treeitem", { name: "Record 31", exact: true }));
     assert.equal(await explorer.getByRole("button", { name: "Load more objects" }).count(), 0);
@@ -323,7 +333,11 @@ try {
     await shown(page.getByRole("heading", { name: "Record 10", level: 1 }));
     assert(requests.filter((url) => url === failedDetail.seen[0]).length >= failedDetail.seen.length + 1);
     assert.equal(new URL(failedDetail.seen[0]).searchParams.get("workspaceKey"), "warehouse");
-    await shown(page.getByLabel("Current context").filter({ hasText: "Warehouse" }));
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll(".workspace-selector input, .workspace-selector strong")].some((element) =>
+        (element.value ?? element.textContent ?? "").includes("Warehouse"),
+      ),
+    );
     await shown(panel(page, "History").getByText(/^Record created$/i));
     if (type === "domain") {
       const children = panel(page, "Codelists");
@@ -334,6 +348,7 @@ try {
       await children.getByRole("button", { name: "Retry", exact: true }).click();
       await shown(children.getByRole("button", { name: "Child B", exact: true }));
       assert(requests.filter((url) => url === failedChild.seen[0]).length >= failedChild.seen.length + 1);
+      await unfoldPanelTool(page, children, "Display");
       await children.getByRole("button", { name: "Display", exact: true }).click();
       const childDisplay = page.getByRole("dialog", { name: "Display", exact: true });
       await childDisplay.getByLabel("Density").selectOption("compact");
@@ -342,6 +357,7 @@ try {
       await shown(children.getByRole("button", { name: "Child A", exact: true }));
       await shown(children.getByRole("button", { name: "Child B", exact: true }));
       await page.setViewportSize({ width: 390, height: 844 });
+      await unfoldPanelTool(page, children, "Display");
       await children.getByRole("button", { name: "Display", exact: true }).tap();
       await shown(childDisplay);
       await childDisplay.getByRole("button", { name: "Done" }).tap();
@@ -359,9 +375,11 @@ try {
         "Relationships temporarily unavailable",
       );
       await page
-        .getByRole("navigation", { name: "Breadcrumb" })
+        .getByRole("navigation", { name: "Where you are" })
         .getByRole("button", { name: "Record 10", exact: true })
         .click();
+      // The record opens beside its list; the relation panels this check reads are the full page's.
+      await page.getByRole("button", { name: "Expand to full page", exact: true }).click();
       const relationships = panel(page, "System representations");
       await shown(relationships.getByText("Relationships temporarily unavailable"));
       assert.equal(await relationships.getByText("No relationships yet.", { exact: true }).count(), 0);
@@ -375,12 +393,12 @@ try {
       assert(page.url().includes("/rdm-systems/objects/system-value/"));
       await page.reload();
       await shown(page.getByRole("heading", { name: "Representation", level: 1 }));
-      await page.getByRole("button", { name: "Back to list", exact: true }).click();
+      await page.locator('[aria-label="Record details"] .trail-back').click();
       await page.waitForURL(pageTwo);
       await page.goBack();
       await shown(page.getByRole("heading", { name: "Representation", level: 1 }));
       await page
-        .getByRole("navigation", { name: "Breadcrumb" })
+        .getByRole("navigation", { name: "Where you are" })
         .getByRole("button", { name: "Record 10", exact: true })
         .click();
       await shown(page.getByRole("heading", { name: "Record 10", level: 1 }));
@@ -388,7 +406,7 @@ try {
         "Child panel paging/retry, independent relationship retry and empty translation state, cross-application and two containment paths",
       );
     }
-    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await page.locator('[aria-label="Record details"] .trail-back').click();
     await shown(table.getByRole("button", { name: "Record 10", exact: true }));
     assert.equal(page.url(), pageTwo);
     await table.getByRole("button", { name: "Record 10", exact: true }).click();
@@ -412,28 +430,24 @@ try {
     );
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Back to list", exact: true }).click();
+  await page.locator('[aria-label="Record details"] .trail-back').click();
   await shown(page.getByRole("button", { name: "Browse application", exact: true }));
   await page.getByRole("button", { name: "Browse application", exact: true }).focus();
   await page.keyboard.press("Enter");
   const drawer = page.getByRole("dialog", { name: "Application navigation" });
   await shown(drawer);
-  const explorerSearch = drawer.getByRole("textbox", { name: "Search this explorer" });
-  await explorerSearch.fill("Record 10");
-  await shown(drawer.getByRole("treeitem", { name: "Record 10", exact: true }));
-  await page.waitForFunction(() => document.querySelectorAll(".explorer .tree [data-row-key]").length === 1);
+  await openBrowseRecords(drawer);
   await page.screenshot({ path: resolve(output, "narrow-keyboard.png") });
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => document.activeElement?.textContent.includes("Browse application"));
   await page.getByRole("button", { name: "Browse application", exact: true }).click();
   await shown(drawer);
-  assert.equal(await explorerSearch.inputValue(), "Record 10");
-  assert.equal(await explorerSearch.inputValue(), "Record 10");
+  assert.equal(await drawer.getByRole("button", { name: "Browse records", exact: true }).getAttribute("aria-expanded"), "true");
   await drawer.getByRole("button", { name: "Close", exact: true }).click();
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, "mobile-system.png"), fullPage: true });
   checks.push(
-    "390x844 drawer opens by keyboard and touch, Escape/Close restore focus, and application-browser search survives drawer changes; no page overflow",
+    "390x844 drawer opens by keyboard and touch, Escape/Close restore focus, and the opened Browse records row survives drawer changes; no page overflow",
   );
 
   // Existing change sets use the same navigation and retain their write context across applications.

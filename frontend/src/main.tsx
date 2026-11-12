@@ -7,6 +7,11 @@ import { SignInScreen } from "@/features/sign-in/SignInScreen";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 import "@fontsource-variable/instrument-sans/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
+// The display typefaces of the Hearth and Studio themes and the text face of Instrument (0.17 UX1); a browser
+// fetches a face only when a theme uses it.
+import "@fontsource-variable/fraunces/opsz.css";
+import "@fontsource-variable/bricolage-grotesque/opsz.css";
+import "@fontsource-variable/inter/wght.css";
 import "./styles.css";
 
 // The application loads once a session exists: the sign-in screens do not carry it (0.17 RF3).

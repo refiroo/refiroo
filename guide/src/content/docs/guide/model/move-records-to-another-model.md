@@ -23,8 +23,8 @@ and move.
 
 ![Copy and move page with saved mappings and recent operations](/docs/screens/model-moves-list.png)
 
-*Above: Guide mapping connects the Graubünden model to RDM Starter Model. Recent entries are dry
-runs not started, not completed copies.*
+*Above: Guide mapping connects the Graubünden model to RDM Starter Model. The recent entry is a dry
+run not started, not a completed copy.*
 
 ![New copy or move dialog with source, target and mapping choices](/docs/screens/model-moves-new-dialog.png)
 

@@ -178,7 +178,7 @@ try {
     return text(dialog.getByRole("region", { name: "The preview", exact: true }));
   };
   const applied = async () => {
-    await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await dialog.getByRole("region", { name: "The result", exact: true }).waitFor({ timeout: 20000 });
     return text(dialog.getByRole("region", { name: "The result", exact: true }));
   };
@@ -214,7 +214,7 @@ try {
     failures.push("add: the opened record's relationships do not show K3 Master 002"),
   );
   await shot("k3-record-wide");
-  await page.getByRole("link", { name: "Back to list" }).or(page.getByRole("button", { name: "Back to list" })).first().click();
+  await page.locator('[aria-label="Record details"] .trail-back').click();
   await box("K3 Value 001").waitFor();
   const back = await bar.locator(".selection-count").innerText();
   expect(back === "3 selected", `add: the selection after the record is "${back}"`);
@@ -239,10 +239,24 @@ try {
 
   // 6a. Set to over all matching, in a change set.
   const changeSet = await api("/workspaces/default/change-sets", { name: "K3 values", source: "currentLive" });
+  // Hold the list's follow-up pages back (the product reads a short list whole in the background,
+  // and Cmd+A then selects by name); release them once the bar has said "All 60 matching selected".
+  const heldPages = [];
+  const holdPages = (route) => {
+    const request = route.request();
+    if (request.method() === "GET" && /[?&]cursor=/.test(request.url()) && request.resourceType() !== "document") heldPages.push(route);
+    else route.continue();
+  };
+  const releasePages = async () => {
+    await page.unroute("**/*", holdPages);
+    for (const route of heldPages.splice(0)) await route.continue().catch(() => undefined);
+  };
+  await page.route("**/*", holdPages);
   await open(`/apps/rdm-systems/views/system-values?workspaceKey=default&changeSetId=${changeSet.id}&search=K3%20Value`, "System values", "K3 Value 001");
   await box("K3 Value 002").focus();
   await page.keyboard.press("ControlOrMeta+a");
   await bar.getByText("All 60 matching selected", { exact: true }).waitFor({ timeout: 5000 });
+  await releasePages();
   await box("K3 Value 001").click();
   await startChange("Represents reference structure · Codelists");
   const single = await modes();
@@ -324,7 +338,7 @@ try {
   await tickByKeyboard();
   await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await dialog.getByRole("button", { name: "Apply", exact: true }).waitFor({ timeout: 20000 });
+  await dialog.getByRole("button", { name: "Save", exact: true }).waitFor({ timeout: 20000 });
   const escaped = (await api("/jobs?pageSize=1")).items[0];
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "detached", timeout: 5000 }).catch(() => failures.push("Escape: the dialog stayed open"));
@@ -340,13 +354,13 @@ try {
   await tickByKeyboard();
   await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await dialog.getByRole("button", { name: "Apply", exact: true }).waitFor({ timeout: 20000 });
+  await dialog.getByRole("button", { name: "Save", exact: true }).waitFor({ timeout: 20000 });
   const ready = await status.innerText();
   expect(ready.startsWith("Preview ready: 1 would change"), `keyboard: the status says "${ready}"`);
   const scroll = await overflow();
   expect(scroll <= 0, `keyboard 390px: the page scrolls horizontally by ${scroll}px`);
   await shot("k3-preview-narrow");
-  await dialog.getByRole("button", { name: "Apply", exact: true }).focus();
+  await dialog.getByRole("button", { name: "Save", exact: true }).focus();
   await page.keyboard.press("Enter");
   await dialog.getByRole("button", { name: "Done" }).waitFor({ timeout: 20000 });
   const done = await status.innerText();
@@ -395,6 +409,10 @@ try {
     const domain = suffix === "wide" ? "K3a Domain 1" : "K3a Domain 2";
     await open("/apps/rdm-master/views/domains?workspaceKey=default&search=K3a%20Domain", "Domains", domain);
     await page.getByRole("row", { name: new RegExp(domain) }).getByText(domain, { exact: true }).first().click();
+    // A row opens beside its list (0.17 UX1, PP-D41); the relationship panels are managed on the full page.
+    const expand = page.getByRole("button", { name: "Expand to full page", exact: true });
+    // The button appears with the record, beside the list or, on a phone, on the record's own page.
+    if (await expand.first().waitFor({ timeout: 15000 }).then(() => true, () => false)) await expand.first().click();
     await keptPanel.getByRole("button", { name: /^Change Kept by:/ }).waitFor({ timeout: 10000 });
     const offered = await keptPanel.getByRole("button").allInnerTexts();
     expect(
@@ -404,8 +422,9 @@ try {
     await keptPanel.getByRole("button", { name: /^Change Kept by:/ }).click();
     const change = page.getByRole("dialog");
     await change.getByText("Now:").waitFor();
-    await change.getByRole("combobox", { name: "Search: Object" }).fill("K3a System B");
-    await change.getByRole("listbox", { name: "Object" }).getByRole("option", { name: /K3a System B/ }).click();
+    // The lookup is labelled by the related type's name (0.17 PL2), no longer "Object".
+    await change.getByRole("combobox", { name: /^Search: / }).fill("K3a System B");
+    await change.getByRole("listbox").getByRole("option", { name: /K3a System B/ }).click();
     await shot(`k3a-panel-change-${suffix}`);
     if (suffix === "wide") checks.push(`the Change dialog: axe ${await axe("k3a-panel-change-light")} violations`);
     await change.getByRole("button", { name: "Change", exact: true }).click();
@@ -414,8 +433,7 @@ try {
     const scroll = await overflow();
     expect(scroll <= 0, `panel ${suffix}: the page scrolls horizontally by ${scroll}px`);
     await shot(`k3a-panel-held-${suffix}`);
-    await keptPanel.getByRole("button", { name: /^Delete Kept by:/ }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Delete relationship" }).click();
+    await keptPanel.getByRole("button", { name: /^Remove Kept by:/ }).click();
     await keptPanel.getByRole("button", { name: "Set relationship" }).waitFor({ timeout: 10000 });
     await shot(`k3a-panel-none-${suffix}`);
     const keeper = await related(keptDomains[suffix === "wide" ? 0 : 1].id, keptBy, "outgoing");

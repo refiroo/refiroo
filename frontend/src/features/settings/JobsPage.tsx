@@ -18,20 +18,20 @@ import { JobPage } from "@/features/jobs/JobPage";
 import { useJobNotifications } from "@/features/jobs/JobNotifications";
 import { routePath } from "@/routing/routes";
 import { api } from "@/api/client";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
+import { useAddressTab } from "@/lib/hooks/useAddressTab";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { readLocalPreference, writeLocalPreference } from "@/lib/localPreference";
 import type { EngineModel, Job, JobGroupRow, RouteState, SettingsRoute } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";
-import { DescriptionList } from "@/ui/DescriptionList";
-import { EmptyState } from "@/ui/EmptyState";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { FilterChip, LogFoot, SettingRow, SettingsEmpty, SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
+import { Tabs } from "@/ui/Tabs";
 import { ORIGIN, STATE, cancellable, kindOf } from "@/features/jobs/jobText";
 import { count, jobLimitItems } from "./limits";
 import { useWorkspaceLabels } from "@/features/security/GrantsSection";
@@ -41,6 +41,7 @@ import { OriginName } from "@/features/jobs/OriginName";
 import { JobGroupView } from "./JobGroupView";
 import { JOB_COLUMNS, JobRow } from "./JobRow";
 import { JOBS, groupRoute, jobRoute } from "./jobRoutes";
+import { settingsHead } from "./navigation";
 import { useJobCancel } from "./useJobCancel";
 
 type View = "grouped" | "all";
@@ -108,6 +109,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
   const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const [view, setView] = useState<View>(() => readLocalPreference(VIEW_KEY, "grouped", isView));
   const [token, setToken] = useState(0);
+  const [tab, setTab] = useAddressTab(["jobs", "limits"]);
   const canCancel = capabilities?.integrationJobs.createJobs ?? false;
   const choose = (next: View) => {
     setView(next);
@@ -117,9 +119,9 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
 
   return (
     <SettingsLayout
-      eyebrow="Data operations"
+      {...settingsHead("jobs")}
       title="Jobs"
-      description="Bulk writes, imports and exports run as jobs. Jobs that belong together, an assistant task's or a model draft's, are grouped; open a group to see its jobs. Finished jobs are kept for the retention below."
+      description="Bulk writes, imports and exports run as jobs. Jobs that belong together, an assistant task's or a model draft's, are grouped; open a group to see its jobs. Finished jobs are kept for the retention on the Limits tab."
       actions={
         canCancel && (
           <>
@@ -136,35 +138,66 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
         )
       }
     >
-      <Section
-        title="Jobs"
-        actions={
-          <>
-            <div className="segmented" role="group" aria-label="List">
-              <button type="button" aria-pressed={view === "grouped"} onClick={() => choose("grouped")}>
-                Grouped
-              </button>
-              <button type="button" aria-pressed={view === "all"} onClick={() => choose("all")}>
-                All jobs
-              </button>
-            </div>
-            <button type="button" className="secondary" onClick={() => setToken((value) => value + 1)}>
-              Refresh
-            </button>
-          </>
-        }
-      >
-        <List token={token} canCancel={canCancel} onNavigate={onNavigate} />
-      </Section>
-      <Section title="Limits" description="Deployment settings, shown on Deployment with the variables that set them.">
-        {capabilityError ? (
-          <InlineError message={capabilityError} onRetry={retryCapabilities} />
-        ) : !capabilities ? (
-          <Skeleton label="Loading the limits" lines={4} />
-        ) : (
-          <DescriptionList className="compact" items={jobLimitItems(capabilities)} />
-        )}
-      </Section>
+      <Tabs
+        label="Jobs"
+        selected={tab}
+        onChange={setTab}
+        tabs={[
+          {
+            id: "jobs",
+            label: "Jobs",
+            content: (
+              <SettingsGroup
+                stacked
+                title="Jobs"
+                tools={
+                  <>
+                    <span className="filter-chips" role="group" aria-label="List">
+                      <FilterChip selected={view === "grouped"} onSelect={() => choose("grouped")}>
+                        Grouped
+                      </FilterChip>
+                      <FilterChip selected={view === "all"} onSelect={() => choose("all")}>
+                        All jobs
+                      </FilterChip>
+                    </span>
+                    <button type="button" className="secondary" onClick={() => setToken((value) => value + 1)}>
+                      Refresh
+                    </button>
+                  </>
+                }
+              >
+                <SettingsPanel>
+                  <List token={token} canCancel={canCancel} onNavigate={onNavigate} />
+                </SettingsPanel>
+              </SettingsGroup>
+            ),
+          },
+          {
+            id: "limits",
+            label: "Limits",
+            content: (
+              <SettingsGroup
+                title="Limits"
+                description="Deployment settings, shown on Deployment with the variables that set them."
+              >
+                {capabilityError ? (
+                  <InlineError message={capabilityError} onRetry={retryCapabilities} />
+                ) : !capabilities ? (
+                  <Skeleton label="Loading the limits" lines={4} />
+                ) : (
+                  <SettingsPanel>
+                    {jobLimitItems(capabilities).map((item, at) => (
+                      <SettingRow key={at} fact name={item.term}>
+                        {item.value}
+                      </SettingRow>
+                    ))}
+                  </SettingsPanel>
+                )}
+              </SettingsGroup>
+            ),
+          },
+        ]}
+      />
       {exporting && (
         <ExportDialog
           model={model}
@@ -195,10 +228,10 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
 }
 
 const NO_JOBS = (
-  <EmptyState>
+  <SettingsEmpty icon="activity" hue={settingsHead("jobs").hue}>
     No jobs yet. A job is created by an import or an export, or when a batch is submitted to{" "}
     <code>POST /api/v1/batches</code>.
-  </EmptyState>
+  </SettingsEmpty>
 );
 
 type ListProps = { token: number; canCancel: boolean; onNavigate: (route: RouteState) => void };
@@ -237,10 +270,13 @@ function FlatJobs({ token, canCancel, onNavigate }: ListProps) {
           ))}
         </SettingsTable>
       )}
-      {feed.hasMore && !feed.error && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more jobs
-        </button>
+      {feed.items.length > 0 && !feed.error && (
+        <LogFoot
+          shown={feed.items.length}
+          noun="jobs"
+          onMore={feed.hasMore ? feed.loadMore : undefined}
+          loading={feed.loading}
+        />
       )}
     </>
   );
@@ -277,10 +313,13 @@ function GroupedJobs({ token, canCancel, onNavigate }: ListProps) {
           ))}
         </SettingsTable>
       )}
-      {feed.hasMore && !feed.error && (
-        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more jobs
-        </button>
+      {feed.items.length > 0 && !feed.error && (
+        <LogFoot
+          shown={feed.items.length}
+          noun="jobs"
+          onMore={feed.hasMore ? feed.loadMore : undefined}
+          loading={feed.loading}
+        />
       )}
     </>
   );
@@ -320,7 +359,9 @@ function GroupedRow({
             {job.cancelRequestedAt && job.state !== "cancelled" && <span>Cancel requested</span>}
           </span>
         </td>
-        <td data-label="Latest">{formatServerTime(job.createdAt)}</td>
+        <td data-label="Latest" className="when" title={formatServerTime(job.createdAt)}>
+          {formatServerDayTime(job.createdAt)}
+        </td>
         <td data-label="Actions">
           {onCancel && (
             <button type="button" className="secondary" onClick={onCancel}>
@@ -366,7 +407,9 @@ function GroupedRow({
             ))}
         </span>
       </td>
-      <td data-label="Latest">{formatServerTime(group.latestAt)}</td>
+      <td data-label="Latest" className="when" title={formatServerTime(group.latestAt)}>
+        {formatServerDayTime(group.latestAt)}
+      </td>
       <td data-label="Actions" />
     </tr>
   );

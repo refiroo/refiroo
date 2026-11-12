@@ -447,7 +447,7 @@ export async function openChangeReview(page, uiUrl, changeSet, query = "") {
   await page.goto(
     `${uiUrl}/apps/rdm-master/change-sets/${changeSet.id}/changes?workspaceKey=default${query ? `&${query}` : ""}`,
   );
-  await page.getByRole("heading", { level: 1, name: "Review changes" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Changes in this change set" }).waitFor();
   await page.locator(".change-row").first().waitFor();
   await page.waitForLoadState("networkidle");
 }

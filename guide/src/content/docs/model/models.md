@@ -89,8 +89,10 @@ route needs authoring and release access there. Record editing and change-set pu
 their own data permissions. If a control is missing or unavailable, ask an access administrator
 to check your grants and whether model administration is enabled on the instance.
 
-Continue with [The model editor](/docs/model/the-model-editor/) or
-[Workbook onboarding](/docs/model/workbook-onboarding/) if your starting point is a spreadsheet.
+Continue with [The model editor](/docs/model/the-model-editor/),
+[edit a model on the canvas](/docs/guide/model/edit-a-model-on-the-canvas/), or
+[shape a workbook on the canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/)
+if your starting point is a spreadsheet.
 
 The model list orders the default workspace's model first, then other models in use, then the
 rest and **Drafts without an installed model**. Pills identify **Runs the default workspace**,
@@ -110,7 +112,8 @@ actions. [Managing workspaces](/docs/model/managing-workspaces/) covers workspac
 
 Use [Create a model draft](/docs/guide/model/create-a-model-draft/) or
 [Start from a workbook](/docs/guide/model/start-a-draft-from-a-workbook/), then the
-[model editor](/docs/model/the-model-editor/). [Consumer APIs](/docs/model/consumer-apis/) shapes
+[model editor](/docs/model/the-model-editor/) or
+[canvas](/docs/guide/model/edit-a-model-on-the-canvas/). [Consumer APIs](/docs/model/consumer-apis/) shapes
 what consuming systems read. [Migrations](/docs/model/migrations/) covers conversions and reviewed
 loss; [Model mappings](/docs/model/model-mappings/) covers data between two workspaces.
 

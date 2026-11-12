@@ -6,7 +6,7 @@ reader: steward
 
 A job is work refiroo runs in the background, such as an import, export or change to many
 records. Open **Settings › Data operations › Jobs** to find the jobs you may see across
-workspaces, newest first. In **All jobs**, the list shows **Workspace**, **State**, **Items**, **Requested by**,
+workspaces, newest first. On the **Jobs** tab, in **All jobs**, the list shows **Workspace**, **State**, **Items**, **Requested by**,
 **Created**, **Finished** and **Actions**. Open a job to read its progress and results.
 
 Follow [Follow and cancel a job](/docs/guide/use/follow-and-cancel-a-job/) for the steps.
@@ -28,14 +28,14 @@ job ever started or every job in the instance.
 Open the group name to see its jobs:
 
 1. The heading names the workbook or draft. Above it, **Assistant task** or **Model draft**
-   and the workspace identify the group; **‹ Jobs** returns to the main list.
+   and the workspace identify the group; **Jobs** in the first line returns to the main list.
 2. **Summary of the group** gives the job count and latest time. **All** shows the total;
    state buttons show non-zero counts for **Running**, **Queued**, **Awaiting confirmation**,
    **Failed**, **Completed**, **Cancelled** or **Expired**. Select one to narrow the table;
    select **All** to restore every visible job. The selected state stays in the page's address.
 3. The **Jobs** table shows **Job**, **State**, **Items**, **Requested by**, **Created**,
    **Finished** and **Actions**. Inspect processed, applied, rejected and unprocessed counts.
-   **Refresh** reads again; **Load more jobs** continues the list. **Cancel** is offered
+   **Refresh** reads again; **Show more** continues the list. **Cancel** is offered
    for queued or running work where cancellation is available; it opens a confirmation.
 4. **Open the task** or **Open the draft** opens the owning work. The button appears only
    after refiroo has confirmed you can read that task or draft. Seeing a group's jobs does
@@ -68,7 +68,7 @@ execution checks every item, the stored file, versions and the current context a
 
 An expired preview cannot be confirmed, even if a stale page still says it is waiting.
 Start a new preview. The **Kept until** fact tells you when the job's retained results expire.
-The list's **Limits** describes this deployment's batch, job and retention limits; do not rely
+The **Limits** tab describes this deployment's batch, job and retention limits; do not rely
 on a universal file size or item count.
 
 ## What a job's page shows
@@ -122,7 +122,7 @@ all-or-nothing work, an otherwise valid item can be unwritten because another wa
 The list distinguishes **Batch**, **Import**, **Export**, **Workbook for people**, **Profile**,
 **Profile check**, **Dry run**, **Inference**, **Mapping proposal**, **Migration** and **Move**.
 Some belong to model-administration tasks; their pages link to that work. **Refresh** reloads
-the list and **Load more jobs** continues it. **New export** starts a file; **New import**
+the list and **Show more** continues it. **New export** starts a file; **New import**
 appears when your permissions allow importing.
 
 **State** names the workspace and requester and shows creation, start and finish times.

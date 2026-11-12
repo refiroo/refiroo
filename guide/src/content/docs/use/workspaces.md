@@ -20,11 +20,21 @@ workspaces share its data. The workspace called Default need not be the default 
 
 ![Home with workspace cards, model names, releases and application buttons](/docs/screens/use-home.png)
 
-*Above: Graubünden is marked Default. The workspace named Default runs a different model.*
+*Above: Guide Admin’s Home shows the open change set December 2026 timetable change above the workspace cards Graubünden and Default.*
 
 Within an application, **Workspace** in the sidebar names the dataset. The text beneath names its
 model and release. The banner above the records identifies **Live**, a [change set](/docs/use/change-sets/)
 or a [publication](/docs/use/publications/). Those are contexts within a workspace.
+
+## The workspace's page
+
+Choose a workspace's name on Home to open its page. **Find a record** searches names across its applications and lists. Up/Down chooses a result; Enter opens it. **Applications** offers each application's starting view and links straight to its lists.
+
+**Your shelf** keeps the lists and other views you use most, from any application in this workspace. Choose **Add a list** and tick the lists, trees or matrices you want. You can also use the pin button in a list's header. A tile opens that view; its count, when available, is the number of live records of its source type, not a count of matrix cells or a filtered view.
+
+Drag tiles to arrange them. For keyboard or touch use, open a tile's menu and choose **Move earlier** or **Move later**. Right-click also opens that menu. **Take off your shelf** removes the shortcut, leaving its data in place. The shelf and its order stay in this browser, separately for each workspace.
+
+**Needs you** lists your waiting change sets. **What changed** groups recent activity by day; consecutive repeats of one kind of change fold with a count such as **4 in a row**. These are summaries, not a complete history. Workspace actions, including **Edit model**, appear only when your permissions allow them.
 
 ## Switching and access
 
@@ -47,6 +57,47 @@ A retired workspace remains readable but refuses changes. Where your access perm
 from **Settings › Workspaces**, rather than the active workspace selector. Creating, renaming,
 retiring and deleting workspaces are described in
 [Managing workspaces](/docs/model/managing-workspaces/).
+
+## A workspace from a workbook
+
+Choose **New workspace from a workbook** on Home beside **Your workspaces**, in
+**Settings › Workspaces**, or on a workspace's page. This creates a separate workspace;
+it does not load into the workspace you have open.
+
+The action appears when you hold **Workspace administration**, **Install a model** or
+**Model release**, and **Bulk and import** at the instance, plus **Model authoring**.
+Workspace administration, model administration and integration jobs must also be switched on
+for the deployment. If any required access or capability is missing, the action is hidden.
+
+1. Choose an XLSX workbook or CSV file in **Workbook**. **Name** starts with a name taken
+   from the file; change it if needed. Choose **Read the workbook**. refiroo reads the file,
+   finds its lists and checks every row before creating the workspace.
+2. Review **What refiroo found**. Each list shows its source sheet where applicable, its row
+   count, how many rows load, any rows skipped for want of a key, and why rows do not load.
+   The total covers every row, not a sample. Choose **Create workspace** to install the
+   model, create the workspace and start loading the workbook into Live. A refused row does
+   not stop the other rows from loading.
+
+**Adjust** keeps the draft and opens its [canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/)
+so you can change the structure or how the workbook is read. If no list was found, or checking
+did not finish successfully, **Create workspace** is hidden; read any explanation and use
+**Adjust** to inspect the draft. A read failure appears under **Not read**. A creation refusal appears under
+**The workspace was not created**, with the problems to resolve.
+
+**Cancel** closes the dialog and removes the draft made for the review. If removal fails,
+the draft remains under **Settings › Model**. To start on an existing model instead, open
+**More ways to start** in the file step and choose **New workspace on an installed model**.
+From Home or a workspace's page this takes you to Settings › Workspaces; from Settings it
+opens the **New workspace** form. You can also make a workspace without data that way.
+
+After creation, the new workspace's page shows **Loading** with the file name and the
+number of items processed, out of the total when available. When loading finishes, the
+notice shows counts for **created**, **updated** and **unchanged**, followed by how many rows
+did not load or that every row loaded. For refused rows, choose **See the rows** to open the
+job's details. **Dismiss** removes the notice; it does not undo the load. If loading fails
+or stops, the page shows the reason. The workspace already exists, so inspect the load in
+**Settings › Jobs** before trying again. The notice is kept only for the current page load;
+after a browser reload, find the job in Settings › Jobs.
 
 ## When a destination cannot open
 
@@ -88,7 +139,7 @@ check the destination before making changes.
 
 ## Actions for this workspace
 
-![Workspace menu offering Import, Export and Edit model beside the selected workspace](/docs/screens/workspace-actions-menu.png)
+![Workspace menu offering Import, Export, Edit model and Change this model](/docs/screens/workspace-actions-menu.png)
 
 *Above: the menu for Graubünden while reading the Stops collection in Network. Its actions
 apply to this workspace and the data context being viewed.*

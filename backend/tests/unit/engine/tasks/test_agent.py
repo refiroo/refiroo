@@ -1016,3 +1016,57 @@ def test_the_note_the_person_reads_drops_sentences_that_talk_about_the_proposal_
     )
     for internal in ("draftId", "movedTo", "moves list", "removals list", "proposal.json"):
         assert internal not in text
+
+
+_SENT = {
+    "sources": [
+        {
+            "sheet": "Terms",
+            "applicationKey": "words",
+            "objectTypeKey": "term",
+            "columns": [{"column": "Code", "field": "name"}],
+            "key": {"field": "name"},
+        }
+    ],
+    "valueMaps": {},
+}
+
+
+class _Session:
+    """A session that answers the dry run's job: what the check read the workbook by."""
+
+    def __init__(self, parameters):
+        self.job = SimpleNamespace(parameters=parameters)
+
+    def scalar(self, _statement):
+        return self.job
+
+
+def test_a_check_through_a_profile_the_draft_does_not_hold_fails_the_task_with_its_reason():
+    """The session may send its dry run a profile inline and store none on the draft (0.17 PL3b): the
+    design would have no profile to load by, so the task says so rather than offering it."""
+    from app.engine.tasks.agent import _unstored_profile, profile_not_stored
+
+    check = {"dryRunJobId": "job"}
+    sent = {"profile": {"definition": _SENT}}
+    for stored in (None, {}, {"key": "terms", "name": "Terms", "sources": [], "valueMaps": {}}):
+        draft = SimpleNamespace(profile_json=stored)
+        reason = _unstored_profile(_Session(sent), draft, check)
+        assert reason is not None and "stored none on the model draft" in reason
+
+    # Stored as the draft holds it (an id, a key and a name of its own), it is the same profile.
+    held = {
+        "key": "terms",
+        "name": "Terms",
+        "sources": [{"id": "terms", **_SENT["sources"][0]}],
+        "valueMaps": {},
+    }
+    assert _unstored_profile(_Session(sent), SimpleNamespace(profile_json=held), check) is None
+    changed = {**held, "sources": [{**held["sources"][0], "headerRow": 2}]}
+    other = _unstored_profile(_Session(sent), SimpleNamespace(profile_json=changed), check)
+    assert other is not None and "not the one stored" in other
+
+    # A dry run of items reads no workbook, and a check without a job has nothing to compare.
+    items = {"mode": "items"}
+    assert _unstored_profile(_Session(items), SimpleNamespace(profile_json=None), check) is None
+    assert profile_not_stored(None, None) is None

@@ -38,8 +38,7 @@ administration**. Read [Releases](/docs/model/releases/) and
 
 ![Install and activate confirmation with release identity, workspace and compatibility checks](/docs/screens/model-install-dialog.png)
 
-*Above: Guide draft proposes release 1.0.1 for Graubünden, adding Step-free access and Inspected by.
-The captured dialog was cancelled: neither installation nor activation happened.*
+*Above: Guide draft proposes release 1.8.4 for Graubünden, adding Step-free access and Inspected by. The dialog shows compatible stored data and Stops API; installation has not been confirmed.*
 
 ![Install review with Activation needs a migration, moving-record counts and a preview action](/docs/screens/model-install-migration.png)
 
@@ -97,8 +96,7 @@ passes: another workspace may serve a different release or retain different vers
 
 ![Workspace apply dialog showing changes, compatible data and change sets left behind](/docs/screens/model-workspace-apply-dialog.png)
 
-*Above: applying Guide draft to Graubünden leaves Default unchanged and names December 2026 timetable
-change as remaining on release 1.0.0. The dialog was cancelled.*
+*Above: The Apply to Graubünden review shows a consumer API change that needs version 2. Activation is refused until the contract version is raised; open change sets remain on release 1.8.1.*
 
 ![Workspace Apply review with a proposed type move and Preview what happens to the records action](/docs/screens/model-apply-migration.png)
 
@@ -117,12 +115,11 @@ change as remaining on release 1.0.0. The dialog was cancelled.*
 
 ![Installed release page with workspace use and activation and draft actions](/docs/screens/model-release-detail.png)
 
-*Above: release 1.0.0 of the Graubünden model is immutable and already run by Graubünden.*
+*Above: Release 1.8.1 of the Graubünden model is immutable and run by Graubünden. Its open menu offers Export JSON.*
 
 ![Activation dialog checking one selected workspace and listing other workspaces unchanged](/docs/screens/model-release-activate-dialog.png)
 
-*Above: the selected target is Default, which runs RDM Starter Model; Graubünden stays unchanged.
-The captured activation was cancelled.*
+*Above: an example workspace is selected for activation of release 1.8.1. Its data is compatible and it has no open change set; activation has not been confirmed.*
 
 After success, open the target workspace and check its applications and a changed type's page.
 Other workspaces keep their models. If an already open page says its model changed, reload it

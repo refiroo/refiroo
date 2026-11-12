@@ -1,3 +1,4 @@
+import { unfoldPanelTool } from "@/test/panelTools";
 import { fireEvent, render as renderBase, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@/ui/Toast";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -111,6 +112,9 @@ describe("relation columns in a panel (0.9 K5)", () => {
     );
     await screen.findByRole("columnheader", { name: "Contains" });
     expect(read.mock.calls[0][1].expand).toEqual(["domain-contains-codelist"]);
+    // A small panel folds its tools behind one menu (0.17 UX1).
+    expect(screen.queryByRole("button", { name: "Display" })).not.toBeInTheDocument();
+    await unfoldPanelTool("Display");
     fireEvent.click(screen.getByRole("button", { name: "Display" }));
     const display = await screen.findByRole("dialog", { name: "Display" });
     fireEvent.click(within(display).getByLabelText("Contains"));

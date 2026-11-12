@@ -6,6 +6,8 @@ reader: model-admin
 
 Open a [model draft](/docs/guide/model/create-a-model-draft/) in the editor. You need
 **Model authoring**. See [The model editor](/docs/model/the-model-editor/) for saved steps and states.
+Choose **Editor** in the **Editor | Canvas** switch for the panes described here, or
+[edit the same draft on the canvas](/docs/guide/model/edit-a-model-on-the-canvas/).
 
 1. Read the draft title. Select it to rename the draft. Open **About this draft** to check its
    base release, whether it is a new model, draft version and errors or warnings. The version
@@ -16,7 +18,7 @@ Open a [model draft](/docs/guide/model/create-a-model-draft/) in the editor. You
 3. Select **Attribute types** or **Relation types** to inspect reusable definitions. Select
    **Relationship matrix** to see permitted type pairs, with the from end down the rows.
    Use arrow keys in the grid and Enter to select a pair; its panel offers the pair's actions.
-4. Use **Add** for **Application…**, **Object type…**, **Attribute type…**, **Relation type…**
+4. Use the **+** Add menu for **Application…**, **Object type…**, **Attribute type…**, **Relation type…**
    or **Navigation group…**. An empty draft asks you to add an application first.
    The **Consumer APIs** tab has its own add action.
 5. Open an element's operations menu to change it. In the model pane, Up/Down and Home/End

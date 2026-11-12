@@ -1,7 +1,7 @@
 /**
- * Settings › Security › People (0.12 SP1, U8): the people of the instance beside the selected
- * person (U-D10's list and detail), searched by name or e-mail, active or deactivated,
- * each with the roles they hold (D298). A person's page edits their name and e-mail, makes a
+ * Settings › Security › People (0.12 SP1, U8; 0.17 ST1): the people of the instance as a full-width list,
+ * searched by name or e-mail, active or deactivated, each with the roles they hold (D298); a row opens the
+ * person as a page of its own (PP-D61). A person's page edits their name and e-mail, makes a
  * one-time password link shown once (D304), signs them out everywhere, deactivates or restores them
  * (never deletes, D237), lists their roles directly and through groups (D299) and their groups.
  * Every write carries the version read; the engine's refusals are shown as it words them.
@@ -11,16 +11,24 @@ import { useEffect, useRef, useState } from "react";
 import { errorMessage, invalidFields, isApiError } from "@/api/errors";
 import { mail } from "@/api/mailClient";
 import { security } from "@/api/securityClient";
-import { initials } from "@/app/useMe";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
-import type { Group, Passkey, PasswordResetLink, RouteState, SettingsRoute, SignInProviderRef, User } from "@/types";
-import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
-import { CatalogueWindow } from "@/ui/CatalogueWindow";
+import type { Hue } from "@/model/hues";
+import type {
+  Group,
+  Passkey,
+  PasswordResetLink,
+  RouteState,
+  SettingsRoute,
+  SignInProviderRef,
+  User,
+  UserRole,
+} from "@/types";
+import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { EntityList } from "@/ui/EntityList";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
@@ -28,20 +36,34 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SearchField } from "@/ui/SearchField";
-import { RuledList, RuledListItem } from "@/ui/RuledList";
-import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import {
+  FilterChip,
+  hueOf,
+  ItemHeader,
+  NameMark,
+  SettingRow,
+  SettingsEmpty,
+  SettingsGroup,
+  SettingsPanel,
+  SettingsTile,
+  SettingsTools,
+} from "@/ui/SettingsParts";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
+import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Switch } from "@/ui/Switch";
 import { useToast } from "@/ui/Toast";
+import { Trail } from "@/ui/Trail";
 import { readsChanges } from "@/features/changes/changeText";
+import { settingsHead } from "@/features/settings/navigation";
 import { GrantsSection } from "./GrantsSection";
 import { useHeldAnywhere } from "./permissions";
 import { PickDialog } from "./PickDialog";
 import { RecentActivity } from "./RecentActivity";
 import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
-import { identityNames, linkSentence, personSignInLine, unlinkSentence, userRoleLine } from "./securityText";
+import { RoleKeyChip } from "./RoleChip";
+import { identityNames, linkSentence, unlinkSentence, personSignInLine } from "./securityText";
 
 type PeopleRoute = Extract<SettingsRoute, { page: "people" }>;
 
@@ -62,21 +84,32 @@ async function makeLink(user: Pick<User, "id" | "email">, send = false): Promise
 }
 
 /** People read in a page of this size. */
-const CATALOGUE_PAGE = 50;
+const LIST_PAGE = 50;
+
+/** Where a role applies, for the chip's tooltip. */
+const roleWhere = (role: UserRole) =>
+  role.instance ? "Every workspace" : role.workspaces.map((workspace) => workspace.label).join(", ");
+
+/** A person's roles in the list: a few coloured chips, then how many more. */
+function RoleChips({ roles }: { roles: readonly UserRole[] }) {
+  if (!roles.length) return <span className="muted">No roles yet</span>;
+  const shown = roles.slice(0, 2);
+  return (
+    <>
+      {shown.map((role) => (
+        <RoleKeyChip key={role.key} roleKey={role.key} title={roleWhere(role)}>
+          {role.name}
+        </RoleKeyChip>
+      ))}
+      {roles.length > shown.length && <span className="entity-more">{roles.length - shown.length} more</span>}
+    </>
+  );
+}
 
 export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNavigate: (route: RouteState) => void }) {
-  const [search, setSearch] = useState("");
-  const [active, setActive] = useState(true);
-  const [counts, setCounts] = useState<{ active?: number; deactivated?: number }>({});
   const [creating, setCreating] = useState(false);
   const [link, setLink] = useState<{ user: User; link: PasswordResetLink; created: boolean }>();
   const newButtonRef = useRef<HTMLButtonElement>(null);
-  const q = useDebouncedValue(search.trim());
-  const list = useCursorWindow<User>(
-    (selector) => security.users({ q, active, ...selector, pageSize: CATALOGUE_PAGE }),
-    [q, active],
-  );
-  const [countToken, setCountToken] = useState(0);
   // While local sign-in is off, a new person or a password is of no use (I3, D365).
   const [localOn, setLocalOn] = useState(true);
   // With the requirement on, a person without a second factor sets one up at their next sign-in (I4b).
@@ -103,6 +136,62 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
     };
   }, []);
 
+  return (
+    <>
+      {route.userId ? (
+        <PersonDetail
+          key={route.userId}
+          userId={route.userId}
+          localOn={localOn}
+          required={required}
+          onNavigate={onNavigate}
+          onLink={(user, made) => setLink({ user, link: made, created: false })}
+          onLinked={(target) => onNavigate({ ...PEOPLE, userId: target.id })}
+        />
+      ) : (
+        <PeopleList
+          localOn={localOn}
+          newButtonRef={newButtonRef}
+          onNew={() => setCreating(true)}
+          onNavigate={onNavigate}
+        />
+      )}
+      {creating && (
+        <NewPersonDialog
+          onClose={() => {
+            setCreating(false);
+            newButtonRef.current?.focus();
+          }}
+          onCreated={(user, made) => {
+            setCreating(false);
+            onNavigate({ ...PEOPLE, userId: user.id });
+            if (made) setLink({ user, link: made, created: true });
+          }}
+        />
+      )}
+      {link && <PasswordLinkDialog {...link} mailReady={mailReady} onClose={() => setLink(undefined)} />}
+    </>
+  );
+}
+
+/** The list a person is chosen from: search, Active or Deactivated with their counts, and the rows. */
+function PeopleList({
+  localOn,
+  newButtonRef,
+  onNew,
+  onNavigate,
+}: {
+  localOn: boolean;
+  newButtonRef: React.RefObject<HTMLButtonElement | null>;
+  onNew: () => void;
+  onNavigate: (route: RouteState) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState(true);
+  const [counts, setCounts] = useState<{ active?: number; deactivated?: number }>({});
+  const q = useDebouncedValue(search.trim());
+  const feed = useCursorFeed<User>((cursor) => security.users({ q, active, cursor, pageSize: LIST_PAGE }), [q, active]);
+
   useEffect(() => {
     let current = true;
     Promise.all([
@@ -115,16 +204,31 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
     return () => {
       current = false;
     };
-  }, [countToken]);
+  }, []);
 
-  function changed() {
-    list.reload();
-    setCountToken((token) => token + 1);
-  }
-
-  const catalogue = (
-    <nav className="model-catalogue security-catalogue" aria-label="People">
-      <section>
+  const total = q ? undefined : active ? counts.active : counts.deactivated;
+  const shown = feed.items.length;
+  const count = total ?? shown;
+  return (
+    <SettingsLayout
+      {...settingsHead("people")}
+      title="People"
+      description="The people who sign in, the roles they hold and the groups they are in. A person is deactivated, never deleted, so their history keeps their name."
+      actions={
+        localOn && (
+          <button ref={newButtonRef} className="primary" onClick={onNew}>
+            <Icon name="plus" /> New person
+          </button>
+        )
+      }
+    >
+      <SettingsTools
+        count={
+          feed.loading && !shown
+            ? undefined
+            : `${count}${total === undefined && feed.hasMore ? "+" : ""} ${count === 1 ? "person" : "people"}`
+        }
+      >
         <SearchField
           label="Search people"
           placeholder="Name or e-mail"
@@ -132,93 +236,52 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
           onChange={setSearch}
           clearOnEscape
         />
-        <div className="security-filters" role="group" aria-label="Show">
-          <button type="button" className="security-filter" aria-pressed={active} onClick={() => setActive(true)}>
-            Active{counts.active !== undefined && <span>{counts.active}</span>}
-          </button>
-          <button type="button" className="security-filter" aria-pressed={!active} onClick={() => setActive(false)}>
-            Deactivated{counts.deactivated !== undefined && <span>{counts.deactivated}</span>}
-          </button>
-        </div>
-        <CatalogueWindow
-          list={list}
-          label="People"
-          noun={["person", "people"]}
-          pageSize={CATALOGUE_PAGE}
-          loadingText="Loading people…"
-          emptyText={
+        <span className="filter-chips" role="group" aria-label="Show">
+          <FilterChip selected={active} onSelect={() => setActive(true)}>
+            Active{counts.active !== undefined && ` · ${counts.active}`}
+          </FilterChip>
+          <FilterChip selected={!active} onSelect={() => setActive(false)}>
+            Deactivated{counts.deactivated !== undefined && ` · ${counts.deactivated}`}
+          </FilterChip>
+        </span>
+      </SettingsTools>
+      <SettingsPanel>
+        <EntityList
+          label="people"
+          statusTrack="0px"
+          groups={[
+            {
+              key: "people",
+              title: active ? "Active people" : "Deactivated people",
+              count,
+              loading: feed.loading && !shown,
+              error: feed.error && !shown ? feed.error : undefined,
+              onRetry: feed.retry,
+              onEnd: feed.hasMore ? feed.loadMore : undefined,
+              loadingMore: feed.loading && shown > 0,
+              rows: feed.items.map((user) => ({
+                key: user.id,
+                title: user.name,
+                subtitle: user.email ?? "No e-mail address",
+                lead: <NameMark name={user.name} />,
+                facts: [
+                  { label: "Roles", value: <RoleChips roles={user.roles} />, width: 38 },
+                  {
+                    label: "Last signed in",
+                    value: user.lastSignInAt ? formatServerDayTime(user.lastSignInAt) : "Never",
+                  },
+                ],
+                onOpen: () => onNavigate({ ...PEOPLE, userId: user.id }),
+              })),
+            },
+          ]}
+          empty={
             q
               ? `No ${active ? "active" : "deactivated"} person matches “${q}”.`
               : `No ${active ? "active" : "deactivated"} people.`
           }
-          entry={(user) => (
-            <CatalogueEntry
-              icon="user"
-              title={user.name}
-              subtitle={userRoleLine(user.roles)}
-              current={route.userId === user.id}
-              onSelect={() => onNavigate({ ...PEOPLE, userId: user.id })}
-            />
-          )}
         />
-      </section>
-    </nav>
-  );
-
-  return (
-    <SettingsLayout
-      eyebrow="Security"
-      title="People"
-      description="The people who sign in, the roles they hold and the groups they are in. A person is deactivated, never deleted, so their history keeps their name."
-      actions={
-        localOn && (
-          <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
-            <Icon name="plus" /> New person
-          </button>
-        )
-      }
-    >
-      <CatalogueLayout
-        catalogue={catalogue}
-        hasSelection={!!route.userId}
-        backLabel="All people"
-        onBack={() => onNavigate(PEOPLE)}
-      >
-        {route.userId ? (
-          <PersonDetail
-            key={route.userId}
-            userId={route.userId}
-            localOn={localOn}
-            required={required}
-            onNavigate={onNavigate}
-            onChanged={changed}
-            onLink={(user, made) => setLink({ user, link: made, created: false })}
-            onLinked={(target) => {
-              list.reload();
-              setCountToken((token) => token + 1);
-              onNavigate({ ...PEOPLE, userId: target.id });
-            }}
-          />
-        ) : (
-          <div className="panel-state">Choose a person.</div>
-        )}
-      </CatalogueLayout>
-      {creating && (
-        <NewPersonDialog
-          onClose={() => {
-            setCreating(false);
-            newButtonRef.current?.focus();
-          }}
-          onCreated={(user, made) => {
-            setCreating(false);
-            list.reload();
-            setCountToken((token) => token + 1);
-            onNavigate({ ...PEOPLE, userId: user.id });
-            if (made) setLink({ user, link: made, created: true });
-          }}
-        />
-      )}
-      {link && <PasswordLinkDialog {...link} mailReady={mailReady} onClose={() => setLink(undefined)} />}
+      </SettingsPanel>
     </SettingsLayout>
   );
 }
@@ -366,7 +429,7 @@ function NewPersonDialog({
   return (
     <Modal
       title="New person"
-      eyebrow="Security"
+      eyebrow="People and access"
       size="compact"
       busy={pending}
       dirty={!!(name || email || managed)}
@@ -422,7 +485,7 @@ function NewPersonDialog({
             Cancel
           </button>
           <button className="primary" disabled={pending || !email.trim() || !name.trim()}>
-            {pending ? "Creating…" : "Create and make a password link"}
+            {pending ? "Adding…" : "Add person"}
           </button>
         </div>
       </form>
@@ -435,7 +498,6 @@ function PersonDetail({
   localOn,
   required,
   onNavigate,
-  onChanged,
   onLink,
   onLinked,
 }: {
@@ -443,7 +505,6 @@ function PersonDetail({
   localOn: boolean;
   required: boolean;
   onNavigate: (route: RouteState) => void;
-  onChanged: (user: User) => void;
   onLink: (user: User, link: PasswordResetLink) => void;
   onLinked: (target: User) => void;
 }) {
@@ -454,13 +515,13 @@ function PersonDetail({
   const [confirming, setConfirming] = useState<"deactivate" | "sign-out" | "keep" | "remove-factor">();
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<SignInProviderRef>();
-  const linkRef = useRef<HTMLButtonElement>(null);
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
   const [conflict, setConflict] = useState("");
   const editRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
   const held = useHeldAnywhere();
+  const head = settingsHead("people");
 
   useEffect(() => {
     let current = true;
@@ -477,10 +538,21 @@ function PersonDetail({
     };
   }, [userId, loadToken]);
 
-  function stored(updated: User, text: string) {
+  function stored(updated: User, text: string, undo?: () => Promise<void>) {
     setUser(updated);
-    onChanged(updated);
-    toast(text);
+    toast(
+      text,
+      undo
+        ? {
+            actions: [
+              {
+                label: "Undo",
+                onPress: () => void write(undo),
+              },
+            ],
+          }
+        : undefined,
+    );
   }
 
   /** A write; a stale version reloads and says so, any other refusal is shown as worded. */
@@ -505,36 +577,124 @@ function PersonDetail({
     }
   }
 
-  if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
-  if (!user) return <div className="panel-state">Loading person…</div>;
+  const trail = <Trail back={{ label: "People", onClick: () => onNavigate(PEOPLE), href: routePath(PEOPLE) }} />;
+  if (loadError)
+    return (
+      <SettingsLayout trail={trail} title="Person">
+        <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />
+      </SettingsLayout>
+    );
+  if (!user)
+    return (
+      <SettingsLayout trail={trail} title="Person">
+        <Skeleton label="Loading person" lines={4} />
+      </SettingsLayout>
+    );
 
   // What they changed in the workspaces this administrator reads (0.12 Z6, D345).
   const changes: RouteState = { kind: "changes", actorId: user.id, actorName: user.name };
   const signedIn = personSignInLine(user);
   const passwords = user.localKept || localOn;
+  const canLink = user.active && user.identities.length > 0 && !user.hasPassword;
+  const makePassword = user.active && passwords;
+
+  function restore(person: User) {
+    // An active person signs in with an e-mail address, so one without is asked for it first.
+    if (!person.email) return setEditing("restore");
+    void write(async () =>
+      stored(
+        await security.updateUser(person.id, { expectedVersion: person.version, active: true }),
+        `${person.name} was restored and can sign in again.`,
+      ),
+    );
+  }
+
+  // Two actions show; the rest are in the ⋯ menu, what cannot be undone last (PP-D63).
+  const menu: ActionMenuItem[] = [
+    ...(readsChanges(held)
+      ? [{ id: "changes", label: "See changes", onAction: () => onNavigate(changes) } satisfies ActionMenuItem]
+      : []),
+    ...(canLink
+      ? [
+          {
+            id: "link",
+            label: "Link to an existing person…",
+            description:
+              "If this person already has an account of their own, link this sign-in to it: they keep their roles and history.",
+            disabled: pending,
+            onAction: () => setLinking(true),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(user.active
+      ? [
+          {
+            id: "sign-out",
+            label: "Sign out everywhere",
+            disabled: pending,
+            onAction: () => setConfirming("sign-out"),
+          } satisfies ActionMenuItem,
+          {
+            id: "deactivate",
+            label: "Deactivate",
+            tone: "danger",
+            disabled: pending,
+            onAction: () => setConfirming("deactivate"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+  ];
+
+  const actions = (
+    <>
+      {makePassword && (
+        <button
+          className="secondary"
+          disabled={pending}
+          onClick={() => void write(async () => onLink(user, await makeLink(user)))}
+        >
+          {user.hasPassword ? "Reset password" : "Make a password link"}
+        </button>
+      )}
+      <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing("edit")}>
+        Edit…
+      </button>
+      {!user.active && (
+        <button className="secondary" disabled={pending} onClick={() => restore(user)}>
+          Restore
+        </button>
+      )}
+      {menu.length > 0 && <ActionMenu label="More actions" items={menu} />}
+    </>
+  );
 
   return (
-    <div className="model-editor-stack security-detail">
-      <header className="model-detail-header security-person-header">
-        <span className="account-profile-avatar" aria-hidden="true">
-          {initials(user.name)}
-        </span>
-        <div>
-          <p className="eyebrow">Person</p>
-          <h2>{user.name}</h2>
-          <p>{user.email ?? "No e-mail address"}</p>
-          <div className="security-pills">
-            {user.active ? (
-              <StatusPill tone="success">Active</StatusPill>
-            ) : (
-              <StatusPill tone="neutral">Deactivated</StatusPill>
-            )}
-            <StatusPill tone={user.hasPassword || user.identities.length ? "neutral" : "warning"} marker={false}>
-              {signedIn}
-            </StatusPill>
-          </div>
-        </div>
-      </header>
+    <SettingsLayout
+      trail={trail}
+      header={
+        <ItemHeader
+          hue={hueOf(user.name)}
+          lead={<NameMark name={user.name} size={64} />}
+          title={<h1>{user.name}</h1>}
+          meta={
+            <>
+              <span>{user.email ?? "No e-mail address"}</span>
+              {user.active ? (
+                <StatusPill tone="success">Active</StatusPill>
+              ) : (
+                <StatusPill tone="neutral">Deactivated</StatusPill>
+              )}
+              <span title={user.lastSignInAt ? formatServerTime(user.lastSignInAt) : undefined}>
+                <StatusPill tone={user.hasPassword || user.identities.length ? "neutral" : "warning"} marker={false}>
+                  {signedIn}
+                </StatusPill>
+              </span>
+            </>
+          }
+          actions={actions}
+        />
+      }
+    >
       {conflict && (
         <Notice tone="warning" title="Not saved" focusOnMount>
           {conflict}
@@ -545,120 +705,90 @@ function PersonDetail({
           {actionError}
         </Notice>
       )}
-      <div className="model-actions">
-        <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing("edit")}>
-          Edit…
-        </button>
-        {readsChanges(held) && (
-          <RouteLink className="secondary" href={routePath(changes)} onNavigate={() => onNavigate(changes)}>
-            See changes
-          </RouteLink>
-        )}
-        {user.active && user.identities.length > 0 && !user.hasPassword && (
-          <button ref={linkRef} className="secondary" disabled={pending} onClick={() => setLinking(true)}>
-            Link to an existing person…
-          </button>
-        )}
-        {user.active && passwords && (
-          <button
-            className="secondary"
-            disabled={pending}
-            onClick={() => void write(async () => onLink(user, await makeLink(user)))}
-          >
-            {user.hasPassword ? "Reset password" : "Make a password link"}
-          </button>
-        )}
-        {user.active && (
-          <button className="secondary" disabled={pending} onClick={() => setConfirming("sign-out")}>
-            Sign out everywhere
-          </button>
-        )}
-        {user.active ? (
-          <button className="danger-ghost" disabled={pending} onClick={() => setConfirming("deactivate")}>
-            Deactivate
-          </button>
-        ) : (
-          <button
-            className="secondary"
-            disabled={pending}
-            onClick={() =>
-              // An active person signs in with an e-mail address, so one without is asked for it first.
-              user.email
-                ? void write(async () =>
-                    stored(
-                      await security.updateUser(user.id, { expectedVersion: user.version, active: true }),
-                      `${user.name} was restored and can sign in again.`,
-                    ),
-                  )
-                : setEditing("restore")
-            }
-          >
-            Restore
-          </button>
-        )}
-      </div>
-      {user.active && user.identities.length > 0 && !user.hasPassword && (
-        <p className="admin-hint">
-          If this person already has an account of their own, link this sign-in to it: they keep their roles and
-          history.
-        </p>
-      )}
-      <Section title="Sign-in">
-        <RuledList label={`How ${user.name} signs in`}>
+      <SettingsGroup
+        title="Sign-in"
+        description="How this person proves who they are. Their own choices are on their Account page."
+      >
+        <SettingsPanel label={`How ${user.name} signs in`}>
           {user.identities.map((identity) => (
-            <RuledListItem
+            <SettingRow
               key={identity.provider.key}
-              title={identity.provider.name}
-              meta={`Subject ${identity.subject}`}
-              actions={
-                <button className="secondary" disabled={pending} onClick={() => setUnlinking(identity.provider)}>
-                  Unlink…
-                </button>
-              }
-            />
+              lead={<SettingsTile icon="link" hue={head.hue} />}
+              name={identity.provider.name}
+              help={`Subject ${identity.subject}`}
+            >
+              <button className="secondary" disabled={pending} onClick={() => setUnlinking(identity.provider)}>
+                Unlink…
+              </button>
+            </SettingRow>
           ))}
           {(user.hasPassword || !user.identities.length) && (
-            <RuledListItem title="Password" meta={user.hasPassword ? "Set" : "Not set yet"} />
+            <SettingRow lead={<SettingsTile icon="lock" hue={head.hue} />} name="Password">
+              <span className="muted">{user.hasPassword ? "Set" : "Not set yet"}</span>
+            </SettingRow>
           )}
           {user.secondFactor && (
-            <RuledListItem
-              title="Second factor: authenticator app"
-              meta={`Set up ${formatServerTime(user.secondFactor.confirmedAt)} · ${user.secondFactor.recoveryCodesLeft} of 10 recovery codes left`}
-              actions={
-                <button className="danger-ghost" disabled={pending} onClick={() => setConfirming("remove-factor")}>
-                  Remove second factor…
-                </button>
-              }
-            />
+            <SettingRow
+              lead={<SettingsTile icon="shield" hue={head.hue} />}
+              name="Second factor: authenticator app"
+              help={`Set up ${formatServerTime(user.secondFactor.confirmedAt)} · ${user.secondFactor.recoveryCodesLeft} of 10 recovery codes left`}
+            >
+              <button className="danger-ghost" disabled={pending} onClick={() => setConfirming("remove-factor")}>
+                Remove second factor…
+              </button>
+            </SettingRow>
           )}
           {user.passkeys > 0 && (
-            <PersonPasskeys user={user} onRemoved={(updated) => stored(updated, "The passkey was removed.")} />
+            <PersonPasskeys
+              user={user}
+              hue={head.hue}
+              onRemoved={(updated) => stored(updated, "The passkey was removed.")}
+            />
           )}
-          <RuledListItem
-            title="Keeps local sign-in"
-            meta={
+          <SettingRow
+            keep
+            lead={<SettingsTile icon="key" hue={head.hue} />}
+            name="Keeps local sign-in"
+            help={
               localOn
                 ? "Signs in with a password even while local sign-in is off: the way back if the provider fails"
                 : "Local sign-in is off: only people who keep it sign in with a password"
             }
-            actions={
-              <Switch
-                label="Keeps local sign-in"
-                checked={user.localKept}
-                disabled={pending || !user.active}
-                onChange={() => setConfirming("keep")}
-              />
-            }
-          />
-        </RuledList>
-      </Section>
+          >
+            <Switch
+              label="Keeps local sign-in"
+              checked={user.localKept}
+              disabled={pending || !user.active}
+              onChange={() =>
+                // Turning it off takes the password way in away, so that asks first; turning it on only gives.
+                user.localKept
+                  ? setConfirming("keep")
+                  : void write(async () => {
+                      const kept = await security.updateUser(user.id, {
+                        expectedVersion: user.version,
+                        localKept: true,
+                      });
+                      stored(kept, `${user.name} keeps local sign-in.`, async () =>
+                        stored(
+                          await security.updateUser(kept.id, { expectedVersion: kept.version, localKept: false }),
+                          `${user.name} no longer keeps local sign-in.`,
+                        ),
+                      );
+                    })
+              }
+            />
+          </SettingRow>
+        </SettingsPanel>
+      </SettingsGroup>
       <GrantsSection
         subject={{ principal: { kind: "user", id: user.id, name: user.name } }}
+        description="What this person may do, and where. A role held through a group is changed on the group."
         load={(cursor) => security.userGrants(user.id, cursor)}
         deps={[user.id]}
         onNavigate={onNavigate}
+        hue={head.hue}
       />
-      <PersonGroups user={user} onNavigate={onNavigate} />
+      <PersonGroups user={user} hue={head.hue} onNavigate={onNavigate} />
       <RecentActivity principal={user} />
       {editing && (
         <EditPersonDialog
@@ -674,7 +804,6 @@ function PersonDetail({
           }}
           onConflict={(current) => {
             setUser(current);
-            onChanged(current);
           }}
         />
       )}
@@ -683,7 +812,6 @@ function PersonDetail({
           user={user}
           onClose={() => {
             setLinking(false);
-            linkRef.current?.focus();
           }}
           onLinked={(target) => {
             setLinking(false);
@@ -741,8 +869,8 @@ function PersonDetail({
       )}
       {confirming === "keep" && (
         <ConfirmDialog
-          title={user.localKept ? `${user.name} stops keeping local sign-in?` : `${user.name} keeps local sign-in?`}
-          confirmLabel={user.localKept ? "Stop keeping it" : "Keep local sign-in"}
+          title={`${user.name} stops keeping local sign-in?`}
+          confirmLabel="Stop keeping local sign-in"
           pending={pending}
           error={actionError}
           onCancel={() => {
@@ -752,16 +880,15 @@ function PersonDetail({
           onConfirm={() =>
             void write(async () =>
               stored(
-                await security.updateUser(user.id, { expectedVersion: user.version, localKept: !user.localKept }),
-                user.localKept ? `${user.name} no longer keeps local sign-in.` : `${user.name} keeps local sign-in.`,
+                await security.updateUser(user.id, { expectedVersion: user.version, localKept: false }),
+                `${user.name} no longer keeps local sign-in.`,
               ),
             )
           }
         >
           <p>
-            {user.localKept
-              ? `While local sign-in is off, ${user.name} can no longer sign in with a password; they sign in with a provider. The last person who keeps it cannot stop.`
-              : `${user.name} can sign in with a password even while local sign-in is off. Give it to the people who must get in if the provider fails.`}
+            While local sign-in is off, {user.name} can no longer sign in with a password; they sign in with a provider.
+            The last person who keeps it cannot stop.
           </p>
         </ConfirmDialog>
       )}
@@ -810,7 +937,7 @@ function PersonDetail({
           <p>Every browser where {user.name} is signed in is signed out at its next request. They can sign in again.</p>
         </ConfirmDialog>
       )}
-    </div>
+    </SettingsLayout>
   );
 }
 
@@ -843,7 +970,7 @@ function LinkIdentityDialog({
   return (
     <Modal
       title="Link this sign-in to an existing person"
-      eyebrow="Security"
+      eyebrow="People and access"
       size="compact"
       busy={pending}
       onClose={onClose}
@@ -876,7 +1003,7 @@ function LinkIdentityDialog({
 }
 
 /** A person's passkeys, one row each, with Remove for an administrator (I4c, D394). */
-function PersonPasskeys({ user, onRemoved }: { user: User; onRemoved: (user: User) => void }) {
+function PersonPasskeys({ user, hue, onRemoved }: { user: User; hue: Hue; onRemoved: (user: User) => void }) {
   const feed = useCursorFeed((cursor) => security.userPasskeys(user.id, cursor), [user.id, user.passkeys]);
   const [removing, setRemoving] = useState<Passkey>();
   const [pending, setPending] = useState(false);
@@ -899,22 +1026,22 @@ function PersonPasskeys({ user, onRemoved }: { user: User; onRemoved: (user: Use
   return (
     <>
       {feed.items.map((passkey) => (
-        <RuledListItem
+        <SettingRow
           key={passkey.id}
-          title={`Passkey: ${passkey.name}`}
-          meta={`Added ${formatServerTime(passkey.createdAt)} · ${
+          lead={<SettingsTile icon="key" hue={hue} />}
+          name={`Passkey: ${passkey.name}`}
+          help={`Added ${formatServerTime(passkey.createdAt)} · ${
             passkey.lastUsedAt ? `last used ${formatServerTime(passkey.lastUsedAt)}` : "not used yet"
           }`}
-          actions={
-            <button
-              className="danger-ghost"
-              aria-label={`Remove the passkey ${passkey.name}`}
-              onClick={() => setRemoving(passkey)}
-            >
-              Remove passkey…
-            </button>
-          }
-        />
+        >
+          <button
+            className="danger-ghost"
+            aria-label={`Remove the passkey ${passkey.name}`}
+            onClick={() => setRemoving(passkey)}
+          >
+            Remove passkey…
+          </button>
+        </SettingRow>
       ))}
       {removing && (
         <ConfirmDialog
@@ -995,7 +1122,7 @@ function EditPersonDialog({
   return (
     <Modal
       title={`${restoring ? "Restore" : "Edit"} ${user.name}`}
-      eyebrow="Person"
+      eyebrow="People and access"
       size="compact"
       busy={pending}
       dirty={changed}
@@ -1068,7 +1195,7 @@ function EditPersonDialog({
 }
 
 /** The person's groups, each linked, with Remove and "Add to a group" (D300). */
-function PersonGroups({ user, onNavigate }: { user: User; onNavigate: (route: RouteState) => void }) {
+function PersonGroups({ user, hue, onNavigate }: { user: User; hue: Hue; onNavigate: (route: RouteState) => void }) {
   const feed = useCursorFeed((cursor) => security.groups({ memberId: user.id, cursor, pageSize: 100 }), [user.id]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
@@ -1087,9 +1214,10 @@ function PersonGroups({ user, onNavigate }: { user: User; onNavigate: (route: Ro
   }
 
   return (
-    <Section
+    <SettingsGroup
       title="Groups"
-      actions={
+      description="A group gives its roles to every member."
+      action={
         <button ref={addRef} type="button" className="secondary" onClick={() => setAdding(true)}>
           <Icon name="plus" /> Add to a group
         </button>
@@ -1103,23 +1231,42 @@ function PersonGroups({ user, onNavigate }: { user: User; onNavigate: (route: Ro
       {feed.error ? (
         <InlineError message={feed.error} onRetry={feed.retry} />
       ) : !feed.items.length ? (
-        <p className="admin-hint">{feed.loading ? "Loading groups…" : "Not in any group."}</p>
+        feed.loading ? (
+          <Skeleton label="Loading groups" lines={2} />
+        ) : (
+          <SettingsPanel>
+            <SettingsEmpty icon="users" hue={hue}>
+              Not in any group.
+            </SettingsEmpty>
+          </SettingsPanel>
+        )
       ) : (
-        <ul className="security-chips" aria-label={`${user.name}'s groups`}>
+        <SettingsPanel label={`${user.name}'s groups`}>
           {feed.items.map((group) => {
             const route: SettingsRoute = { kind: "settings", page: "groups", groupId: group.id };
             return (
-              <li key={group.id} className="security-chip">
-                <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
-                  {group.name}
-                </RouteLink>
-                <button type="button" aria-label={`Remove from ${group.name}`} onClick={() => void remove(group)}>
-                  <Icon name="close" size={13} />
+              <SettingRow
+                key={group.id}
+                lead={<SettingsTile icon="users" hue={hue} />}
+                name={
+                  <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
+                    {group.name}
+                  </RouteLink>
+                }
+                help={group.description || undefined}
+              >
+                <button
+                  type="button"
+                  className="ghost"
+                  aria-label={`Remove from ${group.name}`}
+                  onClick={() => void remove(group)}
+                >
+                  Remove
                 </button>
-              </li>
+              </SettingRow>
             );
           })}
-        </ul>
+        </SettingsPanel>
       )}
       {adding && (
         <PickDialog
@@ -1140,6 +1287,6 @@ function PersonGroups({ user, onNavigate }: { user: User; onNavigate: (route: Ro
           }}
         />
       )}
-    </Section>
+    </SettingsGroup>
   );
 }

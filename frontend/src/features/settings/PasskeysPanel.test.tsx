@@ -48,11 +48,13 @@ describe("Account's passkeys (0.12 I4c)", () => {
     vi.mocked(api.renamePasskey).mockResolvedValue({ ...laptop, name: "Work laptop" });
     vi.mocked(api.removePasskey).mockResolvedValue(undefined);
     show();
-    fireEvent.click(await screen.findByRole("button", { name: "Rename MacBook Touch ID" }));
-    const dialog = screen.getByRole("dialog", { name: "Rename MacBook Touch ID" });
-    fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Work laptop" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    // The name is changed where it stands: no dialog, the same call, and a toast offering Undo.
+    fireEvent.click(await screen.findByRole("button", { name: /Edit Name of MacBook Touch ID/ }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Name of MacBook Touch ID"), { target: { value: "Work laptop" } });
+    fireEvent.keyDown(screen.getByLabelText("Name of MacBook Touch ID"), { key: "Enter" });
     await waitFor(() => expect(api.renamePasskey).toHaveBeenCalledWith("p1", "Work laptop"));
+    expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole("button", { name: "Remove MacBook Touch ID" }));
     const removal = screen.getByRole("dialog", { name: "Remove MacBook Touch ID?" });

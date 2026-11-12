@@ -61,8 +61,8 @@ also offers **Move to group…** when a group exists. The group panel has **Rena
 ### A collection's opening view
 
 **Opens on** chooses which of a collection's views opens from its sidebar entry or the group
-page. Edit the cell in the group panel when the collection has more than one view, then
-**Save**. The choice belongs to that collection in this application; it does not change
+page. Edit the cell in the group panel when the collection has more than one view;
+selecting a view saves immediately. The choice belongs to that collection in this application; it does not change
 another collection's opening view or remove any view tabs. A separate matrix entry always
 opens itself and shows **Itself** in this column.
 
@@ -89,7 +89,7 @@ relationships. Existing trees, mapping grids and relation matrices have **Change
 layouts are arranged from the type’s Preview. A relationships table has its own **Layout…** action. Follow [Add a table, tree or mapping grid](/docs/guide/model/add-a-view/).
 
 Application **Settings** has **Default view**, the view that opens first. Choose an existing
-view and Save. A collection's **Opens on** choice takes precedence when opening that collection.
+view; selecting it saves immediately. A collection's **Opens on** choice takes precedence when opening that collection.
 This changes the starting lens, not which types users can access. Icons,
 colours and free-form presentation settings still need the [JSON view](/docs/model/json-view/).
 

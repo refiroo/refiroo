@@ -20,8 +20,9 @@ including previous values where available.
 
 ![A record's History with event kinds, author and time](/docs/screens/use-history-stop-changed.png)
 
-*Above: Thusis Süd records the Abbreviation change and the later update applied by publication.
-The details panel shows the current abbreviation, THSD.*
+*Above: Thusis Süd's History lists its creation, the operator added, the change to Abbreviation,
+Latitude, Longitude and Height (m), and the update a publication applied. The table shows the current
+abbreviation, THSD.*
 
 Creation, field changes, relationship changes and moves are different events. A successful Live
 save appears in history; a refused save is not a saved correction. Work prepared in a change set
@@ -34,7 +35,8 @@ the old action. Read access is limited to workspaces you may browse.
 
 ## Activity across a workspace
 
-Where your access opens workspace management, choose **Settings**, **Workspaces**, the workspace,
+The workspace’s page shows **What changed**, grouped by day with consecutive repeats folded into a count. For more activity, where your access
+opens workspace management, choose **Settings**, **Workspaces**, the workspace,
 then **Activity**. Its **What** choices are **Everything**, **Records**, **Relationships**,
 **Change sets** and **Publications**. Entries identify the action, person and time, and can also
 name its change set or publication context.
@@ -47,7 +49,7 @@ the record update and Publication 1, newest first.*
 ## A person's changes
 
 On [Home](/docs/use/home/), **Your recent changes** gives a short list. **See all your changes**
-opens **Your changes**. Choose **Workspace**, **What** and **Period** to narrow it. A person's
+opens **Your changes**. Consecutive steps on one model draft fold into one expandable line with their count. Expand it to read the individual steps. Choose **Workspace**, **What** and **Period** to narrow it. A person's
 linked name can also lead to their changes, within the workspaces you may read.
 
 ![Your changes filtered by workspace with What and Period choices](/docs/screens/use-history-changes.png)

@@ -1,3 +1,4 @@
+import { PHONE_WIDTH } from "@/lib/hooks/useMediaQuery";
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { bulkSelectionFor } from "@/features/objects/SelectionBar";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
@@ -11,6 +12,7 @@ import {
   routePublicationId,
   viewRoute,
 } from "@/routing/routes";
+import { pageTitle } from "@/model/collections";
 import { applicationFor } from "@/model/lookup";
 import type { ApplicationDefinition, ApplicationRoute, CollectionQueryState, ObjectItem, Workspace } from "@/types";
 import { AppShell } from "./AppShell";
@@ -24,6 +26,7 @@ import { permissionLine } from "@/features/security/permissionText";
 import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
 import { HomePage } from "@/features/home/HomePage";
+import { WorkspacePage } from "@/features/workspaces/WorkspacePage";
 import { ChangesPage } from "@/features/changes/ChangesPage";
 import { continueAddressFor, rememberContinueAddress } from "@/features/home/continueAddress";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
@@ -99,6 +102,15 @@ export default function App() {
             ) : route.kind === "home" ? (
               // Home spans the workspaces the person may browse, each on its own model (0.12 HM1).
               <HomePage model={model} onNavigate={router.navigate} />
+            ) : route.kind === "workspace" ? (
+              // A workspace's own page: in the workspace, in no application (0.17 SH1).
+              <WorkspacePage
+                key={route.workspaceKey}
+                model={model}
+                workspaceKey={route.workspaceKey}
+                onNavigate={router.navigate}
+                onHome={() => router.navigate(HOME)}
+              />
             ) : route.kind === "changes" ? (
               // One person's changes span workspaces too, each named from its own model (0.12 Z6).
               <ChangesPage model={model} route={route} onNavigate={router.navigate} />
@@ -400,7 +412,8 @@ function AppContent({
       objectTypeKey: item.objectTypeKey,
       objectId: item.id,
       ...(source === "hierarchy" ? { collectionOrigin: null } : {}),
-      ...(source === "beside" ? { fullPage: false } : {}),
+      // Beside its list only where there is room for both: a phone opens the record's own page.
+      ...(source === "beside" && !window.matchMedia(PHONE_WIDTH).matches ? { fullPage: false } : {}),
       ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
       workspaceKey: activeRoute.workspaceKey,
       changeSetId,
@@ -507,6 +520,15 @@ function AppContent({
   const collectionView = collection
     ? (collectionApplication?.views.find((view) => view.key === collection.viewKey) ?? collectionApplication?.views[0])
     : undefined;
+  // The list a record's page says it came from, by the name its page has (0.17 SH1).
+  const backView =
+    activeRoute.kind === "detail"
+      ? (collectionView ??
+        application.views.find((view) => view.type === "table" && view.objectTypeKey === activeRoute.objectTypeKey) ??
+        application.views.find((view) => view.key === application.defaultView))
+      : undefined;
+  const backLabel = backView ? pageTitle(model, collectionApplication ?? application, backView) : undefined;
+
   // Records are selected for a bulk change where the data can be written and jobs created (K1,
   // D105), by someone holding Bulk and import for the collection's records (Z5, D323).
   const bulkWrites = recordWrites(permissions, "bulk");
@@ -593,6 +615,16 @@ function AppContent({
         readOnly={contextReadOnly}
         reviewing={activeRoute.kind === "changeSetChanges"}
         onReview={() => navigate(changeReviewFor(application.key, data.changeSet!.workspaceKey, data.changeSet!.id))}
+        onOpenRecord={(record) =>
+          navigate({
+            kind: "detail",
+            applicationKey: record.applicationKey,
+            objectTypeKey: record.objectTypeKey,
+            objectId: record.objectId,
+            workspaceKey: data.changeSet!.workspaceKey,
+            changeSetId: data.changeSet!.id,
+          })
+        }
         onExit={(result) => {
           // A confirmation of leaving the change set, shown once (reported 2026-10-15: a page notice
           // stayed on every page until a reload).
@@ -744,7 +776,10 @@ function AppContent({
             <ChangeSets
               workspaceKey={activeRoute.workspaceKey}
               readOnly={contextReadOnly}
-              onOpen={(id) =>
+              // A change set opened from the list lands on its changes; one just started opens on the
+              // data, where its first edits are made (0.17 SH1, PP-D36).
+              onOpen={(id) => navigate(changeReviewFor(application.key, activeRoute.workspaceKey, id))}
+              onCreated={(id) =>
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
                   changeSetId: id,
@@ -888,7 +923,7 @@ function AppContent({
                     workspaceKey={activeRoute.workspaceKey}
                     inspector={inspector}
                     initialAction={activeRoute.actionRequest?.action}
-                    onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
+                    onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }, true) : undefined}
                     readOnly={readOnly}
                     onPropose={proposeIn}
                     refreshToken={collectionWrites}
@@ -898,6 +933,7 @@ function AppContent({
                     onTypeChanged={(objectTypeKey) => navigate({ ...activeRoute, objectTypeKey }, true)}
                     onOtherApplication={(applicationKey) => navigate({ ...activeRoute, applicationKey }, true)}
                     showBackToList={activeRoute.collectionOrigin !== null}
+                    backLabel={backLabel}
                     onBack={backToCollection}
                   />
                 </>

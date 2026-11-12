@@ -31,7 +31,7 @@ for changing this setting.
 
 ## Remove a lost local authenticator
 
-1. Open **Settings › Security › People**, search for the person and select them.
+1. Open **Settings › People and access › People**, search for the person and open their row.
    Check their name, e-mail address and sign-in method.
 2. Under **Sign-in**, choose **Remove second factor…** beside
    **Second factor: authenticator app**. This button appears only when an app is set up.
@@ -63,7 +63,7 @@ capture, so the removal buttons described above are absent.*
 
 ## Reset a forgotten password and end sessions
 
-1. With the intended person still selected, choose **Reset password** if they need a new
+1. With the intended person’s page still open, choose **Reset password** if they need a new
    local password. It makes a link at once; there is no confirmation first.
 2. Copy and pass on the link in **Pass on the password link** before choosing **I have copied it**.
    If available, use **Mail it to …** and check the sent-to message. A new administrator link replaces
@@ -75,7 +75,7 @@ capture, so the removal buttons described above are absent.*
    the link. If the form no longer opens, reopen the original link while it is valid. Using it ends their refiroo
    sessions everywhere. A configured second factor remains in force. If the link expired,
    was replaced or was used, make another.
-4. If the lost device may still hold a signed-in session, choose **Sign out everywhere**
+4. If the lost device may still hold a signed-in session, choose **More actions › Sign out everywhere**
    on the person's page and confirm. Every refiroo session ends at its next request.
    They can sign in again with their remaining or replacement methods. This does not sign
    other browsers out of the organisation's provider.

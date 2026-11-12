@@ -23,9 +23,9 @@ The [model editor](/docs/model/the-model-editor/) saves actions as steps; an ins
 5. Choose **Redo** to restore the available undone step. A new edit clears redo history.
    If the draft changes elsewhere, review its newer history before retrying.
 
-![History showing an applied move, its Needs a migration mark and affected data counts](/docs/screens/model-history.png)
+![History showing two saved model changes and their Undo actions](/docs/screens/model-history.png)
 
-*Above: moving Stop code to the top level of Systems is marked Needs a migration, with 12 records, 36 values and 12 relationships holding the type. Undo is available.*
+*Above: Guide draft records adding Step-free access and allowing Inspected by as two saved steps. Each step offers Undo.*
 
 ![History after Undo with the move and its migration mark crossed out and Redo available](/docs/screens/model-history-undone.png)
 

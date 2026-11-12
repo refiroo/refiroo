@@ -1,13 +1,18 @@
 /**
- * The one dialog for every editor operation (0.10 A4a, D38): the descriptor's fields as a form, or
- * its question for a removal. Sending applies the operations as one step; a refusal stays in the
- * dialog with the server's reason, and for a released element the records it would affect (D39).
- * A stale version closes the dialog: the editor asks what to do with the change (D41).
+ * The one surface for every editor operation (0.10 A4a, D38): the descriptor's fields as a form, or
+ * its question for a removal. Sending applies the operations as one step; a refusal stays on the
+ * surface with the server's reason, and for a released element the records it would affect (D39).
+ * A stale version closes it: the editor asks what to do with the change (D41).
+ *
+ * One or two plain controls open as a popover under the control that started them (UX1, PP-D40),
+ * holding the same fields and the same send; three or more, a preview or a field that needs room
+ * keep the side sheet, as does an operation started from nowhere (no anchor).
  */
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { DraftOperation, ModelDraftOutline } from "@/types";
+import { AnchoredPopover } from "@/ui/AnchoredPopover";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
 import { MatrixPreviewPane } from "@/features/model-editor/MatrixPreviewPane";
@@ -18,8 +23,12 @@ import {
   fieldOptions,
   initialValues,
   missingField,
+  submitLabel,
+  surfaceOf,
   visibleFields,
   type FieldValues,
+  type OperationField,
+  type OperationSurface,
   type OperationSpec,
   type OperationTarget,
 } from "@/features/model-editor/operations";
@@ -41,7 +50,8 @@ export function refusalText(cause: unknown, _outline?: ModelDraftOutline): strin
   return errorMessage(cause);
 }
 
-export function OperationDialog({
+/** The values, the send and the refusal of one operation's form, whichever surface shows it. */
+function useOperationForm({
   operation,
   target,
   outline,
@@ -52,7 +62,6 @@ export function OperationDialog({
   operation: OperationSpec;
   target: OperationTarget;
   outline: ModelDraftOutline;
-  /** Values chosen before the dialog opened, such as the matrix cell's column type. */
   preset?: FieldValues;
   run: RunStep;
   onClose: () => void;
@@ -79,20 +88,6 @@ export function OperationDialog({
     }
   }
 
-  if (operation.confirm)
-    return (
-      <ConfirmDialog
-        title={title}
-        confirmLabel={operation.label(target as never, outline)}
-        pending={pending}
-        error={error}
-        onCancel={onClose}
-        onConfirm={() => void send()}
-      >
-        <p>{operation.confirm(target as never, outline)}</p>
-      </ConfirmDialog>
-    );
-
   const preview = operation.preview?.(values, target as never, outline);
   const missing = missingField(operation, target, outline, values);
   const fields = visibleFields(operation, target, outline, values).map((field) => ({
@@ -118,135 +113,279 @@ export function OperationDialog({
     event.preventDefault();
     if (!missing) void send();
   };
+  return { values, set, pending, error, send, title, preview, missing, fields, submit };
+}
+
+export function OperationDialog({
+  operation,
+  target,
+  outline,
+  preset,
+  anchor,
+  run,
+  onClose,
+}: {
+  operation: OperationSpec;
+  target: OperationTarget;
+  outline: ModelDraftOutline;
+  /** Values chosen before the dialog opened, such as the matrix cell's column type. */
+  preset?: FieldValues;
+  /** The control the operation was started from; a small operation opens under it. */
+  anchor?: HTMLElement | null;
+  run: RunStep;
+  onClose: () => void;
+}) {
+  // Settled when it opens: a popover whose control has gone from the page becomes the sheet.
+  const [surface] = useState<OperationSurface>(() =>
+    anchor?.isConnected && surfaceOf(operation, target, outline) === "popover" ? "popover" : "sheet",
+  );
+  // Focus goes back to the control once the popover has left: while it is open its focus scope holds
+  // focus in, and the menu item the operation came from may be gone.
+  const leave = () => {
+    onClose();
+    if (surface === "popover" && anchor)
+      requestAnimationFrame(() => {
+        if (anchor.isConnected) anchor.focus({ preventScroll: true });
+      });
+  };
+  const form = useOperationForm({ operation, target, outline, preset, run, onClose: leave });
+  const { values, set, pending, error, send, title, preview, missing, fields, submit } = form;
+  const words = submitLabel(operation, target, outline, values, surface);
+
+  if (operation.confirm)
+    return (
+      <ConfirmDialog
+        title={title}
+        confirmLabel={operation.label(target as never, outline)}
+        pending={pending}
+        error={error}
+        onCancel={leave}
+        onConfirm={() => void send()}
+      >
+        <p>{operation.confirm(target as never, outline)}</p>
+      </ConfirmDialog>
+    );
+
+  const body = (
+    <>
+      {preview && <MatrixPreviewPane preview={preview} />}
+      <OperationFields fields={fields} values={values} outline={outline} set={set} />
+      {error && (
+        <Notice tone="error" title="Not applied">
+          {error}
+        </Notice>
+      )}
+    </>
+  );
+
+  if (surface === "popover" && anchor)
+    return (
+      <OperationPopover
+        anchor={anchor}
+        title={title}
+        wide={fields.some((field) => field.type === "checkboxes")}
+        pending={pending}
+        blocked={Boolean(missing)}
+        submitWords={words}
+        onSubmit={submit}
+        onClose={leave}
+      >
+        {body}
+      </OperationPopover>
+    );
+
   return (
-    <Modal
-      title={title}
-      eyebrow="Change the model"
-      size={preview ? "wide" : "compact"}
-      busy={pending}
-      onClose={onClose}
-    >
+    <Modal title={title} eyebrow="Change the model" size={preview ? "wide" : "compact"} busy={pending} onClose={leave}>
       <form className={`dialog-body operation-form${preview ? " operation-form-beside" : ""}`} onSubmit={submit}>
-        {preview && <MatrixPreviewPane preview={preview} />}
-        {fields.map((field, index) => {
-          if (field.type === "checkbox")
-            return (
-              <label key={field.name} className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={values[field.name] === true}
-                  onChange={(event) => set(field.name, event.target.checked)}
-                />
-                {field.label}
-              </label>
-            );
-          if (field.type === "criteria") {
-            const current = values[field.name];
-            return (
-              <CandidatesField
-                key={field.name}
-                outline={outline}
-                ends={field.ends}
-                value={current && typeof current === "object" && !Array.isArray(current) ? current : {}}
-                onChange={(next) => set(field.name, next)}
-              />
-            );
-          }
-          if (field.type === "checkboxes") {
-            const chosen = Array.isArray(values[field.name]) ? (values[field.name] as string[]) : [];
-            return (
-              <FormField key={field.name} label={field.label} help={field.hint} group>
-                {() => (
-                  <SearchableCheckboxes
-                    options={fieldOptions(field, values)}
-                    chosen={chosen}
-                    search={field.search}
-                    onChange={(next) => set(field.name, next)}
-                  />
-                )}
-              </FormField>
-            );
-          }
-          const list = Array.isArray(values[field.name]) ? (values[field.name] as string[]) : [];
-          if (field.type === "choices")
-            return (
-              <ChoiceListField
-                key={field.name}
-                label={field.label}
-                hint={field.hint}
-                ordered={field.ordered}
-                empty={field.empty}
-                options={fieldOptions(field, values)}
-                value={list}
-                onChange={(next) => set(field.name, next)}
-              />
-            );
-          if (field.type === "pairs")
-            return (
-              <PairsField
-                key={field.name}
-                label={field.label}
-                hint={field.hint}
-                options={fieldOptions(field, values)}
-                value={list}
-                onChange={(next) => set(field.name, next)}
-              />
-            );
-          if (field.type === "json")
-            return (
-              <FormField key={field.name} label={field.label} help={field.hint}>
-                {(control) => (
-                  <textarea
-                    {...control}
-                    className="mono operation-json"
-                    rows={16}
-                    spellCheck={false}
-                    autoFocus={index === 0}
-                    value={String(values[field.name] ?? "")}
-                    onChange={(event) => set(field.name, event.target.value)}
-                  />
-                )}
-              </FormField>
-            );
-          return (
-            <FormField key={field.name} label={field.label} help={field.hint}>
-              {(control) =>
-                field.type === "select" ? (
-                  <select
-                    {...control}
-                    value={String(values[field.name] ?? "")}
-                    onChange={(event) => set(field.name, event.target.value)}
-                  >
-                    {groupedOptions(fieldOptions(field, values))}
-                  </select>
-                ) : (
-                  <input
-                    {...control}
-                    autoFocus={index === 0}
-                    required={field.required}
-                    value={String(values[field.name] ?? "")}
-                    onChange={(event) => set(field.name, event.target.value)}
-                  />
-                )
-              }
-            </FormField>
-          );
-        })}
-        {error && (
-          <Notice tone="error" title="Not applied">
-            {error}
-          </Notice>
-        )}
+        {body}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={onClose} disabled={pending}>
+          <button type="button" className="secondary" onClick={leave} disabled={pending}>
             Cancel
           </button>
           <button type="submit" className="primary" disabled={pending || Boolean(missing)}>
-            {pending ? "Applying…" : (operation.submit?.(values) ?? "Apply")}
+            {pending ? "Applying…" : words}
           </button>
         </div>
       </form>
     </Modal>
+  );
+}
+
+/**
+ * A small operation under the control that started it (UX1): the same form as the sheet in a popover,
+ * Enter sends, Escape or a press outside closes, and focus goes back to the control. Not dismissed
+ * while it is sending.
+ */
+function OperationPopover({
+  anchor,
+  title,
+  wide,
+  pending,
+  blocked,
+  submitWords,
+  onSubmit,
+  onClose,
+  children,
+}: {
+  anchor: HTMLElement;
+  title: string;
+  wide: boolean;
+  pending: boolean;
+  blocked: boolean;
+  submitWords: string;
+  onSubmit: (event: FormEvent) => void;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    formRef.current
+      ?.querySelector<HTMLElement>("input:not([type='hidden']), select, textarea, button")
+      ?.focus({ preventScroll: true });
+  }, []);
+  return (
+    <AnchoredPopover
+      anchor={anchor}
+      title={title}
+      onClose={onClose}
+      dismissible={!pending}
+      className={`control-popover editor-popover${wide ? " editor-popover-wide" : ""}`}
+      titleClassName="editor-popover-title"
+    >
+      <form ref={formRef} className="editor-popover-form" onSubmit={onSubmit}>
+        {children}
+        <div className="editor-popover-actions">
+          <button type="button" className="secondary" onClick={onClose} disabled={pending}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={pending || blocked}>
+            {pending ? "Applying…" : submitWords}
+          </button>
+        </div>
+      </form>
+    </AnchoredPopover>
+  );
+}
+
+/** The fields of an operation's form, each as its own control; the same in the popover and the sheet. */
+function OperationFields({
+  fields,
+  values,
+  outline,
+  set,
+}: {
+  fields: (OperationField & { hint?: string })[];
+  values: FieldValues;
+  outline: ModelDraftOutline;
+  set: (name: string, value: FieldValues[string]) => void;
+}) {
+  return (
+    <>
+      {fields.map((field, index) => {
+        if (field.type === "checkbox")
+          return (
+            <label key={field.name} className="checkbox">
+              <input
+                type="checkbox"
+                checked={values[field.name] === true}
+                onChange={(event) => set(field.name, event.target.checked)}
+              />
+              {field.label}
+            </label>
+          );
+        if (field.type === "criteria") {
+          const current = values[field.name];
+          return (
+            <CandidatesField
+              key={field.name}
+              outline={outline}
+              ends={field.ends}
+              value={current && typeof current === "object" && !Array.isArray(current) ? current : {}}
+              onChange={(next) => set(field.name, next)}
+            />
+          );
+        }
+        if (field.type === "checkboxes") {
+          const chosen = Array.isArray(values[field.name]) ? (values[field.name] as string[]) : [];
+          return (
+            <FormField key={field.name} label={field.label} help={field.hint} group>
+              {() => (
+                <SearchableCheckboxes
+                  options={fieldOptions(field, values)}
+                  chosen={chosen}
+                  search={field.search}
+                  onChange={(next) => set(field.name, next)}
+                />
+              )}
+            </FormField>
+          );
+        }
+        const list = Array.isArray(values[field.name]) ? (values[field.name] as string[]) : [];
+        if (field.type === "choices")
+          return (
+            <ChoiceListField
+              key={field.name}
+              label={field.label}
+              hint={field.hint}
+              ordered={field.ordered}
+              empty={field.empty}
+              options={fieldOptions(field, values)}
+              value={list}
+              onChange={(next) => set(field.name, next)}
+            />
+          );
+        if (field.type === "pairs")
+          return (
+            <PairsField
+              key={field.name}
+              label={field.label}
+              hint={field.hint}
+              options={fieldOptions(field, values)}
+              value={list}
+              onChange={(next) => set(field.name, next)}
+            />
+          );
+        if (field.type === "json")
+          return (
+            <FormField key={field.name} label={field.label} help={field.hint}>
+              {(control) => (
+                <textarea
+                  {...control}
+                  className="mono operation-json"
+                  rows={16}
+                  spellCheck={false}
+                  autoFocus={index === 0}
+                  value={String(values[field.name] ?? "")}
+                  onChange={(event) => set(field.name, event.target.value)}
+                />
+              )}
+            </FormField>
+          );
+        return (
+          <FormField key={field.name} label={field.label} help={field.hint}>
+            {(control) =>
+              field.type === "select" ? (
+                <select
+                  {...control}
+                  value={String(values[field.name] ?? "")}
+                  onChange={(event) => set(field.name, event.target.value)}
+                >
+                  {groupedOptions(fieldOptions(field, values))}
+                </select>
+              ) : (
+                <input
+                  {...control}
+                  autoFocus={index === 0}
+                  required={field.required}
+                  value={String(values[field.name] ?? "")}
+                  onChange={(event) => set(field.name, event.target.value)}
+                />
+              )
+            }
+          </FormField>
+        );
+      })}
+    </>
   );
 }
 

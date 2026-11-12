@@ -1,0 +1,27 @@
+
+> refiroo-guide@0.0.0 check:coverage
+> node tools/check.mjs coverage
+
+kind             section    total   covered  excluded  uncovered 
+command          run        23      23       0         0         
+consumer-api     integrate  18      18       0         0         
+deployment       run        46      46       0         0         
+management-api   run        9       9        0         0         
+management-api   administer 107     107      0         0         
+management-api   model      33      33       0         0         
+management-api   use        151     151      0         0         
+management-api   integrate  7       7        0         0         
+mcp-tool         integrate  22      22       0         0         
+model-feature    model      303     300      3         0         
+permission       administer 64      64       0         0         
+screen           run        5       5        0         0         
+screen           administer 12      12       0         0         
+screen           model      155     153      1         1         
+screen           use        108     96       7         5         
+screen           integrate  7       7        0         0         
+settings         run        63      63       0         0         
+settings         integrate  2       2        0         0         
+all                         1135    1118     11        6         
+coverage: inventory: 6 entries are neither on a page nor excluded; see _coverage/inventory/uncovered.md
+
+1 problem(s) in coverage.

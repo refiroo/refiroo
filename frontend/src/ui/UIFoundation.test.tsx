@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { ActionMenu } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
 import { ComboBoxField, SelectField } from "@/ui/Selection";
@@ -257,5 +258,25 @@ describe("RDM UI foundation", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("ConfirmDialog tone (0.17 UX1)", () => {
+  it("draws the confirming button red by default and plain for tone=plain, with no extra line", () => {
+    const { unmount } = render(
+      <ConfirmDialog title="Remove it?" confirmLabel="Remove" onCancel={vi.fn()} onConfirm={vi.fn()}>
+        <p>It goes.</p>
+      </ConfirmDialog>,
+    );
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveClass("danger");
+    expect(screen.queryByText(/Please confirm/)).toBeNull();
+    unmount();
+    render(
+      <ConfirmDialog title="Start it?" confirmLabel="Start" tone="plain" onCancel={vi.fn()} onConfirm={vi.fn()}>
+        <p>It starts.</p>
+      </ConfirmDialog>,
+    );
+    expect(screen.getByRole("button", { name: "Start" })).toHaveClass("primary");
+    expect(screen.queryByText(/Please confirm/)).toBeNull();
   });
 });

@@ -6,6 +6,13 @@ reader: model-admin
 
 Use this task when a sheet is laid out as several lists rather than one rectangular table.
 Open its draft with **Model authoring**. See [Workbook onboarding](/docs/model/workbook-onboarding/).
+On the [canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/), you can also drag sheets onto
+the board and choose how to read columns and heading rows. In the model editor, a loaded
+list's **Readings** row also offers **Read these columns as rows…**: select at least two
+columns, name the two added columns and choose **Read as rows**. When it is on,
+**Stop reading these columns as rows** reverses it. A column's **Readings** row also offers
+**Fill blanks from the cell above** and **Rows holding only this column are headings…**;
+see [Map a workbook column](/docs/guide/model/map-a-column/).
 
 1. Select the sheet in **Source**. For a sheet laid out as lists, select a detected list
    and read **Under**, **Cells**,
@@ -25,6 +32,13 @@ Open its draft with **Model authoring**. See [Workbook onboarding](/docs/model/w
 6. Inspect **Issues** and each source's **Dry run** after changing a range or interpretation.
    **Note** identifies a skipped second header or explanatory row; check that it is not data
    you needed to keep. These edits never rewrite the uploaded spreadsheet's cells.
+
+For a loaded list with a key that loads records of its own, **Records no row names** offers
+**Report them** (the default) or **Delete them**. Choosing **Delete them** opens **Delete the
+records no row names?**; choose **Delete them on load** to confirm that every load deletes,
+in its change set, every record of this object type that no row of the file names. Review
+those deletions before publishing: the workspace's live records stay unchanged until then.
+Choose **Report them** again to stop deleting missing records on future loads.
 
 ![Proposed list of fictional local stop codes, with its shaded range, reading instructions and adjustment actions](/docs/screens/model-workbook-list-range.png)
 

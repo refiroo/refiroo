@@ -346,7 +346,7 @@
     },
     {
       "name": "use-notification-email-digest-settings",
-      "shows": "Notification email of the reference administrator (address guide.admin@example.org, mail configured, email switched on): How each kind reaches me with At once / Digest / Off, one kind on Digest (A job you started has finished), the others Off; The digest with Every morning at 07:00 and Mondays at 07:00, the saved time zone and Next digest.",
+      "shows": "Notification email of the reference administrator (address guide@example.org, email switched on, which this instance keeps saved): How each kind reaches me with At once / Digest / Off, one kind on Digest (A job you started has finished), the others Off; The digest with Every morning at 07:00 and Mondays at 07:00, the saved time zone and Next digest.",
       "height": 1300,
       "actions": [
         {
@@ -356,55 +356,6 @@
           "waitFor": {
             "text": "How each kind reaches me",
             "exact": false
-          }
-        },
-        {
-          "click": {
-            "text": "Off",
-            "exact": true,
-            "nth": 0
-          }
-        },
-        {
-          "click": {
-            "text": "Off",
-            "exact": true,
-            "nth": 1
-          }
-        },
-        {
-          "click": {
-            "text": "Off",
-            "exact": true,
-            "nth": 2
-          }
-        },
-        {
-          "click": {
-            "text": "Off",
-            "exact": true,
-            "nth": 4
-          }
-        },
-        {
-          "click": {
-            "text": "Off",
-            "exact": true,
-            "nth": 5
-          }
-        },
-        {
-          "click": {
-            "text": "Off",
-            "exact": true,
-            "nth": 6
-          }
-        },
-        {
-          "click": {
-            "text": "Digest",
-            "exact": true,
-            "nth": 3
           }
         },
         {
@@ -426,39 +377,18 @@
     },
     {
       "name": "use-appearance-themes",
-      "shows": "Appearance, the whole Display section: Theme Normal / Website purple, Light or dark System / Light / Dark, Table density, Type colours, Edit pencil.",
+      "shows": "Appearance, the whole Display section: Theme Current / Hearth / Studio / Instrument / Website purple (Current selected), Light or dark System / Light / Dark, Table density, Type colours, Edit pencil.",
       "height": 800,
       "actions": [
-        {
-          "goto": "/settings/appearance"
-        },
-        {
-          "waitFor": {
-            "text": "Edit pencil",
-            "exact": false
-          }
-        },
-        {
-          "wait": 600
-        }
+        {"goto": "/settings/appearance"},
+        {"waitFor": {"text": "Edit pencil", "exact": false}},
+        {"wait": 600}
       ],
-      "expect": [
-        "Appearance",
-        "Display",
-        "Theme",
-        "Normal",
-        "Website purple",
-        "System",
-        "Light",
-        "Dark",
-        "Table density",
-        "Type colours",
-        "Edit pencil"
-      ]
+      "expect": ["Appearance", "Display", "Theme", "Current", "Hearth", "Studio", "Instrument", "Website purple", "System", "Light", "Dark", "Table density", "Type colours", "Edit pencil"]
     },
     {
       "name": "use-import-profile-delete-actions",
-      "shows": "Import profiles with the Haltestellen_Busbetrieb_Nord.xlsx profile selected and its next version uploaded and retained (uploaded in the reference instance before the capture): Delete the file… and Delete the profile… both shown.",
+      "shows": "The Import profiles page with the Haltestellen_Busbetrieb_Nord.xlsx profile opened and its ⋯ menu showing Delete the file… and Delete the profile….",
       "height": 700,
       "actions": [
         {
@@ -466,12 +396,25 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+            "text": "Haltestellen_Busbetrieb_Nord.xlsx",
+            "exact": true
           }
         },
         {
           "waitFor": {
             "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "menuitem",
             "name": "Delete the file…",
             "exact": true
           }
@@ -484,6 +427,11 @@
         "Upload the next version",
         "Delete the file…",
         "Delete the profile…"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
       ]
     },
     {
@@ -496,19 +444,32 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+            "text": "Haltestellen_Busbetrieb_Nord.xlsx",
+            "exact": true
           }
         },
         {
           "waitFor": {
             "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "menuitem",
             "name": "Delete the file…",
             "exact": true
           }
         },
         {
           "click": {
-            "role": "button",
+            "role": "menuitem",
             "name": "Delete the file…",
             "exact": true
           }
@@ -541,19 +502,32 @@
         },
         {
           "click": {
-            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+            "text": "Haltestellen_Busbetrieb_Nord.xlsx",
+            "exact": true
           }
         },
         {
           "waitFor": {
             "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "More actions"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "menuitem",
             "name": "Delete the file…",
             "exact": true
           }
         },
         {
           "click": {
-            "role": "button",
+            "role": "menuitem",
             "name": "Delete the profile…",
             "exact": true
           }
@@ -796,8 +770,9 @@
         },
         {
           "waitFor": {
-            "text": "Choose a client.",
-            "exact": false
+            "role": "button",
+            "name": "New client",
+            "exact": true
           }
         },
         {
@@ -862,25 +837,44 @@
     },
     {
       "name": "model-consumer-earlier-versions",
-      "shows": "Stops API in a throwaway draft 'DF throwaway draft' (deleted after the capture): v2 current, Earlier versions with v1, Superseded, Sunset day 2027-06-30, Stop serving.",
+      "shows": "Stops API in a throwaway draft 'DF throwaway draft' (a copy of a draft that needs version 2, made by the state draft-copy and deleted afterwards): Raise to version 2 pressed, so v2 is current and Earlier versions lists v1 as Superseded with Stop serving.",
       "height": 900,
       "actions": [
         {
-          "goto": "/settings/model/drafts/1b9dd7d8-4c9e-43e5-9df6-3c0ebaaedcc0/editor?show=consumerApi&key=stops"
+          "state": "draft-copy",
+          "arg": "CA1 pictures (guide)::DF throwaway draft"
+        },
+        {
+          "goto": "/settings/model/drafts/{draft:DF throwaway draft}/editor?show=consumerApi&key=stops"
         },
         {
           "waitFor": {
-            "text": "Saved as you go",
-            "exact": false
+            "role": "button",
+            "name": "Raise to version 2"
           }
         },
         {
-          "wait": 900
+          "click": {
+            "role": "button",
+            "name": "Raise to version 2"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "tab",
+            "name": "Types and related"
+          }
         },
         {
           "click": {
             "role": "tab",
             "name": "Types and related"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Earlier versions",
+            "exact": false
           }
         },
         {
@@ -891,8 +885,13 @@
         "Earlier versions",
         "Superseded",
         "Sunset day",
-        "Stop serving",
-        "2027-06-30"
+        "Stop serving"
+      ],
+      "after": [
+        {
+          "state": "draft-delete",
+          "arg": "DF throwaway draft"
+        }
       ]
     }
   ]

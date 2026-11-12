@@ -1,6 +1,9 @@
 /**
- * The data-context band at the top of the content (ADR-039, Track U U2): which workspace and
- * application the page is in, and which data it reads and edits. Live is a soft green strip with
+ * The data-context band at the top of the content (ADR-039, Track U U2): which data the page reads
+ * and edits. On desktop it no longer names the workspace and the application, which the sidebar and
+ * the top bar already say (0.17 SH1, PP-D33): it is one row, the context's pill, its one sentence
+ * and the switch at the right end. A change set's row holds its name, its change count and state
+ * (`contextActions`) in place of the sentence. Live is a soft green strip with
  * the Live pill and a one-line explanation (ADR-040). A change set is the same strip in amber and a
  * publication in violet, each with its own line saying what an edit does there, and the band then
  * carries that context's own bar (`contextActions`: the change set's name, Review, Validate and
@@ -18,7 +21,8 @@
  * The top bar's tabs and the drawer's workspace selector are then left out.
  */
 
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { PHONE_WIDTH, useMediaQuery } from "@/lib/hooks/useMediaQuery";
@@ -72,6 +76,20 @@ export function DataContextBand({
 }) {
   const phone = useMediaQuery(PHONE_WIDTH);
   const [band, setBand] = useState<HTMLDivElement | null>(null);
+  // The context's actions are mounted once, in a holder of their own that is moved into the row a wide window
+  // draws them in or the line a phone does: a dialog they have open stays open when the window crosses the
+  // phone width (two mounting places closed it).
+  const [actionsHolder] = useState(() => {
+    const holder = document.createElement("div");
+    holder.style.display = "contents";
+    return holder;
+  });
+  const placeActions = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element) element.appendChild(actionsHolder);
+    },
+    [actionsHolder],
+  );
   useLayoutEffect(() => (band ? publishBandHeight(band) : undefined), [band]);
   const { changeSet, publication } = useWorkspaceData();
   const changeSetId = routeChangeSetId(route);
@@ -233,21 +251,24 @@ export function DataContextBand({
       ) : (
         <div className="band-context">
           <div role="group" className="shell-context" aria-label="Current context">
-            <span>{workspaceLabel}</span>
-            <span aria-hidden="true"> / </span>
-            <span>{application.name}</span>
-            {!listing && <StatusPill tone={tone}>{status}</StatusPill>}
+            {listing ? <span>{contextName}</span> : <StatusPill tone={tone}>{status}</StatusPill>}
           </div>
-          {!listing && note && <span className="band-note">{note}</span>}
+          {/* A change set's own bar says its name and count in place of the sentence (PP-D33). */}
+          {!listing && note && !(tone === "changeSet" && contextActions) && <span className="band-note">{note}</span>}
+          {/* The context's own bar is part of the one row: a change set's name, count and actions. */}
+          {(contextActions || ownChangeSet) && <div className="band-actions band-actions-inline" ref={placeActions} />}
           {switcher()}
         </div>
       )}
-      {(contextActions || ownChangeSet) && (
-        <div className="band-actions">
-          {contextActions}
-          {ownChangeSet}
-        </div>
-      )}
+      {phone && (contextActions || ownChangeSet) && <div className="band-actions" ref={placeActions} />}
+      {(contextActions || ownChangeSet) &&
+        createPortal(
+          <>
+            {contextActions}
+            {ownChangeSet}
+          </>,
+          actionsHolder,
+        )}
     </div>
   );
 }

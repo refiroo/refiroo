@@ -40,7 +40,7 @@ def create_and_send(
     def queue(user: User, url: str, has_password: bool) -> None:
         make = templates.password_reset if has_password else templates.activation
         message = make(templates.product(session), user.name, url, settings.password_reset_hours)
-        outbox.enqueue(session, settings, user.email, message)
+        outbox.enqueue(session, settings, user.email, message, recipient_name=user.name)
         sent_to.append(user.email)
 
     url, expires_at = resets.create_link(

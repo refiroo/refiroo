@@ -238,6 +238,25 @@ class WorkspaceCreate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class WorkspaceFromWorkbook(BaseModel):
+    """``POST /workspaces/from-workbook``: a draft made from a workbook, at the version
+    the caller read, and the new workspace's name; its key is derived from the name without one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    draftId: str = Field(min_length=1)
+    expectedVersion: int = Field(ge=1)
+    name: str = Field(min_length=1, max_length=300)
+    key: str | None = Field(
+        default=None, min_length=1, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    )
+
+    @field_validator("name", "key", mode="before")
+    @classmethod
+    def trim_from_workbook_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
 class WorkspaceUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1337,6 +1356,23 @@ class MailTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     to: Email
+
+
+class MailTemplateUpdate(BaseModel):
+    """Save the e-mail template's Markdown; the first save omits ``expectedVersion``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    markdown: str = Field(min_length=1)
+    expectedVersion: int | None = Field(default=None, ge=1)
+
+
+class MailTemplatePreview(BaseModel):
+    """A draft of the e-mail template to render with sample values; nothing is saved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    markdown: str = Field(min_length=1)
 
 
 class AiTaskRequest(BaseModel):

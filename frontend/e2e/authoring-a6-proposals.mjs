@@ -287,10 +287,9 @@ async function journey(label, source) {
     await dialog().getByText("Loaded into the change set").waitFor({ timeout: 90_000 });
     await dialog().getByRole("button", { name: "Open the change set review" }).click();
     await page.waitForURL(/change-sets\/[^/]+\/changes/);
-    await page.getByRole("button", { name: "Validate change set", exact: true }).click();
-    await page.getByRole("button", { name: "Publish change set", exact: true }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }).click();
-    await page.getByText(/Reviewed changes are now live/).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Publish", exact: true }).click();
+    await page.getByText(/The changes are live/).waitFor({ timeout: 30_000 });
     const items = await api(`/objects/${await added("Item")}?includeTotal=true&pageSize=1`);
     assert.equal(items.totalCount, 200);
     // Installed, the proposed types are part of a release: Released, no longer Proposed.

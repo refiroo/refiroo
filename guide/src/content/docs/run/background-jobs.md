@@ -6,7 +6,7 @@ reader: operator
 
 Background workers run inside each engine process. `INTEGRATION_JOBS_ENABLED=true`, the default,
 enables creating and running jobs. Turning it off keeps job reads available but stops workers and
-job mutations. Work also needs a healthy model. Check **Settings › Data operations › Jobs** for job
+job mutations. Work also needs a healthy model. Check **Settings › This instance › Jobs** for job
 state and outcomes, and **Operations** for worker health. Permissions determine which jobs a person
 may inspect or cancel; see [Jobs](/docs/use/jobs/).
 
@@ -229,7 +229,7 @@ Compose persists this in the single `assistant` volume across container replacem
 cleanup. Backups may omit it; losing it loses open tasks’ folders and session logs, not records.
 After upgrading from the earlier shared-transcript layout, existing files are kept but the next
 turn starts a new session. See [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks).
-**Calls** on **Settings › Administration › AI** keeps turn outcomes and usage separately. See
+The **Calls** tab on **Settings › This instance › AI** keeps turn outcomes and usage separately. See
 [AI retention and recovery](/docs/run/ai/#what-is-kept) before maintenance or a retry.
 
 ![Jobs with queued, running and completed work](/docs/screens/run-jobs.png)

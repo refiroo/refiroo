@@ -60,6 +60,7 @@ from ...models.database import (
     SourceFile,
     WorkspaceModel,
 )
+from ...models.imports import ImportProfileDefinition
 from ..authorization.administration import create_grant, create_role, delete_grant, groups_of
 from ..authorization.permissions import permissions_of
 from ..change_sets.lifecycle import discard_change_set
@@ -69,12 +70,14 @@ from ..identity.settings import IdentitySettings
 from ..imports.profiles import model_key_of, save_for_release
 from ..jobs.batches import JobCancelled
 from ..model.authoring.draft_migration import derive
-from ..model.compiler import parse_model
+from ..model.compiler import canonical_model, compile_model, parse_model
 from ..model.consumer_contract import contract_diagnostics, raised_contracts
 from ..model.diagnostics import ModelValidationError
 from ..model.migrations import LandingRefusal, Mappings, check_landing, plan_migration
 from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
+from ..sources.dry_run import is_items_run
+from ..sources.profile_export import definition as exported_profile
 from .cell_coverage import cells_left_out
 from .store import finish, held_by_another, held_counts, load_task, note, title_of
 
@@ -1434,6 +1437,7 @@ def _record_interrupted(
         return
     progress = _Progress(folder.parent / str(earlier["log"]))
     progress.read()
+    progress.close()
     _record_turn(
         session,
         task_id,
@@ -1743,6 +1747,7 @@ def _turn_as(
             _end(session, opened)
             session.commit()
             progress.read()
+            progress.close()
             if load and failure is not None and failure[0] in ("cancelled", "timeout"):
                 _undo_load(session, task_key, client, since)
             if failure is not None and failure[0] == "timeout":
@@ -1878,6 +1883,49 @@ def _said(progress: _Progress) -> str:
         if LAST_LINE not in line and THEN_LINE not in line
     ).strip()
     return f"{words[:6000]} ({seconds} s" + (f", ${cost:.2f})" if cost else ")")
+
+
+def profile_not_stored(read_by: dict[str, Any] | None, stored: dict[str, Any] | None) -> str | None:
+    """Why the profile a check read the workbook by is not the one the draft holds, or ``None`` when
+    it is (0.17 PL3b). A session may send a dry run its profile inline and store none on the draft;
+    the person then accepts a design whose check no stored profile reproduces. ``read_by`` is the
+    definition the check's dry run bound, ``stored`` the draft's own as it exports it; ``None`` for
+    a check that read no workbook through a profile."""
+    if not read_by:
+        return None
+    if not stored:
+        return (
+            "The assistant checked the workbook through a profile it sent with the check and "
+            "stored none on the model draft, so the design would have no profile to load by. "
+            "Give the assistant other words to check again."
+        )
+    if _profile_parts(read_by) != _profile_parts(stored):
+        return (
+            "The profile the assistant checked the workbook by is not the one stored on the model "
+            "draft, so the check says nothing about what the design would load. Give the "
+            "assistant other words to check again."
+        )
+    return None
+
+
+def _profile_parts(definition: dict[str, Any]) -> str:
+    """A definition's sources and value maps, as the import reads them."""
+    parsed = ImportProfileDefinition.model_validate(definition)
+    return json.dumps(
+        parsed.model_dump(mode="json", exclude_none=True, include={"sources", "valueMaps"}),
+        sort_keys=True,
+    )
+
+
+def _unstored_profile(
+    session: Session, draft: ModelDraft, check: dict[str, Any] | None
+) -> str | None:
+    """:func:`profile_not_stored` for the draft's latest check (a dry run of a source file)."""
+    job = session.scalar(select(Job).where(Job.id == (check or {}).get("dryRunJobId")))
+    if job is None or is_items_run(job.parameters):
+        return None
+    stored, _ = exported_profile(draft.profile_json)
+    return profile_not_stored((job.parameters.get("profile") or {}).get("definition"), stored)
 
 
 def _previewed_elsewhere(session: Session, task: Any, check: dict[str, Any]) -> bool:
@@ -2781,6 +2829,12 @@ def _proposal_landed(
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
+    unstored = _unstored_profile(session, draft, check)
+    if unstored is not None:
+        note(task, "warning", unstored)
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     records = _records_per_type(session, (check or {}).get("dryRunJobId"))
     related = records.pop(None, 0)
     if check and related and previewed is None:
@@ -2916,9 +2970,21 @@ def _installed_by(session: Session, task: AiTask, public_id: str | None) -> Mode
             AuditEvent.aggregate_id == public_id,
         )
     )
-    if done is None:
-        return None
-    return session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
+    release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
+    if done is None and release is not None and task.draft_id is not None:
+        # Installing content the instance already holds returns that release and records no new
+        # installation (found 2026-11-12: the same move made in a second workspace failed as "installed
+        # no release"). It is the session's own when its content is the task's draft.
+        draft = session.get(ModelDraft, task.draft_id)
+        compiled = compile_model(draft.model_json) if draft is not None else None
+        if (
+            compiled is not None
+            and compiled.model is not None
+            and compiled.valid
+            and canonical_model(compiled.model)[1] == release.model_hash
+        ):
+            return release
+    return release if done is not None else None
 
 
 def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, Any] | None:

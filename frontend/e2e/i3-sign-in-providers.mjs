@@ -57,7 +57,7 @@ async function walk(configuration) {
       ["Issuer", provider.issuer],
       ["Client ID", "engine"],
       ["Client secret", provider.secret],
-      ["Groups claim", "groups"],
+      ["Groups claim (optional)", "groups"],
     ]) {
       await dialog.getByLabel(label, { exact: true }).focus();
       await page.keyboard.type(value);
@@ -70,7 +70,7 @@ async function walk(configuration) {
     await axe(page, `${tag}-new-provider`);
     await page.keyboard.press("Enter");
     await dialog.waitFor({ state: "detached" });
-    await page.getByRole("heading", { level: 2, name: "Harness ID" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Harness ID" }).waitFor();
     const address = `${apiUrl}/oauth/providers/harness-id/callback`;
     await page.getByText(address).first().waitFor();
     await page.getByRole("button", { name: /Copy/ }).first().waitFor();
@@ -104,10 +104,10 @@ async function walk(configuration) {
     // 3. The person and the provider groups, as the harness person.
     const [person] = (await api(`/users?q=${encodeURIComponent(pat.email)}`)).items;
     await page.goto(`${uiUrl}/settings/people/${person.id}`);
-    await page.getByRole("heading", { level: 2, name: pat.name }).waitFor();
+    await page.getByRole("heading", { level: 1, name: pat.name }).waitFor();
     await page.getByText(/^Signs in with Harness ID/).waitFor();
     await page.goto(`${uiUrl}/settings/groups`);
-    const groups = page.getByRole("navigation", { name: "Groups" });
+    const groups = page;
     // Each entry names its source (the headings are gone, R); both provider groups are listed.
     for (const group of ["herbarium-staff", "data-governance"])
       await groups
@@ -115,7 +115,7 @@ async function walk(configuration) {
         .filter({ hasText: "Harness ID" })
         .waitFor();
     await groups.getByRole("button", { name: /herbarium-staff/ }).click();
-    await page.getByRole("heading", { level: 2, name: "herbarium-staff" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "herbarium-staff" }).waitFor();
     await page.getByText("Members come from the sign-in provider").waitFor();
     await page.getByRole("heading", { level: 2, name: "Members seen" }).waitFor();
     const seen = page.getByRole("group", { name: "Members" });
@@ -125,21 +125,18 @@ async function walk(configuration) {
       `${tag}: no Add members on a provider group`,
     );
     expect(!(await seen.getByRole("button", { name: /Remove/ }).count()), `${tag}: no Remove on a provider group`);
-    await page.getByRole("button", { name: "Rename…" }).click();
-    const rename = page.getByRole("dialog", { name: "Rename herbarium-staff" });
+    await page.getByRole("button", { name: /Edit Name:/ }).click();
+    const rename = page.getByRole("form", { name: "Edit Name" });
     await rename.getByLabel("Name", { exact: true }).fill("Herbarium staff");
-    await rename.getByRole("button", { name: "Save" }).click();
-    await page.getByRole("heading", { level: 2, name: "Herbarium staff" }).waitFor();
+    await page.keyboard.press("Enter");
+    await page.getByRole("heading", { level: 1, name: "Herbarium staff" }).waitFor();
     await page.getByRole("button", { name: "Grant", exact: true }).click();
-    const grant = page.getByRole("dialog", { name: "Grant Herbarium staff access" });
+    const grant = page.getByRole("dialog", { name: "Herbarium staff's access" });
     await grant.getByRole("checkbox", { name: "Reader" }).check();
     // The only workspace is chosen already.
     await grant.getByText("No workspace chosen yet").waitFor({ state: "detached" });
-    await grant.getByRole("button", { name: "Grant", exact: true }).click();
-    await page
-      .getByRole("group", { name: "Roles" })
-      .getByRole("row", { name: /Reader/ })
-      .waitFor();
+    await grant.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("group", { name: "Roles" }).locator(".access-chip", { hasText: "Reader" }).waitFor();
     await shot(page, "provider-group");
     await axe(page, `${tag}-provider-group`);
     checks.push(`${tag}: two provider groups under the provider, members seen, renamed, granted Reader`);
@@ -149,7 +146,7 @@ async function walk(configuration) {
     const [kept] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.email)}`)).items;
     await api(`/users/${kept.id}`, { expectedVersion: kept.version, localKept: true }, "PATCH");
     await page.goto(`${uiUrl}/settings/sign-in/local`);
-    await page.getByRole("heading", { level: 2, name: "Local accounts" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Local accounts" }).waitFor();
     await page.getByRole("button", { name: "Turn off…" }).focus();
     await page.keyboard.press("Enter");
     const confirm = page.getByRole("alertdialog", { name: "Turn local sign-in off?" });
@@ -182,14 +179,14 @@ async function walk(configuration) {
 
     // 5. Dark, and 390px without horizontal page scroll.
     await page.goto(`${uiUrl}/settings/sign-in/harness-id`);
-    await page.getByRole("heading", { level: 2, name: "Harness ID" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Harness ID" }).waitFor();
     await shot(page, "provider");
     await axe(page, `${tag}-provider`);
     const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
     const night = await dark.newPage();
     night.setDefaultTimeout(15000);
     await night.goto(`${uiUrl}/settings/sign-in/harness-id`);
-    await night.getByRole("heading", { level: 2, name: "Harness ID" }).waitFor();
+    await night.getByRole("heading", { level: 1, name: "Harness ID" }).waitFor();
     await shot(night, "provider-dark");
     await axe(night, `${tag}-provider-dark`);
     await dark.close();
@@ -204,7 +201,7 @@ async function walk(configuration) {
     const phone = await narrow.newPage();
     phone.setDefaultTimeout(15000);
     await phone.goto(`${uiUrl}/settings/sign-in/harness-id`);
-    await phone.getByRole("heading", { level: 2, name: "Harness ID" }).waitFor();
+    await phone.getByRole("heading", { level: 1, name: "Harness ID" }).waitFor();
     expect((await overflow(phone)) <= 0, `${tag}: a provider's page scrolls sideways at 390px`);
     await shot(phone, "provider-narrow");
     await narrow.close();

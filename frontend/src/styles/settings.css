@@ -19,10 +19,10 @@
   min-width: 20px;
   margin-left: auto;
   padding: 0 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-panel);
   background: var(--action-primary);
   color: var(--text-on-action);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   line-height: 20px;
   text-align: center;
@@ -42,7 +42,7 @@ nav.settings-rail {
 .settings-nav-group h2.nav-label {
   margin-bottom: var(--space-2);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
 }
 .settings-nav-group ul {
@@ -85,29 +85,13 @@ nav.settings-rail {
 .settings-page .notice code {
   overflow-wrap: anywhere;
 }
-/* Workspaces and Model (U-D10 revised): the catalogue beside the selected entry's card, as the
-   screens were before U3, with the catalogue in the page instead of the rail. */
-.catalogue-layout {
-  display: grid;
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-5);
+/* The chips of a list's or log's tools (`ui/SettingsParts` FilterChip) carry no rule or inset of components.css's
+   `.filter-chips` (0.17 ST1). */
+.settings-page .filter-chips {
+  padding: 0;
+  border-bottom: 0;
 }
-.catalogue-layout > .model-catalogue {
-  position: sticky;
-  top: calc(var(--topbar-height) + var(--space-4));
-  max-height: calc(100vh - var(--topbar-height) - var(--space-8));
-  overflow-y: auto;
-}
-.catalogue-selection {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.catalogue-back {
-  display: none;
-  justify-self: start;
-}
+
 .model-catalogue .empty-message {
   justify-items: center;
   padding: var(--space-3) 10px;
@@ -242,7 +226,7 @@ nav.settings-rail {
 }
 .skeleton-line {
   height: 14px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: linear-gradient(90deg, var(--surface-sunken), var(--surface-hover), var(--surface-sunken));
   background-size: 200% 100%;
   animation: skeleton-pulse 1.4s ease-in-out infinite;
@@ -355,9 +339,6 @@ nav.settings-rail {
   color: var(--text-primary);
   overflow-wrap: anywhere;
 }
-.settings-table td.settings-source {
-  white-space: nowrap;
-}
 .settings-table tbody tr:last-child th {
   border-bottom: 0;
 }
@@ -392,7 +373,40 @@ nav.settings-rail {
   box-shadow: var(--focus-ring);
 }
 
-/* Deployment's capability groups. */
+/* Deployment: a setting's row, its value and, where it differs, its default. */
+.deployment-setting .setting-row-name code {
+  font-size: var(--fs-13-5);
+  overflow-wrap: anywhere;
+}
+.deployment-setting .setting-row-value {
+  max-width: 340px;
+}
+.deployment-value {
+  display: grid;
+  min-width: 0;
+  justify-items: end;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.deployment-current {
+  font-family: var(--font-mono);
+  font-size: var(--fs-13-5);
+}
+.deployment-default {
+  font-size: var(--fs-12);
+  color: var(--text-secondary);
+}
+@media (max-width: 760px) {
+  .deployment-setting .setting-row-value {
+    max-width: none;
+  }
+  .deployment-value {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+/* Capability groups (still drawn by the AI page). */
 .capability-groups {
   display: grid;
   margin: 0;
@@ -419,6 +433,8 @@ nav.settings-rail {
 /* Links in a settings page's facts, notes and tables. */
 .settings-note a,
 .settings-page .description-list a,
+.settings-page .setting-row a,
+.settings-page .about-brand a,
 .settings-table td a {
   color: var(--link);
 }
@@ -430,12 +446,9 @@ nav.settings-rail {
   color: inherit;
 }
 
-/* Consumer APIs: the base URL and the OpenAPI document above an API's routes. */
-.consumer-api-base {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-1);
-  margin: 0;
+/* The workspace choice of the API reference and Consumer APIs: no group while there is no choice to make. */
+.reference-workspace:has(.settings-panel:empty) {
+  display: none;
 }
 
 /* Jobs: the kind above the job's ID; the state's pill with its result and cause under it. */
@@ -572,21 +585,7 @@ td:has(> .row-problems) {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
   }
-  /* The catalogue and the selected entry take turns: the list, or the entry with a way back. */
-  .catalogue-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .catalogue-layout > .model-catalogue {
-    position: static;
-    max-height: none;
-  }
-  .catalogue-layout.has-selection > .model-catalogue,
-  .catalogue-layout:not(.has-selection) > .catalogue-selection {
-    display: none;
-  }
-  .catalogue-back {
-    display: inline-flex;
-  }
+
   /* Settings tables stack: one block per row, each value under its column's name. */
   .settings-table thead th {
     position: absolute;
@@ -621,23 +620,6 @@ td:has(> .row-problems) {
   }
 }
 
-/* Webhooks (U5): the detail's notices and sections keep the card's inset, as its actions do. */
-.webhook-detail > .notice,
-.webhook-section {
-  margin: 0 20px;
-}
-.webhook-section {
-  display: grid;
-  gap: var(--space-2);
-}
-.webhook-section h3 {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 650;
-}
-.webhook-detail .notice p {
-  margin: 0 0 var(--space-2);
-}
 .webhook-event-list,
 .webhook-findings,
 .workspace-subscriptions {
@@ -676,13 +658,10 @@ td:has(> .row-problems) {
   display: block;
   margin-top: 2px;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 400;
 }
 
-.webhook-section .admin-hint {
-  margin: 0;
-}
 /* One row of equal options, however many the choice has. */
 .dialog-form .theme-choice {
   grid-template-columns: none;
@@ -759,12 +738,12 @@ td:has(> .row-problems) {
    columns with their order and shown field, and the relationships with a sheet of their own. */
 .export-advanced {
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-panel);
 }
 .export-advanced > summary {
   padding: 10px 14px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 550;
   cursor: pointer;
 }
@@ -902,38 +881,16 @@ td:has(> .row-problems) {
   }
 }
 
-/* The webhook's page: the tabs above its name, then the panel. */
-.webhook-detail > div > .tab-list {
-  padding: 0 20px;
-}
-/* One rule under the name (the header's own); a suspension notice sits under it, above the panel. */
-.webhook-head {
-  display: grid;
-  gap: var(--space-4);
-}
-.webhook-head > .notice {
-  margin: 0 20px;
-}
+/* A webhook's tab (0.17 ST1): the groups of its panel, spaced as the page's. */
 .webhook-panel {
-  padding-top: var(--space-4);
-}
-.webhook-deliveries {
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4) 20px 20px;
+  gap: var(--space-6);
+  padding-top: var(--space-2);
 }
-.webhook-deliveries-bar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-3);
+.webhook-panel .settings-table code {
+  white-space: nowrap;
 }
-/* A filter and its refresh above a list on a settings page (Mail, 0.12 M1). */
-.settings-filter-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
-}
+
 .webhook-change {
   color: var(--text-tertiary);
 }
@@ -972,24 +929,11 @@ td:has(> .row-problems) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.webhook-deliveries .settings-table code {
-  white-space: nowrap;
-}
-.webhook-panel > .notice {
-  margin: 0 20px;
-}
+
 .delivery-actions {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-/* Settings › Imports: a profile's check of its next file (0.10 A5c), four sections side by side. */
-.check-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--space-6) var(--space-8);
 }
 .check-lines {
   display: grid;
@@ -1034,27 +978,13 @@ td:has(> .row-problems) {
 .check-choice label > span {
   color: var(--text-secondary);
 }
-.check-grid + .section-description {
-  margin-top: var(--space-4);
-}
 
 @media (max-width: 760px) {
-  .check-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .check-lines > li {
     flex-wrap: wrap;
   }
 }
 
-/* An import profile in the catalogue's detail (0.10 A5c): each part inset as the actions are, and
-   the check's four sections in one column when the detail is narrow. */
-.import-detail {
-  container-type: inline-size;
-}
-.import-detail > :not(.model-detail-header):not(.model-actions) {
-  margin: 0 20px;
-}
 @container (max-width: 900px) {
   .import-detail .check-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1176,28 +1106,6 @@ tr.openable-row:hover > * {
 .row-title:focus-visible {
   text-decoration: underline;
 }
-.model-running {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.model-running li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-.model-detail-section {
-  display: grid;
-  gap: var(--space-2);
-  padding: 0 20px 18px;
-}
-.model-detail-section h3 {
-  margin: 0;
-  font-size: var(--text-md);
-}
 .model-rows {
   margin: 0;
   padding: 0;
@@ -1206,7 +1114,8 @@ tr.openable-row:hover > * {
 }
 .model-row {
   display: grid;
-  grid-template-columns: minmax(80px, 160px) minmax(0, 1fr) auto;
+  /* The name takes what the marks and the date leave: a draft's name is never cut to 160px (0.17 SH1). */
+  grid-template-columns: minmax(10rem, 1.8fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2);
@@ -1336,7 +1245,7 @@ tr.openable-row:hover > * {
   margin: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   line-height: 1.5;
 }
 .migration-running {
@@ -1344,7 +1253,7 @@ tr.openable-row:hover > * {
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
 }
 .migration-running-head {
   display: flex;
@@ -1411,7 +1320,7 @@ tr.openable-row:hover > * {
   margin: 0;
   padding: var(--space-3) var(--space-3) var(--space-3);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
 }
 .migration-choice legend {
   padding: 0 var(--space-1);
@@ -1461,7 +1370,7 @@ tr.openable-row:hover > * {
   min-height: 44px;
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--surface-raised);
   color: var(--text-primary);
   text-align: left;
@@ -1609,7 +1518,7 @@ tr.openable-row:hover > * {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   border: 1px solid var(--border-faint);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--border-faint);
   overflow: hidden;
 }
@@ -1667,7 +1576,7 @@ tr.openable-row:hover > * {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--surface-nav);
 }
 .move-type-card {
@@ -1675,7 +1584,7 @@ tr.openable-row:hover > * {
   gap: 4px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--surface-app);
 }
 .move-type-card-head {
@@ -1710,7 +1619,7 @@ tr.openable-row:hover > * {
 }
 .move-block {
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   overflow: hidden;
 }
 .move-block-head {
@@ -1780,7 +1689,7 @@ tr.openable-row:hover > * {
   gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px dashed var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   color: var(--text-secondary);
 }
 .move-unmapped strong {
@@ -1837,7 +1746,7 @@ tr.openable-row:hover > * {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
 }
 .move-selection-subtree {
   display: grid;
@@ -1869,7 +1778,7 @@ tr.openable-row:hover > * {
   gap: 2px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
 }
 @media (max-width: 1100px) {
   .move-panes {
@@ -1922,119 +1831,47 @@ tr.openable-row:hover > * {
   flex-wrap: wrap;
   gap: var(--space-3);
 }
-.operations-figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.operations-figures > li {
-  display: grid;
-  align-content: start;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-}
-.operations-figure-label {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-.operations-figure-value {
-  justify-self: start;
-  font-size: var(--text-md);
-  font-weight: 600;
-}
-.operations-processes,
-.operations-threads,
-.operations-earlier {
+.operations-threads {
   display: grid;
   gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.operations-processes {
-  gap: var(--space-3);
-}
-.operations-processes details {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-}
-.operations-processes summary {
+.operations-process details > summary {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
-  min-height: 44px;
-  padding: var(--space-2) var(--space-4);
+  min-height: 52px;
+  padding: var(--space-2) 18px;
   background: var(--surface-sunken);
   cursor: pointer;
 }
-.operations-processes details[open] summary {
+.operations-process details[open] > summary {
   border-bottom: 1px solid var(--border-faint);
 }
-.operations-processes summary code {
+.operations-process summary code {
   font-weight: 600;
 }
 .operations-process-times {
   margin-left: auto;
 }
-.operations-process-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-3) var(--space-6);
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-}
-.operations-process-facts dt {
-  margin-bottom: var(--space-1);
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-.operations-process-facts dd {
+.operations-stack {
   display: grid;
   gap: var(--space-1);
-  margin: 0;
 }
-.operations-threads li,
-.operations-earlier li {
+.operations-threads li {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-.operations-rehearsal {
-  display: grid;
-  gap: var(--space-3);
-}
-.operations-rehearsal > .link-button {
-  justify-self: start;
-  min-height: 36px;
-}
-.operations-rehearsal .operations-process-facts {
-  padding: 0;
-}
-.operations-rehearsal-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  margin: 0;
-}
-.operations-rehearsal .numeric {
+.operations-copy thead th:nth-child(n + 4):nth-child(-n + 7) {
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 .operations-howto {
-  margin-top: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  margin: 0;
 }
 .operations-howto summary {
   min-height: 32px;
@@ -2057,13 +1894,10 @@ tr.openable-row:hover > * {
   white-space: pre;
 }
 @media (max-width: 760px) {
-  .operations-figures {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .operations-process-times {
     margin-left: 0;
   }
-  .operations-rehearsal .numeric {
+  .operations-copy thead th:nth-child(n + 4):nth-child(-n + 7) {
     text-align: left;
   }
 }
@@ -2075,65 +1909,18 @@ tr.openable-row:hover > * {
   border-color: transparent;
   background: var(--state-selected);
   color: var(--state-selected-text);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
-}
-.account-page {
-  display: grid;
-  gap: var(--space-6);
-  max-width: 1180px;
-  margin-inline: auto;
 }
 .account-panel {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-large);
   background: var(--surface-raised);
-}
-.account-profile {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-6);
-  border-top: 6px solid var(--action-primary);
-}
-.account-profile-avatar {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: var(--state-selected);
-  color: var(--state-selected-text);
-  box-shadow:
-    0 0 0 4px var(--surface-raised),
-    0 0 0 5px var(--border-subtle);
-  font-size: 26px;
-  font-weight: 600;
-}
-.account-profile-text {
-  display: grid;
-  flex: 1;
-  gap: var(--space-1);
-  min-width: 0;
-}
-.account-profile-text p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.account-profile-name {
-  font-size: 22px;
-  font-weight: 600;
 }
 .account-muted {
   color: var(--text-tertiary);
   font-size: var(--text-sm);
-}
-.account-profile .account-muted {
-  color: var(--text-secondary);
-  font-size: inherit;
 }
 .account-pills {
   display: flex;
@@ -2150,7 +1937,7 @@ tr.openable-row:hover > * {
   border-radius: 11px;
   background: var(--surface-fill);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2193,30 +1980,11 @@ tr.openable-row:hover > * {
 .account-row-text > * {
   max-width: 68ch;
 }
-.account-panel-note {
-  max-width: 68ch;
-  margin: 0;
-  padding: 14px 18px;
-}
 .account-row-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-.account-tile {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--surface-sunken);
-  color: var(--text-secondary);
-}
-.account-tile.current {
-  background: var(--state-selected);
-  color: var(--state-selected-text);
 }
 .account-footer {
   background: var(--surface-sunken);
@@ -2229,8 +1997,6 @@ tr.openable-row:hover > * {
 .account-permissions {
   display: grid;
   gap: var(--space-4);
-  /* No side padding: the cards line up with the page's other boxes. */
-  padding: var(--space-4) 0;
   font-size: var(--text-md);
 }
 .account-places {
@@ -2257,13 +2023,13 @@ tr.openable-row:hover > * {
   padding-block: 14px;
 }
 .account-place {
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  background: var(--card-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
 }
 .account-place[data-open] {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
 }
 .account-cell {
   min-width: 0;
@@ -2359,7 +2125,7 @@ a.account-reach-app:hover {
 .account-cover {
   margin: 0 var(--space-5) 18px;
   padding: 14px var(--space-4) var(--space-2);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--surface-sunken);
 }
 .account-cover h3 {
@@ -2395,7 +2161,7 @@ a.account-reach-app:hover {
   gap: var(--space-2);
   padding: 14px var(--space-5);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   background: var(--surface-sunken);
 }
 .account-instance h3 {
@@ -2476,15 +2242,6 @@ a.account-reach-app:hover {
   display: grid;
   gap: 2px;
 }
-.account-password {
-  display: grid;
-  gap: var(--space-4);
-  padding-left: 72px;
-}
-.account-password .form-field,
-.account-password > div {
-  max-width: 380px;
-}
 .account-password-field {
   position: relative;
   display: block;
@@ -2525,27 +2282,12 @@ a.account-reach-app:hover {
 .account-meter span.filled {
   background: var(--status-success-marker);
 }
-.account-actions {
-  display: flex;
-  gap: var(--space-2);
-}
 .download-failure {
   margin-left: var(--space-2);
   color: var(--status-error-text);
   font-size: var(--text-sm);
 }
 @media (max-width: 760px) {
-  .account-profile {
-    flex-direction: column;
-    padding: var(--space-6) var(--space-4) var(--space-5);
-    text-align: center;
-  }
-  .account-profile .account-pills {
-    justify-content: center;
-  }
-  .account-profile > button {
-    width: 100%;
-  }
   .account-row {
     flex-wrap: wrap;
     align-items: flex-start;
@@ -2553,12 +2295,6 @@ a.account-reach-app:hover {
   }
   .account-row > .account-row-text {
     flex: 1 1 100%;
-  }
-  .account-panel-note {
-    padding: 14px;
-  }
-  .account-password {
-    padding-left: 14px;
   }
   .account-footer {
     flex-direction: column;
@@ -2582,7 +2318,7 @@ a.account-reach-app:hover {
 .session-start h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 20px;
+  font-size: var(--fs-20);
 }
 .session-start p {
   margin: 0;
@@ -2591,104 +2327,56 @@ a.account-reach-app:hover {
   justify-self: start;
 }
 
-/* Settings › Security (0.12 SP1): People, Groups, Roles and a workspace's Access. */
-.security-catalogue section {
+.grant-action {
+  text-align: right;
+}
+/* A principal's access by place (0.17 ST1): the place on the left, its roles and its consumer APIs as chips
+   across the row; a grant held through a group names the group inside its chip. */
+.settings-panel .grant-place.setting-row-under.has-lead {
+  grid-template-columns: auto minmax(140px, 240px) minmax(0, 1fr);
+  align-items: start;
+}
+.settings-panel .grant-place.setting-row-under.has-lead .setting-row-value {
+  grid-column: 3;
+  grid-row: 1;
   display: grid;
   gap: var(--space-2);
+  justify-content: stretch;
 }
-.security-filters {
+.grant-place .setting-row-text {
+  padding-top: 7px;
+}
+.grant-place-kind {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 var(--space-1);
-}
-.security-filter {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  background: var(--surface-raised);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+  gap: var(--space-2) var(--space-3);
 }
-.security-filter span {
-  color: var(--text-tertiary);
-}
-.security-filter[aria-pressed="true"] {
-  border-color: var(--state-selected-line);
-  background: var(--state-selected);
-  color: var(--state-selected-text);
+.grant-place-label {
+  font-size: var(--fs-12);
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
-.security-filter[aria-pressed="true"] span {
-  color: inherit;
-}
-/* A person's and a group's sections, and a workspace's Access, keep the detail's inset. */
-.security-detail > .section,
-.security-detail > .notice,
-.workspace-access {
-  margin: 0 20px;
-}
-.security-person-header {
-  justify-content: flex-start;
-  gap: var(--space-4);
-}
-.security-person-header .account-profile-avatar {
-  width: 48px;
-  height: 48px;
-  font-size: 17px;
-}
-.security-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: var(--space-2);
-}
-.security-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.grant-place .access-chips {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.security-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 30px;
-  padding: 0 4px 0 12px;
-  border-radius: 999px;
-  background: var(--surface-fill);
-  font-size: var(--text-sm);
+.grant-via a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
-.security-chip a {
-  color: var(--link);
-}
-.security-chip button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-secondary);
-}
-.security-chip button:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-.grant-action {
-  text-align: right;
-}
-/* Clients (SP2): a list entry's second line, and the client ID beside its label. */
-.security-entry-use {
-  display: block;
+@media (max-width: 760px) {
+  .settings-panel .grant-place.setting-row-under.has-lead {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .settings-panel .grant-place.setting-row-under.has-lead .setting-row-value {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
 }
 .security-client-id {
   display: flex;
@@ -2805,9 +2493,6 @@ a.account-reach-app:hover {
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   white-space: nowrap;
-}
-.grant-table .grant-grid-held input {
-  opacity: 0.55;
 }
 .grant-table .grant-tick {
   width: 40px;
@@ -2931,32 +2616,20 @@ a.account-reach-app:hover {
   margin-top: 4px;
   font-size: var(--text-xs);
 }
-.role-editor {
+.settings-panel > .role-matrix-wrap {
+  border: 0;
+  border-radius: 0;
+}
+.settings-fields > label {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3) var(--space-4);
-  margin-top: var(--space-4);
-  padding: var(--space-4);
-  border: 1px solid var(--state-selected-line);
-  border-radius: var(--radius-control);
-  background: var(--surface-raised);
-}
-.role-editor > p,
-.role-editor > .notice,
-.role-editor > .dialog-actions {
-  grid-column: 1 / -1;
-}
-.role-editor-spacer {
-  flex: 1;
+  gap: var(--space-1);
+  font-weight: 500;
 }
 
 @media (max-width: 760px) {
   .role-matrix .role-matrix-group {
     min-width: 140px;
     max-width: 160px;
-  }
-  .role-editor {
-    grid-template-columns: minmax(0, 1fr);
   }
   .grant-action {
     text-align: left;
@@ -3016,9 +2689,21 @@ a.account-reach-app:hover {
   cursor: progress;
   opacity: 0.6;
 }
-/* Settings › Account › Second factor (0.12 I4b). */
+/* Settings › Account: a signed-in line's pills, a list of rows in a panel, the second factor's set-up. */
+.account-signed-in {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.settings-panel > .account-list > li + li > .setting-row {
+  border-top: 1px solid var(--border-faint);
+}
 .account-second-factor {
-  align-items: flex-start;
+  display: grid;
+  gap: var(--space-3);
+}
+.account-second-factor > p {
+  margin: 0;
 }
 .second-factor-setup {
   display: flex;
@@ -3050,37 +2735,11 @@ a.account-reach-app:hover {
 }
 
 /* A workspace's approval policy (0.12 A3). */
-.workspace-approval {
-  display: grid;
-  gap: var(--space-2);
-  /* The inset of the other tabs' sections, so its left edge is theirs. */
-  margin: 0 20px;
-}
-.workspace-approval h3,
-.workspace-approval p {
-  margin: 0;
-}
-.workspace-approval form {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-3);
-}
-.workspace-approval form .checkbox {
-  margin: 0;
-}
 .workspace-approval-second {
   margin-left: var(--space-5);
 }
 
 /* One workspace's tabs, applications and activity. */
-.workspace-tabs .tab-list {
-  margin: 0 20px;
-}
-.workspace-tab-panel {
-  display: grid;
-  gap: 16px;
-  padding-top: 16px;
-}
 .workspace-applications,
 .workspace-activity {
   display: grid;
@@ -3103,7 +2762,7 @@ a.account-reach-app:hover {
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-panel);
   color: var(--text-primary);
   text-decoration: none;
 }
@@ -3179,12 +2838,13 @@ a.account-reach-app:hover {
 }
 .entity-fact-label {
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .entity-fact-value {
+  display: block;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--text-sm, 13px);
@@ -3203,7 +2863,7 @@ a.account-reach-app:hover {
   .entity-group.has-facts .nav-label,
   .entity-group.has-facts .entity-row {
     display: grid;
-    grid-template-columns: 32px minmax(0, 1fr) var(--fact-tracks) 15rem;
+    grid-template-columns: 36px minmax(0, 1fr) var(--fact-tracks) var(--status-track, 15rem);
     column-gap: 10px;
     align-items: center;
   }
@@ -3277,12 +2937,25 @@ a.account-reach-app:hover {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--surface-fill);
   color: var(--text-tertiary);
 }
 .entity-sentinel {
   height: 1px;
+}
+/* A fact that is chips, not text (0.17 ST1): the chips wrap in the column instead of being cut. */
+.entity-fact-value.entity-fact-node {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  overflow: visible;
+  white-space: normal;
+}
+.entity-more {
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
 }
 .search-box.entity-search {
   width: 100%;
@@ -3385,34 +3058,6 @@ a.account-reach-app:hover {
 }
 .workspace-applications .skeleton {
   min-height: 72px;
-}
-
-/* The bar over an opened item in Settings (TrailBar): Back and where the person is. */
-.model-trail-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border-faint);
-}
-.model-trail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-.model-trail li + li::before {
-  content: "›";
-  margin-right: 6px;
-}
-.model-trail li[aria-current="page"] {
-  color: var(--text-primary);
-  font-weight: 600;
 }
 
 /* Loading a workbook with the AI assistant (0.16 AP6a): a card per table, its choices, the figures
@@ -3765,7 +3410,7 @@ a.account-reach-app:hover {
   margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
 }
 .impact-summary > .install-heading,
 .impact-summary p,
@@ -3892,21 +3537,6 @@ a.account-reach-app:hover {
   flex-wrap: wrap;
   gap: var(--space-1);
 }
-.job-group-summary {
-  display: grid;
-  gap: var(--space-3);
-}
-.job-group-summary-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.job-group-summary-head p {
-  margin: 0;
-  color: var(--text-secondary);
-}
 /* A job group's file name (0.13 JG): the extension as a small tag beside the name. */
 .origin-name {
   display: inline-flex;
@@ -3916,7 +3546,7 @@ a.account-reach-app:hover {
 }
 .file-ext {
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--hue-1-fill);
   color: var(--hue-1-ink);
   font-family: var(--font-mono);
@@ -3950,4 +3580,41 @@ a.account-reach-app:hover {
 .settings-fold-body ol {
   margin: 0;
   padding-left: var(--space-5);
+}
+
+/* Pages moved onto the Settings family (0.17 ST1, batch C). */
+.settings-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.workspace-approval-fields {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+.workspace-approval-fields .checkbox {
+  margin: 0;
+}
+.settings-panel > .model-rows {
+  border-top: 0;
+}
+.settings-panel > .model-rows .model-row {
+  padding-inline: 18px;
+}
+.settings-panel > .model-rows .model-row:last-child {
+  border-bottom: 0;
+}
+.settings-panel > .model-summary {
+  border: 0;
+  border-radius: 0;
+}
+/* Under a settings page's tabs the first group keeps its distance; fields in a panel keep their own heights. */
+.settings-page > .react-aria-Tabs > .react-aria-TabPanel,
+.settings-page > .react-aria-Tabs > div > .react-aria-TabPanel {
+  padding-top: var(--space-5);
+}
+.settings-fields {
+  align-items: start;
 }

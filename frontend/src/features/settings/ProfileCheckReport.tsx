@@ -12,7 +12,7 @@ import type { CheckDrift, CheckMissingRecord, CheckNewValue, CheckSource, DryRun
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { Modal } from "@/ui/Modal";
-import { Section } from "@/ui/Section";
+import { SettingsGroup, SettingsPanel } from "@/ui/SettingsParts";
 import { StatusPill } from "@/ui/StatusPill";
 import { JobRowsTable } from "@/features/jobs/ImportOutcome";
 import { count } from "./limits";
@@ -77,152 +77,166 @@ export function ProfileCheckReport({
     0,
   );
   return (
-    <div className="check-grid">
-      <Section title="Columns">
-        <ul className="check-lines">
-          {check.sources.map((source) =>
-            !source.sheetFound ? (
-              <li key={`sheet-${source.profileSource}`}>
-                <span>
-                  <StatusPill tone="error">Missing</StatusPill> {named(source)}sheet <strong>{source.sheet}</strong> is
-                  not in the file; its rows are not read
-                </span>
-              </li>
-            ) : (
-              <SourceColumns
+    <>
+      <SettingsGroup title="Columns" description="New, renamed and missing columns, each with what to do.">
+        <SettingsPanel>
+          <ul className="check-lines">
+            {check.sources.map((source) =>
+              !source.sheetFound ? (
+                <li key={`sheet-${source.profileSource}`}>
+                  <span>
+                    <StatusPill tone="error">Missing</StatusPill> {named(source)}sheet <strong>{source.sheet}</strong>{" "}
+                    is not in the file; its rows are not read
+                  </span>
+                </li>
+              ) : (
+                <SourceColumns
+                  key={source.profileSource}
+                  source={source}
+                  prefix={named(source)}
+                  busy={busy}
+                  onRename={onRename}
+                  onIgnore={onIgnore}
+                />
+              ),
+            )}
+          </ul>
+        </SettingsPanel>
+      </SettingsGroup>
+      <SettingsGroup title="Values" description="New values of match columns, and names that drifted.">
+        <SettingsPanel>
+          <ul className="check-lines">
+            {check.sources.map((source) => (
+              <SourceValues
                 key={source.profileSource}
                 source={source}
                 prefix={named(source)}
-                busy={busy}
-                onRename={onRename}
-                onIgnore={onIgnore}
+                profileKey={check.profileKey}
+                workspaceKey={check.workspaceKey}
+                onOpen={onOpen}
               />
-            ),
-          )}
-        </ul>
-      </Section>
-      <Section title="Values">
-        <ul className="check-lines">
-          {check.sources.map((source) => (
-            <SourceValues
-              key={source.profileSource}
-              source={source}
-              prefix={named(source)}
-              profileKey={check.profileKey}
-              workspaceKey={check.workspaceKey}
-              onOpen={onOpen}
-            />
-          ))}
-        </ul>
-      </Section>
-      <Section title="Records">
-        {check.sources.map((source) => {
-          const found = figures(check, source);
-          return (
-            <ul className="check-lines" key={source.profileSource} aria-label={several ? named(source) : undefined}>
-              {several && <li className="check-source">{named(source).replace(/ · $/, "")}</li>}
-              {found ? (
-                <>
+            ))}
+          </ul>
+        </SettingsPanel>
+      </SettingsGroup>
+      <SettingsGroup
+        title="Records"
+        description="What the load adds and changes, and the records the file no longer names."
+      >
+        <SettingsPanel>
+          {check.sources.map((source) => {
+            const found = figures(check, source);
+            return (
+              <ul className="check-lines" key={source.profileSource} aria-label={several ? named(source) : undefined}>
+                {several && <li className="check-source">{named(source).replace(/ · $/, "")}</li>}
+                {found ? (
+                  <>
+                    <li>
+                      <span>Added</span>
+                      <strong>{count(found.records.created)}</strong>
+                    </li>
+                    <li>
+                      <span>Changed</span>
+                      <strong>{count(found.records.updated)}</strong>
+                    </li>
+                    <li>
+                      <span>Unchanged</span>
+                      <strong>{count(found.records.unchanged)}</strong>
+                    </li>
+                  </>
+                ) : (
                   <li>
-                    <span>Added</span>
-                    <strong>{count(found.records.created)}</strong>
+                    <span className="muted">
+                      Not read: {source.source === null ? "see the profile's problems" : "no dry run"}
+                    </span>
                   </li>
-                  <li>
-                    <span>Changed</span>
-                    <strong>{count(found.records.updated)}</strong>
-                  </li>
-                  <li>
-                    <span>Unchanged</span>
-                    <strong>{count(found.records.unchanged)}</strong>
-                  </li>
-                </>
-              ) : (
+                )}
                 <li>
-                  <span className="muted">
-                    Not read: {source.source === null ? "see the profile's problems" : "no dry run"}
+                  <span>Missing from the file</span>
+                  <span className="check-figure">
+                    {source.missingRecords > 0 && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() =>
+                          onOpen({
+                            kind: "list",
+                            list: "missing-records",
+                            source: source.source ?? 0,
+                            title: `Records missing from the file · ${typeName(source.objectTypeKey)}`,
+                          })
+                        }
+                      >
+                        Show rows
+                      </button>
+                    )}
+                    <strong>{count(source.missingRecords)}</strong>
                   </span>
                 </li>
-              )}
+                <li className="check-choice">
+                  <label>
+                    <span>When loading</span>
+                    <select
+                      className="field-input"
+                      value={source.missing}
+                      disabled={busy}
+                      onChange={(event) => onMissing(source, event.target.value as "report" | "delete")}
+                    >
+                      <option value="report">Keep the missing records</option>
+                      <option value="delete">Delete them in the change set</option>
+                    </select>
+                  </label>
+                </li>
+              </ul>
+            );
+          })}
+        </SettingsPanel>
+      </SettingsGroup>
+      <SettingsGroup
+        title="Profile against the active release"
+        description="Whether every binding resolves, and the dry run's refusals."
+      >
+        <SettingsPanel>
+          <ul className="check-lines">
+            <li>
+              <span>{check.valid ? "Every binding resolves" : "Bindings that no longer resolve"}</span>
+              <StatusPill tone={check.valid ? "success" : "error"}>{check.valid ? "Valid" : "Needs a fix"}</StatusPill>
+            </li>
+            {check.problems.map((problem) => (
+              <li key={`${problem.path}-${problem.code}`} className="check-problem">
+                <span>
+                  <code>{problem.path}</code> {problem.message}
+                </span>
+                <code>{problem.code}</code>
+              </li>
+            ))}
+            {check.dryRun && (
               <li>
-                <span>Missing from the file</span>
+                <span>Dry run · all {count(check.dryRun.rows.total)} rows</span>
                 <span className="check-figure">
-                  {source.missingRecords > 0 && (
+                  {refused > 0 && (
                     <button
                       type="button"
                       className="secondary"
-                      onClick={() =>
-                        onOpen({
-                          kind: "list",
-                          list: "missing-records",
-                          source: source.source ?? 0,
-                          title: `Records missing from the file · ${typeName(source.objectTypeKey)}`,
-                        })
-                      }
+                      onClick={() => onOpen({ kind: "rows", source: 0, title: "Rows the load would refuse" })}
                     >
                       Show rows
                     </button>
                   )}
-                  <strong>{count(source.missingRecords)}</strong>
+                  <span>{count(refused)} refused</span>
                 </span>
               </li>
-              <li className="check-choice">
-                <label>
-                  <span>When loading</span>
-                  <select
-                    className="field-input"
-                    value={source.missing}
-                    disabled={busy}
-                    onChange={(event) => onMissing(source, event.target.value as "report" | "delete")}
-                  >
-                    <option value="report">Keep the missing records</option>
-                    <option value="delete">Delete them in the change set</option>
-                  </select>
-                </label>
-              </li>
-            </ul>
-          );
-        })}
-      </Section>
-      <Section title="Profile against the active release">
-        <ul className="check-lines">
-          <li>
-            <span>{check.valid ? "Every binding resolves" : "Bindings that no longer resolve"}</span>
-            <StatusPill tone={check.valid ? "success" : "error"}>{check.valid ? "Valid" : "Needs a fix"}</StatusPill>
-          </li>
-          {check.problems.map((problem) => (
-            <li key={`${problem.path}-${problem.code}`} className="check-problem">
-              <span>
-                <code>{problem.path}</code> {problem.message}
-              </span>
-              <code>{problem.code}</code>
-            </li>
-          ))}
-          {check.dryRun && (
-            <li>
-              <span>Dry run · all {count(check.dryRun.rows.total)} rows</span>
-              <span className="check-figure">
-                {refused > 0 && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => onOpen({ kind: "rows", source: 0, title: "Rows the load would refuse" })}
-                  >
-                    Show rows
-                  </button>
-                )}
-                <span>{count(refused)} refused</span>
-              </span>
-            </li>
+            )}
+          </ul>
+          {!check.valid && (
+            <p className="settings-panel-note">
+              Loading is refused until the profile holds against the active release. Fix it in the model editor, or
+              through <code>PUT /api/v1/import-profiles/{check.profileKey}</code>.
+            </p>
           )}
-        </ul>
-        {!check.valid && (
-          <p className="section-description">
-            Loading is refused until the profile holds against the active release. Fix it in the model editor, or
-            through <code>PUT /api/v1/import-profiles/{check.profileKey}</code>.
-          </p>
-        )}
-      </Section>
-    </div>
+        </SettingsPanel>
+      </SettingsGroup>
+    </>
   );
 }
 
@@ -407,7 +421,7 @@ export function CheckRowsDialog({
   return (
     <Modal
       title={rows.title}
-      eyebrow="Check of the next version"
+      eyebrow="Workspaces and models"
       description="Nothing was written: this is what loading would find."
       size="wide"
       onClose={onClose}

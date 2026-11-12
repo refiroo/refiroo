@@ -104,11 +104,12 @@ afterEach(() => {
 });
 
 describe("SettingsShell", () => {
-  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn()) {
+  function renderShell(onNavigate = vi.fn(), onSelectApplication = vi.fn(), onHome = vi.fn(), workspaceKey?: string) {
     render(
       <SettingsShell
         model={testModel}
         page="deployment"
+        workspaceKey={workspaceKey}
         onHome={onHome}
         onSelectApplication={onSelectApplication}
         onNavigate={onNavigate}
@@ -119,10 +120,15 @@ describe("SettingsShell", () => {
     return { onNavigate, onSelectApplication, onHome };
   }
 
-  it("shows the top bar unchanged, with no way back: the mark and the tabs leave (the user, 2026-10-15)", () => {
-    renderShell();
+  it("offers Back to the workspace in place of the application tabs, with the Settings icon current (0.17 SH1)", async () => {
+    vi.spyOn(api, "workspace").mockResolvedValue({ key: "west", label: "West" } as never);
+    const { onNavigate } = renderShell(undefined, undefined, undefined, "west");
     const banner = screen.getByRole("banner");
-    expect(screen.queryByRole("link", { name: /^Back to/ })).toBeNull();
+    const back = await within(banner).findByRole("link", { name: "Back to West" });
+    expect(back).toHaveAttribute("href", "/workspace?workspaceKey=west");
+    expect(within(banner).queryByRole("navigation", { name: "Applications" })).toBeNull();
+    fireEvent.click(back);
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "workspace", workspaceKey: "west" });
     // The Settings icon is current in its own place, as the icon it is on every page.
     const settings = within(banner).getByRole("link", { name: "Settings" });
     expect(settings).toHaveAttribute("aria-current", "page");
@@ -137,27 +143,30 @@ describe("SettingsShell", () => {
       within(navigation)
         .getAllByRole("heading")
         .map((heading) => heading.textContent),
-    ).toEqual(["General", "Administration", "Data operations", "Integration"]);
+    ).toEqual(["You", "Workspaces and models", "Connections", "This instance"]);
+    // The index first, then the pages by task, About last (0.17 SH1).
     expect(
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent),
     ).toEqual([
-      "About",
+      "Settings",
       "Appearance",
       "Account",
       "Notification email",
       "Workspaces",
       "Model",
-      "Deployment",
-      "Operations",
-      "AI",
       "Import profiles",
       "Copy and move",
-      "Jobs",
       "Consumer APIs",
       "Webhooks",
       "API reference",
+      "Jobs",
+      "Operations",
+      "Deployment",
+      "E-mail template",
+      "AI",
+      "About",
     ]);
     expect(within(navigation).getByRole("link", { name: "Deployment" })).toHaveAttribute("aria-current", "page");
     expect(within(navigation).getByRole("link", { name: "About" })).not.toHaveAttribute("aria-current");
@@ -175,33 +184,34 @@ describe("SettingsShell", () => {
         .getAllByRole("link")
         .map((link) => link.textContent),
     ).toEqual([
-      "About",
+      "Settings",
       "Appearance",
       "Account",
       "Notification email",
       "Workspaces",
-      "Jobs",
       "Consumer APIs",
       "API reference",
+      "Jobs",
+      "About",
     ]);
     expect(
       within(navigation)
         .getAllByRole("heading")
         .map((heading) => heading.textContent),
-    ).toEqual(["General", "Administration", "Data operations", "Integration"]);
+    ).toEqual(["You", "Workspaces and models", "Connections", "This instance"]);
   });
 
   it("lists Security only to a person holding Security administration (0.12 SP1, D303)", async () => {
     vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(["security-admin"]));
     renderShell();
     const navigation = screen.getByRole("navigation", { name: "Settings" });
-    expect(await within(navigation).findByRole("heading", { name: "Security" })).toBeInTheDocument();
+    expect(await within(navigation).findByRole("heading", { name: "People and access" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "People" })).toHaveAttribute("href", "/settings/people");
     expect(within(navigation).getByRole("link", { name: "Groups" })).toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: "Roles" })).toBeInTheDocument();
   });
 
-  it("shows the application pages' top bar: home, the applications with none current, Settings current", () => {
+  it("shows the application tabs when no workspace is named: home, the applications with none current, Settings current", () => {
     const { onSelectApplication, onHome } = renderShell();
     const toggle = screen.getByRole("button", { name: "Settings: Deployment" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -209,7 +219,10 @@ describe("SettingsShell", () => {
     const tabs = within(screen.getByRole("navigation", { name: "Applications" })).getAllByRole("button");
     expect(tabs.map((tab) => tab.textContent)).toEqual(testModel.applications.map((item) => item.name));
     expect(tabs.every((tab) => !tab.hasAttribute("aria-current"))).toBe(true);
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    expect(within(screen.getByRole("banner")).getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     fireEvent.click(tabs[0]);
     expect(onSelectApplication).toHaveBeenCalledWith(testModel.applications[0]);
     fireEvent.click(screen.getByRole("button", { name: `${testModel.product.name} home` }));
@@ -281,37 +294,39 @@ describe("Deployment", () => {
   it("leads with the capability groups, then every setting by group with its source", async () => {
     render(<DeploymentPage />);
     const groups = await screen.findByRole("region", { name: "Capability groups" });
-    expect(within(groups).getByText("Model administration").closest("li")).toHaveTextContent(
-      /On\s*MODEL_ADMIN_MUTATIONS_ENABLED/,
-    );
-    expect(within(groups).getByText("Webhook subscriptions").closest("li")).toHaveTextContent(
-      /Off\s*CONSUMER_SUBSCRIPTIONS_ENABLED/,
-    );
-    expect(within(groups).getByText("Integration jobs").closest("li")).toHaveTextContent("1,000 items, 5 MB");
+    const panel = (name: string) => within(groups).getByRole("group", { name });
+    expect(panel("Model administration")).toHaveTextContent(/On\s*MODEL_ADMIN_MUTATIONS_ENABLED/);
+    expect(panel("Webhook subscriptions")).toHaveTextContent(/Off\s*CONSUMER_SUBSCRIPTIONS_ENABLED/);
+    expect(panel("Integration jobs")).toHaveTextContent("1,000 items, 5 MB");
     const runtime = screen.getByRole("region", { name: "Runtime" });
-    const row = (region: HTMLElement, name: string) => within(region).getByRole("row", { name: new RegExp(name) });
+    // A setting is a row: its name and what it controls, its value, its default only where it differs, its source.
+    const row = (region: HTMLElement, name: string) =>
+      within(region).getByText(new RegExp(name), { selector: "code" }).closest(".setting-row") as HTMLElement;
     expect(row(runtime, "CORS_ORIGINS")).toHaveTextContent(/https:\/\/a\.example, https:\/\/b\.example.*Environment/);
     expect(row(runtime, "DATABASE_URL")).toHaveTextContent("postgresql+psycopg://rdm@db:5432/rdm");
     expect(screen.getByRole("region", { name: "Database" })).toHaveTextContent("20261005_02");
     const capabilitySettings = screen.getByRole("region", { name: "Capability settings" });
-    expect(row(capabilitySettings, "MODEL_ADMIN")).toHaveTextContent(/On\s*Off\s*Environment/);
-    expect(row(screen.getByRole("region", { name: "Batch and job limits" }), "FEED")).toHaveTextContent(
-      /30\s*30\s*Default/,
-    );
-    expect(screen.getByText(/Values come from|values come from/)).toBeInTheDocument();
+    expect(row(capabilitySettings, "MODEL_ADMIN")).toHaveTextContent(/On\s*Default Off\s*Environment/);
+    // Where the value is the default, no default is shown.
+    const limits = row(screen.getByRole("region", { name: "Batch and job limits" }), "FEED");
+    expect(limits).toHaveTextContent(/30\s*Default/);
+    expect(limits).not.toHaveTextContent(/Default 30/);
+    expect(screen.getByText(/It calls the API at/)).toBeInTheDocument();
     expect(screen.getByText("VITE_API_URL")).toBeInTheDocument();
   });
 
   it("shows a secret only as set or not set, and warns about an ephemeral cursor key", async () => {
     render(<DeploymentPage />);
     const runtime = await screen.findByRole("region", { name: "Runtime" });
-    expect(within(runtime).getByRole("row", { name: /RDM_CURSOR_SIGNING_KEY/ })).toHaveTextContent(
-      /Not set\s*None\s*Default/,
-    );
+    const row = (name: string) =>
+      within(runtime)
+        .getAllByText(name, { selector: "code" })
+        .map((code) => code.closest(".setting-row") as HTMLElement | null)
+        .find(Boolean)!;
+    expect(row("RDM_CURSOR_SIGNING_KEY")).toHaveTextContent(/Not set\s*Default/);
     expect(within(runtime).getByText("Cursors do not survive a restart")).toBeInTheDocument();
-    expect(within(runtime).getByRole("row", { name: /SECRETS_ENCRYPTION_KEY/ })).toHaveTextContent(
-      /Set\s*None\s*Environment/,
-    );
+    expect(row("SECRETS_ENCRYPTION_KEY")).toHaveTextContent(/Set\s*Environment/);
+    expect(row("SECRETS_ENCRYPTION_KEY")).not.toHaveTextContent(/Default None/);
   });
 
   it("leaves out the warning once the cursor key is set", async () => {
@@ -344,10 +359,10 @@ describe("Appearance", () => {
     expect(screen.getByText(/saved in this browser/)).toBeInTheDocument();
   });
 
-  it("chooses Normal or Website purple, saves it and sets data-scheme (TH)", () => {
+  it("chooses Current or Website purple, saves it and sets data-scheme (TH)", () => {
     render(<AppearancePage />);
     const scheme = screen.getByRole("group", { name: "Theme" });
-    expect(within(scheme).getByRole("radio", { name: "Normal" })).toBeChecked();
+    expect(within(scheme).getByRole("radio", { name: "Current" })).toBeChecked();
     fireEvent.click(within(scheme).getByRole("radio", { name: "Website purple" }));
     expect(stored.get(SCHEME_STORAGE_KEY)).toBe('"purple"');
     expect(document.documentElement.dataset.scheme).toBe("purple");
@@ -355,7 +370,7 @@ describe("Appearance", () => {
     expect(
       within(screen.getByRole("group", { name: "Light or dark" })).getByRole("radio", { name: "System" }),
     ).toBeChecked();
-    fireEvent.click(within(scheme).getByRole("radio", { name: "Normal" }));
+    fireEvent.click(within(scheme).getByRole("radio", { name: "Current" }));
     expect(stored.get(SCHEME_STORAGE_KEY)).toBe('"normal"');
     expect(document.documentElement.dataset.scheme).toBeUndefined();
   });

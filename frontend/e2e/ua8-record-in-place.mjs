@@ -86,6 +86,9 @@ try {
     await page.getByRole("heading", { level: 1, name: heading }).waitFor();
     await page.getByRole("row", { name: new RegExp(name) }).getByText(name, { exact: true }).first().click();
     await page.getByRole("heading", { level: 1, name }).waitFor({ timeout: 10000 });
+    // A row opens the record beside its list (0.17 UX1); the relation panels and row actions are the full page's.
+    const expand = page.getByRole("button", { name: "Expand to full page", exact: true });
+    if (await expand.count()) await expand.click();
   };
   const fresh = async () => api(`/objects/domain/${domain.id}?workspaceKey=default`);
 
@@ -105,7 +108,8 @@ try {
   await header.getByRole("form", { name: "Edit Name" }).waitFor();
   await header.getByLabel("Name", { exact: true }).fill("UA8 Domain renamed");
   await shot("ua8-header-editing-title-wide");
-  await header.getByRole("button", { name: "Save", exact: true }).click();
+  // Leaving the field saves it (UX2): a click elsewhere, here on the page's heading area.
+  await page.mouse.click(700, 600);
   await page.getByRole("heading", { level: 1, name: "UA8 Domain renamed" }).waitFor({ timeout: 10000 });
   expect((await fresh()).name === "UA8 Domain renamed", "title: the name was not saved");
   const add = header.getByRole("button", { name: /^Add Description/ });
@@ -113,7 +117,7 @@ try {
   await shot("ua8-header-add-subtitle-wide");
   await add.click();
   await header.getByLabel("Description", { exact: true }).fill("Set from the header");
-  await header.getByRole("button", { name: "Save", exact: true }).click();
+  await page.keyboard.press("Tab");
   await header.getByRole("button", { name: /^Edit Description: Set from the header/ }).waitFor({ timeout: 10000 });
   const described = (await fresh()).attributes.find((item) => item.attributeTypeKey === "description")?.value;
   expect(described === "Set from the header", `subtitle: the description is "${described}"`);
@@ -125,14 +129,61 @@ try {
   await page.waitForTimeout(100);
   const focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent);
   expect(/UA8 Domain renamed/.test(focused ?? ""), `keyboard: focus after Escape is on "${focused}"`);
+  // Keyboard and pointer, field by field (UX2): Escape, emptied optional, refused required, field to field.
+  const description = () => header.getByRole("button", { name: /^Edit Description: / });
+  const toastText = (text) => page.getByText(text, { exact: true }).last();
+  const storedDescription = async () => (await fresh()).attributes.find((item) => item.attributeTypeKey === "description")?.value;
+  const focusedLabel = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent ?? "");
+  const savedBefore = await toastText("Description saved").count();
+  await description().click();
+  await header.getByLabel("Description", { exact: true }).fill("Dropped by Escape");
+  await page.keyboard.press("Escape");
+  await description().waitFor();
+  expect((await storedDescription()) === "Set from the header", "Escape: the description changed");
+  expect((await toastText("Description saved").count()) === savedBefore, "Escape: a toast said saved");
+  expect(/Set from the header/.test(await focusedLabel()), "Escape: focus is not on the description");
+  await description().click();
+  await page.keyboard.press("Tab");
+  await description().waitFor();
+  expect((await page.getByRole("form", { name: "Edit Description" }).count()) === 0, "unchanged: the field stayed open");
+  await description().click();
+  await header.getByLabel("Description", { exact: true }).fill("");
+  await page.keyboard.press("Tab");
+  await toastText("Description removed").waitFor({ timeout: 10000 });
+  expect((await storedDescription()) === undefined, "emptied: the description was not removed");
+  await page.getByRole("button", { name: "Undo", exact: true }).last().click();
+  await header.getByRole("button", { name: /^Edit Description: Set from the header/ }).waitFor({ timeout: 10000 });
+  expect((await storedDescription()) === "Set from the header", "Undo: the description did not come back");
+  await header.getByRole("button", { name: "Edit Name: UA8 Domain renamed" }).click();
+  await header.getByLabel("Name", { exact: true }).fill("");
+  await page.keyboard.press("Tab");
+  await header.getByText("Name needs a value.").waitFor({ timeout: 10000 });
+  expect((await header.getByRole("form", { name: "Edit Name" }).count()) === 1, "required: the field closed on an empty name");
+  await header.getByRole("form", { name: "Edit Name" }).getByRole("button", { name: "Save again" }).waitFor();
+  await header.getByLabel("Name", { exact: true }).fill("UA8 Domain refilled");
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { level: 1, name: "UA8 Domain refilled" }).waitFor({ timeout: 10000 });
+  expect((await fresh()).name === "UA8 Domain refilled", "required: the typed name was not saved");
+  await page.waitForTimeout(100);
+  expect(/UA8 Domain refilled/.test(await focusedLabel()), "Enter: focus is not back on the name");
+  await description().click();
+  await header.getByLabel("Description", { exact: true }).fill("Saved by moving on");
+  // The press itself saves the field being left, however short it is.
+  await header.getByRole("button", { name: "Edit Name: UA8 Domain refilled" }).click();
+  await header.getByRole("form", { name: "Edit Name" }).waitFor();
+  await header.getByLabel("Name", { exact: true }).fill("UA8 Domain renamed");
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { level: 1, name: "UA8 Domain renamed" }).waitFor({ timeout: 10000 });
+  expect((await storedDescription()) === "Saved by moving on", `field to field: the first field was not saved ("${await storedDescription()}")`);
+  checks.push("record page, real keyboard and pointer, text and long text: Escape keeps the old value with no toast and focus on the value; an unchanged field closes quietly; an optional value emptied by Tab is removed and Undo puts it back; the required name emptied is refused under the field and Enter saves a new one with focus back on the value; a click from an open field to another saves the first and opens the second");
   checks.push("domain record, 1440px: no Edit record button and Edit record first in the menu; the name renamed in place; Add Description set from the header; Enter opens the title's editor and Escape returns focus to it");
 
   // 2. The Kept by row's icon actions.
   const row = keptPanel.getByRole("row", { name: /UA8 System A/ });
-  const named = ["Change Kept by: UA8 System A", "Edit values of Kept by: UA8 System A", "Delete Kept by: UA8 System A"];
+  const named = ["Change Kept by: UA8 System A", "Edit values of Kept by: UA8 System A", "Remove Kept by: UA8 System A"];
   for (const name of named) expect((await row.getByRole("button", { name, exact: true }).count()) === 1, `row: no "${name}"`);
   const tips = await row.locator(".relation-row-actions").getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.title));
-  expect(tips.join("|") === "Change to another record|Edit values|Delete relationship", `row: the tooltips are ${tips}`);
+  expect(tips.join("|") === "Change to another record|Edit values|Remove relationship", `row: the tooltips are ${tips}`);
   await row.hover();
   await shot("ua8-relation-row-wide");
   await row.getByRole("button", { name: named[1], exact: true }).click();
@@ -144,7 +195,7 @@ try {
   await openRecord("/apps/rdm-systems/views/systems?workspaceKey=default&search=UA8", "Systems", "UA8 System A");
   await header.getByRole("button", { name: /^Edit Description: Keeps reference lists/ }).click();
   await header.getByLabel("Description", { exact: true }).fill("Keeps the lists");
-  await header.getByRole("button", { name: "Save", exact: true }).click();
+  await page.keyboard.press("Control+Enter");
   await header.getByRole("button", { name: /^Edit Description: Keeps the lists/ }).waitFor({ timeout: 10000 });
   await shot("ua8-system-header-wide");
   checks.push("system record: its description edited in place from the header");
@@ -160,7 +211,7 @@ try {
   await inspector.getByRole("button", { name: "Edit Name: UA8 Domain renamed" }).click();
   await inspector.getByLabel("Name", { exact: true }).fill("UA8 Domain");
   await shot("ua8-inspector-editing-wide");
-  await inspector.getByRole("button", { name: "Save", exact: true }).click();
+  await page.keyboard.press("Enter");
   await inspector.getByRole("heading", { level: 1, name: "UA8 Domain" }).waitFor({ timeout: 10000 });
   checks.push(`inspector: the title edited in place; axe ${await axe("ua8-inspector-light")} violations`);
 
@@ -170,7 +221,8 @@ try {
   await shot("ua8-header-narrow");
   const scroll = await overflow();
   expect(scroll <= 0, `390px: the page scrolls horizontally by ${scroll}px`);
-  await keptPanel.scrollIntoViewIfNeeded();
+  // On a phone the record opens beside the list at the screen's width and lists its relations as Connected.
+  await page.getByText("Kept by", { exact: true }).first().scrollIntoViewIfNeeded();
   await shot("ua8-relation-row-narrow");
   await header.getByRole("button", { name: "Edit Name: UA8 Domain" }).click();
   await shot("ua8-header-editing-title-narrow");

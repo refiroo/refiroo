@@ -79,8 +79,7 @@ An optional connection may be removed on its own. A required connection cannot b
 its dependent record still needs it. Where only one related record is allowed, **Change** replaces
 that record together in one save, avoiding a separate deletion followed by creation.
 
-The **Delete relationship?** confirmation says that the connected objects remain. This action
-removes a permitted connection, not either record. A required-relationship refusal leaves it in
+Choose **Remove relationship** to remove a permitted connection immediately. Both records remain, and the notice offers **Undo**. A required-relationship refusal leaves it in
 place; do not delete an owner to work around the refusal. Review the intended data change first.
 
 ## Context, permissions and refused changes
@@ -130,9 +129,7 @@ set may stage a scope conflict that validation or publication then refuses.
 
 **Add …** can create an owned record with its required relationship already filled. Its
 creation and connection succeed together. **Set relationship** fills an empty single-valued
-connection; the dialog offers **Object** and any fields on the connection, then **Set**.
-Other actions use **Create**, **Change** or **Save** as appropriate. **Delete relationship**
-in its confirmation removes only the connection, keeping the objects.
+connection; the form offers a search labelled with the related type's name and any fields on the connection, then **Set**. Other actions use **Add** followed by the type's name, **Change** or **Save** as appropriate. **Remove relationship** removes only the connection immediately, keeping both records; the notice offers **Undo**.
 
 The picker labelled **Search by name or attribute…** supports arrows across pages and Enter
 to choose; Ctrl+Home and Ctrl+End reach its ends. Required choices still need a value.
@@ -147,6 +144,8 @@ A stale set replacement is refused. For several source records, use
 When candidate rules change, existing connections remain and no browser list automatically
 flags all newly ineligible ones. Ask a model administrator to review a dry-run copy of the
 workspace when those connections need auditing.
+
+A related-record panel with all its rows loaded, five rows or fewer and no active search puts **Search**, **Display** and any available **Sort** in its ⋯ menu. Choose an item to reveal that control. Larger panels and panels with an active search keep the controls visible.
 
 ## Longer sets and actions on several records
 

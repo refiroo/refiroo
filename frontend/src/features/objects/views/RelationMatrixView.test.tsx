@@ -285,7 +285,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   it("renders rows, columns and every cell state with a text label for two row types", async () => {
     renderMatrix(notesView);
     const grid = await screen.findByRole("grid");
-    expect(screen.getByRole("heading", { level: 1, name: "Domain notes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Domains" })).toBeInTheDocument();
     expect(grid).toHaveAttribute("aria-rowcount", "3");
     expect(grid).toHaveAttribute("aria-colcount", "3");
     expect(within(grid).getByRole("columnheader", { name: /^Domain$/ })).toBeInTheDocument();
@@ -469,7 +469,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     ]);
     vi.mocked(api.relationMatrix).mockClear();
     vi.mocked(api.relationMatrix).mockResolvedValueOnce({ ...notesPage, items: [refreshed], columns: [columns[1]] });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(api.createObject).toHaveBeenCalledWith("note", {
       applicationKey: "test-app",
@@ -509,7 +509,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(await within(dialog).findByText("(will be created)")).toBeInTheDocument();
     expect(within(dialog).getByText(/Booked group/)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(api.createObjectInNewPlace).toHaveBeenCalled());
     expect(api.createObject).not.toHaveBeenCalled();
     const [type, payload, place] = vi.mocked(api.createObjectInNewPlace).mock.calls[0];
@@ -549,7 +549,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(name).toHaveValue("Shared group");
     fireEvent.change(name, { target: { value: "Edited group" } });
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(api.createObjectInNewPlace).toHaveBeenCalled());
     expect(api.createObject).not.toHaveBeenCalled();
     const [, payload, place] = vi.mocked(api.createObjectInNewPlace).mock.calls[0];
@@ -581,7 +581,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     fireEvent.click(await within(dialog).findByRole("button", { name: "Use an existing group instead" }));
     fireEvent.click(await within(dialog).findByRole("radio", { name: /Station/ }));
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(api.createObject).toHaveBeenCalled());
     expect(api.createObjectInNewPlace).not.toHaveBeenCalled();
     expect(vi.mocked(api.createObject).mock.calls[0][1]).toMatchObject({ parentObjectId: "g9" });
@@ -607,10 +607,10 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     const radio = within(dialog).getByRole("radio", { name: /Station/ });
     expect(radio).not.toBeChecked();
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     expect(api.createObject).not.toHaveBeenCalled();
     fireEvent.click(radio);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(api.createObject).toHaveBeenCalled());
     expect(vi.mocked(api.createObject).mock.calls[0][1]).toMatchObject({ parentObjectId: "g9" });
   });
@@ -645,7 +645,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     fireEvent.click(gridCell("Connections", 2));
     const dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
     fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
-    const create = await within(dialog).findByRole("button", { name: "Create note" });
+    const create = await within(dialog).findByRole("button", { name: "Add note" });
     expect(create).toBeDisabled();
     fireEvent.click(create);
     expect(api.createObject).not.toHaveBeenCalled();
@@ -694,7 +694,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       ],
       columns: [columns[1]],
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(gridCell("Connections", 2)).toHaveTextContent("CL-WE");
     // A second save cannot find its row in the short re-read, so the page reloads; meanwhile the
@@ -704,7 +704,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Create from this" }));
     await within(dialog).findByText("Region West");
     vi.mocked(api.relationMatrix).mockResolvedValueOnce({ ...notesPage, items: [], columns: [columns[1]] });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(gridCell("Connections", 2)).toHaveTextContent("None"));
     expect(gridCell("Connections", 2)).not.toHaveTextContent("CL-WE");
@@ -735,7 +735,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       ],
       columns: [columns[0]],
     });
-    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
+    await act(async () => fireEvent.keyDown(within(form).getByRole("textbox", { name: "Code" }), { key: "Enter" }));
     expect(api.updateAttribute).toHaveBeenCalledWith("note", "n1", "code", "CL-EA-2", 2);
     await waitFor(() => expect(api.relationMatrix).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("dialog", { name: "Connections · EA" })).toBeInTheDocument();
@@ -757,7 +757,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Edit Code of Connections EA" }));
     const form = within(dialog).getByRole("form", { name: "Edit Code" });
     fireEvent.change(within(form).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
-    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
+    await act(async () => fireEvent.keyDown(within(form).getByRole("textbox", { name: "Code" }), { key: "Enter" }));
     expect(
       await within(dialog).findByText(
         "Connections already has a note in EA where Active is Yes, and only one may count there.",
@@ -833,7 +833,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     const form = within(dialog).getByRole("form", { name: "Edit Code" });
     fireEvent.change(within(form).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
     vi.mocked(api.relationMatrix).mockClear();
-    await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Save" })));
+    await act(async () => fireEvent.keyDown(within(form).getByRole("textbox", { name: "Code" }), { key: "Enter" }));
     expect(await within(dialog).findByText("Object version has changed")).toBeInTheDocument();
     expect(within(dialog).getByRole("textbox", { name: "Code" })).toHaveValue("CL-EA-2");
     await waitFor(() => expect(api.relationMatrix).toHaveBeenCalled());
@@ -1051,7 +1051,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     );
     renderMatrix(notesView, { query: { search: "Fin" } });
     expect(await screen.findByText("Service unavailable.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Domain notes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Domains" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("grid")).toBeInTheDocument();
     expect(api.relationMatrix).toHaveBeenCalledTimes(2);

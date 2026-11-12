@@ -153,7 +153,7 @@ describe("RestructuringDialog", () => {
         .map((option) => option.textContent),
     ).toEqual(["Value code", "Value name", "External ID", "No value"]);
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Apply to the change set" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await within(dialog).findByText("Applied to the change set");
     expect(apply).toHaveBeenCalledWith({
       ...lastRequest(preview),
@@ -212,7 +212,7 @@ describe("RestructuringDialog", () => {
     expect(screen.getByText("Some answers are needed").closest(".notice")).toHaveTextContent(
       /\. Choose the types asked for below, and give the 1 value the records need \(Show: Needing input\)\.$/,
     );
-    expect(screen.getByRole("button", { name: "Apply to the change set" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(lastRequest(preview).operation).toEqual({ kind: "move", objectId: sodium.id, parentObjectId: system.id });
 
     const legend = screen.getByRole("group", { name: "System values under a system (2) become" });
@@ -260,7 +260,7 @@ describe("RestructuringDialog", () => {
     expect(
       within(screen.getByRole("region", { name: "Records in the plan" })).getByText("Refused"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply to the change set" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("re-plans when the change set moved on since the preview, writing nothing", async () => {
@@ -272,7 +272,7 @@ describe("RestructuringDialog", () => {
     await screen.findByText("Ready to apply");
     const calls = preview.mock.calls.length;
     preview.mockResolvedValue(plan({ planDigest: "digest-2", changeSetVersion: 8 }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply to the change set" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("The plan changed")).toBeInTheDocument();
     await waitFor(() => expect(preview.mock.calls.length).toBeGreaterThan(calls));
     expect(onApplied).not.toHaveBeenCalled();

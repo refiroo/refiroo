@@ -32,6 +32,7 @@ import { Icon } from "@/ui/Icon";
 import { HueTile } from "@/ui/HueTile";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
+import { pageTitle } from "@/model/collections";
 import { PageHeader } from "@/ui/PageHeader";
 import { DebouncedSearchField } from "@/ui/SearchField";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
@@ -285,7 +286,7 @@ export function RelationTableView({
     return (
       <div className="empty-state">
         <h2>{view.name}</h2>
-        <p>This relationships table references an object type that does not exist in the active model.</p>
+        <p>This relationships table shows a record type that does not exist in the current model.</p>
       </div>
     );
   }
@@ -311,7 +312,7 @@ export function RelationTableView({
       <PageHeader
         focusTitle
         icon={<HueTile hue={objectTypeHue(model, fromType.key)} icon={fromType.icon} size={40} />}
-        title={view.name}
+        title={pageTitle(model, application, view)}
         descriptionClassName="mapping-direction"
         description={
           <>

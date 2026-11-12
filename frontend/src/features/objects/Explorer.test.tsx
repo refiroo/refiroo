@@ -2,12 +2,15 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { permissionsFixture } from "@/test/permissions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ObjectQuery } from "@/api/client";
-import { Explorer } from "@/features/objects/Explorer";
+import { BROWSE_OPEN_KEY, Explorer } from "@/features/objects/Explorer";
+import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { findTreeItem, openFoldedGroups } from "@/test/tree";
 import { applicationPlacements } from "@/test/placements";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import type { EngineModel, Job, ObjectItem, ObjectPage, Publication } from "@/types";
+
+const values = new Map<string, string>();
 
 beforeEach(() => {
   // A person holding every group, read: nothing is offered before the permissions are known.
@@ -16,7 +19,9 @@ beforeEach(() => {
     warning: "",
     permissions: permissionsFixture("west"),
   });
-  const values = new Map<string, string>();
+  // Browse records is folded until opened (0.17 SH1); the cases that browse the tree start with it open.
+  values.clear();
+  values.set(BROWSE_OPEN_KEY, "true");
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value),
@@ -428,28 +433,19 @@ describe("Explorer", () => {
     expect(onOpen).toHaveBeenCalledWith(connections);
   });
 
-  it("searches every type and shows where each match sits", async () => {
+  it("folds Browse records by default, with no search of its own, and remembers it opened (0.17 SH1, PP-D35)", async () => {
+    values.clear();
     const read = serve();
     render(explorer());
-    await item("Connections");
-    fireEvent.change(screen.getByRole("textbox", { name: "Search this explorer" }), { target: { value: "zzz" } });
-    expect(await screen.findByText("No matching records.")).toBeVisible();
-    fireEvent.change(screen.getByRole("textbox", { name: "Search this explorer" }), {
-      target: { value: "tariffs" },
-    });
-    const match = await item("Urgent tariffs, in Connections / Tariffs");
-    expect(within(match).getByText("Connections / Tariffs")).toBeVisible();
-    expect(await item("Codelists matching tariffs, 1")).toBeInTheDocument();
-    const searched = read.mock.calls.filter(([, query]) => query.search === "tariffs");
-    expect(searched.map(([type]) => type).sort()).toEqual(["codelist", "domain", "unit"]);
-    expect(searched.every(([, query]) => !query.topLevel)).toBe(true);
-
-    // A match's branch lists its children as ordinary rows, without a path.
-    fireEvent.change(screen.getByRole("textbox", { name: "Search this explorer" }), {
-      target: { value: "Tariffs" },
-    });
-    fireEvent.keyDown(await item("Tariffs, in Connections"), { key: "ArrowRight" });
-    expect(await item("Urgent tariffs")).not.toHaveTextContent("Connections");
+    const fold = screen.getByRole("button", { name: "Browse records" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("tree")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Search this explorer" })).not.toBeInTheDocument();
+    expect(read.mock.calls.filter(([, query]) => query.pageSize === TREE_PAGE_SIZE)).toHaveLength(0);
+    fireEvent.click(fold);
+    expect(fold).toHaveAttribute("aria-expanded", "true");
+    expect(await item("Connections")).toBeInTheDocument();
+    expect(values.get(BROWSE_OPEN_KEY)).toBe("true");
   });
 
   it("reports a failed group and retries it in place", async () => {

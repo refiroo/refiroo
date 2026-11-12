@@ -807,7 +807,7 @@ check; use its timestamp only when reproducing the example.
 
 ## Find the contract on your instance
 
-In the browser, **Settings › Integration › Consumer APIs** lists the selected workspace's contracts
+In the browser, **Settings › Connections › Consumer APIs** lists the selected workspace's contracts
 and their documents. For the reference example, the authenticated index is
 `/api/consumer?workspace=graubuenden`; its entry points to
 `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`.

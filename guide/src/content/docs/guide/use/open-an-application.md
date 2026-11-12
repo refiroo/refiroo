@@ -13,8 +13,9 @@ datasets and views fit together.
 1. Select the refiroo name in the top bar to open Home. Under **Your workspaces**, find the
    intended workspace. Check the model name and release on its card; similar workspace names
    do not guarantee the same data or structure.
-2. Choose an application button on that card. Its default view opens in that workspace.
-   The application names come from the model.
+2. Choose the workspace’s name or tile to open its page, then choose an application. Its
+   default view opens in that workspace. The application names come from the model. An
+   application link on the Home card opens that application directly.
 3. Check **Workspace** in the sidebar and the context banner above the records. Choose **Live**
    for current data, or open the intended change set or publication. A publication is read-only;
    Live saves apply immediately.
@@ -29,7 +30,8 @@ failure, retry it before concluding that no workspaces exist.
 
 ## Choose a collection and view
 
-1. Select an application in the top bar. Read its sidebar collections; switching applications
+1. Select an application in the top bar, using **More** if it does not fit. On a phone,
+   choose it in the band beneath the top bar. Read its sidebar collections; switching applications
    can change which collections are offered. If a collection group is folded, expand it.
 2. Choose the collection you need. Check the page heading and description.
 3. If tabs appear below the heading, choose the view that suits your task. A table helps

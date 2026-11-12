@@ -1,0 +1,374 @@
+[
+  {
+    "page": "administer/clients.md",
+    "kind": "image description",
+    "old": "![Clients catalogue with one active client and no selection]",
+    "new": "![Clients catalogue with two active clients and Active and Deactivated filters]"
+  },
+  {
+    "page": "administer/clients.md",
+    "kind": "caption",
+    "old": "*Above: Stops reader (guide) has a Consumer API grant in Graubünden. The webhooks section\nshows a load error on this capture; it does not show that the client has no webhooks.*",
+    "new": "*Above: Stops reader (guide) has a Stops API grant in Graubünden. Webhooks it created says it created no webhook you administer.*"
+  },
+  {
+    "page": "guide/administer/create-a-client.md",
+    "kind": "caption",
+    "old": "*Above: Stops reader (guide) can read the Stops API in Graubünden. The failed webhooks\nsection below is a load error, not an empty-list confirmation.*",
+    "new": "*Above: Stops reader (guide) can read Stops API in Graubünden. Webhooks it created says it created no webhook you administer.*"
+  },
+  {
+    "page": "administer/sign-in.md",
+    "kind": "caption",
+    "old": "*Above: local accounts are on and no organisation provider is configured in the reference instance.*",
+    "new": "*Above: Local accounts is on. Guide identity provider is listed but Disabled in the reference instance.*"
+  },
+  {
+    "page": "administer/sign-in.md",
+    "kind": "image description",
+    "old": "![Sign-in catalogue with Local accounts on and no providers]",
+    "new": "![Sign-in catalogue with Local accounts on and a disabled provider]"
+  },
+  {
+    "page": "administer/signing-keys.md",
+    "kind": "caption",
+    "old": "*Above: the reference instance has a new Signing key and a previous key verifying until\nits displayed deadline. The identifiers distinguish keys; they are not values to copy into a system.*",
+    "new": "*Above: The reference instance has one key, marked Signing. Start a new key and Retire the current key now are available.*"
+  },
+  {
+    "page": "administer/signing-keys.md",
+    "kind": "image description",
+    "old": "![Signing keys with a current Signing key and a replaced key still verifying]",
+    "new": "![Signing keys with one current Signing key and rotation and retirement actions]"
+  },
+  {
+    "page": "guide/administer/rotate-signing-keys.md",
+    "kind": "caption",
+    "old": "*Above: the reference instance shows a new Signing key and a previous key still verifying.*",
+    "new": "*Above: The reference instance has one current key, marked Signing.*"
+  },
+  {
+    "page": "guide/administer/rotate-signing-keys.md",
+    "kind": "image description",
+    "old": "![Signing keys list with current and replaced key states]",
+    "new": "![Signing keys list with one current key marked Signing]"
+  },
+  {
+    "page": "guide/administer/find-who-changed-something.md",
+    "kind": "caption",
+    "old": "*Above: Guide Admin's security activity follows their roles and groups. A one-time password\nlink creation appears as an event without revealing the link itself.*",
+    "new": "*Above: Guide Admin's Recent activity follows their roles and groups. The visible entries include group changes and a sign-in.*"
+  },
+  {
+    "page": "guide/model/add-a-record-type-and-fields.md",
+    "kind": "image description",
+    "old": "![Required setting opened in place with Save and Cancel]",
+    "new": "![Required setting opened in place as a Yes or No choice]"
+  },
+  {
+    "page": "guide/model/create-a-model-draft.md",
+    "kind": "caption",
+    "old": "*Above: Guide draft applies to Graubünden and offers Apply to this workspace….*",
+    "new": "*Above: The workspace draft applies to Graubünden and offers Apply to this workspace….*"
+  },
+  {
+    "page": "guide/model/edit-a-workspaces-model.md",
+    "kind": "image description",
+    "old": "![Workspace overview with Edit model]",
+    "new": "![Workspace model draft with Applies to Graubünden and Apply to this workspace]"
+  },
+  {
+    "page": "guide/model/install-and-activate-a-release.md",
+    "kind": "caption",
+    "old": "*Above: Guide draft proposes release 1.0.1 for Graubünden, adding Step-free access and Inspected by.\nThe captured dialog was cancelled: neither installation nor activation happened.*",
+    "new": "*Above: Guide draft proposes release 1.8.4 for Graubünden, adding Step-free access and Inspected by. The dialog shows compatible stored data and Stops API; installation has not been confirmed.*"
+  },
+  {
+    "page": "guide/model/install-and-activate-a-release.md",
+    "kind": "caption",
+    "old": "*Above: applying Guide draft to Graubünden leaves Default unchanged and names December 2026 timetable\nchange as remaining on release 1.0.0. The dialog was cancelled.*",
+    "new": "*Above: The Apply to Graubünden review shows a consumer API change that needs version 2. Activation is refused until the contract version is raised; open change sets remain on release 1.8.1.*"
+  },
+  {
+    "page": "guide/model/install-and-activate-a-release.md",
+    "kind": "caption",
+    "old": "*Above: release 1.0.0 of the Graubünden model is immutable and already run by Graubünden.*",
+    "new": "*Above: Release 1.8.1 of the Graubünden model is immutable and run by Graubünden. Its open menu offers Export JSON.*"
+  },
+  {
+    "page": "guide/model/install-and-activate-a-release.md",
+    "kind": "caption",
+    "old": "*Above: the selected target is Default, which runs RDM Starter Model; Graubünden stays unchanged.\nThe captured activation was cancelled.*",
+    "new": "*Above: C10 history pictures is selected for activation of release 1.8.1. Its data is compatible and it has no open change set; activation has not been confirmed.*"
+  },
+  {
+    "page": "guide/model/load-a-workbook-into-a-change-set.md",
+    "kind": "caption",
+    "old": "*Above: the fictional operator workbook is about to install release 1.0.1, open a change set in\nGuide workbook test and load the rows. This is the destination chosen for this example.*",
+    "new": "*Above: The fictional operator workbook is ready to install release 1.8.3, open a change set in Guide workbook test and load the rows. This is the destination chosen for this example.*"
+  },
+  {
+    "page": "guide/model/make-a-workspace-the-default.md",
+    "kind": "image description",
+    "old": "![Workspace management showing the Default mark]",
+    "new": "![The workspace named Default open on RDM Master with an empty Domains collection]"
+  },
+  {
+    "page": "guide/model/undo-and-review-the-draft-history.md",
+    "kind": "caption",
+    "old": "*Above: moving Stop code to the top level of Systems is marked Needs a migration, with 12 records, 36 values and 12 relationships holding the type. Undo is available.*",
+    "new": "*Above: Guide draft records adding Step-free access and allowing Inspected by as two saved steps. Each step offers Undo.*"
+  },
+  {
+    "page": "guide/model/undo-and-review-the-draft-history.md",
+    "kind": "image description",
+    "old": "![History showing an applied move, its Needs a migration mark and affected data counts]",
+    "new": "![History showing two saved model changes and their Undo actions]"
+  },
+  {
+    "page": "journeys/shape-a-model.md",
+    "kind": "caption",
+    "old": "*Above: the Apply dialog for a change to the Graubünden reference model. The account cites the facts below it.*",
+    "new": "*Above: The activation review compares RDM Starter Model with Graubünden’s current model. The account cites the facts below it; activation needs a migration.*"
+  },
+  {
+    "page": "model/releases.md",
+    "kind": "caption",
+    "old": "*Above: the Graubünden model has one installed release, 1.0.0, used by Graubünden.*",
+    "new": "*Above: The Graubünden model lists its installed releases, newest first. Graubünden runs 1.8.1; Guide workbook test runs 1.8.3.*"
+  },
+  {
+    "page": "model/releases.md",
+    "kind": "caption",
+    "old": "*Above: Guide draft and another draft both start from the Graubünden model's release 1.0.0.*",
+    "new": "*Above: The drafts list shows each base release and how many releases it is behind. Guide draft starts from 1.8.1.*"
+  },
+  {
+    "page": "model/releases.md",
+    "kind": "caption",
+    "old": "*Above: Graubünden runs Public transport stops of Graubünden 1.0.0 and offers Edit model.*",
+    "new": "*Above: Graubünden runs Public transport stops of Graubünden 1.8.1 and offers Edit model.*"
+  },
+  {
+    "page": "model/the-model-editor.md",
+    "kind": "caption",
+    "old": "*Above: Stop's draft layout is shown over a live Graubünden record. Step-free access is still a\ndraft addition, with no live value.*",
+    "new": "*Above: Stop’s draft layout is shown over the live Graubünden record 38 Extern Mountain Tour, Berg. The preview’s record controls are disabled; it writes nothing.*"
+  },
+  {
+    "page": "model/workbook-onboarding.md",
+    "kind": "caption",
+    "old": "*Above: the fictional operator workbook is ready to load into Guide workbook test. The draft\nchanges the model, so the dialog proposes release 1.0.1 and offers Install, activate and load.*",
+    "new": "*Above: The fictional operator workbook is ready to load into Guide workbook test. The draft changes the model, so the dialog proposes release 1.8.3 and offers Install, activate and load.*"
+  },
+  {
+    "page": "administer/webhooks.md",
+    "kind": "image description",
+    "old": "![Retrying webhook delivery with its attempts and receiver response]",
+    "new": "![Dropped webhook delivery with two attempts and a 503 receiver response]"
+  },
+  {
+    "page": "guide/use/approve-a-change-set.md",
+    "kind": "image description",
+    "old": "![Submitted change set showing Waiting for approval, version, comment and Withdraw request]",
+    "new": "![Submitted change set awaiting approval with review and withdrawal controls]"
+  },
+  {
+    "page": "guide/use/approve-a-change-set.md",
+    "kind": "caption",
+    "old": "*Above: Guide Admin's Guide approval example waits in Graubünden. Its submitted version is 2;\nthe proposed height correction is still separate from Live.*",
+    "new": "*Above: Guide approval example waits for approval in Graubünden. The banner offers Review and decide and Withdraw request; its one proposed change is still separate from Live.*"
+  },
+  {
+    "page": "guide/use/change-how-refiroo-looks.md",
+    "kind": "image description",
+    "old": "![Appearance showing its two colour themes separately from light or dark mode]",
+    "new": "![Appearance showing five themes separately from light or dark mode]"
+  },
+  {
+    "page": "guide/use/correct-a-record.md",
+    "kind": "image description",
+    "old": "![One numeric field open for correction with Cancel and Save]",
+    "new": "![One numeric field open for correction in place with Enter to save and Escape to cancel]"
+  },
+  {
+    "page": "guide/use/correct-a-record.md",
+    "kind": "caption",
+    "old": "*Above: Edit object for Chur Wiesental shows Chur as the selected Parent, followed by Name,\nDesignation, Stop number (UIC) and the other stop fields. The remaining fields and save control\nare further down the form.*",
+    "new": "*Above: Chur Wiesental’s edit form shows In Chur with Change, followed by required Name, Designation and Stop number (UIC). More fields is open, and Cancel and Save are visible at the foot.*"
+  },
+  {
+    "page": "guide/use/correct-a-record.md",
+    "kind": "image description",
+    "old": "![The record editing form showing Parent, Name and other fields]",
+    "new": "![Record editing dialog with its parent, required fields, expanded More fields and Save]"
+  },
+  {
+    "page": "guide/use/fill-in-a-relation-matrix.md",
+    "kind": "image description",
+    "old": "![An existing cell record open for editing with a content field and Active checkbox]",
+    "new": "![An existing cell record in a centred dialog with Translated name and an Active switch]"
+  },
+  {
+    "page": "guide/use/find-records.md",
+    "kind": "caption",
+    "old": "*Above: Chur Wiesental in Network has its fields under Stop details. Modes shows Train and\nOperator shows Rhätische Bahn. Its path places the stop under Chur.*",
+    "new": "*Above: Chur Wiesental is open beside the Stops list in Network. Stop details shows its fields, and Hierarchy places it under Chur; Expand to full page opens the full record.*"
+  },
+  {
+    "page": "guide/use/find-records.md",
+    "kind": "image description",
+    "old": "![A record page with its fields, hierarchy path and relationship sections]",
+    "new": "![A record opened beside its collection with its fields and hierarchy path]"
+  },
+  {
+    "page": "guide/use/map-codes-between-systems.md",
+    "kind": "caption",
+    "old": "*Above: T-9999, the fictional special day pass, is deliberately unmapped. The dialog shows\nNot mapped and offers stop candidates and Create new stop. It was cancelled; the screenshot\ndoes not suggest that this pass needs a stop mapping.*",
+    "new": "*Above: The fictional code T-0412 is currently mapped to Chur Wiesental. Change mapping offers a stop search, Create new stop and Remove mapping; no replacement has been selected.*"
+  },
+  {
+    "page": "guide/use/map-codes-between-systems.md",
+    "kind": "image description",
+    "old": "![A mapping dialog for an unmapped row with target radio choices and a creation action]",
+    "new": "![Change mapping dialog for a mapped code with its current stop and candidate choices]"
+  },
+  {
+    "page": "guide/use/prepare-and-publish-a-change-set.md",
+    "kind": "caption",
+    "old": "*Above: Network in the Graubünden workspace lists December 2026 timetable change. Open change set\ncontinues that work; Start from current live data begins a separate proposal.*",
+    "new": "*Above: Network in the Graubünden workspace lists December 2026 timetable change. Open change set continues that work; New change set starts a separate proposal.*"
+  },
+  {
+    "page": "guide/use/prepare-and-publish-a-change-set.md",
+    "kind": "caption",
+    "old": "*Above: December 2026 timetable change is open over Stops in Network. The orange banner offers\nReview changes, Validate change set and Publish change set. The example proposal changes\nValid to (exclusive) on several stops: the first date on which each stop is no longer valid.*",
+    "new": "*Above: December 2026 timetable change is open over Stops in Network. The orange banner shows 11 changes and offers Details, Review changes, Publish and a menu for further actions.*"
+  },
+  {
+    "page": "guide/use/relate-records.md",
+    "kind": "caption",
+    "old": "*Above: Add relationship in Chur Wiesental's Modes panel offers Served by mode (outgoing) and\ncandidate modes such as Boat and Bus. Nothing is selected; this dialog was cancelled.*",
+    "new": "*Above: Add Mode for Chur Wiesental names Served by mode and offers candidates such as Boat and Bus. Nothing is selected, so Add Mode is unavailable.*"
+  },
+  {
+    "page": "guide/use/relate-records.md",
+    "kind": "image description",
+    "old": "![The Connect an object dialog with a relationship choice and candidate search]",
+    "new": "![The Add Mode dialog with the relationship name, candidate search and Add Mode action]"
+  },
+  {
+    "page": "guide/use/relate-records.md",
+    "kind": "caption",
+    "old": "*Above: deleting Chur Wiesental's Served by mode connection would leave both the stop and Train.\nThe confirmation was cancelled, so the connection remains.*",
+    "new": "*Above: Chur Wiesental’s Modes panel is empty after the Train connection was removed. The removal notice offers Undo; the connection was restored after this picture.*"
+  },
+  {
+    "page": "guide/use/relate-records.md",
+    "kind": "image description",
+    "old": "![The Delete relationship confirmation explaining that both records remain]",
+    "new": "![An empty Modes panel after a relationship removal with Undo in the notice]"
+  },
+  {
+    "page": "use/records.md",
+    "kind": "caption",
+    "old": "*Above: Chur Wiesental is a Stop in the Network application of the Graubünden workspace.\nStop details holds its number, abbreviation and other fields; Modes and Operator show connected\nrecords. This earlier view shows the ID and version directly in the heading; open **Details**\nin the current header to see them.*",
+    "new": "*Above: Chur Wiesental is open beside the Stops list in Network. Stop details holds its number, abbreviation and other fields, and Hierarchy shows its parent. Details and Expand to full page are in the record header.*"
+  },
+  {
+    "page": "use/records.md",
+    "kind": "image description",
+    "old": "![A record page with a heading, hierarchy path, fields and relationship tables]",
+    "new": "![A record opened beside its collection with a heading, fields and hierarchy path]"
+  },
+  {
+    "page": "use/appearance-and-devices.md",
+    "kind": "image description",
+    "old": "![Appearance settings with Normal and Website purple themes, light or dark mode, density and edit hints]",
+    "new": "![Appearance settings with five themes, light or dark mode, density and edit hints]"
+  },
+  {
+    "page": "use/change-sets.md",
+    "kind": "caption",
+    "old": "*Above: December 2026 timetable change is open over the Stops list. The orange banner identifies\nthe proposed data and offers Review changes, Validate change set and Publish change set.*",
+    "new": "*Above: December 2026 timetable change is open over the Stops list. The orange banner identifies the proposed data and offers Details, Review changes, Publish and a menu for further actions.*"
+  },
+  {
+    "page": "use/home.md",
+    "kind": "caption",
+    "old": "*Above: Guide Admin can browse two workspaces. Graubünden has an open change set; Default has none.*",
+    "new": "*Above: Guide Admin’s Home shows 21 available workspaces, ten open change sets and a request waiting for approval. Your change sets lists work to continue; Your workspaces starts below it.*"
+  },
+  {
+    "page": "use/inbox-and-approvals.md",
+    "kind": "caption",
+    "old": "*Above: Guide Admin has eight unread Batch finished notices from jobs they started.*",
+    "new": "*Above: Guide Admin’s inbox includes unread workbook, mapping-proposal, move and batch notices. Mark all read is at the top.*"
+  },
+  {
+    "page": "use/inbox-and-approvals.md",
+    "kind": "caption",
+    "old": "*Above: the reference account's notices are job results. One has been read; the others are highlighted.*",
+    "new": "*Above: The reference account’s notices include workbook results, mapping proposals, migrations, batches and moves. Unread notices are highlighted; read notices have a plain background.*"
+  },
+  {
+    "page": "use/inbox-and-approvals.md",
+    "kind": "caption",
+    "old": "*Above: Guide Admin submitted Guide approval example in Graubünden. Version 2 proposes a height\ncorrection to Davos Platz; this earlier view keeps the submission comment in the banner.\nIn the current frame, read the comment in the review’s **Decision** panel.*",
+    "new": "*Above: Guide approval example waits for approval in Graubünden. The banner offers Review and decide and Withdraw request; open the review to read the submission details.*"
+  },
+  {
+    "page": "use/inbox-and-approvals.md",
+    "kind": "image description",
+    "old": "![Submitted change set with Waiting for approval, its comment and review and withdrawal controls]",
+    "new": "![Submitted change set awaiting approval with review and withdrawal controls]"
+  },
+  {
+    "page": "use/inbox-and-approvals.md",
+    "kind": "caption",
+    "old": "*Above: Rita asks Guide Admin to name the source of the new height. Review changes, Validate change\nset and Submit for publication are available again; the correction has not reached Live.*",
+    "new": "*Above: Rita asks Guide Admin to name the source of the new height. Review changes and Submit for publication are available again; the correction has not reached Live.*"
+  },
+  {
+    "page": "use/workspaces.md",
+    "kind": "caption",
+    "old": "*Above: Graubünden is marked Default. The workspace named Default runs a different model.*",
+    "new": "*Above: Guide Admin’s Home shows work waiting for approval and open change sets above the workspace cards. Graubünden is among the available workspaces.*"
+  },
+  {
+    "page": "administer/audit.md",
+    "kind": "caption",
+    "old": "*Above: fictional Rita Approver's changes include a publication and the height correction\nit applied to Davos Platz in Graubünden.*",
+    "new": "*Above: Fictional Rita Approver’s changes are listed newest first, with Workspace, What and Period filters. The visible entries include record edits, a model draft change and a publication.*"
+  },
+  {
+    "page": "guide/administer/find-who-changed-something.md",
+    "kind": "caption",
+    "old": "*Above: fictional Rita Approver's page shows her publication and the Davos Platz height\nchange applied by it in Graubünden. These are related entries, not proof of two separate manual edits.*",
+    "new": "*Above: Fictional Rita Approver’s page lists her changes across the workspaces you can read. The visible entries include record edits, a model draft change and a publication; each entry identifies its workspace.*"
+  },
+  {
+    "page": "guide/model/review-an-assistants-workbook-design.md",
+    "kind": "caption",
+    "old": "*Above: the reference workbook proposal adds types and relationships, adds Step-free access\nand Remark to Stop, and makes FSO number and System key optional. The expanded table shows\nthese changes.*",
+    "new": "*Above: The reference workbook proposal adds Line, Platform, Tariff network and Tariff zone types and their relationships. It adds Barrier-free and Remark to Stop and makes Municipality’s FSO number optional; the expanded table shows these changes.*"
+  },
+  {
+    "page": "guide/use/approve-a-change-set.md",
+    "kind": "caption",
+    "old": "*Above: fictional approver Rita Approver has Data owner access in Graubünden. Guide Admin's\nrequest appears below her workspace card.*",
+    "new": "*Above: Fictional approver Rita Approver has Data owner access in Graubünden. Guide Admin’s request appears under Waiting for your approval, above her workspace card.*"
+  },
+  {
+    "page": "run/configure.md",
+    "kind": "caption",
+    "old": "*Above: Deployment in the reference instance used for this guide. Its values describe that\ninstallation; its older container paths differ from the current image paths listed below.*",
+    "new": "*Above: Deployment shows the reference instance’s capability switches, limits, database revision and runtime settings. These values describe this installation; secrets are masked.*"
+  },
+  {
+    "page": "guide/model/install-and-activate-a-release.md",
+    "kind": "caption",
+    "old": "*Above: C10 history pictures is selected for activation of release 1.8.1. Its data is compatible and it has no open change set; activation has not been confirmed.*",
+    "new": "*Above: an example workspace is selected for activation of release 1.8.1. Its data is compatible and it has no open change set; activation has not been confirmed.*"
+  }
+]

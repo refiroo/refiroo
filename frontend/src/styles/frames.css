@@ -1,0 +1,362 @@
+/* Themes and their frames (0.17 UX1, PP-D38 and PP-D39): what a theme changes beyond its tokens. Hearth, Studio and Instrument set
+   their colours, typeface, corners and sizes in `tokens.css`; here are their display type, and the two frame
+   arrangements that are not the top bar and sidebar: `frame-sheet` (Studio) and `frame-rail` (Instrument), which
+   `app/ShellFrame` puts on the frame from 761px up. Normal and Website purple read nothing from this file. */
+
+/* --- Display type: page and record titles in the theme's display face. --- */
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"])
+  :is(
+    .page-header h1,
+    .home-welcome h1,
+    .sign-in-card h1,
+    .notifications-head h1,
+    .no-workspace-page h1,
+    .error-state h1
+  ) {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+}
+
+/* --- A frame with a side column: the column at the left over the full height, the bar and the content beside it. --- */
+.app-shell-sided {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.app-shell-sided > .frame-side {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  position: sticky;
+  top: 0;
+  z-index: 21;
+  align-self: start;
+  height: 100dvh;
+  min-width: 0;
+}
+.app-shell-sided > .global-header,
+.app-shell-sided > .workspace-main,
+.app-shell-sided.app-shell-full > .workspace-main,
+.app-shell-sided.app-shell-journey > .journey-bar {
+  grid-column: 2;
+}
+.app-shell-sided.app-shell-full {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.frame-side .workspace-sidebar {
+  position: static;
+  grid-row: 1;
+  grid-column: 2;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.frame-side-head .application-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.frame-side-head .application-nav {
+  flex: none;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: visible;
+}
+.frame-side-head .application-tab {
+  border-bottom: 0;
+  border-radius: var(--radius-control);
+}
+.frame-side-head .application-nav-ruler {
+  display: none;
+}
+
+/* --- Studio: one side column on the canvas, the page raised beside it. --- */
+.frame-sheet {
+  background:
+    radial-gradient(900px 520px at 0% 0%, color-mix(in srgb, var(--action-primary) 16%, transparent), transparent 62%),
+    radial-gradient(
+      760px 520px at 100% 100%,
+      color-mix(in srgb, var(--status-success-marker) 14%, transparent),
+      transparent 62%
+    ),
+    var(--surface-app);
+  background-attachment: fixed;
+}
+.frame-sheet > .frame-side {
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar);
+}
+.frame-sheet .frame-strip {
+  flex: none;
+  padding: var(--space-4) var(--space-3) var(--space-2) var(--space-4);
+}
+.frame-sheet .frame-side-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.frame-sheet .frame-side-head .application-nav {
+  gap: 2px;
+}
+.frame-sheet .frame-side-head .application-tab {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 var(--space-2);
+  color: var(--text-primary);
+}
+.frame-sheet .frame-side-head .application-tab:hover {
+  background: var(--surface-hover);
+}
+.frame-sheet .frame-side-head .application-tab[aria-current="page"] {
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+.frame-sheet .frame-side-head .topbar-back {
+  padding: var(--space-2);
+}
+.frame-sheet .workspace-sidebar {
+  background: transparent;
+  border-right: 0;
+}
+.frame-sheet > .global-header {
+  background: transparent;
+  border-bottom: 0;
+}
+.frame-sheet > .global-header .topbar-spacer {
+  display: none;
+}
+.frame-sheet > .global-header .topbar-actions {
+  margin-left: auto;
+}
+/* Under the bar the page scrolls out of sight behind the canvas, not through it. The bar is sticky, so
+   positioned, from 761px up; on a phone it is the plain bar and needs no cover. */
+@media (min-width: 761px) {
+  .frame-sheet > .global-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--surface-app);
+    opacity: 0.86;
+    backdrop-filter: blur(10px);
+  }
+}
+.frame-sheet > .workspace-main {
+  background: var(--surface-raised);
+}
+/* The page floats with a margin and round corners from 761px up; on a phone it takes the full width, since the
+   pages there are laid out to the window's edges. */
+@media (min-width: 761px) {
+  .frame-sheet > .workspace-main {
+    margin: 0 var(--space-3) 0 0;
+    border-radius: var(--radius-overlay) var(--radius-overlay) 0 0;
+    box-shadow: var(--shadow-md);
+  }
+  .frame-sheet:not(.app-shell-sided) > .workspace-main {
+    margin-left: var(--space-3);
+  }
+  .frame-sheet .data-context-band {
+    border-radius: var(--radius-overlay) var(--radius-overlay) 0 0;
+  }
+}
+.frame-sheet .navigation-resizer {
+  top: 0;
+}
+
+/* --- Instrument: a strip for the mark, the applications and the account; the rail as a panel; the data context
+   as a status line along the bottom. --- */
+.frame-rail {
+  --frame-strip: 52px;
+}
+.frame-rail > .frame-side {
+  display: grid;
+  grid-template-columns: var(--frame-strip) auto;
+}
+.frame-rail .frame-strip {
+  grid-row: 1;
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-2) 0;
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--border-subtle);
+}
+.frame-rail .frame-side-head {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+}
+.frame-rail .frame-side-head .brand-wordmark {
+  display: none;
+}
+.frame-rail .frame-side-head .application-nav {
+  gap: var(--space-1);
+  align-items: center;
+}
+/* The name stays for assistive technology and as the tooltip; the strip shows the tile. */
+.frame-rail .frame-side-head .application-tab,
+.frame-rail .frame-side-head .topbar-back {
+  justify-content: center;
+  gap: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 0;
+}
+.frame-rail .frame-side-head .application-tab:hover,
+.frame-rail .frame-side-head .application-tab[aria-current="page"] {
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.frame-rail .frame-side-foot .topbar-actions {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.frame-rail .workspace-sidebar {
+  width: var(--sidebar);
+}
+.frame-rail .navigation-resizer {
+  top: 0;
+  left: calc(var(--frame-strip) + var(--sidebar) - 5px);
+}
+.frame-rail > .global-header {
+  background: var(--surface-app);
+  padding-left: var(--space-4);
+}
+.frame-rail > .global-header .topbar-spacer {
+  display: none;
+}
+/* The data context as a status line: one slim row along the window's bottom, in the context's colour. */
+@media (min-width: 761px) {
+  :root[data-frame="rail"] {
+    --band-height: 0px !important;
+  }
+  .frame-rail .data-context-band,
+  .frame-rail .workspace-main.fill-main > .data-context-band {
+    position: fixed;
+    z-index: 20;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: calc(var(--frame-strip) + var(--sidebar, 0px));
+    min-height: 30px;
+    margin: 0;
+    padding: 2px var(--space-4);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 0;
+    font-size: var(--fs-12);
+  }
+  .frame-rail.app-shell-full .data-context-band {
+    left: var(--frame-strip);
+  }
+  .frame-rail > .workspace-main {
+    padding-bottom: 64px;
+  }
+}
+
+/* --- Instrument draws no cards: a rule under each block in their place. --- */
+:root[data-scheme="instrument"] .card {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* --- Polish shared by Hearth, Studio and Instrument: quiet scrollbars, controls that answer the pointer, and
+   surfaces that arrive gently. Current and Website purple keep what they had. --- */
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"]) {
+  scrollbar-color: var(--border-strong) transparent;
+}
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"]) * {
+  scrollbar-width: thin;
+}
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"])
+  :is(button, a, input, select, textarea, .card, .application-tab, tr) {
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"])
+  :is(.primary, .secondary, .danger):active:not(:disabled) {
+  transform: scale(0.98);
+}
+:root:is([data-scheme="hearth"], [data-scheme="studio"]) .primary {
+  box-shadow: var(--shadow-sm);
+}
+/* Menus, popovers and toasts: the theme's overlay corner and a short entrance. */
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"])
+  :is(.react-aria-Popover, .control-popover, .action-menu-popover, .toast) {
+  border-radius: var(--radius-panel);
+  animation: surface-in var(--motion) var(--ease-out);
+}
+@keyframes surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* A page's content arrives with a short rise, once, when the page opens. */
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"]) .workspace-main > .ws-page,
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"]) .workspace-main > .home-page,
+:root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"]) .workspace-main > .settings-page {
+  animation: page-in var(--motion-slow) var(--ease-out);
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:is([data-scheme="hearth"], [data-scheme="studio"], [data-scheme="instrument"]) * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* Studio's tables sit on its tinted cards: the header row takes the card's tone, not a second one. */
+:root[data-scheme="studio"] .card table thead th {
+  background: transparent;
+}
+/* Instrument's rows are tighter: the table density a person chose still decides, this is the theme's floor. */
+:root[data-scheme="instrument"] {
+  --row-height-comfortable: 38px;
+}
+
+/* Instrument's text face is wider than the other themes': a long list or group name in the list panel shortens
+   with an ellipsis and no longer pushes the panel's content past its edge. */
+:root[data-scheme="instrument"] :is(.explorer, .collection-tree, .nav-group) {
+  grid-template-columns: minmax(0, 1fr);
+}
+:root[data-scheme="instrument"] .collection-tree .nav-group-header .nav-group-label {
+  min-width: 0;
+}
+
+/* Instrument: a page whose bar would hold nothing (Settings, the model editor: no search there) has no bar, so no
+   empty strip stands above it. */
+@media (min-width: 761px) {
+  .frame-rail:not(:has(> .global-header .workspace-search)) {
+    --topbar-height: 0px;
+  }
+  .frame-rail:not(:has(> .global-header .workspace-search)) > .global-header {
+    display: none;
+  }
+}
+
+/* On a phone the display size steps down, so a long record name takes two lines, not four. */
+@media (max-width: 760px) {
+  :root:is([data-scheme="hearth"], [data-scheme="studio"]) {
+    --text-2xl: 26px;
+  }
+  /* Hearth's title face is wider than Studio's. */
+  :root[data-scheme="hearth"] {
+    --text-2xl: 23px;
+  }
+}

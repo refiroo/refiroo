@@ -19,6 +19,7 @@ from ...engine.model.authoring.draft_migration import derive as derive_migration
 from ...engine.model.authoring.draft_migration import landing
 from ...engine.model.authoring.outline import draft_model, draft_outline
 from ...engine.model.authoring.released import base_model, base_release
+from ...engine.model.canvas import merge_canvas, read_canvas
 from ...engine.model.compiler import (
     SCHEMA_VERSIONS,
     compile_model,
@@ -75,6 +76,7 @@ from ..presenters import (
     job_responses,
     model_release_responses,
 )
+from ..schemas.canvas import CanvasResponse, CanvasUpdate
 from ..schemas.jobs import JobResponse
 from ..schemas.model import (
     CandidateCompatibilityResponse,
@@ -607,6 +609,46 @@ def _entries(
     session: Session, rows: Sequence[ModelDraftOperation]
 ) -> list[ModelDraftOperationEntry]:
     return [ModelDraftOperationEntry(**entry) for entry in history.entry_responses(session, rows)]
+
+
+@router.get("/model-drafts/{draft_id}/canvas", response_model=CanvasResponse)
+@requires("model.author", at=INSTANCE)
+def get_model_draft_canvas(draft_id: str, session: DbSession) -> CanvasResponse:
+    """What the draft's board keeps (0.17 PL3b, PP-D54; CE1, PP-D81): where its cards sit (card key to
+    ``x`` and ``y``), the keys of the folded cards and the chosen scope (``model``, ``changed`` or
+    ``workbook``; ``null``: the default). The draft's own, not part of its model, version, history or
+    a release."""
+    return CanvasResponse.model_validate(read_canvas(session, draft_id))
+
+
+@router.patch("/model-drafts/{draft_id}/canvas", response_model=CanvasResponse)
+@requires("model.author", at=INSTANCE)
+def patch_model_draft_canvas(
+    draft_id: str, payload: CanvasUpdate, session: DbSession
+) -> CanvasResponse:
+    """Merge card positions and folded cards by key into the draft's canvas, and replace its scope:
+    a position with ``null`` removes its card, a folded key with ``false`` or ``null`` unfolds it,
+    ``scope: null`` returns to the default; a part left out stays. The draft's version and history do
+    not change, so a move never conflicts with an operations request and is not an undo step.
+    Refused: ``404 MODEL_DRAFT_NOT_FOUND``, ``422 INVALID_CANVAS`` for more than 500 placed or folded
+    cards."""
+    fields = payload.model_fields_set
+    answer = merge_canvas(
+        session,
+        draft_id,
+        positions=(
+            {
+                key: position.model_dump() if position is not None else None
+                for key, position in payload.positions.items()
+            }
+            if payload.positions is not None
+            else None
+        ),
+        folded=payload.folded,
+        **({"scope": payload.scope} if "scope" in fields else {}),
+    )
+    session.commit()
+    return CanvasResponse.model_validate(answer)
 
 
 @router.delete("/model-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)

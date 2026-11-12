@@ -6,6 +6,7 @@ import { ApiError } from "@/api/errors";
 import { codelistObject, domainObject, testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import type { ApplicationDefinition, SystemResponse } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
+import { BROWSE_OPEN_KEY } from "@/features/objects/Explorer";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { findTreeItem } from "@/test/tree";
@@ -38,6 +39,7 @@ vi.mock("@/api/client", () => ({
     object: vi.fn(),
     updateObject: vi.fn(),
     deleteObject: vi.fn(),
+    objectDeletionImpact: vi.fn(),
     objectHistory: vi.fn(),
     relations: vi.fn(),
     createChangeSetFromPublication: vi.fn(),
@@ -50,12 +52,22 @@ vi.mock("@/api/client", () => ({
 
 const capabilities = (manageWorkspaces: boolean) => capabilitiesFixture({ manageWorkspaces });
 
-/** The application's tab in the top bar, which Settings shares with the application pages. */
-const applicationTab = () =>
-  within(screen.getByRole("navigation", { name: "Applications" })).getByRole("button", { name: "Test App" });
+/** The one top bar, which every page of the frame shows. */
+const topBar = async () => {
+  await waitFor(() => expect(document.querySelector(".global-header")).not.toBeNull());
+  await within(document.querySelector<HTMLElement>(".global-header")!).findByRole("link", { name: "Settings" });
+  return document.querySelector<HTMLElement>(".global-header")!;
+};
 
 /** The settings navigation, where each page is a link. */
 const settingsNavigation = () => screen.getByRole("navigation", { name: "Settings" });
+
+/** The way back to the list a record was opened from: the first words of the record's one line. */
+const backToList = (name = "Domains", options: { hidden?: boolean } = {}) =>
+  within(screen.getByRole("article", { name: "Record details", ...options })).getByRole("button", {
+    name,
+    ...options,
+  });
 
 function visit(path: string) {
   window.history.replaceState({}, "", path);
@@ -93,7 +105,8 @@ describe("App", () => {
       ai: { configured: false, provider: null, sendLevel: "structure" },
       mcp: { enabled: false },
     } as SystemResponse);
-    const stored = new Map<string, string>();
+    // Browse records is folded until opened (0.17 SH1, PP-D35); the cases that browse the tree start with it open.
+    const stored = new Map<string, string>([[BROWSE_OPEN_KEY, "true"]]);
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => stored.get(key) ?? null,
       setItem: (key: string, value: string) => stored.set(key, value),
@@ -177,12 +190,28 @@ describe("App", () => {
       vi.mocked(api.deleteObject).mockImplementation(async () => {
         deleted = true;
       });
+      vi.mocked(api.objectDeletionImpact).mockResolvedValue({
+        objectsToDelete: [],
+        relationshipsToRemove: [],
+        objectCount: 1,
+        relationshipCount: 0,
+        ownRelationshipCount: 0,
+        retainedAssociationCount: 0,
+        requiresCascade: false,
+        deletionPreviewToken: "signed",
+      });
       visit("/apps/test-app/views/domains?workspaceKey=default&search=record&sort=name&pageSize=10&anchor=second");
       render(<App />);
       const table = await screen.findByRole("region", { name: "Domains table" });
       fireEvent.click(await within(table).findByRole("button", { name: original.name }));
-      const record = await screen.findByRole("article", { name: "Record details" });
-      expect(record).not.toHaveClass("record-inspector");
+      // A row opens the record beside its list (PP-D41): the collection stays mounted and visible.
+      const inspector = await screen.findByRole("article", { name: "Record details" });
+      expect(inspector).toHaveClass("record-inspector");
+      expect(table.closest("[hidden]")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Expand to full page" }));
+      await waitFor(() =>
+        expect(screen.getByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector"),
+      );
       expect(screen.queryByRole("button", { name: "Expand to full page" })).not.toBeInTheDocument();
       expect(within(table).getByRole("button", { name: original.name, hidden: true })).toHaveAttribute(
         "aria-current",
@@ -192,14 +221,14 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Record actions" }));
       fireEvent.click(await screen.findByRole("menuitem", { name: "Edit record" }));
       fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Updated record" } });
-      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await within(table).findByRole("button", { name: "Updated record", hidden: true });
       expect(screen.getByRole("heading", { name: "Updated record", level: 1 })).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+      fireEvent.click(backToList(original.objectTypeKey === "codelist" ? "Codelists" : "Domains"));
       expect(within(table).getByRole("button", { name: "Updated record" })).toHaveFocus();
       fireEvent.contextMenu(within(table).getByRole("button", { name: "Updated record" }));
       fireEvent.click(await screen.findByRole("menuitem", { name: "Delete record" }));
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(await screen.findByRole("button", { name: /^Delete [a-z]/i }));
       await within(table).findByRole("button", { name: "Earlier record" });
       expect(screen.queryByRole("article", { name: "Record details" })).not.toBeInTheDocument();
       expect(new URLSearchParams(window.location.search).get("search")).toBe("record");
@@ -226,7 +255,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Uncommitted input" } });
     fireEvent.click(within(table).getByRole("button", { name: other.name, hidden: true }));
     expect(screen.getByLabelText("Name")).toHaveValue("Uncommitted input");
-    fireEvent.click(screen.getByRole("button", { name: "Back to list", hidden: true }));
+    fireEvent.click(backToList("Domains", { hidden: true }));
     expect(screen.getByLabelText("Name")).toHaveValue("Uncommitted input");
     expect(confirm).toHaveBeenCalledTimes(2);
     confirm.mockReturnValue(true);
@@ -270,7 +299,12 @@ describe("App", () => {
     render(<App />);
     const table = await screen.findByRole("region", { name: "Domains table" });
     fireEvent.click(await within(table).findByRole("button", { name: domainObject.name }));
-    expect(await screen.findByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
+    // The row opens beside the list; Expand makes it the full page the hierarchy selections then replace.
+    expect(await screen.findByRole("article", { name: "Record details" })).toHaveClass("record-inspector");
+    fireEvent.click(screen.getByRole("button", { name: "Expand to full page" }));
+    await waitFor(() =>
+      expect(screen.getByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector"),
+    );
     const explorer = await screen.findByRole("region", { name: "Test App explorer" });
     // The active domain's branch opens on its own chevron, then the child opens as a full record.
     const domain = await findTreeItem(domainObject.name);
@@ -282,11 +316,15 @@ describe("App", () => {
     expect(screen.getByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
     expect(screen.queryByRole("region", { name: "Domains table", hidden: true })).not.toBeInTheDocument();
     expect(window.history.state.rdmNavigation.collectionPath).toBeUndefined();
-    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("article", { name: "Record details" })).queryByRole("button", { name: "Domains" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(within(explorer).getByRole("treeitem", { name: domainObject.name }).querySelector(".tree-node")!);
     await screen.findByRole("heading", { name: domainObject.name, level: 1 });
     expect(screen.queryByRole("region", { name: "Domains table", hidden: true })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("article", { name: "Record details" })).queryByRole("button", { name: "Domains" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the shell from the model and lands on the default view", async () => {
@@ -302,7 +340,8 @@ describe("App", () => {
     expect(navigationToggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(navigationToggle);
     expect(navigationToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText("Current context")).toHaveTextContent("Default / Test AppLive");
+    // The band no longer says the workspace and the application (0.17 SH1, PP-D33).
+    expect(screen.getByLabelText("Current context")).toHaveTextContent("Live");
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");
   });
 
@@ -312,7 +351,7 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Domains", level: 1 });
     expect(screen.queryByRole("navigation", { name: "Administration" })).not.toBeInTheDocument();
     expect(screen.queryByText(/^Model .* · Schema/)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings/about");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
     expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
   });
 
@@ -339,23 +378,35 @@ describe("App", () => {
     });
     visit("/apps/test-app/views/domains?workspaceKey=west&search=cli");
     render(<App />);
-    fireEvent.click(await screen.findByRole("link", { name: "Settings" }));
+    fireEvent.click(await within(await topBar()).findByRole("link", { name: "Settings" }));
 
-    expect(await screen.findByRole("heading", { name: "About", level: 1 })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/settings/about");
-    expect(within(settingsNavigation()).getByRole("link", { name: "About" })).toHaveAttribute("aria-current", "page");
+    // Settings opens on its index, by task (0.17 SH1).
+    expect(await screen.findByRole("heading", { name: "Settings", level: 1 })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/settings");
+    expect(within(settingsNavigation()).getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     expect(screen.queryByRole("combobox", { name: "Workspace" })).not.toBeInTheDocument();
-    expect(applicationTab()).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    // The application tabs give way to the way back to the workspace the person came from.
+    expect(screen.queryByRole("navigation", { name: "Applications" })).not.toBeInTheDocument();
+    expect(
+      within(document.querySelector<HTMLElement>(".global-header")!).getByRole("link", { name: /^Back to / }),
+    ).toHaveAttribute("href", "/workspace?workspaceKey=west");
+    expect(
+      within(document.querySelector<HTMLElement>(".global-header")!).getByRole("link", { name: "Settings" }),
+    ).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: /home$/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Current context")).not.toBeInTheDocument();
-    expect(await screen.findByText("0.9.0-alpha.1")).toBeInTheDocument();
 
+    fireEvent.click(within(settingsNavigation()).getByRole("link", { name: "About" }));
+    expect(await screen.findByText("0.9.0-alpha.1")).toBeInTheDocument();
     fireEvent.click(within(settingsNavigation()).getByRole("link", { name: "Appearance" }));
     expect(await screen.findByRole("heading", { name: "Appearance", level: 1 })).toBeInTheDocument();
-    fireEvent.click(applicationTab());
-    await waitFor(() => expect(window.location.pathname).toBe("/apps/test-app/views/domains"));
-    expect(new URLSearchParams(window.location.search).get("search")).toBe("cli");
+    fireEvent.click(
+      within(document.querySelector<HTMLElement>(".global-header")!).getByRole("link", { name: /^Back to / }),
+    );
+    await waitFor(() => expect(window.location.pathname).toBe("/workspace"));
     expect(new URLSearchParams(window.location.search).get("workspaceKey")).toBe("west");
   });
 
@@ -402,7 +453,7 @@ describe("App", () => {
     }));
     visit("/apps/test-app/views/domains?workspaceKey=default");
     render(<App />);
-    fireEvent.click(await screen.findByRole("link", { name: "Settings" }));
+    fireEvent.click(await within(await topBar()).findByRole("link", { name: "Settings" }));
     fireEvent.click(
       within(await screen.findByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Workspaces" }),
     );
@@ -440,12 +491,14 @@ describe("App", () => {
     vi.mocked(api.deleteWorkspace).mockResolvedValue(undefined);
     visit("/apps/test-app/views/domains?workspaceKey=west");
     render(<App />);
-    fireEvent.click(await screen.findByRole("link", { name: "Settings" }));
+    fireEvent.click(await within(await topBar()).findByRole("link", { name: "Settings" }));
     fireEvent.click(
       within(await screen.findByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Workspaces" }),
     );
     fireEvent.click(await screen.findByRole("button", { name: /^west/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    // Delete… is in the opened workspace's ⋯ menu (0.17 ST1, PP-D63).
+    fireEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete…" }));
     fireEvent.click(
       within(await screen.findByRole("alertdialog", { name: "Delete west?" })).getByRole("button", {
         name: "Delete workspace",
@@ -454,7 +507,8 @@ describe("App", () => {
     expect(await screen.findByText(/Workspace west \(west\) was deleted/)).toBeInTheDocument();
     await waitFor(() => expect(window.location.pathname).toBe("/settings/workspaces"));
 
-    fireEvent.click(applicationTab());
+    // Back to the workspace never returns to the one just deleted.
+    fireEvent.click(await within(await topBar()).findByRole("link", { name: /^Back to / }));
     await waitFor(() => expect(window.location.search).toContain("workspaceKey=default"));
   });
 
@@ -487,7 +541,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Read-only workspace")).toBeInTheDocument();
-    expect(screen.getByLabelText("Current context")).toHaveTextContent("Historical archive");
+    expect(screen.getByLabelText("Current context")).toHaveTextContent("Live");
     expect(screen.queryByText("Edits apply immediately in this workspace.")).not.toBeInTheDocument();
     expect(screen.getAllByText("Retired: read only.").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Add Domain" })).not.toBeInTheDocument();
@@ -552,7 +606,8 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Other App" }));
-    expect(await screen.findByRole("heading", { name: "Other domains" })).toBeInTheDocument();
+    // A page is titled by its sidebar entry, the type's name (0.17 SH1, PP-D37); the route says the application.
+    await waitFor(() => expect(window.location.pathname).toContain("/other-app/views/other-domains"));
     fireEvent.click(screen.getByRole("button", { name: "Test App" }));
 
     await waitFor(() => expect(window.location.pathname).toContain("/test-app/views/domains"));
@@ -630,7 +685,7 @@ describe("App", () => {
       expect(await screen.findByRole("heading", { name: object.name, level: 1 })).toBeInTheDocument();
       if (object.objectTypeKey === "codelist") {
         fireEvent.click(
-          within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("button", {
+          within(screen.getByRole("navigation", { name: "Where you are" })).getByRole("button", {
             name: domainObject.name,
           }),
         );
@@ -639,7 +694,7 @@ describe("App", () => {
       firstRender.unmount();
       render(<App />);
       await screen.findByRole("heading", { name: domainObject.name, level: 1 });
-      fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+      fireEvent.click(backToList(object.objectTypeKey === "codelist" ? "Codelists" : "Domains"));
       expect(await screen.findByRole("button", { name: "Second page record" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "First page record" })).not.toBeInTheDocument();
       const query = new URLSearchParams(window.location.search);
@@ -763,10 +818,8 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
     expect(window.location.pathname).toContain(`/objects/domain/${domainObject.id}`);
 
-    // The way back is the application breadcrumb, not the identically named header nav button:
-    // the header switches application and would rebuild a default view instead of returning.
-    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-    fireEvent.click(within(breadcrumb).getByRole("button", { name: "Test App" }));
+    // The way back is the first words of the record's line, the list it was opened from.
+    fireEvent.click(backToList());
 
     // The remembered collection carries the workspace it was viewed in, so returning restores it
     // and both detail loads and return navigation retain that workspace.
@@ -815,11 +868,14 @@ describe("App", () => {
     expect(
       within(screen.getByRole("region", { name: "Change set publication" })).getByRole("heading", { name: "Review" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Edits stay in this change set until it is published.")).toBeInTheDocument();
-    // The facts the pinned strip leaves out scroll below the band.
+    // The band is one row; the facts it leaves out are under Details (0.17 SH1, PP-D33).
+    expect(screen.queryByText("Version 8")).not.toBeInTheDocument();
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "Change set publication" })).getByRole("button", { name: "Details" }),
+    );
     expect(screen.getByText("Version 8")).toBeInTheDocument();
     expect(api.objectHistory).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+    fireEvent.click(backToList());
     await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));
     expect(window.location.search).toContain("changeSetId=change-set-1");
     // The sidebar tree reads while the change set loads and again under it; the collection reads only under it.
@@ -855,7 +911,7 @@ describe("App", () => {
     visit("/apps/test-app/views/domains?workspaceKey=west&changeSetId=change-set-1");
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "More change set actions" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Discard change set" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Discard" }));
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard change set" }));
     const confirmation = await screen.findByText("Change set discarded. Live data is unchanged.");
     await waitFor(() => expect(window.location.search).not.toContain("changeSetId"));
@@ -981,7 +1037,7 @@ describe("App", () => {
     expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", undefined, "publication-2");
     expect(screen.queryByRole("button", { name: "Edit object" })).not.toBeInTheDocument();
     expect(api.objectHistory).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+    fireEvent.click(backToList());
     await waitFor(() => expect(window.location.search).toContain("publicationId=publication-2"));
     fireEvent.click(screen.getByRole("button", { name: "Back to publications" }));
     await waitFor(() => expect(window.location.pathname).toBe("/apps/test-app/publications"));

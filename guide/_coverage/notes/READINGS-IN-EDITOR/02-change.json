@@ -1,0 +1,5 @@
+{
+  "page": "guide/src/content/docs/guide/use/load-the-next-version-of-a-workbook.md",
+  "before": "These readings are set on\nthe [canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/#correct-how-the-sheet-is-read);\nthe model editor has no dedicated controls for them.",
+  "after": "These readings are set on\nthe [canvas](/docs/guide/model/shape-a-workbook-on-the-canvas/#correct-how-the-sheet-is-read)\nor in the model editor, under **Readings** in a column's panel; a loaded list's panel also\noffers **Read these columns as rows\u2026**."
+}

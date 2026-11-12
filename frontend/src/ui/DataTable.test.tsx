@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixedWindow } from "@/lib/hooks/useCursorWindow";
-import { DataTable } from "@/ui/DataTable";
+import { DataTable, columnsToFold } from "@/ui/DataTable";
 import { EditInPlaceCell } from "@/ui/EditInPlace";
 
 interface Row {
@@ -137,5 +137,41 @@ describe("rows drawn once (0.12 LS1, D373)", () => {
       fireEvent.pointerMove(bravo);
     });
     expect(editButtons()).toEqual(["Edit Name of Bravo"]);
+  });
+});
+
+describe("columnsToFold (0.17 SH1)", () => {
+  const columns = [
+    { key: "name", pinned: true },
+    { key: "code", pinned: false },
+    { key: "kind", pinned: false },
+    { key: "state", pinned: false },
+  ];
+  // The actions column is the last width; nothing leads here.
+  const widths = [300, 120, 120, 120, 48];
+
+  it("folds nothing when the columns fit", () => {
+    expect(columnsToFold(columns, widths, 900, 0)).toEqual([]);
+  });
+
+  it("folds from the right until what is left fits, and never the name", () => {
+    expect(columnsToFold(columns, widths, 600, 0)).toEqual(["state"]);
+    expect(columnsToFold(columns, widths, 500, 0)).toEqual(["state", "kind"]);
+    expect(columnsToFold(columns, widths, 100, 0)).toEqual(["state", "kind", "code"]);
+  });
+
+  it("counts a leading selection column's place", () => {
+    expect(columnsToFold(columns, [40, 300, 120, 120, 120, 48], 600, 1)).toEqual(["state", "kind"]);
+  });
+
+  it("keeps a narrow column that fits after a wide one that does not", () => {
+    const wide = [
+      { key: "name", pinned: true },
+      { key: "id", pinned: false },
+      { key: "code", pinned: false },
+      { key: "state", pinned: false },
+    ];
+    // 280 + 340 + 110 + 90 = 820 in 500: the id cannot stay, the code and the state can.
+    expect(columnsToFold(wide, [280, 340, 110, 90], 500, 0)).toEqual(["id"]);
   });
 });

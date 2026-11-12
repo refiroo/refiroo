@@ -91,8 +91,9 @@ async function journey(label, source) {
   const tab = (name) => centre.getByRole("tab", { name: new RegExp(`^${name}`) });
   /** An output name's cell, edited in place: its button reads "Edit Output name: <name>". */
   const output = (name) => centre.getByRole("button", { name: `Edit Output name: ${name}`, exact: true });
-  const apply = async () => {
-    await dialog().getByRole("button", { name: "Apply" }).click();
+  /** The dialog's primary button: Save, or Add ‹thing› for an addition (PP-D40). */
+  const apply = async (words = "Save") => {
+    await dialog().getByRole("button", { name: words, exact: true }).click();
     await dialog().waitFor({ state: "detached" });
   };
 
@@ -127,7 +128,7 @@ async function journey(label, source) {
       await sources().getByRole("button", { name: "Add" }).click();
       await sources().getByRole("listitem").filter({ hasText: "Name" }).waitFor();
       await assertAccessible(page, `a4c-${label}-add-field`);
-      await apply();
+      await apply("Add field");
     });
     const row = centre.getByRole("row", { name: /a4cLabel/ });
     await row.waitFor();
@@ -155,7 +156,7 @@ async function journey(label, source) {
     await oneStep(async () => {
       await centre.getByRole("button", { name: "Add related" }).click();
       await dialog().getByLabel("Output name", { exact: true }).fill("a4cRelated");
-      await apply();
+      await apply("Add related block");
     });
     await output("a4cRelated").waitFor();
     checks.push(`${label}: a related block added over a relation the exposed types take part in`);
@@ -177,7 +178,7 @@ async function journey(label, source) {
     await oneStep(async () => {
       await parentSection.getByRole("button", { name: "Add related" }).click();
       await dialog().getByLabel("Output name", { exact: true }).fill("a4cParentBlock");
-      await apply();
+      await apply("Add related block");
     });
     const parentRow = parentSection.getByRole("row", { name: /a4cParentBlock/ });
     await parentRow.waitFor();
@@ -233,7 +234,7 @@ async function journey(label, source) {
     await oneStep(async () => {
       await centre.getByRole("button", { name: "Add list" }).click();
       await dialog().getByLabel("Key").fill("a4c-list");
-      await apply();
+      await apply("Add list");
     });
     await centre.getByRole("cell", { name: "a4c-list", exact: true }).waitFor();
     checks.push(
@@ -255,7 +256,7 @@ async function journey(label, source) {
       await matchOn.getByRole("button", { name: "Remove Name" }).waitFor();
       await assertAccessible(page, `a4c-${label}-add-filter`);
       await shot("filter-1440");
-      await apply();
+      await apply("Add filter");
     });
     await centre.getByRole("cell", { name: "a4c-kind", exact: true }).waitFor();
     await centre.getByRole("button", { name: "Add filter" }).click();
@@ -310,7 +311,7 @@ async function journey(label, source) {
       await dialog().getByRole("checkbox", { name: top.name, exact: true }).check();
       await dialog().getByRole("checkbox", { name: second.name, exact: true }).check();
       await assertAccessible(page, `a4c-${label}-new-api`);
-      await apply();
+      await apply("Add consumer API");
     });
     await tree.getByRole("treeitem", { name: /A4c Feed/ }).first().click();
     await centre.getByRole("heading", { name: "A4c Feed", level: 2 }).waitFor();
@@ -321,7 +322,7 @@ async function journey(label, source) {
     // Install and activate, with the consumer APIs checked; then the consumer tier serves it.
     await page.getByRole("button", { name: "Install and activate…" }).click();
     await dialog().getByRole("heading", { name: "Consumer APIs" }).waitFor();
-    await dialog().getByText("A4c Feed").waitFor();
+    await dialog().getByText("A4c Feed").first().waitFor();
     await assertAccessible(page, `a4c-${label}-install`);
     await shot("install-1440");
     await dialog().getByRole("button", { name: /and activate in / }).click();

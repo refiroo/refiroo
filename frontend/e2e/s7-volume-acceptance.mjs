@@ -16,7 +16,7 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
-import { openFoldedGroups } from "./helpers/tree.mjs";
+import { openBrowseRecords, openFoldedGroups } from "./helpers/tree.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const scale = process.env.S7_VOLUME_SCALE ?? "0.1";
@@ -272,25 +272,26 @@ try {
       `volume ${context}: the ${format(total)}-record items lens scrolls both ways (≤100 rows held), seeks ${seekName} to row ${format(seekIndex + 1)}, jumps by a scrollbar click to ¾ (one position request) and by page ${pageNumber}, jumps to the end (${endName}), and reopens a copied URL at the same row; each landing matches the context's API read`,
     );
 
-    // A record deep in the tree: the deep node, seven node levels under its group, found by the
-    // tree's search with its ancestor path and opened from the match.
+    // A record deep in the tree: the deep node, seven node levels under its group, found by the top
+    // bar's search with its ancestor path and opened from the match.
     const treeReads = watchReads(page);
     const deep = await api(`/objects/vol-node/${dataset.deep_node_id}?workspaceKey=vol-workspace${suffix}`);
     assert.equal(deep.path.length, 8, `${context}: the deep node's path`);
     const explorer = page.getByRole("region", { name: "Volume catalogue explorer" });
     const tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
-    await explorer.getByRole("textbox", { name: "Search this explorer" }).fill(deep.name);
-    const match = tree.getByRole("treeitem", { name: new RegExp(`^${deep.name}, in `) });
+    await page.getByRole("combobox", { name: "Find a record in this workspace" }).fill(deep.name);
+    const match = page.getByRole("option", { name: new RegExp(`^${deep.name}, `) });
     await match.waitFor();
-    const path = (await match.locator(".tree-path").textContent()).trim();
+    const path = (await match.locator("small").textContent()).trim();
     for (const ancestor of deep.path.slice(0, -1))
       assert.ok(path.includes(ancestor.name), `${context}: the match's path names ${ancestor.name} (${path})`);
-    await match.focus();
-    await page.keyboard.press("Enter");
+    await match.click();
     await page.getByRole("heading", { name: deep.name, level: 1 }).waitFor();
     const opened = new URL(page.url());
     assert.ok(opened.pathname.endsWith(`/objects/vol-node/${deep.id}`), `${context}: opened ${opened.pathname}`);
-    if (suffix) assert.ok(page.url().includes(suffix.slice(1)), `${context}: the record keeps its context`);
+    if (suffix) assert.ok(page.url().includes(suffix.slice(1)), `${context}: the record keeps its context (${page.url()})`);
+    // The explorer's Browse records is folded by default: a person opens it to see where the record stands.
+    await openBrowseRecords(explorer);
     await tree.locator("[aria-current='page']").waitFor();
     assert.match(await tree.locator("[aria-current='page']").getAttribute("aria-label"), new RegExp(`^${deep.name}`));
     await settle(page);

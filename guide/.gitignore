@@ -3,3 +3,6 @@ _waves/runs/
 samples/snapshot/
 reference/.env
 _build/
+
+# Node compile caches a Codex run leaves in its notes
+_coverage/notes/**/node-compile-cache/

@@ -1,8 +1,10 @@
 /**
  * The consumer APIs a grant dialog offers, as a grid (0.12 U9): a row per consumer API, a column per
  * workspace, a tick per grant. A row or column heading ticks the whole line, Shift extends a range
- * from the last tick, and what the holder already has is shown ticked and locked. A workspace whose
- * model does not declare an API has no tick for it (workspaces may run different models).
+ * from the last tick. When the dialog sets a holder's access, what the holder has is ticked like any cell
+ * (unticking removes it); when it only grants, `held` cells are said in words ("already granted"). A
+ * workspace whose model does not declare an API has no tick for it, only the words "not in this model"
+ * (workspaces may run different models).
  */
 
 import { useMemo, useRef } from "react";
@@ -35,6 +37,7 @@ export function ConsumerApiGrid({
 }: {
   workspaces: readonly GridWorkspace[];
   options: GridOptions;
+  /** Cells to say "already granted" for instead of offering a tick; empty when held cells are ticks. */
   held: ReadonlySet<string>;
   ticked: ReadonlySet<string>;
   onChange: (ticked: Set<string>) => void;
@@ -176,15 +179,8 @@ export function ConsumerApiGrid({
                   );
                 if (held.has(key))
                   return (
-                    <td key={workspace.key} className="grant-grid-held">
-                      <input
-                        type="checkbox"
-                        className="selection-checkbox"
-                        checked
-                        disabled
-                        readOnly
-                        aria-label={`${api.name} in ${workspace.label}: already granted`}
-                      />
+                    <td key={workspace.key} className="grant-grid-note">
+                      already granted
                     </td>
                   );
                 return (

@@ -1,0 +1,36 @@
+/* --- Settings and security pages: a name or description changed where it stands (0.17 UX1, PP-D40). The value is the
+   field (the shared rules are in interactions.css); these only keep its room in a detail header and a list row, in the
+   header's own type. Tokens only, so every theme and scheme reads the same. --- */
+.text-in-place {
+  min-width: 0;
+  max-width: 36rem;
+}
+.text-in-place .inline-attribute-editor {
+  width: 100%;
+}
+.text-in-place .notice {
+  margin: 0;
+}
+/* The page's title: the header's heading type, and the same size in its field. */
+.text-in-place-heading {
+  margin: 0;
+}
+.text-in-place-heading .inline-attribute-editor input:not([type="checkbox"]):not([type="radio"]) {
+  font-size: var(--fs-20);
+  font-weight: 680;
+}
+/* A description under the title, where the header's line stood. */
+.model-detail-header .text-in-place:not(.text-in-place-heading) {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-13);
+}
+/* A passkey's name in its row. */
+.account-row-text .text-in-place {
+  max-width: 100%;
+}
+@media (max-width: 760px) {
+  .text-in-place {
+    max-width: 100%;
+  }
+}

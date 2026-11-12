@@ -25,23 +25,20 @@ several connections; Operator permits one. Further sections continue below the c
 ## Connect an existing record
 
 1. Choose **Add relationship**, or **Set** followed by the relationship name when the empty
-   section permits just one. The connection dialog opens.
-2. Check **Relationship**, including its direction. **Outgoing** reads the relationship from
-   this record towards the chosen one; **incoming** reads it from the other end. If several
-   choices are offered, select the intended meaning before searching.
-3. Under **Object**, type part of the related record's name or a searchable field. Read any
+   section permits just one. The connection form opens in the middle of the window on a desktop.
+2. Where the relationship is known, the form says **Add a** followed by the related type **to** this record (or **Add an** where appropriate). Read the relationship named beneath it. If several choices are offered, choose the intended type and relationship under **What to add** before searching.
+3. Under the related record type's name, type part of the related record's name or a searchable field. Read any
    hint explaining which records are offered. Select a result, checking its path. Typing alone
    leaves **Nothing selected** and does not enable saving.
 4. Fill any fields carried by the relationship. These describe the connection, rather than
    changing the other record's fields.
-5. Choose **Create**, or **Set** in the single-connection dialog. On success the dialog closes;
+5. Choose **Add** followed by the related type's name, or **Set** in the single-connection form. On success the dialog closes;
    check that the connected record appears in the section. **Cancel** abandons the connection;
    if asked to discard unsaved changes, confirm only if that is what you intend.
 
-![The Connect an object dialog with a relationship choice and candidate search](/docs/screens/relationship-picker-mode.png)
+![The Add Mode dialog with the relationship name, candidate search and Add Mode action](/docs/screens/relationship-picker-mode.png)
 
-*Above: Add relationship in Chur Wiesental's Modes panel offers Served by mode (outgoing) and
-candidate modes such as Boat and Bus. Nothing is selected; this dialog was cancelled.*
+*Above: Add Mode for Chur Wiesental names Served by mode and offers candidates such as Boat and Bus. Nothing is selected, so Add Mode is unavailable.*
 
 If a record is missing, clear or shorten the search and check the workspace, context, type and
 candidate hint. A model can limit candidates by their own or their ancestors' fields. Ask a
@@ -52,7 +49,7 @@ may report a duplicate, a number limit or changed data; resolve that reason befo
 
 1. In a section that allows one related record, choose its **Change** action. Read **Now:**
    to confirm the connection you intend to replace.
-2. Search and select the replacement under **Object**. Check its identifying fields and path.
+2. Search and select the replacement under the related type's name. Check its identifying fields and path.
    The currently connected record is not offered as its own replacement.
 3. Choose **Change**. The replacement is saved together; check the section's new entry.
    Choose **Cancel** to keep the existing connection.
@@ -70,17 +67,13 @@ requires reviewing the current saved connection before saving again.
 
 ## Remove an optional connection
 
-1. Find the exact relationship row and choose its delete button. Check both record names
-   first, especially where a section contains several connections.
-2. Read **Delete relationship?**. The connected records remain; only this connection is removed.
-3. Choose **Delete relationship** to proceed, or **Cancel** to keep it. Check the refreshed
-   section after success. If removal is refused because the connection is required, keep it
-   and review the intended correction; use a replacement where allowed.
+1. Find the exact relationship row and check both record names, especially where a section contains several connections.
+2. Choose **Remove relationship**. It removes the connection immediately, without a confirmation; both records remain.
+3. Check the refreshed section. The removal notice offers **Undo** to create the connection again. If removal is refused because it is required, review the intended correction and use a replacement where allowed.
 
-![The Delete relationship confirmation explaining that both records remain](/docs/screens/relationship-delete-confirm.png)
+![An empty Modes panel after a relationship removal with Undo in the notice](/docs/screens/relationship-delete-confirm.png)
 
-*Above: deleting Chur Wiesental's Served by mode connection would leave both the stop and Train.
-The confirmation was cancelled, so the connection remains.*
+*Above: Chur Wiesental’s Modes panel is empty after the Train connection was removed. The removal notice offers Undo; the connection was restored after this picture.*
 
 To change containment, [move the record](/docs/guide/use/arrange-records-in-a-tree/).
 Deleting a record has a different impact; see [Records](/docs/use/records/#deleting-a-record).
@@ -96,7 +89,7 @@ existing record. Use it when you need a new dependent record.
    selected path; search text alone does not select it.
 3. Fill **Name** and the type's other fields. Set any field that determines whether the record
    counts as current according to the model's rule.
-4. Choose **Create** and check the new entry in the original section. Correct any reported
+4. Choose **Add** followed by the new record type's name and check the new entry in the original section. Correct any reported
    missing values or duplicate before retrying. **Cancel** leaves without creating the record.
 
 ![A new related record form with parent choices and its owner already supplied](/docs/screens/stop-add-translation.png)

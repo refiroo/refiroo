@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { allowNavigation } from "@/routing/navigationGuard";
 import { api } from "@/api/client";
@@ -38,12 +38,12 @@ describe("ObjectFormDialog", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Retained" } });
     expect(allowNavigation()).toBe(false);
     expect(screen.getByLabelText("Name")).toHaveValue("Retained");
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Temporarily unavailable");
     expect(allowNavigation()).toBe(false);
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Name")).toHaveValue("Retained");
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
     expect(confirm).toHaveBeenCalledTimes(2);
   });
@@ -81,7 +81,7 @@ describe("ObjectFormDialog", () => {
     );
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Connections" } });
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "CONNECTIONS" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Domain" }));
     await waitFor(() =>
       expect(api.createObject).toHaveBeenCalledWith(
         "domain",
@@ -130,7 +130,7 @@ describe("ObjectFormDialog", () => {
     );
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Connections" } });
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "CONNECTIONS" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Domain" }));
 
     await waitFor(() =>
       expect(api.createObject).toHaveBeenCalledWith(
@@ -154,7 +154,7 @@ describe("ObjectFormDialog", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Updated" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.updateObject).toHaveBeenCalledWith("domain", domainObject.id, {
         expectedVersion: 1,
@@ -180,11 +180,11 @@ describe("ObjectFormDialog", () => {
     );
     const name = screen.getByLabelText("Name");
     fireEvent.change(name, { target: { value: "Kept edit" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText(/your edits are preserved/i)).toBeInTheDocument();
     expect(name).toHaveValue("Kept edit");
     fireEvent.change(name, { target: { value: domainObject.name } });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.updateObject).toHaveBeenLastCalledWith(
         "domain",
@@ -264,7 +264,7 @@ describe("ObjectFormDialog", () => {
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "CS_CONNECTIONS" } });
     await waitFor(() => expect(api.objects).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole("option", { name: /Connections/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Translation" }));
 
     await waitFor(() =>
       expect(api.createObject).toHaveBeenCalledWith(
@@ -319,11 +319,11 @@ describe("ObjectFormDialog", () => {
     );
     fireEvent.change(screen.getByLabelText("Count"), { target: { value: "0" } });
     fireEvent.click(screen.getByLabelText("Active"));
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Other steward")).toBeInTheDocument();
     expect(screen.getByLabelText("Count")).toHaveValue(0);
     expect(screen.getByLabelText("Active")).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(api.updateObject).toHaveBeenLastCalledWith("domain", domainObject.id, {
         expectedVersion: 2,
@@ -333,5 +333,180 @@ describe("ObjectFormDialog", () => {
         ],
       }),
     );
+  });
+
+  describe("plain add (0.17 PL2)", () => {
+    const codelist = testModel.objectTypes[1];
+    beforeEach(() => vi.mocked(api.createObject).mockClear());
+    function open(props: Partial<Parameters<typeof ObjectFormDialog>[0]> = {}) {
+      const onSaved = vi.fn();
+      render(
+        <ObjectFormDialog
+          model={testModel}
+          applicationKey="test-app"
+          workspaceKey="west"
+          objectType={codelist}
+          onClose={vi.fn()}
+          onSaved={onSaved}
+          {...props}
+        />,
+      );
+      return { onSaved };
+    }
+
+    it("names the collection above the title, and adds with the type's name", () => {
+      open({ collectionName: "Codelists of Connections" });
+      const dialog = screen.getByRole("dialog", { name: "New Codelist" });
+      expect(dialog).toHaveTextContent("Codelists of Connections");
+      expect(dialog).not.toHaveTextContent("Create in context");
+      expect(within(dialog).getByRole("button", { name: "Add Codelist" })).toHaveClass("primary");
+    });
+
+    it("says a known parent instead of asking, and asks again behind Change", async () => {
+      const { onSaved } = open({
+        parentObjectId: domainObject.id,
+        parentObjectTypeKey: "domain",
+        parentName: "Connections",
+      });
+      expect(screen.getByText("In")).toBeVisible();
+      expect(screen.getByText("Connections")).toBeVisible();
+      expect(screen.queryByRole("combobox", { name: "Search: Parent" })).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Statuses" } });
+      fireEvent.change(screen.getByLabelText("Code"), { target: { value: "STATUS" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add Codelist" }));
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(api.createObject).toHaveBeenCalledWith(
+        "codelist",
+        expect.objectContaining({ parentObjectId: domainObject.id }),
+      );
+    });
+
+    it("shows the parent picker on Change, and where no parent is known", () => {
+      const { unmount } = render(
+        <ObjectFormDialog
+          model={testModel}
+          applicationKey="test-app"
+          objectType={codelist}
+          parentObjectId={domainObject.id}
+          parentName="Connections"
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Change" }));
+      expect(screen.getByRole("combobox", { name: "Search: Parent" })).toBeVisible();
+      expect(screen.queryByText("In")).not.toBeInTheDocument();
+      unmount();
+      open();
+      expect(screen.getByRole("combobox", { name: "Search: Parent" })).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
+    });
+
+    it("puts required fields first and marked, and the optional ones under More fields (n)", () => {
+      open({ parentObjectId: domainObject.id, parentName: "Connections" });
+      const labels = Array.from(document.querySelectorAll("form label")).map((label) => label.textContent);
+      expect(labels[0]).toMatch(/^Name\*/);
+      expect(labels[1]).toMatch(/^Code\*/);
+      expect(labels[2]).toMatch(/^Active\(optional\)/);
+      const more = screen.getByRole("button", { name: "More fields (1)" });
+      expect(more).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByLabelText("Active")).not.toBeVisible();
+      fireEvent.click(more);
+      expect(more).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByLabelText("Active")).toBeVisible();
+    });
+
+    it("remembers More fields for the type in this browser, and works where storage is blocked", () => {
+      const stored = new Map<string, string>();
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => stored.get(key) ?? null,
+        setItem: (key: string, value: string) => stored.set(key, value),
+        removeItem: (key: string) => stored.delete(key),
+      });
+      const { unmount } = render(
+        <ObjectFormDialog
+          model={testModel}
+          applicationKey="test-app"
+          objectType={codelist}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "More fields (1)" }));
+      expect(stored.get("rdm.moreFields.codelist")).toBe("true");
+      unmount();
+      open();
+      expect(screen.getByRole("button", { name: "More fields (1)" })).toHaveAttribute("aria-expanded", "true");
+      vi.unstubAllGlobals();
+    });
+
+    it("keeps working where browser storage is blocked", () => {
+      vi.stubGlobal("localStorage", {
+        getItem: () => {
+          throw new Error("blocked");
+        },
+        setItem: () => {
+          throw new Error("blocked");
+        },
+      });
+      open();
+      fireEvent.click(screen.getByRole("button", { name: "More fields (1)" }));
+      expect(screen.getByRole("button", { name: "More fields (1)" })).toHaveAttribute("aria-expanded", "true");
+      vi.unstubAllGlobals();
+    });
+
+    it("says a missing required value under its field, in words, and adds nothing", async () => {
+      open({ parentObjectId: domainObject.id, parentName: "Connections" });
+      const form = screen.getByRole("dialog").querySelector("form")!;
+      expect(form).toHaveAttribute("novalidate");
+      fireEvent.click(screen.getByRole("button", { name: "Add Codelist" }));
+      expect(await screen.findByText("Enter a name.")).toBeVisible();
+      expect(screen.getByText("Code is required.")).toBeVisible();
+      expect(screen.getByLabelText("Name")).toHaveAttribute("aria-invalid", "true");
+      expect(api.createObject).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Statuses" } });
+      expect(screen.queryByText("Enter a name.")).not.toBeInTheDocument();
+    });
+
+    it("says a wrong type of value in words and opens More fields to show it", async () => {
+      const count = {
+        key: "count",
+        name: "Count",
+        valueType: "integer" as const,
+        features: {},
+        validation: {},
+        ui: {},
+      };
+      const type = {
+        ...codelist,
+        attributes: [
+          ...codelist.attributes,
+          { attributeTypeKey: "count", required: false, readOnly: false, order: 30, ui: {} },
+        ],
+      };
+      const model = {
+        ...testModel,
+        attributeTypes: [...testModel.attributeTypes, count],
+        objectTypes: [testModel.objectTypes[0], type],
+      };
+      render(
+        <ObjectFormDialog
+          model={model}
+          applicationKey="test-app"
+          objectType={type}
+          parentObjectId={domainObject.id}
+          parentName="Connections"
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Statuses" } });
+      fireEvent.change(screen.getByLabelText("Code"), { target: { value: "STATUS" } });
+      fireEvent.change(screen.getByLabelText("Count"), { target: { value: "1.5" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add Codelist" }));
+      expect(await screen.findByText("Enter a whole number.")).toBeVisible();
+      expect(screen.getByRole("button", { name: "More fields (2)" })).toHaveAttribute("aria-expanded", "true");
+      expect(api.createObject).not.toHaveBeenCalled();
+    });
   });
 });

@@ -178,7 +178,7 @@ MCP_ENABLED=true
 
 This is optional and does not enable or authenticate the built-in assistant. The shipped web image
 already forwards `/mcp` and `/.well-known/`; another reverse proxy must forward them too. After
-restart, a security administrator can open **Settings › Security › Agent access** to register and
+restart, a security administrator can open **Settings › Connections › Agent access** to register and
 manage assistants and agent clients. Their grants determine the data they can reach.
 
 ## 5. Apply the settings
@@ -217,11 +217,11 @@ turn; see [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks).
 
 ## 6. Check the provider and assistant separately
 
-1. With **Operations** access, open **Settings › Administration › AI**. Under **What is switched on**,
+1. With **Operations** access, open **Settings › This instance › AI** and its **Settings** tab. Under **What is switched on**,
    check **Assistant** and **Provider** against what you enabled. **Assistant: On** means the command
    is set; it does not prove a session can authenticate. Check **What may be sent** too.
 2. If a provider is configured, select **Send a test request**. Success shows **The AI provider
-   answered** and a new **Calls** entry. The request contains none of your reference data. With
+   answered** and a new entry on the **Calls** tab. The request contains none of your reference data. With
    only the assistant enabled, this button is absent.
 3. To test the assistant independently, use an active workspace and a person with **Use AI proposals**,
    **Work in change sets**, **Bulk and import**, and permission to create jobs there. The model-change
@@ -231,7 +231,7 @@ turn; see [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks).
    read it without applying it. Reaching the proposal checks that the assistant can reach the
    engine's API as well as authenticate with Claude Code. This exercises a real session and sends
    the instructions, model and any records it needs.
-4. Return to **Settings › Administration › AI**. The session's turn should appear in **Calls** with
+4. Return to **Settings › This instance › AI**. Open the **Calls** tab; the session's turn should appear there with
    its outcome, tokens and any reported cost. Review or discard the test task when finished.
 
 ## If startup or a request fails

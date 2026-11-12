@@ -146,13 +146,19 @@ try {
       .filter(Boolean);
   const open = async (target, heading) => {
     await page.goto(`${uiUrl}${target}`);
-    await page.getByRole("heading", { level: 1, name: heading }).waitFor();
+    // A relationship view's page title is its collection ("System values"); the view's name is a tab beside it.
+    const viewTitles = { "System value mappings": "System values", "Mapping grid": "System values", "Master values by system": "Master values" };
+    const title = viewTitles[heading] ?? heading;
+    await page.getByRole("heading", { level: 1, name: title }).waitFor();
+    if (title !== heading && heading !== "Master values by system") await page.getByText(heading, { exact: true }).first().waitFor();
   };
 
   // ---- 1. The record's relationships panel: the attributes, and Edit values writes them ----
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(`/apps/rdm-systems/objects/system-value/${values[1].id}?workspaceKey=default`, "RV Value 2");
   const panel = page.locator("section", { has: page.getByRole("heading", { name: "Master mappings" }) }).first();
+  // The panel folds the columns that do not fit behind "Columns · n of m"; the run asks for all of them.
+  await panel.getByRole("button", { name: /^Columns · \d+ of \d+$/ }).click();
   await panel.getByRole("cell", { name: "beta two" }).waitFor();
   const headed = await text(panel.locator("thead"));
   expect(
@@ -225,7 +231,7 @@ try {
     .sort();
   expect(viaApi.join() === "RV Value 1,RV Value 3", `the API for Confirmed = Yes: ${viaApi}`);
   await page.reload();
-  await page.getByRole("heading", { level: 1, name: "System value mappings" }).waitFor();
+  await page.getByText("System value mappings", { exact: true }).first().waitFor();
   const reloaded = await settle(rowsOf, (rows) => rows.length === 2);
   expect(reloaded.join() === "RV Value 1,RV Value 3", `after a reload: rows ${reloaded}`);
   await filters.getByLabel("Confirmed").selectOption("false");
@@ -298,7 +304,7 @@ try {
       refusedText.includes("RV Value 3 → RV Master Bravo: Attribute 'rv-priority' must be at least 1"),
     `the dialog does not refuse priority 0: ${refusedText}`,
   );
-  expect(await change.getByRole("button", { name: "Apply" }).isDisabled(), "Apply is offered for a refused value");
+  expect(await change.getByRole("button", { name: "Save", exact: true }).isDisabled(), "Save is offered for a refused value");
   await shot("rv-grid-refused");
   checks.push(
     `grid bulk change: priority 0 refused in the preview, naming each relationship ("RV Value 2 → RV Master Alpha: …") with the attribute rule, Apply withheld; axe ${await axe("rv-grid-change-refused")} violations`,
@@ -316,7 +322,7 @@ try {
     /Would change 1/.test(counted) && /Already Yes 1/.test(counted) && /Not linked to the master value 4/.test(counted),
     `the preview: ${counted}`,
   );
-  await change.getByRole("button", { name: "Apply" }).click();
+  await change.getByRole("button", { name: "Save", exact: true }).click();
   await change.waitFor({ state: "detached" });
   const afterBulk = await gridRow("RV Value 2");
   expect(
@@ -402,7 +408,7 @@ try {
 
   // Cells edited in place in the grid: a Yes/no flips with one click, a text opens its editor.
   await page.reload();
-  await page.getByRole("heading", { level: 1, name: "Mapping grid" }).waitFor();
+  await page.getByText("Mapping grid", { exact: true }).first().waitFor();
   await settle(rowsOf, (rows) => rows.length === 4);
   const flag = page.getByRole("checkbox", { name: /^Confirmed of RV Value 1 · RV Master Alpha/ });
   await flag.click();
@@ -458,7 +464,7 @@ try {
     (value) => /Would change 1/.test(value),
     80,
   );
-  await change.getByRole("button", { name: "Apply" }).click();
+  await change.getByRole("button", { name: "Save", exact: true }).click();
   await change.waitFor({ state: "detached" });
   expect(
     (await valueOf("RV Value 2", 0, "rv-local-name", inChangeSet)) === "staged name" &&
@@ -561,7 +567,7 @@ try {
   );
   await layoutDialog.getByLabel("Layout").selectOption("grid");
   checks.push(`model editor: Layout… of a rows table opens on Rows; axe ${await axe("rv-layout-dialog")} violations`);
-  await layoutDialog.getByRole("button", { name: "Apply" }).click();
+  await layoutDialog.getByRole("button", { name: "Save", exact: true }).click();
   await layoutDialog.waitFor({ state: "detached" });
   const drafted = await api(`/model-drafts/${draft.id}`);
   const layoutOf = (document, key) =>

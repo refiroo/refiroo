@@ -22,6 +22,8 @@
     "test:browser:authoring-t1": "node e2e/authoring-t1-designer.mjs",
     "test:browser:authoring-r": "node e2e/authoring-r-acceptance.mjs",
     "test:browser:authoring-a5": "node e2e/authoring-a5-workbook.mjs",
+    "test:browser:pl3b": "node e2e/pl3b-workbook-canvas.mjs",
+    "test:browser:ce1": "node e2e/ce1-canvas-editor.mjs",
     "test:browser:authoring-a6": "node e2e/authoring-a6-proposals.mjs",
     "test:browser:authoring-a7": "node e2e/authoring-a7-description.mjs",
     "test:browser:authoring-a8": "node e2e/authoring-a8-lists.mjs",
@@ -104,7 +106,10 @@
     "test:visual:update": "node e2e/visual-regression-gate.mjs --update-baselines"
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource-variable/fraunces": "5.3.0",
     "@fontsource-variable/instrument-sans": "5.3.0",
+    "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@tanstack/react-virtual": "3.14.13",
     "lucide-react": "1.39.0",

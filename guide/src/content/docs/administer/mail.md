@@ -4,13 +4,42 @@ description: Set up outgoing mail, understand delivery states and help people re
 reader: access-admin
 ---
 
-Use **Settings › Integration › Mail** to connect refiroo to your organisation’s mail server. You need **Security administration** for the whole instance. Mail carries password links and, when people choose them, inbox notices and digests. It never sends a password or an authenticator code.
+Use **Settings › This instance › Mail** to connect refiroo to your organisation’s mail server. You need **Security administration** for the whole instance. Mail carries password links and, when people choose them, inbox notices and digests. It never sends a password or an authenticator code.
 
-Under **Send mail through**, choose **SMTP server** or **Microsoft 365**. One method is used at a time. Saving one replaces the other method’s saved fields and credentials. There is no automatic fallback to the other method.
+On the **Server** tab, under **Send mail through**, choose **SMTP server** or **Microsoft 365**. One method is used at a time. Saving one replaces the other method’s saved fields and credentials. There is no automatic fallback to the other method.
 
-Every message includes plain text and an HTML version with the refiroo mascot and wordmark embedded in the message, so opening it does not load images from the server. If the model gives the product its own name, that name appears beside the wordmark.
+Every message includes plain text and an HTML version. The default layout embeds the refiroo mascot and wordmark; an operator can replace the layout and logo under **E-mail template**. If the model gives the product its own name, that name appears in the message.
 
 Without saved mail settings, nothing is sent. Administrators can still copy a new person’s password link and pass it on. Follow [Set up mail](/docs/guide/administer/set-up-mail/) to configure and test SMTP delivery.
+
+## E-mail template
+
+**Settings › This instance › E-mail template** changes the layout around every invitation, password reset, notice, digest and test message. One saved template applies to the whole instance. This page needs the instance-wide **Operations** permission, included in the **Operator** role; Security administration for the Mail page alone does not grant it. Until a template is saved, refiroo uses its own layout.
+
+### Write and preview the layout
+
+1. Open **E-mail template**. In **Markdown**, write the surrounding message. The toolbar offers **Bold**, **Italic**, **Link**, **Heading** and **List**. Use **Insert placeholder…** to insert a value where the caret stands.
+2. Keep the message placeholder exactly once. The available placeholders are:
+
+   | Placeholder | What appears in the mail |
+   | --- | --- |
+   | `{{content}}` | The message's own heading, text and action; required exactly once. |
+   | `{{product_name}}` | The product's name. |
+   | `{{instance_url}}` | The address of this instance. |
+   | `{{recipient_name}}` | The person's name, or “there” when no name is available. |
+   | `{{logo}}` | The uploaded logo, or the default mark. |
+
+3. Read **Preview** beside the editor. It updates with sample values after you stop typing. Choose **Light paper**, **Dark paper** and **Plain text** to inspect the alternatives. Preview saves and sends nothing. A refused draft shows **The draft cannot be previewed** and leaves the last good preview visible: correct the error before relying on that preview.
+4. Choose **Save**. Unknown placeholders, a missing or repeated message placeholder, or more than 20,000 characters are refused. Raw HTML and Markdown images are not carried into mail. Links may use HTTP, HTTPS or mail addresses; unsafe links are omitted. Use the logo control for your image.
+
+### Add a logo and send a test
+
+1. Under **Logo**, choose **Upload a logo**, or drop the image onto the field. Use PNG, JPEG or SVG without script, up to 512 KB. Uploading saves the logo immediately; **Remove logo** returns to the default mark. The logo is embedded in the mail. Many mail programs do not draw SVG, so use PNG or JPEG when recipients need wider support.
+2. Save your Markdown before choosing **Send a test to me**. The test uses the saved template, not unsaved text, and goes to your own account's e-mail address. Mail delivery must be configured and your account must have an address. If **The test could not be sent** appears, read its reason and correct the address or delivery problem before retrying.
+3. Check the actual message, including its plain-text version, in the recipient's mail program. The preview is not proof of how every mail program draws the message or that delivery reaches the inbox.
+4. To restore the original layout, choose **Reset to default…**, then **Reset to default** in the confirmation. This deletes both the saved Markdown and uploaded logo. Cancel keeps them.
+
+If another operator saves first, your older save is refused. Reload, review their changes and reapply only what is still needed. Template changes are not included in the security audit.
 
 ## Mail server
 
@@ -78,7 +107,7 @@ The failure heading distinguishes an unreachable server, a failed secure connect
 
 ## Messages and retries
 
-Ordinary messages wait in an outbox and are sent in the background. Under **Messages**, filter **State** to **All**, **Waiting**, **Sent** or **Failed**. Counts show each state. **Refresh** reads the current list; **Load more messages** reads older entries. Columns show **To**, **Message**, **State**, **Tries**, **Last problem**, **Queued** and **Actions**. A waiting row also shows **Next try**; finished rows show their finish time.
+Ordinary messages wait in an outbox and are sent in the background. On the **Messages** tab, filter **State** to **All**, **Waiting**, **Sent** or **Failed**. Counts show each state. **Refresh** reads the current list; **Show more** reads older entries. Columns show **Queued**, **To**, **Message**, **State**, **Tries**, **Last problem** and **Actions**. A waiting row also shows **Next try**; finished rows show their finish time.
 
 | State | Meaning and next step |
 | --- | --- |
@@ -111,7 +140,7 @@ used, make or request a fresh one.
 
 ## Notices and digests
 
-Each person controls their own delivery under **Settings › General › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
+Each person controls their own delivery under **Settings › You › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
 
 Under **How each kind reaches me**, a person chooses **At once**, **Digest**, or **Off** for each kind. Immediate notices include both plain text and HTML, are sent once while under 24 hours old, and contain no record, change-set, workspace or person content. Turning mail on does not send a backlog of old notices.
 

@@ -8,25 +8,25 @@ A **client** is the identity of a system that calls refiroo without a person sig
 Use one for an unattended import, a data consumer, a monitoring system or another integration.
 Its work carries its own name in history. People using the browser sign in as themselves.
 
-You need **Security administration** to manage **Settings › Security › Clients**.
+You need **Security administration** to manage **Settings › Connections › Clients**.
 Use **Search clients** (**Name**) to search the list, which separates **Active** and **Deactivated** clients and shows
-when a client last authenticated, or **No token yet** when it has not.
+when a client last authenticated, or **No token yet** when it has not. Open a row for the client’s page; **← Clients** on its first line returns to the list.
 
-![Clients catalogue with one active client and no selection](/docs/screens/admin-clients.png)
+![Clients catalogue with two active clients and Active and Deactivated filters](/docs/screens/admin-clients.png)
 
 *Above: Stops reader (guide) is the reference instance's client for reading stop data.*
 
 ## Identity and access
 
-A client has a stable **Client ID**, a display name and a secret. **Rename…** changes the name
-without changing its ID or requiring the system to be reconfigured. The dialog explains **The client ID does not change, so the system using it needs nothing new.** Choose **Save** to keep the new name. **New client** asks for **Name**. **Create and show its secret** opens **Copy the client's secret**. Store the ID and secret securely before **I have copied it**; the secret is shown once. A new client starts
+A client has a stable **Client ID**, a display name and a secret. Select the name where it stands, edit it, then leave the field or press Enter to save.
+Escape puts the old name back; an unchanged input saves nothing. The save notice offers **Undo**.
+If refused, the input stays open with the reason and **Cancel** and **Save again** beneath it. Its ID stays the same, so the connected system needs no new configuration. **New client** asks for **Name**. **Add client** opens **Copy the client's secret**. Store the ID and secret securely before **I have copied it**; the secret is shown once. A new client starts
 with no access. Follow [Create a client](/docs/guide/administer/create-a-client/) to create
 it, save its one-time secret and grant what it needs.
 
 ![Client detail with ID, secrets and a workspace consumer grant](/docs/screens/admin-client.png)
 
-*Above: Stops reader (guide) has a Consumer API grant in Graubünden. The webhooks section
-shows a load error on this capture; it does not show that the client has no webhooks.*
+*Above: Stops reader (guide) has a Stops API grant in Graubünden. Webhooks it created says it created no webhook you administer.*
 
 A **Role** grant permits management operations, using the same roles and write restrictions
 as people. A **Consumer API** grant permits reading one declared API in one workspace.
@@ -49,7 +49,7 @@ page later identifies it by its last four characters. The **Secrets** table show
 **Valid until** and **Last used**. **No end** means no expiry is currently set; **Not yet**
 means the secret has not been used.
 
-**Rotate secret…** opens **Rotate the secret of …**. **Make a new secret** makes the replacement with a chosen overlap: **1 hour**, **24 hours**,
+**Rotate secret…** opens **Rotate the secret of …**. **Rotate secret** makes the replacement with a chosen overlap: **1 hour**, **24 hours**,
 **7 days**, or **Stop it now**. During an overlap the system can switch without interruption;
 after it, the previous secret no longer works. **End now** in the Secrets table ends a
 previous secret's overlap early. Its accessible label, **End the secret ending … now**, identifies the last four characters; it acts immediately. **No valid secret: rotate to make one.** means there is no usable secret left. Use the recorded ending and last-use times to check the handover.
@@ -57,11 +57,11 @@ Follow [Rotate a client secret](/docs/guide/administer/rotate-a-client-secret/).
 
 ## Ending access and tracing work
 
-**Deactivate** asks for confirmation. The client cannot authenticate again and its existing
+**More actions › Deactivate** asks for confirmation. The client cannot authenticate again and its existing
 access is refused at the next request. Its grants and name remain for history. It is never
-deleted. Use **Restore** from the Deactivated list to reactivate it after reviewing those grants.
+deleted. Open the client from the Deactivated list and use **Restore** to reactivate it after reviewing those grants.
 
-**See changes** opens its data changes in workspaces you may read. **Recent activity**
+**More actions › See changes** opens its data changes in workspaces you may read. **Recent activity**
 shows security events; **Webhooks it created** lists subscriptions you administer.
 A failed section offers **Retry**. Treat a load failure as unavailable information, not an empty list.
 See [Who changed what](/docs/administer/audit/) for the distinction between data and security history.
@@ -79,7 +79,7 @@ Rotation and ending an old secret stop that secret being used for a new sign-in.
 
 ## Clients for assistants
 
-Create an external assistant's client with **New agent client** under **Settings › Security › Agent access**. Its grants are restricted to reading and preparing changes through that connection; it cannot approve, publish or write live data. It is distinct from an ordinary integration client. Follow [Manage an assistant's access](/docs/guide/administer/manage-agent-access/).
+Create an external assistant's client with **New agent client** under **Settings › Connections › Agent access**. Its grants are restricted to reading and preparing changes through that connection; it cannot approve, publish or write live data. It is distinct from an ordinary integration client. Follow [Manage an assistant's access](/docs/guide/administer/manage-agent-access/).
 
 The built-in assistant instead has a dedicated client for each task, managed by refiroo and omitted from the normal client list. You do not create a secret for that session client. See [AI settings and access](/docs/administer/ai/) for its permissions, costs and retention.
 
@@ -97,7 +97,7 @@ another rotation, rather than another client identity. Deactivation does not rep
 secret. **Rotate secret…** is available for both Active and Deactivated clients.
 
 For a leaked secret, choose **Deactivate** first and confirm. Select the client in
-**Deactivated**, choose **Rotate secret…**, then **Stop it now** and **Make a new secret**.
+**Deactivated**, choose **Rotate secret…**, then **Stop it now** and **Rotate secret**.
 Save the replacement from its one-time dialog and have the integration owner configure it.
 Review retained grants before choosing **Restore**. Rotation does not restore a client:
 the new secret takes effect when the client is restored.

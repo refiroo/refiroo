@@ -13,17 +13,11 @@ For the connected records you inspect, see [Relationships](/docs/use/relationshi
 
 ## Open the right list
 
-1. On Home, find the workspace you need under **Your workspaces**. Choose an application on
-   its card. The application opens with that workspace selected.
+1. On Home, find the workspace you need under **Your workspaces**. Choose its name or tile
+   to open its page, then choose an application. An application link on its card opens it directly.
 2. Check **Workspace** in the sidebar. If it names a different workspace, select the intended
    one before searching: a record with the same name elsewhere may hold different data.
-3. Choose the collection you need under **Collections**. In an application with more than
-   ten sidebar entries, type part of its name in **Find a list** to narrow the entries across
-   all groups. Choose a result, or press **Enter** to open the first match. **Esc** clears
-   the box and restores the groups' previous folds. If **No list matches** appears, shorten
-   or clear the text. This finds list names, not records; see
-   [Applications](/docs/use/applications/#find-a-list-in-the-sidebar) for the sidebar's counts
-   and groups. The collection's heading identifies the list. Available collections and their
+3. Choose the collection you need under **Collections**. To find a list by name, use the search above the page and choose a result under **Lists**. Press ⌘K on a Mac or Ctrl+K elsewhere to focus search. See [Applications](/docs/use/applications/#find-a-list-in-the-sidebar) for lists and places in search. The collection's heading identifies the list. Available collections and their
    labels depend on your workspace's model.
 4. Choose **Live** at the top to search current data. Check the green **Live** banner. To
    inspect proposed or previously published data, open that change set or publication instead;
@@ -36,7 +30,10 @@ Stops collection used in the following screenshots.*
 
 ## Search for a record
 
-1. Type all or part of the record's name in the search box above the list. Wait for the results
+1. To search names across the workspace, use **Find a record in this workspace** above the page or **Find a
+   record** on the workspace’s page. Check the list and path beside a result; use the arrow
+   keys and Enter to open one in **Live**. To stay in a change set or publication, or search
+   just this collection, type all or part of the record’s name in the search box above the list. Wait for the results
    to update. Use a shorter part of the name if you are unsure of its spelling.
 2. Check the result names and identifying fields before opening one. Several records may have
    similar names; a number, date or related record can distinguish them.
@@ -89,7 +86,7 @@ eight stops. Valid from is sorted newest first; Chur Wiesental is among the resu
 
 ## Inspect the record
 
-1. Choose the result's name. Its page opens with a heading and identifying fields. Check the
+1. Choose the result's name. On a desktop, the record opens beside its list with a heading and identifying fields. Choose **Expand to full page** for the full record page. On a phone, it opens the page directly. Check the
    path above the heading to confirm its place in the hierarchy, especially if names repeat.
 2. Read the fields in the heading and details panels. The labels depend on the record type.
    An unset value differs from zero or No; see [Records](/docs/use/records/#what-a-record-holds)
@@ -97,14 +94,13 @@ eight stops. Valid from is sorted newest first; Chur Wiesental is among the resu
 3. Read the relationship sections for connected records. Scroll down to find further sections.
    **No relationships yet** means that section has no connections. If a panel reports an error,
    retry that panel; the error does not mean there are no related records.
-4. Choose **Back to list** when finished. Your search, filters, sort and position are preserved,
+4. Choose **←** and the list’s name above the title when finished. Your search, filters, sort and position are preserved,
    so you can inspect the next result. To make a correction, follow
    [Correct a record](/docs/guide/use/correct-a-record/).
 
-![A record page with its fields, hierarchy path and relationship sections](/docs/screens/stop-details.png)
+![A record opened beside its collection with its fields and hierarchy path](/docs/screens/stop-details.png)
 
-*Above: Chur Wiesental in Network has its fields under Stop details. Modes shows Train and
-Operator shows Rhätische Bahn. Its path places the stop under Chur.*
+*Above: Chur Wiesental is open beside the Stops list in Network. Stop details shows its fields, and Hierarchy places it under Chur; Expand to full page opens the full record.*
 
 ![Further relationship sections, including an empty section](/docs/screens/stop-relationships.png)
 
@@ -140,7 +136,8 @@ separate conditions: choose the one matching your question.
    connections last. Columns holding several related records or showing their fields do not
    sort. Use a relationship filter rather than trying to filter a chip column.
 4. Use **Display** to change shown columns. A one-line value ending in an ellipsis can be read
-   in full on hover, focus or long press. Return with **Back to list** after inspecting a record;
+   in full on hover, focus or long press. If columns have folded, choose **Columns · n of m**
+   to show them all. Return using **←** and the list’s name above the title after inspecting a record;
    the address preserves search, filters, the single sort and your position.
 
 The same list navigation works in Live, change sets and publications. If a jump or later page

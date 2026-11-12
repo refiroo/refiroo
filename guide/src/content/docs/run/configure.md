@@ -10,9 +10,8 @@ override. For AI and agent settings use [About AI](/docs/run/ai/) and [Set up AI
 
 ## See what is running
 
-With Operations access, open **Settings › Administration › Deployment**. **Capability groups**
-shows what this deployment serves. **Database** shows the migration revision. Each settings table
-shows **Setting**, **Value**, **Default**, **Source** and **What it controls**.
+With Operations access, open **Settings › This instance › Deployment**. **Capability groups**
+shows what this deployment serves. **Database** shows the migration revision. Each setting has a row with its name, what it controls, its value and source; the default appears only when the value differs.
 **Environment** means explicitly supplied; **Default** means the engine chose its default.
 Secrets show only **Set** or **Not set**, and the database address hides its password.
 This page is read only. At the top it names the API address used by this browser. Normally that
@@ -21,12 +20,12 @@ Changing that build setting requires rebuilding the frontend, rather than restar
 
 The groups are **Model administration**, **Workspace administration**, **Integration jobs** and
 **Webhook subscriptions**, each with **On** or **Off**, its switching setting and applicable limits.
-Below **Database › Migration revision**, the tables are **Runtime**, **Capability settings**,
+Below **Database › Migration revision**, the settings are grouped under **Runtime**, **Capability settings**,
 **Batch and job limits**, **Webhook subscriptions** and **AI proposals**. The warning
 **Cursors do not survive a restart** means no stable `RDM_CURSOR_SIGNING_KEY` was supplied.
 Set one shared key and recreate all processes; clients must restart lists using old cursors.
 
-To identify versions, open **Settings › General › About**. **Engine** lists **Engine version**,
+To identify versions, open **Settings › This instance › About**. **Engine** lists **Engine version**,
 **Management API**, **Schema languages**, **Licence** and **Source code** (opens in a new tab).
 **Active model release** lists **Name**, **Key**, **Version**, **Schema language** and **Activated**.
 **Activated** is when that release was selected, not when it was installed. **Open release** opens
@@ -40,8 +39,7 @@ administrator for the appropriate role; a capability switch does not grant that 
 
 ![Deployment showing capability groups and effective settings](/docs/screens/run-deployment.png)
 
-*Above: Deployment in the reference instance used for this guide. Its values describe that
-installation; its older container paths differ from the current image paths listed below.*
+*Above: Deployment shows the reference instance’s capability switches, limits, database revision and runtime settings. These values describe this installation; secrets are masked.*
 
 ## Apply a change
 

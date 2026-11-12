@@ -10,14 +10,14 @@ Rotating the secret preserves the client ID, name and grants.
 
 ## Choose an overlap
 
-1. Open **Settings › Security › Clients** and select the intended client. Check its name
+1. Open **Settings › Connections › Clients** and open the intended client’s row. Check its name
    and **Client ID**. Inspect **Secrets**, including the last four characters, **Valid until**
    and **Last used**, so you can distinguish the current secret from a previous one.
 2. Choose **Rotate secret…**. Select how long the current secret should keep working:
    **1 hour**, **24 hours** (the default), or **7 days**. Use enough time for the agreed handover.
 3. If the secret may have leaked, choose **Stop it now**. The system is refused when it
    next tries to authenticate with the old secret until it has the replacement.
-4. Choose **Make a new secret**. **Cancel** leaves the secrets unchanged. If creation fails,
+4. Choose **Rotate secret**. **Cancel** leaves the secrets unchanged. If creation fails,
    read **No new secret was made**, reload the client and check its current secrets before retrying.
 
 ![Rotate secret dialog with overlap choices and Make a new secret](/docs/screens/admin-client-rotate.png)
@@ -45,13 +45,13 @@ expiry. Repeated rotations do not extend an old handover window. Ending a secret
 
 ## Recover after a leaked secret
 
-1. Open the client and choose **Deactivate**. Confirm the deactivation. Its requests are
+1. Open the client and choose **More actions › Deactivate**. Confirm the deactivation. Its requests are
    refused from their next request, including requests using access already issued. Its
    name, ID and grants remain.
-2. In **Deactivated**, select the same client and choose **Rotate secret…**. The dialog
+2. In **Deactivated**, open the same client’s row and choose **Rotate secret…**. The dialog
    explains that the new secret takes effect when you restore the client. Rotation does
    not restore it.
-3. Choose **Stop it now**, then **Make a new secret**. This ends every older still-valid
+3. Choose **Stop it now**, then **Rotate secret**. This ends every older still-valid
    secret immediately. Copy the replacement from **New secret for …** and store it before
    choosing **I have copied it**. Have the integration owner configure the replacement.
 4. Review the retained grants and the lifetime of access issued before deactivation with
@@ -63,7 +63,7 @@ expiry. Repeated rotations do not extend an old handover window. Ending a secret
 
 ![Rotate secret for a deactivated client, with Stop it now selected](/docs/screens/admin-client-inactive-rotate.png)
 
-An overlap starts when **Make a new secret** succeeds, including time spent deactivated.
+An overlap starts when **Rotate secret** succeeds, including time spent deactivated.
 It does not restart when you choose **Restore**. For example, restoring two hours after a
 one-hour overlap leaves only the new secret usable. Restoring within that hour lets an
 older secret authenticate until its existing deadline. Use **Stop it now** for a leaked

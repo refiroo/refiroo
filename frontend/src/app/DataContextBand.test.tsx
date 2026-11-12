@@ -44,9 +44,15 @@ describe("DataContextBand", () => {
   it("names live data with a pill and an explanation", () => {
     const { root } = band(list);
     expect(root).toHaveClass("band-live");
-    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("North / CatalogueLive");
+    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^Live$/);
     expect(screen.getByText("Edits apply immediately in this workspace.")).toBeInTheDocument();
     expect(switcher().getByRole("button", { name: "Live" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("no longer says the workspace and the application on desktop: the sidebar and the top bar do (PP-D33)", () => {
+    band(list);
+    expect(screen.queryByText("North")).not.toBeInTheDocument();
+    expect(screen.queryByText("Catalogue")).not.toBeInTheDocument();
   });
 
   it("is an amber strip in a change set, carries its actions and returns to live", () => {
@@ -55,7 +61,7 @@ describe("DataContextBand", () => {
       <button type="button">Validate change set</button>,
     );
     expect(root).toHaveClass("band-change-set");
-    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^North \/ CatalogueChange set$/);
+    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^Change set$/);
     expect(screen.queryByText("Edits apply immediately in this workspace.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Validate change set" })).toBeInTheDocument();
     expect(switcher().getByRole("button", { name: "Change sets" })).toHaveAttribute("aria-current", "page");
@@ -78,7 +84,7 @@ describe("DataContextBand", () => {
   it("shows no pill on the change set and publication lists, which are about a context rather than in one", () => {
     const { root } = band({ kind: "changeSets", applicationKey: "catalogue", workspaceKey: "north" });
     expect(root).toHaveClass("band-neutral");
-    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^North \/ Catalogue$/);
+    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent(/^Change sets$/);
     expect(switcher().getByRole("button", { name: "Change sets" })).toHaveAttribute("aria-current", "page");
     expect(switcher().getByRole("button", { name: "Live" })).not.toHaveAttribute("aria-current");
   });

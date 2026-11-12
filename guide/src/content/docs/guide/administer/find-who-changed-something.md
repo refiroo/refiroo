@@ -22,24 +22,23 @@ for the scope of each history view.
 
 ## Start from a person or client
 
-1. Open **Settings › Security › People** or **Clients**. Search and select the identity.
+1. Open **Settings › People and access › People** or **Settings › Connections › Clients**. Search and open the identity’s row.
    Check their e-mail address or client ID if similar names exist. For a deactivated identity,
    use the **Deactivated** list.
-2. Choose **See changes**. The page names that person or client and lists their visible
-   changes, newest first, grouped by day. It can cover several workspaces.
+2. Choose **More actions › See changes**. The page names that person or client and lists their visible
+   changes, newest first, grouped by day. It can cover several workspaces. **← Back** on the first line returns to the previous page.
 3. Set **Workspace** to the relevant workspace, or keep **All workspaces**.
    Under **What**, choose **Records**, **Relationships**, **Change sets**, **Publications**
    or **Model**, or keep **Everything**.
 4. Choose **Period**: **Last 24 hours**, **Last 7 days**, **Last 30 days** or **Any time**.
-   If no result matches, widen the filters. Use **Load more** to retrieve older entries.
+   If no result matches, widen the filters. Use **Show more** to retrieve older entries.
 5. Read the action, subject, changed-field summary, time and workspace. Open a linked title
    to inspect the surviving subject. Use the record's own History for the changed values;
    the person's Changes page is a summary.
 
 ![Person's changes with workspace, kind and period filters and dated entries](/docs/screens/admin-audit-person.png)
 
-*Above: fictional Rita Approver's page shows her publication and the Davos Platz height
-change applied by it in Graubünden. These are related entries, not proof of two separate manual edits.*
+*Above: Fictional Rita Approver’s page lists her changes across the workspaces you can read. The visible entries include record edits, a model draft change and a publication; each entry identifies its workspace.*
 
 An empty list does not prove there were no changes outside your access. Check that you
 can read the workspace. If the changed record was removed, its history entry can remain
@@ -58,8 +57,7 @@ without an openable record. A renamed person is shown by their current name.
 
 ![Person detail at the Recent activity section with its four filters](/docs/screens/admin-grants-person.png)
 
-*Above: Guide Admin's security activity follows their roles and groups. A one-time password
-link creation appears as an event without revealing the link itself.*
+*Above: Guide Admin's Recent activity follows their roles and groups. The visible entries include group changes and a sign-in.*
 
 There is no separate instance-wide audit page to open. Use these identity views and the
 workspace's Activity for the question at hand.

@@ -7,6 +7,10 @@ reader: model-admin
 Use the model editor to change a draft through named actions. Each saved action becomes a step
 in its history. You need **Model authoring**; applying the result also needs release access.
 See [Models](/docs/model/models/) for the stages and permissions.
+The **Editor | Canvas** switch offers two views of this same saved draft: the panes described
+here, or a [board of object types and relationships](/docs/guide/model/edit-a-model-on-the-canvas/).
+A draft opens in the view last used for it in this browser, or **Editor** if none is remembered;
+workbook flows open **Canvas**.
 
 ## Find your way around
 
@@ -26,8 +30,14 @@ Names; no element is selected in the centre.*
 
 An application shows its types, where they stand, field and relationship counts, views and
 navigation groups. A type shows **Attributes** and **Relations**. Select an editable cell to
-change it with **Save**, or leave it with **Cancel**. Menus offer operations such as **Rename…**,
+change its value. A choice from a list saves as soon as it is selected; a text input saves
+when you leave it or press Enter. Escape puts the old value back. An unchanged input closes
+without saving. Names edited in their headings save the same way. A refused input stays open
+with the reason and **Cancel** and **Save again** beneath it; leaving it again retries only
+after its input changes. Menus offer operations such as **Rename…**,
 **Move to…**, adding fields and allowing relationships.
+
+A short operation, such as renaming or choosing a value type, opens beneath its control in a small popover. Pick several items there with **Apply**; use **Save** for a popover's settings. A value edited directly in its cell saves as described above. Longer forms and forms needing a preview open as dialogs in the middle of the window on a desktop. Adding uses **Add** followed by the thing's name; moving uses **Move**. Confirmations remain small centred dialogs. The same validation and draft **Undo** apply whichever form is shown.
 
 | Mark | Meaning |
 | --- | --- |
@@ -63,7 +73,7 @@ is offered when another group exists. **Take out of the group** returns a collec
 sidebar's top level, or leaves a matrix available through its row collection without a separate
 entry. These actions arrange navigation; they do not move records.
 
-For a collection with several views, edit **Opens on** in place and **Save** the choice.
+For a collection with several views, edit **Opens on** in place; selecting a view saves the choice immediately.
 It decides which view opens from that collection's sidebar entry or the group page. Without a
 separate choice, the application default is used when it belongs to the collection, then its
 table, then its first view. Other view tabs stay available. A matrix entry shows **Itself**:
@@ -100,8 +110,7 @@ record selectors; an empty preview for a new model does not mean the draft faile
 
 ![Type preview with a workspace selector and disabled record controls](/docs/screens/model-type-preview.png)
 
-*Above: Stop's draft layout is shown over a live Graubünden record. Step-free access is still a
-draft addition, with no live value.*
+*Above: Stop’s draft layout is shown over the live Graubünden record 38 Extern Mountain Tour, Berg. The preview’s record controls are disabled; it writes nothing.*
 
 **Edit layout** opens the layout editor. **Record page** arranges panels and fields in the main
 and side regions. **Table** chooses columns, filters and the default sort. Layout changes are
@@ -173,7 +182,7 @@ Open **About this draft** for its base release (or **A new model**), edit versio
 The version increases with each saved step. Change the editable draft title to rename the draft;
 this does not rename a release. **Saved as you go** means closing keeps the draft and proposals.
 
-The **Add** menu offers **Application…**, **Object type…**, **Attribute type…**,
+The **+** Add menu offers **Application…**, **Object type…**, **Attribute type…**,
 **Relation type…** and **Navigation group…**. In an empty draft, add an application first.
 An operation opens a dialog; **Not applied** means the attempted step did not save. Correct its
 reported cause, or cancel. **Delete draft…** in **More actions** asks for confirmation and removes

@@ -87,7 +87,7 @@ try {
   }
   /** The breadcrumb of the open record, as its ancestors' names. */
   const breadcrumb = async () =>
-    (await page.getByRole("navigation", { name: "Breadcrumb" }).last().getByRole("button").allTextContents()).slice(1);
+    (await page.getByRole("navigation", { name: "Where you are" }).last().getByRole("button").allTextContents()).slice(1);
   /** Incoming containment edges of `id` among `relationTypeKeys`, in `context`. */
   const containment = async (id, relationTypeKeys, context = "workspaceKey=default") =>
     (
@@ -312,17 +312,15 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-systems/change-sets?workspaceKey=default`);
   await tabTo(page.getByRole("button", { name: "Open change set", exact: true }), "Open change set");
   await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "See the data with these changes", exact: true }).click();
   await page.getByRole("region", { name: "Change set publication" }).waitFor();
-  await tabTo(page.getByRole("button", { name: "Validate change set", exact: true }), "Validate change set");
-  await page.keyboard.press("Enter");
-  await page.getByText("Change set validation passed", { exact: true }).waitFor();
-  await tabTo(page.getByRole("button", { name: "Publish change set", exact: true }), "Publish change set");
+  await tabTo(page.getByRole("button", { name: "Publish", exact: true }), "Publish");
   await page.keyboard.press("Enter");
   const confirm = page.getByRole("alertdialog");
   await confirm.waitFor();
-  await tabTo(confirm.getByRole("button", { name: "Publish change set", exact: true }), "confirm publish");
+  await tabTo(confirm.getByRole("button", { name: "Publish", exact: true }), "confirm publish");
   await page.keyboard.press("Enter");
-  await page.getByText(/Reviewed changes are now live/).waitFor();
+  await page.getByText(/The changes are live/).waitFor();
   const live = await api(`/objects/system-group/${seeded.haematology.id}?workspaceKey=default`);
   expect(live.parentObjectId === system01.id, "published: live does not hold the new parent");
   expect(live.path.map((part) => part.name).join(" › ") === "System 01 › Haematology", `published: the live path is ${live.path.map((part) => part.name).join(" › ")}`);

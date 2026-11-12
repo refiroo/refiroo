@@ -1,0 +1,1437 @@
+--- guide/src/content/docs/about/security-and-trust.md (before wave)
++++ guide/src/content/docs/about/security-and-trust.md
+@@ -90,7 +90,7 @@
+ 
+ Requests and assistant turns can incur charges or consume a subscription allowance, including
+ failed or discarded work. Operations staff can inspect who asked, the purpose, outcome, tokens
+-and reported cost on **Settings › Administration › AI**. An absent cost is not proof of free use.
++and reported cost on **Settings › This instance › AI**. An absent cost is not proof of free use.
+ A saved workbook layout that fits the next file can avoid another assistant session.
+ 
+ Call records are kept. Request and answer text is absent from the call log by default; an
+--- guide/src/content/docs/administer/agent-access.md (before wave)
++++ guide/src/content/docs/administer/agent-access.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Security › Agent access** to manage assistants that connect to refiroo through the **Model Context Protocol (MCP)**. You need **Security administration** across the instance. The page shows how to connect, agent clients for systems, assistants people sign in with and the calls they made.
++Use **Settings › Connections › Agent access** to manage assistants that connect to refiroo through the **Model Context Protocol (MCP)**. You need **Security administration** across the instance. The page shows how to connect, agent clients for systems, assistants people sign in with and the calls they made.
+ 
+ An external assistant acts as its person or client, within their grants and a further limit: it can read and prepare changes, but never write live data, approve or publish. Giving its person a more powerful role does not remove that limit.
+ 
+--- guide/src/content/docs/administer/ai.md (before wave)
++++ guide/src/content/docs/administer/ai.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Administration › AI** to check the AI features available in your instance and review their use. You need **Operations** across the instance to open this page and send a test request. The predefined **Operator** role holds it.
++Use **Settings › This instance › AI** to check the AI features available in your instance and review their use. You need **Operations** across the instance to open this page and send a test request. The predefined **Operator** role holds it.
+ 
+ The page displays settings. Ask your operator to change them and restart the server; there is no Save button. For that task, see [Set up AI](/docs/run/set-up-ai/). To check a connection, follow [Check the AI provider](/docs/guide/administer/check-the-ai-provider/).
+ 
+--- guide/src/content/docs/administer/api-reference-and-consumer-api-pages.md (before wave)
++++ guide/src/content/docs/administer/api-reference-and-consumer-api-pages.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Integration › API reference** to find the interactive reference for refiroo’s interfaces. Use **Consumer APIs** to inspect the read interfaces declared by the active model. These pages are read-only: neither changes a definition nor grants access.
++Use **Settings › Connections › API reference** to find the interactive reference for refiroo’s interfaces. Use **Consumer APIs** to inspect the read interfaces declared by the active model. These pages are read-only: neither changes a definition nor grants access.
+ 
+ ## API reference
+ 
+--- guide/src/content/docs/administer/audit.md (before wave)
++++ guide/src/content/docs/administer/audit.md
+@@ -11,7 +11,7 @@
+ 
+ ## Changes by a person or client
+ 
+-Open **Settings › Security › People** or **Clients**, select the identity and choose
++Open **Settings › People and access › People** or **Settings › Connections › Clients**, select the identity and choose
+ **See changes**. You can also follow a person's name from history where it is offered.
+ The page shows newest first, grouped by day, across the workspaces you may read.
+ 
+--- guide/src/content/docs/administer/clients.md (before wave)
++++ guide/src/content/docs/administer/clients.md
+@@ -8,7 +8,7 @@
+ Use one for an unattended import, a data consumer, a monitoring system or another integration.
+ Its work carries its own name in history. People using the browser sign in as themselves.
+ 
+-You need **Security administration** to manage **Settings › Security › Clients**.
++You need **Security administration** to manage **Settings › Connections › Clients**.
+ Use **Search clients** (**Name**) to search the list, which separates **Active** and **Deactivated** clients and shows
+ when a client last authenticated, or **No token yet** when it has not.
+ 
+@@ -79,7 +79,7 @@
+ 
+ ## Clients for assistants
+ 
+-Create an external assistant's client with **New agent client** under **Settings › Security › Agent access**. Its grants are restricted to reading and preparing changes through that connection; it cannot approve, publish or write live data. It is distinct from an ordinary integration client. Follow [Manage an assistant's access](/docs/guide/administer/manage-agent-access/).
++Create an external assistant's client with **New agent client** under **Settings › Connections › Agent access**. Its grants are restricted to reading and preparing changes through that connection; it cannot approve, publish or write live data. It is distinct from an ordinary integration client. Follow [Manage an assistant's access](/docs/guide/administer/manage-agent-access/).
+ 
+ The built-in assistant instead has a dedicated client for each task, managed by refiroo and omitted from the normal client list. You do not create a secret for that session client. See [AI settings and access](/docs/administer/ai/) for its permissions, costs and retention.
+ 
+--- guide/src/content/docs/administer/deployment-pages.md (before wave)
++++ guide/src/content/docs/administer/deployment-pages.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use these Settings pages to identify the installation and discuss a problem with its operator. **General › About** is available to signed-in people. **Administration › Deployment** and **Operations** need **Operations**, held by the predefined Operator role. Security administrator alone does not provide it.
++Use these Settings pages to identify the installation and discuss a problem with its operator. **This instance › About** is available to signed-in people. **This instance › Deployment** and **Operations** need **Operations**, held by the predefined Operator role. Security administrator alone does not provide it.
+ 
+ These pages report information. Deployment settings are changed on the server, and Operations does not restore a backup or restart the service. See [Run refiroo](/docs/run/install-with-compose/) for the operator’s tasks.
+ 
+--- guide/src/content/docs/administer/jobs-and-limits.md (before wave)
++++ guide/src/content/docs/administer/jobs-and-limits.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Open **Settings › Data operations › Jobs** to see bulk writes, imports and exports across the workspaces available to you. The list is newest first and shows the job, workspace, state, item counts, requester, creation and finish times. Select a job for its details. This page also shows the deployment limits; it does not edit them.
++Open **Settings › This instance › Jobs** to see bulk writes, imports and exports across the workspaces available to you. The list is newest first and shows the job, workspace, state, item counts, requester, creation and finish times. Select a job for its details. This page also shows the deployment limits; it does not edit them.
+ 
+ For the person carrying out an import or export, see [Jobs](/docs/use/jobs/).
+ 
+@@ -40,7 +40,7 @@
+ 
+ A preview is not proof that every item in a larger file is valid. Inspect the completed job’s outcome. Download needed results before retention removes the detailed outcomes and files. The job becomes Expired and keeps its summary, including counts, result, error and report.
+ 
+-The operator changes these limits in the deployment configuration and restarts the service. **Settings › Administration › Deployment** shows their sources and meanings to people with **Operations**. See [Deployment pages](/docs/administer/deployment-pages/). Change-feed retention is shown on **Consumer APIs**, separately from job retention.
++The operator changes these limits in the deployment configuration and restarts the service. **Settings › This instance › Deployment** shows their sources and meanings to people with **Operations**. See [Deployment pages](/docs/administer/deployment-pages/). Change-feed retention is shown on **Consumer APIs**, separately from job retention.
+ 
+ ## When a job cannot continue
+ 
+--- guide/src/content/docs/administer/mail.md (before wave)
++++ guide/src/content/docs/administer/mail.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Integration › Mail** to connect refiroo to your organisation’s mail server. You need **Security administration** for the whole instance. Mail carries password links and, when people choose them, inbox notices and digests. It never sends a password or an authenticator code.
++Use **Settings › This instance › Mail** to connect refiroo to your organisation’s mail server. You need **Security administration** for the whole instance. Mail carries password links and, when people choose them, inbox notices and digests. It never sends a password or an authenticator code.
+ 
+ Under **Send mail through**, choose **SMTP server** or **Microsoft 365**. One method is used at a time. Saving one replaces the other method’s saved fields and credentials. There is no automatic fallback to the other method.
+ 
+@@ -111,7 +111,7 @@
+ 
+ ## Notices and digests
+ 
+-Each person controls their own delivery under **Settings › General › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
++Each person controls their own delivery under **Settings › You › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
+ 
+ Under **How each kind reaches me**, a person chooses **At once**, **Digest**, or **Off** for each kind. Immediate notices include both plain text and HTML, are sent once while under 24 hours old, and contain no record, change-set, workspace or person content. Turning mail on does not send a backlog of old notices.
+ 
+--- guide/src/content/docs/administer/people-and-groups.md (before wave)
++++ guide/src/content/docs/administer/people-and-groups.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Security › People** to manage people, and **Groups** to give several
++Use **Settings › People and access › People** to manage people, and **Groups** to give several
+ people the same roles. You need **Security administration**, held by the predefined
+ Security administrator role. That role manages access; it does not itself allow reading workspace data.
+ 
+--- guide/src/content/docs/administer/permissions-reference.md (before wave)
++++ guide/src/content/docs/administer/permissions-reference.md
+@@ -5,7 +5,7 @@
+ ---
+ 
+ Use this reference when choosing a role or checking why someone cannot complete a task.
+-Open **Settings › Security › Roles** with **Security administration** to compare the
++Open **Settings › People and access › Roles** with **Security administration** to compare the
+ matrix or create a custom role. Roles select whole action groups, not individual actions.
+ [Roles and grants](/docs/administer/roles-and-grants/) explains where grants apply and
+ how direct and group access combine. Follow [Create a custom role](/docs/guide/administer/create-a-custom-role/)
+--- guide/src/content/docs/administer/roles-and-grants.md (before wave)
++++ guide/src/content/docs/administer/roles-and-grants.md
+@@ -11,7 +11,7 @@
+ 
+ ## The predefined roles
+ 
+-Open **Security › Roles** to compare roles by action group. The predefined roles cannot
++Open **People and access › Roles** to compare roles by action group. The predefined roles cannot
+ be edited. The following table lists their action groups; the descriptions below explain them.
+ 
+ | Role | Action groups |
+--- guide/src/content/docs/administer/sign-in.md (before wave)
++++ guide/src/content/docs/administer/sign-in.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Open **Settings › Security › Sign-in** to choose how people prove who they are.
++Open **Settings › People and access › Sign-in** to choose how people prove who they are.
+ You need **Security administration**. Sign-in establishes identity; [roles and grants](/docs/administer/roles-and-grants/)
+ decide what that identity may do afterwards.
+ 
+--- guide/src/content/docs/administer/signing-keys.md (before wave)
++++ guide/src/content/docs/administer/signing-keys.md
+@@ -8,7 +8,7 @@
+ can recognise valid access on later requests. They are different from a client's secret
+ and from the keys used to sign webhook deliveries. You do not copy a signing key to a person or integration.
+ 
+-Open **Settings › Security › Signing keys** with **Security administration**.
++Open **Settings › People and access › Signing keys** with **Security administration**.
+ The list shows **Key ID**, **State**, **Created**, **Replaced** and **Retired**.
+ **No key yet: one is made with the first token.** means the instance has not needed a signing key yet. You do not need to create or delete a row to clear that state. The current key is **Signing**. A replaced key shows **Verifying until** with the end time
+ while it still accepts access it signed. A retired key no longer does so.
+--- guide/src/content/docs/administer/webhooks.md (before wave)
++++ guide/src/content/docs/administer/webhooks.md
+@@ -4,7 +4,7 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Integration › Webhooks** to send a consumer API’s declared record events or the workspace’s change-set events to another system. You need **Integration administration** in the source workspace. Security administration alone does not grant it. The operator must also enable webhooks in the deployment.
++Use **Settings › Connections › Webhooks** to send a consumer API’s declared record events or the workspace’s change-set events to another system. You need **Integration administration** in the source workspace. Security administration alone does not grant it. The operator must also enable webhooks in the deployment.
+ 
+ Work with the receiving system’s owner before creating or changing delivery. [Webhooks](/docs/integrate/consumer-events-and-webhooks/) explains the receiving system’s responsibilities. Here you manage the subscription in the browser.
+ 
+--- guide/src/content/docs/examples/the-consumer-api.md (before wave)
++++ guide/src/content/docs/examples/the-consumer-api.md
+@@ -807,7 +807,7 @@
+ 
+ ## Find the contract on your instance
+ 
+-In the browser, **Settings › Integration › Consumer APIs** lists the selected workspace's contracts
++In the browser, **Settings › Connections › Consumer APIs** lists the selected workspace's contracts
+ and their documents. For the reference example, the authenticated index is
+ `/api/consumer?workspace=graubuenden`; its entry points to
+ `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`.
+--- guide/src/content/docs/guide/administer/add-a-person.md (before wave)
++++ guide/src/content/docs/guide/administer/add-a-person.md
+@@ -11,7 +11,7 @@
+ 
+ ## Create the account
+ 
+-1. Open **Settings › Security › People**. Check the Active list or search by name
++1. Open **Settings › People and access › People**. Check the Active list or search by name
+    or e-mail to avoid creating another account for the same person. Check **Deactivated**
+    too; **Restore** reactivates an existing person with their retained roles and groups.
+ 2. Choose **New person**. Enter **Name**, the display name used in lists and history, up to 200 characters.
+--- guide/src/content/docs/guide/administer/add-a-sign-in-provider.md (before wave)
++++ guide/src/content/docs/guide/administer/add-a-sign-in-provider.md
+@@ -8,7 +8,7 @@
+ 
+ ## Create the provider
+ 
+-1. Open **Settings › Security › Sign-in** and choose **New provider**. The catalogue keeps **Local accounts** separate from **Providers**.
++1. Open **Settings › People and access › Sign-in** and choose **New provider**. The catalogue keeps **Local accounts** separate from **Providers**.
+ 2. Enter **Name on the sign-in button**. People see **Continue with** followed by that name. Check the suggested **Key**: it forms part of the registered address and cannot change after saving. The names password, passkey and local are reserved; choose a distinct key.
+ 3. Enter **Issuer**, **Client ID** and **Client secret** from the sign-in administrator’s registration. The issuer must match the provider exactly. The saved secret is kept sealed and never shown again.
+ 4. If the provider supplies groups, enter **Groups claim**, using the field name supplied by its administrator. Empty means provider groups are not used. You can [create provider groups and grant their roles](/docs/guide/administer/manage-a-group/#use-a-provider-group) before anyone signs in.
+--- guide/src/content/docs/guide/administer/check-the-ai-provider.md (before wave)
++++ guide/src/content/docs/guide/administer/check-the-ai-provider.md
+@@ -8,7 +8,7 @@
+ 
+ Read [AI settings and access](/docs/administer/ai/) for data sent, permissions, costs and retention. Only an operator can change the server configuration.
+ 
+-1. Open **Settings › Administration › AI**. Under **What is switched on**, check **Provider**. If neither feature is configured, the page says **Neither the assistant nor an AI provider is set up**. If only the assistant is on, there is no provider test button. Ask the operator to configure a provider if your task needs one.
++1. Open **Settings › This instance › AI**. Under **What is switched on**, check **Provider**. If neither feature is configured, the page says **Neither the assistant nor an AI provider is set up**. If only the assistant is on, there is no provider test button. Ask the operator to configure a provider if your task needs one.
+ 2. Read **Settings**. Check **Model**, **Endpoint**, whether **Key** is set, and **What may be sent**. The secret is never displayed. A provider hosted outside your organisation receives the data allowed for each feature; make sure that arrangement is acceptable before inviting people to use it.
+ 3. Read **What the AI provider is asked**. Each feature says **Available** or **Unavailable**. An unavailable feature needs more information than the configured send level permits; a successful connection test cannot make it available. Review the data policy with the operator rather than assuming the test failed.
+ 4. Under **Test request**, choose **Send a test request**. The button says **Sending…** while it waits. The fixed request contains none of your reference data, and makes a call recorded below.
+--- guide/src/content/docs/guide/administer/create-a-client.md (before wave)
++++ guide/src/content/docs/guide/administer/create-a-client.md
+@@ -10,7 +10,7 @@
+ 
+ ## Create and save the credentials
+ 
+-1. Open **Settings › Security › Clients**. Search by **Name** to check whether the system
++1. Open **Settings › Connections › Clients**. Search by **Name** to check whether the system
+    already has a client. Check **Deactivated** as well before creating a duplicate.
+ 2. Choose **New client**. Enter **Name**, a name people can recognise in access lists and
+    history. Choose **Create and show its secret**. **Cancel** creates nothing.
+--- guide/src/content/docs/guide/administer/create-a-custom-role.md (before wave)
++++ guide/src/content/docs/guide/administer/create-a-custom-role.md
+@@ -6,7 +6,7 @@
+ 
+ Use a custom role when the predefined roles do not match a responsibility. You need **Security administration**. [Roles and grants](/docs/administer/roles-and-grants/) explains what each action group permits and where it applies.
+ 
+-1. Open **Settings › Security › Roles**. Read the matrix first: each column is a role and each row is an action group. A predefined role cannot be edited or deleted.
++1. Open **Settings › People and access › Roles**. Read the matrix first: each column is a role and each row is an action group. A predefined role cannot be edited or deleted.
+ 2. Choose **New role**. Enter **Name**, then choose **Start from**. **Nothing** creates an empty role; selecting an existing role copies its action groups. It does not change the source role or keep the two linked.
+ 3. Choose **Create role**. The new role appears in the matrix with its editing controls. If **The role was not created** appears, correct the stated problem. **Cancel** closes without creating it.
+ 4. Tick the action groups it needs. Set the name and optional description, then choose **Save role**. An empty role permits nothing. Administrative groups do not imply Browse; add Browse only if the responsibility needs workspace data.
+--- guide/src/content/docs/guide/administer/create-a-webhook.md (before wave)
++++ guide/src/content/docs/guide/administer/create-a-webhook.md
+@@ -13,7 +13,7 @@
+ 
+ ## Choose what is sent
+ 
+-1. Open **Settings › Integration › Webhooks** and choose **New webhook**. If webhooks are off, ask the operator to enable them. Workspace events need no consumer API declaration.
++1. Open **Settings › Connections › Webhooks** and choose **New webhook**. If webhooks are off, ask the operator to enable them. Workspace events need no consumer API declaration.
+ 2. In **Webhook**, enter a readable **Name** and the receiver’s **URL**. Use its final HTTPS address; redirects are not followed. Private and localhost receivers need the operator to allow private destinations on this instance. Plain HTTP is accepted only for a localhost receiver when the operator has allowed private destinations. Link-local destinations are always refused. If the address is refused, ask the operator to review it before trying again.
+ 3. In **Source › Events from**, choose **Consumer API** for declared record changes, or **Workspace events** for change-set steps. If no consumer API declares events, only **Workspace events** is offered. For a consumer source, select **Consumer API** too.
+ 4. Select **Workspace**. The list offers active workspaces where you hold Integration administration. Check the source and workspace carefully: they cannot be changed after creation.
+--- guide/src/content/docs/guide/administer/find-out-why-a-webhook-paused.md (before wave)
++++ guide/src/content/docs/guide/administer/find-out-why-a-webhook-paused.md
+@@ -8,7 +8,7 @@
+ 
+ ## Find the cause
+ 
+-1. Open **Settings › Integration › Webhooks** and select the intended receiver. **Retrying** means refiroo is still trying a failed request; **Suspended** means sending has stopped.
++1. Open **Settings › Connections › Webhooks** and select the intended receiver. **Retrying** means refiroo is still trying a failed request; **Suspended** means sending has stopped.
+ 2. Read **Configuration**, especially the suspension heading, listed findings, last error, attempt count and next attempt. A failed request prevents later changes passing it. After 24 hours of unsuccessful delivery it is suspended.
+ 3. Open **Deliveries**, filter **Status** if needed and choose **Refresh**. Open the affected event. Inspect **Attempts** and the selected attempt’s answer. An unreachable host, TLS failure, timeout, redirect and receiver error need different repairs. Give the relevant reason to the operator or receiver owner; do not share record content unnecessarily.
+ 4. For **Delivery failed**, fix the receiver or use **Edit…** to correct its URL. Changing a failed destination retries at once. For **The model changed** or **A filter matches nothing**, edit the fields identified in the findings and choose **Save changes**. If another person changed the webhook, review the reloaded configuration before saving again.
+--- guide/src/content/docs/guide/administer/find-who-changed-something.md (before wave)
++++ guide/src/content/docs/guide/administer/find-who-changed-something.md
+@@ -22,7 +22,7 @@
+ 
+ ## Start from a person or client
+ 
+-1. Open **Settings › Security › People** or **Clients**. Search and select the identity.
++1. Open **Settings › People and access › People** or **Settings › Connections › Clients**. Search and select the identity.
+    Check their e-mail address or client ID if similar names exist. For a deactivated identity,
+    use the **Deactivated** list.
+ 2. Choose **See changes**. The page names that person or client and lists their visible
+--- guide/src/content/docs/guide/administer/grant-a-consumer-api-to-a-client.md (before wave)
++++ guide/src/content/docs/guide/administer/grant-a-consumer-api-to-a-client.md
+@@ -6,7 +6,7 @@
+ 
+ You need **Security administration** and an existing client. A consumer API grant gives that client access to one API in one workspace. A management role does not open consumer data, and people and groups cannot receive these grants. See [Clients](/docs/administer/clients/).
+ 
+-1. Open **Settings › Security › Clients**, find the intended system with **Search clients** and select it. Check its **Client ID** and active state; do not grant to a similarly named system by guesswork.
++1. Open **Settings › Connections › Clients**, find the intended system with **Search clients** and select it. Check its **Client ID** and active state; do not grant to a similarly named system by guesswork.
+ 2. Under **Access**, choose **Grant**. In **What**, choose **Consumer APIs**. This is normally the initial choice for a client. **Roles** is the separate choice for management access.
+ 3. In the grid, find the API’s row and the workspace’s column. Tick the intersection. Each tick is a separate grant. A row or column heading selects the whole line; Shift extends a range, so review every selected cell before proceeding.
+ 4. A grey tick means already granted. **not in this model** means the workspace’s model does not declare that API. **unavailable** means the choices could not be read; reopen the dialog after resolving that load failure. It is not proof that the API is absent.
+--- guide/src/content/docs/guide/administer/grant-a-role.md (before wave)
++++ guide/src/content/docs/guide/administer/grant-a-role.md
+@@ -10,7 +10,7 @@
+ 
+ ## Open the grant dialog
+ 
+-1. Open **Settings › Security › People**, **Groups** or **Clients** and select the recipient.
++1. Open **Settings › People and access › People** or **Groups**, or **Settings › Connections › Clients** and select the recipient.
+    Choose **Grant** in their roles or access section. The recipient is already chosen.
+ 2. Alternatively, open **Settings › Workspaces**, select the workspace and choose **Access**,
+    then **Grant**. Choose **Who** by searching for the person, group or client by name.
+--- guide/src/content/docs/guide/administer/help-someone-who-lost-a-device.md (before wave)
++++ guide/src/content/docs/guide/administer/help-someone-who-lost-a-device.md
+@@ -31,7 +31,7 @@
+ 
+ ## Remove a lost local authenticator
+ 
+-1. Open **Settings › Security › People**, search for the person and select them.
++1. Open **Settings › People and access › People**, search for the person and select them.
+    Check their name, e-mail address and sign-in method.
+ 2. Under **Sign-in**, choose **Remove second factor…** beside
+    **Second factor: authenticator app**. This button appears only when an app is set up.
+--- guide/src/content/docs/guide/administer/link-a-provider-person.md (before wave)
++++ guide/src/content/docs/guide/administer/link-a-provider-person.md
+@@ -7,7 +7,7 @@
+ Use this task when someone already has an account and their first organisation-provider sign-in created another person. You need **Security administration**. refiroo never links accounts just because their e-mail addresses match. Read [People and groups](/docs/administer/people-and-groups/).
+ 
+ 1. Confirm the person’s identity through your organisation’s process. Identify the existing account whose roles and history should continue, and the new person created by provider sign-in. Check e-mail addresses and sign-in methods as well as names.
+-2. Open **Settings › Security › People** and select the new provider person. Do this before giving that new person a password, direct roles or local group memberships; those additions make linking unsafe and are refused.
++2. Open **Settings › People and access › People** and select the new provider person. Do this before giving that new person a password, direct roles or local group memberships; those additions make linking unsafe and are refused.
+ 3. Choose **Link to an existing person…**. In **Link this sign-in to an existing person**, search **Person** and select the existing active account. Read the sentence naming what moves and which person remains.
+ 4. Choose **Link to …** with the intended person’s name. **Cancel** leaves the accounts separate. If **Not linked** appears, read the reason. Check the target is active and the source has no password, direct roles or local groups; resolve the conflict rather than linking to someone else to bypass it.
+ 5. Check the existing person’s **Sign-in** section and groups. The provider identities and provider memberships move to this person. Their original roles and history continue. The newly created person is deactivated and their sessions end; it is not deleted.
+--- guide/src/content/docs/guide/administer/manage-a-group.md (before wave)
++++ guide/src/content/docs/guide/administer/manage-a-group.md
+@@ -9,7 +9,7 @@
+ 
+ ## Create a local group
+ 
+-1. Open **Settings › Security › Groups**. Use **Search groups** (**Group name**) first to see whether the
++1. Open **Settings › People and access › Groups**. Use **Search groups** (**Group name**) first to see whether the
+    intended group already exists. Choose a result to manage it, or **New group** to create one.
+ 2. Enter **Name** and **Description (optional)**. The description can explain who belongs
+    and why. If a **Members** choice is offered, choose **Added here** for membership managed in refiroo.
+--- guide/src/content/docs/guide/administer/manage-agent-access.md (before wave)
++++ guide/src/content/docs/guide/administer/manage-agent-access.md
+@@ -4,11 +4,11 @@
+ reader: access-admin
+ ---
+ 
+-Use **Settings › Security › Agent access** with **Security administration** across the instance. Read [Agent access](/docs/administer/agent-access/) first for permissions, data sent, call retention and the limits on prepared changes. External assistants may send permitted data to their own provider and incur charges there; refiroo's built-in AI send levels do not control them.
++Use **Settings › Connections › Agent access** with **Security administration** across the instance. Read [Agent access](/docs/administer/agent-access/) first for permissions, data sent, call retention and the limits on prepared changes. External assistants may send permitted data to their own provider and incur charges there; refiroo's built-in AI send levels do not control them.
+ 
+ ## Connect a person's assistant
+ 
+-1. Open **Settings › Security › Agent access**. If it says **Agent access is off**, ask the operator to enable it and restart the server. The page cannot switch it on.
++1. Open **Settings › Connections › Agent access**. If it says **Agent access is off**, ask the operator to enable it and restart the server. The page cannot switch it on.
+ 2. Under **How to connect**, copy **Address** and give it to the person connecting their MCP assistant. Use the address shown rather than constructing one from the browser's current page.
+ 3. Ask the person to add that address in their assistant. It opens this instance's sign-in page, naming the assistant and where it returns. They should check those details before signing in. The name is what the assistant says about itself.
+ 4. After sign-in, the assistant uses the person's existing grants, limited to reading and preparing changes. It does not need a new Agent role. Under **Assistants people sign in with**, check its **Returns to**, **Signed in now** and **Last used**.
+--- guide/src/content/docs/guide/administer/narrow-a-grant-to-record-types.md (before wave)
++++ guide/src/content/docs/guide/administer/narrow-a-grant-to-record-types.md
+@@ -6,7 +6,7 @@
+ 
+ Use a narrowed grant when someone may change only part of a workspace’s data. You need **Security administration**. This limits writes; **Browse** still reads the whole workspace. Use separate workspaces if readers must not see each other’s data. Read [Roles and grants](/docs/administer/roles-and-grants/#how-grants-combine) before proceeding.
+ 
+-1. Open **Settings › Security › People**, **Groups** or **Clients** and select the recipient. Inspect their direct and inherited grants first. Grants combine: another unrestricted grant can allow writes outside the restriction you are adding.
++1. Open **Settings › People and access › People** or **Groups**, or **Settings › Connections › Clients** and select the recipient. Inspect their direct and inherited grants first. Grants combine: another unrestricted grant can allow writes outside the restriction you are adding.
+ 2. Choose **Grant**. For a client, choose **Roles**, rather than **Consumer APIs**. Select exactly one role containing a group that can be narrowed: **Edit live**, **Work in change sets**, **Publish**, **Bulk and import**, or **Copy and move**.
+ 3. Under **Where**, choose **Workspaces** and select exactly one workspace with **Add workspace**. The narrowing control appears only for one role in one workspace. Instance grants and consumer API grants cannot be narrowed.
+ 4. Under **Narrow what they may change**, choose **Only these applications and record types**. Select the intended applications and record types from that workspace’s model. Selecting an application permits its records; selecting a record type permits that type. Either match is enough, so choose a type alone when the whole application would be too broad.
+--- guide/src/content/docs/guide/administer/require-a-second-factor.md (before wave)
++++ guide/src/content/docs/guide/administer/require-a-second-factor.md
+@@ -28,7 +28,7 @@
+ 
+ ## Turn the requirement on
+ 
+-1. Open **Settings › Security › Sign-in** and select **Local accounts**.
++1. Open **Settings › People and access › Sign-in** and select **Local accounts**.
+    Under **Second factor**, find **Require a second factor with a password**.
+ 2. Tick it. The **Require a second factor?** confirmation explains that people without a
+    factor must set up an app on the sign-in page before a session starts. The administrator-managed
+--- guide/src/content/docs/guide/administer/rotate-a-client-secret.md (before wave)
++++ guide/src/content/docs/guide/administer/rotate-a-client-secret.md
+@@ -10,7 +10,7 @@
+ 
+ ## Choose an overlap
+ 
+-1. Open **Settings › Security › Clients** and select the intended client. Check its name
++1. Open **Settings › Connections › Clients** and select the intended client. Check its name
+    and **Client ID**. Inspect **Secrets**, including the last four characters, **Valid until**
+    and **Last used**, so you can distinguish the current secret from a previous one.
+ 2. Choose **Rotate secret…**. Select how long the current secret should keep working:
+--- guide/src/content/docs/guide/administer/rotate-a-webhook-key.md (before wave)
++++ guide/src/content/docs/guide/administer/rotate-a-webhook-key.md
+@@ -6,7 +6,7 @@
+ 
+ You need **Integration administration** in the webhook’s workspace. Arrange the switch with the receiver’s owner. The key belongs to this webhook; replacing it does not change a client’s sign-in secret. See [The Webhooks page](/docs/administer/webhooks/#signing-keys).
+ 
+-1. Open **Settings › Integration › Webhooks**, select the intended webhook and check its **URL**, consumer API and workspace. Under **Configuration**, note **Signing key created** and any **Previous key signs until** date.
++1. Open **Settings › Connections › Webhooks**, select the intended webhook and check its **URL**, consumer API and workspace. Under **Configuration**, note **Signing key created** and any **Previous key signs until** date.
+ 2. Choose **Rotate key…**. In **Rotate the signing key of …**, choose **1 hour**, **24 hours** (the usual choice) or **7 days**. During this overlap each delivery has signatures for the new and old keys, so the receiver can accept either.
+ 3. For a key that leaked, choose **Stop it now**. The old key stops signing immediately. Until the receiver has the replacement, it may refuse delivery and refiroo retries.
+ 4. Choose **Make a new key**. **Cancel** keeps the current key. If **No new key was made** appears, read the reason and reload the webhook to establish its state before another attempt.
+--- guide/src/content/docs/guide/administer/rotate-signing-keys.md (before wave)
++++ guide/src/content/docs/guide/administer/rotate-signing-keys.md
+@@ -10,7 +10,7 @@
+ 
+ ## Start a normal replacement
+ 
+-1. Open **Settings › Security › Signing keys**. Note the key marked **Signing** and its
++1. Open **Settings › People and access › Signing keys**. Note the key marked **Signing** and its
+    **Created** time. A previously replaced key may still show **Verifying until**.
+ 2. Choose **Start a new key** when ready. **This acts immediately, without a dialog.**
+    It is not a preview or the start of a confirmation sequence.
+--- guide/src/content/docs/guide/administer/set-up-mail.md (before wave)
++++ guide/src/content/docs/guide/administer/set-up-mail.md
+@@ -8,7 +8,7 @@
+ 
+ ## Save the server
+ 
+-1. Open **Settings › Integration › Mail**. If nothing is saved, **Mail is not set up** explains that password links must be passed on by an administrator.
++1. Open **Settings › This instance › Mail**. If nothing is saved, **Mail is not set up** explains that password links must be passed on by an administrator.
+ 2. Under **Mail server**, enter **Server** and **Port**. Choose **Connection**: STARTTLS usually uses 587; TLS usually uses 465. Choose **None: not encrypted (a relay on a trusted network)** only for an approved relay without login.
+ 3. Enter **User name** and **Password** if the server requires a login. Save is unavailable for a login over an unencrypted connection. A saved password is never displayed; enter it again when changing server or port.
+ 4. Enter **From address**, approved by the mail administrator. Enter **Application address** if links should use a different address from the displayed default. Recipients must be able to reach it.
+@@ -31,7 +31,7 @@
+ 3. Correct a server problem in **Mail server**. Waiting messages retry automatically; a failed password message needs a new link. Do not expect a stopped or failed message to restart.
+ 4. To stop a waiting message, choose its **Stop sending**, check the recipient and confirm **Stop sending**. **Keep trying** leaves it queued. Its text is erased, but its existing link remains valid until used, replaced or expired.
+ 
+-Removing the mail settings stops sending; waiting messages remain until their delivery window ends. Use **Remove settings…**, read the warning and confirm **Remove them** only when that is intended. People choose their own notice mail and digests under **Settings › General › Notification email**; configuring a server does not opt them in.
++Removing the mail settings stops sending; waiting messages remain until their delivery window ends. Use **Remove settings…**, read the warning and confirm **Remove them** only when that is intended. People choose their own notice mail and digests under **Settings › You › Notification email**; configuring a server does not opt them in.
+ 
+ ## Replace credentials or move the site
+ 
+--- guide/src/content/docs/guide/administer/turn-off-local-sign-in.md (before wave)
++++ guide/src/content/docs/guide/administer/turn-off-local-sign-in.md
+@@ -9,13 +9,13 @@
+ ## Prepare a way back
+ 
+ 1. Follow [Add a sign-in provider](/docs/guide/administer/add-a-sign-in-provider/) and prove a complete sign-in through **Continue with …**. Check that the right person and roles are reached.
+-2. Open **Settings › Security › People** and select the recovery administrator. Under **Sign-in**, check that their password is set and **Keeps local sign-in** is on. This is separate from their Security administrator role.
++2. Open **Settings › People and access › People** and select the recovery administrator. Under **Sign-in**, check that their password is set and **Keeps local sign-in** is on. This is separate from their Security administrator role.
+ 3. If needed, turn **Keeps local sign-in** on. Read the named confirmation and choose **Keep local sign-in**. Test the retained account before proceeding. It still needs any required second factor; keep that device or recovery route available.
+ 4. Tell affected people to use the organisation’s provider. Arrange links for existing accounts so they keep their roles and history rather than acquiring duplicate identities.
+ 
+ ## Turn off ordinary password sign-in
+ 
+-1. Open **Settings › Security › Sign-in** and select **Local accounts**. **Turn off…** appears only after an enabled provider has successfully signed someone in. If absent, complete that proof first.
++1. Open **Settings › People and access › Sign-in** and select **Local accounts**. **Turn off…** appears only after an enabled provider has successfully signed someone in. If absent, complete that proof first.
+ 2. Choose **Turn off…**. Read **Turn local sign-in off?**, including which providers are offered and how many people keep password sign-in.
+ 3. Choose **Turn off**, or **Cancel** to leave it enabled. Wait until Local accounts shows **Off**. If **Not changed** appears or details changed meanwhile, review the saved state before trying again.
+ 4. In a separate browser session, check provider sign-in. Check the recovery account through **Sign in with a local administrator account**. Ordinary local accounts no longer sign in with a password.
+--- guide/src/content/docs/guide/integrate/connect-an-assistant.md (before wave)
++++ guide/src/content/docs/guide/integrate/connect-an-assistant.md
+@@ -8,7 +8,7 @@
+ 
+ ## 1. Get the connection address
+ 
+-Ask a security administrator for the **Address** under **Settings › Security › Agent access › How to connect**. It ends in `/mcp`. If the page says **Agent access is off**, an operator must enable `MCP_ENABLED` and restart the engine. [Set up AI](/docs/run/set-up-ai/#4-enable-external-agent-access-if-needed) covers that deployment step.
++Ask a security administrator for the **Address** under **Settings › Connections › Agent access › How to connect**. It ends in `/mcp`. If the page says **Agent access is off**, an operator must enable `MCP_ENABLED` and restart the engine. [Set up AI](/docs/run/set-up-ai/#4-enable-external-agent-access-if-needed) covers that deployment step.
+ 
+ ![Agent access enabled, showing the connection address and connection instructions](/docs/screens/integrate-agent-access-connect.png)
+ 
+--- guide/src/content/docs/guide/integrate/subscribe-a-webhook-and-verify-it.md (before wave)
++++ guide/src/content/docs/guide/integrate/subscribe-a-webhook-and-verify-it.md
+@@ -8,7 +8,7 @@
+ 
+ 1. Confirm with the operator that webhook subscriptions are enabled. Obtain Integration administration in the intended workspace. Inspect the contract's Events operation and choose the events and filters. For the reference model, inspect [stops Events](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/events). Do not assume another model has that event.
+ 2. Prepare an HTTPS receiver that retains raw request bytes, verifies signatures before handling data and acknowledges durably accepted work within 10 seconds. Make event handling repeatable by event ID. Accept both selected formats and batch sizes only as agreed; allow an oversized single object beyond the normal 1 MiB batch boundary.
+-3. Create the subscription through the [subscription operation](/docs/api/?api=management#tag/consumer%20subscriptions), selecting the workspace, contract, event names, receiver, filters, representation and batching. Supply `contractVersion` to select a served earlier version; omitting it selects the current version. Read [Earlier-contract subscriptions](/docs/integrate/consumer-events-and-webhooks/#keep-a-receiver-on-an-earlier-contract) before choosing. Save the one-time signing secret directly to protected receiver configuration. For browser setup, open **Settings › Integration › Webhooks**. See [Clients for other systems](/docs/administer/clients/) for client access.
++3. Create the subscription through the [subscription operation](/docs/api/?api=management#tag/consumer%20subscriptions), selecting the workspace, contract, event names, receiver, filters, representation and batching. Supply `contractVersion` to select a served earlier version; omitting it selects the current version. Read [Earlier-contract subscriptions](/docs/integrate/consumer-events-and-webhooks/#keep-a-receiver-on-an-earlier-contract) before choosing. Save the one-time signing secret directly to protected receiver configuration. For browser setup, open **Settings › Connections › Webhooks**. See [Clients for other systems](/docs/administer/clients/) for client access.
+ 4. Verify a delivery using its timestamp plus a dot plus the raw body bytes, with HMAC-SHA256 keyed by the secret exactly as issued. Reject stale timestamps and compare each comma-separated signature in constant time. Accept if one supported signature verifies. Return a 2xx after storing the work safely.
+ 5. Inspect the [delivery log](/docs/api/?api=management#tag/consumer%20subscriptions). Check successful acknowledgment and your local deduplication record. A timeout can cause repeat delivery even if your receiver processed the first request. Automatic retries can contain newer object values for the same event.
+ 6. Rotate the signing key with an overlap, install the new secret in the receiver, verify it works and let the old key end. Keep multi-signature support: it is needed during rotation and on retries.
+--- guide/src/content/docs/guide/model/delete-a-model-mapping.md (before wave)
++++ guide/src/content/docs/guide/model/delete-a-model-mapping.md
+@@ -8,7 +8,7 @@
+ access. This removes its saved editing history and proposals too. Read
+ [Model mappings](/docs/model/model-mappings/) before deleting one still used by other people.
+ 
+-1. Open **Settings**, **Data operations**, **Copy and move**. Find the mapping under **Mappings**;
++1. Open **Settings**, **Workspaces and models**, **Copy and move**. Find the mapping under **Mappings**;
+    check **From model**, **To model**, **Version** and **Updated**.
+ 2. Choose its **Delete…**. The confirmation asks **Delete the mapping …?** and names both models.
+ 3. Read the warning: copies and moves already made remain; new work needs a new mapping.
+--- guide/src/content/docs/guide/model/edit-a-record-page.md (before wave)
++++ guide/src/content/docs/guide/model/edit-a-record-page.md
+@@ -101,9 +101,10 @@
+ 1. In **Record page**, choose **Header and breadcrumbs…**.
+ 2. Select **Title of the record** from Name or an attached field. **Line under the title**
+    adds a second field; choose **None** to remove it.
+-3. Choose **Show the type’s name in the header** as needed. Set **Breadcrumbs start with the
+-   application**, **Breadcrumbs name the type** and **Breadcrumbs name the records above it**
+-   independently. These change this page’s context, not a record’s parent or name.
++3. Choose **Show the type’s name in the header** as needed. **Breadcrumbs name the type**
++   also shows the type in the header; **Breadcrumbs name the records above it** shows parents
++   in the line above the title. That line starts with the list link when opened from a list,
++   without an application entry. These choices do not change a record’s parent or name.
+ 4. Apply and inspect the preview with a record that has parents. Undo restores the saved step.
+ 
+ ![Record page Header and breadcrumbs dialog](/docs/screens/model-header-breadcrumbs.png)
+--- guide/src/content/docs/guide/model/see-a-consumer-apis-documents.md (before wave)
++++ guide/src/content/docs/guide/model/see-a-consumer-apis-documents.md
+@@ -64,7 +64,7 @@
+ 
+ ## Hand over the active contract
+ 
+-1. After the release is installed and activated, open **Settings › Integration › Consumer APIs**.
++1. After the release is installed and activated, open **Settings › Connections › Consumer APIs**.
+    This read-only page names the active release. Use **Open the release** to check it is
+    the release you intended; it does not provide the draft's Schema and Message example tabs.
+ 2. Find the API's section and version. Use **Base URL** and **OpenAPI document** to copy
+--- guide/src/content/docs/guide/use/approve-a-change-set.md (before wave)
++++ guide/src/content/docs/guide/use/approve-a-change-set.md
+@@ -11,14 +11,15 @@
+ ## Submit your work
+ 
+ 1. [Prepare the change set](/docs/guide/use/prepare-and-publish-a-change-set/), then check its
+-   workspace, name and version in the banner. Review the proposed records and relationships.
++   workspace in the sidebar and name in the band. Open **Details** for its version.
++   Review the proposed records and relationships.
+ 2. Choose **Submit for publication** where offered. The dialog explains that refiroo validates
+    the change set and that it cannot be edited while it waits. Add a comment if the approver
+    needs context, then choose **Submit**. **Cancel** leaves it unsubmitted.
+ 3. If validation fails, fix the reported problems and submit again. Success says
+    **Submitted for publication. It waits for approval.** The approvers receive a notice.
+-4. Check that the banner now says **Waiting for approval** and shows the submitted version,
+-   your name and your comment. To change your proposal while it waits, choose **Withdraw request** first. The proposed work
++4. Check that the band now says **waits for approval**. Open **Details** for the submitted
++   version and your name; read your comment in the review’s **Decision** panel. To change your proposal while it waits, choose **Withdraw request** first. The proposed work
+    stays in the change set and becomes editable. After correction, submit a new request.
+ 
+ ![Submitted change set showing Waiting for approval, version, comment and Withdraw request](/docs/screens/appr-submitted.png)
+@@ -86,8 +87,9 @@
+ 
+ 1. Open the returned change set from your notice or the change-set list. The notice says
+    **Sent back** and names the request; its detail includes the reason and approver.
+-2. Read the reason in the change-set banner. The request is no longer waiting and the change
+-   set is editable again. Inspect and correct the affected records and relationships.
++2. Read the reason in the notice below the change-set band. The request is no longer waiting
++   and the change set is editable again. From **Changes in this change set**, choose **See the
++   data with these changes** to inspect and correct the affected records and relationships.
+ 3. Review the whole result, then choose **Submit for publication** again. In **Comment (optional)**,
+    explain what you corrected or add the context the approver requested. Choose **Submit**.
+    The change set is validated again and waits for a new decision. **Cancel** leaves it editable.
+--- guide/src/content/docs/guide/use/change-how-refiroo-looks.md (before wave)
++++ guide/src/content/docs/guide/use/change-how-refiroo-looks.md
+@@ -7,7 +7,7 @@
+ Adjust the display without changing the data. See
+ [Appearance and devices](/docs/use/appearance-and-devices/) for keyboard and phone use.
+ 
+-1. Open **All settings** from your account menu, then **Appearance** under **General**.
++1. Open **All settings** from your account menu, then **Appearance** under **You**.
+    On a phone, open **Settings: …** to reach the settings navigation.
+ 2. Under **Theme**, choose **Normal** or **Website purple** for the colours. Under **Light
+    or dark**, choose **System**, **Light** or **Dark**. System follows the device. Both themes
+--- guide/src/content/docs/guide/use/continue-a-long-list.md (before wave)
++++ guide/src/content/docs/guide/use/continue-a-long-list.md
+@@ -18,7 +18,7 @@
+ 4. Where **Go to** is offered, enter a value for the current sort and submit it. This seeks the
+    value's place in that ordering; it does not add a filter. Check nearby names and identifying
+    fields if there is no exact match.
+-5. Open a record. Use **Back to list** to return with your search, filters, sort and position.
++5. Open a record. Choose **←** and the list’s name above the title to return with your search, filters, sort and position.
+    Save or share the address if you need to return later. Changes to the underlying data can
+    change the records at that position.
+ 
+--- guide/src/content/docs/guide/use/copy-or-move-records.md (before wave)
++++ guide/src/content/docs/guide/use/copy-or-move-records.md
+@@ -9,7 +9,7 @@
+ omissions and the difference between Copy and Move. For mapping design, ask a model
+ administrator to follow [Model mappings](/docs/model/model-mappings/).
+ 
+-1. Open **Settings › Data operations › Copy and move**. Check **Recent copies and moves**
++1. Open **Settings › Workspaces and models › Copy and move**. Check **Recent copies and moves**
+    for an existing operation before choosing **New copy or move…**.
+ 2. Choose **From workspace** and **To workspace**. Check their model names and releases.
+    Under **Mapping**, select the agreed saved mapping. If none fits, stop and have its owner
+--- guide/src/content/docs/guide/use/correct-a-record.md (before wave)
++++ guide/src/content/docs/guide/use/correct-a-record.md
+@@ -37,7 +37,8 @@
+ 
+ ## Change several fields together
+ 
+-1. Open the **…** menu beside the record version in the heading and choose **Edit record**.
++1. Open the **…** menu in the record’s header and choose **Edit record**.
++   The record’s ID and version are under **Details**.
+    The **Edit object** form opens with the current values.
+ 2. Correct the fields you need. **Name** identifies the record; the other fields describe it.
+    Check each field's label rather than assuming similarly named fields change together.
+--- guide/src/content/docs/guide/use/export-records.md (before wave)
++++ guide/src/content/docs/guide/use/export-records.md
+@@ -17,7 +17,7 @@
+ 3. To take a wider selection, choose **The type**, **The application** or **The whole workspace**.
+    These choices select whole types rather than the current view's narrowed rows. Check
+    **Record types** and **Where** where offered. You can also start an export from
+-   **Settings › Data operations › Jobs**.
++   **Settings › This instance › Jobs**.
+ 4. Choose **Kind of file**. **For editing in a spreadsheet** makes an Excel (XLSX) workbook
+    shaped for the chosen view or types. **Technical** is offered for a table view, a type,
+    an application or the workspace; it offers **Excel (XLSX)**, **CSV** or **JSON Lines**
+--- guide/src/content/docs/guide/use/find-records.md (before wave)
++++ guide/src/content/docs/guide/use/find-records.md
+@@ -13,8 +13,8 @@
+ 
+ ## Open the right list
+ 
+-1. On Home, find the workspace you need under **Your workspaces**. Choose an application on
+-   its card. The application opens with that workspace selected.
++1. On Home, find the workspace you need under **Your workspaces**. Choose its name or tile
++   to open its page, then choose an application. An application link on its card opens it directly.
+ 2. Check **Workspace** in the sidebar. If it names a different workspace, select the intended
+    one before searching: a record with the same name elsewhere may hold different data.
+ 3. Choose the collection you need under **Collections**. In an application with more than
+@@ -36,7 +36,10 @@
+ 
+ ## Search for a record
+ 
+-1. Type all or part of the record's name in the search box above the list. Wait for the results
++1. To search names across the workspace, use **Find any record** in the top bar or **Find a
++   record** on the workspace’s page. Check the list and path beside a result; use the arrow
++   keys and Enter to open one in **Live**. To stay in a change set or publication, or search
++   just this collection, type all or part of the record’s name in the search box above the list. Wait for the results
+    to update. Use a shorter part of the name if you are unsure of its spelling.
+ 2. Check the result names and identifying fields before opening one. Several records may have
+    similar names; a number, date or related record can distinguish them.
+@@ -97,7 +100,7 @@
+ 3. Read the relationship sections for connected records. Scroll down to find further sections.
+    **No relationships yet** means that section has no connections. If a panel reports an error,
+    retry that panel; the error does not mean there are no related records.
+-4. Choose **Back to list** when finished. Your search, filters, sort and position are preserved,
++4. Choose **←** and the list’s name above the title when finished. Your search, filters, sort and position are preserved,
+    so you can inspect the next result. To make a correction, follow
+    [Correct a record](/docs/guide/use/correct-a-record/).
+ 
+@@ -140,7 +143,8 @@
+    connections last. Columns holding several related records or showing their fields do not
+    sort. Use a relationship filter rather than trying to filter a chip column.
+ 4. Use **Display** to change shown columns. A one-line value ending in an ellipsis can be read
+-   in full on hover, focus or long press. Return with **Back to list** after inspecting a record;
++   in full on hover, focus or long press. If columns have folded, choose **Columns · n of m**
++   to show them all. Return using **←** and the list’s name above the title after inspecting a record;
+    the address preserves search, filters, the single sort and your position.
+ 
+ The same list navigation works in Live, change sets and publications. If a jump or later page
+--- guide/src/content/docs/guide/use/follow-and-cancel-a-job.md (before wave)
++++ guide/src/content/docs/guide/use/follow-and-cancel-a-job.md
+@@ -7,7 +7,7 @@
+ Follow work after leaving its collection or import dialog. See [Jobs](/docs/use/jobs/) for
+ states, access and retention.
+ 
+-1. Open **View job** in the starting notification, or go to **Settings › Data operations › Jobs**
++1. Open **View job** in the starting notification, or go to **Settings › This instance › Jobs**
+    and open the job; a group of related jobs opens first, and its jobs under it. Check **Workspace**
+    and **Requested by** before acting.
+ 2. Read **State** and progress. A preview waiting for confirmation has not written its proposed
+--- guide/src/content/docs/guide/use/import-a-file.md (before wave)
++++ guide/src/content/docs/guide/use/import-a-file.md
+@@ -12,7 +12,7 @@
+ file to an AI assistant.
+ 
+ 1. Open the intended workspace and collection. Choose **Workspace actions › Import**. To
+-   choose another destination, open **Settings › Data operations › Jobs › New import** and
++   choose another destination, open **Settings › This instance › Jobs › New import** and
+    choose the workspace and **Load into** context.
+ 2. Choose **File**. The chooser accepts Excel workbooks, CSV and supported technical export
+    files. Choose the stored **Profile** for an ordinary workbook or CSV, or **None** for a
+--- guide/src/content/docs/guide/use/load-the-next-version-of-a-workbook.md (before wave)
++++ guide/src/content/docs/guide/use/load-the-next-version-of-a-workbook.md
+@@ -8,7 +8,7 @@
+ model from a new workbook; that task belongs to
+ [Workbook onboarding](/docs/model/workbook-onboarding/).
+ 
+-1. Open **Settings › Data operations › Import profiles**. Select the profile and read its
++1. Open **Settings › Workspaces and models › Import profiles**. Select the profile and read its
+    **Last load**: file, destination, row counts and whether its change set was published.
+ 2. If your permissions offer **Upload the next version…**, choose it and upload the newer
+    workbook. Choose the intended comparison workspace and wait while it is checked.
+--- guide/src/content/docs/guide/use/open-an-application.md (before wave)
++++ guide/src/content/docs/guide/use/open-an-application.md
+@@ -13,8 +13,9 @@
+ 1. Select the refiroo name in the top bar to open Home. Under **Your workspaces**, find the
+    intended workspace. Check the model name and release on its card; similar workspace names
+    do not guarantee the same data or structure.
+-2. Choose an application button on that card. Its default view opens in that workspace.
+-   The application names come from the model.
++2. Choose the workspace’s name or tile to open its page, then choose an application. Its
++   default view opens in that workspace. The application names come from the model. An
++   application link on the Home card opens that application directly.
+ 3. Check **Workspace** in the sidebar and the context banner above the records. Choose **Live**
+    for current data, or open the intended change set or publication. A publication is read-only;
+    Live saves apply immediately.
+@@ -29,7 +30,8 @@
+ 
+ ## Choose a collection and view
+ 
+-1. Select an application in the top bar. Read its sidebar collections; switching applications
++1. Select an application in the top bar, using **More** if it does not fit. On a phone,
++   choose it in the band beneath the top bar. Read its sidebar collections; switching applications
+    can change which collections are offered. If a collection group is folded, expand it.
+ 2. Choose the collection you need. Check the page heading and description.
+ 3. If tabs appear below the heading, choose the view that suits your task. A table helps
+--- guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md (before wave)
++++ guide/src/content/docs/guide/use/prepare-and-publish-a-change-set.md
+@@ -18,8 +18,9 @@
+ 1. Open an application in the current workspace. Check **Workspace** in the sidebar, then
+    choose **Change sets** at the top. The list identifies existing change sets by name and
+    shows their versions, starting data and creators.
+-2. To continue existing work, find its name and choose **Open change set**. Check the name in
+-   the banner before editing. Opening a change set does not publish it.
++2. To continue existing work, find its name and choose **Open change set**. **Changes in this
++   change set** opens first. Choose **See the data with these changes** to reach its lists,
++   and check the name in the band before editing. Opening a change set does not publish it.
+ 3. To start separate work, choose **Start from current live data**. Enter a **Change set name**
+    that helps other people recognise the work. If **Model version** appears, keep the active
+    version for ordinary data corrections; coordinate a different choice with a model administrator.
+@@ -37,8 +38,9 @@
+ 
+ ## Make the changes
+ 
+-1. Check the orange **Change set** banner. It must name the intended set and say **Edits stay in
+-   this change set until it is published**. If the banner says **Live**, open your change set
++1. Check the orange **Change set** band. It names the intended set, its number of changes
++   and state. Open **Details** for its creator, creation time, version and model. If the band
++   says **Live**, open your change set
+    before making staged corrections.
+ 2. Choose a collection and find a record. [Correct its fields](/docs/guide/use/correct-a-record/)
+    and save using the ordinary record controls. Check that the saved values appear in the
+@@ -47,8 +49,8 @@
+    Return to the named change set to continue preparing it. Later live corrections do not
+    refresh its starting copy.
+ 4. If a save is refused, read the message and review the current record or change-set version
+-   before retrying. If the set is **Waiting for approval**, follow the banner's instruction to
+-   withdraw the request before editing.
++   before retrying. If the band says **waits for approval**, open **Details** for the submission
++   and withdraw the request before editing.
+ 
+ ![An open change set with its name, context banner and preparation controls](/docs/screens/change-set-open.png)
+ 
+@@ -64,7 +66,7 @@
+ 2. Choose **Relationships** and review the connection changes too. If a long review is hard to
+    inspect, use **Filter** to narrow it, then remove the restriction to check the remaining work.
+    An empty filtered review does not mean the whole proposal is empty.
+-3. Choose **Back to change set** to correct anything unexpected. Save those corrections and
++3. Choose **See the data with these changes** to correct anything unexpected. Save those corrections and
+    review again before proceeding.
+ 4. Choose **Validate change set**. If problems are reported, use the named records and reasons
+    to correct them in the change set, then validate again. Do not proceed while problems remain.
+--- guide/src/content/docs/guide/use/review-what-a-change-set-changes.md (before wave)
++++ guide/src/content/docs/guide/use/review-what-a-change-set-changes.md
+@@ -7,8 +7,9 @@
+ Compare proposed work with the data the change set started from. See
+ [Change sets](/docs/use/change-sets/#review-explains-the-differences).
+ 
+-1. Open the change set and choose **Review changes** in its amber strip. Confirm the name
+-   and source. If it started from a publication, the earlier values come from that publication,
++1. From **Change sets**, choose **Open change set** to open **Changes in this change set**.
++   If you are already browsing its data, choose **Review changes** in the amber band. Confirm
++   its name; open **Details** for its source. If it started from a publication, the earlier values come from that publication,
+    not today's Live.
+ 2. Under **Records**, filter by change kind or record type. Open a row to read before/after
+    values and paths. A moved record names both parents. A type-change filter can match either
+@@ -17,7 +18,8 @@
+    review alone does not account for every changed connection.
+ 4. Scroll or jump through the lists. The address retains the tab, filters and position so
+    you can return to the same part of the review.
+-5. Return to editing for corrections, then choose **Validate change set**. Resolve its named
++5. Choose **See the data with these changes** to return to editing for corrections, then
++   choose **Validate change set**. Resolve its named
+    problems and validate the new version again before publishing or submitting.
+ 
+ A record created and deleted in the same change set contributes no remaining change and is
+--- guide/src/content/docs/guide/use/switch-workspace.md (before wave)
++++ guide/src/content/docs/guide/use/switch-workspace.md
+@@ -31,7 +31,8 @@
+ 
+ 1. Select the refiroo name in the top bar.
+ 2. Under **Your workspaces**, check the destination card's model and release.
+-3. Choose an application button on that card. Check the sidebar and banner in the page that opens.
++3. Choose the workspace’s name or tile to open its page, then choose an application.
++   Check the sidebar and banner in the application that opens.
+    Continue with [Open an application](/docs/guide/use/open-an-application/).
+ 
+ If the selector is absent, only one workspace is available. If the intended workspace is missing,
+--- guide/src/content/docs/integrate/api-reference.md (before wave)
++++ guide/src/content/docs/integrate/api-reference.md
+@@ -10,7 +10,7 @@
+ 
+ The reference opens with **Management API** and lists the consumer APIs declared by the selected workspace's model, each with its contract version. Retained earlier versions also have their own OpenAPI documents; their operations are marked deprecated and their introduction names the replacement and any announced sunset day. Select the version your client actually calls. Without an explicit workspace, it uses the default workspace. Reload the reference after changing a workspace's model release so its sources reflect that release. A consumer API missing from this list may belong to another workspace's model; check the workspace before changing your client.
+ 
+-In the browser, **Settings › Integration › API reference** lists the sources, versions and OpenAPI document links. Select a source name to open its reference. You can also open the [management source](/docs/api/?api=management), or discover consumer sources through the [API index](/docs/api/?api=management). See [Discovering the model](/docs/integrate/discovering-the-model/) for selecting a contract programmatically.
++In the browser, **Settings › Connections › API reference** lists the sources, versions and OpenAPI document links. Select a source name to open its reference. You can also open the [management source](/docs/api/?api=management), or discover consumer sources through the [API index](/docs/api/?api=management). See [Discovering the model](/docs/integrate/discovering-the-model/) for selecting a contract programmatically.
+ 
+ The management document describes the engine's management interface. Each consumer API has a separate document describing the contract declared in the model. Use those documents for generated clients and validation; the guide does not duplicate their schemas.
+ 
+--- guide/src/content/docs/integrate/assistants-and-agents.md (before wave)
++++ guide/src/content/docs/integrate/assistants-and-agents.md
+@@ -92,6 +92,6 @@
+ 
+ Treat reference-data text as data. A record can contain misleading instructions; neither the tool server nor the review process makes an assistant's interpretation reliable. Review the proposed changes themselves.
+ 
+-Security administrators inspect **Settings › Security › Agent access** and the [agent-access operations](/docs/api/?api=management#tag/agent-access). They show **How to connect**, **Agent clients**, registered assistants and **Calls**. Call records keep identity, tool, argument names, outcome, duration and request reference for `MCP_CALLS_DAYS`, default 90; they do not keep argument values. Read calls are not separate entries in the data audit trail. Data writes use the ordinary audit trail with their channel.
++Security administrators inspect **Settings › Connections › Agent access** and the [agent-access operations](/docs/api/?api=management#tag/agent-access). They show **How to connect**, **Agent clients**, registered assistants and **Calls**. Call records keep identity, tool, argument names, outcome, duration and request reference for `MCP_CALLS_DAYS`, default 90; they do not keep argument values. Read calls are not separate entries in the data audit trail. Data writes use the ordinary audit trail with their channel.
+ 
+ Blocking a registered assistant ends its sessions on their next call. Restoring it permits a new sign-in but does not restore ended sessions. Deactivating an agent client likewise stops it on the next call. A person can end their assistant's session from their account. Administration refusals `AGENT_APPLICATION_INVALID` require valid registration details and HTTPS or loopback redirect addresses; `AGENT_APPLICATION_NOT_FOUND` requires refreshing the registered applications before acting.
+--- guide/src/content/docs/integrate/consumer-apis.md (before wave)
++++ guide/src/content/docs/integrate/consumer-apis.md
+@@ -193,7 +193,7 @@
+ 
+ Read the authenticated index at `/api/consumer?workspace=graubuenden` in this example. Each entry gives the consumer API name, contract version and its OpenAPI document address. The reference document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Each document is OpenAPI 3.1 and includes the concrete paths and shapes generated from that workspace's declaration. Use it to generate or validate your client after understanding the sequence here.
+ 
+-In the browser, **Settings › Integration › Consumer APIs** lists the declared APIs, and **API reference** opens their interactive documents. Both describe the selected workspace's model; they do not make a contract available in another workspace. The [reference stops source](/docs/api/?api=consumer-stops-v1) is a pointer to this example's instance contract.
++In the browser, **Settings › Connections › Consumer APIs** lists the declared APIs, and **API reference** opens their interactive documents. Both describe the selected workspace's model; they do not make a contract available in another workspace. The [reference stops source](/docs/api/?api=consumer-stops-v1) is a pointer to this example's instance contract.
+ 
+ The examples use the reference dataset of 2026-11-02. The worked object, list, lookup, resolution and Events response bodies on the linked pages were read from the reference instance. The comparison table above was composed with the object renderer; its operator object is not a captured Get by ID response. Cursors, ETags and event positions belong to a particular instance and read context. Obtain them from your own responses. Webhook deliveries remain explicitly illustrative.
+ 
+--- guide/src/content/docs/integrate/consumer-events-and-webhooks.md (before wave)
++++ guide/src/content/docs/integrate/consumer-events-and-webhooks.md
+@@ -24,7 +24,7 @@
+ 
+ ## Subscribe a receiver
+ 
+-The [consumer subscription operations](/docs/api/?api=management#tag/consumer%20subscriptions) require Integration administration in the workspace and the deployment's webhook capability. It is off by default. Subscriptions are runtime configuration, not model content. In the browser, administrators manage subscriptions under **Settings › Integration › Webhooks**. See [Clients for other systems](/docs/administer/clients/) for client access.
++The [consumer subscription operations](/docs/api/?api=management#tag/consumer%20subscriptions) require Integration administration in the workspace and the deployment's webhook capability. It is off by default. Subscriptions are runtime configuration, not model content. In the browser, administrators manage subscriptions under **Settings › Connections › Webhooks**. See [Clients for other systems](/docs/administer/clients/) for client access.
+ 
+ Choose events, declared narrowing filters, full objects or notifications, RDM JSON or CloudEvents, and one event per request or batching. Batching holds up to 1,000 events, sending what is ready without waiting to fill it. A batch normally stops at 1 MiB; a single oversized event is sent alone. The receiver must allow that exception. CloudEvents uses structured single-event or batch form according to the subscription's request mode, including a batch containing only one event.
+ 
+--- guide/src/content/docs/integrate/discovering-the-model.md (before wave)
++++ guide/src/content/docs/integrate/discovering-the-model.md
+@@ -22,7 +22,7 @@
+ 
+ ## Inspect the contract in the browser
+ 
+-**Settings › Integration › Consumer APIs** is a read-only catalogue for people with Browse. It shows the contract's name, version, base address, OpenAPI document, exposed types, lists and events. **Open the release** and **Open model** lead to the declaring model; they do not grant permission to edit it. Its **Change feed** section describes retention. Use the [consumer reading pages](/docs/integrate/consumer-apis/) for explanations and complete example exchanges, the [model administrator's page](/docs/model/consumer-apis/) for designing the declaration, and [The API reference](/docs/integrate/api-reference/) for trying operations.
++**Settings › Connections › Consumer APIs** is a read-only catalogue for people with Browse. It shows the contract's name, version, base address, OpenAPI document, exposed types, lists and events. **Open the release** and **Open model** lead to the declaring model; they do not grant permission to edit it. Its **Change feed** section describes retention. Use the [consumer reading pages](/docs/integrate/consumer-apis/) for explanations and complete example exchanges, the [model administrator's page](/docs/model/consumer-apis/) for designing the declaration, and [The API reference](/docs/integrate/api-reference/) for trying operations.
+ 
+ ## Separate semantics from allowed placements
+ 
+--- guide/src/content/docs/integrate/jobs.md (before wave)
++++ guide/src/content/docs/integrate/jobs.md
+@@ -46,7 +46,7 @@
+ | `JOB_HAS_NO_OUTPUT` | Use the kind's outcomes or subject rather than a file. |
+ | `JOB_OUTPUT_MISSING` | Ask the operator to investigate lost job storage. |
+ 
+-Operators can inspect these same jobs in Settings › Data operations › Jobs, including state, result, counts, cancellation and current limits. For browser tasks, follow [Importing and exporting data](/docs/use/importing-and-exporting/).
++Operators can inspect these same jobs in Settings › This instance › Jobs, including state, result, counts, cancellation and current limits. For browser tasks, follow [Importing and exporting data](/docs/use/importing-and-exporting/).
+ 
+ ## A job’s context and limits
+ 
+--- guide/src/content/docs/journeys/work-with-an-assistant.md (before wave)
++++ guide/src/content/docs/journeys/work-with-an-assistant.md
+@@ -23,7 +23,7 @@
+ settings and failure recovery. A configuration that cannot work refuses startup and names the
+ setting to correct.
+ 
+-With **Operations**, open **Settings › Administration › AI** to inspect which help is on and
++With **Operations**, open **Settings › This instance › AI** to inspect which help is on and
+ what may be sent. [Check the AI provider](/docs/guide/administer/check-the-ai-provider/) leads
+ through **Send a test request**, which contains no reference data, then the call records and
+ 30-day totals. A refused key, unreachable service or unreadable answer is recorded as a failure.
+@@ -102,7 +102,7 @@
+ An integrator connects an MCP-capable assistant once the operator enables agent access. Follow
+ [Connect an assistant](/docs/guide/integrate/connect-an-assistant/). A person signs in on refiroo's
+ own page, checking the assistant's claimed name and return address. An unattended system uses
+-an agent client created under **Settings › Security › Agent access**.
++an agent client created under **Settings › Connections › Agent access**.
+ 
+ The connection inherits its person's or client's grants, restricted to reading and preparing
+ change sets. It never gains approval or publication rights. End a personal session from
+--- guide/src/content/docs/model/model-mappings.md (before wave)
++++ guide/src/content/docs/model/model-mappings.md
+@@ -84,7 +84,7 @@
+ 
+ ## Editor tabs and the running job
+ 
+-**Settings › Data operations › Copy and move** lists saved Mappings with their source and target
++**Settings › Workspaces and models › Copy and move** lists saved Mappings with their source and target
+ models, version and updated time. **Recent copies and moves** lists workspace pairs, Copy or Move,
+ state, change sets and creation time. **Load more mappings** reads older mappings.
+ 
+--- guide/src/content/docs/model/record-pages-and-tables.md (before wave)
++++ guide/src/content/docs/model/record-pages-and-tables.md
+@@ -110,9 +110,10 @@
+ 
+ List panels can read 1–100 rows per page. A reading size limits a page of results, not the
+ whole collection. The record header normally shows the name and type; a declared title or
+-subtitle field can supply other context. Breadcrumbs can include the application, type and
+-ancestors. In **Record page**, choose **Header and breadcrumbs…** to set the title, optional
+-line under it, type label and each breadcrumb part. This page-specific header does not change
++subtitle field can supply other context. The line above the title holds the list link, when
++opened from a list, and the ancestors the model shows; it has no application entry. In **Record
++page**, choose **Header and breadcrumbs…** to set the title, optional line under it, type label
++and whether ancestors appear. Either type-name choice places the type in the header. This page-specific header does not change
+ the type’s shared Display attribute.
+ 
+ ## Table columns, filters and sort
+--- guide/src/content/docs/run/ai.md (before wave)
++++ guide/src/content/docs/run/ai.md
+@@ -64,11 +64,11 @@
+ 
+ Other permissions still matter: AI access alone does not grant permission to import, edit a model
+ or work in a change set. People without the action group are not offered AI actions. Operators need
+-**Operations** to inspect **Settings › Administration › AI** and send a provider test request.
++**Operations** to inspect **Settings › This instance › AI** and send a provider test request.
+ 
+ External MCP assistants act within their person's or client's permissions, restricted to browsing
+ and work in change sets. They cannot approve, publish or write directly to live data. Security
+-administrators manage them on **Settings › Security › Agent access**.
++administrators manage them on **Settings › Connections › Agent access**.
+ 
+ ## The assistant's session
+ 
+@@ -142,7 +142,7 @@
+ 
+ ## Calls and costs
+ 
+-Open **Settings › Administration › AI** to see which switches are on, the send level and, when a
++Open **Settings › This instance › AI** to see which switches are on, the send level and, when a
+ provider is configured, its model, endpoint, whether a key is set, and the features available.
+ The key itself is never shown. This page displays settings; change them in the environment.
+ 
+@@ -191,7 +191,7 @@
+ ## Provider and assistant settings
+ 
+ Set these in the engine's environment, then recreate the Compose container or restart the host
+-service. **Settings › Administration › AI** displays them; it does not edit them.
++service. **Settings › This instance › AI** displays them; it does not edit them.
+ 
+ | Setting | Default | What to choose |
+ | --- | --- | --- |
+@@ -275,7 +275,7 @@
+ `MCP_ENABLED` enables MCP Streamable HTTP, protocol `2025-11-25`, at `/mcp`. The shipped web proxy
+ passes `/mcp` and `/.well-known/`; forward both when supplying your own proxy, and keep `PUBLIC_URL`
+ consistent with the public HTTPS address. With the switch off the endpoints return 404 and no agent
+-token is issued. **Settings › Security › Agent access** then says **Agent access is off**.
++token is issued. **Settings › Connections › Agent access** then says **Agent access is off**.
+ 
+ | Setting | Default | Effect |
+ | --- | --- | --- |
+--- guide/src/content/docs/run/background-jobs.md (before wave)
++++ guide/src/content/docs/run/background-jobs.md
+@@ -6,7 +6,7 @@
+ 
+ Background workers run inside each engine process. `INTEGRATION_JOBS_ENABLED=true`, the default,
+ enables creating and running jobs. Turning it off keeps job reads available but stops workers and
+-job mutations. Work also needs a healthy model. Check **Settings › Data operations › Jobs** for job
++job mutations. Work also needs a healthy model. Check **Settings › This instance › Jobs** for job
+ state and outcomes, and **Operations** for worker health. Permissions determine which jobs a person
+ may inspect or cancel; see [Jobs](/docs/use/jobs/).
+ 
+@@ -229,7 +229,7 @@
+ cleanup. Backups may omit it; losing it loses open tasks’ folders and session logs, not records.
+ After upgrading from the earlier shared-transcript layout, existing files are kept but the next
+ turn starts a new session. See [Upgrades](/docs/run/upgrades/#volumes-and-open-assistant-tasks).
+-**Calls** on **Settings › Administration › AI** keeps turn outcomes and usage separately. See
++**Calls** on **Settings › This instance › AI** keeps turn outcomes and usage separately. See
+ [AI retention and recovery](/docs/run/ai/#what-is-kept) before maintenance or a retry.
+ 
+ ![Jobs with queued, running and completed work](/docs/screens/run-jobs.png)
+--- guide/src/content/docs/run/backup-and-restore.md (before wave)
++++ guide/src/content/docs/run/backup-and-restore.md
+@@ -72,7 +72,7 @@
+ dropdb rdm_restore_check
+ ```
+ 
+-Open **Settings › Administration › Operations › Last backup rehearsal**. Before the first check,
++Open **Settings › This instance › Operations › Last backup rehearsal**. Before the first check,
+ **No backup has been rehearsed** means no result has been recorded. After a check it shows **Passed**
+ or **Failed**, the backup name when supplied, the copy's revision and the workspace results.
+ **Records**, **Relationships**, **Open change sets** and **Publications** count the restored copy;
+--- guide/src/content/docs/run/configure.md (before wave)
++++ guide/src/content/docs/run/configure.md
+@@ -10,7 +10,7 @@
+ 
+ ## See what is running
+ 
+-With Operations access, open **Settings › Administration › Deployment**. **Capability groups**
++With Operations access, open **Settings › This instance › Deployment**. **Capability groups**
+ shows what this deployment serves. **Database** shows the migration revision. Each settings table
+ shows **Setting**, **Value**, **Default**, **Source** and **What it controls**.
+ **Environment** means explicitly supplied; **Default** means the engine chose its default.
+@@ -26,7 +26,7 @@
+ **Cursors do not survive a restart** means no stable `RDM_CURSOR_SIGNING_KEY` was supplied.
+ Set one shared key and recreate all processes; clients must restart lists using old cursors.
+ 
+-To identify versions, open **Settings › General › About**. **Engine** lists **Engine version**,
++To identify versions, open **Settings › This instance › About**. **Engine** lists **Engine version**,
+ **Management API**, **Schema languages**, **Licence** and **Source code** (opens in a new tab).
+ **Active model release** lists **Name**, **Key**, **Version**, **Schema language** and **Activated**.
+ **Activated** is when that release was selected, not when it was installed. **Open release** opens
+--- guide/src/content/docs/run/health-and-startup-checks.md (before wave)
++++ guide/src/content/docs/run/health-and-startup-checks.md
+@@ -19,7 +19,7 @@
+ ```
+ 
+ Use your public host. Probes reveal only `ok` or `unhealthy`; authenticated operators get the detail
+-on **Settings › Administration › Operations**. A ready installation can still have an unavailable
++on **Settings › This instance › Operations**. A ready installation can still have an unavailable
+ workspace. Inspect that page's workspace rows, not just the probe.
+ 
+ ## A process refuses startup or stays unready
+--- guide/src/content/docs/run/install-with-compose.md (before wave)
++++ guide/src/content/docs/run/install-with-compose.md
+@@ -287,7 +287,7 @@
+ Operations and grants before changing the bootstrap file. This checks a real session as well as
+ the unauthenticated health probe.
+ 
+-Add other people through **Settings › Security › People**:
++Add other people through **Settings › People and access › People**:
+ 
+ 1. Select **New person**. Fill **Name** and **E-mail**, the address they sign in with.
+ 2. Select **Create and make a password link**. The **Pass on the password link** dialog shows a
+--- guide/src/content/docs/run/licence-and-source.md (before wave)
++++ guide/src/content/docs/run/licence-and-source.md
+@@ -21,7 +21,7 @@
+ docker compose up -d engine
+ ```
+ 
+-Check the source link in **Settings › General › About** and the account menu. It must lead
++Check the source link in **Settings › This instance › About** and the account menu. It must lead
+ to the source of that running build. The authenticated system-information operation
+ `GET /api/v1/system` also reports it as `engine.sourceCode`, alongside engine version and licence;
+ see the [API reference](/docs/api).
+--- guide/src/content/docs/run/monitoring.md (before wave)
++++ guide/src/content/docs/run/monitoring.md
+@@ -4,7 +4,7 @@
+ reader: operator
+ ---
+ 
+-Start with **Settings › Administration › Operations**, available with Operations access. It shows
++Start with **Settings › This instance › Operations**, available with Operations access. It shows
+ workspaces served or unavailable, live and silent processes, jobs, and webhook subscription states.
+ Below the totals are workspace failures, process threads and pool use, the latest backup rehearsal,
+ and probe addresses. It refreshes every 15 seconds while visible; **Refresh** reads again immediately.
+@@ -305,13 +305,13 @@
+ 
+ ## Watch AI and agent calls
+ 
+-**Settings › Administration › AI** needs Operations access and lists each provider call and
++**Settings › This instance › AI** needs Operations access and lists each provider call and
+ assistant turn with its purpose, requester, outcome, tokens, reported cost and duration. Totals
+ cover 30 days. This is usage evidence, not a billing statement. **Send a test request** checks only
+ the provider and sends no reference data; test a real assistant task separately. Read the failure
+ sentence before retrying; a provider failure leaves ordinary work available.
+ 
+-For external assistants, a security administrator uses **Settings › Security › Agent access**.
++For external assistants, a security administrator uses **Settings › Connections › Agent access**.
+ Its separate call list shows answered, refused, limited and failed calls, including argument names
+ but never values. Use its request identifier when tracing a failure. See [AI and agent settings](/docs/run/ai/)
+ for send policy, cost, retention and revocation. Logging provider content is optional and can retain
+--- guide/src/content/docs/run/production-checklist.md (before wave)
++++ guide/src/content/docs/run/production-checklist.md
+@@ -21,7 +21,7 @@
+ 3. **Protect secrets.** Store the database password, sealing key and stable cursor key outside
+    version control and images. Keep the same keys across processes. Associate each backup with
+    its sealing key: [Secrets and keys](/docs/run/secrets-and-keys/).
+-4. **Confirm effective settings.** Read **Settings › Administration › Deployment**. Verify capability
++4. **Confirm effective settings.** Read **Settings › This instance › Deployment**. Verify capability
+    switches, limits, retention and migration revision. Recreate containers after environment
+    changes; restarting alone does not apply them.
+ 5. **Check access.** Test the first administrator, provider sign-in if used, appropriate grants,
+--- guide/src/content/docs/run/set-up-ai.md (before wave)
++++ guide/src/content/docs/run/set-up-ai.md
+@@ -178,7 +178,7 @@
+ 
+ This is optional and does not enable or authenticate the built-in assistant. The shipped web image
+ already forwards `/mcp` and `/.well-known/`; another reverse proxy must forward them too. After
+-restart, a security administrator can open **Settings › Security › Agent access** to register and
++restart, a security administrator can open **Settings › Connections › Agent access** to register and
+ manage assistants and agent clients. Their grants determine the data they can reach.
+ 
+ ## 5. Apply the settings
+@@ -217,7 +217,7 @@
+ 
+ ## 6. Check the provider and assistant separately
+ 
+-1. With **Operations** access, open **Settings › Administration › AI**. Under **What is switched on**,
++1. With **Operations** access, open **Settings › This instance › AI**. Under **What is switched on**,
+    check **Assistant** and **Provider** against what you enabled. **Assistant: On** means the command
+    is set; it does not prove a session can authenticate. Check **What may be sent** too.
+ 2. If a provider is configured, select **Send a test request**. Success shows **The AI provider
+@@ -231,7 +231,7 @@
+    read it without applying it. Reaching the proposal checks that the assistant can reach the
+    engine's API as well as authenticate with Claude Code. This exercises a real session and sends
+    the instructions, model and any records it needs.
+-4. Return to **Settings › Administration › AI**. The session's turn should appear in **Calls** with
++4. Return to **Settings › This instance › AI**. The session's turn should appear in **Calls** with
+    its outcome, tokens and any reported cost. Review or discard the test task when finished.
+ 
+ ## If startup or a request fails
+--- guide/src/content/docs/run/several-processes.md (before wave)
++++ guide/src/content/docs/run/several-processes.md
+@@ -54,7 +54,7 @@
+ them from applying the same work. A worker renews its lease while running; another takes over only
+ when renewal stops and `JOB_LEASE_SECONDS` expires, by default 120 seconds.
+ 
+-Open **Settings › Administration › Operations** with Operations access. It lists live and silent
++Open **Settings › This instance › Operations** with Operations access. It lists live and silent
+ processes, their readiness, threads, connections and workspace failures. Reports arrive every
+ `PROCESS_HEARTBEAT_SECONDS` (default 15); three missed intervals mark a process silent.
+ A clean stop removes the row; a dead process's row ages out after a day.
+--- guide/src/content/docs/run/sign-in-and-mail-setup.md (before wave)
++++ guide/src/content/docs/run/sign-in-and-mail-setup.md
+@@ -198,7 +198,7 @@
+ 
+ ## Prepare SMTP delivery
+ 
+-Arrange an SMTP server and a sender address. A security administrator saves these on **Settings › Integration › Mail**:
++Arrange an SMTP server and a sender address. A security administrator saves these on **Settings › This instance › Mail**:
+ 
+ 1. Choose **SMTP server** under **Send mail through**. In **Mail server**, enter **Server** and **Port**, then choose **Connection** (STARTTLS or TLS
+    for an authenticated server).
+@@ -261,7 +261,7 @@
+ 5. Confirm that the sending address belongs to a licensed user or a shared mailbox in this tenant.
+    Arrange access for someone to monitor that mailbox for bounces and replies.
+ 
+-On **Settings › Integration › Mail**, choose **Microsoft 365** under **Send mail through**.
++On **Settings › This instance › Mail**, choose **Microsoft 365** under **Send mail through**.
+ Enter **Tenant ID** and **Application (client) ID**, choose **Client secret** or **Certificate**
+ under **Sign in with**, and enter the prepared value or PEM text. Set **Sending mailbox** to the
+ mailbox above and **Application address** to the public address recipients use to open refiroo.
+@@ -303,7 +303,7 @@
+    The group must hold the sending mailbox. RBAC for Applications is another way to restrict it.
+    Without a restriction, the role allows sending as any mailbox in the tenant. Allow time for
+    a changed policy to apply before testing.
+-4. On **Settings › Integration › Mail**, choose **Microsoft 365**, then **Managed identity – this
++4. On **Settings › This instance › Mail**, choose **Microsoft 365**, then **Managed identity – this
+    tenant** under **Sign in with**. Leave **Identity client ID** empty for the system-assigned
+    identity, or enter the user-assigned identity’s client ID. Do not supply a tenant or application
+    ID; this choice neither asks for nor accepts them. Enter **Sending mailbox** and **Application
+@@ -352,7 +352,7 @@
+    application access policy, using `-AppId <the app's client ID>`, or RBAC for Applications.
+    For an application access policy, use a mail-enabled security group holding that mailbox.
+    Allow time for the restriction to apply.
+-5. On **Settings › Integration › Mail**, choose **Microsoft 365**, then **Managed identity – hosted
++5. On **Settings › This instance › Mail**, choose **Microsoft 365**, then **Managed identity – hosted
+    in another tenant** under **Sign in with**. Enter the customer’s **Tenant ID**, the multitenant
+    app’s **Application (client) ID** and the user-assigned **Identity client ID**. All three are
+    required. Enter **Sending mailbox** and **Application address**, then save and test below.
+@@ -468,7 +468,7 @@
+ 
+ ## Inbox mail and digests
+ 
+-The same sender delivers inbox notices and digests. People choose them in **Settings › General › Notification email**;
++The same sender delivers inbox notices and digests. People choose them in **Settings › You › Notification email**;
+ clients receive no mail. These choices do not need AI or another server setting. Immediate notices
+ are mailed only after a person opts in and while the notice is less than 24 hours old, preventing
+ an old backlog after a long outage. The inbox retains notices even when their mail is off.
+--- guide/src/content/docs/run/troubleshooting.md (before wave)
++++ guide/src/content/docs/run/troubleshooting.md
+@@ -16,7 +16,7 @@
+ 
+ If liveness answers but readiness does not, investigate the database or model readiness. Restarting
+ a healthy process repeatedly does not restore its database. With Operations access, open
+-**Settings › Administration › Operations** for workspace and process detail.
++**Settings › This instance › Operations** for workspace and process detail.
+ 
+ ## Requests and startup
+ 
+--- guide/src/content/docs/run/upgrades.md (before wave)
++++ guide/src/content/docs/run/upgrades.md
+@@ -41,8 +41,8 @@
+    docker compose logs --tail=100 engine
+    ```
+ 
+-5. Check **Settings › Administration › Deployment › Database › Migration revision** against the
+-   migrated version, then `/health` and **Settings › Administration › Operations**. Check every active workspace,
++5. Check **Settings › This instance › Deployment › Database › Migration revision** against the
++   migrated version, then `/health` and **Settings › This instance › Operations**. Check every active workspace,
+    not only overall readiness. Verify sign-in and a representative read before reopening writers.
+ 
+ Startup also migrates automatically. The explicit command exposes failure before cutover; a failed
+--- guide/src/content/docs/run/webhook-delivery.md (before wave)
++++ guide/src/content/docs/run/webhook-delivery.md
+@@ -12,14 +12,14 @@
+ expired positions suspend delivery as `EVENTS_EXPIRED`. Repeated requests to an absent route do
+ not turn it on. Check Deployment, enable the setting on the intended instance and recreate it.
+ 
+-An administrator or integration owner manages subscriptions on **Settings › Integration › Webhooks**.
++An administrator or integration owner manages subscriptions on **Settings › Connections › Webhooks**.
+ Use [Subscribe a webhook and verify it](/docs/guide/integrate/subscribe-a-webhook-and-verify-it/) for the integration sequence and the
+ [API reference](/docs/api) for operations. Receivers need a consumer API that declares events.
+ 
+ ## Find the subscription's state
+ 
+ Subscription management requires Integration administration for its workspace; an Operator role
+-alone does not grant it. On **Settings › Integration › Webhooks**, open the subscription by name.
++alone does not grant it. On **Settings › Connections › Webhooks**, open the subscription by name.
+ Check the address, consumer API, workspace, selected events, filter tags and request format against
+ the receiver's configuration. The **Configuration** tab shows its state, suspension reason and
+ recovery advice. Authorised owners can edit, suspend, resume, rotate its key or delete it there.
+--- guide/src/content/docs/use/applications.md (before wave)
++++ guide/src/content/docs/use/applications.md
+@@ -5,6 +5,9 @@
+ ---
+ 
+ Open an application to reach the records and views you need in the current workspace.
++Choose a workspace’s name or tile on Home to open its page: it offers record search, applications,
++your waiting change sets and the five latest changes. **Edit model** and the workspace’s **⋯**
++menu offer the actions and Settings pages your access allows.
+ Follow [Open an application](/docs/guide/use/open-an-application/) for the steps.
+ 
+ An **application** groups record types and views. Its name, collections and starting view come
+@@ -15,10 +18,10 @@
+ ## Collections and views
+ 
+ Choose an application in the top bar, then a collection in the sidebar. A collection can have
+-several views, shown as tabs. Changing tabs changes how you inspect the records; it does not
++several views, shown as tabs under the list’s title. Changing tabs changes how you inspect the records; it does not
+ copy them. The model can choose which view opens when you select a collection in the
+ sidebar or on a group page. That choice may differ from the application's starting view;
+-use the tabs to switch to another view when needed. **Browse records** offers another route to individual records through their hierarchy.
++use the tabs to switch to another view when needed. **Browse records** offers another route to individual records through their hierarchy. Open it to browse; it starts folded and remembers your choice in this browser.
+ 
+ ![An application with collections, record browsing and a table of records](/docs/screens/app-network.png)
+ 
+@@ -48,7 +51,9 @@
+ in a table, a hierarchy, a mapping grid and a relation matrix without becoming separate records.
+ 
+ The banner identifies **Live**, a **Change set**, or a publication. Live edits apply immediately;
+-a change set holds proposed changes; a publication is read-only. Check that context before editing.
++a change set holds proposed changes; a publication is read-only. On a computer the band shows
++only this data context, its explanation or change-set summary and the **Live · Change sets ·
++Publications** switch. On a phone it also shows the workspace and application. Check the context before editing.
+ Your roles determine which actions are offered. A declared view does not grant permission to
+ change its records. See [Record permissions](/docs/use/records/#who-may-read-and-change-records).
+ 
+@@ -84,7 +89,9 @@
+ 
+ On a wide screen, each application has a coloured tile in the top bar. The open application
+ is underlined; hovering over its tab shows the model's description. The product mark returns
+-to **Home**, and the gear opens **Settings**. On a phone, choose the application from the band
++to **Home**, and the gear opens **Settings**. Applications that do not fit are under **More**.
++Settings opens an index grouped by task. Inside Settings, **← Back to** followed by the workspace’s
++name returns to its page. On a phone, choose the application from the band
+ beneath the top bar instead. See [Appearance and devices](/docs/use/appearance-and-devices/).
+ 
+ If a group says **No collection or relation matrix in this group matches “…”**, clear **Find a collection or matrix**
+@@ -111,5 +118,8 @@
+ you of these keys. If **No list matches** appears, shorten or clear the text. Press **Esc** in
+ the box to clear it and restore each group's previous fold choice.
+ 
+-**Find a record**, under **Browse records**, searches records instead. The group page's
++**Find any record** in the top bar searches record names across the workspace instead. Results
++are grouped by record type and show each record’s place. Use the arrow keys to choose a result and
++Enter to open it. Workspace search opens the record in **Live**; use a collection’s own search
++to stay in a change set or publication. **Browse records** has no search box of its own. The group page's
+ **Find a collection or matrix** searches only that group's entries.
+--- guide/src/content/docs/use/change-sets.md (before wave)
++++ guide/src/content/docs/use/change-sets.md
+@@ -25,7 +25,8 @@
+ ## Where a change set starts
+ 
+ A change set starts from a copy of data at a particular moment. Its source is shown alongside
+-its name, version and model release.
++its name, version and model release in the change-set list; inside it, open **Details** in the
++band to read its source, creator, creation time, version and model.
+ 
+ | Source | What the change set initially contains |
+ | --- | --- |
+@@ -52,8 +53,8 @@
+ applied. Later live edits do not refresh that copy. People reading Live continue to see live
+ data, and other people can keep correcting it while the change set is open.
+ 
+-The orange **Change set** banner names the change set and says **Edits stay in this change set
+-until it is published**. The green **Live** banner says that edits apply immediately in the
++The orange **Change set** band shows its name, number of changes and state in one row on a
++computer. Edits stay in this change set until it is published. The green **Live** banner says that edits apply immediately in the
+ workspace. Check this context before saving. The ordinary record controls work in either context;
+ their destination is different. See
+ [Make the changes](/docs/guide/use/prepare-and-publish-a-change-set/#make-the-changes) and
+@@ -71,7 +72,10 @@
+ 
+ ## Review explains the differences
+ 
+-**Review changes** compares the change set with its starting data. **Records** shows additions,
++Opening a change set from the list opens **Changes in this change set**, which compares it
++with its starting data. Choose **See the data with these changes** to browse or edit its lists.
++A newly created change set, or your own open change set from Home’s **Continue where you left off**,
++opens on the data. From there, **Review changes** in the band opens the comparison. **Records** shows additions,
+ changes and removals, including moves and type changes where applicable. A row identifies the
+ record and its path; expanding it shows the before and after details. **Relationships** shows
+ changes to connections. Filters help narrow the review to a kind of change or a type.
+--- guide/src/content/docs/use/hierarchies.md (before wave)
++++ guide/src/content/docs/use/hierarchies.md
+@@ -17,7 +17,9 @@
+ The model defines which types may contain which others and which types may stand at the top
+ without a parent. A type label grouping records in a tree is navigation, not another record.
+ A tree view shows the roots and types chosen by the model; it need not show every record in the
+-workspace. The sidebar's **Browse records** tree is another route to records.
++workspace. The sidebar’s **Browse records** tree is another route to records. Open its folded
++heading to browse; your choice is remembered in this browser. Use **Find any record** in the
++top bar to search names across the workspace.
+ 
+ ![A tree expanded from a canton through a district and municipality to stops](/docs/screens/tree-geography-chur.png)
+ 
+@@ -129,7 +131,7 @@
+ 
+ A tree view opens a record beside the list, with **Expand to full page** for its full page.
+ An explorer-tree record opens without a collection behind it. A table record instead offers
+-**Back to list**. **Resize navigation rail** changes the rail width; see
++**←** and the list’s name in the line above its title, followed by its parents where shown. **Resize navigation rail** changes the rail width; see
+ [Appearance and devices](/docs/use/appearance-and-devices/) for keyboard resizing.
+ 
+ The rail is named **Browse application**, or **Application navigation** in its phone drawer.
+--- guide/src/content/docs/use/history.md (before wave)
++++ guide/src/content/docs/use/history.md
+@@ -34,7 +34,8 @@
+ 
+ ## Activity across a workspace
+ 
+-Where your access opens workspace management, choose **Settings**, **Workspaces**, the workspace,
++The workspace’s page shows its five **Latest changes**. For more activity, where your access
++opens workspace management, choose **Settings**, **Workspaces**, the workspace,
+ then **Activity**. Its **What** choices are **Everything**, **Records**, **Relationships**,
+ **Change sets** and **Publications**. Entries identify the action, person and time, and can also
+ name its change set or publication context.
+--- guide/src/content/docs/use/inbox-and-approvals.md (before wave)
++++ guide/src/content/docs/use/inbox-and-approvals.md
+@@ -78,15 +78,16 @@
+ ## From submission to decision
+ 
+ **Submit for publication** validates the change set and records its submitted version. An optional
+-comment gives the approver context. Submission does not change Live. The banner shows
+-**Waiting for approval**, the submitter, version and comment. The proposal cannot be edited while
++comment gives the approver context. Submission does not change Live. The band says **waits for approval**. Open **Details** for the submitter and submitted version,
++and the review’s **Decision** panel for the comment. The proposal cannot be edited while
+ it waits. **Withdraw request** ends the request and keeps the proposed work for editing; the
+ submitter or an authorised approver can withdraw it.
+ 
+ ![Submitted change set with Waiting for approval, its comment and review and withdrawal controls](/docs/screens/appr-submitted.png)
+ 
+ *Above: Guide Admin submitted Guide approval example in Graubünden. Version 2 proposes a height
+-correction to Davos Platz; the banner keeps the submission comment visible.*
++correction to Davos Platz; this earlier view keeps the submission comment in the banner.
++In the current frame, read the comment in the review’s **Decision** panel.*
+ 
+ Approvers can find requests under **Waiting for your approval** on [Home](/docs/use/home/), or
+ through the bell's **Waiting for your approval** notice. Both lead to the review. Opening a
+--- guide/src/content/docs/use/lists-and-filters.md (before wave)
++++ guide/src/content/docs/use/lists-and-filters.md
+@@ -76,7 +76,8 @@
+ Created and updated times are not available where that context has no recorded timestamps.
+ 
+ **Display** chooses the shown columns and table density. Resizing a column changes how much
+-fits. Rows stay on one line; an ellipsis marks a cut value. Hover, focus or long press to read
++fits. The name column stays whole; columns that do not fit fold behind **Columns · n of m**.
++Choose it to show all columns, scrolling sideways if needed. Other values stay on one line; an ellipsis marks a cut value. Hover, focus or long press to read
+ it in full. A related-record column shows coloured chips and **+N more** when some do not fit.
+ That count is not a button: widen the column or open the record to see all its connections.
+ A column with at most one related record can sort by its name. Multi-record columns and columns
+@@ -87,7 +88,7 @@
+ The rows scroll inside the table while its headings and footer remain visible. The footer
+ shows the current range and total, page entry and start/end controls. Where available,
+ **Go to** seeks a value in the selected sort. The address keeps your search, filters, sort and
+-position, including when you return with **Back to list**. These controls also work in change
++position, including when you return using **←** and the list’s name above a record’s title. These controls also work in change
+ sets and publications.
+ 
+ Only visible and nearby rows are drawn. The browser's Find command searches those drawn rows;
+@@ -114,15 +115,15 @@
+ 
+ There are no named saved searches, saved filters or saved views. Keep the page address instead.
+ There is no multi-column sort, grouping or aggregation in the list, and no cross-collection
+-search page. The explorer's search can find records across its types; a collection's search
+-stays within that collection. See [Appearance and devices](/docs/use/appearance-and-devices/)
++search page. **Find any record** in the top bar searches record names across the workspace;
++a collection’s search stays within that collection. See [Appearance and devices](/docs/use/appearance-and-devices/)
+ for local keyboard commands.
+ 
+ ## Open, edit and recover a result
+ 
+ Choose a row to open its record; a related-record chip opens that connected record instead.
+-The record heading takes focus when the page opens. **Back to list** returns to the saved
+-conditions and position. A failed panel can be retried without clearing the rest of the record.
++The record heading takes focus when the page opens. Choose **←** and the list’s name above
++the title to return to the saved conditions and position. A failed panel can be retried without clearing the rest of the record.
+ For field and relationship edits from table cells, see [Records](/docs/use/records/#edit-a-value-or-create-a-record).
+ To select results for an action, see [Changing many records](/docs/use/changing-many-records/).
+ 
+--- guide/src/content/docs/use/records.md (before wave)
++++ guide/src/content/docs/use/records.md
+@@ -62,7 +62,8 @@
+ 
+ *Above: Chur Wiesental is a Stop in the Network application of the Graubünden workspace.
+ Stop details holds its number, abbreviation and other fields; Modes and Operator show connected
+-records. The heading shows its ID and version.*
++records. This earlier view shows the ID and version directly in the heading; open **Details**
++in the current header to see them.*
+ 
+ ## Relationships and a place in the hierarchy
+ 
+@@ -74,7 +75,8 @@
+ relationship**. They cannot be used to sort this panel; see [Relationships](/docs/use/relationships/).
+ 
+ A **parent** gives a record its place in a hierarchy. Some types can stand at the top; others
+-need a parent of an allowed type. The path on a record's page shows its ancestors. A parent is
++need a parent of an allowed type. The line above a record’s title starts with **←** and the list’s name when you opened it from
++a list, followed by its ancestors where the model shows them. Choose the list’s name to return. A parent is
+ more than an ordinary connection: changing it moves the record in the hierarchy and keeps the
+ parent connection consistent. An invalid parent or a move that creates a cycle is refused.
+ 
+@@ -125,7 +127,7 @@
+ 
+ ## Versions and refused saves
+ 
+-The version beside a record's heading protects it from being overwritten by an older edit.
++The version under **Details** in a record’s header protects it from being overwritten by an older edit.
+ When you save, refiroo checks the version you read. If someone else saved a change first, your
+ save is refused, even if you changed a different field on the same record. Their saved change
+ remains in place.
+@@ -219,7 +221,8 @@
+ confirmation before clearing it. Read-only fields have no editing control.
+ 
+ The header's title and subtitle edit the same way. An empty subtitle offers **Add**.
+-The header also has the record's ID with a copy button. Use **Edit record** in the **⋯** menu
++Open **Details** in the header for the record’s ID, its copy button and version.
++**Copy ID** is also in the record’s **⋯** menu. Use **Edit record** in the **⋯** menu
+ for the form containing all fields. A new record form saves its fields, allowed parent and
+ required relationships together: complete all required choices before choosing **Create**.
+ A refusal leaves the invalid record uncreated; correct the named field or connection.
+@@ -239,9 +242,10 @@
+ 
+ A Contributor sees **Propose a change** on a record and **Propose a new …** on a collection.
+ The first use asks for a change-set name, then opens your proposal for editing. Later uses
+-continue your newest change set. The band names it and its change count and says who publishes.
++continue your newest change set. The band names it, its change count and state. Open **Details**
++for who started it, when, its version and model.
+ A Reader's band says **You can read this workspace** and whom to ask. With narrowed write
+-permissions, controls appear only on the allowed record types and the band names those types.
++permissions, controls appear only on the allowed record types and the Live band names those types.
+ 
+ For several records, permitted collections offer selection and **Change values**,
+ **Change relationships** and **Delete** with a preview before applying. Deletion previews count

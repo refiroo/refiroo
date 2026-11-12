@@ -22,6 +22,12 @@
  * one line and ends in an ellipsis, so every row is as tall as the first and nothing is corrected
  * while the list scrolls.
  *
+ * Columns that fit (0.17 SH1): in a table that asks for it (`foldColumns`) the identity column is never
+ * cut, and the columns that still do not fit once the others are cut to their floor fold behind
+ * "Columns · n of m", from the right; the control is the phone layout's column toggle, and the folded
+ * columns are its `mobile-secondary-column`s. Showing them all scrolls sideways as before. Columns the
+ * person sized keep their widths and nothing folds.
+ *
  * The resize handles are not inside the header cells (UA7): a header's name is its content, and a
  * handle there added "Resize … column" to it. They stand in one layer before the table, sticky
  * at the top of the scroll window, each at its column's measured right edge.
@@ -54,6 +60,8 @@ const LOADING_ROWS = 6;
 const WIDE_LAYOUT = "(min-width: 761px)";
 /** The narrowest a column is made when the table is fitted to its room. */
 const FIT_FLOOR = 120;
+/** The most a folding table gives a column that is not the name (0.17 SH1): a longer value ends in an ellipsis. */
+const NATURAL_CAP = 320;
 
 /**
  * The widths cut down to the room: the widest columns (never a fixed one) give up the excess until
@@ -73,6 +81,37 @@ function fitWidths(widths: number[], room: number, fixed: Set<number>): number[]
     excess -= cut;
   }
   return result;
+}
+
+/**
+ * The columns that do not fit `room`, from the right (0.17 SH1): the widths are the table's, the
+ * selection column and the actions column among them (`leading` columns come before the first of
+ * `columns`). A pinned column (the identity, one that says it always shows) is never folded. A folded column
+ * that still fits what the others leave is kept, so one wide column does not hide the narrow ones after it.
+ */
+export function columnsToFold(
+  columns: readonly { key: string; pinned: boolean }[],
+  widths: readonly number[],
+  room: number,
+  leading: number,
+): string[] {
+  const folded: string[] = [];
+  let total = widths.reduce((sum, width) => sum + width, 0);
+  for (let position = columns.length - 1; position >= 0 && total > room + 0.5; position -= 1) {
+    if (columns[position].pinned) continue;
+    folded.push(columns[position].key);
+    total -= widths[leading + position] ?? 0;
+  }
+  // A wide column in the middle (a long identifier) must not cost every column after it: of the folded ones,
+  // those that still fit the room that is left come back, the leftmost first.
+  for (let position = 0; position < columns.length; position += 1) {
+    const at = folded.indexOf(columns[position].key);
+    const width = widths[leading + position] ?? 0;
+    if (at < 0 || total + width > room + 0.5) continue;
+    folded.splice(at, 1);
+    total += width;
+  }
+  return folded;
 }
 
 /** The range a column may be sized to; a stored width outside it is ignored. */
@@ -116,6 +155,7 @@ export function DataTable<Row>({
   sorting,
   columnWidths = {},
   onColumnWidths,
+  foldColumns = false,
   label,
   noun,
   pageSize,
@@ -160,6 +200,8 @@ export function DataTable<Row>({
   columnWidths?: Record<string, number>;
   /** Stores the widths after a resize; without it the columns do not resize. */
   onColumnWidths?: (widths: Record<string, number>) => void;
+  /** Columns that do not fit the room fold behind "Columns · n of m" (see above). */
+  foldColumns?: boolean;
   label: string;
   noun: [string, string];
   pageSize: number;
@@ -198,47 +240,100 @@ export function DataTable<Row>({
   ).filter((key, position, all) => all.indexOf(key) === position);
   const mobileKey = mobileKeys.join("\n");
   const narrowToggle = columns.some((column) => !mobileKeys.includes(column.key));
-  // Given to every row, so it changes only with the columns: a new one drew every row again.
-  const secondary = useCallback(
-    (key: string) => (!mobileKey.split("\n").includes(key) ? "mobile-secondary-column" : undefined),
-    [mobileKey],
-  );
   const sized = columns.some((column) => columnWidths[column.key] !== undefined);
   const columnCount = columns.length + Number(Boolean(actions)) + Number(Boolean(selection));
 
   // The widths the first rows laid out (see above), for these columns at this room.
   const table = useRef<HTMLTableElement | null>(null);
   const [room, setRoom] = useState(0);
-  const [frozen, setFrozen] = useState<{ key: string; room: number; widths: number[] }>();
+  const [frozen, setFrozen] = useState<{ key: string; room: number; widths: number[]; folded: string[] }>();
   const freezeKey = [
     columns.map((column) => column.key).join("\n"),
     compact,
-    allColumns,
     Boolean(selection),
     Boolean(actions),
   ].join("|");
   const shown = frozen && !sized && frozen.key === freezeKey && frozen.room === room ? frozen : undefined;
-  const settledRows = list.items.length > 0 && !list.loading;
+  const hasRows = list.items.length > 0;
+  const settledRows = hasRows && !list.loading;
+  // The columns that do not fit, from the right; they are out of the table until "Columns" shows them all.
+  const foldedColumns = shown?.folded ?? [];
+  const foldedKey = allColumns ? "" : foldedColumns.join("\n");
+  // Given to every row, so it changes only with the columns: a new one drew every row again. A column
+  // is secondary on a phone when it is not among the few kept, and on a wide screen when it was folded.
+  const secondary = useCallback(
+    (key: string) => {
+      const phone = !mobileKey.split("\n").includes(key);
+      const folded = foldedKey !== "" && foldedKey.split("\n").includes(key);
+      return phone || folded ? `mobile-secondary-column${folded ? " folded-column" : ""}` : undefined;
+    },
+    [mobileKey, foldedKey],
+  );
   useLayoutEffect(() => {
     const holder = table.current?.parentElement;
     if (!holder || typeof ResizeObserver === "undefined") return;
+    // Read the room at once, before the first paint; the observer follows later changes. A browser calls an
+    // observer only when it renders, so a page opened in a background tab would otherwise wait unfolded.
+    setRoom(holder.clientWidth);
     const observer = new ResizeObserver(() => setRoom(holder.clientWidth));
     observer.observe(holder);
     return () => observer.disconnect();
-  }, []);
+    // The table is drawn only once the first rows arrive, so the container is found then, not at mount.
+  }, [hasRows, list.loading]);
   useLayoutEffect(() => {
     const head = table.current?.tHead?.rows[0];
     if (shown || sized || !settledRows || !room || !head || !window.matchMedia?.(WIDE_LAYOUT).matches) return;
-    const laidOut = Array.from(head.cells, (cell) => cell.getBoundingClientRect().width);
+    const element = table.current;
+    // A table that folds measures what each column's content needs to show whole: the cells on one
+    // line in a table as wide as they ask (`.measuring-columns`), read and put back before it paints.
+    let laidOut: number[];
+    if (foldColumns && element) {
+      element.classList.add("measuring-columns");
+      laidOut = Array.from(head.cells, (cell) => Math.ceil(cell.getBoundingClientRect().width));
+      element.classList.remove("measuring-columns");
+    } else laidOut = Array.from(head.cells, (cell) => cell.getBoundingClientRect().width);
     // One-line cells end in an ellipsis, so the widest data columns give up what the first rows asked
     // for beyond the room instead of pushing the last column and its actions out of sight.
-    const fixed = new Set([...(selection ? [0] : []), ...(actions ? [laidOut.length - 1] : [])]);
-    setFrozen({
-      key: freezeKey,
-      room,
-      widths: oneLine ? fitWidths(laidOut, room, fixed) : laidOut,
-    });
-  }, [shown, sized, settledRows, room, freezeKey, oneLine, selection, actions]);
+    const identityPosition = columns.findIndex((column) => column.key === identity);
+    const fixed = new Set([
+      ...(selection ? [0] : []),
+      ...(actions ? [laidOut.length - 1] : []),
+      // The name is never cut (0.17 SH1): the others give way, then fold.
+      ...(foldColumns && identityPosition >= 0 ? [Number(Boolean(selection)) + identityPosition] : []),
+    ]);
+    // A long free-text value may still end in an ellipsis: a column asks for at most this much.
+    const widths: number[] = foldColumns
+      ? laidOut.map((width, position) => (fixed.has(position) ? width : Math.min(width, NATURAL_CAP)))
+      : oneLine
+        ? fitWidths(laidOut, room, fixed)
+        : laidOut;
+    const folded = foldColumns
+      ? columnsToFold(
+          columns.map((column) => ({ key: column.key, pinned: column.key === identity || !!column.alwaysShown })),
+          widths,
+          room,
+          Number(Boolean(selection)),
+        )
+      : [];
+    // What the kept columns leave is theirs (0.17 SH1): the capped ones first, up to what their content
+    // asks, then the name column, so the table spans its container.
+    if (foldColumns) {
+      const kept = (position: number) => !folded.includes(columns[position - Number(Boolean(selection))]?.key ?? "");
+      let free = room - widths.reduce((sum, width, position) => sum + (kept(position) ? width : 0), 0);
+      if (free > 0) {
+        for (let position = 0; position < widths.length && free > 0; position += 1) {
+          if (!kept(position) || fixed.has(position)) continue;
+          const more = Math.min(free, laidOut[position] - widths[position]);
+          if (more > 0) {
+            widths[position] += more;
+            free -= more;
+          }
+        }
+        if (free > 0 && identityPosition >= 0) widths[Number(Boolean(selection)) + identityPosition] += free;
+      }
+    }
+    setFrozen({ key: freezeKey, room, widths, folded });
+  }, [shown, sized, settledRows, room, freezeKey, oneLine, selection, actions, foldColumns, columns, identity]);
   const leading = Number(Boolean(selection));
   // Each column's content width, read once from the first drawn row whenever the columns are laid
   // out anew (frozen or sized), so its cells need not measure themselves (ui/tableCell, 0.11 X6).
@@ -346,6 +441,18 @@ export function DataTable<Row>({
 
   return (
     <>
+      {foldedColumns.length > 0 && (
+        <div className="table-controls table-controls-folded">
+          <button
+            type="button"
+            className="secondary folded-columns-toggle"
+            aria-expanded={allColumns}
+            onClick={() => setAllColumns(!allColumns)}
+          >
+            Columns · {columns.length - (allColumns ? 0 : foldedColumns.length)} of {columns.length}
+          </button>
+        </div>
+      )}
       {narrowToggle && (
         <div className="table-controls table-controls-narrow">
           <button
@@ -377,19 +484,21 @@ export function DataTable<Row>({
                 className="column-resizers"
                 style={{ "--header-row-height": `${edges.height}px` } as CSSProperties}
               >
-                {columns.map((column) => (
-                  <ResizeHandle
-                    key={column.key}
-                    className="column-resizer"
-                    label={`Resize ${column.label} column`}
-                    value={columnWidths[column.key] ?? 100}
-                    min={COLUMN_WIDTH.min}
-                    max={COLUMN_WIDTH.max}
-                    start={() => drawnWidths()[column.key]}
-                    onChange={(next) => onColumnWidths({ ...drawnWidths(), [column.key]: next })}
-                    style={{ left: `${(edges.ends[column.key] ?? 0) - 4}px` }}
-                  />
-                ))}
+                {columns
+                  .filter((column) => !foldedKey.split("\n").includes(column.key))
+                  .map((column) => (
+                    <ResizeHandle
+                      key={column.key}
+                      className="column-resizer"
+                      label={`Resize ${column.label} column`}
+                      value={columnWidths[column.key] ?? 180}
+                      min={COLUMN_WIDTH.min}
+                      max={COLUMN_WIDTH.max}
+                      start={() => drawnWidths()[column.key]}
+                      onChange={(next) => onColumnWidths({ ...drawnWidths(), [column.key]: next })}
+                      style={{ left: `${(edges.ends[column.key] ?? 0) - 4}px` }}
+                    />
+                  ))}
               </div>
             )}
             <table
@@ -405,7 +514,20 @@ export function DataTable<Row>({
               }
               style={
                 shown
-                  ? { width: `${shown.widths.reduce((sum, width) => sum + width, 0)}px` }
+                  ? {
+                      // The columns that stay, and for a folding table the whole room: it fills its container.
+                      width: `${Math.max(
+                        shown.widths.reduce(
+                          (sum, width, position) =>
+                            sum +
+                            (foldedKey && foldedKey.split("\n").includes(columns[position - leading]?.key ?? "")
+                              ? 0
+                              : width),
+                          0,
+                        ),
+                        foldColumns ? shown.room : 0,
+                      )}px`,
+                    }
                   : sized
                     ? ({
                         "--table-width": `${columns.reduce(

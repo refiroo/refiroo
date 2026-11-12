@@ -295,6 +295,30 @@ Deletes a record, live or in a change set. A record with children or relationshi
 - 409 UNSUPPORTED_PINNED_MODEL_SCHEMA: the change set's release is too new
 - 409 PINNED_MODEL_INVALID: the change set's release is damaged
 
+## GET /api/v1/objects/{object_type_key}/{object_id}/deletion-impact
+
+Title: Read what deleting a record would take
+
+Reads what deleting a record takes with it, live or in a change set, and deletes nothing. Show it before asking for a confirmation, then delete with `cascade=true` and its `deletionPreviewToken` when `requiresCascade` is `true`. A record nothing depends on answers empty lists and one record.
+
+### Parameters
+
+- object_type_key: The record's type key.
+- object_id: The record's ID.
+- changeSetId: The change set to read in; live when omitted.
+
+### Errors
+
+- 403 FORBIDDEN: needs Edit live, or Work in change sets, as the delete does
+- 404 CHANGE_SET_NOT_FOUND: `changeSetId` names no change set
+- 404 OBJECT_NOT_FOUND: the context holds no such record
+- 409 OBJECT_TYPE_CHANGED: the record is of another type
+- 409 WORKSPACE_RETIRED: the workspace is retired
+- 409 WORKSPACE_GRAPH_INVALID: its hierarchy reaches into another workspace
+- 409 PINNED_MODEL_UNAVAILABLE: the change set's release is not installed
+- 409 UNSUPPORTED_PINNED_MODEL_SCHEMA: the change set's release is too new
+- 409 PINNED_MODEL_INVALID: the change set's release is damaged
+
 ## GET /api/v1/objects/{object_type_key}/{object_id}/parent-candidates
 
 Title: List parent candidates
@@ -368,6 +392,37 @@ Lists a record's history, newest first: what each change did, the values it chan
 - 409 PINNED_MODEL_INVALID: the change set's release is damaged
 
 ## Schemas
+
+### ObjectDeletionImpact
+
+What deleting a record takes with it, as `OBJECT_HAS_DEPENDANTS` lists it.
+
+- objectsToDelete: The records deleted with it, not the record itself, each with its type, application, parent and the `reason` it goes.
+- relationshipsToRemove: Every relationship removed, those of the deleted records included.
+- objectCount: The records deleted, the record itself included.
+- relationshipCount: The relationships removed.
+- ownRelationshipCount: Of those, the relationships of the record itself.
+- retainedAssociationCount: The removed relationships whose other end is a record that stays.
+- requiresCascade: `true` when the delete needs `cascade=true` and the token; `false` when it deletes without.
+- deletionPreviewToken: Confirms exactly this impact for the delete; it holds only while nothing listed has changed.
+
+### DeletionImpactRecord
+
+A record the deletion takes with it.
+
+- id: The record's ID.
+- name: The record's name.
+- objectTypeKey: The record's type key.
+- applicationKey: The record's application.
+- parentObjectId: The record's parent, or `null`.
+- reason: Why it is deleted with the record: `child` (it is under a deleted record) or `required-ownership` (a deleted record owns it through a required relationship).
+
+### DeletionImpactRelationship
+
+A relationship the deletion removes.
+
+- id: The relationship's ID.
+- relationTypeKey: The relationship's type key.
 
 ### ObjectCreate
 
